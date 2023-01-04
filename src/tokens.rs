@@ -1,7 +1,7 @@
 use crate::basic_parser::{Many, Token};
 
 #[derive(Debug)]
-pub struct Username(String);
+pub struct Username(pub String);
 
 impl Token for Username {
     const IDENT: fn(String) -> Self = Username;
@@ -18,7 +18,7 @@ impl Token for Username {
 impl Many for Username {}
 
 #[derive(Debug)]
-pub struct Decimal(i32);
+pub struct Decimal(pub i32);
 
 impl Token for Decimal {
     const IDENT: fn(String) -> Self = |s| Decimal(s.parse().unwrap());
@@ -33,7 +33,7 @@ impl Token for Decimal {
 }
 
 #[derive(Debug)]
-pub struct Hostname(String);
+pub struct Hostname(pub String);
 
 impl Token for Hostname {
     const IDENT: fn(String) -> Self = Hostname;
@@ -79,7 +79,7 @@ impl<T: Many> Many for All<T> {
 }
 
 #[derive(Debug)]
-pub struct Upper(String);
+pub struct Upper(pub String);
 
 impl Token for Upper {
     const IDENT: fn(String) -> Self = Upper;
@@ -89,7 +89,7 @@ impl Token for Upper {
 }
 
 #[derive(Debug)]
-pub struct Command(String);
+pub struct Command(pub String);
 
 impl Token for Command {
     const MAX_LEN: usize = 1024;
