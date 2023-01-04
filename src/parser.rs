@@ -101,13 +101,15 @@ impl Parse for CommandSpec {
     }
 }
 
+impl Many for CommandSpec { }
+
 #[derive(Debug)]
 pub struct Sudo {
     pub users: SpecList<Username>,
-    pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, CommandSpec)>,
+    pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
 
-impl Parse for (SpecList<Hostname>, Option<RunAs>, CommandSpec) {
+impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let hosts = maybe(stream)?;
         require_syntax('=', stream);
@@ -117,7 +119,7 @@ impl Parse for (SpecList<Hostname>, Option<RunAs>, CommandSpec) {
     }
 }
 
-impl Many for (SpecList<Hostname>, Option<RunAs>, CommandSpec) {
+impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
     const SEP: char = ':';
 }
 
