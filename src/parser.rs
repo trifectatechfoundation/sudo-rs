@@ -10,16 +10,19 @@ pub enum Qualified<T> {
 
 impl<T: Token> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let mut neg = false;
-        while maybe_syntax('!', stream).is_some() {
-            neg = !neg
-        }
-        let elem = T::parse(stream)?;
-        Some(if !neg {
-            Qualified::Allow(elem)
+        if maybe_syntax('!', stream).is_some() {
+            let mut neg = true;
+            while maybe_syntax('!', stream).is_some() {
+                neg = !neg;
+            }
+            if neg {
+                Some(Qualified::Forbid(require(stream)))
+            } else {
+                Some(Qualified::Allow(require(stream)))
+            }
         } else {
-            Qualified::Forbid(elem)
-        })
+            Some(Qualified::Allow(maybe(stream)?))
+        }
     }
 }
 
@@ -101,7 +104,7 @@ impl Parse for CommandSpec {
     }
 }
 
-impl Many for CommandSpec { }
+impl Many for CommandSpec {}
 
 #[derive(Debug)]
 pub struct Sudo {
