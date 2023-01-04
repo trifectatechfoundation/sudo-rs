@@ -9,12 +9,12 @@ pub enum Qualified<T> {
 }
 
 impl<T: Token> Parse for Qualified<T> {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let mut neg = false;
-        while maybe_syntax('!', iter).is_some() {
+        while maybe_syntax('!', stream).is_some() {
             neg = !neg
         }
-        let elem = T::parse(iter)?;
+        let elem = T::parse(stream)?;
         Some(if !neg {
             Qualified::Allow(elem)
         } else {
@@ -38,13 +38,13 @@ pub struct RunAs {
 }
 
 impl Parse for RunAs {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        maybe_syntax('(', iter)?;
-        let user = maybe(iter).unwrap_or_else(|| Vec::new());
-        let group = maybe_syntax(':', iter)
-            .and_then(|_| maybe(iter))
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        maybe_syntax('(', stream)?;
+        let user = maybe(stream).unwrap_or_else(|| Vec::new());
+        let group = maybe_syntax(':', stream)
+            .and_then(|_| maybe(stream))
             .unwrap_or_else(|| Vec::new());
-        require_syntax(')', iter);
+        require_syntax(')', stream);
         Some(RunAs {
             user: user,
             group: group,
@@ -60,11 +60,11 @@ pub struct Sudo {
 }
 
 impl Parse for (Spec<Hostname>, Option<RunAs>, Spec<Command>) {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let hosts = maybe(iter)?;
-        require_syntax('=', iter);
-        let runas = maybe(iter);
-        let cmds = require(iter);
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        let hosts = maybe(stream)?;
+        require_syntax('=', stream);
+        let runas = maybe(stream);
+        let cmds = require(stream);
         Some((hosts, runas, cmds))
     }
 }
@@ -74,9 +74,9 @@ impl Many for (Spec<Hostname>, Option<RunAs>, Spec<Command>) {
 }
 
 impl Parse for Sudo {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let users = maybe(iter)?;
-        let permits = require(iter);
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        let users = maybe(stream)?;
+        let permits = require(stream);
         Some(Sudo {
             users: users,
             permissions: permits,

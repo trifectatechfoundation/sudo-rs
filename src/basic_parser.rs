@@ -2,7 +2,7 @@ use std::iter::Peekable;
 
 // contract: if the accept method returns None, the iterator is not advanced; otherwise it is advanced beyond the accepted part of the input
 pub trait Parse {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self>
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self>
     where
         Self: Sized;
 }
@@ -10,11 +10,11 @@ pub trait Parse {
 // primitive function
 fn accept_if(
     predicate: impl Fn(char) -> bool,
-    iter: &mut Peekable<impl Iterator<Item = char>>,
+    stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Option<char> {
-    let &c = iter.peek()?;
+    let &c = stream.peek()?;
     if predicate(c) {
-        iter.next();
+        stream.next();
         Some(c)
     } else {
         None
@@ -25,8 +25,8 @@ fn accept_if(
 struct Whitespace;
 
 impl Parse for Whitespace {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let mut eat_space = || accept_if(char::is_whitespace, iter);
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        let mut eat_space = || accept_if(char::is_whitespace, stream);
         eat_space()?;
         while let Some(_) = eat_space() {}
         Some(Whitespace {})
@@ -34,15 +34,15 @@ impl Parse for Whitespace {
 }
 
 // same as accept_if, but parses whitespace
-pub fn maybe_syntax(syntax: char, iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
-    accept_if(|c| c == syntax, iter)?;
-    Whitespace::parse(iter);
+pub fn maybe_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
+    accept_if(|c| c == syntax, stream)?;
+    Whitespace::parse(stream);
     Some(())
 }
 
-pub fn require_syntax(syntax: char, iter: &mut Peekable<impl Iterator<Item = char>>) {
-    if maybe_syntax(syntax, iter).is_none() {
-        let str = if let Some(c) = iter.peek() {
+pub fn require_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) {
+    if maybe_syntax(syntax, stream).is_none() {
+        let str = if let Some(c) = stream.peek() {
             c.to_string()
         } else {
             "EOL".to_string()
@@ -51,12 +51,12 @@ pub fn require_syntax(syntax: char, iter: &mut Peekable<impl Iterator<Item = cha
     }
 }
 
-pub fn maybe<T: Parse>(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
-    T::parse(iter)
+pub fn maybe<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
+    T::parse(stream)
 }
 
-pub fn require<T: Parse>(iter: &mut Peekable<impl Iterator<Item = char>>) -> T {
-    let Some(result) = maybe(iter) else {
+pub fn require<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
+    let Some(result) = maybe(stream) else {
         panic!("parse error: expected `{}'", std::any::type_name::<T>())
     };
     result
@@ -78,13 +78,13 @@ pub trait Token {
 }
 
 impl<T: Token> Parse for T {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let mut str = accept_if(T::accept_1st, iter)?.to_string();
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        let mut str = accept_if(T::accept_1st, stream)?.to_string();
         loop {
-            if let Some(c) = accept_if(T::accept, iter) {
+            if let Some(c) = accept_if(T::accept, stream) {
                 str.push(c)
-            } else if let Some(_) = accept_if(|c| c == T::ESCAPE, iter) {
-                if let Some(c) = accept_if(T::escaped, iter) {
+            } else if let Some(_) = accept_if(|c| c == T::ESCAPE, stream) {
+                if let Some(c) = accept_if(T::escaped, stream) {
                     str.push(c)
                 } else {
                     panic!("tokenizer: illegal escape sequence")
@@ -96,19 +96,19 @@ impl<T: Token> Parse for T {
                 panic!("tokenizer: exceeded safety margin")
             }
         }
-        Whitespace::parse(iter);
+        Whitespace::parse(stream);
         Some(T::IDENT(str))
     }
 }
 
 // I would recommend not using this for anything that has more than two alternatives
 impl<T1: Token, T2: Parse> Parse for Result<T1, T2> {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let &c = iter.peek()?;
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        let &c = stream.peek()?;
         if T1::accept(c) {
-            T1::parse(iter).map(Ok)
+            T1::parse(stream).map(Ok)
         } else {
-            T2::parse(iter).map(Err)
+            T2::parse(stream).map(Err)
         }
     }
 }
@@ -116,15 +116,15 @@ impl<T1: Token, T2: Parse> Parse for Result<T1, T2> {
 fn parse_list<T: Parse>(
     sep_by: char,
     max: usize,
-    iter: &mut Peekable<impl Iterator<Item = char>>,
+    stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Option<Vec<T>> {
     let mut elems = Vec::new();
-    elems.push(maybe(iter)?);
-    while maybe_syntax(sep_by, iter).is_some() {
+    elems.push(maybe(stream)?);
+    while maybe_syntax(sep_by, stream).is_some() {
         if elems.len() >= max {
             panic!("parse_list: parsing multiple items: safety margin exceeded")
         }
-        elems.push(require(iter));
+        elems.push(require(stream));
     }
     return Some(elems);
 }
@@ -135,14 +135,14 @@ pub trait Many {
 }
 
 impl<T: Parse + Many> Parse for Vec<T> {
-    fn parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        parse_list(T::SEP, T::LIMIT, iter)
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        parse_list(T::SEP, T::LIMIT, stream)
     }
 }
 
 #[allow(dead_code)]
-pub fn end_of_parse(iter: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
-    match iter.peek() {
+pub fn end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
+    match stream.peek() {
         Some(_) => None,
         None => Some(()),
     }
