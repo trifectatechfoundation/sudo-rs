@@ -1,0 +1,2 @@
+piet, jan vm,laptop=(piet,jan:wheel,backup) ALL : ALL=(ALL) /bin/echo : tg=(:ALL) /bin/ls
+%roost ALL=(ALL:ALL) ALL
