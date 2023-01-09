@@ -8,6 +8,32 @@ pub enum Qualified<T> {
     Forbid(T),
 }
 
+pub type Spec<T> = Qualified<All<T>>;
+pub type SpecList<T> = Vec<Spec<T>>;
+
+#[derive(Debug, Default)]
+pub struct RunAs {
+    pub users: SpecList<Username>,
+    pub groups: SpecList<Username>,
+}
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug)]
+pub enum Tag {
+    NOPASSWD,
+    TIMEOUT(i32),
+}
+
+#[derive(Debug)]
+pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
+
+#[derive(Debug)]
+pub struct Sudo {
+    pub users: SpecList<Username>,
+    pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
+}
+
+
 impl<T: Token> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         if is_syntax('!', stream).is_some() {
@@ -33,15 +59,6 @@ impl<T: Many> Many for Qualified<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
-pub type Spec<T> = Qualified<All<T>>;
-pub type SpecList<T> = Vec<Qualified<All<T>>>;
-
-#[derive(Debug, Default)]
-pub struct RunAs {
-    pub users: SpecList<Username>,
-    pub groups: SpecList<Username>,
-}
-
 impl Parse for RunAs {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         is_syntax('(', stream)?;
@@ -52,13 +69,6 @@ impl Parse for RunAs {
         expect_syntax(')', stream);
         Some(RunAs { users, groups })
     }
-}
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
-pub enum Tag {
-    NOPASSWD,
-    TIMEOUT(i32),
 }
 
 // note: at present, "ALL" can be distinguished from a tag using a lookup of 1, since no tag starts with an "A"; but this feels like hanging onto
@@ -83,9 +93,6 @@ impl Parse for All<Tag> {
     }
 }
 
-#[derive(Debug)]
-pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
-
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let mut tags = Vec::new();
@@ -105,12 +112,6 @@ impl Parse for CommandSpec {
 }
 
 impl Many for CommandSpec {}
-
-#[derive(Debug)]
-pub struct Sudo {
-    pub users: SpecList<Username>,
-    pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
-}
 
 impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
