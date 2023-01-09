@@ -1,8 +1,8 @@
 mod basic_parser;
 use basic_parser::*;
-mod parser;
 mod tokens;
-use parser::*;
+mod ast;
+use ast::*;
 
 use std::env;
 
