@@ -1,2 +1,2 @@
-piet, jan vm,laptop=(piet,jan:wheel,backup) ALL : ALL=(ALL) /bin/echo : tg=(:ALL) /bin/ls
-%roost ALL=(ALL:ALL) ALL
+piet, jan vm,laptop=(piet,jan:wheel,backup) ALL : ALL=(ALL) TIMEOUT=123 /bin/echo : tg=(:ALL) NOPASSWD: /bin/ls
+roost ALL=(ALL:ALL) ALL

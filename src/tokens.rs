@@ -88,7 +88,7 @@ impl Token for Upper {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Command(pub String);
 
 impl Token for Command {

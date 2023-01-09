@@ -18,7 +18,7 @@ pub struct RunAs {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Tag {
     NOPASSWD,
     TIMEOUT(i32),
@@ -32,7 +32,6 @@ pub struct Sudo {
     pub users: SpecList<Username>,
     pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
-
 
 impl<T: Token> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
@@ -132,5 +131,33 @@ impl Parse for Sudo {
         let users = is_some(stream)?;
         let permissions = expect_some(stream);
         Some(Sudo { users, permissions })
+    }
+}
+
+pub trait Tagged<U> {
+    type Flags;
+    fn into(&self) -> &U;
+    fn to_info(&self) -> &Self::Flags;
+}
+
+pub const NO_TAG: &() = &();
+
+impl<T> Tagged<Spec<T>> for Spec<T> {
+    type Flags = ();
+    fn into(&self) -> &Spec<T> {
+        self
+    }
+    fn to_info(&self) -> &() {
+        NO_TAG
+    }
+}
+
+impl Tagged<Spec<Command>> for CommandSpec {
+    type Flags = Vec<Tag>;
+    fn into(&self) -> &Spec<Command> {
+        &self.1
+    }
+    fn to_info(&self) -> &Self::Flags {
+        &self.0
     }
 }
