@@ -36,21 +36,21 @@ impl<T: Many> Many for Qualified<T> {
 pub type Spec<T> = Qualified<All<T>>;
 pub type SpecList<T> = Vec<Qualified<All<T>>>;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RunAs {
-    pub user: SpecList<Username>,
-    pub group: SpecList<Username>,
+    pub users: SpecList<Username>,
+    pub groups: SpecList<Username>,
 }
 
 impl Parse for RunAs {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         is_syntax('(', stream)?;
-        let user = is_some(stream).unwrap_or_default();
-        let group = is_syntax(':', stream)
+        let users = is_some(stream).unwrap_or_default();
+        let groups = is_syntax(':', stream)
             .and_then(|_| is_some(stream))
             .unwrap_or_default();
         expect_syntax(')', stream);
-        Some(RunAs { user, group })
+        Some(RunAs { users, groups })
     }
 }
 

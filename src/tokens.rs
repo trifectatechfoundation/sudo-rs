@@ -32,7 +32,7 @@ impl Token for Decimal {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Hostname(pub String);
 
 impl Token for Hostname {
