@@ -1,6 +1,12 @@
 use std::iter::Peekable;
 
-// contract: if the accept method returns None, the iterator is not advanced; otherwise it is advanced beyond the accepted part of the input
+/* Contract: 
+ *
+ * if the parse method of this trait returns None, the iterator is not advanced; otherwise it is
+ * advanced beyond the accepted part of the input. i.e. if some input is consumed the method
+ * should be producing some value.
+ */
+
 pub trait Parse {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self>
     where
@@ -8,7 +14,7 @@ pub trait Parse {
 }
 
 // primitive function
-fn accept_if(
+pub fn accept_if(
     predicate: impl Fn(char) -> bool,
     stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Option<char> {
@@ -62,6 +68,7 @@ pub fn require<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T
     result
 }
 
+// implement a single parse method for "tokens" (defined in tokens.rs)
 pub trait Token {
     const IDENT: fn(String) -> Self;
     const MAX_LEN: usize = 255;
@@ -129,6 +136,7 @@ fn parse_list<T: Parse>(
     return Some(elems);
 }
 
+// A trait that specified parsed elements can be repeated; enabling a Vec<T> parser
 pub trait Many {
     const SEP: char = ',';
     const LIMIT: usize = 127;
