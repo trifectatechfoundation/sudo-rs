@@ -46,6 +46,33 @@ impl Token for Hostname {
 impl Many for Hostname {}
 
 #[derive(Debug)]
+pub enum UserSpecifier {
+    User(Username),
+    Group(Username),
+}
+
+impl Token for UserSpecifier {
+    const IDENT: fn(String) -> Self = |text| {
+        let mut chars = text.chars();
+        if let Some(c) = chars.next() {
+            if c == '%' {
+                return UserSpecifier::Group(Username(chars.as_str().to_string()));
+            }
+        }
+        UserSpecifier::User(Username(text))
+    };
+
+    fn accept(c: char) -> bool {
+        c.is_ascii_alphanumeric()
+    }
+    fn accept_1st(c: char) -> bool {
+        c.is_ascii_alphanumeric() || c == '%'
+    }
+}
+
+impl Many for UserSpecifier {}
+
+#[derive(Debug)]
 pub enum All<T> {
     All,
     Only(T),

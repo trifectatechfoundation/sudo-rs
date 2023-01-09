@@ -40,6 +40,13 @@ fn in_group(user: &str, group: &str) -> bool {
     user == group
 }
 
+fn check_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
+    move |spec| match spec {
+        UserSpecifier::User(name) => name.0 == username,
+        UserSpecifier::Group(groupname) => in_group(username, groupname.0.as_str()),
+    }
+}
+
 fn check_permission(
     sudoers: impl Iterator<Item = String>,
     am: UserInfo,
@@ -51,7 +58,7 @@ fn check_permission(
         .filter_map(|text| {
             let sudo = basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable());
 
-            match_item(&sudo.users, exact(&tokens::Username(am.user.to_string())))?;
+            match_item(&sudo.users, check_user(am.user))?;
 
             let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
                 match_item(hosts, exact(&tokens::Hostname(on_host.to_string())))?;

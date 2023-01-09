@@ -29,7 +29,7 @@ pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
 
 #[derive(Debug)]
 pub struct Sudo {
-    pub users: SpecList<Username>,
+    pub users: SpecList<UserSpecifier>,
     pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
 
