@@ -149,9 +149,22 @@ impl<T: Parse + Many> Parse for Vec<T> {
 }
 
 #[allow(dead_code)]
-pub fn end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
-    match stream.peek() {
-        Some(_) => None,
-        None => Some(()),
+fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) {
+    if stream.peek().is_some() {
+        panic!("parse error: trailing garbage")
     }
+}
+
+#[allow(dead_code)]
+pub fn is_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
+    let result = is_some(stream)?;
+    expect_end_of_parse(stream);
+    Some(result)
+}
+
+#[allow(dead_code)]
+pub fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
+    let result = expect_some(stream);
+    expect_end_of_parse(stream);
+    result
 }
