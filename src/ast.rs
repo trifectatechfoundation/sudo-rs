@@ -33,7 +33,7 @@ pub struct Sudo {
     pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
 
-impl<T: Token> Parse for Qualified<T> {
+impl<T: Parse> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         if is_syntax('!', stream).is_some() {
             let mut neg = true;
