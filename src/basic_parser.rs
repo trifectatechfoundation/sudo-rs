@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 
-/* Contract: 
+/* Contract:
  *
  * if the parse method of this trait returns None, the iterator is not advanced; otherwise it is
  * advanced beyond the accepted part of the input. i.e. if some input is consumed the method
@@ -34,7 +34,7 @@ impl Parse for Whitespace {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let mut eat_space = || accept_if(char::is_whitespace, stream);
         eat_space()?;
-        while let Some(_) = eat_space() {}
+        while eat_space().is_some() {}
         Some(Whitespace {})
     }
 }
@@ -90,7 +90,7 @@ impl<T: Token> Parse for T {
         loop {
             if let Some(c) = accept_if(T::accept, stream) {
                 str.push(c)
-            } else if let Some(_) = accept_if(|c| c == T::ESCAPE, stream) {
+            } else if accept_if(|c| c == T::ESCAPE, stream).is_some() {
                 if let Some(c) = accept_if(T::escaped, stream) {
                     str.push(c)
                 } else {
@@ -133,7 +133,7 @@ fn parse_list<T: Parse>(
         }
         elems.push(expect_some(stream));
     }
-    return Some(elems);
+    Some(elems)
 }
 
 // A trait that specified parsed elements can be repeated; enabling a Vec<T> parser

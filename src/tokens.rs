@@ -1,6 +1,6 @@
 use crate::basic_parser::{Many, Token};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Username(pub String);
 
 impl Token for Username {

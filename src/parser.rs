@@ -45,18 +45,16 @@ pub struct RunAs {
 impl Parse for RunAs {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         is_syntax('(', stream)?;
-        let user = is_some(stream).unwrap_or_else(|| Vec::new());
+        let user = is_some(stream).unwrap_or_default();
         let group = is_syntax(':', stream)
             .and_then(|_| is_some(stream))
-            .unwrap_or_else(|| Vec::new());
+            .unwrap_or_default();
         expect_syntax(')', stream);
-        Some(RunAs {
-            user: user,
-            group: group,
-        })
+        Some(RunAs { user, group })
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub enum Tag {
     NOPASSWD,
@@ -131,10 +129,7 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 impl Parse for Sudo {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let users = is_some(stream)?;
-        let permits = expect_some(stream);
-        Some(Sudo {
-            users: users,
-            permissions: permits,
-        })
+        let permissions = expect_some(stream);
+        Some(Sudo { users, permissions })
     }
 }
