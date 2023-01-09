@@ -40,14 +40,14 @@ impl Parse for Whitespace {
 }
 
 // same as accept_if, but parses whitespace
-pub fn maybe_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
+pub fn is_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
     accept_if(|c| c == syntax, stream)?;
     Whitespace::parse(stream);
     Some(())
 }
 
-pub fn require_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) {
-    if maybe_syntax(syntax, stream).is_none() {
+pub fn expect_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) {
+    if is_syntax(syntax, stream).is_none() {
         let str = if let Some(c) = stream.peek() {
             c.to_string()
         } else {
@@ -57,12 +57,12 @@ pub fn require_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = c
     }
 }
 
-pub fn maybe<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
+pub fn is_some<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
     T::parse(stream)
 }
 
-pub fn require<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
-    let Some(result) = maybe(stream) else {
+pub fn expect_some<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
+    let Some(result) = is_some(stream) else {
         panic!("parse error: expected `{}'", std::any::type_name::<T>())
     };
     result
@@ -126,12 +126,12 @@ fn parse_list<T: Parse>(
     stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Option<Vec<T>> {
     let mut elems = Vec::new();
-    elems.push(maybe(stream)?);
-    while maybe_syntax(sep_by, stream).is_some() {
+    elems.push(is_some(stream)?);
+    while is_syntax(sep_by, stream).is_some() {
         if elems.len() >= max {
             panic!("parse_list: parsing multiple items: safety margin exceeded")
         }
-        elems.push(require(stream));
+        elems.push(expect_some(stream));
     }
     return Some(elems);
 }

@@ -10,18 +10,20 @@ pub enum Qualified<T> {
 
 impl<T: Token> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        if maybe_syntax('!', stream).is_some() {
+        if is_syntax('!', stream).is_some() {
             let mut neg = true;
-            while maybe_syntax('!', stream).is_some() {
+            while is_syntax('!', stream).is_some() {
                 neg = !neg;
             }
+            let ident = expect_some(stream);
             if neg {
-                Some(Qualified::Forbid(require(stream)))
+                Some(Qualified::Forbid(ident))
             } else {
-                Some(Qualified::Allow(require(stream)))
+                Some(Qualified::Allow(ident))
             }
         } else {
-            Some(Qualified::Allow(maybe(stream)?))
+            let ident = is_some(stream)?;
+            Some(Qualified::Allow(ident))
         }
     }
 }
@@ -42,12 +44,12 @@ pub struct RunAs {
 
 impl Parse for RunAs {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        maybe_syntax('(', stream)?;
-        let user = maybe(stream).unwrap_or_else(|| Vec::new());
-        let group = maybe_syntax(':', stream)
-            .and_then(|_| maybe(stream))
+        is_syntax('(', stream)?;
+        let user = is_some(stream).unwrap_or_else(|| Vec::new());
+        let group = is_syntax(':', stream)
+            .and_then(|_| is_some(stream))
             .unwrap_or_else(|| Vec::new());
-        require_syntax(')', stream);
+        expect_syntax(')', stream);
         Some(RunAs {
             user: user,
             group: group,
@@ -67,18 +69,18 @@ pub enum Tag {
 impl Parse for All<Tag> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         use Tag::*;
-        let Upper(keyword) = maybe(stream)?;
+        let Upper(keyword) = is_some(stream)?;
         let result = match keyword.as_str() {
             "NOPASSWD" => NOPASSWD,
             "TIMEOUT" => {
-                require_syntax('=', stream);
-                let Decimal(t) = require(stream);
+                expect_syntax('=', stream);
+                let Decimal(t) = expect_some(stream);
                 return Some(All::Only(TIMEOUT(t)));
             }
             "ALL" => return Some(All::All),
             unknown => panic!("parse error: unrecognized keyword '{}'", unknown),
         };
-        require_syntax(':', stream);
+        expect_syntax(':', stream);
         Some(All::Only(result))
     }
 }
@@ -90,7 +92,7 @@ impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let mut tags = Vec::new();
         let limit = 100;
-        while let Some(keyword) = maybe(stream) {
+        while let Some(keyword) = is_some(stream) {
             match keyword {
                 All::Only(tag) => tags.push(tag),
                 All::All => return Some(CommandSpec(tags, Qualified::Allow(All::All))),
@@ -99,7 +101,7 @@ impl Parse for CommandSpec {
                 panic!("parse error: too many tags for command specifier")
             }
         }
-        let cmd = require(stream);
+        let cmd = expect_some(stream);
         Some(CommandSpec(tags, cmd))
     }
 }
@@ -114,10 +116,10 @@ pub struct Sudo {
 
 impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let hosts = maybe(stream)?;
-        require_syntax('=', stream);
-        let runas = maybe(stream);
-        let cmds = require(stream);
+        let hosts = is_some(stream)?;
+        expect_syntax('=', stream);
+        let runas = is_some(stream);
+        let cmds = expect_some(stream);
         Some((hosts, runas, cmds))
     }
 }
@@ -128,8 +130,8 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 
 impl Parse for Sudo {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let users = maybe(stream)?;
-        let permits = require(stream);
+        let users = is_some(stream)?;
+        let permits = expect_some(stream);
         Some(Sudo {
             users: users,
             permissions: permits,
