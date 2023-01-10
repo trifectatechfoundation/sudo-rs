@@ -136,13 +136,13 @@ mod test {
     use std::iter;
 
     macro_rules! sudoer {
-    ($h:expr $(,$e:expr)*) => {
-        iter::once($h)
+        ($h:expr $(,$e:expr)*) => {
+            iter::once($h)
             $(
                 .chain(iter::once($e))
             )*
-                .map(str::to_string)
-    }
+            .map(str::to_string)
+        }
     }
 
     #[test]
