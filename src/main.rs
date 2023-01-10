@@ -79,12 +79,14 @@ fn check_permission(
                 } else if request.user != "root" || !in_group("root", request.group) {
                     None?;
                 }
-                find_item(cmds, match_token(cmdline))
+                Some(find_item(cmds, match_token(cmdline)))
             });
 
-            matching_rules.last().cloned()
+            let flags = matching_rules.last()?;
+            Some(flags.cloned())
         })
         .last()
+        .flatten()
 }
 
 fn chatty_check_permission(
@@ -133,8 +135,14 @@ mod test {
     use super::*;
     use std::iter;
 
-    fn sudoer(cfg: &str) -> impl Iterator<Item = String> + '_ {
-        iter::once(cfg).map(str::to_string)
+    macro_rules! sudoer {
+    ($h:expr $(,$e:expr)*) => {
+        iter::once($h)
+            $(
+                .chain(iter::once($e))
+            )*
+                .map(str::to_string)
+    }
     }
 
     #[test]
@@ -144,7 +152,11 @@ mod test {
             user: "root",
             group: "root",
         };
-        assert_eq!(check_permission(sudoer("user ALL=(ALL:ALL) ALL"), "nobody", &root, "server", "/bin/hello"), None);
-        assert_eq!(check_permission(sudoer("user ALL=(ALL:ALL) ALL"), "user",   &root, "server", "/bin/hello"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), "nobody", &root, "server", "/bin/hello"), None);
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), "user",   &root, "server", "/bin/hello"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!["user ALL=!/bin/hello",
+                                            "user ALL=/bin/hello"], "user",   &root, "server", "/bin/hello"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
+                                            "user ALL=!/bin/hello"], "user",   &root, "server", "/bin/hello"), None);
     }
 }
