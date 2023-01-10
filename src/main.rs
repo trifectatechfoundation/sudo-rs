@@ -49,7 +49,7 @@ fn check_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
 
 fn check_permission(
     sudoers: impl Iterator<Item = String>,
-    am: UserInfo,
+    am_user: &str,
     request: UserInfo,
     on_host: &str,
     cmdline: &str,
@@ -58,7 +58,7 @@ fn check_permission(
         .filter_map(|text| {
             let sudo = basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable());
 
-            match_item(&sudo.users, check_user(am.user))?;
+            match_item(&sudo.users, check_user(am_user))?;
 
             let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
                 match_item(hosts, exact(&tokens::Hostname(on_host.to_string())))?;
@@ -66,7 +66,7 @@ fn check_permission(
                     if !users.is_empty() {
                         match_item(users, exact(&tokens::Username(request.user.to_string())))
                     } else {
-                        (request.user == am.user).then_some(NO_TAG)
+                        (request.user == am_user).then_some(NO_TAG)
                     }?;
                     if !groups.is_empty() {
                         match_item(groups, exact(&tokens::Username(request.group.to_string())))
@@ -86,16 +86,16 @@ fn check_permission(
 
 fn chatty_check_permission(
     sudoers: impl Iterator<Item = String>,
-    am: UserInfo,
+    am_user: &str,
     request: UserInfo,
     on_host: &str,
     chosen_poison: &str,
 ) {
     println!(
-        "Is '{}:{}' allowed on '{}' to run: '{}' (as {}:{})?",
-        am.user, am.group, on_host, chosen_poison, request.user, request.group
+        "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
+        am_user, on_host, chosen_poison, request.user, request.group
     );
-    let result = check_permission(sudoers, am, request, on_host, chosen_poison);
+    let result = check_permission(sudoers, am_user, request, on_host, chosen_poison);
     println!("OUTCOME: {:?}", result);
 }
 
@@ -111,16 +111,13 @@ fn main() {
             "{:?}",
             chatty_check_permission(
                 cfg,
+                &args[1],
                 UserInfo {
-                    user: &args[1],
-                    group: &args[2]
+                    user: args.get(4).unwrap_or(&"root".to_string()),
+                    group: args.get(5).unwrap_or(&"root".to_string())
                 },
-                UserInfo {
-                    user: args.get(5).unwrap_or(&"root".to_string()),
-                    group: args.get(6).unwrap_or(&"root".to_string())
-                },
+                &args[2],
                 &args[3],
-                &args[4],
             )
         );
     } else {
