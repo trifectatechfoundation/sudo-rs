@@ -106,7 +106,7 @@ impl<T: Many> Many for All<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
-#[derive(Debug,Deref)]
+#[derive(Debug, Deref)]
 pub struct Upper(pub String);
 
 impl Token for Upper {

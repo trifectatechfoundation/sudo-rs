@@ -48,14 +48,16 @@ fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     }
 }
 
-fn match_token<T: basic_parser::Token + std::ops::Deref<Target=String>>(text: &str) -> (impl Fn(&T) -> bool + '_) {
+fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
+    text: &str,
+) -> (impl Fn(&T) -> bool + '_) {
     move |token| token.as_str() == text
 }
 
 fn check_permission(
     sudoers: impl Iterator<Item = String>,
     am_user: &str,
-    request: UserInfo,
+    request: &UserInfo,
     on_host: &str,
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
@@ -88,7 +90,7 @@ fn check_permission(
 fn chatty_check_permission(
     sudoers: impl Iterator<Item = String>,
     am_user: &str,
-    request: UserInfo,
+    request: &UserInfo,
     on_host: &str,
     chosen_poison: &str,
 ) {
@@ -113,7 +115,7 @@ fn main() {
             chatty_check_permission(
                 cfg,
                 &args[1],
-                UserInfo {
+                &UserInfo {
                     user: args.get(4).unwrap_or(&"root".to_string()),
                     group: args.get(5).unwrap_or(&"root".to_string())
                 },
