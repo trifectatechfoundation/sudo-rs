@@ -63,16 +63,12 @@ fn check_permission(
             let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
                 match_item(hosts, exact(&tokens::Hostname(on_host.to_string())))?;
                 if let Some(RunAs { users, groups }) = runas {
-                    if !users.is_empty() {
-                        match_item(users, exact(&tokens::Username(request.user.to_string())))
-                    } else {
-                        (request.user == am_user).then_some(NO_TAG)
-                    }?;
-                    if !groups.is_empty() {
-                        match_item(groups, exact(&tokens::Username(request.group.to_string())))
-                    } else {
-                        in_group(request.user, request.group).then_some(NO_TAG)
-                    }?;
+                    if !users.is_empty() || request.user != am_user {
+                        *match_item(users, exact(&tokens::Username(request.user.to_string())))?
+                    }
+                    if !in_group(request.user, request.group) {
+                        *match_item(groups, exact(&tokens::Username(request.group.to_string())))?
+                    }
                 } else if request.user != "root" || !in_group("root", request.group) {
                     None?;
                 }
