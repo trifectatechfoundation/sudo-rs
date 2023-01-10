@@ -4,7 +4,7 @@ mod tokens;
 use ast::*;
 use tokens::*;
 
-fn match_item<Predicate, T, Permit: Tagged<Spec<T>>>(
+fn find_item<Predicate, T, Permit: Tagged<Spec<T>>>(
     items: &Vec<Permit>,
     matches: Predicate,
 ) -> Option<&Permit::Flags>
@@ -41,7 +41,7 @@ fn in_group(user: &str, group: &str) -> bool {
     user == group
 }
 
-fn check_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
+fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     move |spec| match spec {
         UserSpecifier::User(name) => name.0 == username,
         UserSpecifier::Group(groupname) => in_group(username, groupname.0.as_str()),
@@ -63,21 +63,21 @@ fn check_permission(
         .filter_map(|text| {
             let sudo = basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable());
 
-            match_item(&sudo.users, check_user(am_user))?;
+            find_item(&sudo.users, match_user(am_user))?;
 
             let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
-                match_item(hosts, match_token(on_host))?;
+                find_item(hosts, match_token(on_host))?;
                 if let Some(RunAs { users, groups }) = runas {
                     if !users.is_empty() || request.user != am_user {
-                        *match_item(users, check_user(request.user))?
+                        *find_item(users, match_user(request.user))?
                     }
                     if !in_group(request.user, request.group) {
-                        *match_item(groups, match_token(request.group))?
+                        *find_item(groups, match_token(request.group))?
                     }
                 } else if request.user != "root" || !in_group("root", request.group) {
                     None?;
                 }
-                match_item(cmds, match_token(cmdline))
+                find_item(cmds, match_token(cmdline))
             });
 
             matching_rules.last().cloned()
