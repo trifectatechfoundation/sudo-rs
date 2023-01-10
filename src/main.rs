@@ -64,7 +64,7 @@ fn check_permission(
                 match_item(hosts, exact(&tokens::Hostname(on_host.to_string())))?;
                 if let Some(RunAs { users, groups }) = runas {
                     if !users.is_empty() || request.user != am_user {
-                        *match_item(users, exact(&tokens::Username(request.user.to_string())))?
+                        *match_item(users, check_user(request.user))?
                     }
                     if !in_group(request.user, request.group) {
                         *match_item(groups, exact(&tokens::Username(request.group.to_string())))?

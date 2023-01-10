@@ -13,7 +13,7 @@ pub type SpecList<T> = Vec<Spec<T>>;
 
 #[derive(Debug, Default)]
 pub struct RunAs {
-    pub users: SpecList<Username>,
+    pub users: SpecList<UserSpecifier>,
     pub groups: SpecList<Username>,
 }
 
