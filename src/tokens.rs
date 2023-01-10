@@ -1,7 +1,7 @@
 use crate::basic_parser::{Many, Token};
 use derive_more::Deref;
 
-#[derive(Debug, PartialEq, Eq, Deref)]
+#[derive(Debug, Deref)]
 pub struct Username(pub String);
 
 impl Token for Username {
@@ -33,7 +33,7 @@ impl Token for Decimal {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Deref)]
+#[derive(Debug, Deref)]
 pub struct Hostname(pub String);
 
 impl Token for Hostname {
@@ -116,7 +116,7 @@ impl Token for Upper {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Deref)]
+#[derive(Debug, Deref)]
 pub struct Command(pub String);
 
 impl Token for Command {

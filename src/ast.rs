@@ -18,7 +18,7 @@ pub struct RunAs {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Tag {
     NOPASSWD,
     TIMEOUT(i32),
