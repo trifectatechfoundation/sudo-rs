@@ -53,7 +53,7 @@ fn check_permission(
     request: UserInfo,
     on_host: &str,
     cmdline: &str,
-) -> Option<<CommandSpec as Tagged<Spec<Command>>>::Flags> {
+) -> Option<Vec<Tag>> {
     sudoers
         .filter_map(|text| {
             let sudo = basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable());
