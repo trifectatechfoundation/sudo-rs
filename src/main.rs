@@ -26,6 +26,7 @@ where
     result
 }
 
+#[allow(dead_code)]
 fn exact<T: Eq + ?Sized>(s1: &T) -> (impl Fn(&T) -> bool + '_) {
     move |s2| s1 == s2
 }
@@ -47,6 +48,10 @@ fn check_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     }
 }
 
+fn match_token<T: basic_parser::Token + std::ops::Deref<Target=String>>(text: &str) -> (impl Fn(&T) -> bool + '_) {
+    move |token| token.as_str() == text
+}
+
 fn check_permission(
     sudoers: impl Iterator<Item = String>,
     am_user: &str,
@@ -61,18 +66,18 @@ fn check_permission(
             match_item(&sudo.users, check_user(am_user))?;
 
             let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
-                match_item(hosts, exact(&tokens::Hostname(on_host.to_string())))?;
+                match_item(hosts, match_token(on_host))?;
                 if let Some(RunAs { users, groups }) = runas {
                     if !users.is_empty() || request.user != am_user {
                         *match_item(users, check_user(request.user))?
                     }
                     if !in_group(request.user, request.group) {
-                        *match_item(groups, exact(&tokens::Username(request.group.to_string())))?
+                        *match_item(groups, match_token(request.group))?
                     }
                 } else if request.user != "root" || !in_group("root", request.group) {
                     None?;
                 }
-                match_item(cmds, exact(&tokens::Command(cmdline.to_string())))
+                match_item(cmds, match_token(cmdline))
             });
 
             matching_rules.last().cloned()
