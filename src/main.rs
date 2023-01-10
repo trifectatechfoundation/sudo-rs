@@ -127,3 +127,24 @@ fn main() {
         panic!("no sudoers file!");
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::iter;
+
+    fn sudoer(cfg: &str) -> impl Iterator<Item = String> + '_ {
+        iter::once(cfg).map(str::to_string)
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn sudoer_test() {
+        let root = UserInfo {
+            user: "root",
+            group: "root",
+        };
+        assert_eq!(check_permission(sudoer("user ALL=(ALL:ALL) ALL"), "nobody", &root, "server", "/bin/hello"), None);
+        assert_eq!(check_permission(sudoer("user ALL=(ALL:ALL) ALL"), "user",   &root, "server", "/bin/hello"), Some(vec![]));
+    }
+}
