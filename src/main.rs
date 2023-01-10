@@ -154,6 +154,12 @@ mod test {
         };
         assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), "nobody", &root, "server", "/bin/hello"), None);
         assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), "user",   &root, "server", "/bin/hello"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), "user",   &root, "server", "/bin/foo"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), "user",   &root, "server", "/bin/hello"), None);
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), "user",   &root, "server", "/bin/foo"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), "user",   &root, "server", "/bin/bar"), Some(vec![Tag::NOPASSWD]));
+        assert_eq!(check_permission(sudoer!("user server=(ALL:ALL) ALL"), "user", &root, "server", "/bin/hello"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user laptop=(ALL:ALL) ALL"), "user", &root, "server", "/bin/hello"), None);
         assert_eq!(check_permission(sudoer!["user ALL=!/bin/hello",
                                             "user ALL=/bin/hello"], "user",   &root, "server", "/bin/hello"), Some(vec![]));
         assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
