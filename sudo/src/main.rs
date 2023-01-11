@@ -1,16 +1,20 @@
-use sudo_system::{hostname, Group, Process, User};
+mod cli_args;
+use clap::{CommandFactory, Parser};
+use cli_args::Cli;
 
-fn main() {
-    let hostname = hostname();
-    let user = User::effective();
-    let real_user = User::real();
-    let group = Group::effective();
-    let real_group = Group::real();
-    let process_info = Process::new();
-    println!("{:?}", hostname);
-    println!("{:?}", user);
-    println!("{:?}", real_user);
-    println!("{:?}", group);
-    println!("{:?}", real_group);
-    println!("{:?}", process_info);
+use crate::cli_args::SudoOptions;
+
+#[derive(Debug)]
+struct CustomError(String);
+
+fn main() -> Result<(), CustomError> {
+    let args = Cli::parse();
+    let captured = SudoOptions::from(args.clone());
+    println!("captured: {:?}", captured);
+    Ok(())
+}
+
+#[test]
+fn verify_cli() {
+    Cli::command().debug_assert()
 }
