@@ -3,7 +3,7 @@ use std::{
     io::{self, BufRead},
 };
 
-use sudo_cli::cli_args::SudoOptions;
+use sudo_cli::SudoOptions;
 use sudo_common::{
     context::{CommandAndArguments, Context},
     error::Error,
