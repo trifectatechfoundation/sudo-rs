@@ -1,14 +1,6 @@
+mod cli_args;
 use clap::Parser;
-
-/// Search for a pattern in a file and display the lines that contain it.
-#[derive(Parser)]
-struct Cli {
-    /// The pattern to look for
-    pattern: String,
-    /// The path to the file to read
-    path: std::path::PathBuf,
-}
-
+use cli_args::Cli;
 #[derive(Debug)]
 struct CustomError(String);
 
@@ -16,8 +8,21 @@ struct CustomError(String);
 fn main() -> Result<(), CustomError> {
 
     let args = Cli::parse();
-    let content = std::fs::read_to_string(&args.path)
-    .map_err(|err| CustomError(format!("Error reading `{}`: {}", &args.path.display(), err)))?;
-    println!("file content: {}", content);
+    // let content = std::fs::read_to_string(&args.path);
+    // if let Some(content) = args.path.as_deref() {
+    if let Some(cli_path) = args.path.as_deref() {
+        let content = cli_path.display();
+        println!("path: {}", content);
+        println!("Value for content: {:?}", std::fs::read_to_string(content.to_string()));
+    }
+
+    println!("args: {:?}", args);
     Ok(())
 }
+
+// try to exclude flags
+// write tests
+// catch trailing stuff (the commands for which are meant to be executed with root rights)
+
+
+// unsolved: how can we pass yet unknown env variables?
