@@ -2,7 +2,7 @@ use crate::basic_parser::*;
 use crate::tokens::*;
 use std::iter::Peekable;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Qualified<T> {
     Allow(T),
     Forbid(T),
@@ -24,7 +24,7 @@ pub enum Tag {
     TIMEOUT(i32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
 
 #[derive(Debug)]

@@ -5,7 +5,7 @@ use ast::*;
 use tokens::*;
 
 fn find_item<'a, Predicate, T, Permit: Tagged<Spec<T>> + 'a>(
-    items: impl IntoIterator<Item=&'a Permit>,
+    items: impl IntoIterator<Item = &'a Permit>,
     matches: Predicate,
 ) -> Option<&'a Permit::Flags>
 where
@@ -61,7 +61,7 @@ fn check_permission(
     on_host: &str,
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
-    sudoers
+    let allowed_commands = sudoers
         .filter_map(|text| {
             let sudo = basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable());
 
@@ -69,6 +69,7 @@ fn check_permission(
 
             let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
                 find_item(hosts, match_token(on_host))?;
+
                 if let Some(RunAs { users, groups }) = runas {
                     if !users.is_empty() || request.user != am_user {
                         *find_item(users, match_user(request.user))?
@@ -79,13 +80,16 @@ fn check_permission(
                 } else if request.user != "root" || !in_group("root", request.group) {
                     None?;
                 }
-		Some(cmds.iter())
-            }).flatten();
 
-            let flags = find_item(matching_rules, match_token(cmdline))?;
-            Some(flags.clone())
+                Some(cmds)
+            })
+            .flatten();
+
+            Some(matching_rules.cloned().collect::<Vec<_>>())
         })
-        .last()
+        .collect::<Vec<_>>();
+
+    find_item(allowed_commands.iter().flatten(), match_token(cmdline)).cloned()
 }
 
 fn chatty_check_permission(
@@ -163,5 +167,7 @@ mod test {
                                             "user ALL=/bin/hello"], "user",   &root, "server", "/bin/hello"), Some(vec![]));
         assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
                                             "user ALL=!/bin/hello"], "user",   &root, "server", "/bin/hello"), None);
+        assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
+                                            "user ALL=!/bin/whoami"], "user",   &root, "server", "/bin/hello"), Some(vec![]));
     }
 }

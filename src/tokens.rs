@@ -73,7 +73,7 @@ impl Token for UserSpecifier {
 
 impl Many for UserSpecifier {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum All<T> {
     All,
     Only(T),
@@ -116,7 +116,7 @@ impl Token for Upper {
     }
 }
 
-#[derive(Debug, Deref)]
+#[derive(Debug, Clone, Deref)]
 pub struct Command(pub String);
 
 impl Token for Command {
