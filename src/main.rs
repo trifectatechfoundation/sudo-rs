@@ -4,10 +4,10 @@ mod tokens;
 use ast::*;
 use tokens::*;
 
-fn find_item<Predicate, T, Permit: Tagged<Spec<T>>>(
-    items: &Vec<Permit>,
+fn find_item<'a, Predicate, T, Permit: Tagged<Spec<T>> + 'a>(
+    items: impl IntoIterator<Item=&'a Permit>,
     matches: Predicate,
-) -> Option<&Permit::Flags>
+) -> Option<&'a Permit::Flags>
 where
     Predicate: Fn(&T) -> bool,
 {
@@ -79,14 +79,13 @@ fn check_permission(
                 } else if request.user != "root" || !in_group("root", request.group) {
                     None?;
                 }
-                Some(find_item(cmds, match_token(cmdline)))
-            });
+		Some(cmds.iter())
+            }).flatten();
 
-            let flags = matching_rules.last()?;
-            Some(flags.cloned())
+            let flags = find_item(matching_rules, match_token(cmdline))?;
+            Some(flags.clone())
         })
         .last()
-        .flatten()
 }
 
 fn chatty_check_permission(
