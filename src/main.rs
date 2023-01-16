@@ -70,23 +70,26 @@ fn check_permission(
         .filter_map(|sudo| {
             find_item(&sudo.users, match_user(am_user))?;
 
-            let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
-                find_item(hosts, match_token(on_host))?;
+            let matching_rules = sudo
+                .permissions
+                .iter()
+                .filter_map(|(hosts, runas, cmds)| {
+                    find_item(hosts, match_token(on_host))?;
 
-                if let Some(RunAs { users, groups }) = runas {
-                    if !users.is_empty() || request.user != am_user {
-                        *find_item(users, match_user(request.user))?
+                    if let Some(RunAs { users, groups }) = runas {
+                        if !users.is_empty() || request.user != am_user {
+                            *find_item(users, match_user(request.user))?
+                        }
+                        if !in_group(request.user, request.group) {
+                            *find_item(groups, match_token(request.group))?
+                        }
+                    } else if request.user != "root" || !in_group("root", request.group) {
+                        None?;
                     }
-                    if !in_group(request.user, request.group) {
-                        *find_item(groups, match_token(request.group))?
-                    }
-                } else if request.user != "root" || !in_group("root", request.group) {
-                    None?;
-                }
 
-                Some(cmds)
-            })
-            .flatten();
+                    Some(cmds)
+                })
+                .flatten();
 
             Some(matching_rules.cloned().collect::<Vec<_>>())
         })
@@ -106,7 +109,13 @@ fn chatty_check_permission(
         "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
         am_user, on_host, chosen_poison, request.user, request.group
     );
-    let result = check_permission(sudoers_parse(sudoers), am_user, request, on_host, chosen_poison);
+    let result = check_permission(
+        sudoers_parse(sudoers),
+        am_user,
+        request,
+        on_host,
+        chosen_poison,
+    );
     println!("OUTCOME: {:?}", result);
 }
 
