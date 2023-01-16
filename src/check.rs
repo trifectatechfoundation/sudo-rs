@@ -1,13 +1,18 @@
-mod ast;
-mod basic_parser;
-mod tokens;
-use ast::*;
-use tokens::*;
+use crate::ast;
+use crate::ast::*;
+use crate::basic_parser;
+use crate::tokens::*;
 
-// TODO: this should give parse error messages etc.
-fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = Sudo> {
-    lines.map(|text| basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable()))
+/// TODO: this interface should be replaced by something that interacts with the operating system
+/// Right now, we emulate that a user is always only in its own group.
+
+fn in_group(user: &str, group: &str) -> bool {
+    user == group
 }
+
+/// Find an item matching a certain predicate in an collection (optionally attributed) list of
+/// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
+/// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
 
 fn find_item<'a, Predicate, T, Permit: Tagged<Spec<T>> + 'a>(
     items: impl IntoIterator<Item = &'a Permit>,
@@ -32,18 +37,9 @@ where
 }
 
 #[allow(dead_code)]
+/// A predicate that matches using "==".
 fn exact<T: Eq + ?Sized>(s1: &T) -> (impl Fn(&T) -> bool + '_) {
     move |s2| s1 == s2
-}
-
-struct UserInfo<'a> {
-    user: &'a str,
-    group: &'a str,
-}
-
-// this interface should use a type that also supports other ways of specifying users and groups
-fn in_group(user: &str, group: &str) -> bool {
-    user == group
 }
 
 fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
@@ -59,7 +55,26 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-fn check_permission(
+/// TODO: this should use globbing,
+fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
+    text: &str,
+) -> (impl Fn(&T) -> bool + '_) {
+    move |token| token.as_str() == text
+}
+
+pub struct UserInfo<'a> {
+    pub user: &'a str,
+    pub group: &'a str,
+}
+
+/// Check if the user [am_user] is allowed to run [cmdline] on machine [on_host] as the requested
+/// user/group. Not that in the sudoers file, later permissions override earlier restrictions.
+/// The [cmdline] argument should already be ready to essentially feed to an exec() call; or be
+/// a special command like 'sudoedit'.
+
+// This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
+// doesn't match, we escape using the '?' mechanism.
+pub fn check_permission(
     sudoers: impl Iterator<Item = ast::Sudo>,
     am_user: &str,
     request: &UserInfo,
@@ -95,60 +110,17 @@ fn check_permission(
         })
         .collect::<Vec<_>>();
 
-    find_item(allowed_commands.iter().flatten(), match_token(cmdline)).cloned()
-}
-
-fn chatty_check_permission(
-    sudoers: impl Iterator<Item = String>,
-    am_user: &str,
-    request: &UserInfo,
-    on_host: &str,
-    chosen_poison: &str,
-) {
-    println!(
-        "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
-        am_user, on_host, chosen_poison, request.user, request.group
-    );
-    let result = check_permission(
-        sudoers_parse(sudoers),
-        am_user,
-        request,
-        on_host,
-        chosen_poison,
-    );
-    println!("OUTCOME: {:?}", result);
-}
-
-use std::env;
-use std::fs::File;
-use std::io::{self, BufRead};
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    if let Ok(file) = File::open("./sudoers") {
-        let cfg = io::BufReader::new(file).lines().map(|x| x.unwrap());
-        println!(
-            "{:?}",
-            chatty_check_permission(
-                cfg,
-                &args[1],
-                &UserInfo {
-                    user: args.get(4).unwrap_or(&"root".to_string()),
-                    group: args.get(5).unwrap_or(&"root".to_string())
-                },
-                &args[2],
-                &args[3],
-            )
-        );
-    } else {
-        panic!("no sudoers file!");
-    }
+    find_item(allowed_commands.iter().flatten(), match_command(cmdline)).cloned()
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use std::iter;
+
+    fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::Sudo> {
+        lines.map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
+    }
 
     macro_rules! sudoer {
         ($h:expr $(,$e:expr)*) => {
