@@ -1,6 +1,7 @@
 mod cli_args;
-use clap::Parser;
+use clap::{Parser, CommandFactory};
 use cli_args::Cli;
+
 #[derive(Debug)]
 struct CustomError(String);
 
@@ -20,9 +21,8 @@ fn main() -> Result<(), CustomError> {
     Ok(())
 }
 
-// try to exclude flags
-// write tests
-// catch trailing stuff (the commands for which are meant to be executed with root rights)
-
-
-// unsolved: how can we pass yet unknown env variables?
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Cli::command().debug_assert()
+}
