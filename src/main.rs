@@ -4,6 +4,11 @@ mod tokens;
 use ast::*;
 use tokens::*;
 
+// TODO: this should give parse error messages etc.
+fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = Sudo> {
+    lines.map(|text| basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable()))
+}
+
 fn find_item<'a, Predicate, T, Permit: Tagged<Spec<T>> + 'a>(
     items: impl IntoIterator<Item = &'a Permit>,
     matches: Predicate,
@@ -55,16 +60,14 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
 }
 
 fn check_permission(
-    sudoers: impl Iterator<Item = String>,
+    sudoers: impl Iterator<Item = ast::Sudo>,
     am_user: &str,
     request: &UserInfo,
     on_host: &str,
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
     let allowed_commands = sudoers
-        .filter_map(|text| {
-            let sudo = basic_parser::expect_complete::<Sudo>(&mut text.chars().peekable());
-
+        .filter_map(|sudo| {
             find_item(&sudo.users, match_user(am_user))?;
 
             let matching_rules = sudo.permissions.iter().filter_map(|(hosts, runas, cmds)| {
@@ -103,7 +106,7 @@ fn chatty_check_permission(
         "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
         am_user, on_host, chosen_poison, request.user, request.group
     );
-    let result = check_permission(sudoers, am_user, request, on_host, chosen_poison);
+    let result = check_permission(sudoers_parse(sudoers), am_user, request, on_host, chosen_poison);
     println!("OUTCOME: {:?}", result);
 }
 
@@ -140,11 +143,13 @@ mod test {
 
     macro_rules! sudoer {
         ($h:expr $(,$e:expr)*) => {
-            iter::once($h)
-            $(
-                .chain(iter::once($e))
-            )*
-            .map(str::to_string)
+            sudoers_parse(
+                iter::once($h)
+                $(
+                    .chain(iter::once($e))
+                )*
+                .map(str::to_string)
+            )
         }
     }
 
