@@ -1,9 +1,12 @@
+//! Various tokens
+
 use crate::basic_parser::{Many, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
 pub struct Username(pub String);
 
+/// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
 impl Token for Username {
     const IDENT: fn(String) -> Self = Username;
 
@@ -33,6 +36,7 @@ impl Token for Decimal {
     }
 }
 
+/// A hostname consists of alphanumeric characters and ".", "-",  "_"
 #[derive(Debug, Deref)]
 pub struct Hostname(pub String);
 
@@ -46,6 +50,7 @@ impl Token for Hostname {
 
 impl Many for Hostname {}
 
+/// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
 #[derive(Debug)]
 pub enum UserSpecifier {
     User(Username),
@@ -73,6 +78,9 @@ impl Token for UserSpecifier {
 
 impl Many for UserSpecifier {}
 
+/// This enum allows items to use the ALL wildcard as well as directly specifying items. This can
+/// in the future be extended with aliases. TODO: maybe this is better defined not as a Token but
+/// simply directly as an implementation of [crate::basic_parser::Parse]
 #[derive(Debug, Clone)]
 pub enum All<T> {
     All,
@@ -106,6 +114,7 @@ impl<T: Many> Many for All<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
+/// An identifier that consits of only uppercase characters.
 #[derive(Debug, Deref)]
 pub struct Upper(pub String);
 
@@ -116,6 +125,8 @@ impl Token for Upper {
     }
 }
 
+/// A struct that represents valid command strings; this can contain escape sequences and are
+/// limited to 1024 characters.
 #[derive(Debug, Clone, Deref)]
 pub struct Command(pub String);
 
