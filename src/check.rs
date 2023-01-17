@@ -1,3 +1,5 @@
+// TODO: whitespace discipline may be better moved to "try_***" methods instead of the parse trait
+// implementations themselves
 use crate::ast;
 use crate::ast::*;
 use crate::basic_parser;
@@ -118,7 +120,9 @@ mod test {
     use super::*;
     use std::iter;
 
-    fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::PermissionSpec> {
+    fn sudoers_parse(
+        lines: impl Iterator<Item = String>,
+    ) -> impl Iterator<Item = ast::PermissionSpec> {
         lines.map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
     }
 
@@ -135,8 +139,34 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
+    fn invalid_spec() {
+        let string = "ALL ALL = (;) ALL";
+        basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable());
+    }
+
+    #[test]
+    fn ambiguous_spec1() {
+        let string = "marc, User_Alias ALL = ALL";
+        let Sudo::Spec(_) = basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable()) else { todo!() };
+    }
+
+    #[test]
+    fn ambiguous_spec2() {
+        let string = "User_Alias ALIAS = ALL";
+        let Sudo::Decl(_) = basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable()) else { todo!() };
+    }
+
+    #[test]
+    #[should_panic]
+    fn ambiguous_spec3() {
+        let string = "User_Alias, marc ALL = ALL";
+        basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable());
+    }
+
+    #[test]
     #[rustfmt::skip]
-    fn sudoer_test() {
+    fn permission_test() {
         let root = UserInfo {
             user: "root",
             group: "root",
@@ -155,5 +185,29 @@ mod test {
                                             "user ALL=!/bin/hello"], "user",   &root, "server", "/bin/hello"), None);
         assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
                                             "user ALL=!/bin/whoami"], "user",   &root, "server", "/bin/hello"), Some(vec![]));
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_directive() {
+        let string = "User_Alias, user Alias = user1, user2";
+        basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable());
+    }
+
+    #[test]
+    fn directive_test() {
+        let _everybody = Qualified::Allow(All::<UserSpecifier>::All);
+        let _nobody = Qualified::Forbid(All::<UserSpecifier>::All);
+        let y = |name| Qualified::Allow(All::Only(UserSpecifier::User(Username(name.to_owned()))));
+        let _not = |name: &str| Qualified::Forbid(All::Only(name.to_owned()));
+        match basic_parser::expect_nonterminal::<ast::Sudo>(
+            &mut "User_Alias HENK = user1, user2".chars().peekable(),
+        ) {
+            Sudo::Decl(Directive::UserAlias(name, list)) => {
+                assert_eq!(name, "HENK");
+                assert_eq!(list, vec![y("user1"), y("user2")]);
+            }
+            _ => panic!("incorrectly parsed"),
+        }
     }
 }

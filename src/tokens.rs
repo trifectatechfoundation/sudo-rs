@@ -4,6 +4,7 @@ use crate::basic_parser::{Many, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Username(pub String);
 
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
@@ -52,6 +53,7 @@ impl Many for Hostname {}
 
 /// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum UserSpecifier {
     User(Username),
     Group(Username),
@@ -69,10 +71,10 @@ impl Token for UserSpecifier {
     };
 
     fn accept(c: char) -> bool {
-        c.is_ascii_alphanumeric()
+        Username::accept(c)
     }
     fn accept_1st(c: char) -> bool {
-        c.is_ascii_alphanumeric() || c == '%'
+        Self::accept(c) || c == '%'
     }
 }
 
@@ -82,6 +84,7 @@ impl Many for UserSpecifier {}
 /// in the future be extended with aliases. TODO: maybe this is better defined not as a Token but
 /// simply directly as an implementation of [crate::basic_parser::Parse]
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum All<T> {
     All,
     Only(T),

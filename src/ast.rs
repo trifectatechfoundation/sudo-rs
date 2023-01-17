@@ -4,6 +4,7 @@ use std::iter::Peekable;
 
 /// The Sudoers file allows negating items with the exclamation mark.
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum Qualified<T> {
     Allow(T),
     Forbid(T),
@@ -22,7 +23,7 @@ pub struct RunAs {
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Tag {
     NOPASSWD,
     TIMEOUT(i32),
@@ -39,9 +40,12 @@ pub struct PermissionSpec {
     pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
 
-// The main AST object for sudo directives (including alias definitions)
-pub struct Directive {}
+// AST object for directive specifications (aliases, arguments, etc)
+pub enum Directive {
+    UserAlias(String, SpecList<UserSpecifier>),
+}
 
+// The main AST object for sudo directives (including alias definitions)
 /// The Sudoers file can contain permissions and directives
 pub enum Sudo {
     Spec(PermissionSpec),
@@ -195,7 +199,7 @@ impl Parse for PermissionSpec {
 ///      | Keyword identifier = identifier_list
 /// ```
 /// There is a syntactical ambiguity in the sudoer Directive and Permission specifications, so we
-/// have to parse them 'together'.
+/// have to parse them 'together' and do a delayed decision on which category we are in.
 
 impl Parse for Sudo {
     // note: original sudo would reject:
@@ -204,8 +208,13 @@ impl Parse for Sudo {
     //   "user, User_Alias machine = command"; this does the same
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let users = try_nonterminal::<SpecList<_>>(stream)?;
-        if let Some(dir) = get_directive(&users[1]) {   // element 1 always exists (parse_list fails on an empty list)
-            todo!()
+        // element 1 always exists (parse_list fails on an empty list)
+        let key = &users[0];
+        if let Some(directive) = get_directive(key, stream) {
+            if users.len() != 1 {
+                panic!("parse error: user name list cannot start with a directive keyword");
+            }
+            Some(Sudo::Decl(directive))
         } else {
             let permissions = expect_nonterminal(stream);
             Some(Sudo::Spec(PermissionSpec { users, permissions }))
@@ -213,11 +222,22 @@ impl Parse for Sudo {
     }
 }
 
-fn get_directive(perhaps_keyword: &Spec<UserSpecifier>) -> Option<()> {
-    if let Qualified::Allow(All::Only(ident)) = perhaps_keyword {
-        None // todo
-    } else {
-        None
+fn get_directive(
+    perhaps_keyword: &Spec<UserSpecifier>,
+    stream: &mut Peekable<impl Iterator<Item = char>>,
+) -> Option<Directive> {
+    use crate::ast::All::*;
+    use crate::ast::Directive::*;
+    use crate::ast::Qualified::*;
+    use crate::ast::UserSpecifier::*;
+    let Allow(Only(User(keyword))) = perhaps_keyword else { return None };
+    match keyword.as_str() {
+        "User_Alias" => {
+            let name = expect_nonterminal::<Upper>(stream);
+            expect_syntax('=', stream);
+            Some(UserAlias(name.to_string(), expect_nonterminal(stream)))
+        }
+        _ => None,
     }
 }
 
