@@ -13,8 +13,8 @@
 //! impl Parse of LinkedList<u32> {
 //!     fn parse(stream: ...) -> Option<Vec<u32>> {
 //!         let x = is_some::<u32>(stream)?;
-//!         let mut tail = if is_syntax('+', stream).is_some() {
-//!             expect_some::<LinkedList<u32>>(stream);
+//!         let mut tail = if try_syntax('+', stream).is_some() {
+//!             expect_nonterminal::<LinkedList<u32>>(stream);
 //!             rest
 //!         } else {
 //!             LinkedList::new()
@@ -73,15 +73,15 @@ impl Parse for Whitespace {
 }
 
 /// Adheres to the contract of the [Parse] trait, accepts one character and consumes following whitespace.
-pub fn is_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
+pub fn try_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
     accept_if(|c| c == syntax, stream)?;
     Whitespace::parse(stream);
     Some(())
 }
 
-/// Similar to [is_syntax], but aborts parsing if the expected character is not found.
+/// Similar to [try_syntax], but aborts parsing if the expected character is not found.
 pub fn expect_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) {
-    if is_syntax(syntax, stream).is_none() {
+    if try_syntax(syntax, stream).is_none() {
         let str = if let Some(c) = stream.peek() {
             c.to_string()
         } else {
@@ -93,14 +93,14 @@ pub fn expect_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = ch
 
 /// Interface for working with types that implement the [Parse] trait; this allows parsing to use
 /// type inference. Use this instead of calling [Parse::parse] directly.
-pub fn is_some<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
+pub fn try_nonterminal<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
     T::parse(stream)
 }
 
 /// Interface for working with types that implement the [Parse] trait; this expects to parse
 /// the given type or aborts parsing if not.
-pub fn expect_some<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
-    let Some(result) = is_some(stream) else {
+pub fn expect_nonterminal<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
+    let Some(result) = try_nonterminal(stream) else {
         panic!("parse error: expected `{}'", std::any::type_name::<T>())
     };
     result
@@ -168,12 +168,12 @@ fn parse_list<T: Parse>(
     stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Option<Vec<T>> {
     let mut elems = Vec::new();
-    elems.push(is_some(stream)?);
-    while is_syntax(sep_by, stream).is_some() {
+    elems.push(try_nonterminal(stream)?);
+    while try_syntax(sep_by, stream).is_some() {
         if elems.len() >= max {
             panic!("parse_list: parsing multiple items: safety margin exceeded")
         }
-        elems.push(expect_some(stream));
+        elems.push(expect_nonterminal(stream));
     }
     Some(elems)
 }
@@ -201,15 +201,15 @@ fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) {
 }
 
 #[allow(dead_code)]
-pub fn is_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
-    let result = is_some(stream)?;
+pub fn try_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
+    let result = try_nonterminal(stream)?;
     expect_end_of_parse(stream);
     Some(result)
 }
 
 #[allow(dead_code)]
 pub fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
-    let result = expect_some(stream);
+    let result = expect_nonterminal(stream);
     expect_end_of_parse(stream);
     result
 }

@@ -49,19 +49,19 @@ pub struct Sudo {
 
 impl<T: Parse> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        if is_syntax('!', stream).is_some() {
+        if try_syntax('!', stream).is_some() {
             let mut neg = true;
-            while is_syntax('!', stream).is_some() {
+            while try_syntax('!', stream).is_some() {
                 neg = !neg;
             }
-            let ident = expect_some(stream);
+            let ident = expect_nonterminal(stream);
             if neg {
                 Some(Qualified::Forbid(ident))
             } else {
                 Some(Qualified::Allow(ident))
             }
         } else {
-            let ident = is_some(stream)?;
+            let ident = try_nonterminal(stream)?;
             Some(Qualified::Allow(ident))
         }
     }
@@ -79,10 +79,10 @@ impl<T: Many> Many for Qualified<T> {
 
 impl Parse for RunAs {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        is_syntax('(', stream)?;
-        let users = is_some(stream).unwrap_or_default();
-        let groups = is_syntax(':', stream)
-            .and_then(|_| is_some(stream))
+        try_syntax('(', stream)?;
+        let users = try_nonterminal(stream).unwrap_or_default();
+        let groups = try_syntax(':', stream)
+            .and_then(|_| try_nonterminal(stream))
             .unwrap_or_default();
         expect_syntax(')', stream);
         Some(RunAs { users, groups })
@@ -102,12 +102,12 @@ impl Parse for RunAs {
 impl Parse for All<Tag> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         use Tag::*;
-        let Upper(keyword) = is_some(stream)?;
+        let Upper(keyword) = try_nonterminal(stream)?;
         let result = match keyword.as_str() {
             "NOPASSWD" => NOPASSWD,
             "TIMEOUT" => {
                 expect_syntax('=', stream);
-                let Decimal(t) = expect_some(stream);
+                let Decimal(t) = expect_nonterminal(stream);
                 return Some(All::Only(TIMEOUT(t)));
             }
             "ALL" => return Some(All::All),
@@ -127,7 +127,7 @@ impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let mut tags = Vec::new();
         let limit = 100;
-        while let Some(keyword) = is_some(stream) {
+        while let Some(keyword) = try_nonterminal(stream) {
             match keyword {
                 All::Only(tag) => tags.push(tag),
                 All::All => return Some(CommandSpec(tags, Qualified::Allow(All::All))),
@@ -136,7 +136,7 @@ impl Parse for CommandSpec {
                 panic!("parse error: too many tags for command specifier")
             }
         }
-        let cmd = expect_some(stream);
+        let cmd = expect_nonterminal(stream);
         Some(CommandSpec(tags, cmd))
     }
 }
@@ -151,10 +151,10 @@ impl Many for CommandSpec {}
 
 impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let hosts = is_some(stream)?;
+        let hosts = try_nonterminal(stream)?;
         expect_syntax('=', stream);
-        let runas = is_some(stream);
-        let cmds = expect_some(stream);
+        let runas = try_nonterminal(stream);
+        let cmds = expect_nonterminal(stream);
         Some((hosts, runas, cmds))
     }
 }
@@ -173,8 +173,8 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 
 impl Parse for Sudo {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let users = is_some(stream)?;
-        let permissions = expect_some(stream);
+        let users = try_nonterminal(stream)?;
+        let permissions = expect_nonterminal(stream);
         Some(Sudo { users, permissions })
     }
 }
