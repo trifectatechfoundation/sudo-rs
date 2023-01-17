@@ -1,4 +1,3 @@
-// TODO: whitespace discipline may be better moved to "try_***" methods instead of the parse trait
 // implementations themselves
 use crate::ast;
 use crate::ast::*;

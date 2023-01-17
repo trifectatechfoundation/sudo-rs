@@ -24,6 +24,8 @@
 //! }
 //! ```
 
+// TODO: whitespace discipline may be better moved to "try_***" methods instead of the parse trait
+
 use std::iter::Peekable;
 
 /// All implementations of the Parse trait must satisfy this contract:
