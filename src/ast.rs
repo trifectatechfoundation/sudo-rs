@@ -39,6 +39,15 @@ pub struct PermissionSpec {
     pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
 
+// The main AST object for sudo directives (including alias definitions)
+pub struct Directive {}
+
+/// The Sudoers file can contain permissions and directives
+pub enum Sudo {
+    Spec(PermissionSpec),
+    Decl(Directive),
+}
+
 /// grammar:
 /// ```
 /// qualified<T> = T | "!", qualified<T>
@@ -171,11 +180,44 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 /// permissionspec = userlist, (host, runas, commandspec), [ ":", (host, runas, commandspec) ]*
 /// ```
 
+#[allow(dead_code)]
 impl Parse for PermissionSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let users = try_nonterminal(stream)?;
         let permissions = expect_nonterminal(stream);
         Some(PermissionSpec { users, permissions })
+    }
+}
+
+/// grammar:
+/// ```
+/// sudo = permissionspec
+///      | Keyword identifier = identifier_list
+/// ```
+/// There is a syntactical ambiguity in the sudoer Directive and Permission specifications, so we
+/// have to parse them 'together'.
+
+impl Parse for Sudo {
+    // note: original sudo would reject:
+    //   "User_Alias, user machine = command"
+    // but accept:
+    //   "user, User_Alias machine = command"; this does the same
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+        let users = try_nonterminal::<SpecList<_>>(stream)?;
+        if let Some(dir) = get_directive(&users[1]) {   // element 1 always exists (parse_list fails on an empty list)
+            todo!()
+        } else {
+            let permissions = expect_nonterminal(stream);
+            Some(Sudo::Spec(PermissionSpec { users, permissions }))
+        }
+    }
+}
+
+fn get_directive(perhaps_keyword: &Spec<UserSpecifier>) -> Option<()> {
+    if let Qualified::Allow(All::Only(ident)) = perhaps_keyword {
+        None // todo
+    } else {
+        None
     }
 }
 
