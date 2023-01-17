@@ -32,9 +32,9 @@ pub enum Tag {
 #[derive(Debug, Clone)]
 pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
 
-/// The main AST object for one sudoer-line.
+/// The main AST object for one sudoer-permission line
 #[derive(Debug)]
-pub struct Sudo {
+pub struct PermissionSpec {
     pub users: SpecList<UserSpecifier>,
     pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
@@ -168,14 +168,14 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 
 /// grammar:
 /// ```
-/// sudo = userlist, (host, runas, commandspec), [ ":", (host, runas, commandspec) ]*
+/// permissionspec = userlist, (host, runas, commandspec), [ ":", (host, runas, commandspec) ]*
 /// ```
 
-impl Parse for Sudo {
+impl Parse for PermissionSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let users = try_nonterminal(stream)?;
         let permissions = expect_nonterminal(stream);
-        Some(Sudo { users, permissions })
+        Some(PermissionSpec { users, permissions })
     }
 }
 

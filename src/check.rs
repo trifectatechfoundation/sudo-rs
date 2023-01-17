@@ -75,7 +75,7 @@ pub struct UserInfo<'a> {
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
 pub fn check_permission(
-    sudoers: impl Iterator<Item = ast::Sudo>,
+    sudoers: impl Iterator<Item = ast::PermissionSpec>,
     am_user: &str,
     request: &UserInfo,
     on_host: &str,
@@ -118,7 +118,7 @@ mod test {
     use super::*;
     use std::iter;
 
-    fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::Sudo> {
+    fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::PermissionSpec> {
         lines.map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
     }
 
