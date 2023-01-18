@@ -1,4 +1,5 @@
-// implementations themselves
+//! Code that checks (and in the future: lists) permissions in the sudoers file
+
 use crate::ast;
 use crate::ast::*;
 use crate::basic_parser;
@@ -15,7 +16,7 @@ fn in_group(user: &str, group: &str) -> bool {
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
 
-fn find_item<'a, Predicate, T, Permit: Tagged<Spec<T>> + 'a>(
+fn find_item<'a, Predicate, T, Permit: Tagged<T> + 'a>(
     items: impl IntoIterator<Item = &'a Permit>,
     matches: Predicate,
 ) -> Option<&'a Permit::Flags>

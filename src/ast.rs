@@ -247,7 +247,7 @@ fn get_directive(
 
 pub trait Tagged<U> {
     type Flags;
-    fn into(&self) -> &U;
+    fn into(&self) -> &Spec<U>;
     fn to_info(&self) -> &Self::Flags;
 }
 
@@ -255,7 +255,7 @@ pub const NO_TAG: &() = &();
 
 /// Default implementation
 
-impl<T> Tagged<Spec<T>> for Spec<T> {
+impl<T> Tagged<T> for Spec<T> {
     type Flags = ();
     fn into(&self) -> &Spec<T> {
         self
@@ -267,7 +267,7 @@ impl<T> Tagged<Spec<T>> for Spec<T> {
 
 /// Special implementation for [CommandSpec]
 
-impl Tagged<Spec<Command>> for CommandSpec {
+impl Tagged<Command> for CommandSpec {
     type Flags = Vec<Tag>;
     fn into(&self) -> &Spec<Command> {
         &self.1
