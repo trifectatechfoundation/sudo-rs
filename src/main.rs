@@ -20,14 +20,8 @@ fn chatty_check_permission(
         am_user, on_host, chosen_poison, request.user, request.group
     );
     let (input, aliases) = check::analyze(sudoers_parse(sudoers));
-    let result = check::check_permission(
-        input.into_iter(),
-        &aliases,
-        am_user,
-        request,
-        on_host,
-        chosen_poison,
-    );
+    let result =
+        check::check_permission(&input, &aliases, am_user, request, on_host, chosen_poison);
     println!("OUTCOME: {result:?}");
 }
 

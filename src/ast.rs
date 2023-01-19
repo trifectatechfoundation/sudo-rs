@@ -3,7 +3,7 @@ use crate::tokens::*;
 use std::iter::Peekable;
 
 /// The Sudoers file allows negating items with the exclamation mark.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum Qualified<T> {
     Allow(T),
@@ -30,7 +30,7 @@ pub enum Tag {
 }
 
 /// Commands with attached attributes.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
 
 /// The main AST object for one sudoer-permission line

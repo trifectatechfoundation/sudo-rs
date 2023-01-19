@@ -2,7 +2,6 @@
 
 use std::collections::HashSet;
 
-use crate::ast;
 use crate::ast::*;
 use crate::basic_parser;
 use crate::tokens::*;
@@ -49,8 +48,8 @@ pub fn analyze(sudoers: impl Iterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
 
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
-pub fn check_permission(
-    sudoers: impl Iterator<Item = ast::PermissionSpec>,
+pub fn check_permission<'a>(
+    sudoers: impl IntoIterator<Item = &'a PermissionSpec>,
     alias_table: &AliasTable,
     am_user: &str,
     request: &UserInfo,
@@ -63,6 +62,7 @@ pub fn check_permission(
     let cmnd_aliases = HashSet::new();
 
     let allowed_commands = sudoers
+        .into_iter()
         .filter_map(|sudo| {
             find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
 
@@ -88,16 +88,11 @@ pub fn check_permission(
                 })
                 .flatten();
 
-            Some(matching_rules.cloned().collect::<Vec<_>>())
+            Some(matching_rules.collect::<Vec<_>>())
         })
-        .collect::<Vec<_>>();
+        .flatten();
 
-    find_item(
-        allowed_commands.iter().flatten(),
-        &match_command(cmdline),
-        &cmnd_aliases,
-    )
-    .cloned()
+    find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases).cloned()
 }
 
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
@@ -243,18 +238,19 @@ fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::ast;
     use basic_parser::parse_eval;
     use std::iter;
 
-    fn sudoers_parse(
-        lines: impl Iterator<Item = String>,
-    ) -> impl Iterator<Item = ast::PermissionSpec> {
-        lines.map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
+    fn sudoers_parse(lines: impl Iterator<Item = String>) -> Vec<ast::PermissionSpec> {
+        lines
+            .map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
+            .collect()
     }
 
     macro_rules! sudoer {
         ($h:expr $(,$e:expr)*) => {
-            sudoers_parse(
+            &sudoers_parse(
                 iter::once($h)
                 $(
                     .chain(iter::once($e))
