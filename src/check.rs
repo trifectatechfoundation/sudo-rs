@@ -1,5 +1,7 @@
 //! Code that checks (and in the future: lists) permissions in the sudoers file
 
+use std::collections::HashSet;
+
 use crate::ast;
 use crate::ast::*;
 use crate::basic_parser;
@@ -12,6 +14,68 @@ fn in_group(user: &str, group: &str) -> bool {
     user == group
 }
 
+pub struct UserInfo<'a> {
+    pub user: &'a str,
+    pub group: &'a str,
+}
+
+/// Check if the user [am_user] is allowed to run [cmdline] on machine [on_host] as the requested
+/// user/group. Not that in the sudoers file, later permissions override earlier restrictions.
+/// The [cmdline] argument should already be ready to essentially feed to an exec() call; or be
+/// a special command like 'sudoedit'.
+
+// This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
+// doesn't match, we escape using the '?' mechanism.
+pub fn check_permission(
+    sudoers: impl Iterator<Item = ast::PermissionSpec>,
+    am_user: &str,
+    request: &UserInfo,
+    on_host: &str,
+    cmdline: &str,
+) -> Option<Vec<Tag>> {
+    let user_aliases = HashSet::new();
+    let runas_aliases = HashSet::new();
+    let host_aliases = HashSet::new();
+    let cmnd_aliases = HashSet::new();
+
+    let allowed_commands = sudoers
+        .filter_map(|sudo| {
+            find_item(&sudo.users, match_user(am_user), &user_aliases)?;
+
+            let matching_rules = sudo
+                .permissions
+                .iter()
+                .filter_map(|(hosts, runas, cmds)| {
+                    find_item(hosts, match_token(on_host), &host_aliases)?;
+
+                    //TODO: investigate the role of runas_aliases; can these contain both groups AND users? is user_alias involved here?
+                    if let Some(RunAs { users, groups }) = runas {
+                        if !users.is_empty() || request.user != am_user {
+                            *find_item(users, match_user(request.user), &runas_aliases)?
+                        }
+                        if !in_group(request.user, request.group) {
+                            *find_item(groups, match_token(request.group), &runas_aliases)?
+                        }
+                    } else if request.user != "root" || !in_group("root", request.group) {
+                        None?;
+                    }
+
+                    Some(cmds)
+                })
+                .flatten();
+
+            Some(matching_rules.cloned().collect::<Vec<_>>())
+        })
+        .collect::<Vec<_>>();
+
+    find_item(
+        allowed_commands.iter().flatten(),
+        match_command(cmdline),
+        &cmnd_aliases,
+    )
+    .cloned()
+}
+
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
@@ -19,6 +83,7 @@ fn in_group(user: &str, group: &str) -> bool {
 fn find_item<'a, Predicate, T, Permit: Tagged<T> + 'a>(
     items: impl IntoIterator<Item = &'a Permit>,
     matches: Predicate,
+    aliases: &HashSet<String>,
 ) -> Option<&'a Permit::Flags>
 where
     Predicate: Fn(&T) -> bool,
@@ -29,9 +94,11 @@ where
             Qualified::Forbid(x) => (false, x),
             Qualified::Allow(x) => (true, x),
         };
+        let get_flags = || item.to_info();
         match who {
-            All::All => result = judgement.then(|| item.to_info()),
-            All::Only(ident) if matches(ident) => result = judgement.then(|| item.to_info()),
+            All::All => result = judgement.then(get_flags),
+            All::Only(ident) if matches(ident) => result = judgement.then(get_flags),
+            All::Alias(id) if aliases.contains(id) => result = judgement.then(get_flags),
             _ => {}
         };
     }
@@ -64,55 +131,73 @@ fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-pub struct UserInfo<'a> {
-    pub user: &'a str,
-    pub group: &'a str,
-}
+/// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
+/// It is much easier if they are presented in a "definitional order" (i.e. aliases that use other aliases occur later)
+/// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and
 
-/// Check if the user [am_user] is allowed to run [cmdline] on machine [on_host] as the requested
-/// user/group. Not that in the sudoers file, later permissions override earlier restrictions.
-/// The [cmdline] argument should already be ready to essentially feed to an exec() call; or be
-/// a special command like 'sudoedit'.
+fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
+    fn remqualify<U>(item: &Qualified<U>) -> &U {
+        match item {
+            Qualified::Allow(x) => x,
+            Qualified::Forbid(x) => x,
+        }
+    }
 
-// This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
-// doesn't match, we escape using the '?' mechanism.
-pub fn check_permission(
-    sudoers: impl Iterator<Item = ast::PermissionSpec>,
-    am_user: &str,
-    request: &UserInfo,
-    on_host: &str,
-    cmdline: &str,
-) -> Option<Vec<Tag>> {
-    let allowed_commands = sudoers
-        .filter_map(|sudo| {
-            find_item(&sudo.users, match_user(am_user))?;
+    let derange = {
+        // perform a topological sort (hattip david@tweedegolf.com) to produce a derangement
+        struct Visitor<'a, T> {
+            seen: HashSet<usize>,
+            table: &'a Vec<Def<T>>,
+            order: Vec<usize>,
+        }
 
-            let matching_rules = sudo
-                .permissions
-                .iter()
-                .filter_map(|(hosts, runas, cmds)| {
-                    find_item(hosts, match_token(on_host))?;
-
-                    if let Some(RunAs { users, groups }) = runas {
-                        if !users.is_empty() || request.user != am_user {
-                            *find_item(users, match_user(request.user))?
-                        }
-                        if !in_group(request.user, request.group) {
-                            *find_item(groups, match_token(request.group))?
-                        }
-                    } else if request.user != "root" || !in_group("root", request.group) {
-                        None?;
+        impl<T> Visitor<'_, T> {
+            fn visit(&mut self, pos: usize) {
+                if self.seen.insert(pos) {
+                    let Def(_, members) = &self.table[pos];
+                    for elem in members {
+                        let All::Alias(name) = remqualify(elem) else { break };
+                        let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
+			    panic!("undefined alias: `{name}'");
+			};
+                        self.visit(dependency);
                     }
+                    self.order.push(pos);
+                } else if !self.order.contains(&pos) {
+                    let Def(id, _) = &self.table[pos];
+                    panic!("recursive alias: `{id}'");
+                }
+            }
+        }
 
-                    Some(cmds)
-                })
-                .flatten();
+        let mut visitor = Visitor {
+            seen: HashSet::new(),
+            table,
+            order: Vec::with_capacity(table.len()),
+        };
 
-            Some(matching_rules.cloned().collect::<Vec<_>>())
-        })
-        .collect::<Vec<_>>();
+        let mut dupe = HashSet::new();
+        for (i, Def(name, _)) in table.iter().enumerate() {
+            if !dupe.insert(name) {
+                panic!("multiple occurences of `{name}'");
+            } else {
+                visitor.visit(i);
+            }
+        }
 
-    find_item(allowed_commands.iter().flatten(), match_command(cmdline)).cloned()
+        visitor.order
+    };
+
+    // now swap the original array into the correct form
+    let mut xlat = (0..table.len()).collect::<Vec<_>>();
+    let mut oldp = (0..table.len()).collect::<Vec<_>>();
+
+    for i in 0..table.len() {
+        let new_i = xlat[derange[i]];
+        table.swap(i, new_i);
+        xlat[oldp[i]] = new_i;
+        oldp[new_i] = oldp[i];
+    }
 }
 
 #[cfg(test)]
@@ -211,11 +296,71 @@ mod test {
         match basic_parser::expect_nonterminal::<ast::Sudo>(
             &mut "User_Alias HENK = user1, user2".chars().peekable(),
         ) {
-            Sudo::Decl(Directive::UserAlias(name, list)) => {
+            Sudo::Decl(Directive::UserAlias(Def(name, list))) => {
                 assert_eq!(name, "HENK");
                 assert_eq!(list, vec![y("user1"), y("user2")]);
             }
             _ => panic!("incorrectly parsed"),
         }
+    }
+
+    fn test_topo_sort(n: usize) {
+        let alias = |s: &str| Qualified::Allow(All::<UserSpecifier>::Alias(s.to_string()));
+        let stop = || Qualified::Allow(All::<UserSpecifier>::All);
+        type Elem = Spec<UserSpecifier>;
+        let test_case = |x1: Elem, x2: Elem, x3: Elem| {
+            let mut table = vec![
+                Def("AAP".to_string(), vec![x1]),
+                Def("NOOT".to_string(), vec![x2]),
+                Def("MIES".to_string(), vec![x3]),
+            ];
+            sanitize_alias_table(&mut table);
+            let mut seen = HashSet::new();
+            for Def(id, defns) in table {
+                if defns.iter().any(|spec| {
+                    let Qualified::Allow(All::Alias(id2)) = spec else { return false };
+                    !seen.contains(id2)
+                }) {
+                    panic!("forward reference encountered after sorting");
+                }
+                seen.insert(id);
+            }
+        };
+        match n {
+            0 => test_case(alias("AAP"), alias("NOOT"), stop()),
+            1 => test_case(alias("AAP"), stop(), alias("NOOT")),
+            2 => test_case(alias("NOOT"), alias("AAP"), stop()),
+            3 => test_case(alias("NOOT"), stop(), alias("AAP")),
+            4 => test_case(stop(), alias("AAP"), alias("NOOT")),
+            5 => test_case(stop(), alias("NOOT"), alias("AAP")),
+            _ => panic!("error in test case"),
+        }
+    }
+
+    #[test]
+    fn test_topo_positve() {
+        test_topo_sort(3);
+        test_topo_sort(4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_topo_fail0() {
+        test_topo_sort(0);
+    }
+    #[test]
+    #[should_panic]
+    fn test_topo_fail1() {
+        test_topo_sort(1);
+    }
+    #[test]
+    #[should_panic]
+    fn test_topo_fail2() {
+        test_topo_sort(2);
+    }
+    #[test]
+    #[should_panic]
+    fn test_topo_fail5() {
+        test_topo_sort(5);
     }
 }

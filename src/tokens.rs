@@ -4,7 +4,7 @@ use crate::basic_parser::{Many, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub struct Username(pub String);
 
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
@@ -53,7 +53,7 @@ impl Many for Hostname {}
 
 /// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
 #[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub enum UserSpecifier {
     User(Username),
     Group(Username),
@@ -88,6 +88,7 @@ impl Many for UserSpecifier {}
 pub enum All<T> {
     All,
     Only(T),
+    Alias(String),
 }
 
 impl<T: Token> Token for All<T> {

@@ -41,8 +41,12 @@ pub struct PermissionSpec {
 }
 
 // AST object for directive specifications (aliases, arguments, etc)
+#[derive(Debug)]
+pub struct Def<T>(pub String, pub SpecList<T>);
+
+#[derive(Debug)]
 pub enum Directive {
-    UserAlias(String, SpecList<UserSpecifier>),
+    UserAlias(Def<UserSpecifier>),
 }
 
 // The main AST object for sudo directives (including alias definitions)
@@ -144,6 +148,7 @@ impl Parse for CommandSpec {
             match keyword {
                 All::Only(tag) => tags.push(tag),
                 All::All => return Some(CommandSpec(tags, Qualified::Allow(All::All))),
+                _ => todo!(),
             }
             if tags.len() > limit {
                 panic!("parse error: too many tags for command specifier")
@@ -235,7 +240,7 @@ fn get_directive(
         "User_Alias" => {
             let name = expect_nonterminal::<Upper>(stream);
             expect_syntax('=', stream);
-            Some(UserAlias(name.to_string(), expect_nonterminal(stream)))
+            Some(UserAlias(Def(name.to_string(), expect_nonterminal(stream))))
         }
         _ => None,
     }
@@ -275,4 +280,88 @@ impl Tagged<Command> for CommandSpec {
     fn to_info(&self) -> &Self::Flags {
         &self.0
     }
+}
+
+//TODO duplicates?
+fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
+    use std::collections::HashSet;
+
+    fn remqualify<U>(item: &Qualified<U>) -> &U {
+        match item {
+            Qualified::Allow(x) => x,
+            Qualified::Forbid(x) => x,
+        }
+    }
+
+    let derange = {
+        // perform a topological sort (hattip folkert@tweedegolf.com) to produce a derangement
+        struct Visitor<'a, T> {
+            seen: HashSet<usize>,
+            table: &'a Vec<Def<T>>,
+            order: Vec<usize>,
+        }
+
+        impl<T> Visitor<'_, T> {
+            fn visit(&mut self, pos: usize) {
+                if self.seen.insert(pos) {
+                    let Def(_, members) = &self.table[pos];
+                    for elem in members {
+                        let All::Alias(name) = remqualify(elem) else { break };
+                        let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
+			    panic!("undefined alias: `{name}'");
+			};
+                        self.visit(dependency);
+                    }
+                    self.order.push(pos);
+                } else if !self.order.contains(&pos) {
+                    let Def(id, _) = &self.table[pos];
+                    panic!("recursive alias: `{id}'");
+                }
+            }
+        }
+
+        let mut visitor = Visitor {
+            seen: HashSet::new(),
+            table,
+            order: Vec::with_capacity(table.len()),
+        };
+
+        let mut dupe = HashSet::new();
+        for (i, Def(name, _)) in table.iter().enumerate() {
+            if !dupe.insert(name) {
+                panic!("multiple occurences of `{name}'");
+            } else {
+                visitor.visit(i);
+            }
+        }
+
+        visitor.order
+    };
+
+    // now swap the original array into the correct form
+    let mut xlat = (0..table.len()).collect::<Vec<_>>();
+    let mut oldp = (0..table.len()).collect::<Vec<_>>();
+
+    for i in 0..table.len() {
+        let new_i = xlat[derange[i]];
+        table.swap(i, new_i);
+        xlat[oldp[i]] = new_i;
+        oldp[new_i] = oldp[i];
+    }
+}
+
+pub fn test_sort() {
+    let alias = |s: &str| Qualified::Allow(All::<UserSpecifier>::Alias(s.to_string()));
+    let user = |s: &str| {
+        Qualified::Allow(All::<UserSpecifier>::Only(UserSpecifier::User(Username(
+            s.to_string(),
+        ))))
+    };
+    let mut table = vec![
+        Def("HENK".to_string(), vec![alias("KEES")]),
+        Def("JAN".to_string(), vec![user("mark")]),
+        Def("KEES".to_string(), vec![alias("JAN")]),
+    ];
+    sanitize_alias_table(&mut table);
+    println!("{table:?}");
 }
