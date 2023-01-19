@@ -19,6 +19,10 @@ pub struct UserInfo<'a> {
     pub group: &'a str,
 }
 
+pub struct AliasTable {
+    pub user: Vec<Def<UserSpecifier>>,
+}
+
 /// Check if the user [am_user] is allowed to run [cmdline] on machine [on_host] as the requested
 /// user/group. Not that in the sudoers file, later permissions override earlier restrictions.
 /// The [cmdline] argument should already be ready to essentially feed to an exec() call; or be
@@ -28,33 +32,34 @@ pub struct UserInfo<'a> {
 // doesn't match, we escape using the '?' mechanism.
 pub fn check_permission(
     sudoers: impl Iterator<Item = ast::PermissionSpec>,
+    alias_table: &AliasTable,
     am_user: &str,
     request: &UserInfo,
     on_host: &str,
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
-    let user_aliases = HashSet::new();
+    let user_aliases = get_aliases(&alias_table.user, &match_user(am_user));
     let runas_aliases = HashSet::new();
     let host_aliases = HashSet::new();
     let cmnd_aliases = HashSet::new();
 
     let allowed_commands = sudoers
         .filter_map(|sudo| {
-            find_item(&sudo.users, match_user(am_user), &user_aliases)?;
+            find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
 
             let matching_rules = sudo
                 .permissions
                 .iter()
                 .filter_map(|(hosts, runas, cmds)| {
-                    find_item(hosts, match_token(on_host), &host_aliases)?;
+                    find_item(hosts, &match_token(on_host), &host_aliases)?;
 
                     //TODO: investigate the role of runas_aliases; can these contain both groups AND users? is user_alias involved here?
                     if let Some(RunAs { users, groups }) = runas {
                         if !users.is_empty() || request.user != am_user {
-                            *find_item(users, match_user(request.user), &runas_aliases)?
+                            *find_item(users, &match_user(request.user), &runas_aliases)?
                         }
                         if !in_group(request.user, request.group) {
-                            *find_item(groups, match_token(request.group), &runas_aliases)?
+                            *find_item(groups, &match_token(request.group), &runas_aliases)?
                         }
                     } else if request.user != "root" || !in_group("root", request.group) {
                         None?;
@@ -70,7 +75,7 @@ pub fn check_permission(
 
     find_item(
         allowed_commands.iter().flatten(),
-        match_command(cmdline),
+        &match_command(cmdline),
         &cmnd_aliases,
     )
     .cloned()
@@ -82,7 +87,7 @@ pub fn check_permission(
 
 fn find_item<'a, Predicate, T, Permit: Tagged<T> + 'a>(
     items: impl IntoIterator<Item = &'a Permit>,
-    matches: Predicate,
+    matches: &Predicate,
     aliases: &HashSet<String>,
 ) -> Option<&'a Permit::Flags>
 where
@@ -129,6 +134,22 @@ fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     text: &str,
 ) -> (impl Fn(&T) -> bool + '_) {
     move |token| token.as_str() == text
+}
+
+/// Find all the aliases that a object is a member of; this requires [sanitized_alias_table] to have run first;
+/// I.e. this function should not be "pub".
+fn get_aliases<Predicate, T>(table: &Vec<Def<T>>, pred: &Predicate) -> HashSet<String>
+where
+    Predicate: Fn(&T) -> bool,
+{
+    let mut set = HashSet::new();
+    for Def(id, list) in table {
+        if find_item(list, &pred, &set).is_some() {
+            set.insert(id.clone());
+        }
+    }
+
+    set
 }
 
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
@@ -253,20 +274,21 @@ mod test {
             user: "root",
             group: "root",
         };
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), "nobody", &root, "server", "/bin/hello"), None);
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), "user",   &root, "server", "/bin/hello"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), "user",   &root, "server", "/bin/foo"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), "user",   &root, "server", "/bin/hello"), None);
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), "user",   &root, "server", "/bin/foo"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), "user",   &root, "server", "/bin/bar"), Some(vec![Tag::NOPASSWD]));
-        assert_eq!(check_permission(sudoer!("user server=(ALL:ALL) ALL"), "user", &root, "server", "/bin/hello"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user laptop=(ALL:ALL) ALL"), "user", &root, "server", "/bin/hello"), None);
+	let no_alias = &AliasTable { user: Vec::new() };
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), no_alias, "nobody", &root, "server", "/bin/hello"), None);
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), no_alias, "user",   &root, "server", "/bin/hello"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), no_alias, "user",   &root, "server", "/bin/foo"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), no_alias, "user",   &root, "server", "/bin/hello"), None);
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), no_alias, "user",   &root, "server", "/bin/foo"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), no_alias, "user",   &root, "server", "/bin/bar"), Some(vec![Tag::NOPASSWD]));
+        assert_eq!(check_permission(sudoer!("user server=(ALL:ALL) ALL"), no_alias, "user", &root, "server", "/bin/hello"), Some(vec![]));
+        assert_eq!(check_permission(sudoer!("user laptop=(ALL:ALL) ALL"), no_alias, "user", &root, "server", "/bin/hello"), None);
         assert_eq!(check_permission(sudoer!["user ALL=!/bin/hello",
-                                            "user ALL=/bin/hello"], "user",   &root, "server", "/bin/hello"), Some(vec![]));
+                                            "user ALL=/bin/hello"],   no_alias, "user",   &root, "server", "/bin/hello"), Some(vec![]));
         assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
-                                            "user ALL=!/bin/hello"], "user",   &root, "server", "/bin/hello"), None);
+                                            "user ALL=!/bin/hello"],  no_alias, "user",   &root, "server", "/bin/hello"), None);
         assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
-                                            "user ALL=!/bin/whoami"], "user",   &root, "server", "/bin/hello"), Some(vec![]));
+                                            "user ALL=!/bin/whoami"], no_alias, "user",   &root, "server", "/bin/hello"), Some(vec![]));
     }
 
     #[test]

@@ -21,8 +21,22 @@ fn chatty_check_permission(
         "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
         am_user, on_host, chosen_poison, request.user, request.group
     );
+    use ast::*;
+    use tokens::*;
     let result = check_permission(
         sudoers_parse(sudoers),
+        // hardcoded for now
+        &AliasTable {
+            user: vec![Def(
+                "GROUP".to_string(),
+                vec![
+                    Qualified::Allow(All::Only(UserSpecifier::User(Username("marc".to_string())))),
+                    Qualified::Allow(All::Only(UserSpecifier::User(Username(
+                        "christian".to_string(),
+                    )))),
+                ],
+            )],
+        },
         am_user,
         request,
         on_host,
