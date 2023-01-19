@@ -19,8 +19,27 @@ pub struct UserInfo<'a> {
     pub group: &'a str,
 }
 
+// TODO: combine this with Vec<PermissionSpec> into a single data structure?
+#[derive(Default)]
 pub struct AliasTable {
-    pub user: Vec<Def<UserSpecifier>>,
+    user: Vec<Def<UserSpecifier>>,
+}
+
+/// Process a sudoers-parsing file into a workable AST
+
+pub fn analyze(sudoers: impl Iterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+    use Directive::*;
+    let mut permits = Vec::new();
+    let mut alias: AliasTable = Default::default();
+    for item in sudoers {
+        match item {
+            Sudo::Spec(permission) => permits.push(permission),
+            Sudo::Decl(UserAlias(def)) => alias.user.push(def),
+        }
+    }
+
+    sanitize_alias_table(&mut alias.user);
+    (permits, alias)
 }
 
 /// Check if the user [am_user] is allowed to run [cmdline] on machine [on_host] as the requested
@@ -39,7 +58,6 @@ pub fn check_permission(
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
     let user_aliases = get_aliases(&alias_table.user, &match_user(am_user));
-    println!("{:?}YES{:?}", am_user, user_aliases);
     let runas_aliases = HashSet::new();
     let host_aliases = HashSet::new();
     let cmnd_aliases = HashSet::new();

@@ -231,8 +231,8 @@ fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Option<Directive> {
-    use crate::ast::Meta::*;
     use crate::ast::Directive::*;
+    use crate::ast::Meta::*;
     use crate::ast::Qualified::*;
     use crate::ast::UserSpecifier::*;
     let Allow(Only(User(keyword))) = perhaps_keyword else { return None };

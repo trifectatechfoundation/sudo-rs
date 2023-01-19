@@ -1,19 +1,17 @@
 mod ast;
 mod basic_parser;
-mod tokens;
-use ast::*;
 mod check;
-use check::*;
+mod tokens;
 
 // TODO: this should give parse error messages etc.
-fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::PermissionSpec> {
-    lines.map(|text| basic_parser::expect_complete::<PermissionSpec>(&mut text.chars().peekable()))
+fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::Sudo> {
+    lines.map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
 }
 
 fn chatty_check_permission(
     sudoers: impl Iterator<Item = String>,
     am_user: &str,
-    request: &UserInfo,
+    request: &check::UserInfo,
     on_host: &str,
     chosen_poison: &str,
 ) {
@@ -21,22 +19,10 @@ fn chatty_check_permission(
         "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
         am_user, on_host, chosen_poison, request.user, request.group
     );
-    use ast::*;
-    use tokens::*;
-    let result = check_permission(
-        sudoers_parse(sudoers),
-        // hardcoded for now
-        &AliasTable {
-            user: vec![Def(
-                "GROUP".to_string(),
-                vec![
-                    Qualified::Allow(Meta::Only(UserSpecifier::User(Username("marc".to_string())))),
-                    Qualified::Allow(Meta::Only(UserSpecifier::User(Username(
-                        "christian".to_string(),
-                    )))),
-                ],
-            )],
-        },
+    let (input, aliases) = check::analyze(sudoers_parse(sudoers));
+    let result = check::check_permission(
+        input.into_iter(),
+        &aliases,
         am_user,
         request,
         on_host,
@@ -58,7 +44,7 @@ fn main() {
             chatty_check_permission(
                 cfg,
                 &args[1],
-                &UserInfo {
+                &check::UserInfo {
                     user: args.get(4).unwrap_or(&"root".to_string()),
                     group: args.get(5).unwrap_or(&"root".to_string())
                 },
