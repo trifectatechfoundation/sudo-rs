@@ -198,7 +198,7 @@ mod test {
     fn directive_test() {
         let _everybody = Qualified::Allow(All::<UserSpecifier>::All);
         let _nobody = Qualified::Forbid(All::<UserSpecifier>::All);
-        let y = |name| Qualified::Allow(All::Only(UserSpecifier::User(Username(name.to_owned()))));
+        let y = |name: &str| Qualified::Allow(All::Only(UserSpecifier::User(Username(name.to_owned()))));
         let _not = |name: &str| Qualified::Forbid(All::Only(name.to_owned()));
         match basic_parser::expect_nonterminal::<ast::Sudo>(
             &mut "User_Alias HENK = user1, user2".chars().peekable(),

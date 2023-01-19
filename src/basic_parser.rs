@@ -89,7 +89,7 @@ pub fn expect_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = ch
         } else {
             "EOL".to_string()
         };
-        panic!("parse error: expecting `{}' but found `{}'", syntax, str)
+        panic!("parse error: expecting `{syntax}' but found `{str}'")
     }
 }
 

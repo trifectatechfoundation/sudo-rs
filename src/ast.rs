@@ -124,7 +124,7 @@ impl Parse for All<Tag> {
                 return Some(All::Only(TIMEOUT(t)));
             }
             "ALL" => return Some(All::All),
-            unknown => panic!("parse error: unrecognized keyword '{}'", unknown),
+            unknown => panic!("parse error: unrecognized keyword '{unknown}'"),
         };
         expect_syntax(':', stream);
         Some(All::Only(result))
