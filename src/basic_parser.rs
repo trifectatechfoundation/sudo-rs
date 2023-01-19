@@ -41,6 +41,13 @@ pub trait Parse {
         Self: Sized;
 }
 
+/// Convenience function (especially useful for writing test cases, to avoid having to write out the
+/// AST constructors by hand.
+#[cfg(test)]
+pub fn parse_eval<T: Parse>(text: &str) -> T {
+    expect_complete(&mut text.chars().peekable())
+}
+
 /// Primitive function (that also adheres to the Parse trait contract): accepts one character
 /// that satisfies `predicate`. This is used in the majority of all the other `Parse`
 /// implementations instead of interfacing with the iterator directly (this can facilitate an easy

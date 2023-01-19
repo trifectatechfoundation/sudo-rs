@@ -118,6 +118,7 @@ pub fn check_permission(
 #[cfg(test)]
 mod test {
     use super::*;
+    use basic_parser::parse_eval;
     use std::iter;
 
     fn sudoers_parse(
@@ -141,27 +142,23 @@ mod test {
     #[test]
     #[should_panic]
     fn invalid_spec() {
-        let string = "ALL ALL = (;) ALL";
-        basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable());
+        parse_eval::<ast::Sudo>("ALL ALL = (;) ALL");
     }
 
     #[test]
     fn ambiguous_spec1() {
-        let string = "marc, User_Alias ALL = ALL";
-        let Sudo::Spec(_) = basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable()) else { todo!() };
+        let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else { todo!() };
     }
 
     #[test]
     fn ambiguous_spec2() {
-        let string = "User_Alias ALIAS = ALL";
-        let Sudo::Decl(_) = basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable()) else { todo!() };
+        let Sudo::Decl(_) = parse_eval::<ast::Sudo>("User_Alias ALIAS = ALL") else { todo!() };
     }
 
     #[test]
     #[should_panic]
     fn ambiguous_spec3() {
-        let string = "User_Alias, marc ALL = ALL";
-        basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable());
+        parse_eval::<ast::Sudo>("User_Alias, marc ALL = ALL");
     }
 
     #[test]
@@ -190,16 +187,27 @@ mod test {
     #[test]
     #[should_panic]
     fn invalid_directive() {
-        let string = "User_Alias, user Alias = user1, user2";
-        basic_parser::expect_nonterminal::<ast::Sudo>(&mut string.chars().peekable());
+        parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");
+    }
+
+    use std::ops::Neg;
+    use Qualified::*;
+    impl<T> Neg for Qualified<T> {
+        type Output = Qualified<T>;
+        fn neg(self) -> Qualified<T> {
+            match self {
+                Allow(x) => Forbid(x),
+                Forbid(x) => Allow(x),
+            }
+        }
     }
 
     #[test]
     fn directive_test() {
-        let _everybody = Qualified::Allow(All::<UserSpecifier>::All);
-        let _nobody = Qualified::Forbid(All::<UserSpecifier>::All);
-        let y = |name: &str| Qualified::Allow(All::Only(UserSpecifier::User(Username(name.to_owned()))));
-        let _not = |name: &str| Qualified::Forbid(All::Only(name.to_owned()));
+        let _everybody = parse_eval::<Spec<UserSpecifier>>("ALL");
+        let _nobody = parse_eval::<Spec<UserSpecifier>>("!ALL");
+        let y = |name| parse_eval::<Spec<UserSpecifier>>(name);
+        let _not = |name| -parse_eval::<Spec<UserSpecifier>>(name);
         match basic_parser::expect_nonterminal::<ast::Sudo>(
             &mut "User_Alias HENK = user1, user2".chars().peekable(),
         ) {
