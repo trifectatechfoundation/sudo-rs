@@ -85,26 +85,30 @@ impl Many for UserSpecifier {}
 /// simply directly as an implementation of [crate::basic_parser::Parse]
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
-pub enum All<T> {
+pub enum Meta<T> {
     All,
     Only(T),
     Alias(String),
 }
 
-impl<T: Token> Token for All<T> {
+impl<T: Token> Token for Meta<T> {
     const IDENT: fn(String) -> Self = |s| {
-        if s == "ALL" {
-            All::All
+        if s.chars().all(char::is_uppercase) {
+            if s == "ALL" {
+                Meta::All
+            } else {
+                Meta::Alias(s)
+            }
         } else {
-            All::Only(T::IDENT(s))
+            Meta::Only(T::IDENT(s))
         }
     };
     const MAX_LEN: usize = T::MAX_LEN;
     fn accept(c: char) -> bool {
-        T::accept(c) || c == 'L'
+        T::accept(c) || c.is_uppercase()
     }
     fn accept_1st(c: char) -> bool {
-        T::accept_1st(c) || c == 'A'
+        T::accept_1st(c) || c.is_uppercase()
     }
 
     const ESCAPE: char = T::ESCAPE;
@@ -113,7 +117,7 @@ impl<T: Token> Token for All<T> {
     }
 }
 
-impl<T: Many> Many for All<T> {
+impl<T: Many> Many for Meta<T> {
     const SEP: char = T::SEP;
     const LIMIT: usize = T::LIMIT;
 }

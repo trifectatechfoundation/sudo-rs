@@ -39,6 +39,7 @@ pub fn check_permission(
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
     let user_aliases = get_aliases(&alias_table.user, &match_user(am_user));
+    println!("{:?}YES{:?}", am_user, user_aliases);
     let runas_aliases = HashSet::new();
     let host_aliases = HashSet::new();
     let cmnd_aliases = HashSet::new();
@@ -101,9 +102,9 @@ where
         };
         let get_flags = || item.to_info();
         match who {
-            All::All => result = judgement.then(get_flags),
-            All::Only(ident) if matches(ident) => result = judgement.then(get_flags),
-            All::Alias(id) if aliases.contains(id) => result = judgement.then(get_flags),
+            Meta::All => result = judgement.then(get_flags),
+            Meta::Only(ident) if matches(ident) => result = judgement.then(get_flags),
+            Meta::Alias(id) if aliases.contains(id) => result = judgement.then(get_flags),
             _ => {}
         };
     }
@@ -177,7 +178,7 @@ fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
                 if self.seen.insert(pos) {
                     let Def(_, members) = &self.table[pos];
                     for elem in members {
-                        let All::Alias(name) = remqualify(elem) else { break };
+                        let Meta::Alias(name) = remqualify(elem) else { break };
                         let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
 			    panic!("undefined alias: `{name}'");
 			};
@@ -287,8 +288,18 @@ mod test {
                                             "user ALL=/bin/hello"],   no_alias, "user",   &root, "server", "/bin/hello"), Some(vec![]));
         assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
                                             "user ALL=!/bin/hello"],  no_alias, "user",   &root, "server", "/bin/hello"), None);
-        assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
-                                            "user ALL=!/bin/whoami"], no_alias, "user",   &root, "server", "/bin/hello"), Some(vec![]));
+
+	for alias in &[
+	    AliasTable {
+		user: vec![Def("GROUP".to_string(), parse_eval("user1, user2"))]
+	    }, 
+	    AliasTable {
+		user: vec![Def("GROUP".to_string(), parse_eval("ALL,!user3"))]
+	    }] {
+	    assert_eq!(check_permission(sudoer!["GROUP ALL=/bin/hello"], alias, "user1", &root, "server", "/bin/hello"), Some(vec![]));
+	    assert_eq!(check_permission(sudoer!["GROUP ALL=/bin/hello"], alias, "user2", &root, "server", "/bin/hello"), Some(vec![]));
+	    assert_eq!(check_permission(sudoer!["GROUP ALL=/bin/hello"], alias, "user3", &root, "server", "/bin/hello"), None);
+	}
     }
 
     #[test]
@@ -327,8 +338,8 @@ mod test {
     }
 
     fn test_topo_sort(n: usize) {
-        let alias = |s: &str| Qualified::Allow(All::<UserSpecifier>::Alias(s.to_string()));
-        let stop = || Qualified::Allow(All::<UserSpecifier>::All);
+        let alias = |s: &str| Qualified::Allow(Meta::<UserSpecifier>::Alias(s.to_string()));
+        let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);
         type Elem = Spec<UserSpecifier>;
         let test_case = |x1: Elem, x2: Elem, x3: Elem| {
             let mut table = vec![
@@ -340,7 +351,7 @@ mod test {
             let mut seen = HashSet::new();
             for Def(id, defns) in table {
                 if defns.iter().any(|spec| {
-                    let Qualified::Allow(All::Alias(id2)) = spec else { return false };
+                    let Qualified::Allow(Meta::Alias(id2)) = spec else { return false };
                     !seen.contains(id2)
                 }) {
                     panic!("forward reference encountered after sorting");

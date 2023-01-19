@@ -11,7 +11,7 @@ pub enum Qualified<T> {
 }
 
 /// Type aliases; many items can be replaced by ALL, aliases, and negated.
-pub type Spec<T> = Qualified<All<T>>;
+pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
@@ -106,8 +106,8 @@ impl Parse for RunAs {
     }
 }
 
-/// Implementing the trait `All<Tag>`. Note that [Tag] does not implement [crate::basic_parser::Token]
-/// so this does not conflict with the generic definition for [All].
+/// Implementing the trait `Meta<Tag>`. Note that [Tag] does not implement [crate::basic_parser::Token]
+/// so this does not conflict with the generic definition for [Meta].
 ///
 /// The reason for combining a parser for these two unrelated categories is that this is one spot
 /// where the sudoer grammar isn't nicely LL(1); so at the same place where "NOPASSWD" can appear,
@@ -115,8 +115,8 @@ impl Parse for RunAs {
 
 // note: at present, "ALL" can be distinguished from a tag using a lookup of 1, since no tag starts with an "A"; but this feels like hanging onto
 // the parseability by a thread (although the original sudo also has some ugly parts, like 'sha224' being an illegal user name).
-// to be more general, we impl Parse for All<Tag> so a future tag like "AFOOBAR" can be added with no problem
-impl Parse for All<Tag> {
+// to be more general, we impl Parse for Meta<Tag> so a future tag like "AFOOBAR" can be added with no problem
+impl Parse for Meta<Tag> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         use Tag::*;
         let Upper(keyword) = try_nonterminal(stream)?;
@@ -125,13 +125,13 @@ impl Parse for All<Tag> {
             "TIMEOUT" => {
                 expect_syntax('=', stream);
                 let Decimal(t) = expect_nonterminal(stream);
-                return Some(All::Only(TIMEOUT(t)));
+                return Some(Meta::Only(TIMEOUT(t)));
             }
-            "ALL" => return Some(All::All),
+            "ALL" => return Some(Meta::All),
             unknown => panic!("parse error: unrecognized keyword '{unknown}'"),
         };
         expect_syntax(':', stream);
-        Some(All::Only(result))
+        Some(Meta::Only(result))
     }
 }
 
@@ -146,8 +146,8 @@ impl Parse for CommandSpec {
         let limit = 100;
         while let Some(keyword) = try_nonterminal(stream) {
             match keyword {
-                All::Only(tag) => tags.push(tag),
-                All::All => return Some(CommandSpec(tags, Qualified::Allow(All::All))),
+                Meta::Only(tag) => tags.push(tag),
+                Meta::All => return Some(CommandSpec(tags, Qualified::Allow(Meta::All))),
                 _ => todo!(),
             }
             if tags.len() > limit {
@@ -231,7 +231,7 @@ fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Option<Directive> {
-    use crate::ast::All::*;
+    use crate::ast::Meta::*;
     use crate::ast::Directive::*;
     use crate::ast::Qualified::*;
     use crate::ast::UserSpecifier::*;

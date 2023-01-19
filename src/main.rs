@@ -30,8 +30,8 @@ fn chatty_check_permission(
             user: vec![Def(
                 "GROUP".to_string(),
                 vec![
-                    Qualified::Allow(All::Only(UserSpecifier::User(Username("marc".to_string())))),
-                    Qualified::Allow(All::Only(UserSpecifier::User(Username(
+                    Qualified::Allow(Meta::Only(UserSpecifier::User(Username("marc".to_string())))),
+                    Qualified::Allow(Meta::Only(UserSpecifier::User(Username(
                         "christian".to_string(),
                     )))),
                 ],
