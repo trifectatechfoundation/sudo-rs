@@ -292,16 +292,16 @@ mod test {
         let no_alias = &AliasTable { user: Vec::new() };
 
         macro_rules! FAIL {
-	    ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr) => {
-		assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), None);
-	    }
-	}
+            ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr) => {
+            assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), None);
+            }
+        }
 
         macro_rules! pass {
-	    ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr => [$($list:expr),*]) => {
-		assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), Some(vec![$($list),*]));
-	    }
-	}
+            ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr => [$($list:expr),*]) => {
+            assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), Some(vec![$($list),*]));
+            }
+        }
         use crate::ast::Tag::*;
 
         FAIL!(["user ALL=(ALL:ALL) ALL"], no_alias, "nobody"    => &root, "server"; "/bin/hello");
