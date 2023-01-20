@@ -244,9 +244,7 @@ mod test {
     use std::iter;
 
     fn sudoers_parse(lines: impl Iterator<Item = String>) -> Vec<ast::PermissionSpec> {
-        lines
-            .map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
-            .collect()
+        lines.map(|text| basic_parser::parse_eval(&text)).collect()
     }
 
     macro_rules! sudoer {

@@ -5,7 +5,12 @@ mod tokens;
 
 // TODO: this should give parse error messages etc.
 fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::Sudo> {
-    lines.map(|text| basic_parser::expect_complete(&mut text.chars().peekable()))
+    lines.map(
+        |text| match basic_parser::expect_complete(&mut text.chars().peekable()) {
+            Ok(x) => x,
+            Err(error) => panic!("PARSE ERROR: {error:?}"),
+        },
+    )
 }
 
 fn chatty_check_permission(

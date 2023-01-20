@@ -64,21 +64,21 @@ pub enum Sudo {
 /// are not bothered by it later.
 
 impl<T: Parse> Parse for Qualified<T> {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        if try_syntax('!', stream).is_some() {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        if try_syntax('!', stream).is_ok() {
             let mut neg = true;
-            while try_syntax('!', stream).is_some() {
+            while try_syntax('!', stream).is_ok() {
                 neg = !neg;
             }
-            let ident = expect_nonterminal(stream);
+            let ident = expect_nonterminal(stream)?;
             if neg {
-                Some(Qualified::Forbid(ident))
+                make(Qualified::Forbid(ident))
             } else {
-                Some(Qualified::Allow(ident))
+                make(Qualified::Allow(ident))
             }
         } else {
             let ident = try_nonterminal(stream)?;
-            Some(Qualified::Allow(ident))
+            make(Qualified::Allow(ident))
         }
     }
 }
@@ -94,15 +94,15 @@ impl<T: Many> Many for Qualified<T> {
 /// ```
 
 impl Parse for RunAs {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         try_syntax('(', stream)?;
         let users = try_nonterminal(stream).unwrap_or_default();
         let groups = try_syntax(':', stream)
             .and_then(|_| try_nonterminal(stream))
             .unwrap_or_default();
-        expect_syntax(')', stream);
+        expect_syntax(')', stream)?;
 
-        Some(RunAs { users, groups })
+        make(RunAs { users, groups })
     }
 }
 
@@ -117,22 +117,22 @@ impl Parse for RunAs {
 // the parseability by a thread (although the original sudo also has some ugly parts, like 'sha224' being an illegal user name).
 // to be more general, we impl Parse for Meta<Tag> so a future tag like "AFOOBAR" can be added with no problem
 impl Parse for Meta<Tag> {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         use Tag::*;
         let Upper(keyword) = try_nonterminal(stream)?;
         let result = match keyword.as_str() {
             "NOPASSWD" => NOPASSWD,
             "TIMEOUT" => {
-                expect_syntax('=', stream);
-                let Decimal(t) = expect_nonterminal(stream);
-                return Some(Meta::Only(TIMEOUT(t)));
+                expect_syntax('=', stream)?;
+                let Decimal(t) = expect_nonterminal(stream)?;
+                return make(Meta::Only(TIMEOUT(t)));
             }
-            "ALL" => return Some(Meta::All),
+            "ALL" => return make(Meta::All),
             unknown => panic!("parse error: unrecognized keyword '{unknown}'"),
         };
-        expect_syntax(':', stream);
+        expect_syntax(':', stream)?;
 
-        Some(Meta::Only(result))
+        make(Meta::Only(result))
     }
 }
 
@@ -142,21 +142,21 @@ impl Parse for Meta<Tag> {
 /// ```
 
 impl Parse for CommandSpec {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let mut tags = Vec::new();
-        while let Some(keyword) = try_nonterminal(stream) {
+        while let Some(keyword) = probe(try_nonterminal(stream))? {
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
-                Meta::All => return Some(CommandSpec(tags, Qualified::Allow(Meta::All))),
+                Meta::All => return make(CommandSpec(tags, Qualified::Allow(Meta::All))),
                 _ => todo!(),
             }
             if tags.len() > CommandSpec::LIMIT {
                 panic!("parse error: too many tags for command specifier")
             }
         }
-        let cmd = expect_nonterminal(stream);
+        let cmd = expect_nonterminal(stream)?;
 
-        Some(CommandSpec(tags, cmd))
+        make(CommandSpec(tags, cmd))
     }
 }
 
@@ -169,13 +169,13 @@ impl Many for CommandSpec {}
 /// ```
 
 impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let hosts = try_nonterminal(stream)?;
-        expect_syntax('=', stream);
-        let runas = try_nonterminal(stream);
-        let cmds = expect_nonterminal(stream);
+        expect_syntax('=', stream)?;
+        let runas = probe(try_nonterminal(stream))?;
+        let cmds = expect_nonterminal(stream)?;
 
-        Some((hosts, runas, cmds))
+        make((hosts, runas, cmds))
     }
 }
 
@@ -193,11 +193,11 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 
 #[allow(dead_code)]
 impl Parse for PermissionSpec {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let users = try_nonterminal(stream)?;
-        let permissions = expect_nonterminal(stream);
+        let permissions = expect_nonterminal(stream)?;
 
-        Some(PermissionSpec { users, permissions })
+        make(PermissionSpec { users, permissions })
     }
 }
 
@@ -214,18 +214,18 @@ impl Parse for Sudo {
     //   "User_Alias, user machine = command"
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let users = try_nonterminal::<SpecList<_>>(stream)?;
         // element 1 always exists (parse_list fails on an empty list)
         let key = &users[0];
-        if let Some(directive) = get_directive(key, stream) {
+        if let Some(directive) = probe(get_directive(key, stream))? {
             if users.len() != 1 {
                 panic!("parse error: user name list cannot start with a directive keyword");
             }
-            Some(Sudo::Decl(directive))
+            make(Sudo::Decl(directive))
         } else {
-            let permissions = expect_nonterminal(stream);
-            Some(Sudo::Spec(PermissionSpec { users, permissions }))
+            let permissions = expect_nonterminal(stream)?;
+            make(Sudo::Spec(PermissionSpec { users, permissions }))
         }
     }
 }
@@ -233,19 +233,20 @@ impl Parse for Sudo {
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut Peekable<impl Iterator<Item = char>>,
-) -> Option<Directive> {
+) -> Parsed<Directive> {
     use crate::ast::Directive::*;
     use crate::ast::Meta::*;
     use crate::ast::Qualified::*;
     use crate::ast::UserSpecifier::*;
-    let Allow(Only(User(keyword))) = perhaps_keyword else { return None };
+    let Allow(Only(User(keyword))) = perhaps_keyword else { return reject() };
     match keyword.as_str() {
         "User_Alias" => {
-            let Upper(name) = expect_nonterminal(stream);
-            expect_syntax('=', stream);
-            Some(UserAlias(Def(name, expect_nonterminal(stream))))
+            let Upper(name) = expect_nonterminal(stream)?;
+            expect_syntax('=', stream)?;
+
+            make(UserAlias(Def(name, expect_nonterminal(stream)?)))
         }
-        _ => None,
+        _ => reject(),
     }
 }
 

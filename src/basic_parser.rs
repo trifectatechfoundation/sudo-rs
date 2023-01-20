@@ -24,19 +24,47 @@
 //! }
 //! ```
 
-// TODO: whitespace discipline may be better moved to "try_***" methods instead of the parse trait
-
 use std::iter::Peekable;
+
+/// Type holding a parsed object (or error information if parsing failed)
+
+pub type Parsed<T> = Result<T, Status>;
+
+#[derive(Debug, Clone)]
+pub enum Status {
+    Fatal(String),
+    Reject,
+}
+
+pub fn probe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
+    match status {
+        Ok(x) => Ok(Some(x)),
+        Err(Status::Reject) => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
+pub fn make<T>(value: T) -> Parsed<T> {
+    Ok(value)
+}
+
+pub fn reject<T>() -> Parsed<T> {
+    Err(Status::Reject)
+}
+
+macro_rules! unrecoverable {
+    ($(str:expr),*) => {
+        Err(Status::Fatal(format![$(str),*]))
+    }
+}
 
 /// All implementations of the Parse trait must satisfy this contract:
 ///
 /// If the `parse` method of this trait returns None, the iterator is not advanced; otherwise it is
 /// advanced beyond the accepted part of the input. i.e. if some input is consumed the method
 /// *MUST* be producing a `Some` value.
-///
-/// Implementations of this trait should consume trailing whitespace as well.
 pub trait Parse {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self>
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self>
     where
         Self: Sized;
 }
@@ -45,7 +73,7 @@ pub trait Parse {
 /// AST constructors by hand.
 #[cfg(test)]
 pub fn parse_eval<T: Parse>(text: &str) -> T {
-    expect_complete(&mut text.chars().peekable())
+    expect_complete(&mut text.chars().peekable()).unwrap()
 }
 
 /// Primitive function (that also adheres to the Parse trait contract): accepts one character
@@ -53,16 +81,17 @@ pub fn parse_eval<T: Parse>(text: &str) -> T {
 /// implementations instead of interfacing with the iterator directly (this can facilitate an easy
 /// switch to a different method of stream representation in the future). Unlike most `Parse`
 /// implementations this *does not* consume trailing whitespace.
+/// NOTE: Guaranteed not to give an unrecoverable error.
 pub fn accept_if(
     predicate: impl Fn(char) -> bool,
     stream: &mut Peekable<impl Iterator<Item = char>>,
-) -> Option<char> {
-    let &c = stream.peek()?;
+) -> Parsed<char> {
+    let &c = stream.peek().ok_or(Status::Reject)?;
     if predicate(c) {
         stream.next();
-        Some(c)
+        make(c)
     } else {
-        None
+        reject()
     }
 }
 
@@ -73,24 +102,33 @@ struct Whitespace;
 /// Accept one or more whitespace characters; fails if no whitespace is found (to parse zero or
 /// more whitespace characters, parse `Option<Whitespace>`
 impl Parse for Whitespace {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let mut eat_space = || accept_if(char::is_whitespace, stream);
         eat_space()?;
-        while eat_space().is_some() {}
-        Some(Whitespace {})
+        while eat_space().is_ok() {}
+
+        make(Whitespace {})
     }
 }
 
+pub fn skip_whitespace(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
+    probe(Whitespace::parse(stream))?;
+    make(())
+}
+
 /// Adheres to the contract of the [Parse] trait, accepts one character and consumes following whitespace.
-pub fn try_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<()> {
+pub fn try_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
     accept_if(|c| c == syntax, stream)?;
-    Whitespace::parse(stream);
-    Some(())
+    skip_whitespace(stream)?;
+    make(())
 }
 
 /// Similar to [try_syntax], but aborts parsing if the expected character is not found.
-pub fn expect_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) {
-    if try_syntax(syntax, stream).is_none() {
+pub fn expect_syntax(
+    syntax: char,
+    stream: &mut Peekable<impl Iterator<Item = char>>,
+) -> Parsed<()> {
+    if probe(try_syntax(syntax, stream))?.is_none() {
         let str = if let Some(c) = stream.peek() {
             c.to_string()
         } else {
@@ -98,21 +136,23 @@ pub fn expect_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = ch
         };
         panic!("parse error: expecting `{syntax}' but found `{str}'")
     }
+    make(())
 }
 
 /// Interface for working with types that implement the [Parse] trait; this allows parsing to use
 /// type inference. Use this instead of calling [Parse::parse] directly.
-pub fn try_nonterminal<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
-    T::parse(stream)
+pub fn try_nonterminal<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
+    let result = T::parse(stream)?;
+    skip_whitespace(stream)?;
+    make(result)
 }
 
 /// Interface for working with types that implement the [Parse] trait; this expects to parse
 /// the given type or aborts parsing if not.
-pub fn expect_nonterminal<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
-    let Some(result) = try_nonterminal(stream) else {
-        panic!("parse error: expected `{}'", std::any::type_name::<T>())
-    };
-    result
+pub fn expect_nonterminal<T: Parse>(
+    stream: &mut Peekable<impl Iterator<Item = char>>,
+) -> Parsed<T> {
+    try_nonterminal(stream)
 }
 
 /// Something that implements the Token trait is a token (i.e. a string of characters defined by a
@@ -135,13 +175,13 @@ pub trait Token {
 
 /// Implementation of the [Parse] trait for anything that implements [Token]
 impl<T: Token> Parse for T {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let mut str = accept_if(T::accept_1st, stream)?.to_string();
         loop {
-            if let Some(c) = accept_if(T::accept, stream) {
+            if let Ok(c) = accept_if(T::accept, stream) {
                 str.push(c)
-            } else if accept_if(|c| c == T::ESCAPE, stream).is_some() {
-                if let Some(c) = accept_if(T::escaped, stream) {
+            } else if accept_if(|c| c == T::ESCAPE, stream).is_ok() {
+                if let Ok(c) = accept_if(T::escaped, stream) {
                     str.push(c)
                 } else {
                     panic!("tokenizer: illegal escape sequence")
@@ -153,15 +193,15 @@ impl<T: Token> Parse for T {
                 panic!("tokenizer: exceeded safety margin")
             }
         }
-        Whitespace::parse(stream);
-        Some(T::IDENT(str))
+
+        make(T::IDENT(str))
     }
 }
 
 /// Example parser for something that has two alternatives (don't use)
 impl<T1: Token, T2: Parse> Parse for Result<T1, T2> {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
-        let &c = stream.peek()?;
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        let &c = stream.peek().ok_or(Status::Reject)?;
         if T1::accept(c) {
             T1::parse(stream).map(Ok)
         } else {
@@ -175,16 +215,17 @@ fn parse_list<T: Parse>(
     sep_by: char,
     max: usize,
     stream: &mut Peekable<impl Iterator<Item = char>>,
-) -> Option<Vec<T>> {
+) -> Parsed<Vec<T>> {
     let mut elems = Vec::new();
     elems.push(try_nonterminal(stream)?);
-    while try_syntax(sep_by, stream).is_some() {
+    while probe(try_syntax(sep_by, stream))?.is_some() {
         if elems.len() >= max {
             panic!("parse_list: parsing multiple items: safety margin exceeded")
         }
-        elems.push(expect_nonterminal(stream));
+        elems.push(expect_nonterminal(stream)?);
     }
-    Some(elems)
+
+    make(elems)
 }
 
 /// Types that implement the Many trait can be parsed multiple tokens into a `Vec<T>`; they are
@@ -197,28 +238,29 @@ pub trait Many {
 /// Generic implementation for parsing multiple items of a type `T` that implements the [Parse] and
 /// [Many] traits.
 impl<T: Parse + Many> Parse for Vec<T> {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         parse_list(T::SEP, T::LIMIT, stream)
     }
 }
 
 #[allow(dead_code)]
-fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) {
+fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
     if stream.peek().is_some() {
         panic!("parse error: trailing garbage")
     }
+    make(())
 }
 
 #[allow(dead_code)]
-pub fn try_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<T> {
+pub fn try_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
     let result = try_nonterminal(stream)?;
-    expect_end_of_parse(stream);
-    Some(result)
+    expect_end_of_parse(stream)?;
+    make(result)
 }
 
 #[allow(dead_code)]
-pub fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> T {
-    let result = expect_nonterminal(stream);
-    expect_end_of_parse(stream);
-    result
+pub fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
+    let result = expect_nonterminal(stream)?;
+    expect_end_of_parse(stream)?;
+    make(result)
 }
