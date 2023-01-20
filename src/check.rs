@@ -194,8 +194,8 @@ fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
                     for elem in members {
                         let Meta::Alias(name) = remqualify(elem) else { break };
                         let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
-			    panic!("undefined alias: `{name}'");
-			};
+                            panic!("undefined alias: `{name}'");
+                        };
                         self.visit(dependency);
                     }
                     self.order.push(pos);
