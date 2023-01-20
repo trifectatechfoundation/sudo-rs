@@ -27,21 +27,12 @@
 use std::iter::Peekable;
 
 /// Type holding a parsed object (or error information if parsing failed)
-
 pub type Parsed<T> = Result<T, Status>;
 
 #[derive(Debug, Clone)]
 pub enum Status {
-    Fatal(String),
-    Reject,
-}
-
-pub fn probe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
-    match status {
-        Ok(x) => Ok(Some(x)),
-        Err(Status::Reject) => Ok(None),
-        Err(err) => Err(err),
-    }
+    Fatal(String), // not recoverable; stream in inconsistent state
+    Reject,        // parsing failed by no input consumed
 }
 
 pub fn make<T>(value: T) -> Parsed<T> {
@@ -53,8 +44,29 @@ pub fn reject<T>() -> Parsed<T> {
 }
 
 macro_rules! unrecoverable {
-    ($(str:expr),*) => {
-        Err(Status::Fatal(format![$(str),*]))
+    ($($str:expr),*) => {
+        return Err(Status::Fatal(format![$($str),*]))
+    }
+}
+
+pub(crate) use unrecoverable;
+
+/// This recovers from a failed parsing.
+pub fn probe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
+    match status {
+        Ok(x) => Ok(Some(x)),
+        Err(Status::Reject) => Ok(None),
+        Err(err) => Err(err),
+    }
+}
+
+/// This turns recoverable errors into non-recoverable ones.
+pub fn force<T>(status: Parsed<T>) -> Parsed<T> {
+    match status {
+        Err(Status::Reject) => {
+            unrecoverable!("parse error: expected `{}'", std::any::type_name::<T>())
+        }
+        _ => status,
     }
 }
 
@@ -67,13 +79,6 @@ pub trait Parse {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self>
     where
         Self: Sized;
-}
-
-/// Convenience function (especially useful for writing test cases, to avoid having to write out the
-/// AST constructors by hand.
-#[cfg(test)]
-pub fn parse_eval<T: Parse>(text: &str) -> T {
-    expect_complete(&mut text.chars().peekable()).unwrap()
 }
 
 /// Primitive function (that also adheres to the Parse trait contract): accepts one character
@@ -128,13 +133,13 @@ pub fn expect_syntax(
     syntax: char,
     stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Parsed<()> {
-    if probe(try_syntax(syntax, stream))?.is_none() {
+    if try_syntax(syntax, stream).is_err() {
         let str = if let Some(c) = stream.peek() {
             c.to_string()
         } else {
             "EOL".to_string()
         };
-        panic!("parse error: expecting `{syntax}' but found `{str}'")
+        unrecoverable!("parse error: expecting `{syntax}' but found `{str}'")
     }
     make(())
 }
@@ -152,7 +157,7 @@ pub fn try_nonterminal<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char
 pub fn expect_nonterminal<T: Parse>(
     stream: &mut Peekable<impl Iterator<Item = char>>,
 ) -> Parsed<T> {
-    try_nonterminal(stream)
+    force(try_nonterminal(stream))
 }
 
 /// Something that implements the Token trait is a token (i.e. a string of characters defined by a
@@ -184,13 +189,13 @@ impl<T: Token> Parse for T {
                 if let Ok(c) = accept_if(T::escaped, stream) {
                     str.push(c)
                 } else {
-                    panic!("tokenizer: illegal escape sequence")
+                    unrecoverable!("tokenizer: illegal escape sequence")
                 }
             } else {
                 break;
             }
             if str.len() >= T::MAX_LEN {
-                panic!("tokenizer: exceeded safety margin")
+                unrecoverable!("tokenizer: exceeded safety margin")
             }
         }
 
@@ -220,7 +225,7 @@ fn parse_list<T: Parse>(
     elems.push(try_nonterminal(stream)?);
     while probe(try_syntax(sep_by, stream))?.is_some() {
         if elems.len() >= max {
-            panic!("parse_list: parsing multiple items: safety margin exceeded")
+            unrecoverable!("parse_list: parsing multiple items: safety margin exceeded")
         }
         elems.push(expect_nonterminal(stream)?);
     }
@@ -246,7 +251,7 @@ impl<T: Parse + Many> Parse for Vec<T> {
 #[allow(dead_code)]
 fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
     if stream.peek().is_some() {
-        panic!("parse error: trailing garbage")
+        unrecoverable!("parse error: trailing garbage")
     }
     make(())
 }
@@ -263,4 +268,15 @@ pub fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char
     let result = expect_nonterminal(stream)?;
     expect_end_of_parse(stream)?;
     make(result)
+}
+
+/// Convenience function (especially useful for writing test cases, to avoid having to write out the
+/// AST constructors by hand.
+pub fn parse_string<T: Parse>(text: &str) -> Parsed<T> {
+    expect_complete(&mut text.chars().peekable())
+}
+
+#[cfg(test)]
+pub fn parse_eval<T: Parse>(text: &str) -> T {
+    parse_string(text).unwrap()
 }

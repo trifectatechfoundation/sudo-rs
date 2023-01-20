@@ -128,7 +128,7 @@ impl Parse for Meta<Tag> {
                 return make(Meta::Only(TIMEOUT(t)));
             }
             "ALL" => return make(Meta::All),
-            unknown => panic!("parse error: unrecognized keyword '{unknown}'"),
+            unknown => unrecoverable!("parse error: unrecognized keyword '{unknown}'"),
         };
         expect_syntax(':', stream)?;
 
@@ -151,7 +151,7 @@ impl Parse for CommandSpec {
                 _ => todo!(),
             }
             if tags.len() > CommandSpec::LIMIT {
-                panic!("parse error: too many tags for command specifier")
+                unrecoverable!("parse error: too many tags for command specifier")
             }
         }
         let cmd = expect_nonterminal(stream)?;
@@ -220,7 +220,7 @@ impl Parse for Sudo {
         let key = &users[0];
         if let Some(directive) = probe(get_directive(key, stream))? {
             if users.len() != 1 {
-                panic!("parse error: user name list cannot start with a directive keyword");
+                unrecoverable!("parse error: user name list cannot start with a directive keyword");
             }
             make(Sudo::Decl(directive))
         } else {
