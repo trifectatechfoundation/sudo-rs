@@ -56,7 +56,7 @@ checksum = "58bc9567378fc7690d6b2addae4e60ac2eeea07becb2c64b9f218b53865cba2a"
 
 [[package]]
 name = "sudoparse"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "derive_more",
 ]

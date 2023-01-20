@@ -152,6 +152,7 @@ fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
 
 /// Find all the aliases that a object is a member of; this requires [sanitized_alias_table] to have run first;
 /// I.e. this function should not be "pub".
+
 fn get_aliases<Predicate, T>(table: &Vec<Def<T>>, pred: &Predicate) -> HashSet<String>
 where
     Predicate: Fn(&T) -> bool,
@@ -283,37 +284,51 @@ mod test {
     }
 
     #[test]
-    #[rustfmt::skip]
     fn permission_test() {
         let root = UserInfo {
             user: "root",
             group: "root",
         };
-	let no_alias = &AliasTable { user: Vec::new() };
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), no_alias, "nobody", &root, "server", "/bin/hello"), None);
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) ALL"), no_alias, "user",   &root, "server", "/bin/hello"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), no_alias, "user",   &root, "server", "/bin/foo"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo"), no_alias, "user",   &root, "server", "/bin/hello"), None);
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), no_alias, "user",   &root, "server", "/bin/foo"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"), no_alias, "user",   &root, "server", "/bin/bar"), Some(vec![Tag::NOPASSWD]));
-        assert_eq!(check_permission(sudoer!("user server=(ALL:ALL) ALL"), no_alias, "user", &root, "server", "/bin/hello"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!("user laptop=(ALL:ALL) ALL"), no_alias, "user", &root, "server", "/bin/hello"), None);
-        assert_eq!(check_permission(sudoer!["user ALL=!/bin/hello",
-                                            "user ALL=/bin/hello"],   no_alias, "user",   &root, "server", "/bin/hello"), Some(vec![]));
-        assert_eq!(check_permission(sudoer!["user ALL=/bin/hello",
-                                            "user ALL=!/bin/hello"],  no_alias, "user",   &root, "server", "/bin/hello"), None);
+        let no_alias = &AliasTable { user: Vec::new() };
 
-	for alias in &[
-	    AliasTable {
-		user: vec![Def("GROUP".to_string(), parse_eval("user1, user2"))]
-	    }, 
-	    AliasTable {
-		user: vec![Def("GROUP".to_string(), parse_eval("ALL,!user3"))]
-	    }] {
-	    assert_eq!(check_permission(sudoer!["GROUP ALL=/bin/hello"], alias, "user1", &root, "server", "/bin/hello"), Some(vec![]));
-	    assert_eq!(check_permission(sudoer!["GROUP ALL=/bin/hello"], alias, "user2", &root, "server", "/bin/hello"), Some(vec![]));
-	    assert_eq!(check_permission(sudoer!["GROUP ALL=/bin/hello"], alias, "user3", &root, "server", "/bin/hello"), None);
+        macro_rules! FAIL {
+	    ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr) => {
+		assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), None);
+	    }
 	}
+
+        macro_rules! pass {
+	    ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr => [$($list:expr),*]) => {
+		assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), Some(vec![$($list),*]));
+	    }
+	}
+        use crate::ast::Tag::*;
+
+        FAIL!(["user ALL=(ALL:ALL) ALL"], no_alias, "nobody"    => &root, "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) ALL"], no_alias, "user"      => &root, "server"; "/bin/hello" => []);
+        pass!(["user ALL=(ALL:ALL) /bin/foo"], no_alias, "user" => &root, "server"; "/bin/foo" => []);
+        FAIL!(["user ALL=(ALL:ALL) /bin/foo"], no_alias, "user" => &root, "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], no_alias, "user" => &root, "server"; "/bin/foo" => []);
+        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], no_alias, "user" => &root, "server"; "/bin/bar" => [NOPASSWD]);
+
+        pass!(["user server=(ALL:ALL) ALL"], no_alias, "user" => &root, "server"; "/bin/hello" => []);
+        FAIL!(["user laptop=(ALL:ALL) ALL"], no_alias, "user" => &root, "server"; "/bin/hello");
+
+        pass!(["user ALL=!/bin/hello", "user ALL=/bin/hello"], no_alias, "user" => &root, "server"; "/bin/hello" => []);
+        FAIL!(["user ALL=/bin/hello", "user ALL=!/bin/hello"], no_alias, "user" => &root, "server"; "/bin/hello");
+
+        for alias in &[
+            AliasTable {
+                user: vec![Def("GROUP".to_string(), parse_eval("user1, user2"))],
+            },
+            AliasTable {
+                user: vec![Def("GROUP".to_string(), parse_eval("ALL,!user3"))],
+            },
+        ] {
+            pass!(["GROUP ALL=/bin/hello"], alias, "user1" => &root, "server"; "/bin/hello" => []);
+            pass!(["GROUP ALL=/bin/hello"], alias, "user2" => &root, "server"; "/bin/hello" => []);
+            FAIL!(["GROUP ALL=/bin/hello"], alias, "user3" => &root, "server"; "/bin/hello");
+        }
     }
 
     #[test]
@@ -340,9 +355,7 @@ mod test {
         let _nobody = parse_eval::<Spec<UserSpecifier>>("!ALL");
         let y = |name| parse_eval::<Spec<UserSpecifier>>(name);
         let _not = |name| -parse_eval::<Spec<UserSpecifier>>(name);
-        match basic_parser::expect_nonterminal::<ast::Sudo>(
-            &mut "User_Alias HENK = user1, user2".chars().peekable(),
-        ) {
+        match parse_eval::<ast::Sudo>("User_Alias HENK = user1, user2") {
             Sudo::Decl(Directive::UserAlias(Def(name, list))) => {
                 assert_eq!(name, "HENK");
                 assert_eq!(list, vec![y("user1"), y("user2")]);

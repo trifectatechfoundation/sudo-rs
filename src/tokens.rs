@@ -62,12 +62,11 @@ pub enum UserSpecifier {
 impl Token for UserSpecifier {
     const IDENT: fn(String) -> Self = |text| {
         let mut chars = text.chars();
-        if let Some(c) = chars.next() {
-            if c == '%' {
-                return UserSpecifier::Group(Username(chars.as_str().to_string()));
-            }
+        if let Some('%') = chars.next() {
+            UserSpecifier::Group(Username(chars.as_str().to_string()))
+        } else {
+            UserSpecifier::User(Username(text))
         }
-        UserSpecifier::User(Username(text))
     };
 
     fn accept(c: char) -> bool {
@@ -103,7 +102,9 @@ impl<T: Token> Token for Meta<T> {
             Meta::Only(T::IDENT(s))
         }
     };
+
     const MAX_LEN: usize = T::MAX_LEN;
+
     fn accept(c: char) -> bool {
         T::accept(c) || c.is_uppercase()
     }
@@ -112,6 +113,7 @@ impl<T: Token> Token for Meta<T> {
     }
 
     const ESCAPE: char = T::ESCAPE;
+
     fn escaped(c: char) -> bool {
         T::escaped(c)
     }

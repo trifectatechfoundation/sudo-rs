@@ -40,16 +40,15 @@ pub struct PermissionSpec {
     pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
 }
 
-// AST object for directive specifications (aliases, arguments, etc)
 #[derive(Debug)]
 pub struct Def<T>(pub String, pub SpecList<T>);
 
+/// AST object for directive specifications (aliases, arguments, etc)
 #[derive(Debug)]
 pub enum Directive {
     UserAlias(Def<UserSpecifier>),
 }
 
-// The main AST object for sudo directives (including alias definitions)
 /// The Sudoers file can contain permissions and directives
 pub enum Sudo {
     Spec(PermissionSpec),
@@ -102,11 +101,12 @@ impl Parse for RunAs {
             .and_then(|_| try_nonterminal(stream))
             .unwrap_or_default();
         expect_syntax(')', stream);
+
         Some(RunAs { users, groups })
     }
 }
 
-/// Implementing the trait `Meta<Tag>`. Note that [Tag] does not implement [crate::basic_parser::Token]
+/// Implementing the trait Parse for `Meta<Tag>`. Note that [Tag] does not implement [crate::basic_parser::Token]
 /// so this does not conflict with the generic definition for [Meta].
 ///
 /// The reason for combining a parser for these two unrelated categories is that this is one spot
@@ -131,6 +131,7 @@ impl Parse for Meta<Tag> {
             unknown => panic!("parse error: unrecognized keyword '{unknown}'"),
         };
         expect_syntax(':', stream);
+
         Some(Meta::Only(result))
     }
 }
@@ -143,18 +144,18 @@ impl Parse for Meta<Tag> {
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let mut tags = Vec::new();
-        let limit = 100;
         while let Some(keyword) = try_nonterminal(stream) {
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
                 Meta::All => return Some(CommandSpec(tags, Qualified::Allow(Meta::All))),
                 _ => todo!(),
             }
-            if tags.len() > limit {
+            if tags.len() > CommandSpec::LIMIT {
                 panic!("parse error: too many tags for command specifier")
             }
         }
         let cmd = expect_nonterminal(stream);
+
         Some(CommandSpec(tags, cmd))
     }
 }
@@ -173,6 +174,7 @@ impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
         expect_syntax('=', stream);
         let runas = try_nonterminal(stream);
         let cmds = expect_nonterminal(stream);
+
         Some((hosts, runas, cmds))
     }
 }
@@ -194,6 +196,7 @@ impl Parse for PermissionSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Option<Self> {
         let users = try_nonterminal(stream)?;
         let permissions = expect_nonterminal(stream);
+
         Some(PermissionSpec { users, permissions })
     }
 }
@@ -238,9 +241,9 @@ fn get_directive(
     let Allow(Only(User(keyword))) = perhaps_keyword else { return None };
     match keyword.as_str() {
         "User_Alias" => {
-            let name = expect_nonterminal::<Upper>(stream);
+            let Upper(name) = expect_nonterminal(stream);
             expect_syntax('=', stream);
-            Some(UserAlias(Def(name.to_string(), expect_nonterminal(stream))))
+            Some(UserAlias(Def(name, expect_nonterminal(stream))))
         }
         _ => None,
     }
@@ -269,7 +272,6 @@ impl<T> Tagged<T> for Spec<T> {
         NO_TAG
     }
 }
-
 /// Special implementation for [CommandSpec]
 
 impl Tagged<Command> for CommandSpec {
