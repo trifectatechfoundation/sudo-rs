@@ -99,8 +99,7 @@ impl Parse for RunAs {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         try_syntax('(', stream)?;
         let users = try_nonterminal(stream).unwrap_or_default();
-        let groups = try_syntax(':', stream)
-            .and_then(|_| try_nonterminal(stream))
+        let groups = maybe(try_syntax(':', stream).and_then(|_| try_nonterminal(stream)))?
             .unwrap_or_default();
         expect_syntax(')', stream)?;
 
