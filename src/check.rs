@@ -142,14 +142,13 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-/// TODO: this should use globbing; and perhaps the commandline should already be parsed
-/// into `Vec<Argument>` instead of being presented as a String.
-
 fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     text: &str,
 ) -> (impl Fn(&T) -> bool + '_) {
+    use glob::Pattern;
     let text = compress_space(text);
-    move |token| token.as_str() == text
+    //NOTE: this can already be compiled while parsing (but is that worth it?)
+    move |cmdpat| Pattern::new(cmdpat).map_or(false, |pat| pat.matches(&text))
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
@@ -333,6 +332,8 @@ mod test {
             pass!(["user ALL=/bin/hello  arg"], alias, "user" => &root, "server"; "/bin/hello arg" => []);
             pass!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello  arg" => []);
             FAIL!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello boo");
+            pass!(["user ALL=/bin/hello a*g"], alias, "user" => &root, "server"; "/bin/hello  aaaarg" => []);
+            FAIL!(["user ALL=/bin/hello a*g"], alias, "user" => &root, "server"; "/bin/hello boo");
         }
     }
 
