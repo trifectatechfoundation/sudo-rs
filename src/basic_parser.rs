@@ -13,7 +13,7 @@
 //! impl Parse of LinkedList<u32> {
 //!     fn parse(stream: ...) -> Option<LinkedList<u32>> {
 //!         let x = try_nonterminal::<u32>(stream)?;
-//!         let mut tail = if probe(try_syntax('+', stream))?.is_some() {
+//!         let mut tail = if maybe(try_syntax('+', stream))?.is_some() {
 //!             expect_nonterminal::<LinkedList<u32>>(stream)?;
 //!             rest
 //!         } else {
@@ -52,7 +52,7 @@ macro_rules! unrecoverable {
 pub(crate) use unrecoverable;
 
 /// This recovers from a failed parsing.
-pub fn probe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
+pub fn maybe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
     match status {
         Ok(x) => Ok(Some(x)),
         Err(Status::Reject) => Ok(None),
@@ -117,7 +117,7 @@ impl Parse for Whitespace {
 }
 
 pub fn skip_whitespace(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
-    probe(Whitespace::parse(stream))?;
+    maybe(Whitespace::parse(stream))?;
     make(())
 }
 
@@ -227,7 +227,7 @@ fn parse_list<T: Parse>(
 ) -> Parsed<Vec<T>> {
     let mut elems = Vec::new();
     elems.push(try_nonterminal(stream)?);
-    while probe(try_syntax(sep_by, stream))?.is_some() {
+    while maybe(try_syntax(sep_by, stream))?.is_some() {
         if elems.len() >= max {
             unrecoverable!("parse_list: parsing multiple items: safety margin exceeded")
         }

@@ -146,7 +146,7 @@ impl Parse for Meta<Tag> {
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let mut tags = Vec::new();
-        while let Some(keyword) = probe(try_nonterminal(stream))? {
+        while let Some(keyword) = maybe(try_nonterminal(stream))? {
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
                 Meta::All => return make(CommandSpec(tags, Qualified::Allow(Meta::All))),
@@ -174,7 +174,7 @@ impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let hosts = try_nonterminal(stream)?;
         expect_syntax('=', stream)?;
-        let runas = probe(try_nonterminal(stream))?;
+        let runas = maybe(try_nonterminal(stream))?;
         let cmds = expect_nonterminal(stream)?;
 
         make((hosts, runas, cmds))
@@ -220,7 +220,7 @@ impl Parse for Sudo {
         let users = try_nonterminal::<SpecList<_>>(stream)?;
         // element 1 always exists (parse_list fails on an empty list)
         let key = &users[0];
-        if let Some(directive) = probe(get_directive(key, stream))? {
+        if let Some(directive) = maybe(get_directive(key, stream))? {
             if users.len() != 1 {
                 unrecoverable!("parse error: user name list cannot start with a directive keyword");
             }
