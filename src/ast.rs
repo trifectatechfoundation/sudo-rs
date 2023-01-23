@@ -108,18 +108,21 @@ impl Parse for RunAs {
     }
 }
 
-/// Implementing the trait Parse for `Meta<Tag>`. Note that [Tag] does not implement [crate::basic_parser::Token]
-/// so this does not conflict with the generic definition for [Meta].
+/// Implementing the trait Parse for `Meta<Tag>`. Wrapped in an own object to avoid
+/// conflicting with a generic parse definition for [Meta].
 ///
 /// The reason for combining a parser for these two unrelated categories is that this is one spot
 /// where the sudoer grammar isn't nicely LL(1); so at the same place where "NOPASSWD" can appear,
 /// we could also see "ALL".
+struct MetaOrTag(Meta<Tag>);
 
 // note: at present, "ALL" can be distinguished from a tag using a lookup of 1, since no tag starts with an "A"; but this feels like hanging onto
 // the parseability by a thread (although the original sudo also has some ugly parts, like 'sha224' being an illegal user name).
 // to be more general, we impl Parse for Meta<Tag> so a future tag like "AFOOBAR" can be added with no problem
-impl Parse for Meta<Tag> {
+
+impl Parse for MetaOrTag {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        use Meta::*;
         use Tag::*;
         let Upper(keyword) = try_nonterminal(stream)?;
         let result = match keyword.as_str() {
@@ -127,14 +130,14 @@ impl Parse for Meta<Tag> {
             "TIMEOUT" => {
                 expect_syntax('=', stream)?;
                 let Decimal(t) = expect_nonterminal(stream)?;
-                return make(Meta::Only(TIMEOUT(t)));
+                return make(MetaOrTag(Only(TIMEOUT(t))));
             }
-            "ALL" => return make(Meta::All),
+            "ALL" => return make(MetaOrTag(All)),
             unknown => unrecoverable!("parse error: unrecognized keyword '{unknown}'"),
         };
         expect_syntax(':', stream)?;
 
-        make(Meta::Only(result))
+        make(MetaOrTag(Only(result)))
     }
 }
 
@@ -146,7 +149,7 @@ impl Parse for Meta<Tag> {
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let mut tags = Vec::new();
-        while let Some(keyword) = maybe(try_nonterminal(stream))? {
+        while let Some(MetaOrTag(keyword)) = maybe(try_nonterminal(stream))? {
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
                 Meta::All => return make(CommandSpec(tags, Qualified::Allow(Meta::All))),
