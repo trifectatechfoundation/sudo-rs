@@ -79,9 +79,8 @@ impl Token for UserSpecifier {
 
 impl Many for UserSpecifier {}
 
-/// This enum allows items to use the ALL wildcard as well as directly specifying items. This can
-/// in the future be extended with aliases. TODO: maybe this is better defined not as a Token but
-/// simply directly as an implementation of [crate::basic_parser::Parse]
+/// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
+/// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::basic_parser::Parse])
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum Meta<T> {

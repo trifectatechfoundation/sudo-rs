@@ -41,9 +41,9 @@ pub fn analyze(sudoers: impl Iterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
     (permits, alias)
 }
 
-/// Check if the user [am_user] is allowed to run [cmdline] on machine [on_host] as the requested
+/// Check if the user `am_user` is allowed to run `cmdline` on machine `on_host` as the requested
 /// user/group. Not that in the sudoers file, later permissions override earlier restrictions.
-/// The [cmdline] argument should already be ready to essentially feed to an exec() call; or be
+/// The `cmdline` argument should already be ready to essentially feed to an exec() call; or be
 /// a special command like 'sudoedit'.
 
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
@@ -125,7 +125,6 @@ where
 }
 
 #[allow(dead_code)]
-/// A predicate that matches using "==".
 fn exact<T: Eq + ?Sized>(s1: &T) -> (impl Fn(&T) -> bool + '_) {
     move |s2| s1 == s2
 }
@@ -143,14 +142,16 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-/// TODO: this should use globbing,
+/// TODO: this should use globbing; and perhaps the commandline should already be parsed
+/// into `Vec<Argument>` instead of being presented as a String.
+
 fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     text: &str,
 ) -> (impl Fn(&T) -> bool + '_) {
     move |token| token.as_str() == text
 }
 
-/// Find all the aliases that a object is a member of; this requires [sanitized_alias_table] to have run first;
+/// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
 /// I.e. this function should not be "pub".
 
 fn get_aliases<Predicate, T>(table: &Vec<Def<T>>, pred: &Predicate) -> HashSet<String>
@@ -169,7 +170,7 @@ where
 
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
 /// It is much easier if they are presented in a "definitional order" (i.e. aliases that use other aliases occur later)
-/// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and
+/// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and cycles.
 
 fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
     fn remqualify<U>(item: &Qualified<U>) -> &U {
@@ -225,6 +226,7 @@ fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
     };
 
     // now swap the original array into the correct form
+    // TODO: maybe we should just return the 'derange' table and store that in the AliasTable type
     let mut xlat = (0..table.len()).collect::<Vec<_>>();
     let mut oldp = (0..table.len()).collect::<Vec<_>>();
 

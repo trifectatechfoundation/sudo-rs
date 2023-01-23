@@ -11,10 +11,10 @@
 //!
 //! ```rust
 //! impl Parse of LinkedList<u32> {
-//!     fn parse(stream: ...) -> Option<Vec<u32>> {
-//!         let x = is_some::<u32>(stream)?;
-//!         let mut tail = if try_syntax('+', stream).is_some() {
-//!             expect_nonterminal::<LinkedList<u32>>(stream);
+//!     fn parse(stream: ...) -> Option<LinkedList<u32>> {
+//!         let x = try_nonterminal::<u32>(stream)?;
+//!         let mut tail = if probe(try_syntax('+', stream))?.is_some() {
+//!             expect_nonterminal::<LinkedList<u32>>(stream)?;
 //!             rest
 //!         } else {
 //!             LinkedList::new()
@@ -121,7 +121,7 @@ pub fn skip_whitespace(stream: &mut Peekable<impl Iterator<Item = char>>) -> Par
     make(())
 }
 
-/// Adheres to the contract of the [Parse] trait, accepts one character and consumes following whitespace.
+/// Adheres to the contract of the [Parse] trait, accepts one character and consumes trailing whitespace.
 pub fn try_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
     accept_if(|c| c == syntax, stream)?;
     skip_whitespace(stream)?;
