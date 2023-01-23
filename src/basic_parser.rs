@@ -101,6 +101,8 @@ pub fn accept_if(
 }
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+
 /// A structure representing whitespace
 struct Whitespace;
 
@@ -108,9 +110,20 @@ struct Whitespace;
 /// more whitespace characters, parse `Option<Whitespace>`
 impl Parse for Whitespace {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        let mut eat_space = || accept_if(char::is_whitespace, stream);
-        eat_space()?;
-        while eat_space().is_ok() {}
+        let eat_space = |stream: &mut _| accept_if(|c| "\t ".contains(c), stream);
+
+        let comment = |stream: &mut _| {
+            accept_if(|c| c == '#', stream)?;
+            while accept_if(|c| c != '\n', stream).is_ok() {}
+            make(())
+        };
+
+        if eat_space(stream).is_ok() {
+            while eat_space(stream).is_ok() {}
+            maybe(comment(stream))?;
+        } else {
+            comment(stream)?;
+        }
 
         make(Whitespace {})
     }
@@ -283,4 +296,19 @@ pub fn parse_string<T: Parse>(text: &str) -> Parsed<T> {
 #[cfg(test)]
 pub fn parse_eval<T: Parse>(text: &str) -> T {
     parse_string(text).unwrap()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn comment_test() {
+        assert_eq!(parse_eval::<Whitespace>(" # hello"), Whitespace);
+    }
+    #[test]
+    #[should_panic]
+    fn comment_test_fail() {
+        assert_eq!(parse_eval::<Whitespace>(" # hello\nsomething"), Whitespace);
+    }
 }
