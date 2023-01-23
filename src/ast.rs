@@ -31,7 +31,7 @@ pub enum Tag {
 
 /// Commands with attached attributes.
 #[derive(Debug)]
-pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
+pub struct CommandSpec(pub Vec<Tag>, pub Spec<glob::Pattern>);
 
 /// The main AST object for one sudoer-permission line
 #[derive(Debug)]
@@ -158,9 +158,31 @@ impl Parse for CommandSpec {
                 unrecoverable!("parse error: too many tags for command specifier")
             }
         }
-        let cmd = expect_nonterminal(stream)?;
 
-        make(CommandSpec(tags, cmd))
+        let cmd: Spec<Command> = expect_nonterminal(stream)?;
+
+        // TODO: it would be nicer to impl Token for glob::Pattern, but the constructor for that must
+        // (at present) be irrefutable and constructing a pattern can fail
+        let make_pattern = || -> Result<_, glob::PatternError> {
+            use Meta::*;
+            Ok(match cmd {
+                Qualified::Forbid(All) => Qualified::Forbid(All),
+                Qualified::Allow(All) => Qualified::Allow(All),
+                Qualified::Forbid(Alias(name)) => Qualified::Forbid(Alias(name)),
+                Qualified::Allow(Alias(name)) => Qualified::Allow(Alias(name)),
+                Qualified::Forbid(Only(Command(text))) => {
+                    Qualified::Forbid(Only(glob::Pattern::new(text.as_str())?))
+                }
+                Qualified::Allow(Only(Command(text))) => {
+                    Qualified::Allow(Only(glob::Pattern::new(text.as_str())?))
+                }
+            })
+        };
+
+        match make_pattern() {
+            Ok(pattern) => make(CommandSpec(tags, pattern)),
+            Err(err) => unrecoverable!("wildcard error: {}", err.msg),
+        }
     }
 }
 
@@ -279,9 +301,9 @@ impl<T> Tagged<T> for Spec<T> {
 }
 /// Special implementation for [CommandSpec]
 
-impl Tagged<Command> for CommandSpec {
+impl Tagged<glob::Pattern> for CommandSpec {
     type Flags = Vec<Tag>;
-    fn into(&self) -> &Spec<Command> {
+    fn into(&self) -> &Spec<glob::Pattern> {
         &self.1
     }
     fn to_info(&self) -> &Self::Flags {

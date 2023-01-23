@@ -142,13 +142,9 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
-    text: &str,
-) -> (impl Fn(&T) -> bool + '_) {
-    use glob::Pattern;
+fn match_command(text: &str) -> (impl Fn(&glob::Pattern) -> bool + '_) {
     let text = compress_space(text);
-    //NOTE: this can already be compiled while parsing (but is that worth it?)
-    move |cmdpat| Pattern::new(cmdpat).map_or(false, |pat| pat.matches(&text))
+    move |cmdpat| cmdpat.matches(&text)
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
