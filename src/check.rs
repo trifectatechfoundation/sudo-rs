@@ -148,6 +148,7 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
 fn match_command<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     text: &str,
 ) -> (impl Fn(&T) -> bool + '_) {
+    let text = compress_space(text);
     move |token| token.as_str() == text
 }
 
@@ -328,6 +329,10 @@ mod test {
             pass!(["GROUP ALL=/bin/hello"], alias, "user1" => &root, "server"; "/bin/hello" => []);
             pass!(["GROUP ALL=/bin/hello"], alias, "user2" => &root, "server"; "/bin/hello" => []);
             FAIL!(["GROUP ALL=/bin/hello"], alias, "user3" => &root, "server"; "/bin/hello");
+            pass!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello arg" => []);
+            pass!(["user ALL=/bin/hello  arg"], alias, "user" => &root, "server"; "/bin/hello arg" => []);
+            pass!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello  arg" => []);
+            FAIL!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello boo");
         }
     }
 

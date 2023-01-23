@@ -139,10 +139,17 @@ impl Token for Upper {
 #[derive(Debug, Deref)]
 pub struct Command(pub String);
 
+pub fn compress_space(text: &str) -> String {
+    text.split(|c: char| c.is_ascii_whitespace())
+        .filter(|vec| !vec.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 impl Token for Command {
     const MAX_LEN: usize = 1024;
 
-    const IDENT: fn(String) -> Self = |s| Command(s.trim().to_string());
+    const IDENT: fn(String) -> Self = |s| Command(compress_space(&s));
 
     fn accept(c: char) -> bool {
         !Self::escaped(c)
