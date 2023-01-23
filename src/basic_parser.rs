@@ -181,22 +181,26 @@ pub trait Token {
 /// Implementation of the [Parse] trait for anything that implements [Token]
 impl<T: Token> Parse for T {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        let mut str = accept_if(T::accept_1st, stream)?.to_string();
-        loop {
-            if let Ok(c) = accept_if(T::accept, stream) {
-                str.push(c)
+        let accept_escaped = |pred: fn(char) -> bool, stream: &mut _| {
+            if let Ok(c) = accept_if(pred, stream) {
+                Ok(c)
             } else if accept_if(|c| c == T::ESCAPE, stream).is_ok() {
                 if let Ok(c) = accept_if(T::escaped, stream) {
-                    str.push(c)
+                    Ok(c)
                 } else {
                     unrecoverable!("tokenizer: illegal escape sequence")
                 }
             } else {
-                break;
+                reject()
             }
+        };
+
+        let mut str = accept_escaped(T::accept_1st, stream)?.to_string();
+        while let Ok(c) = accept_escaped(T::accept, stream) {
             if str.len() >= T::MAX_LEN {
                 unrecoverable!("tokenizer: exceeded safety margin")
             }
+            str.push(c)
         }
 
         make(T::IDENT(str))
