@@ -47,6 +47,7 @@ pub struct Def<T>(pub String, pub SpecList<T>);
 #[derive(Debug)]
 pub enum Directive {
     UserAlias(Def<UserSpecifier>),
+    HostAlias(Def<Hostname>),
 }
 
 /// The Sudoers file can contain permissions and directives
@@ -243,6 +244,8 @@ fn get_directive(
     use crate::ast::Qualified::*;
     use crate::ast::UserSpecifier::*;
     let Allow(Only(User(keyword))) = perhaps_keyword else { return reject() };
+
+    // TODO refactor
     match keyword.as_str() {
         "User_Alias" => {
             let Upper(name) = expect_nonterminal(stream)?;
@@ -250,6 +253,13 @@ fn get_directive(
 
             make(UserAlias(Def(name, expect_nonterminal(stream)?)))
         }
+        "Host_Alias" => {
+            let Upper(name) = expect_nonterminal(stream)?;
+            expect_syntax('=', stream)?;
+
+            make(HostAlias(Def(name, expect_nonterminal(stream)?)))
+        }
+
         _ => reject(),
     }
 }

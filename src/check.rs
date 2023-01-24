@@ -22,6 +22,7 @@ pub struct UserInfo<'a> {
 #[derive(Default)]
 pub struct AliasTable {
     user: Vec<Def<UserSpecifier>>,
+    host: Vec<Def<Hostname>>,
 }
 
 /// Process a sudoers-parsing file into a workable AST
@@ -34,10 +35,12 @@ pub fn analyze(sudoers: impl Iterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
         match item {
             Sudo::Spec(permission) => permits.push(permission),
             Sudo::Decl(UserAlias(def)) => alias.user.push(def),
+            Sudo::Decl(HostAlias(def)) => alias.host.push(def),
         }
     }
 
     sanitize_alias_table(&mut alias.user);
+    sanitize_alias_table(&mut alias.host);
     (permits, alias)
 }
 
@@ -58,7 +61,7 @@ pub fn check_permission<'a>(
 ) -> Option<Vec<Tag>> {
     let user_aliases = get_aliases(&alias_table.user, &match_user(am_user));
     let runas_aliases = HashSet::new();
-    let host_aliases = HashSet::new();
+    let host_aliases = get_aliases(&alias_table.host, &match_token(on_host));
     let cmnd_aliases = HashSet::new();
 
     let allowed_commands = sudoers
@@ -286,7 +289,10 @@ mod test {
             user: "root",
             group: "root",
         };
-        let no_alias = &AliasTable { user: Vec::new() };
+        let no_alias = &AliasTable {
+            user: Vec::new(),
+            host: Vec::new(),
+        };
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr) => {
@@ -317,9 +323,11 @@ mod test {
         for alias in &[
             AliasTable {
                 user: vec![Def("GROUP".to_string(), parse_eval("user1, user2"))],
+                host: vec![],
             },
             AliasTable {
                 user: vec![Def("GROUP".to_string(), parse_eval("ALL,!user3"))],
+                host: vec![],
             },
         ] {
             pass!(["GROUP ALL=/bin/hello"], alias, "user1" => &root, "server"; "/bin/hello" => []);
