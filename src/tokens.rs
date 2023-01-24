@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{unrecoverable, Many, Parsed, Token};
+use crate::basic_parser::{Many, Parsed, Status, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
@@ -145,27 +145,33 @@ impl Token for Upper {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
-pub type Command = glob::Pattern;
+pub type Command = (glob::Pattern, glob::Pattern);
 
-pub fn compress_space(text: &str) -> String {
+pub fn split_args(text: &str) -> Vec<&str> {
     text.split(|c: char| c.is_ascii_whitespace())
         .filter(|vec| !vec.is_empty())
         .collect::<Vec<_>>()
-        .join(" ")
 }
 
 impl Token for Command {
     const MAX_LEN: usize = 1024;
 
     fn construct(s: String) -> Parsed<Self> {
-        let cmdvec = s
-            .split(|c: char| c.is_ascii_whitespace())
-            .filter(|vec| !vec.is_empty())
-            .collect::<Vec<_>>();
-        glob::Pattern::new(&cmdvec.join(" ")).map_or_else(
-            |err| unrecoverable!("wildcard pattern error: {}", err.msg),
-            Ok,
-        )
+        let cvt_err = |pat: Result<_, glob::PatternError>| {
+            pat.map_err(|err| Status::Fatal(format!("wildcard pattern error {}", err.msg)))
+        };
+        let mut cmdvec = split_args(&s);
+        if cmdvec.len() == 1 {
+            // if no arguments are mentioned, anything is allowed
+            cmdvec.push("*");
+        } else if cmdvec.len() >= 2 && cmdvec.last() == Some(&"\"\"") {
+            // if the magic "" appears, no (further) arguments are allowed
+            cmdvec.pop();
+        }
+        let cmd = cvt_err(glob::Pattern::new(cmdvec[0]))?;
+        let args = cvt_err(glob::Pattern::new(&cmdvec[1..].join(" ")))?;
+
+        Ok((cmd, args))
     }
 
     fn accept(c: char) -> bool {

@@ -142,9 +142,10 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-fn match_command(text: &str) -> (impl Fn(&glob::Pattern) -> bool + '_) {
-    let text = compress_space(text);
-    move |cmdpat| cmdpat.matches(&text)
+fn match_command(text: &str) -> (impl Fn(&Command) -> bool + '_) {
+    let text = split_args(text);
+    let (cmd, args) = (text[0], text[1..].join(" "));
+    move |(cmdpat, argpat)| cmdpat.matches(cmd) && argpat.matches(&args)
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
@@ -330,6 +331,16 @@ mod test {
             FAIL!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello boo");
             pass!(["user ALL=/bin/hello a*g"], alias, "user" => &root, "server"; "/bin/hello  aaaarg" => []);
             FAIL!(["user ALL=/bin/hello a*g"], alias, "user" => &root, "server"; "/bin/hello boo");
+            pass!(["user ALL=/bin/hello"], alias, "user" => &root, "server"; "/bin/hello boo" => []);
+            FAIL!(["user ALL=/bin/hello \"\""], alias, "user" => &root, "server"; "/bin/hello boo");
+            pass!(["user ALL=/bin/hello \"\""], alias, "user" => &root, "server"; "/bin/hello" => []);
+            pass!(["user ALL=/bin/hel*"], alias, "user" => &root, "server"; "/bin/hello" => []);
+            pass!(["user ALL=/bin/hel*"], alias, "user" => &root, "server"; "/bin/help" => []);
+            pass!(["user ALL=/bin/hel*"], alias, "user" => &root, "server"; "/bin/help me" => []);
+            pass!(["user ALL=/bin/hel* *"], alias, "user" => &root, "server"; "/bin/help" => []);
+            FAIL!(["user ALL=/bin/hel* me"], alias, "user" => &root, "server"; "/bin/help");
+            pass!(["user ALL=/bin/hel* me"], alias, "user" => &root, "server"; "/bin/help me" => []);
+            FAIL!(["user ALL=/bin/hel* me"], alias, "user" => &root, "server"; "/bin/help me please");
         }
     }
 
