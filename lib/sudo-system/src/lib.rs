@@ -1,4 +1,10 @@
-use std::{ffi::{CStr, CString}, mem::MaybeUninit, path::PathBuf, fs::OpenOptions, os::fd::AsRawFd};
+use std::{
+    ffi::{CStr, CString},
+    fs::OpenOptions,
+    mem::MaybeUninit,
+    os::fd::AsRawFd,
+    path::PathBuf,
+};
 
 fn cerr(res: libc::c_int) -> std::io::Result<libc::c_int> {
     match res {
@@ -18,7 +24,7 @@ fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
     unsafe { *libc::__errno_location() = 0 };
     match cerr_long(unsafe { libc::sysconf(name) }) {
         Ok(res) => Some(res),
-        Err(e) => None,
+        Err(_) => None,
     }
 }
 
@@ -35,9 +41,7 @@ pub fn hostname() -> String {
     let max_hostname_size = sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(256);
     let mut buf = vec![0; max_hostname_size as usize];
     match cerr(unsafe { libc::gethostname(buf.as_mut_ptr(), buf.len() - 1) }) {
-        Ok(_) => {
-            string_from_ptr(buf.as_ptr())
-        },
+        Ok(_) => string_from_ptr(buf.as_ptr()),
         Err(_) => {
             // there aren't any known conditions under which the gethostname call should fail
             panic!("Unexpected error while retrieving hostname, this should not happen");
@@ -74,7 +78,15 @@ impl User {
         let mut buf = vec![0; max_pw_size as usize];
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
-        cerr(unsafe { libc::getpwuid_r(uid, pwd.as_mut_ptr(), buf.as_mut_ptr(), buf.len(), &mut pwd_ptr)})?;
+        cerr(unsafe {
+            libc::getpwuid_r(
+                uid,
+                pwd.as_mut_ptr(),
+                buf.as_mut_ptr(),
+                buf.len(),
+                &mut pwd_ptr,
+            )
+        })?;
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
@@ -105,7 +117,15 @@ impl User {
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
         let name_c = CString::new(name).expect("String contained null bytes");
-        cerr(unsafe { libc::getpwnam_r(name_c.as_ptr(), pwd.as_mut_ptr(), buf.as_mut_ptr(), buf.len(), &mut pwd_ptr)})?;
+        cerr(unsafe {
+            libc::getpwnam_r(
+                name_c.as_ptr(),
+                pwd.as_mut_ptr(),
+                buf.as_mut_ptr(),
+                buf.len(),
+                &mut pwd_ptr,
+            )
+        })?;
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
@@ -125,7 +145,6 @@ pub struct Group {
 
 impl Group {
     pub fn from_libc(grp: &libc::group) -> Group {
-
         // find out how many members we have
         let mut mem_count = 0;
         while unsafe { !(*grp.gr_mem.offset(mem_count)).is_null() } {
@@ -168,7 +187,15 @@ impl Group {
         let mut buf = vec![0; max_gr_size as usize];
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        cerr(unsafe { libc::getgrgid_r(gid, grp.as_mut_ptr(), buf.as_mut_ptr(), buf.len(), &mut grp_ptr)})?;
+        cerr(unsafe {
+            libc::getgrgid_r(
+                gid,
+                grp.as_mut_ptr(),
+                buf.as_mut_ptr(),
+                buf.len(),
+                &mut grp_ptr,
+            )
+        })?;
         if grp_ptr.is_null() {
             Ok(None)
         } else {
@@ -183,7 +210,15 @@ impl Group {
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
         let name_c = CString::new(name).expect("String contained null bytes");
-        cerr(unsafe { libc::getgrnam_r(name_c.as_ptr(), grp.as_mut_ptr(), buf.as_mut_ptr(), buf.len(), &mut grp_ptr)})?;
+        cerr(unsafe {
+            libc::getgrnam_r(
+                name_c.as_ptr(),
+                grp.as_mut_ptr(),
+                buf.as_mut_ptr(),
+                buf.len(),
+                &mut grp_ptr,
+            )
+        })?;
         if grp_ptr.is_null() {
             Ok(None)
         } else {
@@ -203,6 +238,12 @@ pub struct Process {
     pub name: PathBuf,
 }
 
+impl Default for Process {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Process {
     pub fn new() -> Process {
         Process {
@@ -211,14 +252,12 @@ impl Process {
             group_id: Self::group_id(),
             session_id: Self::session_id(),
             term_foreground_group_id: Self::term_foreground_group_id(),
-            name: Self::process_name().unwrap_or_else(|| PathBuf::from("sudo"))
+            name: Self::process_name().unwrap_or_else(|| PathBuf::from("sudo")),
         }
     }
 
     pub fn process_name() -> Option<PathBuf> {
-        std::env::args().next().map(|n| {
-            PathBuf::from(n)
-        })
+        std::env::args().next().map(PathBuf::from)
     }
 
     /// Return the process identifier for the current process
@@ -252,12 +291,8 @@ impl Process {
                 } else {
                     res
                 }
-            },
-            Err(_) => {
-                0
             }
+            Err(_) => 0,
         }
     }
 }
-
-

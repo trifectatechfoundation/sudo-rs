@@ -1,4 +1,4 @@
-use sudo_system::{hostname, User, Group, Process};
+use sudo_system::{hostname, Group, Process, User};
 
 fn main() {
     let hostname = hostname();
