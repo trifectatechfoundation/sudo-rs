@@ -18,7 +18,7 @@ pub type SpecList<T> = Vec<Spec<T>>;
 #[derive(Debug, Default)]
 pub struct RunAs {
     pub users: SpecList<UserSpecifier>,
-    pub groups: SpecList<Username>, // see TODO at line 288
+    pub groups: SpecList<Username>,
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
@@ -92,9 +92,6 @@ impl<T: Many> Many for Qualified<T> {
 /// ```
 /// runas = "(", userlist, (":", grouplist?)?, ")"
 /// ```
-
-//TODO: the "groups" parser here hides serious errors
-//(that cannot occur right now since it parses a irrefutable non-terminal, but may in the future)
 impl Parse for RunAs {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         try_syntax('(', stream)?;
