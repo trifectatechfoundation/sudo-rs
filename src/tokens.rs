@@ -148,9 +148,7 @@ impl Token for Upper {
 pub type Command = (glob::Pattern, glob::Pattern);
 
 pub fn split_args(text: &str) -> Vec<&str> {
-    text.split(|c: char| c.is_ascii_whitespace())
-        .filter(|vec| !vec.is_empty())
-        .collect::<Vec<_>>()
+    text.split_whitespace().collect::<Vec<_>>()
 }
 
 impl Token for Command {
