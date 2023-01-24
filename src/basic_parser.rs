@@ -45,7 +45,7 @@ pub fn reject<T>() -> Parsed<T> {
 
 macro_rules! unrecoverable {
     ($($str:expr),*) => {
-        return Err(Status::Fatal(format![$($str),*]))
+        return Err(crate::basic_parser::Status::Fatal(format![$($str),*]))
     }
 }
 

@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{Many, Parsed, Token};
+use crate::basic_parser::{unrecoverable, Many, Parsed, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
@@ -145,8 +145,7 @@ impl Token for Upper {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
-#[derive(Debug, Deref)]
-pub struct Command(pub String);
+pub type Command = glob::Pattern;
 
 pub fn compress_space(text: &str) -> String {
     text.split(|c: char| c.is_ascii_whitespace())
@@ -159,7 +158,14 @@ impl Token for Command {
     const MAX_LEN: usize = 1024;
 
     fn construct(s: String) -> Parsed<Self> {
-        Ok(Command(compress_space(&s)))
+        let cmdvec = s
+            .split(|c: char| c.is_ascii_whitespace())
+            .filter(|vec| !vec.is_empty())
+            .collect::<Vec<_>>();
+        glob::Pattern::new(&cmdvec.join(" ")).map_or_else(
+            |err| unrecoverable!("wildcard pattern error: {}", err.msg),
+            Ok,
+        )
     }
 
     fn accept(c: char) -> bool {
