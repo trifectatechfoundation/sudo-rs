@@ -86,6 +86,8 @@ pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
     let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
+    let mut sha2_eq = check_all_sha2(cmdline);
+
     let allowed_commands = rules
         .iter()
         .filter_map(|sudo| {
@@ -114,7 +116,8 @@ pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 
             Some(matching_rules.collect::<Vec<_>>())
         })
-        .flatten();
+        .flatten()
+        .filter(|CommandSpec(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
 
     find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases).cloned()
 }
@@ -401,6 +404,24 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
     visitor.order
 }
 
+fn check_all_sha2(cmdline: &str) -> impl FnMut(&Vec<u8>) -> bool + '_ {
+    // this is a stub for an actual SHA2 computation
+    fn sha2(bits: u16, _path: &str) -> Vec<u8> {
+        assert!(bits == 224);
+        vec![
+            0xac, 0x15, 0x59, 0xa0, 0xd6, 0x0a, 0x24, 0xfa, 0x59, 0x53, 0xee, 0xbb, 0x44, 0xf8,
+            0x0d, 0x7e, 0x9e, 0xc4, 0x93, 0x7e, 0x53, 0x6f, 0x84, 0xaa, 0x49, 0xfe, 0x44, 0x7d,
+        ]
+    }
+
+    let mut memo = std::collections::HashMap::new(); // pun not intended
+
+    move |bytes| {
+        let bits = 8 * bytes.len() as u16;
+        memo.entry(bits).or_insert_with(|| sha2(bits, cmdline)) == bytes
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -434,6 +455,48 @@ mod test {
     #[test]
     fn ambiguous_spec() {
         let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else { todo!() };
+    }
+
+    #[test]
+    fn digest_spec() {
+        let CommandSpec(_, _, digest) = parse_eval(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777f34236 /bin/ls",
+        );
+        let Sha2(vec) = digest;
+        assert_eq!(
+            vec,
+            [
+                0xc1, 0x20, 0x53, 0xca, 0x89, 0x41, 0x81, 0xbc, 0x13, 0x7b, 0x94, 0x0b, 0x06, 0xb2,
+                0xe2, 0x45, 0x9e, 0x9a, 0xa7, 0xb4, 0x6d, 0x2d, 0x31, 0x77, 0x77, 0xf3, 0x42, 0x36,
+            ]
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn digest_spec_fail1() {
+        // the hash length is incorrect
+        parse_eval::<CommandSpec>(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777f342 /bin/ls",
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn digest_spec_fail2() {
+        // the hash length has an odd length
+        parse_eval::<CommandSpec>(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777f3421 /bin/ls",
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn digest_spec_fail3() {
+        // the hash length has an invalid char
+        parse_eval::<CommandSpec>(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777g34236 /bin/ls",
+        );
     }
 
     #[test]

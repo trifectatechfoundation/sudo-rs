@@ -15,3 +15,6 @@ roost ALL=(ALL:ALL) /bin/user
 
 User_Alias WHEEL = ALL,!piet
 WHEEL laptop=(ALL:ALL) NOPASSWD: /bin/sh whelp
+rob ALL=(ALL:ALL) sha224:ac1559a0d60a24fa5953eebb44f80d7e9ec4937e536f84aa49fe447d /bin/ls
+rob ALL=(ALL:ALL) sha256:553d3aab148c4d11d76b4f96b5664b42cfc38c236dacbaf9e42d6a6bcf0115eb /bin/as
+rob ALL=(ALL:ALL) /bin/ps

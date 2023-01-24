@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{Many, Parsed, Status, Token};
+use crate::basic_parser::{unrecoverable, Many, Parsed, Status, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
@@ -240,5 +240,33 @@ impl Token for StringParameter {
     const ESCAPE: char = '\\';
     fn escaped(c: char) -> bool {
         "\\\" #".contains(c)
+    }
+}
+
+/// A digest specifier; note that the type of hash is implied by the length; if sudo would support
+/// multiple hashes with the same hash length, this needs to be recorded explicity.
+#[derive(Debug, Deref)]
+pub struct Sha2(pub Vec<u8>);
+
+impl Token for Sha2 {
+    const MAX_LEN: usize = 512 / 4;
+
+    fn construct(s: String) -> Parsed<Self> {
+        if s.len() % 2 != 0 {
+            unrecoverable!("token: odd hexadecimal hash length")
+        }
+        let bytes = (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect::<Result<_, _>>()
+            .map_err(|_| {
+                Status::Fatal("should not happen: hexadecimal decoding failed".to_string())
+            })?;
+
+        Ok(Sha2(bytes))
+    }
+
+    fn accept(c: char) -> bool {
+        ('A'..='F').contains(&c) || ('a'..='f').contains(&c) || c.is_ascii_digit()
     }
 }
