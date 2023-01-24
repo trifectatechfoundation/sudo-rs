@@ -152,7 +152,9 @@ impl Parse for CommandSpec {
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
                 Meta::All => return make(CommandSpec(tags, Qualified::Allow(Meta::All))),
-                _ => todo!(),
+                Meta::Alias(name) => {
+                    return make(CommandSpec(tags, Qualified::Allow(Meta::Alias(name))))
+                }
             }
             if tags.len() > CommandSpec::LIMIT {
                 unrecoverable!("parse error: too many tags for command specifier")
