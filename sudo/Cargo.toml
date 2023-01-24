@@ -6,3 +6,4 @@ license = "Apache-2.0 OR MIT"
 
 [dependencies]
 sudo-common = { path = "../lib/sudo-common" }
+sudo-system = { path = "../lib/sudo-system" }

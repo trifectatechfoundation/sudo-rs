@@ -2,4 +2,5 @@
 members = [
   "sudo",
   "lib/sudo-common",
+  "lib/sudo-system",
 ]
