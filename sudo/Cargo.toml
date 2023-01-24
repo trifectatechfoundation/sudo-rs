@@ -6,4 +6,8 @@ license = "Apache-2.0 OR MIT"
 
 [dependencies]
 sudo-common = { path = "../lib/sudo-common" }
-clap = { version = "4.0.32", features = ["derive"] }
+clap = { version = "4.0.32", features = ["derive", "cargo"] }
+
+# [dev-dependencies]
+assert_cmd = "2.0.8"
+predicates = "2.1.5"

@@ -25,17 +25,17 @@ pub struct Cli {
     pub background: bool,
     #[arg(short = 'B', long, help = "ring bell when prompting", action)]
     pub bell: bool,
-    #[arg(short = 'C', long = "close-from=num", help = "close all file descriptors >= num")]
+    #[arg(short = 'C', long = "close-from", help = "close all file descriptors >= num")]
     pub num: Option<i16>,
-    #[arg(short = 'D', long = "chdir=directory", help = "change the working directory before running command")]
+    #[arg(short = 'D', long = "chdir", help = "change the working directory before running command")]
     pub directory:  Option<PathBuf>,
-    #[arg(short = 'E', long = "preserve-env", help = "preserve user environment when running command", action)]
+    #[arg(short = 'E', long = "preserve-enve", help = "preserve user environment when running command", action)] // TO DO: sudo offers 2 "preserve-env" with same name
     pub preserve_env: bool,
-    #[arg(long = "preserve-env=list", help = "preserve specific environment variables", value_name = "list")]
+    #[arg(long = "preserve-env", help = "preserve specific environment variables", value_name = "list")]
     pub preserve_env_list: Option<String>,
     #[arg(short = 'e', long, help = "edit files instead of running a command", action)]
     pub edit: bool,
-    #[arg(short = 'g', long = "group=group", help = "run command as the specified group name or ID")]
+    #[arg(short = 'g', long = "group", help = "run command as the specified group name or ID")]
     pub group: Option<String>,
     #[arg(short = 'H', long = "set-home", help = "set HOME variable to target user's home dir", action)]
     pub set_home: bool,
@@ -56,19 +56,19 @@ pub struct Cli {
     pub non_interactive: bool,
     #[arg(short = 'P', long = "preserve-groups", help = "preserve group vector instead of setting to target's", action)]
     pub preserve_groups: bool,
-    #[arg(short = 'p', long = "prompt=prompt", help = "use the specified password prompt")]
+    #[arg(short = 'p', long = "prompt", help = "use the specified password prompt")]
     pub prompt: Option<String>,
-    #[arg(short = 'R', long = "chroot=directory", help = "change the root directory before running command", value_name = "directory")]
+    #[arg(short = 'R', long = "chroot", help = "change the root directory before running command", value_name = "directory")]
     pub chroot: Option<PathBuf>,
     #[arg(short = 'S', long, help = "read password from standard input", action)]
     pub stdin: bool,
     #[arg(short = 's', long, help = "run shell as the target user; a command may also be specified", action)]
     pub shell: bool,
-    #[arg(short = 'T', long = "command-timeout=timeout", help = "terminate command after the specified time limit", value_name = "timeout")]
+    #[arg(short = 'T', long = "command-timeout", help = "terminate command after the specified time limit", value_name = "timeout")]
     pub command_timeout: Option<String>,
-    #[arg(short = 'U', long = "other-user=user", help = "in list mode, display privileges for user", value_name = "user")]
+    #[arg(short = 'U', long = "other-user", help = "in list mode, display privileges for user", value_name = "user")]
     pub other_user: Option<String>,
-    #[arg(short = 'u', long = "user=user", help = "run command (or edit file) as specified user name or ID")]
+    #[arg(short = 'u', long = "user", help = "run command (or edit file) as specified user name or ID")]
     pub user: Option<String>,
     // #[arg(short = 'V', long = "version", help = "display version information and exit!", action = ArgAction::Version, conflicts_with("host"), conflicts_with("remove_timestamp"), conflicts_with("reset_timestamp"))] 
     // pub version: bool,
