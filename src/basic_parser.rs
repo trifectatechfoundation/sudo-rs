@@ -176,9 +176,10 @@ pub fn expect_nonterminal<T: Parse>(
 /// Something that implements the Token trait is a token (i.e. a string of characters defined by a
 /// maximum length, character classes, and possible escaping). The class for the first character of
 /// the token can be different than that of the rest.
-pub trait Token {
-    const IDENT: fn(String) -> Self; // make this a regular function, or require Token to extend From?
+pub trait Token: Sized {
     const MAX_LEN: usize = 255;
+
+    fn construct(s: String) -> Parsed<Self>;
 
     fn accept(c: char) -> bool;
     fn accept_1st(c: char) -> bool {
@@ -216,7 +217,7 @@ impl<T: Token> Parse for T {
             str.push(c)
         }
 
-        make(T::IDENT(str))
+        make(T::construct(str)?)
     }
 }
 

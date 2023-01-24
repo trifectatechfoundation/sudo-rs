@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{Many, Token};
+use crate::basic_parser::{Many, Parsed, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
@@ -9,7 +9,9 @@ pub struct Username(pub String);
 
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
 impl Token for Username {
-    const IDENT: fn(String) -> Self = Username;
+    fn construct(text: String) -> Parsed<Self> {
+        Ok(Username(text))
+    }
 
     fn accept(c: char) -> bool {
         c.is_ascii_alphanumeric() || ".-_".contains(c)
@@ -26,7 +28,9 @@ impl Many for Username {}
 pub struct Decimal(pub i32);
 
 impl Token for Decimal {
-    const IDENT: fn(String) -> Self = |s| Decimal(s.parse().unwrap());
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(Decimal(s.parse().unwrap()))
+    }
 
     fn accept(c: char) -> bool {
         c.is_ascii_digit()
@@ -42,7 +46,9 @@ impl Token for Decimal {
 pub struct Hostname(pub String);
 
 impl Token for Hostname {
-    const IDENT: fn(String) -> Self = Hostname;
+    fn construct(text: String) -> Parsed<Self> {
+        Ok(Hostname(text))
+    }
 
     fn accept(c: char) -> bool {
         c.is_ascii_alphanumeric() || ".-_".contains(c)
@@ -60,14 +66,14 @@ pub enum UserSpecifier {
 }
 
 impl Token for UserSpecifier {
-    const IDENT: fn(String) -> Self = |text| {
+    fn construct(text: String) -> Parsed<Self> {
         let mut chars = text.chars();
-        if let Some('%') = chars.next() {
+        Ok(if let Some('%') = chars.next() {
             UserSpecifier::Group(Username(chars.as_str().to_string()))
         } else {
             UserSpecifier::User(Username(text))
-        }
-    };
+        })
+    }
 
     fn accept(c: char) -> bool {
         Username::accept(c)
@@ -90,17 +96,17 @@ pub enum Meta<T> {
 }
 
 impl<T: Token> Token for Meta<T> {
-    const IDENT: fn(String) -> Self = |s| {
-        if s.chars().all(char::is_uppercase) {
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(if s.chars().all(char::is_uppercase) {
             if s == "ALL" {
                 Meta::All
             } else {
                 Meta::Alias(s)
             }
         } else {
-            Meta::Only(T::IDENT(s))
-        }
-    };
+            Meta::Only(T::construct(s)?)
+        })
+    }
 
     const MAX_LEN: usize = T::MAX_LEN;
 
@@ -128,7 +134,10 @@ impl<T: Many> Many for Meta<T> {
 pub struct Upper(pub String);
 
 impl Token for Upper {
-    const IDENT: fn(String) -> Self = Upper;
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(Upper(s))
+    }
+
     fn accept(c: char) -> bool {
         c.is_uppercase()
     }
@@ -149,7 +158,9 @@ pub fn compress_space(text: &str) -> String {
 impl Token for Command {
     const MAX_LEN: usize = 1024;
 
-    const IDENT: fn(String) -> Self = |s| Command(compress_space(&s));
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(Command(compress_space(&s)))
+    }
 
     fn accept(c: char) -> bool {
         !Self::escaped(c)
