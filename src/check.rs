@@ -1,3 +1,5 @@
+//TODO: sanitize_...() panics when it finds errors; it should emit warnings instead and come to some solution that is conservative
+
 //! Code that checks (and in the future: lists) permissions in the sudoers file
 
 use std::collections::HashSet;
@@ -220,8 +222,8 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
                 for elem in members {
                     let Meta::Alias(name) = remqualify(elem) else { break };
                     let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
-                            panic!("undefined alias: `{name}'");
-                        };
+			panic!("undefined alias: `{name}'");
+		    };
                     self.visit(dependency);
                 }
                 self.order.push(pos);
@@ -441,7 +443,7 @@ mod test {
     }
 
     #[test]
-    fn test_topo_positve() {
+    fn test_topo_positive() {
         test_topo_sort(3);
         test_topo_sort(4);
     }
@@ -465,5 +467,51 @@ mod test {
     #[should_panic]
     fn test_topo_fail5() {
         test_topo_sort(5);
+    }
+
+    fn fuzz_topo_sort(siz: usize) {
+        for mut n in 0..(1..siz).reduce(|x, y| x * y).unwrap() {
+            let name = |s: u8| std::str::from_utf8(&[65 + s]).unwrap().to_string();
+            let alias = |s: String| Qualified::Allow(Meta::<UserSpecifier>::Alias(s));
+            let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);
+
+            let mut data = (0..siz - 1)
+                .map(|i| alias(name(i as u8)))
+                .collect::<Vec<_>>();
+            data.push(stop());
+
+            for i in (1..=siz).rev() {
+                let pos = n % i;
+                n = n / i;
+                data.swap(i - 1, pos);
+            }
+
+            let table = data
+                .into_iter()
+                .enumerate()
+                .map(|(i, x)| Def(name(i as u8), vec![x]))
+                .collect();
+
+            let Ok(order) = std::panic::catch_unwind(||
+	        sanitize_alias_table(&table)
+            ) else { return; };
+
+            let mut seen = HashSet::new();
+            for Def(id, defns) in order.iter().map(|&i| &table[i]) {
+                if defns.iter().any(|spec| {
+                    let Qualified::Allow(Meta::Alias(id2)) = spec else { return false };
+                    !seen.contains(id2)
+                }) {
+                    panic!("forward reference encountered after sorting");
+                }
+                seen.insert(id);
+            }
+            assert!(seen.len() == siz);
+        }
+    }
+
+    #[test]
+    fn fuzz_topo_sort7() {
+        fuzz_topo_sort(7)
     }
 }
