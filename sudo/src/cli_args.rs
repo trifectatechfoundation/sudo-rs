@@ -2,6 +2,12 @@ use std::path::PathBuf;
 
 use clap:: {
     Parser,
+    Arg,
+    Command,
+    Args,
+    error::Error,
+    ArgMatches,
+    FromArgMatches,
     ArgAction
 };
 
@@ -17,7 +23,7 @@ use clap:: {
     usage: sudo [-AbEHknPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i|-s] [<command>]
     usage: sudo -e [-AknS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...",
 )]
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Clone)]
 pub struct Cli {   
     #[arg(long, short = 'A', help = "use a helper program for password prompting", action)]  
     pub askpass: bool,
@@ -29,10 +35,10 @@ pub struct Cli {
     pub num: Option<i16>,
     #[arg(short = 'D', long = "chdir", help = "change the working directory before running command")]
     pub directory:  Option<PathBuf>,
-    #[arg(short = 'E', long = "preserve-enve", help = "preserve user environment when running command", action)] // TO DO: sudo offers 2 "preserve-env" with same name
-    pub preserve_env: bool,
-    #[arg(long = "preserve-env", help = "preserve specific environment variables", value_name = "list")]
-    pub preserve_env_list: Option<String>,
+    #[arg(long, value_delimiter=',', default_value = None, default_missing_value = "", require_equals = true, num_args = 0..)]
+    pub preserve_env: Vec<String>,
+    #[arg(short = 'E')]
+    pub short_preserve_env: bool,
     #[arg(short = 'e', long, help = "edit files instead of running a command", action)]
     pub edit: bool,
     #[arg(short = 'g', long = "group", help = "run command as the specified group name or ID")]
@@ -76,4 +82,35 @@ pub struct Cli {
     pub validate: bool,
     #[arg(long = " ", help = "stop processing command line arguments", action)] // long arg should be "--", not allowed. How to pass?
     pub stop_processing_args: bool,
+    // To Do: in OGSudo there is an option   --    "stop processing command line arguments." hyphens are  not allowed in clap!
+
+}
+
+
+#[derive(Debug)]
+pub struct SudoOptions {
+    // This is what OGsudo calls `-E, --preserve-env`
+    pub preserve_env: bool,
+    // This is what OGsudo calls `--preserve-env=list`
+    pub preserve_env_list: Vec<String>,
+}
+
+impl From<Cli> for SudoOptions {
+    fn from(command: Cli) -> Self {
+        // This lets us know if the user passed `--preserve-env` with no args
+        let preserve_env_no_args = command.preserve_env.iter().any(String::is_empty);
+
+        Self {
+            preserve_env: command.short_preserve_env || preserve_env_no_args,
+            preserve_env_list: {
+                // Filter any empty item from the list as this means that the user passed
+                // `--preserve-env` with no args which is not relevant for this list.
+                command
+                    .preserve_env
+                    .into_iter()
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            },
+        }
+    }
 }
