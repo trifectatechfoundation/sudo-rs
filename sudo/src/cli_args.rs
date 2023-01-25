@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use clap::Parser;
+use std::path::PathBuf;
 
 #[clap(
     name = "sudo-rs",
@@ -81,6 +81,7 @@ pub struct Cli {
 
 #[derive(Debug)]
 pub struct SudoOptions {
+    pub env_var_list: Vec<(String, String)>,
     // This is what OGsudo calls `-E, --preserve-env`
     pub preserve_env: bool,
     // This is what OGsudo calls `--preserve-env=list`
@@ -93,6 +94,7 @@ impl From<Cli> for SudoOptions {
         let preserve_env_no_args = command.preserve_env.iter().any(String::is_empty);
 
         Self {
+            env_var_list: vec![],
             preserve_env: command.short_preserve_env || preserve_env_no_args,
             preserve_env_list: {
                 // Filter any empty item from the list as this means that the user passed
@@ -104,5 +106,39 @@ impl From<Cli> for SudoOptions {
                     .collect()
             },
         }
+    }
+}
+
+impl SudoOptions {
+    pub fn parse() -> Self {
+        let mut env_var_list = Vec::new();
+        let mut remaining_args = Vec::new();
+
+        let mut args = std::env::args();
+
+        while let Some(arg) = args.next() {
+            // If we found `--` we know that the remaining arguments are not env variable
+            // definitions.
+            if arg == "--" {
+                remaining_args.push(arg);
+                remaining_args.extend(args);
+                break;
+            }
+
+            if let Some((name, value)) = arg.split_once('=').and_then(|(name, value)| {
+                name.chars()
+                    .all(|c| c.is_alphanumeric() || c == '_')
+                    .then(|| (name, value))
+            }) {
+                env_var_list.push((name.to_owned(), value.to_owned()));
+            } else {
+                remaining_args.push(arg);
+            }
+        }
+
+        let mut opts: SudoOptions = Cli::parse_from(remaining_args).into();
+        opts.env_var_list = env_var_list;
+
+        opts
     }
 }
