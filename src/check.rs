@@ -21,33 +21,18 @@ pub struct UserInfo<'a> {
 // TODO: combine this with Vec<PermissionSpec> into a single data structure?
 #[derive(Default)]
 pub struct AliasTable {
-    user: Vec<Def<UserSpecifier>>,
-    host: Vec<Def<Hostname>>,
-    cmnd: Vec<Def<Command>>,
-    runas: Vec<Def<UserSpecifier>>,
+    user: VecOrd<Def<UserSpecifier>>,
+    host: VecOrd<Def<Hostname>>,
+    cmnd: VecOrd<Def<Command>>,
+    runas: VecOrd<Def<UserSpecifier>>,
 }
 
-/// Process a sudoers-parsing file into a workable AST
+/// A vector with a list defining the order in which it needs to be processed
 
-pub fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
-    use Directive::*;
-    let mut permits = Vec::new();
-    let mut alias: AliasTable = Default::default();
-    for item in sudoers {
-        match item {
-            Sudo::Spec(permission) => permits.push(permission),
-            Sudo::Decl(UserAlias(def)) => alias.user.push(def),
-            Sudo::Decl(HostAlias(def)) => alias.host.push(def),
-            Sudo::Decl(CmndAlias(def)) => alias.cmnd.push(def),
-            Sudo::Decl(RunasAlias(def)) => alias.runas.push(def),
-        }
-    }
+type VecOrd<T> = (Vec<usize>, Vec<T>);
 
-    sanitize_alias_table(&mut alias.user);
-    sanitize_alias_table(&mut alias.host);
-    sanitize_alias_table(&mut alias.cmnd);
-    sanitize_alias_table(&mut alias.runas);
-    (permits, alias)
+fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
+    vec.0.iter().map(|&i| &vec.1[i])
 }
 
 /// Check if the user `am_user` is allowed to run `cmdline` on machine `on_host` as the requested
@@ -82,7 +67,6 @@ pub fn check_permission<'a>(
                 .filter_map(|(hosts, runas, cmds)| {
                     find_item(hosts, &match_token(on_host), &host_aliases)?;
 
-                    //TODO: investigate the role of runas_aliases; can these contain both groups AND users? is user_alias involved here?
                     if let Some(RunAs { users, groups }) = runas {
                         if !users.is_empty() || request.user != am_user {
                             *find_item(users, &match_user(request.user), &runas_user_aliases)?
@@ -173,12 +157,12 @@ fn match_command(text: &str) -> (impl Fn(&Command) -> bool + '_) {
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
 /// I.e. this function should not be "pub".
 
-fn get_aliases<Predicate, T>(table: &Vec<Def<T>>, pred: &Predicate) -> HashSet<String>
+fn get_aliases<Predicate, T>(table: &VecOrd<Def<T>>, pred: &Predicate) -> HashSet<String>
 where
     Predicate: Fn(&T) -> bool,
 {
     let mut set = HashSet::new();
-    for Def(id, list) in table {
+    for Def(id, list) in elems(table) {
         if find_item(list, &pred, &set).is_some() {
             set.insert(id.clone());
         }
@@ -187,11 +171,34 @@ where
     set
 }
 
+/// Process a sudoers-parsing file into a workable AST
+
+pub fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+    use Directive::*;
+    let mut permits = Vec::new();
+    let mut alias: AliasTable = Default::default();
+    for item in sudoers {
+        match item {
+            Sudo::Spec(permission) => permits.push(permission),
+            Sudo::Decl(UserAlias(def)) => alias.user.1.push(def),
+            Sudo::Decl(HostAlias(def)) => alias.host.1.push(def),
+            Sudo::Decl(CmndAlias(def)) => alias.cmnd.1.push(def),
+            Sudo::Decl(RunasAlias(def)) => alias.runas.1.push(def),
+        }
+    }
+
+    alias.user.0 = sanitize_alias_table(&alias.user.1);
+    alias.host.0 = sanitize_alias_table(&alias.host.1);
+    alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1);
+    alias.runas.0 = sanitize_alias_table(&alias.runas.1);
+    (permits, alias)
+}
+
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
 /// It is much easier if they are presented in a "definitional order" (i.e. aliases that use other aliases occur later)
 /// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and cycles.
 
-fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
+fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
     fn remqualify<U>(item: &Qualified<U>) -> &U {
         match item {
             Qualified::Allow(x) => x,
@@ -199,62 +206,48 @@ fn sanitize_alias_table<T>(table: &mut Vec<Def<T>>) {
         }
     }
 
-    let derange = {
-        // perform a topological sort (hattip david@tweedegolf.com) to produce a derangement
-        struct Visitor<'a, T> {
-            seen: HashSet<usize>,
-            table: &'a Vec<Def<T>>,
-            order: Vec<usize>,
-        }
+    // perform a topological sort (hattip david@tweedegolf.com) to produce a derangement
+    struct Visitor<'a, T> {
+        seen: HashSet<usize>,
+        table: &'a Vec<Def<T>>,
+        order: Vec<usize>,
+    }
 
-        impl<T> Visitor<'_, T> {
-            fn visit(&mut self, pos: usize) {
-                if self.seen.insert(pos) {
-                    let Def(_, members) = &self.table[pos];
-                    for elem in members {
-                        let Meta::Alias(name) = remqualify(elem) else { break };
-                        let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
+    impl<T> Visitor<'_, T> {
+        fn visit(&mut self, pos: usize) {
+            if self.seen.insert(pos) {
+                let Def(_, members) = &self.table[pos];
+                for elem in members {
+                    let Meta::Alias(name) = remqualify(elem) else { break };
+                    let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
                             panic!("undefined alias: `{name}'");
                         };
-                        self.visit(dependency);
-                    }
-                    self.order.push(pos);
-                } else if !self.order.contains(&pos) {
-                    let Def(id, _) = &self.table[pos];
-                    panic!("recursive alias: `{id}'");
+                    self.visit(dependency);
                 }
+                self.order.push(pos);
+            } else if !self.order.contains(&pos) {
+                let Def(id, _) = &self.table[pos];
+                panic!("recursive alias: `{id}'");
             }
         }
+    }
 
-        let mut visitor = Visitor {
-            seen: HashSet::new(),
-            table,
-            order: Vec::with_capacity(table.len()),
-        };
-
-        let mut dupe = HashSet::new();
-        for (i, Def(name, _)) in table.iter().enumerate() {
-            if !dupe.insert(name) {
-                panic!("multiple occurences of `{name}'");
-            } else {
-                visitor.visit(i);
-            }
-        }
-
-        visitor.order
+    let mut visitor = Visitor {
+        seen: HashSet::new(),
+        table,
+        order: Vec::with_capacity(table.len()),
     };
 
-    // now swap the original array into the correct form
-    // TODO: maybe we should just return the 'derange' table and store that in the AliasTable type
-    let mut xlat = (0..table.len()).collect::<Vec<_>>();
-    let mut oldp = (0..table.len()).collect::<Vec<_>>();
-
-    for i in 0..table.len() {
-        let new_i = xlat[derange[i]];
-        table.swap(i, new_i);
-        xlat[oldp[i]] = new_i;
-        oldp[new_i] = oldp[i];
+    let mut dupe = HashSet::new();
+    for (i, Def(name, _)) in table.iter().enumerate() {
+        if !dupe.insert(name) {
+            panic!("multiple occurences of `{name}'");
+        } else {
+            visitor.visit(i);
+        }
     }
+
+    visitor.order
 }
 
 #[cfg(test)]
@@ -419,14 +412,14 @@ mod test {
         let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);
         type Elem = Spec<UserSpecifier>;
         let test_case = |x1: Elem, x2: Elem, x3: Elem| {
-            let mut table = vec![
+            let table = vec![
                 Def("AAP".to_string(), vec![x1]),
                 Def("NOOT".to_string(), vec![x2]),
                 Def("MIES".to_string(), vec![x3]),
             ];
-            sanitize_alias_table(&mut table);
+            let order = sanitize_alias_table(&table);
             let mut seen = HashSet::new();
-            for Def(id, defns) in table {
+            for Def(id, defns) in order.iter().map(|&i| &table[i]) {
                 if defns.iter().any(|spec| {
                     let Qualified::Allow(Meta::Alias(id2)) = spec else { return false };
                     !seen.contains(id2)
