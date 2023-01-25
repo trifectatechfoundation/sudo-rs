@@ -306,17 +306,17 @@ mod test {
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-		let (input,alias) = analyze(sudoer![$($sudo),*]);
+                let (input,alias) = analyze(sudoer![$($sudo),*]);
                 assert_eq!(check_permission(&input, &alias, $user, $req, $server, $command), None);
             }
         }
 
         macro_rules! pass {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
-		let (input,alias) = analyze(sudoer![$($sudo),*]);
+                let (input,alias) = analyze(sudoer![$($sudo),*]);
                 let result = check_permission(&input, &alias, $user, $req, $server, $command);
-		$(assert_eq!(result, Some(vec![$($list),*]));)?
-		assert!(!result.is_none());
+                $(assert_eq!(result, Some(vec![$($list),*]));)?
+                assert!(!result.is_none());
             }
         }
         use crate::ast::Tag::*;
