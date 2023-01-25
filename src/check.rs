@@ -23,6 +23,7 @@ pub struct UserInfo<'a> {
 pub struct AliasTable {
     user: Vec<Def<UserSpecifier>>,
     host: Vec<Def<Hostname>>,
+    cmnd: Vec<Def<Command>>,
 }
 
 /// Process a sudoers-parsing file into a workable AST
@@ -36,6 +37,8 @@ pub fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>,
             Sudo::Spec(permission) => permits.push(permission),
             Sudo::Decl(UserAlias(def)) => alias.user.push(def),
             Sudo::Decl(HostAlias(def)) => alias.host.push(def),
+            Sudo::Decl(CmndAlias(def)) => alias.cmnd.push(def),
+            Sudo::Decl(RunasAlias(_def)) => todo!(), // alias.runas.push(def),
         }
     }
 
@@ -62,7 +65,7 @@ pub fn check_permission<'a>(
     let user_aliases = get_aliases(&alias_table.user, &match_user(am_user));
     let runas_aliases = HashSet::new();
     let host_aliases = get_aliases(&alias_table.host, &match_token(on_host));
-    let cmnd_aliases = HashSet::new();
+    let cmnd_aliases = get_aliases(&alias_table.cmnd, &match_command(cmdline));
 
     let allowed_commands = sudoers
         .into_iter()
@@ -347,6 +350,9 @@ mod test {
         pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "server"; "/bin/bash");
         pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "laptop"; "/bin/bash");
         FAIL!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "desktop"; "/bin/bash");
+        pass!(["Cmnd_Alias WHAT=/bin/dd, /bin/rm","user ALL=WHAT"], "user" => &root, "server"; "/bin/rm");
+        pass!(["Cmd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => &root, "laptop"; "/bin/dd");
+        FAIL!(["Cmnd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => &root, "desktop"; "/bin/bash");
     }
 
     #[test]

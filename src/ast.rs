@@ -45,9 +45,12 @@ pub struct Def<T>(pub String, pub SpecList<T>);
 
 /// AST object for directive specifications (aliases, arguments, etc)
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)] // this is temporary
 pub enum Directive {
     UserAlias(Def<UserSpecifier>),
     HostAlias(Def<Hostname>),
+    CmndAlias(Def<Command>),
+    RunasAlias(Def<UserSpecifier>),
 }
 
 /// The Sudoers file can contain permissions and directives
@@ -130,7 +133,7 @@ impl Parse for MetaOrTag {
                 return make(MetaOrTag(Only(TIMEOUT(t))));
             }
             "ALL" => return make(MetaOrTag(All)),
-            unknown => unrecoverable!("parse error: unrecognized keyword '{unknown}'"),
+            alias => return make(MetaOrTag(Alias(alias.to_string()))),
         };
         expect_syntax(':', stream)?;
 
@@ -245,21 +248,21 @@ fn get_directive(
     use crate::ast::UserSpecifier::*;
     let Allow(Only(User(keyword))) = perhaps_keyword else { return reject() };
 
-    // TODO refactor
+    fn parse_alias<T: Token + Many>(
+        ctor: fn(Def<T>) -> Directive,
+        stream: &mut Peekable<impl Iterator<Item = char>>,
+    ) -> Parsed<Directive> {
+        let Upper(name) = expect_nonterminal(stream)?;
+        expect_syntax('=', stream)?;
+
+        make(ctor(Def(name, expect_nonterminal(stream)?)))
+    }
+
     match keyword.as_str() {
-        "User_Alias" => {
-            let Upper(name) = expect_nonterminal(stream)?;
-            expect_syntax('=', stream)?;
-
-            make(UserAlias(Def(name, expect_nonterminal(stream)?)))
-        }
-        "Host_Alias" => {
-            let Upper(name) = expect_nonterminal(stream)?;
-            expect_syntax('=', stream)?;
-
-            make(HostAlias(Def(name, expect_nonterminal(stream)?)))
-        }
-
+        "User_Alias" => parse_alias(UserAlias, stream),
+        "Host_Alias" => parse_alias(HostAlias, stream),
+        "Cmnd_Alias" | "Cmd_Alias" => parse_alias(CmndAlias, stream),
+        "Runas_Alias" => parse_alias(RunasAlias, stream),
         _ => reject(),
     }
 }
