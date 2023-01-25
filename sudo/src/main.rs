@@ -10,7 +10,6 @@ struct CustomError(String);
 
 fn main() -> Result<(), CustomError> {
     let mut args = Cli::parse();
-    // dbg!(SudoOptions::from(args));
     let mut bla = SudoOptions::from(args.clone());
     args.preserve_env.clear();
     args.preserve_env.append(& mut bla.preserve_env_list);

@@ -1,15 +1,5 @@
 use std::path::PathBuf;
-
-use clap:: {
-    Parser,
-    Arg,
-    Command,
-    Args,
-    error::Error,
-    ArgMatches,
-    FromArgMatches,
-    ArgAction
-};
+use clap::Parser;
 
 #[clap(
     name = "sudo-rs",
@@ -17,6 +7,7 @@ use clap:: {
     version,
     // disable_version_flag = true,
     // disable_help_flag = true,
+    trailing_var_arg = true,
     override_usage = "usage: sudo -h | -K | -k | -V
     usage: sudo -v [-AknS] [-g group] [-h host] [-p prompt] [-u user]
     usage: sudo -l [-AknS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command]
@@ -80,12 +71,13 @@ pub struct Cli {
     // pub version: bool,
     #[arg(short = 'v', long, help = "update user's timestamp without running a command", action)]
     pub validate: bool,
-    #[arg(long = " ", help = "stop processing command line arguments", action)] // long arg should be "--", not allowed. How to pass?
+    // this is a hack to make help show up for `--`, which wouldn't be allowed as a flag in clap.
+    // Ignore value of `stop_processing_args`.
+    #[arg(long = " ", help = "stop processing command line arguments", action)]
     pub stop_processing_args: bool,
-    // To Do: in OGSudo there is an option   --    "stop processing command line arguments." hyphens are  not allowed in clap!
-
+    // Arguments passed straight through, either seperated by -- or just trailing.
+    external_args: Vec<String>,
 }
-
 
 #[derive(Debug)]
 pub struct SudoOptions {
