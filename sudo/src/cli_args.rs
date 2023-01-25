@@ -16,66 +16,66 @@ use std::path::PathBuf;
 )]
 #[derive(Debug, Parser, Clone)]
 pub struct Cli {   
-    #[arg(long, short = 'A', help = "use a helper program for password prompting", action)]  
-    pub askpass: bool,
+    #[arg(long, short = 'A', help = "use a helper program for password prompting", action)]     
+    askpass: bool,
     #[arg(short = 'b', long, help = "run command in the background", action)]
-    pub background: bool,
+    background: bool,
     #[arg(short = 'B', long, help = "ring bell when prompting", action)]
-    pub bell: bool,
+    bell: bool,
     #[arg(short = 'C', long = "close-from", help = "close all file descriptors >= num")]
-    pub num: Option<i16>,
+    num: Option<i16>,
     #[arg(short = 'D', long = "chdir", help = "change the working directory before running command")]
-    pub directory:  Option<PathBuf>,
-    #[arg(long, value_delimiter=',', default_value = None, default_missing_value = "", require_equals = true, num_args = 0..)]
-    pub preserve_env: Vec<String>,
-    #[arg(short = 'E')]
-    pub short_preserve_env: bool,
+    directory:  Option<PathBuf>,
+    #[arg(long, help = "preserve specific environment variables", value_name = "list", value_delimiter=',', default_value = None, default_missing_value = "", require_equals = true, num_args = 0..)]
+    preserve_env: Vec<String>,
+    #[arg(short = 'E', help = "preserve user environment when running command")]
+    short_preserve_env: bool,
     #[arg(short = 'e', long, help = "edit files instead of running a command", action)]
-    pub edit: bool,
+    edit: bool,
     #[arg(short = 'g', long = "group", help = "run command as the specified group name or ID")]
-    pub group: Option<String>,
+    group: Option<String>,
     #[arg(short = 'H', long = "set-home", help = "set HOME variable to target user's home dir", action)]
-    pub set_home: bool,
+    set_home: bool,
     // #[arg(long, help = "display help message and exit!", action = ArgAction::Help)] 
-    // pub help: bool, // TO DO: help as well as host are supposed to have short 'h'???
+    // help: bool, // TO DO: help as well as host are supposed to have short 'h'???
     // #[arg(short = 'h', long = "host", help = "run command on host (if supported by plugin)")]
-    // pub host: Option<String>,
+    // host: Option<String>,
     #[arg(short = 'i', long, help = "run login shell as the target user; a command may also be specified", action, conflicts_with("shell"))]
-    pub login: bool,
+    login: bool,
     #[arg(short = 'K', long = "remove-timestamp", help = "remove timestamp file completely", action, conflicts_with("reset_timestamp"), conflicts_with("version"))]
-    pub remove_timestamp: bool,
+    remove_timestamp: bool,
     #[arg(short = 'k', long = "reset-timestamp", help = "invalidate timestamp file", action, conflicts_with("remove_timestamp"), conflicts_with("version"))]
-    pub reset_timestamp: bool,
-    #[arg(short, long, help = "list user's privileges or check a specific command; use twice for longer format
-    ", action)]
-    pub list: bool,
+    reset_timestamp: bool,
+    #[arg(short, long, help = "list user's privileges or check a specific command; use twice for longer format", action)]
+    list: bool,
     #[arg(short = 'n', long = "non-interactive", help = "non-interactive mode, no prompts are used", action)]
-    pub non_interactive: bool,
+    non_interactive: bool,
     #[arg(short = 'P', long = "preserve-groups", help = "preserve group vector instead of setting to target's", action)]
-    pub preserve_groups: bool,
+    preserve_groups: bool,
     #[arg(short = 'p', long = "prompt", help = "use the specified password prompt")]
-    pub prompt: Option<String>,
+    prompt: Option<String>,
     #[arg(short = 'R', long = "chroot", help = "change the root directory before running command", value_name = "directory")]
-    pub chroot: Option<PathBuf>,
+    chroot: Option<PathBuf>,
     #[arg(short = 'S', long, help = "read password from standard input", action)]
-    pub stdin: bool,
+    stdin: bool,
     #[arg(short = 's', long, help = "run shell as the target user; a command may also be specified", action)]
-    pub shell: bool,
+    shell: bool,
     #[arg(short = 'T', long = "command-timeout", help = "terminate command after the specified time limit", value_name = "timeout")]
-    pub command_timeout: Option<String>,
+    command_timeout: Option<String>, // To Do: This is the wrong type. Which one is correct?
     #[arg(short = 'U', long = "other-user", help = "in list mode, display privileges for user", value_name = "user")]
-    pub other_user: Option<String>,
+    other_user: Option<String>,
     #[arg(short = 'u', long = "user", help = "run command (or edit file) as specified user name or ID")]
-    pub user: Option<String>,
+    user: Option<String>,
     // #[arg(short = 'V', long = "version", help = "display version information and exit!", action = ArgAction::Version, conflicts_with("host"), conflicts_with("remove_timestamp"), conflicts_with("reset_timestamp"))] 
-    // pub version: bool,
+    // version: bool,
     #[arg(short = 'v', long, help = "update user's timestamp without running a command", action)]
-    pub validate: bool,
+    validate: bool,
     // this is a hack to make help show up for `--`, which wouldn't be allowed as a flag in clap.
     // Ignore value of `stop_processing_args`.
     #[arg(long = " ", help = "stop processing command line arguments", action)]
-    pub stop_processing_args: bool,
+    stop_processing_args: bool,
     // Arguments passed straight through, either seperated by -- or just trailing.
+    #[arg(hide = true)]
     external_args: Vec<String>,
 }
 
@@ -86,6 +86,39 @@ pub struct SudoOptions {
     pub preserve_env: bool,
     // This is what OGsudo calls `--preserve-env=list`
     pub preserve_env_list: Vec<String>,
+    pub askpass: bool,
+    pub background: bool,
+    pub bell: bool,
+    pub num: Option<i16>,
+    pub directory:  Option<PathBuf>,
+    pub edit: bool,
+    pub group: Option<String>,
+    pub set_home: bool,
+    // #[arg(long, help = "display help message and exit!", action = ArgAction::Help)] 
+    // pub help: bool, // TO DO: help as well as host are supposed to have short 'h'???
+    // #[arg(short = 'h', long = "host", help = "run command on host (if supported by plugin)")]
+    // pub host: Option<String>,
+    // possible to do the same way as preserve_env
+    pub login: bool,
+    pub remove_timestamp: bool,
+    pub reset_timestamp: bool,
+    pub list: bool,
+    pub non_interactive: bool,
+    pub preserve_groups: bool,
+    pub prompt: Option<String>,
+    pub chroot: Option<PathBuf>,
+    pub stdin: bool,
+    pub shell: bool,
+    pub command_timeout: Option<String>,
+    pub other_user: Option<String>,
+    pub user: Option<String>,
+    // pub version: bool,
+    pub validate: bool,
+    // this is a hack to make help show up for `--`, which wouldn't be allowed as a flag in clap.
+    // Ignore value of `stop_processing_args`.
+    // pub stop_processing_args: bool,
+    // Arguments passed straight through, either seperated by -- or just trailing.
+    pub external_args: Vec<String>,
 }
 
 impl From<Cli> for SudoOptions {
@@ -105,6 +138,29 @@ impl From<Cli> for SudoOptions {
                     .filter(|s| !s.is_empty())
                     .collect()
             },
+            askpass: command.askpass,
+            background: command.background,
+            bell: command.bell,
+            num: command.num,
+            directory: command.directory,
+            edit: command.edit,
+            group: command.group,
+            set_home: command.set_home,
+            login: command.login,
+            remove_timestamp: command.remove_timestamp,
+            reset_timestamp: command.reset_timestamp,
+            list: command.list,
+            non_interactive: command.non_interactive,
+            preserve_groups: command.preserve_groups,
+            prompt: command.prompt,
+            chroot: command.chroot,
+            stdin: command.stdin,
+            shell: command.shell,
+            command_timeout: command.command_timeout,
+            other_user: command.other_user,
+            user: command.user,
+            validate: command.validate,
+            external_args: command.external_args,
         }
     }
 }

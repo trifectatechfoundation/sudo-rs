@@ -10,6 +10,7 @@ fn main() -> Result<(), CustomError> {
     Ok(())
 }
 
+
 #[test]
 fn verify_cli() {
     use clap::CommandFactory;
