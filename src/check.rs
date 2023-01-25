@@ -106,14 +106,13 @@ where
     let mut result = None;
     for item in items {
         let (judgement, who) = match item.into() {
-            Qualified::Forbid(x) => (false, x),
-            Qualified::Allow(x) => (true, x),
+            Qualified::Forbid(x) => (None, x),
+            Qualified::Allow(x) => (Some(item.to_info()), x),
         };
-        let get_flags = || item.to_info();
         match who {
-            Meta::All => result = judgement.then(get_flags),
-            Meta::Only(ident) if matches(ident) => result = judgement.then(get_flags),
-            Meta::Alias(id) if aliases.contains(id) => result = judgement.then(get_flags),
+            Meta::All => result = judgement,
+            Meta::Only(ident) if matches(ident) => result = judgement,
+            Meta::Alias(id) if aliases.contains(id) => result = judgement,
             _ => {}
         };
     }
