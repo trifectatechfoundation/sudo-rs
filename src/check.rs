@@ -27,7 +27,7 @@ pub struct AliasTable {
 
 /// Process a sudoers-parsing file into a workable AST
 
-pub fn analyze(sudoers: impl Iterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+pub fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
     use Directive::*;
     let mut permits = Vec::new();
     let mut alias: AliasTable = Default::default();
@@ -245,19 +245,14 @@ mod test {
     use basic_parser::parse_eval;
     use std::iter;
 
-    fn sudoers_parse(lines: impl Iterator<Item = String>) -> Vec<ast::PermissionSpec> {
-        lines.map(|text| basic_parser::parse_eval(&text)).collect()
-    }
-
     macro_rules! sudoer {
         ($h:expr $(,$e:expr)*) => {
-            &sudoers_parse(
+            (
                 iter::once($h)
                 $(
                     .chain(iter::once($e))
                 )*
-                .map(str::to_string)
-            )
+            ).map(parse_eval)
         }
     }
 
@@ -289,67 +284,69 @@ mod test {
             user: "root",
             group: "root",
         };
-        let no_alias = &AliasTable {
-            user: Vec::new(),
-            host: Vec::new(),
-        };
 
         macro_rules! FAIL {
-            ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr) => {
-            assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), None);
+            ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
+		let (input,alias) = analyze(sudoer![$($sudo),*]);
+                assert_eq!(check_permission(&input, &alias, $user, $req, $server, $command), None);
             }
         }
 
         macro_rules! pass {
-            ([$($sudo:expr),*], $alias:expr, $user:expr => $req:expr, $server:expr; $command:expr => [$($list:expr),*]) => {
-            assert_eq!(check_permission(sudoer![$($sudo),*], $alias, $user, $req, $server, $command), Some(vec![$($list),*]));
+            ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
+		let (input,alias) = analyze(sudoer![$($sudo),*]);
+                let result = check_permission(&input, &alias, $user, $req, $server, $command);
+		$(assert_eq!(result, Some(vec![$($list),*]));)?
+		assert!(!result.is_none());
             }
         }
         use crate::ast::Tag::*;
 
-        FAIL!(["user ALL=(ALL:ALL) ALL"], no_alias, "nobody"    => &root, "server"; "/bin/hello");
-        pass!(["user ALL=(ALL:ALL) ALL"], no_alias, "user"      => &root, "server"; "/bin/hello" => []);
-        pass!(["user ALL=(ALL:ALL) /bin/foo"], no_alias, "user" => &root, "server"; "/bin/foo" => []);
-        FAIL!(["user ALL=(ALL:ALL) /bin/foo"], no_alias, "user" => &root, "server"; "/bin/hello");
-        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], no_alias, "user" => &root, "server"; "/bin/foo" => []);
-        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], no_alias, "user" => &root, "server"; "/bin/bar" => [NOPASSWD]);
+        FAIL!(["user ALL=(ALL:ALL) ALL"], "nobody"    => &root, "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) ALL"], "user"      => &root, "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => &root, "server"; "/bin/foo");
+        FAIL!(["user ALL=(ALL:ALL) /bin/foo"], "user" => &root, "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => &root, "server"; "/bin/foo");
+        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => &root, "server"; "/bin/bar" => [NOPASSWD]);
 
-        pass!(["user server=(ALL:ALL) ALL"], no_alias, "user" => &root, "server"; "/bin/hello" => []);
-        FAIL!(["user laptop=(ALL:ALL) ALL"], no_alias, "user" => &root, "server"; "/bin/hello");
+        pass!(["user server=(ALL:ALL) ALL"], "user" => &root, "server"; "/bin/hello");
+        FAIL!(["user laptop=(ALL:ALL) ALL"], "user" => &root, "server"; "/bin/hello");
 
-        pass!(["user ALL=!/bin/hello", "user ALL=/bin/hello"], no_alias, "user" => &root, "server"; "/bin/hello" => []);
-        FAIL!(["user ALL=/bin/hello", "user ALL=!/bin/hello"], no_alias, "user" => &root, "server"; "/bin/hello");
+        pass!(["user ALL=!/bin/hello", "user ALL=/bin/hello"], "user" => &root, "server"; "/bin/hello");
+        FAIL!(["user ALL=/bin/hello", "user ALL=!/bin/hello"], "user" => &root, "server"; "/bin/hello");
 
-        for alias in &[
-            AliasTable {
-                user: vec![Def("GROUP".to_string(), parse_eval("user1, user2"))],
-                host: vec![],
-            },
-            AliasTable {
-                user: vec![Def("GROUP".to_string(), parse_eval("ALL,!user3"))],
-                host: vec![],
-            },
+        for alias in [
+            "User_Alias GROUP=user1, user2",
+            "User_Alias GROUP=ALL,!user3",
         ] {
-            pass!(["GROUP ALL=/bin/hello"], alias, "user1" => &root, "server"; "/bin/hello" => []);
-            pass!(["GROUP ALL=/bin/hello"], alias, "user2" => &root, "server"; "/bin/hello" => []);
-            FAIL!(["GROUP ALL=/bin/hello"], alias, "user3" => &root, "server"; "/bin/hello");
-            pass!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello arg" => []);
-            pass!(["user ALL=/bin/hello  arg"], alias, "user" => &root, "server"; "/bin/hello arg" => []);
-            pass!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello  arg" => []);
-            FAIL!(["user ALL=/bin/hello arg"], alias, "user" => &root, "server"; "/bin/hello boo");
-            pass!(["user ALL=/bin/hello a*g"], alias, "user" => &root, "server"; "/bin/hello  aaaarg" => []);
-            FAIL!(["user ALL=/bin/hello a*g"], alias, "user" => &root, "server"; "/bin/hello boo");
-            pass!(["user ALL=/bin/hello"], alias, "user" => &root, "server"; "/bin/hello boo" => []);
-            FAIL!(["user ALL=/bin/hello \"\""], alias, "user" => &root, "server"; "/bin/hello boo");
-            pass!(["user ALL=/bin/hello \"\""], alias, "user" => &root, "server"; "/bin/hello" => []);
-            pass!(["user ALL=/bin/hel*"], alias, "user" => &root, "server"; "/bin/hello" => []);
-            pass!(["user ALL=/bin/hel*"], alias, "user" => &root, "server"; "/bin/help" => []);
-            pass!(["user ALL=/bin/hel*"], alias, "user" => &root, "server"; "/bin/help me" => []);
-            pass!(["user ALL=/bin/hel* *"], alias, "user" => &root, "server"; "/bin/help" => []);
-            FAIL!(["user ALL=/bin/hel* me"], alias, "user" => &root, "server"; "/bin/help");
-            pass!(["user ALL=/bin/hel* me"], alias, "user" => &root, "server"; "/bin/help me" => []);
-            FAIL!(["user ALL=/bin/hel* me"], alias, "user" => &root, "server"; "/bin/help me please");
+            pass!([alias,"GROUP ALL=/bin/hello"], "user1" => &root, "server"; "/bin/hello");
+            pass!([alias,"GROUP ALL=/bin/hello"], "user2" => &root, "server"; "/bin/hello");
+            FAIL!([alias,"GROUP ALL=/bin/hello"], "user3" => &root, "server"; "/bin/hello");
         }
+        pass!(["user ALL=/bin/hello arg"], "user" => &root, "server"; "/bin/hello arg");
+        pass!(["user ALL=/bin/hello  arg"], "user" => &root, "server"; "/bin/hello arg");
+        pass!(["user ALL=/bin/hello arg"], "user" => &root, "server"; "/bin/hello  arg");
+        FAIL!(["user ALL=/bin/hello arg"], "user" => &root, "server"; "/bin/hello boo");
+        pass!(["user ALL=/bin/hello a*g"], "user" => &root, "server"; "/bin/hello  aaaarg");
+        FAIL!(["user ALL=/bin/hello a*g"], "user" => &root, "server"; "/bin/hello boo");
+        pass!(["user ALL=/bin/hello"], "user" => &root, "server"; "/bin/hello boo");
+        FAIL!(["user ALL=/bin/hello \"\""], "user" => &root, "server"; "/bin/hello boo");
+        pass!(["user ALL=/bin/hello \"\""], "user" => &root, "server"; "/bin/hello");
+        pass!(["user ALL=/bin/hel*"], "user" => &root, "server"; "/bin/hello");
+        pass!(["user ALL=/bin/hel*"], "user" => &root, "server"; "/bin/help");
+        pass!(["user ALL=/bin/hel*"], "user" => &root, "server"; "/bin/help me");
+        pass!(["user ALL=/bin/hel* *"], "user" => &root, "server"; "/bin/help");
+        FAIL!(["user ALL=/bin/hel* me"], "user" => &root, "server"; "/bin/help");
+        pass!(["user ALL=/bin/hel* me"], "user" => &root, "server"; "/bin/help me");
+        FAIL!(["user ALL=/bin/hel* me"], "user" => &root, "server"; "/bin/help me please");
+
+        pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => &root, "server"; "/bin/bash");
+        FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => &root, "server"; "/bin/bash");
+        FAIL!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "user" => &root, "server"; "/bin/bash");
+        pass!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "marc" => &root, "server"; "/bin/bash");
+        pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "server"; "/bin/bash");
+        pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "laptop"; "/bin/bash");
+        FAIL!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "desktop"; "/bin/bash");
     }
 
     #[test]
