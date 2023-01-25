@@ -44,6 +44,7 @@ pub fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>,
 
     sanitize_alias_table(&mut alias.user);
     sanitize_alias_table(&mut alias.host);
+    sanitize_alias_table(&mut alias.cmnd);
     (permits, alias)
 }
 
@@ -353,6 +354,10 @@ mod test {
         pass!(["Cmnd_Alias WHAT=/bin/dd, /bin/rm","user ALL=WHAT"], "user" => &root, "server"; "/bin/rm");
         pass!(["Cmd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => &root, "laptop"; "/bin/dd");
         FAIL!(["Cmnd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => &root, "desktop"; "/bin/bash");
+
+        pass!(["User_Alias A=B","User_Alias B=user","A ALL=ALL"], "user" => &root, "vm"; "/bin/ls");
+        pass!(["Host_Alias A=B","Host_Alias B=vm","ALL A=ALL"], "user" => &root, "vm"; "/bin/ls");
+        pass!(["Cmnd_Alias A=B","Cmnd_Alias B=/bin/ls","ALL ALL=A"], "user" => &root, "vm"; "/bin/ls");
     }
 
     #[test]
