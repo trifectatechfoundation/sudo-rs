@@ -1,12 +1,12 @@
-use std::{path::PathBuf};
 use clap::Parser;
+use std::path::PathBuf;
 
 #[clap(
     name = "sudo-rs",
     about = "sudo - execute a command as another user",
     version,
     // disable_version_flag = true,
-    // disable_help_flag = true,
+    disable_help_flag = true,
     trailing_var_arg = true,
     override_usage = "usage: sudo -h | -K | -k | -V
     usage: sudo -v [-AknS] [-g group] [-h host] [-p prompt] [-u user]
@@ -36,10 +36,6 @@ pub struct Cli {
     group: Option<String>,
     #[arg(short = 'H', long = "set-home", help = "set HOME variable to target user's home dir", action)]
     set_home: bool,
-    // #[arg(long, help = "display help message and exit!", action = ArgAction::Help)] 
-    // help: bool, // TO DO: help as well as host are supposed to have short 'h'???
-    // #[arg(short = 'h', long = "host", help = "run command on host (if supported by plugin)")]
-    // host: Option<String>,
     #[arg(short = 'i', long, help = "run login shell as the target user; a command may also be specified", action, conflicts_with("shell"))]
     login: bool,
     #[arg(short = 'K', long = "remove-timestamp", help = "remove timestamp file completely", action, conflicts_with("reset_timestamp"), conflicts_with("version"))]
@@ -70,6 +66,10 @@ pub struct Cli {
     // version: bool,
     #[arg(short = 'v', long, help = "update user's timestamp without running a command", action)]
     validate: bool,
+    #[arg(short = 'h', value_name = "host", default_value = None, default_missing_value = "", require_equals = true, num_args = 0..=1)]
+    host_or_help: Option<String>,
+    #[arg(long, value_name = "host")]
+    host: Option<String>,
     // this is a hack to make help show up for `--`, which wouldn't be allowed as a flag in clap.
     // Ignore value of `stop_processing_args`.
     #[arg(long = " ", help = "stop processing command line arguments", action)]
@@ -114,6 +114,8 @@ pub struct SudoOptions {
     pub user: Option<String>,
     // pub version: bool,
     pub validate: bool,
+    pub help: bool,
+    pub host: Option<String>,
     // this is a hack to make help show up for `--`, which wouldn't be allowed as a flag in clap.
     // Ignore value of `stop_processing_args`.
     // pub stop_processing_args: bool,
@@ -123,6 +125,23 @@ pub struct SudoOptions {
 
 impl From<Cli> for SudoOptions {
     fn from(command: Cli) -> Self {
+        let is_help = command.host_or_help.as_deref() == Some("");
+        let host = match command.host {
+            Some(host) => {
+                if !is_help {
+                    todo!("Both `-h=<HOST>` and `--help=<HOST>` are being used")
+                }
+                Some(host)
+            }
+            None => {
+                if !is_help {
+                    command.host_or_help
+                } else {
+                    None
+                }
+            }
+        };
+
         // This lets us know if the user passed `--preserve-env` with no args
         let preserve_env_no_args = command.preserve_env.iter().any(String::is_empty);
 
@@ -159,6 +178,8 @@ impl From<Cli> for SudoOptions {
             other_user: command.other_user,
             user: command.user,
             validate: command.validate,
+            help: is_help,
+            host,
             external_args: command.external_args,
         }
     }
