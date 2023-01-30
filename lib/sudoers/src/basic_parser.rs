@@ -267,7 +267,6 @@ impl<T: Parse + Many> Parse for Vec<T> {
     }
 }
 
-#[allow(dead_code)]
 fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
     if stream.peek().is_some() {
         unrecoverable!("parse error: trailing garbage")
@@ -275,14 +274,6 @@ fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Par
     make(())
 }
 
-#[allow(dead_code)]
-pub fn try_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
-    let result = try_nonterminal(stream)?;
-    expect_end_of_parse(stream)?;
-    make(result)
-}
-
-#[allow(dead_code)]
 pub fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
     let result = expect_nonterminal(stream)?;
     expect_end_of_parse(stream)?;

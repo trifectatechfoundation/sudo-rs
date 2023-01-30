@@ -22,11 +22,10 @@ pub struct RunAs {
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
-#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Tag {
-    NOPASSWD,
-    TIMEOUT(i32),
+    NoPasswd,
+    Timeout(i32),
 }
 
 /// Commands with attached attributes.
@@ -126,11 +125,11 @@ impl Parse for MetaOrTag {
         use Tag::*;
         let Upper(keyword) = try_nonterminal(stream)?;
         let result = match keyword.as_str() {
-            "NOPASSWD" => NOPASSWD,
+            "NOPASSWD" => NoPasswd,
             "TIMEOUT" => {
                 expect_syntax('=', stream)?;
                 let Decimal(t) = expect_nonterminal(stream)?;
-                return make(MetaOrTag(Only(TIMEOUT(t))));
+                return make(MetaOrTag(Only(Timeout(t))));
             }
             "ALL" => return make(MetaOrTag(All)),
             alias => return make(MetaOrTag(Alias(alias.to_string()))),
@@ -199,7 +198,7 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 /// permissionspec = userlist, (host, runas, commandspec), [ ":", (host, runas, commandspec) ]*
 /// ```
 
-#[allow(dead_code)]
+#[cfg(test)]
 impl Parse for PermissionSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let users = try_nonterminal(stream)?;

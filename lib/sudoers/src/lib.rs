@@ -126,11 +126,6 @@ where
     result
 }
 
-#[allow(dead_code)]
-fn exact<T: Eq + ?Sized>(s1: &T) -> (impl Fn(&T) -> bool + '_) {
-    move |s2| s1 == s2
-}
-
 fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     move |spec| match spec {
         UserSpecifier::User(name) => name.0 == username,
@@ -327,7 +322,7 @@ mod test {
         pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => &root, "server"; "/bin/foo");
         FAIL!(["user ALL=(ALL:ALL) /bin/foo"], "user" => &root, "server"; "/bin/hello");
         pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => &root, "server"; "/bin/foo");
-        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => &root, "server"; "/bin/bar" => [NOPASSWD]);
+        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => &root, "server"; "/bin/bar" => [NoPasswd]);
 
         pass!(["user server=(ALL:ALL) ALL"], "user" => &root, "server"; "/bin/hello");
         FAIL!(["user laptop=(ALL:ALL) ALL"], "user" => &root, "server"; "/bin/hello");
