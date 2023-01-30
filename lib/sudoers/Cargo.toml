@@ -1,0 +1,9 @@
+[package]
+name = "sudoers"
+version = "0.4.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+derive_more = ">=0.99.17"
+glob = ">= 0.3.1"
