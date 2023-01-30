@@ -112,6 +112,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn do_not_preserve_env() {
         let user = User::real().unwrap().unwrap();
         let args = setup(Environment::new());
@@ -129,6 +130,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn set_home() {
         let user = User::real().unwrap().unwrap();
         let target_user = User::from_name("root").unwrap().unwrap();
@@ -149,6 +151,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn truncate_long_argument_list() {
         let user = User::real().unwrap().unwrap();
         let mut args = setup(Environment::new());
@@ -170,6 +173,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn preserve_env() {
         let user = User::real().unwrap().unwrap();
         let mut args = setup(environment_from_list(vec![("FOO", "BAR")]));
@@ -189,6 +193,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn preserve_env_list() {
         let user = User::real().unwrap().unwrap();
         let mut args = setup(environment_from_list(vec![
