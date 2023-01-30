@@ -1,8 +1,8 @@
 [package]
-name = "sudo-common"
+name = "sudo-system"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-sudo-system = { path = "../sudo-system" }
+libc = "0.2.139"
