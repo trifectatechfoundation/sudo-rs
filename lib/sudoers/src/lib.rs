@@ -12,10 +12,8 @@ use ast::*;
 use tokens::*;
 
 /// Export some necessary symbols from modules
-
 pub use ast::Sudo;
 pub use basic_parser::parse_string;
-
 
 /// TODO: this interface should be replaced by something that interacts with the operating system
 /// Right now, we emulate that a user is always only in its own group.
