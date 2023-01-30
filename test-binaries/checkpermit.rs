@@ -1,11 +1,6 @@
-mod ast;
-mod basic_parser;
-mod check;
-mod tokens;
-
 // TODO: this should give parse error messages etc.
-fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = ast::Sudo> {
-    lines.filter_map(|text| match basic_parser::parse_string(&text) {
+fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = sudoers::Sudo> {
+    lines.filter_map(|text| match sudoers::parse_string(&text) {
         Ok(x) => Some(x),
         Err(error) => {
             eprintln!("PARSE ERROR: {error:?}");
@@ -17,7 +12,7 @@ fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = as
 fn chatty_check_permission(
     sudoers: impl Iterator<Item = String>,
     am_user: &str,
-    request: &check::UserInfo,
+    request: &sudoers::UserInfo,
     on_host: &str,
     chosen_poison: &str,
 ) {
@@ -25,9 +20,9 @@ fn chatty_check_permission(
         "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
         am_user, on_host, chosen_poison, request.user, request.group
     );
-    let (input, aliases) = check::analyze(sudoers_parse(sudoers));
+    let (input, aliases) = sudoers::analyze(sudoers_parse(sudoers));
     let result =
-        check::check_permission(&input, &aliases, am_user, request, on_host, chosen_poison);
+        sudoers::check_permission(&input, &aliases, am_user, request, on_host, chosen_poison);
     println!("OUTCOME: {result:?}");
 }
 
@@ -44,7 +39,7 @@ fn main() {
             chatty_check_permission(
                 cfg,
                 &args[1],
-                &check::UserInfo {
+                &sudoers::UserInfo {
                     user: args.get(4).unwrap_or(&"root".to_string()),
                     group: args.get(5).unwrap_or(&"root".to_string())
                 },

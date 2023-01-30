@@ -60,7 +60,7 @@ pub enum Sudo {
 }
 
 /// grammar:
-/// ```
+/// ```text
 /// qualified<T> = T | "!", qualified<T>
 /// ```
 ///
@@ -93,7 +93,7 @@ impl<T: Many> Many for Qualified<T> {
 }
 
 /// grammar:
-/// ```
+/// ```text
 /// runas = "(", userlist, (":", grouplist?)?, ")"
 /// ```
 impl Parse for RunAs {
@@ -142,7 +142,7 @@ impl Parse for MetaOrTag {
 }
 
 /// grammar:
-/// ```
+/// ```text
 /// commandspec = [tags]*, command
 /// ```
 
@@ -172,7 +172,7 @@ impl Many for CommandSpec {}
 
 /// Parsing for a tuple of hostname, runas specifier and commandspec.
 /// grammar:
-/// ```
+/// ```text
 /// (host,runas,commandspec) = hostlist, "=", runas?, commandspec
 /// ```
 
@@ -195,7 +195,7 @@ impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
 }
 
 /// grammar:
-/// ```
+/// ```text
 /// permissionspec = userlist, (host, runas, commandspec), [ ":", (host, runas, commandspec) ]*
 /// ```
 
@@ -210,7 +210,7 @@ impl Parse for PermissionSpec {
 }
 
 /// grammar:
-/// ```
+/// ```text
 /// sudo = permissionspec
 ///      | Keyword identifier = identifier_list
 /// ```

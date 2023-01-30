@@ -9,17 +9,18 @@
 //!
 //! Can get translated as: (representing a sum as `LinkedList<u32>`):
 //!
-//! ```rust
-//! impl Parse of LinkedList<u32> {
-//!     fn parse(stream: ...) -> Option<LinkedList<u32>> {
-//!         let x = try_nonterminal::<u32>(stream)?;
+//! ```ignore
+//! impl<T: Parse> Parse for LinkedList<T> {
+//!     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<LinkedList<T>> {
+//!         let x = try_nonterminal(stream)?;
 //!         let mut tail = if maybe(try_syntax('+', stream))?.is_some() {
-//!             expect_nonterminal::<LinkedList<u32>>(stream)?;
-//!             rest
+//!             expect_nonterminal(stream)?
 //!         } else {
 //!             LinkedList::new()
-//!         }
-//!         rest.push_front(x);
+//!         };
+//!         tail.push_front(x);
+//!
+//!         make(tail)
 //!     }
 //! }
 //! ```
