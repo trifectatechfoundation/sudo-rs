@@ -28,6 +28,14 @@ pub struct UserInfo<'a> {
     pub group: &'a str,
 }
 
+// TODO to be replaced with a proper 'user identifier' object provided by the system
+fn temp_kludge(user: &tokens::Identifier) -> &str {
+    match user {
+        Identifier::Name(x) => &x.0,
+        _ => panic!("you have reached the limits of this stub"),
+    }
+}
+
 // TODO: combine this with Vec<PermissionSpec> into a single data structure?
 #[derive(Default)]
 pub struct AliasTable {
@@ -129,20 +137,22 @@ where
 
 fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     move |spec| match spec {
-        UserSpecifier::User(name) => name.0 == username,
-        UserSpecifier::Group(groupname) => in_group(username, groupname.0.as_str()),
+        UserSpecifier::User(name) => temp_kludge(name) == username,
+        UserSpecifier::Group(groupname) => in_group(username, temp_kludge(groupname)),
+        _ => todo!(),
     }
 }
 
 fn match_group_alias(groupname: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     move |spec| match spec {
-        UserSpecifier::User(name) => name.0 == groupname,
+        UserSpecifier::User(name) => temp_kludge(name) == groupname,
         /* the parser rejects this, but can happen due to Runas_Alias,
          * see https://github.com/memorysafety/sudo-rs/issues/13 */
         UserSpecifier::Group(_) => {
             eprintln!("warning: ignoring %group syntax for use sudo -g");
             false
         }
+        _ => todo!(),
     }
 }
 
