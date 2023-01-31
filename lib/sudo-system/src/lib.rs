@@ -20,8 +20,25 @@ fn cerr_long(res: libc::c_long) -> std::io::Result<libc::c_long> {
     }
 }
 
+extern "C" {
+    #[cfg_attr(
+        any(target_os = "macos", target_os = "ios", target_os = "freebsd"),
+        link_name = "__error"
+    )]
+    #[cfg_attr(
+        any(target_os = "openbsd", target_os = "netbsd", target_os = "android"),
+        link_name = "__errno"
+    )]
+    #[cfg_attr(target_os = "linux", link_name = "__errno_location")]
+    fn errno_location() -> *mut libc::c_int;
+}
+
+fn set_errno(no: libc::c_int) {
+    unsafe { *errno_location() = no };
+}
+
 fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
-    unsafe { *libc::__errno_location() = 0 };
+    set_errno(0);
     match cerr_long(unsafe { libc::sysconf(name) }) {
         Ok(res) => Some(res),
         Err(_) => None,
