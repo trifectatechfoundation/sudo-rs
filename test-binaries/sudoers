@@ -1,0 +1,5 @@
+piet, jan vm,laptop=(piet,jan:wheel,backup) ALL : ALL=(ALL) TIMEOUT=123 /bin/echo : tg=(:ALL) NOPASSWD: /bin/ls
+roost ALL=(ALL:ALL) /bin/user
+%roost ALL=(ALL:ALL) /bin/group
+User_Alias WHEEL = ALL,!piet
+WHEEL laptop=(ALL:ALL) NOPASSWD: /bin/sh whelp
