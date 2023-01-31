@@ -71,13 +71,13 @@ fn filter_env(preserve_env_list: Vec<&str>, environment: Environment) -> Environ
     filtered_env
 }
 
-pub fn set_target_environment(context: &Context) -> Environment {
+pub fn get_target_environment(context: &Context) -> Environment {
     let mut result = Environment::new();
     let current = env::vars_os().collect::<Environment>();
 
     if context.preserve_env {
         result.extend(current);
-    } else if context.preserve_env_list.len() > 0 {
+    } else if context.preserve_env_list.is_empty() {
         let preserve_env_list = context
             .preserve_env_list
             .iter()

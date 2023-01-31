@@ -1,7 +1,6 @@
 use std::{
     fs::File,
     io::{self, BufRead},
-    process::ExitStatus,
 };
 
 use sudo_cli::cli_args::SudoOptions;
@@ -40,15 +39,15 @@ fn main() -> Result<(), Error> {
 
     let current_user = User::real()
         .map_err(|_| Error::UserNotFound)?
-        .ok_or_else(|| Error::UserNotFound)?;
+        .ok_or(Error::UserNotFound)?;
 
     let target_user = User::from_name(sudo_options.user.as_deref().unwrap_or("root"))
         .map_err(|_| Error::UserNotFound)?
-        .ok_or_else(|| Error::UserNotFound)?;
+        .ok_or(Error::UserNotFound)?;
 
     let target_group = Group::from_gid(target_user.gid)
         .map_err(|_| Error::UserNotFound)?
-        .ok_or_else(|| Error::UserNotFound)?;
+        .ok_or(Error::UserNotFound)?;
 
     let mut context = Context {
         hostname,
@@ -62,7 +61,8 @@ fn main() -> Result<(), Error> {
         preserve_env_list: sudo_options.preserve_env_list,
     };
 
-    sudo_common::env::set_target_environment(&mut context);
+    context.target_environment = sudo_common::env::get_target_environment(&context);
+    let context = context;
 
     let file = match File::open(sudoers_path) {
         Ok(f) => f,
