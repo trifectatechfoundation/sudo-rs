@@ -13,10 +13,7 @@ impl TryFrom<Vec<&str>> for CommandAndArguments {
     fn try_from(external_args: Vec<&str>) -> Result<Self, Self::Error> {
         let mut iter = external_args.into_iter();
 
-        let command = iter
-            .next()
-            .ok_or_else(|| Error::InvalidCommand)?
-            .to_string();
+        let command = iter.next().ok_or(Error::InvalidCommand)?.to_string();
 
         Ok(CommandAndArguments {
             command,
