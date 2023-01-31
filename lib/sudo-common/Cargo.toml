@@ -5,4 +5,5 @@ edition = "2021"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
+pam-client = "0.5"
 sudo-system = { path = "../sudo-system" }

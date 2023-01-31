@@ -7,4 +7,5 @@ license = "Apache-2.0 OR MIT"
 [dependencies]
 sudo-common = { path = "../lib/sudo-common" }
 sudo-system = { path = "../lib/sudo-system" }
-clap = { version = "4.0.32", features = ["derive", "cargo"] }
+sudo-cli = { path = "../lib/sudo-cli" }
+sudoers = { path = "../lib/sudoers" }
