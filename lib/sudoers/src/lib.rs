@@ -16,24 +16,12 @@ pub use ast::Sudo;
 pub use ast::Tag;
 pub use basic_parser::parse_string;
 
-/// TODO: this interface should be replaced by something that interacts with the operating system
-/// Right now, we emulate that a user is always only in its own group.
+mod sysuser;
+pub use sysuser::*;
 
-fn in_group(user: &str, group: &str) -> bool {
-    user == group
-}
-
-pub struct UserInfo<'a> {
-    pub user: &'a str,
-    pub group: &'a str,
-}
-
-// TODO to be replaced with a proper 'user identifier' object provided by the system
-fn temp_kludge(user: &tokens::Identifier) -> &str {
-    match user {
-        Identifier::Name(x) => &x.0,
-        _ => panic!("you have reached the limits of this stub"),
-    }
+pub struct UserInfo<User: Identifiable> {
+    pub user: User,
+    pub group: ast::Identifier,
 }
 
 // TODO: combine this with Vec<PermissionSpec> into a single data structure?
@@ -60,24 +48,24 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
-pub fn check_permission<'a>(
+pub fn check_permission<'a, User: Identifiable>(
     sudoers: impl IntoIterator<Item = &'a PermissionSpec>,
     alias_table: &AliasTable,
-    am_user: &str,
-    request: &UserInfo,
+    am_user: User,
+    request: &UserInfo<User>,
     on_host: &str,
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
-    let user_aliases = get_aliases(&alias_table.user, &match_user(am_user));
+    let user_aliases = get_aliases(&alias_table.user, &match_user(&am_user));
     let host_aliases = get_aliases(&alias_table.host, &match_token(on_host));
     let cmnd_aliases = get_aliases(&alias_table.cmnd, &match_command(cmdline));
-    let runas_user_aliases = get_aliases(&alias_table.runas, &match_user(request.user));
-    let runas_group_aliases = get_aliases(&alias_table.runas, &match_group_alias(request.group));
+    let runas_user_aliases = get_aliases(&alias_table.runas, &match_user(&request.user));
+    let runas_group_aliases = get_aliases(&alias_table.runas, &match_group_alias(&request.group));
 
     let allowed_commands = sudoers
         .into_iter()
         .filter_map(|sudo| {
-            find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
+            find_item(&sudo.users, &match_user(&am_user), &user_aliases)?;
 
             let matching_rules = sudo
                 .permissions
@@ -87,12 +75,12 @@ pub fn check_permission<'a>(
 
                     if let Some(RunAs { users, groups }) = runas {
                         if !users.is_empty() || request.user != am_user {
-                            *find_item(users, &match_user(request.user), &runas_user_aliases)?
+                            *find_item(users, &match_user(&request.user), &runas_user_aliases)?
                         }
-                        if !in_group(request.user, request.group) {
-                            *find_item(groups, &match_group(request.group), &runas_group_aliases)?
+                        if !in_group(&request.user, &request.group) {
+                            *find_item(groups, &match_group(&request.group), &runas_group_aliases)?
                         }
-                    } else if request.user != "root" || !in_group("root", request.group) {
+                    } else if !(request.user.is_root() && in_group(&request.user, &request.group)) {
                         None?;
                     }
 
@@ -135,28 +123,40 @@ where
     result
 }
 
-fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
+fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
-        UserSpecifier::User(name) => temp_kludge(name) == username,
-        UserSpecifier::Group(groupname) => in_group(username, temp_kludge(groupname)),
+        UserSpecifier::User(id) => match_identifier(user, id),
+        UserSpecifier::Group(Identifier::Name(Username(name))) => user.in_group_by_name(name),
+        UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(*num),
         _ => todo!(),
     }
 }
 
-fn match_group(groupname: &str) -> (impl Fn(&Identifier) -> bool + '_) {
-    move |name| temp_kludge(name) == groupname
+fn in_group(user: &impl Identifiable, group: &ast::Identifier) -> bool {
+    match group {
+        Identifier::Name(Username(groupname)) => user.in_group_by_name(groupname),
+        Identifier::ID(num) => user.in_group_by_gid(*num),
+    }
 }
 
-fn match_group_alias(groupname: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
+// TODO: this is too simplistic
+fn match_group(group: &Identifier) -> impl Fn(&Identifier) -> bool + '_ {
+    move |id| match (group, id) {
+        (Identifier::ID(num1), Identifier::ID(num2)) => num1 == num2,
+        (Identifier::Name(name1), Identifier::Name(name2)) => name1.as_str() == name2.as_str(),
+        _ => todo!("mixing group names and group numbers"),
+    }
+}
+
+fn match_group_alias(group: &ast::Identifier) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
-        UserSpecifier::User(name) => match_group(groupname)(name),
-        /* the parser rejects this, but can happen due to Runas_Alias,
+        UserSpecifier::User(ident) => match_group(group)(ident),
+        /* the parser does not allow this, but can happen due to Runas_Alias,
          * see https://github.com/memorysafety/sudo-rs/issues/13 */
-        UserSpecifier::Group(_) => {
-            eprintln!("warning: ignoring %group syntax for use sudo -g");
+        _ => {
+            eprintln!("warning: ignoring %group syntax in runas_alias for checking sudo -g");
             false
         }
-        _ => todo!(),
     }
 }
 
@@ -187,6 +187,15 @@ where
     }
 
     set
+}
+
+/// Code to map an ast::Identifier to the Identifiable trait
+
+fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
+    match ident {
+        Identifier::Name(tokens::Username(name)) => user.has_name(name),
+        Identifier::ID(num) => user.has_id(*num),
+    }
 }
 
 /// Process a sudoers-parsing file into a workable AST
@@ -286,6 +295,12 @@ mod test {
         }
     }
 
+    impl From<&str> for ast::Identifier {
+        fn from(value: &str) -> ast::Identifier {
+            Identifier::Name(Username(value.to_string()))
+        }
+    }
+
     #[test]
     #[should_panic]
     fn invalid_spec() {
@@ -312,7 +327,7 @@ mod test {
     fn permission_test() {
         let root = UserInfo {
             user: "root",
-            group: "root",
+            group: "root".into(),
         };
 
         macro_rules! FAIL {
@@ -385,11 +400,11 @@ mod test {
         pass!(["Host_Alias A=B","Host_Alias B=vm","ALL A=ALL"], "user" => &root, "vm"; "/bin/ls");
         pass!(["Cmnd_Alias A=B","Cmnd_Alias B=/bin/ls","ALL ALL=A"], "user" => &root, "vm"; "/bin/ls");
 
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo" }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo" }, "vm"; "/bin/ls");
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo" }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "user", group: "sudo" }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "wheel", group: "wheel" }, "vm"; "/bin/ls");
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo".into() }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo".into() }, "vm"; "/bin/ls");
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo".into() }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "user", group: "sudo".into() }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "wheel", group: "wheel".into() }, "vm"; "/bin/ls");
     }
 
     #[test]

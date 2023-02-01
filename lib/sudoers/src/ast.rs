@@ -23,6 +23,8 @@ pub enum UserSpecifier {
     NonunixGroup(Identifier),
 }
 
+pub use crate::tokens::Identifier;
+
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
 #[derive(Debug, Default)]
 pub struct RunAs {
