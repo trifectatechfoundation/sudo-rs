@@ -90,7 +90,7 @@ pub fn check_permission<'a>(
                             *find_item(users, &match_user(request.user), &runas_user_aliases)?
                         }
                         if !in_group(request.user, request.group) {
-                            *find_item(groups, &match_token(request.group), &runas_group_aliases)?
+                            *find_item(groups, &match_group(request.group), &runas_group_aliases)?
                         }
                     } else if request.user != "root" || !in_group("root", request.group) {
                         None?;
@@ -143,9 +143,13 @@ fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     }
 }
 
+fn match_group(groupname: &str) -> (impl Fn(&Identifier) -> bool + '_) {
+    move |name| temp_kludge(name) == groupname
+}
+
 fn match_group_alias(groupname: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
     move |spec| match spec {
-        UserSpecifier::User(name) => temp_kludge(name) == groupname,
+        UserSpecifier::User(name) => match_group(groupname)(name),
         /* the parser rejects this, but can happen due to Runas_Alias,
          * see https://github.com/memorysafety/sudo-rs/issues/13 */
         UserSpecifier::Group(_) => {

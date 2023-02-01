@@ -27,7 +27,7 @@ pub enum UserSpecifier {
 #[derive(Debug, Default)]
 pub struct RunAs {
     pub users: SpecList<UserSpecifier>,
-    pub groups: SpecList<Username>,
+    pub groups: SpecList<Identifier>,
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...

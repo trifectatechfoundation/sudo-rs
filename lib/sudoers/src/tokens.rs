@@ -86,6 +86,8 @@ impl Token for Identifier {
     }
 }
 
+impl Many for Identifier {}
+
 /// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
 /// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::basic_parser::Parse])
 #[derive(Debug)]
