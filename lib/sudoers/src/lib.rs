@@ -126,7 +126,7 @@ where
 fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(id) => match_identifier(user, id),
-        UserSpecifier::Group(Identifier::Name(Username(name))) => user.in_group_by_name(name),
+        UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name),
         UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(*num),
         _ => todo!(),
     }
@@ -134,7 +134,7 @@ fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ 
 
 fn in_group(user: &impl Identifiable, group: &ast::Identifier) -> bool {
     match group {
-        Identifier::Name(Username(groupname)) => user.in_group_by_name(groupname),
+        Identifier::Name(groupname) => user.in_group_by_name(groupname),
         Identifier::ID(num) => user.in_group_by_gid(*num),
     }
 }
@@ -193,7 +193,7 @@ where
 
 fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
     match ident {
-        Identifier::Name(tokens::Username(name)) => user.has_name(name),
+        Identifier::Name(name) => user.has_name(name),
         Identifier::ID(num) => user.has_id(*num),
     }
 }
@@ -297,7 +297,7 @@ mod test {
 
     impl From<&str> for ast::Identifier {
         fn from(value: &str) -> ast::Identifier {
-            Identifier::Name(Username(value.to_string()))
+            Identifier::Name(value.to_string())
         }
     }
 

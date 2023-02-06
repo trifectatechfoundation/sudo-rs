@@ -61,7 +61,7 @@ impl Many for Hostname {}
 #[derive(Debug)]
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub enum Identifier {
-    Name(Username),
+    Name(String),
     ID(u16),
 }
 
@@ -74,7 +74,7 @@ impl Token for Identifier {
                 Err(err) => unrecoverable!("invalid user id: {err}"),
             }
         } else {
-            Identifier::Name(Username(text))
+            Identifier::Name(text)
         })
     }
 

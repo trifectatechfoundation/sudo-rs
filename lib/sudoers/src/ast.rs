@@ -111,7 +111,7 @@ impl Parse for Meta<UserSpecifier> {
             make(match meta {
                 Meta::All => Meta::All,
                 Meta::Alias(alias) => Meta::Alias(alias),
-                Meta::Only(name) => Meta::Only(User(Identifier::Name(name))),
+                Meta::Only(Username(name)) => Meta::Only(User(Identifier::Name(name))),
             })
         } else {
             let ctor = if maybe(accept_if(|c| c == '%', stream))?.is_some() {
