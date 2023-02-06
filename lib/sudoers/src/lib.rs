@@ -19,11 +19,9 @@ pub use basic_parser::parse_string;
 mod sysuser;
 pub use sysuser::*;
 
-pub struct GroupInfo(u16, Option<String>);
-
-pub struct UserInfo<User: Identifiable> {
+pub struct Request<User: Identifiable, Group: UnixGroup> {
     pub user: User,
-    pub group: GroupInfo,
+    pub group: Group,
 }
 
 // TODO: combine this with Vec<PermissionSpec> into a single data structure?
@@ -50,11 +48,11 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
-pub fn check_permission<'a, User: Identifiable>(
+pub fn check_permission<'a, User: Identifiable + PartialEq<User>, Group: UnixGroup>(
     sudoers: impl IntoIterator<Item = &'a PermissionSpec>,
     alias_table: &AliasTable,
     am_user: User,
-    request: &UserInfo<User>,
+    request: &Request<User, Group>,
     on_host: &str,
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
@@ -130,30 +128,32 @@ fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ 
         UserSpecifier::User(id) => match_identifier(user, id),
         UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name),
         UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(*num),
-        _ => todo!(),
+        _ => todo!(), // nonunix-groups, netgroups, etc.
     }
 }
 
-//TODO: this method should not behave differently for tests.
-fn in_group(user: &impl Identifiable, group: &GroupInfo) -> bool {
-    user.in_group_by_gid(group.0)
-        || cfg!(test)
-            && group
-                .1
-                .as_ref()
-                .map_or(false, |name| user.in_group_by_name(name))
-}
-
-fn match_group(group: &GroupInfo) -> impl Fn(&Identifier) -> bool + '_ {
-    move |id| match (group, id) {
-        (GroupInfo(num1, _), Identifier::ID(num2)) => num1 == num2,
-        (GroupInfo(_, name1), Identifier::Name(name2)) => {
-            name1.as_ref().map_or(false, |s| s == name2)
-        }
+//TODO: in real life, just checking the gid should suffice; for testability, we check the name first; THIS MUST BE REMOVED
+fn in_group(user: &impl Identifiable, group: &impl UnixGroup) -> bool {
+    if cfg!(test) {
+        group
+            .try_as_name()
+            .as_ref()
+            .map_or(user.in_group_by_gid(group.as_gid()), |name| {
+                user.in_group_by_name(name)
+            })
+    } else {
+        user.in_group_by_gid(group.as_gid())
     }
 }
 
-fn match_group_alias(group: &GroupInfo) -> impl Fn(&UserSpecifier) -> bool + '_ {
+fn match_group(group: &impl UnixGroup) -> impl Fn(&Identifier) -> bool + '_ {
+    move |id| match id {
+        Identifier::ID(num) => group.as_gid() == *num,
+        Identifier::Name(name) => group.try_as_name().map_or(false, |s| s == name),
+    }
+}
+
+fn match_group_alias(group: &impl UnixGroup) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(ident) => match_group(group)(ident),
         /* the parser does not allow this, but can happen due to Runas_Alias,
@@ -199,7 +199,7 @@ where
 fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
     match ident {
         Identifier::Name(name) => user.has_name(name),
-        Identifier::ID(num) => user.has_id(*num),
+        Identifier::ID(num) => user.has_uid(*num),
     }
 }
 
@@ -300,9 +300,12 @@ mod test {
         }
     }
 
-    impl From<&str> for GroupInfo {
-        fn from(value: &str) -> Self {
-            GroupInfo(12345, Some(value.to_string()))
+    impl UnixGroup for (u16, &str) {
+        fn try_as_name(&self) -> Option<&str> {
+            Some(self.1)
+        }
+        fn as_gid(&self) -> u16 {
+            self.0
         }
     }
 
@@ -330,9 +333,9 @@ mod test {
 
     #[test]
     fn permission_test() {
-        let root = UserInfo {
+        let root = Request {
             user: "root",
-            group: "root".into(),
+            group: (0, "root"),
         };
 
         macro_rules! FAIL {
@@ -405,11 +408,11 @@ mod test {
         pass!(["Host_Alias A=B","Host_Alias B=vm","ALL A=ALL"], "user" => &root, "vm"; "/bin/ls");
         pass!(["Cmnd_Alias A=B","Cmnd_Alias B=/bin/ls","ALL ALL=A"], "user" => &root, "vm"; "/bin/ls");
 
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo".into() }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo".into() }, "vm"; "/bin/ls");
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo".into() }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "user", group: "sudo".into() }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "wheel", group: "wheel".into() }, "vm"; "/bin/ls");
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => &Request{ user: "sudo", group: (42,"sudo") }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &Request{ user: "sudo", group: (42,"sudo") }, "vm"; "/bin/ls");
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &Request{ user: "sudo", group: (42,"sudo") }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &Request{ user: "user", group: (42,"sudo") }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &Request{ user: "wheel", group: (37,"wheel") }, "vm"; "/bin/ls");
     }
 
     #[test]
