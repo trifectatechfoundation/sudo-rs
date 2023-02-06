@@ -9,17 +9,25 @@ on:
       - main
 
 jobs:
-  build-and-test:
+  install-dev-system:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
-
+      
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
+
+      - name: Installs dependencies
+        run: apt-get install --yes libpam0g-dev
+
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: install-dev-system
 
       - name: Build
         uses: actions-rs/cargo@v1
