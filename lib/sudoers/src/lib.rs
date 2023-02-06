@@ -19,7 +19,7 @@ pub use basic_parser::parse_string;
 mod sysuser;
 pub use sysuser::*;
 
-pub struct GroupInfo(u16, String);
+pub struct GroupInfo(u16, Option<String>);
 
 pub struct UserInfo<User: Identifiable> {
     pub user: User,
@@ -136,13 +136,20 @@ fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ 
 
 //TODO: this method should not behave differently for tests.
 fn in_group(user: &impl Identifiable, group: &GroupInfo) -> bool {
-    user.in_group_by_gid(group.0) || cfg!(test) && user.in_group_by_name(&group.1)
+    user.in_group_by_gid(group.0)
+        || cfg!(test)
+            && group
+                .1
+                .as_ref()
+                .map_or(false, |name| user.in_group_by_name(name))
 }
 
 fn match_group(group: &GroupInfo) -> impl Fn(&Identifier) -> bool + '_ {
     move |id| match (group, id) {
         (GroupInfo(num1, _), Identifier::ID(num2)) => num1 == num2,
-        (GroupInfo(_, name1), Identifier::Name(name2)) => name1 == name2,
+        (GroupInfo(_, name1), Identifier::Name(name2)) => {
+            name1.as_ref().map_or(false, |s| s == name2)
+        }
     }
 }
 
@@ -295,7 +302,7 @@ mod test {
 
     impl From<&str> for GroupInfo {
         fn from(value: &str) -> Self {
-            GroupInfo(12345, value.to_string())
+            GroupInfo(12345, Some(value.to_string()))
         }
     }
 
