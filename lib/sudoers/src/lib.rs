@@ -19,9 +19,11 @@ pub use basic_parser::parse_string;
 mod sysuser;
 pub use sysuser::*;
 
+pub struct GroupInfo(u16, String);
+
 pub struct UserInfo<User: Identifiable> {
     pub user: User,
-    pub group: ast::Identifier,
+    pub group: GroupInfo,
 }
 
 // TODO: combine this with Vec<PermissionSpec> into a single data structure?
@@ -132,23 +134,19 @@ fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ 
     }
 }
 
-fn in_group(user: &impl Identifiable, group: &ast::Identifier) -> bool {
-    match group {
-        Identifier::Name(groupname) => user.in_group_by_name(groupname),
-        Identifier::ID(num) => user.in_group_by_gid(*num),
-    }
+//TODO: this method should not behave differently for tests.
+fn in_group(user: &impl Identifiable, group: &GroupInfo) -> bool {
+    user.in_group_by_gid(group.0) || cfg!(test) && user.in_group_by_name(&group.1)
 }
 
-// TODO: this is too simplistic
-fn match_group(group: &Identifier) -> impl Fn(&Identifier) -> bool + '_ {
+fn match_group(group: &GroupInfo) -> impl Fn(&Identifier) -> bool + '_ {
     move |id| match (group, id) {
-        (Identifier::ID(num1), Identifier::ID(num2)) => num1 == num2,
-        (Identifier::Name(name1), Identifier::Name(name2)) => name1.as_str() == name2.as_str(),
-        _ => todo!("mixing group names and group numbers"),
+        (GroupInfo(num1, _), Identifier::ID(num2)) => num1 == num2,
+        (GroupInfo(_, name1), Identifier::Name(name2)) => name1 == name2,
     }
 }
 
-fn match_group_alias(group: &ast::Identifier) -> impl Fn(&UserSpecifier) -> bool + '_ {
+fn match_group_alias(group: &GroupInfo) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(ident) => match_group(group)(ident),
         /* the parser does not allow this, but can happen due to Runas_Alias,
@@ -295,9 +293,9 @@ mod test {
         }
     }
 
-    impl From<&str> for ast::Identifier {
-        fn from(value: &str) -> ast::Identifier {
-            Identifier::Name(value.to_string())
+    impl From<&str> for GroupInfo {
+        fn from(value: &str) -> Self {
+            GroupInfo(12345, value.to_string())
         }
     }
 
