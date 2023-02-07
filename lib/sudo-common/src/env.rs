@@ -1,11 +1,9 @@
+use crate::context::{CommandAndArguments, Context};
 use std::{
     collections::HashMap,
     env,
     ffi::{OsStr, OsString},
 };
-use sudo_system::User;
-
-use crate::context::{CommandAndArguments, Context};
 
 pub type Environment = HashMap<OsString, OsString>;
 
@@ -38,16 +36,11 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> String {
 
 /// Construct sudo-specific environment variables
 fn get_extra_env(context: &Context) -> Environment {
-    let user = User::real()
-        // TODO: move fetching user and error handling to sudo-rs main create
-        .expect("Could not determine real user")
-        .expect("Current user not found");
-
     let mut extra_env = environment_from_list(vec![
         ("SUDO_COMMAND", format_command(&context.command)),
-        ("SUDO_UID", user.uid.to_string()),
-        ("SUDO_GID", user.gid.to_string()),
-        ("SUDO_USER", user.name),
+        ("SUDO_UID", context.current_user.uid.to_string()),
+        ("SUDO_GID", context.current_user.gid.to_string()),
+        ("SUDO_USER", context.current_user.name.to_string()),
     ]);
 
     if context.set_home {
@@ -71,6 +64,8 @@ fn filter_env(preserve_env_list: Vec<&str>, environment: Environment) -> Environ
     filtered_env
 }
 
+/// TODO: implement correct behaviour - see https://github.com/sudo-project/sudo/blob/main/plugins/sudoers/env.c
+/// TODO: Add test unit + functional
 pub fn get_target_environment(context: &Context) -> Environment {
     let mut result = Environment::new();
     let current = env::vars_os().collect::<Environment>();

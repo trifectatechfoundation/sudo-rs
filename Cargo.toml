@@ -7,3 +7,4 @@ members = [
   "lib/sudo-system",
   "lib/sudoers",
 ]
+default-members = ["sudo"]
