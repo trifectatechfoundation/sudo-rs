@@ -1,7 +1,9 @@
 use crate::context::{CommandAndArguments, Context};
-use std::{collections::HashMap, env};
+use std::collections::HashMap;
 
 pub type Environment = HashMap<String, String>;
+
+const MAIL_DIR: &str = "/var/mail/";
 
 const CHECK_ENV_TABLE: &[&str] = &[
     "COLORTERM",
@@ -45,20 +47,22 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> String {
 
     args_bytes.truncate(4096);
 
-    format!(
-        "{} {}",
-        command_and_arguments.command,
-        String::from_utf8_lossy(&args_bytes)
-    )
+    [
+        command_and_arguments.command.to_string_lossy(),
+        String::from_utf8_lossy(&args_bytes),
+    ]
+    .join(" ")
+    .trim()
+    .to_string()
 }
 
 /// Construct sudo-specific environment variables
 fn get_extra_env(context: &Context) -> Environment {
     let mut extra_env = environment_from_list(vec![
         ("SUDO_COMMAND", format_command(&context.command)),
-        ("SUDO_UID", context.target_user.uid.to_string()),
-        ("SUDO_GID", context.target_user.gid.to_string()),
-        ("SUDO_USER", context.target_user.name.clone()),
+        ("SUDO_UID", context.current_user.uid.to_string()),
+        ("SUDO_GID", context.current_user.gid.to_string()),
+        ("SUDO_USER", context.current_user.name.clone()),
         ("SHELL", context.target_user.shell.clone()),
         // TODO: Set to the login name of the target user when the -i option is specified,
         // when the set_logname option is enabled in sudoers, or when the env_reset option
@@ -67,8 +71,13 @@ fn get_extra_env(context: &Context) -> Environment {
         ("USER", context.target_user.name.clone()),
     ]);
 
-    if context.set_home {
+    // TODO: check home dir config + options
+    if !context.preserve_env {
         extra_env.insert("HOME".to_string(), context.target_user.home.clone());
+        extra_env.insert(
+            "MAIL".to_string(),
+            format!("{MAIL_DIR}{}", context.target_user.name),
+        );
     }
 
     extra_env
@@ -90,9 +99,10 @@ fn filter_env(preserve_env_list: Vec<&str>, environment: &Environment) -> Enviro
     filtered_env
 }
 
-pub fn get_target_environment(context: &Context) -> Environment {
+/// Construct the final environment from the current one and a sudo context
+/// see https://github.com/sudo-project/sudo/blob/main/plugins/sudoers/env.c for the original implementation
+pub fn get_target_environment(current_env: Environment, context: &Context) -> Environment {
     let mut result = Environment::new();
-    let current = env::vars().collect::<Environment>();
 
     if !context.preserve_env_list.is_empty() {
         let preserve_env_list = context
@@ -101,13 +111,15 @@ pub fn get_target_environment(context: &Context) -> Environment {
             .map(|s| s.as_ref())
             .collect();
 
-        result.extend(filter_env(preserve_env_list, &current));
+        result.extend(filter_env(preserve_env_list, &current_env));
+        result.extend(filter_env(CHECK_ENV_TABLE.to_vec(), &current_env));
+        result.extend(filter_env(KEEP_ENV_TABLE.to_vec(), &current_env));
     } else if context.preserve_env {
-        result.extend(current);
+        result.extend(current_env);
     } else {
         // TODO filter CHECK_ENV_TABLE list
-        result.extend(filter_env(CHECK_ENV_TABLE.to_vec(), &current));
-        result.extend(filter_env(KEEP_ENV_TABLE.to_vec(), &current));
+        result.extend(filter_env(CHECK_ENV_TABLE.to_vec(), &current_env));
+        result.extend(filter_env(KEEP_ENV_TABLE.to_vec(), &current_env));
     }
 
     let sudo_env = get_extra_env(context);
