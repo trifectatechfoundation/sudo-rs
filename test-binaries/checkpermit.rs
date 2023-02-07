@@ -12,7 +12,7 @@ fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = su
 fn chatty_check_permission(
     sudoers: impl Iterator<Item = String>,
     am_user: &str,
-    request: &sudoers::Request<&str,sudoers::GroupID>,
+    request: sudoers::Request<&str, sudoers::GroupID>,
     on_host: &str,
     chosen_poison: &str,
 ) {
@@ -22,7 +22,7 @@ fn chatty_check_permission(
     );
     let (input, aliases) = sudoers::analyze(sudoers_parse(sudoers));
     let result =
-        sudoers::check_permission(&input, &aliases, am_user, request, on_host, chosen_poison);
+        sudoers::check_permission(&input, &aliases, &am_user, request, on_host, chosen_poison);
     println!("OUTCOME: {result:?}");
 }
 
@@ -40,9 +40,12 @@ fn main() {
             chatty_check_permission(
                 cfg,
                 &args[1],
-                &sudoers::Request {
-                    user: args.get(4).unwrap_or(&"root".to_string()),
-                    group: args.get(5).map(|x|GroupID(2347,Some(x.clone()))).unwrap_or(GroupID(0,Some("root".to_owned())))
+                sudoers::Request::<&str, GroupID> {
+                    user: &args.get(4).unwrap_or(&"root".to_owned()).as_str(),
+                    group: &args
+                        .get(5)
+                        .map(|x| GroupID(2347, Some(x.clone())))
+                        .unwrap_or_else(|| (GroupID(0, Some("root".to_owned()))))
                 },
                 &args[2],
                 &args[3],

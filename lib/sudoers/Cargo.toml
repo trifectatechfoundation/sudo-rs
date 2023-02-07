@@ -7,3 +7,6 @@ license = "Apache-2.0 OR MIT"
 [dependencies]
 derive_more = ">=0.99.17"
 glob = ">= 0.3.1"
+sudo-system = {path="../sudo-system"}
+
+

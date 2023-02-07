@@ -85,3 +85,32 @@ impl Identifiable for UserRecord {
         self.2.iter().any(|g| g.has_uid(id))
     }
 }
+
+impl Identifiable for sudo_system::User {
+    fn has_name(&self, name: &str) -> bool {
+        self.name == name
+    }
+    fn has_uid(&self, uid: u16) -> bool {
+        self.uid as u16 == uid
+    }
+
+    fn is_root(&self) -> bool {
+        self.has_uid(0)
+    }
+    fn in_group_by_name(&self, _name: &str) -> bool {
+        false
+    }
+    fn in_group_by_gid(&self, _name: u16) -> bool {
+        false
+    }
+}
+
+impl UnixGroup for sudo_system::Group {
+    fn as_gid(&self) -> u16 {
+        self.gid as u16
+    }
+
+    fn try_as_name(&self) -> Option<&str> {
+        Some(&self.name)
+    }
+}
