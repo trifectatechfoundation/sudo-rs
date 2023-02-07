@@ -313,17 +313,24 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
 mod test {
     use super::*;
     use crate::ast;
-    use basic_parser::{parse_eval, parse_string};
+    use basic_parser::{parse_eval, parse_lines, parse_string};
     use std::iter;
 
     macro_rules! sudoer {
         ($h:expr $(,$e:expr)*) => {
-            (
-                iter::once($h)
-                $(
-                    .chain(iter::once($e))
-                )*
-            ).map(parse_eval)
+	    parse_lines(&mut
+		(
+		    iter::once($h)
+		    $(
+			.chain(iter::once($e))
+		    )*
+		)
+		.map(|s|s.chars().chain(iter::once('\n')))
+		.flatten()
+		.peekable()
+	    )
+	    .into_iter()
+	    .map(|x| x.unwrap())
         }
     }
 
@@ -337,25 +344,8 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    fn invalid_spec() {
-        parse_eval::<ast::Sudo>("ALL ALL = (;) ALL");
-    }
-
-    #[test]
-    fn ambiguous_spec1() {
+    fn ambiguous_spec() {
         let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else { todo!() };
-    }
-
-    #[test]
-    fn ambiguous_spec2() {
-        let Sudo::Decl(_) = parse_eval::<ast::Sudo>("User_Alias ALIAS = ALL") else { todo!() };
-    }
-
-    #[test]
-    #[should_panic]
-    fn ambiguous_spec3() {
-        parse_eval::<ast::Sudo>("User_Alias, marc ALL = ALL");
     }
 
     #[test]
@@ -388,6 +378,7 @@ mod test {
 
         use crate::ast::Tag::*;
 
+        SYNTAX!(["ALL ALL = (;) ALL"]);
         FAIL!(["user ALL=(ALL:ALL) ALL"], "nobody"    => root(), "server"; "/bin/hello");
         pass!(["user ALL=(ALL:ALL) ALL"], "user"      => root(), "server"; "/bin/hello");
         pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo");
@@ -429,6 +420,8 @@ mod test {
         pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
         FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");
 
+        SYNTAX!(["User_Alias, marc ALL = ALL"]);
+
         pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
         FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
         FAIL!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
@@ -449,6 +442,8 @@ mod test {
         FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => Request{ user: &"sudo", group: &(42,"sudo") }, "vm"; "/bin/ls");
         pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => Request{ user: &"user", group: &(42,"sudo") }, "vm"; "/bin/ls");
         pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => Request{ user: &"wheel", group: &(37,"wheel") }, "vm"; "/bin/ls");
+
+        pass!(["Runas_Alias \\"," TIME=%wheel\\",",sudo # hallo","user ALL\\","=(TIME) ALL"], "user" => Request{ user: &"wheel", group: &(37,"wheel") }, "vm"; "/bin/ls");
     }
 
     #[test]

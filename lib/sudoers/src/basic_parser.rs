@@ -102,12 +102,18 @@ pub fn accept_if(
     }
 }
 
+/// Structures representing whitespace (trailing whitespace can contain comments)
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
-
-/// A structure representing whitespace (trailing whitespace can contain comments)
-struct TrailingWhitespace;
 struct LeadingWhitespace;
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+struct TrailingWhitespace;
+
+#[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+struct Comment;
 
 /// Accept zero or more whitespace characters; fails if the whitespace is not "leading" to something
 /// (which can be used to detect end-of-input).
@@ -129,16 +135,30 @@ impl Parse for LeadingWhitespace {
 /// since those can form part of trailing white space.
 impl Parse for TrailingWhitespace {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        let comment = |stream: &mut _| {
-            accept_if(|c| c == '#', stream)?;
-            while accept_if(|c| c != '\n', stream).is_ok() {}
-            make(())
-        };
+        loop {
+            let _ = LeadingWhitespace::parse(stream); // don't propagate any errors
 
-        let _ = LeadingWhitespace::parse(stream); // don't propagate any errors
-        maybe(comment(stream))?;
+            // line continuations
+            if accept_if(|c| c == '\\', stream).is_ok() {
+                // do the equivalent of expect_syntax('\n', stream)?, without recursion
+                if accept_if(|c| c == '\n', stream).is_err() {
+                    unrecoverable!("stray escape sequence")
+                }
+            } else {
+                break;
+            }
+        }
 
         make(TrailingWhitespace {})
+    }
+}
+
+/// Parses a comment
+impl Parse for Comment {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        accept_if(|c| c == '#', stream)?;
+        while accept_if(|c| c != '\n', stream).is_ok() {}
+        make(Comment {})
     }
 }
 
@@ -163,7 +183,7 @@ pub fn expect_syntax(
         let str = if let Some(c) = stream.peek() {
             c.to_string()
         } else {
-            "EOL".to_string()
+            "EOF".to_string()
         };
         unrecoverable!("parse error: expecting `{syntax}' but found `{str}'")
     }
@@ -284,6 +304,7 @@ pub fn parse_lines<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) 
 
     while LeadingWhitespace::parse(stream).is_ok() {
         result.push(expect_nonterminal(stream));
+        let _ = maybe(Comment::parse(stream));
         if accept_if(|c| c == '\n', stream).is_err() {
             result.push(Err(Status::Fatal(
                 if stream.peek().is_none() {
@@ -335,20 +356,16 @@ mod test {
         }
     }
 
+    impl Many for String {}
+
     #[test]
     fn comment_test() {
-        assert_eq!(
-            parse_eval::<TrailingWhitespace>(" # hello"),
-            TrailingWhitespace
-        );
+        assert_eq!(parse_eval::<Comment>("# hello"), Comment);
     }
     #[test]
     #[should_panic]
     fn comment_test_fail() {
-        assert_eq!(
-            parse_eval::<TrailingWhitespace>(" # hello\nsomething"),
-            TrailingWhitespace
-        );
+        assert_eq!(parse_eval::<Comment>("# hello\nsomething"), Comment);
     }
 
     #[test]
@@ -364,5 +381,28 @@ mod test {
         assert_eq!(input("hello\nworld")[0..2], vec![s("hello"), s("world")]);
         let Err(_) = input("hello\nworld")[2] else { panic!() };
         let Err(_) = input("hello\nworld:\n")[2] else { panic!() };
+    }
+    #[test]
+    fn whitespace_test() {
+        assert_eq!(
+            parse_eval::<Vec<String>>("hello,something"),
+            vec!["hello", "something"]
+        );
+        assert_eq!(
+            parse_eval::<Vec<String>>("hello , something"),
+            vec!["hello", "something"]
+        );
+        assert_eq!(
+            parse_eval::<Vec<String>>("hello, something"),
+            vec!["hello", "something"]
+        );
+        assert_eq!(
+            parse_eval::<Vec<String>>("hello ,something"),
+            vec!["hello", "something"]
+        );
+        assert_eq!(
+            parse_eval::<Vec<String>>("hello\\\n,something"),
+            vec!["hello", "something"]
+        );
     }
 }
