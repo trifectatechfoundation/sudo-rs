@@ -22,7 +22,10 @@ jobs:
           override: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -55,7 +58,10 @@ jobs:
           components: miri
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -97,7 +103,10 @@ jobs:
           components: clippy
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
 
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
@@ -120,7 +129,10 @@ jobs:
           override: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
 
       - name: Build docs
         uses: actions-rs/cargo@v1
