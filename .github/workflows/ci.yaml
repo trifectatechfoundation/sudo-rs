@@ -22,7 +22,7 @@ jobs:
           override: true
 
       - name: Install dependencies
-        run: sudo apt-get update && apt-get install --yes libpam0g-dev
+        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
 
       - name: Build
         uses: actions-rs/cargo@v1
