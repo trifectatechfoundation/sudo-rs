@@ -266,7 +266,7 @@ impl TryFrom<Cli> for SudoOptions {
         let host = if command.host.is_some() {
             return Err(Error::raw(
                 clap::error::ErrorKind::ArgumentConflict,
-                "Cannot use `-h=<HOST>` and `--help=<HOST>` at the same time",
+                "Cannot use `-h=<HOST>` and `--host=<HOST>` at the same time",
             ));
         } else {
             command.host_or_help
@@ -321,34 +321,100 @@ impl SudoOptions {
         I: IntoIterator<Item = T>,
         T: Into<String> + Clone,
     {
-        let mut args = iter.into_iter();
+        // We need all this extra logic because `clap` cannot handle environment variable
+        // declarations.
 
+        // Keep the original arguments into `vec_args` in case we need them later.
+        let mut vec_args = iter.into_iter().map(Into::into).collect::<Vec<String>>();
+        let mut args = vec_args.iter();
+
+        // Store which args are environment variable declarations.
+        let mut vec_env_vars = vec![false; vec_args.len()];
+        let mut env_vars = vec_env_vars.iter_mut();
+
+        // Store the arguments that were environment variable declarations.
         let mut env_var_list = Vec::new();
+        // Store the arguments that were not environment variable declarations.
         let mut remaining_args = Vec::new();
+        // Whether the args had a `"--"` to separate the external args from the regular args.
+        let mut had_separator = false;
 
-        while let Some(arg) = args.next() {
-            let arg = arg.into();
+        while let (Some(arg), Some(is_env_var)) = (args.next(), env_vars.next()) {
             // If we found `--` we know that the remaining arguments are not env variable
             // definitions.
             if arg == "--" {
+                had_separator = true;
+                // Push the separator.
                 remaining_args.push(arg);
-                remaining_args.extend(args.map(Into::into));
+                // None of the remaining arguments were environment variable declarations.
+                remaining_args.extend(args);
                 break;
             }
 
-            if let Some((name, value)) = arg.split_once('=').and_then(|(name, value)| {
-                name.chars()
-                    .all(|c| c.is_alphanumeric() || c == '_')
-                    .then_some((name, value))
-            }) {
+            if let Some((name, value)) = try_to_env_var(arg) {
+                // If this arg is an environment variable we store it as so.
+                *is_env_var = true;
                 env_var_list.push((name.to_owned(), value.to_owned()));
             } else {
+                // If this arg is not environment variable we store it as so.
                 remaining_args.push(arg);
             }
         }
 
+        // Now that the remaining args are not environment variable declarations we can let `clap`
+        // do its magic.
         let mut opts: SudoOptions = Cli::try_parse_from(remaining_args)?.try_into()?;
+        // Populate the environment variable declarations.
         opts.env_var_list = env_var_list;
+
+        // If there was a separator or if there is no command to run, there is nothing else to do.
+        if had_separator || opts.external_args.is_empty() {
+            return Ok(opts);
+        }
+
+        // Otherwise, it could be that some of the environment variable declarations were actually
+        // part of the command to be executed by `sudo`. For example, in `sudo env FOO=1 ls`,
+        // `FO0=1` is not a sudo argument but part of the command to be executed.
+
+        // We will traverse the external args and the original args in reverse amd try to figure
+        // out which args were not actually environment variable declarations but external args
+        // instead.
+        let mut external_args = opts.external_args.iter().rev();
+        // Then we will add a separator manually so we can reprocess everything by calling this
+        // function recursively. To do this, we need to figure out where this separator actually
+        // goes.
+        let mut index = None;
+
+        for (i, last_arg) in vec_args.iter().enumerate().rev() {
+            // If the arg was an environment variable declaration, then we must put the separator
+            // before this arg.
+            if vec_env_vars[i] {
+                continue;
+            }
+            // If the last external arg is the same as this arg, we know that the separator must go
+            // before this arg.
+            if let Some(last_external) = external_args.next() {
+                if last_arg == last_external {
+                    continue;
+                }
+            }
+            // Otherwise, this arg is already a non-external arg.
+            index = Some(i + 1);
+            break;
+        }
+
+        if let Some(mut index) = index {
+            // There is one last catch. In this command `sudo FOO=1 env BAR=2 ls`, `FOO=1` is not
+            // part of the external command. So we need to ignore the first environment variable
+            // declarations before putting the separator.
+            while vec_env_vars[index] {
+                index += 1;
+            }
+            // Then we insert the separator and parse the arguments again. This will not recurse
+            // indefinitely because we don't do any of this extra logic if there was a separator.
+            vec_args.insert(index, "--".to_owned());
+            return Self::try_parse_from(vec_args);
+        }
 
         Ok(opts)
     }
@@ -361,6 +427,18 @@ impl SudoOptions {
                 exit(1);
             }
         }
+    }
+}
+
+fn try_to_env_var(arg: &str) -> Option<(String, String)> {
+    if let Some((name, value)) = arg.split_once('=').and_then(|(name, value)| {
+        name.chars()
+            .all(|c| c.is_alphanumeric() || c == '_')
+            .then_some((name, value))
+    }) {
+        Some((name.to_owned(), value.to_owned()))
+    } else {
+        None
     }
 }
 

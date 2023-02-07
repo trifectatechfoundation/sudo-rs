@@ -146,3 +146,24 @@ fn trailing_args_hyphens_known_flag() {
 fn remove_and_reset_timestamp_exclusion() {
     SudoOptions::try_parse_from(["sudo", "--reset-timestamp", "--reboot-timestamp"]).unwrap();
 }
+
+#[test]
+fn trailing_env_vars_are_external_args() {
+    let cmd = SudoOptions::try_parse_from([
+        "sudo", "FOO=1", "-b", "BAR=2", "command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg",
+        "BARBAZ=5",
+    ])
+    .unwrap();
+    assert!(cmd.background);
+    assert_eq!(
+        cmd.env_var_list,
+        vec![
+            ("FOO".to_owned(), "1".to_owned()),
+            ("BAR".to_owned(), "2".to_owned())
+        ]
+    );
+    assert_eq!(
+        cmd.external_args,
+        vec!["command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg", "BARBAZ=5"]
+    );
+}
