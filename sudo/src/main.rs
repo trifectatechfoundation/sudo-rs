@@ -115,7 +115,7 @@ fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            eprintln!("{:?}", e);
+            eprintln!("{e:?}");
             std::process::exit(1);
         }
     }

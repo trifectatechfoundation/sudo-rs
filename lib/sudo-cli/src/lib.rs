@@ -357,7 +357,7 @@ impl SudoOptions {
         match Self::try_parse_from(std::env::args()) {
             Ok(options) => options,
             Err(err) => {
-                eprintln!("{}", err);
+                eprintln!("{err}");
                 exit(1);
             }
         }
