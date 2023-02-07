@@ -22,7 +22,15 @@ jobs:
           override: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "stable"
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -55,7 +63,15 @@ jobs:
           components: miri
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "miri"
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -76,6 +92,11 @@ jobs:
           override: true
           components: rustfmt
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "nightly"
+
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
         with:
@@ -92,12 +113,20 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: beta
+          toolchain: nightly
           override: true
           components: clippy
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "nightly"
 
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
@@ -120,7 +149,15 @@ jobs:
           override: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev 
+          version: 1.0
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "nightly"
 
       - name: Build docs
         uses: actions-rs/cargo@v1
