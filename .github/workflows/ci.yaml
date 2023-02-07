@@ -22,7 +22,7 @@ jobs:
           override: true
 
       - name: Install dependencies
-        run: while ! sudo apt-get install --yes libpam0g-dev; do true; done
+        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -55,7 +55,7 @@ jobs:
           components: miri
 
       - name: Install dependencies
-        run: while ! sudo apt-get install --yes libpam0g-dev; do true; done
+        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -71,10 +71,10 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-            profile: minimal
-            toolchain: nightly
-            override: true
-            components: rustfmt
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt
 
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
@@ -97,7 +97,7 @@ jobs:
           components: clippy
 
       - name: Install dependencies
-        run: while ! sudo apt-get install --yes libpam0g-dev; do true; done
+        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
 
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
@@ -108,19 +108,19 @@ jobs:
     needs: clippy
     runs-on: ubuntu-latest
     env:
-      RUSTDOCFLAGS: "-D warnings"
+      RUSTDOCFLAGS: '-D warnings'
     steps:
       - uses: actions/checkout@v2
 
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-            profile: minimal
-            toolchain: nightly
-            override: true
+          profile: minimal
+          toolchain: nightly
+          override: true
 
       - name: Install dependencies
-        run: while ! sudo apt-get install --yes libpam0g-dev; do true; done
+        run: sudo apt-get update && sudo apt-get install --yes libpam0g-dev
 
       - name: Build docs
         uses: actions-rs/cargo@v1
