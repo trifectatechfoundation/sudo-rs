@@ -1,4 +1,4 @@
-/// This trait/module is here to not make this crate dependent (at the present time) in the idiosyncracies of user representation details
+/// This trait/module is here to not make this crate independent (at the present time) in the idiosyncracies of user representation details
 /// (which we may decide over time), as well as to make explicit what functionality a user-representation must have; this
 /// interface is not set in stone and "easy" to change.
 pub trait Identifiable {
