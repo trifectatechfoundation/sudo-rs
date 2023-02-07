@@ -31,6 +31,7 @@ use std::iter::Peekable;
 pub type Parsed<T> = Result<T, Status>;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum Status {
     Fatal(String), // not recoverable; stream in inconsistent state
     Reject,        // parsing failed by no input consumed
@@ -104,41 +105,52 @@ pub fn accept_if(
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 
-/// A structure representing whitespace
-struct Whitespace;
+/// A structure representing whitespace (trailing whitespace can contain comments)
+struct TrailingWhitespace;
+struct LeadingWhitespace;
 
-/// Accept one or more whitespace characters; fails if no whitespace is found (to parse zero or
-/// more whitespace characters, parse `Option<Whitespace>`
-impl Parse for Whitespace {
+/// Accept zero or more whitespace characters; fails if the whitespace is not "leading" to something
+/// (which can be used to detect end-of-input).
+impl Parse for LeadingWhitespace {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let eat_space = |stream: &mut _| accept_if(|c| "\t ".contains(c), stream);
+        while eat_space(stream).is_ok() {}
 
+        if stream.peek().is_some() {
+            make(LeadingWhitespace {})
+        } else {
+            unrecoverable!("superfluous whitespace")
+        }
+    }
+}
+
+/// Accept zero or more whitespace characters; since this accepts zero characters, it
+/// always succeeds (unless some serious error occurs). This parser also accepts comments,
+/// since those can form part of trailing white space.
+impl Parse for TrailingWhitespace {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let comment = |stream: &mut _| {
             accept_if(|c| c == '#', stream)?;
             while accept_if(|c| c != '\n', stream).is_ok() {}
             make(())
         };
 
-        if eat_space(stream).is_ok() {
-            while eat_space(stream).is_ok() {}
-            maybe(comment(stream))?;
-        } else {
-            comment(stream)?;
-        }
+        let _ = LeadingWhitespace::parse(stream); // don't propagate any errors
+        maybe(comment(stream))?;
 
-        make(Whitespace {})
+        make(TrailingWhitespace {})
     }
 }
 
-pub fn skip_whitespace(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
-    maybe(Whitespace::parse(stream))?;
+fn skip_trailing_whitespace(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
+    TrailingWhitespace::parse(stream)?;
     make(())
 }
 
 /// Adheres to the contract of the [Parse] trait, accepts one character and consumes trailing whitespace.
 pub fn try_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
     accept_if(|c| c == syntax, stream)?;
-    skip_whitespace(stream)?;
+    skip_trailing_whitespace(stream)?;
     make(())
 }
 
@@ -162,7 +174,7 @@ pub fn expect_syntax(
 /// type inference. Use this instead of calling [Parse::parse] directly.
 pub fn try_nonterminal<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
     let result = T::parse(stream)?;
-    skip_whitespace(stream)?;
+    skip_trailing_whitespace(stream)?;
     make(result)
 }
 
@@ -222,15 +234,10 @@ impl<T: Token> Parse for T {
     }
 }
 
-/// Example parser for something that has two alternatives (don't use)
-impl<T1: Token, T2: Parse> Parse for Result<T1, T2> {
+/// Parser for Option<T> (this can be used to make the code more readable)
+impl<T: Parse> Parse for Option<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        let &c = stream.peek().ok_or(Status::Reject)?;
-        if T1::accept(c) {
-            T1::parse(stream).map(Ok)
-        } else {
-            T2::parse(stream).map(Err)
-        }
+        maybe(T::parse(stream))
     }
 }
 
@@ -267,21 +274,44 @@ impl<T: Parse + Many> Parse for Vec<T> {
     }
 }
 
-fn expect_end_of_parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<()> {
-    if stream.peek().is_some() {
-        unrecoverable!("parse error: trailing garbage")
+/// Entry point utility function; parse a Vec<T> but with fatal error recovery per line
+pub fn parse_lines<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Vec<Parsed<T>> {
+    let mut result = Vec::new();
+
+    // this will terminate; if the inner accept_if is an error, either a character will be consumed
+    // by the second accept_if (making progress), or the end of the stream will have been reacherd
+    // (which will cause the next iteration to fall through)
+
+    while LeadingWhitespace::parse(stream).is_ok() {
+        result.push(expect_nonterminal(stream));
+        if accept_if(|c| c == '\n', stream).is_err() {
+            result.push(Err(Status::Fatal(
+                if stream.peek().is_none() {
+                    "parse error: missing line terminator at end of file"
+                } else {
+                    "parse error: garbage at end of line"
+                }
+                .to_string(),
+            )));
+            while accept_if(|c| c != '\n', stream).is_ok() {}
+        }
     }
-    make(())
+
+    result
 }
 
-pub fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
+#[cfg(test)]
+fn expect_complete<T: Parse>(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<T> {
     let result = expect_nonterminal(stream)?;
-    expect_end_of_parse(stream)?;
+    if let Some(c) = stream.peek() {
+        unrecoverable!("parse error: garbage at end of line: {c}")
+    }
     make(result)
 }
 
 /// Convenience function (especially useful for writing test cases, to avoid having to write out the
 /// AST constructors by hand.
+#[cfg(test)]
 pub fn parse_string<T: Parse>(text: &str) -> Parsed<T> {
     expect_complete(&mut text.chars().peekable())
 }
@@ -295,13 +325,44 @@ pub fn parse_eval<T: Parse>(text: &str) -> T {
 mod test {
     use super::*;
 
+    impl Token for String {
+        fn construct(val: String) -> Parsed<Self> {
+            make(val)
+        }
+
+        fn accept(c: char) -> bool {
+            c.is_ascii_alphanumeric()
+        }
+    }
+
     #[test]
     fn comment_test() {
-        assert_eq!(parse_eval::<Whitespace>(" # hello"), Whitespace);
+        assert_eq!(
+            parse_eval::<TrailingWhitespace>(" # hello"),
+            TrailingWhitespace
+        );
     }
     #[test]
     #[should_panic]
     fn comment_test_fail() {
-        assert_eq!(parse_eval::<Whitespace>(" # hello\nsomething"), Whitespace);
+        assert_eq!(
+            parse_eval::<TrailingWhitespace>(" # hello\nsomething"),
+            TrailingWhitespace
+        );
+    }
+
+    #[test]
+    fn lines_test() {
+        let input = |text: &str| parse_lines(&mut text.chars().peekable());
+
+        let s = |text: &str| Ok(text.to_string());
+        assert_eq!(input("hello\nworld\n"), vec![s("hello"), s("world")]);
+        assert_eq!(input("   hello\nworld\n"), vec![s("hello"), s("world")]);
+        assert_eq!(input("hello  \nworld\n"), vec![s("hello"), s("world")]);
+        assert_eq!(input("hello\n   world\n"), vec![s("hello"), s("world")]);
+        assert_eq!(input("hello\nworld  \n"), vec![s("hello"), s("world")]);
+        assert_eq!(input("hello\nworld")[0..2], vec![s("hello"), s("world")]);
+        let Err(_) = input("hello\nworld")[2] else { panic!() };
+        let Err(_) = input("hello\nworld:\n")[2] else { panic!() };
     }
 }

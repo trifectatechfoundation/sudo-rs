@@ -176,12 +176,12 @@ impl Token for Command {
     }
 
     fn accept(c: char) -> bool {
-        !Self::escaped(c)
+        !Self::escaped(c) && !c.is_control()
     }
 
     const ESCAPE: char = '\\';
     fn escaped(c: char) -> bool {
-        "\\,:=".contains(c)
+        "\\,:=#".contains(c)
     }
 }
 
