@@ -81,6 +81,8 @@ jobs:
 
   format:
     runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: '-D warnings'
     steps:
       - uses: actions/checkout@v2
 
@@ -106,6 +108,8 @@ jobs:
   clippy:
     needs: format
     runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: '-D warnings'
     steps:
       - uses: actions/checkout@v2
 
