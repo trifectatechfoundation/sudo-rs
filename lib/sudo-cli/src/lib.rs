@@ -322,7 +322,12 @@ impl SudoOptions {
         T: Into<String> + Clone,
     {
         // We need all this extra logic because `clap` cannot handle environment variable
-        // declarations.
+        // declarations. This means that we must filter any args with the shape `NAME=VALUE` before
+        // passing the arguments to `clap`.
+        //
+        // However, this is not straightforward because such args could be part of the command that
+        // `sudo` is supposed to execute. For example, in `sudo FOO=1 -b cmd BAR=2`, `FOO=1` should
+        // be filtered but `BAR=2` should not because it is part of the `cmd BAR=2` command.
 
         // Keep the original arguments into `vec_args` in case we need them later.
         let mut vec_args = iter.into_iter().map(Into::into).collect::<Vec<String>>();
@@ -413,10 +418,14 @@ impl SudoOptions {
             // Then we insert the separator and parse the arguments again. This will not recurse
             // indefinitely because we don't do any of this extra logic if there was a separator.
             vec_args.insert(index, "--".to_owned());
-            return Self::try_parse_from(vec_args);
+            Self::try_parse_from(vec_args)
+        } else {
+            // If `index` were `None`, it would mean that all the args were environment variable
+            // declarations or part of the external args. But this cannot happen because the first
+            // argument should be the name of the binary being run and that is neither an
+            // environment variable declaration nor a external argument
+            unreachable!()
         }
-
-        Ok(opts)
     }
 
     pub fn parse() -> Self {
