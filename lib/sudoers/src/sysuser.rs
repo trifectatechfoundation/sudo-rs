@@ -5,7 +5,7 @@ pub trait Identifiable {
     fn has_name(&self, _name: &str) -> bool {
         false
     }
-    fn has_uid(&self, _uid: u16) -> bool {
+    fn has_uid(&self, _uid: libc::uid_t) -> bool {
         false
     }
 
@@ -15,21 +15,21 @@ pub trait Identifiable {
     fn in_group_by_name(&self, _name: &str) -> bool {
         false
     }
-    fn in_group_by_gid(&self, _name: u16) -> bool {
+    fn in_group_by_gid(&self, _name: libc::gid_t) -> bool {
         false
     }
 }
 
 pub trait UnixGroup {
-    fn as_gid(&self) -> u16;
+    fn as_gid(&self) -> libc::gid_t;
     fn try_as_name(&self) -> Option<&str>;
 }
 
 /// This is the "canonical" info that we need
 #[derive(Debug)]
-pub struct GroupID(pub u16, pub Option<String>);
+pub struct GroupID(pub libc::gid_t, pub Option<String>);
 #[derive(Debug)]
-pub struct UserRecord(pub u16, pub Option<String>, pub Vec<GroupID>);
+pub struct UserRecord(pub libc::gid_t, pub Option<String>, pub Vec<GroupID>);
 
 impl PartialEq<UserRecord> for UserRecord {
     fn eq(&self, other: &Self) -> bool {
@@ -40,7 +40,7 @@ impl PartialEq<UserRecord> for UserRecord {
 impl Eq for UserRecord {}
 
 impl UnixGroup for GroupID {
-    fn as_gid(&self) -> u16 {
+    fn as_gid(&self) -> libc::gid_t {
         self.0
     }
 
@@ -64,7 +64,7 @@ impl Identifiable for &str {
 }
 
 impl Identifiable for GroupID {
-    fn has_uid(&self, uid: u16) -> bool {
+    fn has_uid(&self, uid: libc::gid_t) -> bool {
         self.0 == uid
     }
     fn has_name(&self, name: &str) -> bool {
@@ -81,7 +81,7 @@ impl Identifiable for UserRecord {
         self.2.iter().any(|g| g.has_name(name))
     }
 
-    fn in_group_by_gid(&self, id: u16) -> bool {
+    fn in_group_by_gid(&self, id: libc::gid_t) -> bool {
         self.2.iter().any(|g| g.has_uid(id))
     }
 }
@@ -90,8 +90,8 @@ impl Identifiable for sudo_system::User {
     fn has_name(&self, name: &str) -> bool {
         self.name == name
     }
-    fn has_uid(&self, uid: u16) -> bool {
-        self.uid as u16 == uid
+    fn has_uid(&self, uid: libc::gid_t) -> bool {
+        self.uid == uid
     }
 
     fn is_root(&self) -> bool {
@@ -100,14 +100,14 @@ impl Identifiable for sudo_system::User {
     fn in_group_by_name(&self, _name: &str) -> bool {
         false
     }
-    fn in_group_by_gid(&self, _name: u16) -> bool {
+    fn in_group_by_gid(&self, _name: libc::gid_t) -> bool {
         false
     }
 }
 
 impl UnixGroup for sudo_system::Group {
-    fn as_gid(&self) -> u16 {
-        self.gid as u16
+    fn as_gid(&self) -> libc::gid_t {
+        self.gid
     }
 
     fn try_as_name(&self) -> Option<&str> {

@@ -304,8 +304,8 @@ mod test {
         fn try_as_name(&self) -> Option<&str> {
             Some(self.1)
         }
-        fn as_gid(&self) -> u16 {
-            self.0
+        fn as_gid(&self) -> libc::gid_t {
+            self.0 as libc::gid_t
         }
     }
 

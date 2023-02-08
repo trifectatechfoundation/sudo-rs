@@ -62,7 +62,7 @@ impl Many for Hostname {}
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub enum Identifier {
     Name(String),
-    ID(u16),
+    ID(libc::gid_t),
 }
 
 impl Token for Identifier {
