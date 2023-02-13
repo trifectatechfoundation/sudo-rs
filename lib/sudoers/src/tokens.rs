@@ -186,3 +186,36 @@ impl Token for Command {
 }
 
 impl Many for Command {}
+
+/// An environment variable name pattern consists of alphanumeric characters as well as "_", "%" and wildcard "*"
+/// (Value patterns are not supported yet)
+pub struct EnvVar(pub String);
+
+impl Token for EnvVar {
+    fn construct(text: String) -> Parsed<Self> {
+        Ok(EnvVar(text))
+    }
+
+    fn accept(c: char) -> bool {
+        c.is_ascii_alphanumeric() || "*_%".contains(c)
+    }
+}
+
+pub struct QuotedText(pub String);
+
+impl Token for QuotedText {
+    const MAX_LEN: usize = 1024;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(QuotedText(s))
+    }
+
+    fn accept(c: char) -> bool {
+        !Self::escaped(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\\"".contains(c) || c.is_control()
+    }
+}

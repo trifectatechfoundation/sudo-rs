@@ -55,16 +55,32 @@ pub struct Def<T>(pub String, pub SpecList<T>);
 
 /// AST object for directive specifications (aliases, arguments, etc)
 #[derive(Debug)]
-#[allow(clippy::enum_variant_names)] // this is temporary
 pub enum Directive {
     UserAlias(Def<UserSpecifier>),
     HostAlias(Def<Hostname>),
     CmndAlias(Def<Command>),
     RunasAlias(Def<UserSpecifier>),
+    Defaults(String, DefaultValue),
+}
+
+#[derive(Debug)]
+//TODO: integer values and "boolean context strings/lists/integers"
+pub enum DefaultValue {
+    Flag(bool),
+    Text(String),
+
+    // encoding: -1 = subtract, 0 = set, +1 = add
+    List(Mode, Vec<String>),
+}
+
+#[derive(Debug)]
+pub enum Mode {
+    Add,
+    Set,
+    Del,
 }
 
 /// The Sudoers file can contain permissions and directives
-// TODO: Defaults
 #[derive(Debug)]
 pub enum Sudo {
     Spec(PermissionSpec),
@@ -285,6 +301,23 @@ impl Parse for Sudo {
     }
 }
 
+// temporary stubs
+fn is_bool_param(_name: &str) -> bool {
+    true
+}
+#[allow(dead_code)]
+fn is_int_param(_name: &str) -> bool {
+    true
+}
+#[allow(dead_code)]
+fn is_string_param(_name: &str) -> bool {
+    true
+}
+#[allow(dead_code)]
+fn is_list_param(_name: &str) -> bool {
+    _name != "secure_path"
+}
+
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut Peekable<impl Iterator<Item = char>>,
@@ -295,6 +328,7 @@ fn get_directive(
     use crate::ast::UserSpecifier::*;
     let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else { return reject() };
 
+    /// Parse an alias definition
     fn parse_alias<T>(
         ctor: fn(Def<T>) -> Directive,
         stream: &mut Peekable<impl Iterator<Item = char>>,
@@ -308,11 +342,91 @@ fn get_directive(
         make(ctor(Def(name, expect_nonterminal(stream)?)))
     }
 
+    /// Parse multiple entries enclosed in quotes (for list-like Defaults-settings)
+    fn parse_vars(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Vec<String>> {
+        if try_syntax('"', stream).is_ok() {
+            let mut result = Vec::new();
+            while let Some(EnvVar(name)) = maybe(try_nonterminal(stream))? {
+                result.push(name);
+                if try_syntax('=', stream).is_ok() {
+                    // TODO
+                    let QuotedText(_) = expect_nonterminal(stream)?;
+                    expect_syntax('"', stream)?;
+                    unrecoverable!("values in environment variables not yet supported")
+                }
+            }
+            expect_syntax('"', stream)?;
+            if result.is_empty() {
+                unrecoverable!("empty string not allowed");
+            }
+
+            make(result)
+        } else {
+            let EnvVar(name) = expect_nonterminal(stream)?;
+
+            make(vec![name])
+        }
+    }
+
+    /// Parse "Defaults" entries
+    fn parse_default(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Directive> {
+        let bool_setting = |name: String, value: bool| {
+            // TODO: other types in a boolean context
+            if is_bool_param(&name) {
+                make(Defaults(name, DefaultValue::Flag(value)))
+            } else {
+                unrecoverable!("{name} is not a boolean setting");
+            }
+        };
+
+        let list_items = |mode: Mode, name: String, stream: &mut _| {
+            expect_syntax('=', stream)?;
+            if !is_list_param(&name) {
+                unrecoverable!("{name} is not a list parameter");
+            }
+            let items = parse_vars(stream)?;
+
+            make(Defaults(name, DefaultValue::List(mode, items)))
+        };
+
+        if try_syntax('!', stream).is_ok() {
+            let EnvVar(name) = expect_nonterminal(stream)?;
+            bool_setting(name, false)
+        } else {
+            let EnvVar(name) = try_nonterminal(stream)?;
+
+            if try_syntax('+', stream).is_ok() {
+                list_items(Mode::Add, name, stream)
+            } else if try_syntax('-', stream).is_ok() {
+                list_items(Mode::Del, name, stream)
+            } else if try_syntax('=', stream).is_ok() {
+                if is_list_param(&name) {
+                    let items = parse_vars(stream)?;
+                    make(Defaults(name, DefaultValue::List(Mode::Set, items)))
+                } else {
+                    //TODO: what are the precise syntactic considerations for 'string options'?
+                    let text = if try_syntax('"', stream).is_ok() {
+                        let QuotedText(text) = expect_nonterminal(stream)?;
+                        expect_syntax('"', stream)?;
+                        text
+                    } else {
+                        let EnvVar(name) = expect_nonterminal(stream)?;
+                        name
+                    };
+                    make(Defaults(name, DefaultValue::Text(text)))
+                }
+            } else {
+                bool_setting(name, true)
+            }
+        }
+    }
+
     match keyword.as_str() {
         "User_Alias" => parse_alias(UserAlias, stream),
         "Host_Alias" => parse_alias(HostAlias, stream),
         "Cmnd_Alias" | "Cmd_Alias" => parse_alias(CmndAlias, stream),
         "Runas_Alias" => parse_alias(RunasAlias, stream),
+        "Defaults" => parse_default(stream),
         _ => reject(),
     }
 }

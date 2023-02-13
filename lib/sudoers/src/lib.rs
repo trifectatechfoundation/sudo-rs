@@ -6,7 +6,7 @@ mod ast;
 mod basic_parser;
 mod tokens;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
@@ -232,17 +232,59 @@ fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
 
 /// Process a sudoers-parsing file into a workable AST
 
+//TODO: don't derive Default, but implement it (based on what the actual defaults are)
+#[derive(Default)]
+pub struct Settings {
+    pub flags: HashSet<String>,
+    pub str_value: HashMap<String, String>,
+    pub list: HashMap<String, HashSet<String>>,
+}
+
 fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+    use DefaultValue::*;
     use Directive::*;
     let mut permits = Vec::new();
     let mut alias: AliasTable = Default::default();
+
+    let settings = Default::default();
+    let Settings {
+        mut flags,
+        mut str_value,
+        mut list,
+    } = settings;
+
     for item in sudoers {
         match item {
             Sudo::Spec(permission) => permits.push(permission),
+
             Sudo::Decl(UserAlias(def)) => alias.user.1.push(def),
             Sudo::Decl(HostAlias(def)) => alias.host.1.push(def),
             Sudo::Decl(CmndAlias(def)) => alias.cmnd.1.push(def),
             Sudo::Decl(RunasAlias(def)) => alias.runas.1.push(def),
+
+            Sudo::Decl(Defaults(name, Flag(value))) => {
+                if value {
+                    flags.insert(name);
+                } else {
+                    flags.remove(&name);
+                }
+            }
+            Sudo::Decl(Defaults(name, Text(value))) => {
+                str_value.insert(name, value);
+            }
+
+            Sudo::Decl(Defaults(name, List(mode, values))) => {
+                let slot: &mut _ = list.entry(name).or_default();
+                match mode {
+                    Mode::Set => *slot = values.into_iter().collect(),
+                    Mode::Add => slot.extend(values),
+                    Mode::Del => {
+                        for key in values {
+                            slot.remove(&key);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -250,6 +292,7 @@ fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
     alias.host.0 = sanitize_alias_table(&alias.host.1);
     alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1);
     alias.runas.0 = sanitize_alias_table(&alias.runas.1);
+
     (permits, alias)
 }
 
