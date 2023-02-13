@@ -345,6 +345,10 @@ impl Parse for Sudo {
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+	if accept_if(|c| c == '@', stream).is_ok() {
+	    return parse_include(stream)
+	}
+
         let ambiguous = stream.peek() == Some(&'#');
 
         match try_nonterminal::<SpecList<_>>(stream) {

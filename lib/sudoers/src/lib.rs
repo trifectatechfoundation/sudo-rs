@@ -561,6 +561,10 @@ mod test {
         assert_eq!(x, "foo bar");
         // this is fine
         let Sudo::LineComment = parse_line("#inlcudedir foo") else { panic!() };
+        let Sudo::Include(_) = parse_line("@include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("@includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("@include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
     }
 
     #[test]
