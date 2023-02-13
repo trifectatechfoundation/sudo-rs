@@ -288,22 +288,29 @@ impl Parse for Sudo {
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
-            // element 1 always exists (parse_list fails on an empty list)
-            let key = &users[0];
-            if let Some(directive) = maybe(get_directive(key, stream))? {
-                if users.len() != 1 {
-                    unrecoverable!(
-                        "parse error: user name list cannot start with a directive keyword"
-                    );
+        let ambiguous = stream.peek() == Some(&'#');
+
+        match try_nonterminal::<SpecList<_>>(stream) {
+            Ok(users) => {
+                // element 1 always exists (parse_list fails on an empty list)
+                let key = &users[0];
+                if let Some(directive) = maybe(get_directive(key, stream))? {
+                    if users.len() != 1 {
+                        unrecoverable!(
+                            "parse error: user name list cannot start with a directive keyword"
+                        );
+                    }
+                    make(Sudo::Decl(directive))
+                } else {
+                    let permissions = expect_nonterminal(stream)?;
+                    make(Sudo::Spec(PermissionSpec { users, permissions }))
                 }
-                make(Sudo::Decl(directive))
-            } else {
-                let permissions = expect_nonterminal(stream)?;
-                make(Sudo::Spec(PermissionSpec { users, permissions }))
             }
-        } else {
-            make(Sudo::LineComment)
+            _ if ambiguous => {
+		make(Sudo::LineComment),
+	    },
+            Err(Status::Reject) => make(Sudo::LineComment),
+            Err(error) => Err(error),
         }
     }
 }

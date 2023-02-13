@@ -390,6 +390,11 @@ mod test {
         }
     }
 
+    // alternative to parse_eval, but goes through sudoer! directly
+    fn parse_line(s: &str) -> Sudo {
+        sudoer![s].next().unwrap()
+    }
+
     impl UnixGroup for (u16, &str) {
         fn try_as_name(&self) -> Option<&str> {
             Some(self.1)
@@ -535,6 +540,19 @@ mod test {
             }
             _ => panic!("incorrectly parsed"),
         }
+    }
+
+    #[test]
+    // the overloading of '#' causes a lot of issues
+    fn hashsign_test() {
+        let Sudo::Spec(_) = parse_line("#42 ALL=ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(%#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(:#42) ALL") else { panic!() };
+        let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else { panic!() };
+        let Sudo::LineComment = parse_line("") else { panic!() };
+        let Sudo::LineComment = parse_line("#this is a comment") else { panic!() };
+        let Sudo::LineComment = parse_line("#include foo") else { panic!() };
     }
 
     fn test_topo_sort(n: usize) {
