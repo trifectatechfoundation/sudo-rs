@@ -22,6 +22,7 @@ pub use sysuser::*;
 pub struct Sudoers {
     rules: Vec<PermissionSpec>,
     aliases: AliasTable,
+    pub settings: Settings,
 }
 
 pub struct Request<'a, User: Identifiable, Group: UnixGroup> {
@@ -49,8 +50,15 @@ pub fn compile(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io:
         .filter_map(|line| line.as_ref().err().cloned())
         .collect();
 
-    let (rules, aliases) = analyze(sudoers.into_iter().flatten());
-    Ok((Sudoers { rules, aliases }, diagnostics))
+    let (rules, aliases, settings) = analyze(sudoers.into_iter().flatten());
+    Ok((
+        Sudoers {
+            rules,
+            aliases,
+            settings,
+        },
+        diagnostics,
+    ))
 }
 
 #[derive(Default)]
@@ -77,7 +85,11 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
 pub fn check_permission<User: Identifiable + PartialEq<User>, Group: UnixGroup>(
-    Sudoers { rules, aliases }: &Sudoers,
+    Sudoers {
+        rules,
+        aliases,
+        settings: _,
+    }: &Sudoers,
     am_user: &User,
     request: Request<User, Group>,
     on_host: &str,
@@ -230,27 +242,26 @@ fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
     }
 }
 
-/// Process a sudoers-parsing file into a workable AST
-
 //TODO: don't derive Default, but implement it (based on what the actual defaults are)
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Settings {
     pub flags: HashSet<String>,
     pub str_value: HashMap<String, String>,
     pub list: HashMap<String, HashSet<String>>,
 }
 
-fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+/// Process a sudoers-parsing file into a workable AST
+fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable, Settings) {
     use DefaultValue::*;
     use Directive::*;
     let mut permits = Vec::new();
     let mut alias: AliasTable = Default::default();
 
-    let settings = Default::default();
+    let mut settings = Default::default();
     let Settings {
-        mut flags,
-        mut str_value,
-        mut list,
+        ref mut flags,
+        ref mut str_value,
+        ref mut list,
     } = settings;
 
     for item in sudoers {
@@ -293,7 +304,7 @@ fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
     alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1);
     alias.runas.0 = sanitize_alias_table(&alias.runas.1);
 
-    (permits, alias)
+    (permits, alias, settings)
 }
 
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
@@ -400,15 +411,17 @@ mod test {
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-                let (rules,aliases) = analyze(sudoer![$($sudo),*]);
-                assert_eq!(check_permission(&Sudoers { rules, aliases }, &$user, $req, $server, $command), None);
+                let (rules,aliases, _) = analyze(sudoer![$($sudo),*]);
+                let settings = Default::default();
+                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command), None);
             }
         }
 
         macro_rules! pass {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
-                let (rules,aliases) = analyze(sudoer![$($sudo),*]);
-                let result = check_permission(&Sudoers { rules, aliases}, &$user, $req, $server, $command);
+                let (rules,aliases, _) = analyze(sudoer![$($sudo),*]);
+                let settings = Default::default();
+                let result = check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command);
                 $(assert_eq!(result, Some(vec![$($list),*]));)?
                 assert!(!result.is_none());
             }
