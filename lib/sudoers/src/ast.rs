@@ -114,23 +114,24 @@ impl Parse for Meta<UserSpecifier> {
                 Meta::Only(Username(name)) => Meta::Only(User(Identifier::Name(name))),
             })
         } else {
-            let ctor = if maybe(accept_if(|c| c == '%', stream))?.is_some() {
-                if maybe(accept_if(|c| c == ':', stream))?.is_some() {
+            let userspec = if maybe(accept_if(|c| c == '%', stream))?.is_some() {
+                let ctor = if maybe(accept_if(|c| c == ':', stream))?.is_some() {
                     UserSpecifier::NonunixGroup
                 } else {
                     UserSpecifier::Group
-                }
+                };
+                // in this case we must fail 'hard', since input has been consumed
+                ctor(expect_nonterminal(stream)?)
             } else if maybe(accept_if(|c| c == '+', stream))?.is_some() {
                 // TODO Netgroups; in this case we need to "return early" since
                 // netgroups don't share the syntactic structure of the other alternatives
                 unrecoverable!("netgroups are not supported yet");
             } else {
-                UserSpecifier::User
+                // in this case we must fail 'softly', since no input has been consumed yet
+                UserSpecifier::User(try_nonterminal(stream)?)
             };
 
-            let ident = expect_nonterminal(stream)?;
-
-            make(Meta::Only(ctor(ident)))
+            make(Meta::Only(userspec))
         }
     }
 }
