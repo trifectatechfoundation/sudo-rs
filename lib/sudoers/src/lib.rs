@@ -266,6 +266,8 @@ fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
 
     for item in sudoers {
         match item {
+            Sudo::LineComment => {}
+
             Sudo::Spec(permission) => permits.push(permission),
 
             Sudo::Decl(UserAlias(def)) => alias.user.1.push(def),

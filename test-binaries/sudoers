@@ -2,12 +2,16 @@ Defaults	env_reset
 Defaults	env_keep = "AAP NOOT MIES"
 Defaults	env_keep += "MIES WIM ZUS JET" * AAP
 Defaults	env_keep -= "AAP NOOT ZUS JET"
+
 Defaults	mail_badpass
 Defaults	secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
 Defaults	use_pty
 Defaults        env_delete="BASH_FUNC_foo%%=()*"
+
 piet, jan vm,laptop=(piet,jan:wheel,backup) ALL : ALL=(ALL) TIMEOUT=123 /bin/echo : tg=(:ALL) NOPASSWD: /bin/ls
+
 roost ALL=(ALL:ALL) /bin/user
 %roost ALL=(ALL:ALL) /bin/group
+
 User_Alias WHEEL = ALL,!piet
 WHEEL laptop=(ALL:ALL) NOPASSWD: /bin/sh whelp

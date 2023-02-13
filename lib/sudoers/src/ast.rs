@@ -85,6 +85,7 @@ pub enum Mode {
 pub enum Sudo {
     Spec(PermissionSpec),
     Decl(Directive),
+    LineComment,
 }
 
 /// grammar:
@@ -275,7 +276,8 @@ impl Parse for PermissionSpec {
 /// grammar:
 /// ```text
 /// sudo = permissionspec
-///      | Keyword identifier = identifier_list
+///      | Keyword_Alias identifier = identifier_list
+///      | Defaults name [+-]?= ...
 /// ```
 /// There is a syntactical ambiguity in the sudoer Directive and Permission specifications, so we
 /// have to parse them 'together' and do a delayed decision on which category we are in.
@@ -286,17 +288,22 @@ impl Parse for Sudo {
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        let users = try_nonterminal::<SpecList<_>>(stream)?;
-        // element 1 always exists (parse_list fails on an empty list)
-        let key = &users[0];
-        if let Some(directive) = maybe(get_directive(key, stream))? {
-            if users.len() != 1 {
-                unrecoverable!("parse error: user name list cannot start with a directive keyword");
+        if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
+            // element 1 always exists (parse_list fails on an empty list)
+            let key = &users[0];
+            if let Some(directive) = maybe(get_directive(key, stream))? {
+                if users.len() != 1 {
+                    unrecoverable!(
+                        "parse error: user name list cannot start with a directive keyword"
+                    );
+                }
+                make(Sudo::Decl(directive))
+            } else {
+                let permissions = expect_nonterminal(stream)?;
+                make(Sudo::Spec(PermissionSpec { users, permissions }))
             }
-            make(Sudo::Decl(directive))
         } else {
-            let permissions = expect_nonterminal(stream)?;
-            make(Sudo::Spec(PermissionSpec { users, permissions }))
+            make(Sudo::LineComment)
         }
     }
 }
