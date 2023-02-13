@@ -96,6 +96,12 @@ pub enum Identifier {
     ID(libc::gid_t),
 }
 
+/// grammar:
+/// ```text
+/// identifier = name
+///            | #<numerical id>
+/// ```
+
 impl Parse for Identifier {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         if accept_if(|c| c == '#', stream).is_ok() {
@@ -143,59 +149,69 @@ impl<T: Many> Many for Qualified<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
+/// Helper function for parsing Meta<T> things where T is not a token
+
+fn parse_meta<T: Parse>(
+    stream: &mut Peekable<impl Iterator<Item = char>>,
+    embed: impl FnOnce(String) -> T,
+) -> Parsed<Meta<T>> {
+    if let Some(meta) = maybe(try_nonterminal::<Meta<Username>>(stream))? {
+        make(match meta {
+            Meta::All => Meta::All,
+            Meta::Alias(alias) => Meta::Alias(alias),
+            Meta::Only(Username(name)) => Meta::Only(embed(name)),
+        })
+    } else {
+        make(Meta::Only(T::parse(stream)?))
+    }
+}
+
 /// Since Identifier is not a token, add the parser for Meta<Identifier>
 
 impl Parse for Meta<Identifier> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        if let Some(meta) = maybe(try_nonterminal::<Meta<Username>>(stream))? {
-            make(match meta {
-                Meta::All => Meta::All,
-                Meta::Alias(alias) => Meta::Alias(alias),
-                Meta::Only(Username(name)) => Meta::Only(Identifier::Name(name)),
-            })
-        } else {
-            let ident = try_nonterminal(stream)?;
-            make(Meta::Only(ident))
-        }
+        parse_meta(stream, Identifier::Name)
     }
 }
 
-/// UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>;
-/// since we never parse raw UserSpecifiers, we don't need that seperately.
-
-impl Parse for Meta<UserSpecifier> {
+/// grammar:
+/// ```text
+/// userspec = identifier
+///          | %identifier
+///          | %:identifier
+///          | +netgroup
+/// ```
+impl Parse for UserSpecifier {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        use UserSpecifier::*;
-        if let Some(meta) = maybe(try_nonterminal::<Meta<Username>>(stream))? {
-            make(match meta {
-                Meta::All => Meta::All,
-                Meta::Alias(alias) => Meta::Alias(alias),
-                Meta::Only(Username(name)) => Meta::Only(User(Identifier::Name(name))),
-            })
-        } else {
-            let userspec = if accept_if(|c| c == '%', stream).is_ok() {
-                let ctor = if accept_if(|c| c == ':', stream).is_ok() {
-                    UserSpecifier::NonunixGroup
-                } else {
-                    UserSpecifier::Group
-                };
-                // in this case we must fail 'hard', since input has been consumed
-                ctor(expect_nonterminal(stream)?)
-            } else if accept_if(|c| c == '+', stream).is_ok() {
-                // TODO Netgroups; in this case we need to "return early" since
-                // netgroups don't share the syntactic structure of the other alternatives
-                unrecoverable!("netgroups are not supported yet");
+        let userspec = if accept_if(|c| c == '%', stream).is_ok() {
+            let ctor = if accept_if(|c| c == ':', stream).is_ok() {
+                UserSpecifier::NonunixGroup
             } else {
-                // in this case we must fail 'softly', since no input has been consumed yet
-                UserSpecifier::User(try_nonterminal(stream)?)
+                UserSpecifier::Group
             };
+            // in this case we must fail 'hard', since input has been consumed
+            ctor(expect_nonterminal(stream)?)
+        } else if accept_if(|c| c == '+', stream).is_ok() {
+            // TODO Netgroups; in this case we need to "return early" since
+            // netgroups don't share the syntactic structure of the other alternatives
+            unrecoverable!("netgroups are not supported yet");
+        } else {
+            // in this case we must fail 'softly', since no input has been consumed yet
+            UserSpecifier::User(try_nonterminal(stream)?)
+        };
 
-            make(Meta::Only(userspec))
-        }
+        make(userspec)
     }
 }
 
 impl Many for UserSpecifier {}
+
+/// UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>
+impl Parse for Meta<UserSpecifier> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        parse_meta(stream, |name| UserSpecifier::User(Identifier::Name(name)))
+    }
+}
 
 /// grammar:
 /// ```text
