@@ -298,6 +298,9 @@ fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
                     }
                 }
             }
+
+            Sudo::Include(_path) => todo!(),
+            Sudo::IncludeDir(_path) => todo!(),
         }
     }
 
@@ -552,7 +555,18 @@ mod test {
         let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else { panic!() };
         let Sudo::LineComment = parse_line("") else { panic!() };
         let Sudo::LineComment = parse_line("#this is a comment") else { panic!() };
-        let Sudo::LineComment = parse_line("#include foo") else { panic!() };
+        let Sudo::Include(_) = parse_line("#include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("#includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("#include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
+        // this is fine
+        let Sudo::LineComment = parse_line("#inlcudedir foo") else { panic!() };
+    }
+
+    #[test]
+    #[should_panic]
+    fn hashsign_error() {
+        let Sudo::Include(_) = parse_line("#include foo bar") else { todo!() };
     }
 
     fn test_topo_sort(n: usize) {

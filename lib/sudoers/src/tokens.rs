@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{unrecoverable, Many, Parsed, Status, Token};
+use crate::basic_parser::{Many, Parsed, Status, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
@@ -23,6 +23,21 @@ impl Token for Username {
 }
 
 impl Many for Username {}
+
+#[derive(Debug)]
+pub struct Digits(pub u32);
+
+impl Token for Digits {
+    const MAX_LEN: usize = 10;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(Digits(s.parse().unwrap()))
+    }
+
+    fn accept(c: char) -> bool {
+        c.is_ascii_digit()
+    }
+}
 
 #[derive(Debug)]
 pub struct Decimal(pub i32);
@@ -56,37 +71,6 @@ impl Token for Hostname {
 }
 
 impl Many for Hostname {}
-
-/// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
-pub enum Identifier {
-    Name(String),
-    ID(libc::gid_t),
-}
-
-impl Token for Identifier {
-    fn construct(text: String) -> Parsed<Self> {
-        let mut chars = text.chars();
-        Ok(if let Some('#') = chars.next() {
-            match chars.as_str().parse() {
-                Ok(guid) => Identifier::ID(guid),
-                Err(err) => unrecoverable!("invalid user id: {err}"),
-            }
-        } else {
-            Identifier::Name(text)
-        })
-    }
-
-    fn accept(c: char) -> bool {
-        Username::accept(c)
-    }
-    fn accept_1st(c: char) -> bool {
-        Self::accept(c) || c == '#'
-    }
-}
-
-impl Many for Identifier {}
 
 /// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
 /// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::basic_parser::Parse])
@@ -217,5 +201,24 @@ impl Token for QuotedText {
     const ESCAPE: char = '\\';
     fn escaped(c: char) -> bool {
         "\\\"".contains(c) || c.is_control()
+    }
+}
+
+pub struct IncludePath(pub String);
+
+impl Token for IncludePath {
+    const MAX_LEN: usize = 1024;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(IncludePath(s))
+    }
+
+    fn accept(c: char) -> bool {
+        !c.is_control() && !Self::escaped(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\\" ".contains(c)
     }
 }

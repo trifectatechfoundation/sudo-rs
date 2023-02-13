@@ -23,8 +23,6 @@ pub enum UserSpecifier {
     NonunixGroup(Identifier),
 }
 
-pub use crate::tokens::Identifier;
-
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
 #[derive(Debug, Default)]
 pub struct RunAs {
@@ -85,8 +83,32 @@ pub enum Mode {
 pub enum Sudo {
     Spec(PermissionSpec),
     Decl(Directive),
+    Include(String),
+    IncludeDir(String),
     LineComment,
 }
+
+/// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
+#[derive(Debug)]
+#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+pub enum Identifier {
+    Name(String),
+    ID(libc::gid_t),
+}
+
+impl Parse for Identifier {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        if accept_if(|c| c == '#', stream).is_ok() {
+            let Digits(guid) = expect_nonterminal(stream)?;
+            make(Identifier::ID(guid))
+        } else {
+            let Username(name) = try_nonterminal(stream)?;
+            make(Identifier::Name(name))
+        }
+    }
+}
+
+impl Many for Identifier {}
 
 /// grammar:
 /// ```text
@@ -121,7 +143,26 @@ impl<T: Many> Many for Qualified<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
-/// Since UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>
+/// Since Identifier is not a token, add the parser for Meta<Identifier>
+
+impl Parse for Meta<Identifier> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        if let Some(meta) = maybe(try_nonterminal::<Meta<Username>>(stream))? {
+            make(match meta {
+                Meta::All => Meta::All,
+                Meta::Alias(alias) => Meta::Alias(alias),
+                Meta::Only(Username(name)) => Meta::Only(Identifier::Name(name)),
+            })
+        } else {
+            let ident = try_nonterminal(stream)?;
+            make(Meta::Only(ident))
+        }
+    }
+}
+
+/// UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>;
+/// since we never parse raw UserSpecifiers, we don't need that seperately.
+
 impl Parse for Meta<UserSpecifier> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         use UserSpecifier::*;
@@ -132,15 +173,15 @@ impl Parse for Meta<UserSpecifier> {
                 Meta::Only(Username(name)) => Meta::Only(User(Identifier::Name(name))),
             })
         } else {
-            let userspec = if maybe(accept_if(|c| c == '%', stream))?.is_some() {
-                let ctor = if maybe(accept_if(|c| c == ':', stream))?.is_some() {
+            let userspec = if accept_if(|c| c == '%', stream).is_ok() {
+                let ctor = if accept_if(|c| c == ':', stream).is_ok() {
                     UserSpecifier::NonunixGroup
                 } else {
                     UserSpecifier::Group
                 };
                 // in this case we must fail 'hard', since input has been consumed
                 ctor(expect_nonterminal(stream)?)
-            } else if maybe(accept_if(|c| c == '+', stream))?.is_some() {
+            } else if accept_if(|c| c == '+', stream).is_ok() {
                 // TODO Netgroups; in this case we need to "return early" since
                 // netgroups don't share the syntactic structure of the other alternatives
                 unrecoverable!("netgroups are not supported yet");
@@ -307,12 +348,40 @@ impl Parse for Sudo {
                 }
             }
             _ if ambiguous => {
-		make(Sudo::LineComment),
-	    },
+                // the most ignominious part of sudoers: having to parse part of a comment to see if it is a comment
+                let _ = try_syntax(' ', stream);
+                parse_include(stream)
+            }
             Err(Status::Reject) => make(Sudo::LineComment),
             Err(error) => Err(error),
         }
     }
+}
+
+fn parse_include(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Sudo> {
+    let get_path = |stream: &mut _| {
+        if maybe(try_syntax('"', stream))?.is_some() {
+            let QuotedText(path) = expect_nonterminal(stream)?;
+            expect_syntax('"', stream)?;
+            make(path)
+        } else {
+            let IncludePath(path) = expect_nonterminal(stream)?;
+            if stream.peek() != Some(&'\n') {
+                unrecoverable!("use quotes around filenames or escape whitespace")
+            }
+            make(path)
+        }
+    };
+    let result = match maybe(try_nonterminal(stream))? {
+        Some(Username(key)) if key == "include" => Sudo::Include(get_path(stream)?),
+        Some(Username(key)) if key == "includedir" => Sudo::IncludeDir(get_path(stream)?),
+        _ => {
+            while accept_if(|c| c != '\n', stream).is_ok() {}
+            Sudo::LineComment
+        }
+    };
+
+    make(result)
 }
 
 // temporary stubs
