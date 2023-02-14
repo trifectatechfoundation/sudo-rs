@@ -75,10 +75,10 @@ fn check_sudoers(context: &Context, sudo_options: &SudoOptions) -> Result<Option
     Ok(sudoers::check_permission(
         &input,
         &aliases,
-        &context.current_user.name,
-        &sudoers::UserInfo {
-            user: &context.target_user.name,
-            group: &context.target_group.name,
+        &context.current_user,
+        sudoers::Request {
+            user: &context.target_user,
+            group: &context.target_group,
         },
         &context.hostname,
         &sudo_options.external_args.join(" "),

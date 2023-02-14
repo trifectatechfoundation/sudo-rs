@@ -12,17 +12,17 @@ fn sudoers_parse(lines: impl Iterator<Item = String>) -> impl Iterator<Item = su
 fn chatty_check_permission(
     sudoers: impl Iterator<Item = String>,
     am_user: &str,
-    request: &sudoers::UserInfo,
+    request: sudoers::Request<&str, sudoers::GroupID>,
     on_host: &str,
     chosen_poison: &str,
 ) {
     println!(
-        "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
+        "Is '{}' allowed on '{}' to run: '{}' (as {}:{:?})?",
         am_user, on_host, chosen_poison, request.user, request.group
     );
     let (input, aliases) = sudoers::analyze(sudoers_parse(sudoers));
     let result =
-        sudoers::check_permission(&input, &aliases, am_user, request, on_host, chosen_poison);
+        sudoers::check_permission(&input, &aliases, &am_user, request, on_host, chosen_poison);
     println!("OUTCOME: {result:?}");
 }
 
@@ -31,6 +31,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 
 fn main() {
+    use sudoers::GroupID;
     let args: Vec<String> = env::args().collect();
     if let Ok(file) = File::open("./sudoers") {
         let cfg = io::BufReader::new(file).lines().map(|x| x.unwrap());
@@ -39,9 +40,12 @@ fn main() {
             chatty_check_permission(
                 cfg,
                 &args[1],
-                &sudoers::UserInfo {
-                    user: args.get(4).unwrap_or(&"root".to_string()),
-                    group: args.get(5).unwrap_or(&"root".to_string())
+                sudoers::Request::<&str, GroupID> {
+                    user: &args.get(4).unwrap_or(&"root".to_owned()).as_str(),
+                    group: &args
+                        .get(5)
+                        .map(|x| GroupID(2347, Some(x.clone())))
+                        .unwrap_or_else(|| (GroupID(0, Some("root".to_owned()))))
                 },
                 &args[2],
                 &args[3],
