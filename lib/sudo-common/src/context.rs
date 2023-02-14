@@ -16,6 +16,7 @@ impl TryFrom<Vec<&str>> for CommandAndArguments {
         let mut iter = external_args.into_iter();
 
         let command = iter.next().ok_or(Error::InvalidCommand)?.to_string();
+        // TODO: we resolve in the context of the current user using the 'which' crate - we want to reconsider this in the future
         let command = which::which(command).map_err(|_| Error::InvalidCommand)?;
 
         Ok(CommandAndArguments {
