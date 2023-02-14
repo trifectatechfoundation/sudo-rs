@@ -299,8 +299,8 @@ fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
                 }
             }
 
-            Sudo::Include(_path) => todo!(),
-            Sudo::IncludeDir(_path) => todo!(),
+            Sudo::Include(path) => eprintln!("TODO: this would include the file {path}"),
+            Sudo::IncludeDir(path) => eprintln!("TODO: this would include the folder {path}"),
         }
     }
 

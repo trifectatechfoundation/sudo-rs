@@ -14,6 +14,14 @@ pub enum Qualified<T> {
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
+/// An identifier is a name or a #number
+#[derive(Debug)]
+#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+pub enum Identifier {
+    Name(String),
+    ID(libc::gid_t),
+}
+
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
 #[derive(Debug)]
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
@@ -88,14 +96,6 @@ pub enum Sudo {
     LineComment,
 }
 
-/// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
-pub enum Identifier {
-    Name(String),
-    ID(libc::gid_t),
-}
-
 /// grammar:
 /// ```text
 /// identifier = name
@@ -126,9 +126,9 @@ impl Many for Identifier {}
 
 impl<T: Parse> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        if try_syntax('!', stream).is_ok() {
+        if is_syntax('!', stream)? {
             let mut neg = true;
-            while try_syntax('!', stream).is_ok() {
+            while is_syntax('!', stream)? {
                 neg = !neg;
             }
             let ident = expect_nonterminal(stream)?;
@@ -155,7 +155,7 @@ fn parse_meta<T: Parse>(
     stream: &mut Peekable<impl Iterator<Item = char>>,
     embed: impl FnOnce(String) -> T,
 ) -> Parsed<Meta<T>> {
-    if let Some(meta) = maybe(try_nonterminal::<Meta<Username>>(stream))? {
+    if let Some(meta) = try_nonterminal(stream)? {
         make(match meta {
             Meta::All => Meta::All,
             Meta::Alias(alias) => Meta::Alias(alias),
@@ -192,8 +192,7 @@ impl Parse for UserSpecifier {
             // in this case we must fail 'hard', since input has been consumed
             ctor(expect_nonterminal(stream)?)
         } else if accept_if(|c| c == '+', stream).is_ok() {
-            // TODO Netgroups; in this case we need to "return early" since
-            // netgroups don't share the syntactic structure of the other alternatives
+            // TODO Netgroups
             unrecoverable!("netgroups are not supported yet");
         } else {
             // in this case we must fail 'softly', since no input has been consumed yet
@@ -270,7 +269,7 @@ impl Parse for MetaOrTag {
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let mut tags = Vec::new();
-        while let Some(MetaOrTag(keyword)) = maybe(try_nonterminal(stream))? {
+        while let Some(MetaOrTag(keyword)) = try_nonterminal(stream)? {
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
                 Meta::All => return make(CommandSpec(tags, Qualified::Allow(Meta::All))),
@@ -345,9 +344,9 @@ impl Parse for Sudo {
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-	if accept_if(|c| c == '@', stream).is_ok() {
-	    return parse_include(stream)
-	}
+        if accept_if(|c| c == '@', stream).is_ok() {
+            return parse_include(stream);
+        }
 
         let ambiguous = stream.peek() == Some(&'#');
 
@@ -367,20 +366,28 @@ impl Parse for Sudo {
                     make(Sudo::Spec(PermissionSpec { users, permissions }))
                 }
             }
+
             _ if ambiguous => {
                 // the most ignominious part of sudoers: having to parse part of a comment to see if it is a comment
                 let _ = try_syntax(' ', stream);
-                parse_include(stream)
+                parse_include(stream).or_else(|_| {
+                    while accept_if(|c| c != '\n', stream).is_ok() {}
+                    make(Sudo::LineComment)
+                })
             }
+
+            //note: the below will not mask errors, since it will leave whatever could not be parsed on the input stream
             Err(Status::Reject) => make(Sudo::LineComment),
             Err(error) => Err(error),
         }
     }
 }
 
+/// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
+
 fn parse_include(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Sudo> {
     let get_path = |stream: &mut _| {
-        if maybe(try_syntax('"', stream))?.is_some() {
+        if accept_if(|c| c == '"', stream).is_ok() {
             let QuotedText(path) = expect_nonterminal(stream)?;
             expect_syntax('"', stream)?;
             make(path)
@@ -392,13 +399,10 @@ fn parse_include(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Su
             make(path)
         }
     };
-    let result = match maybe(try_nonterminal(stream))? {
+    let result = match try_nonterminal(stream)? {
         Some(Username(key)) if key == "include" => Sudo::Include(get_path(stream)?),
         Some(Username(key)) if key == "includedir" => Sudo::IncludeDir(get_path(stream)?),
-        _ => {
-            while accept_if(|c| c != '\n', stream).is_ok() {}
-            Sudo::LineComment
-        }
+        _ => unrecoverable!("unknown directive"),
     };
 
     make(result)
@@ -408,6 +412,8 @@ fn parse_include(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Su
 fn is_bool_param(_name: &str) -> bool {
     true
 }
+// code currently doesn't recognize integer params,
+// so everything that isn't a list is a string
 #[allow(dead_code)]
 fn is_int_param(_name: &str) -> bool {
     true
@@ -416,9 +422,8 @@ fn is_int_param(_name: &str) -> bool {
 fn is_string_param(_name: &str) -> bool {
     true
 }
-#[allow(dead_code)]
 fn is_list_param(_name: &str) -> bool {
-    _name != "secure_path"
+    _name != "secure_path" && _name != "lecture_file"
 }
 
 fn get_directive(
@@ -447,12 +452,11 @@ fn get_directive(
 
     /// Parse multiple entries enclosed in quotes (for list-like Defaults-settings)
     fn parse_vars(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Vec<String>> {
-        if try_syntax('"', stream).is_ok() {
+        if accept_if(|c| c == '"', stream).is_ok() {
             let mut result = Vec::new();
-            while let Some(EnvVar(name)) = maybe(try_nonterminal(stream))? {
+            while let Some(EnvVar(name)) = try_nonterminal(stream)? {
                 result.push(name);
-                if try_syntax('=', stream).is_ok() {
-                    // TODO
+                if is_syntax('=', stream)? {
                     let QuotedText(_) = expect_nonterminal(stream)?;
                     expect_syntax('"', stream)?;
                     unrecoverable!("values in environment variables not yet supported")
@@ -492,23 +496,23 @@ fn get_directive(
             make(Defaults(name, DefaultValue::List(mode, items)))
         };
 
-        if try_syntax('!', stream).is_ok() {
+        if is_syntax('!', stream)? {
             let EnvVar(name) = expect_nonterminal(stream)?;
             bool_setting(name, false)
         } else {
             let EnvVar(name) = try_nonterminal(stream)?;
 
-            if try_syntax('+', stream).is_ok() {
+            if is_syntax('+', stream)? {
                 list_items(Mode::Add, name, stream)
-            } else if try_syntax('-', stream).is_ok() {
+            } else if is_syntax('-', stream)? {
                 list_items(Mode::Del, name, stream)
-            } else if try_syntax('=', stream).is_ok() {
+            } else if is_syntax('=', stream)? {
                 if is_list_param(&name) {
                     let items = parse_vars(stream)?;
                     make(Defaults(name, DefaultValue::List(Mode::Set, items)))
                 } else {
                     //TODO: what are the precise syntactic considerations for 'string options'?
-                    let text = if try_syntax('"', stream).is_ok() {
+                    let text = if accept_if(|c| c == '"', stream).is_ok() {
                         let QuotedText(text) = expect_nonterminal(stream)?;
                         expect_syntax('"', stream)?;
                         text

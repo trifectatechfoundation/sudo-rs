@@ -13,7 +13,7 @@
 //! impl<T: Parse> Parse for LinkedList<T> {
 //!     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<LinkedList<T>> {
 //!         let x = try_nonterminal(stream)?;
-//!         let mut tail = if maybe(try_syntax('+', stream))?.is_some() {
+//!         let mut tail = if is_syntax('+', stream)? {
 //!             expect_nonterminal(stream)?
 //!         } else {
 //!             LinkedList::new()
@@ -188,6 +188,12 @@ pub fn expect_syntax(
         unrecoverable!("parse error: expecting `{syntax}' but found `{str}'")
     }
     make(())
+}
+
+/// Convenience function: usually try_syntax is called as a test criterion; if this returns true, the input was consumed.
+pub fn is_syntax(syntax: char, stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<bool> {
+    let result = maybe(try_syntax(syntax, stream))?;
+    make(result.is_some())
 }
 
 /// Interface for working with types that implement the [Parse] trait; this allows parsing to use
