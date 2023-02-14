@@ -1,8 +1,3 @@
-use std::{
-    fs::File,
-    io::{self, BufRead},
-};
-
 use sudo_cli::SudoOptions;
 use sudo_common::{
     context::{CommandAndArguments, Context},
@@ -58,23 +53,15 @@ fn check_sudoers(context: &Context, sudo_options: &SudoOptions) -> Result<Option
     // TODO: move to global configuration
     let sudoers_path = "/etc/sudoers.test";
 
-    let file = File::open(sudoers_path)
+    let (sudoers, syntax_errors) = sudoers::compile(sudoers_path)
         .map_err(|e| Error::Configuration(format!("no sudoers file {e}")))?;
 
-    let sudoers_lines = io::BufReader::new(file).lines().map(|x| x.unwrap());
-    let parsed_file = sudoers_lines.filter_map(|text| match sudoers::parse_string(&text) {
-        Ok(x) => Some(x),
-        Err(error) => {
-            eprintln!("Parse error: {error:?}");
-            None
-        }
-    });
-
-    let (input, aliases) = sudoers::analyze(parsed_file);
+    for error in syntax_errors {
+        eprintln!("Parse error: {error:?}");
+    }
 
     Ok(sudoers::check_permission(
-        &input,
-        &aliases,
+        &sudoers,
         &context.current_user,
         sudoers::Request {
             user: &context.target_user,

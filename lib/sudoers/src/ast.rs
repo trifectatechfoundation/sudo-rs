@@ -65,6 +65,7 @@ pub enum Directive {
 
 /// The Sudoers file can contain permissions and directives
 // TODO: Defaults
+#[derive(Debug)]
 pub enum Sudo {
     Spec(PermissionSpec),
     Decl(Directive),
