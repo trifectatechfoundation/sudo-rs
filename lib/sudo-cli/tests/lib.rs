@@ -146,3 +146,40 @@ fn trailing_args_hyphens_known_flag() {
 fn remove_and_reset_timestamp_exclusion() {
     SudoOptions::try_parse_from(["sudo", "--reset-timestamp", "--reboot-timestamp"]).unwrap();
 }
+
+/// Check that the first environment variable declaration before any command is not treated as part
+/// of the command.
+#[test]
+fn first_trailing_env_var_is_not_an_external_arg() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "FOO=1", "command", "BAR=2"]).unwrap();
+    assert_eq!(cmd.env_var_list, vec![("FOO".to_owned(), "1".to_owned()),]);
+    assert_eq!(cmd.external_args, vec!["command", "BAR=2"]);
+}
+
+#[test]
+fn trailing_env_vars_are_external_args() {
+    let cmd = SudoOptions::try_parse_from([
+        "sudo", "FOO=1", "-b", "BAR=2", "command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg",
+        "BARBAZ=5",
+    ])
+    .unwrap();
+    assert!(cmd.background);
+    assert_eq!(
+        cmd.env_var_list,
+        vec![
+            ("FOO".to_owned(), "1".to_owned()),
+            ("BAR".to_owned(), "2".to_owned())
+        ]
+    );
+    assert_eq!(
+        cmd.external_args,
+        vec!["command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg", "BARBAZ=5"]
+    );
+}
+
+#[test]
+fn single_env_var_declaration() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "FOO=1", "command"]).unwrap();
+    assert_eq!(cmd.env_var_list, vec![("FOO".to_owned(), "1".to_owned())]);
+    assert_eq!(cmd.external_args, vec!["command"]);
+}

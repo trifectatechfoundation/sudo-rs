@@ -66,7 +66,7 @@ pub fn hostname() -> String {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct User {
     pub uid: libc::uid_t,
     pub gid: libc::gid_t,

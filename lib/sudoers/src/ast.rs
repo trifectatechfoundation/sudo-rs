@@ -14,11 +14,22 @@ pub enum Qualified<T> {
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
+/// A userspecifier is either a username, or a (non-unix) group name, or netgroup
+#[derive(Debug)]
+#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+pub enum UserSpecifier {
+    User(Identifier),
+    Group(Identifier),
+    NonunixGroup(Identifier),
+}
+
+pub use crate::tokens::Identifier;
+
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
 #[derive(Debug, Default)]
 pub struct RunAs {
     pub users: SpecList<UserSpecifier>,
-    pub groups: SpecList<Username>,
+    pub groups: SpecList<Identifier>,
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
@@ -53,6 +64,8 @@ pub enum Directive {
 }
 
 /// The Sudoers file can contain permissions and directives
+// TODO: Defaults
+#[derive(Debug)]
 pub enum Sudo {
     Spec(PermissionSpec),
     Decl(Directive),
@@ -90,6 +103,41 @@ impl<T: Many> Many for Qualified<T> {
     const SEP: char = T::SEP;
     const LIMIT: usize = T::LIMIT;
 }
+
+/// Since UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>
+impl Parse for Meta<UserSpecifier> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        use UserSpecifier::*;
+        if let Some(meta) = maybe(try_nonterminal::<Meta<Username>>(stream))? {
+            make(match meta {
+                Meta::All => Meta::All,
+                Meta::Alias(alias) => Meta::Alias(alias),
+                Meta::Only(Username(name)) => Meta::Only(User(Identifier::Name(name))),
+            })
+        } else {
+            let userspec = if maybe(accept_if(|c| c == '%', stream))?.is_some() {
+                let ctor = if maybe(accept_if(|c| c == ':', stream))?.is_some() {
+                    UserSpecifier::NonunixGroup
+                } else {
+                    UserSpecifier::Group
+                };
+                // in this case we must fail 'hard', since input has been consumed
+                ctor(expect_nonterminal(stream)?)
+            } else if maybe(accept_if(|c| c == '+', stream))?.is_some() {
+                // TODO Netgroups; in this case we need to "return early" since
+                // netgroups don't share the syntactic structure of the other alternatives
+                unrecoverable!("netgroups are not supported yet");
+            } else {
+                // in this case we must fail 'softly', since no input has been consumed yet
+                UserSpecifier::User(try_nonterminal(stream)?)
+            };
+
+            make(Meta::Only(userspec))
+        }
+    }
+}
+
+impl Many for UserSpecifier {}
 
 /// grammar:
 /// ```text
@@ -245,12 +293,15 @@ fn get_directive(
     use crate::ast::Meta::*;
     use crate::ast::Qualified::*;
     use crate::ast::UserSpecifier::*;
-    let Allow(Only(User(keyword))) = perhaps_keyword else { return reject() };
+    let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else { return reject() };
 
-    fn parse_alias<T: Token + Many>(
+    fn parse_alias<T>(
         ctor: fn(Def<T>) -> Directive,
         stream: &mut Peekable<impl Iterator<Item = char>>,
-    ) -> Parsed<Directive> {
+    ) -> Parsed<Directive>
+    where
+        Meta<T>: Parse + Many,
+    {
         let Upper(name) = expect_nonterminal(stream)?;
         expect_syntax('=', stream)?;
 

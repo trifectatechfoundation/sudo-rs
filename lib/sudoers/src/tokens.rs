@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{Many, Parsed, Status, Token};
+use crate::basic_parser::{unrecoverable, Many, Parsed, Status, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
@@ -60,18 +60,21 @@ impl Many for Hostname {}
 /// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
 #[derive(Debug)]
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
-pub enum UserSpecifier {
-    User(Username),
-    Group(Username),
+pub enum Identifier {
+    Name(String),
+    ID(libc::gid_t),
 }
 
-impl Token for UserSpecifier {
+impl Token for Identifier {
     fn construct(text: String) -> Parsed<Self> {
         let mut chars = text.chars();
-        Ok(if let Some('%') = chars.next() {
-            UserSpecifier::Group(Username(chars.as_str().to_string()))
+        Ok(if let Some('#') = chars.next() {
+            match chars.as_str().parse() {
+                Ok(guid) => Identifier::ID(guid),
+                Err(err) => unrecoverable!("invalid user id: {err}"),
+            }
         } else {
-            UserSpecifier::User(Username(text))
+            Identifier::Name(text)
         })
     }
 
@@ -79,11 +82,11 @@ impl Token for UserSpecifier {
         Username::accept(c)
     }
     fn accept_1st(c: char) -> bool {
-        Self::accept(c) || c == '%'
+        Self::accept(c) || c == '#'
     }
 }
 
-impl Many for UserSpecifier {}
+impl Many for Identifier {}
 
 /// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
 /// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::basic_parser::Parse])
@@ -173,12 +176,12 @@ impl Token for Command {
     }
 
     fn accept(c: char) -> bool {
-        !Self::escaped(c)
+        !Self::escaped(c) && !c.is_control()
     }
 
     const ESCAPE: char = '\\';
     fn escaped(c: char) -> bool {
-        "\\,:=".contains(c)
+        "\\,:=#".contains(c)
     }
 }
 
