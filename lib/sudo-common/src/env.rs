@@ -99,7 +99,7 @@ fn should_keep(key: &str, value: &str, check_env: &[&str], keep_env: &[&str]) ->
         return true;
     }
 
-    return in_table(&key, keep_env);
+    in_table(key, keep_env)
 }
 
 /// Construct the final environment from the current one and a sudo context
