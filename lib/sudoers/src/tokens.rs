@@ -222,3 +222,23 @@ impl Token for IncludePath {
         "\\\" ".contains(c)
     }
 }
+
+// used for Defaults where
+pub struct StringParameter(pub String);
+
+impl Token for StringParameter {
+    const MAX_LEN: usize = QuotedText::MAX_LEN;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(StringParameter(s))
+    }
+
+    fn accept(c: char) -> bool {
+        !c.is_control() && !Self::escaped(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\\" #".contains(c)
+    }
+}

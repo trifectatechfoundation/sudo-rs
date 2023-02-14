@@ -522,13 +522,12 @@ fn get_directive(
                     let items = parse_vars(stream)?;
                     make(Defaults(name, DefaultValue::List(Mode::Set, items)))
                 } else {
-                    //TODO: what are the precise syntactic considerations for 'string options'?
                     let text = if accept_if(|c| c == '"', stream).is_ok() {
                         let QuotedText(text) = expect_nonterminal(stream)?;
                         expect_syntax('"', stream)?;
                         text
                     } else {
-                        let EnvVar(name) = expect_nonterminal(stream)?;
+                        let StringParameter(name) = expect_nonterminal(stream)?;
                         name
                     };
                     make(Defaults(name, DefaultValue::Text(text)))
