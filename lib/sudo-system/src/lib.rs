@@ -66,7 +66,7 @@ pub fn hostname() -> String {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct User {
     pub uid: libc::uid_t,
     pub gid: libc::gid_t,
@@ -152,7 +152,7 @@ impl User {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Group {
     pub gid: libc::gid_t,
     pub name: String,
@@ -245,7 +245,7 @@ impl Group {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Process {
     pub pid: libc::pid_t,
     pub parent_pid: libc::pid_t,

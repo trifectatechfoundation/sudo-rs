@@ -1,6 +1,8 @@
+use std::env;
 use sudo_cli::SudoOptions;
 use sudo_common::{
     context::{CommandAndArguments, Context},
+    env::Environment,
     error::Error,
     pam::authenticate,
 };
@@ -43,7 +45,8 @@ fn build_context(sudo_options: &SudoOptions) -> Result<Context, Error> {
         preserve_env_list: sudo_options.preserve_env_list.clone(),
     };
 
-    context.target_environment = sudo_common::env::get_target_environment(&context);
+    let current = env::vars().collect::<Environment>();
+    context.target_environment = sudo_common::env::get_target_environment(current, &context);
 
     Ok(context)
 }
