@@ -348,37 +348,48 @@ impl Parse for Sudo {
             return parse_include(stream);
         }
 
-        let ambiguous = stream.peek() == Some(&'#');
-
-        match try_nonterminal::<SpecList<_>>(stream) {
-            Ok(users) => {
-                // element 1 always exists (parse_list fails on an empty list)
-                let key = &users[0];
-                if let Some(directive) = maybe(get_directive(key, stream))? {
-                    if users.len() != 1 {
-                        unrecoverable!(
-                            "parse error: user name list cannot start with a directive keyword"
-                        );
-                    }
-                    make(Sudo::Decl(directive))
+        // the existence of "#include" forces us to handle lines that start with #<ID> explicitly
+        if stream.peek() == Some(&'#') {
+            return if let Ok(ident) = try_nonterminal::<Identifier>(stream) {
+                let first_user = Qualified::Allow(Meta::Only(UserSpecifier::User(ident)));
+                let users = if is_syntax(',', stream)? {
+                    // parse the rest of the userlist and add the already-parsed user in front
+                    let mut rest = expect_nonterminal::<SpecList<_>>(stream)?;
+                    rest.insert(0, first_user);
+                    rest
                 } else {
-                    let permissions = expect_nonterminal(stream)?;
-                    make(Sudo::Spec(PermissionSpec { users, permissions }))
-                }
-            }
-
-            _ if ambiguous => {
-                // the most ignominious part of sudoers: having to parse part of a comment to see if it is a comment
-                let _ = try_syntax(' ', stream);
+                    vec![first_user]
+                };
+                // no need to check get_directive as no other directive starts with #
+                let permissions = expect_nonterminal(stream)?;
+                make(Sudo::Spec(PermissionSpec { users, permissions }))
+            } else {
+                // the failed "try_nonterminal::<Identifier>" will have consumed the '#'
+                // the most ignominious part of sudoers: having to parse bits of comments
                 parse_include(stream).or_else(|_| {
                     while accept_if(|c| c != '\n', stream).is_ok() {}
                     make(Sudo::LineComment)
                 })
-            }
+            };
+        }
 
-            //note: the below will not mask errors, since it will leave whatever could not be parsed on the input stream
-            Err(Status::Reject) => make(Sudo::LineComment),
-            Err(error) => Err(error),
+        if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
+            // element 1 always exists (parse_list fails on an empty list)
+            let key = &users[0];
+            if let Some(directive) = maybe(get_directive(key, stream))? {
+                if users.len() != 1 {
+                    unrecoverable!(
+                        "parse error: user name list cannot start with a directive keyword"
+                    );
+                }
+                make(Sudo::Decl(directive))
+            } else {
+                let permissions = expect_nonterminal(stream)?;
+                make(Sudo::Spec(PermissionSpec { users, permissions }))
+            }
+        } else {
+            // this will leave whatever could not be parsed on the input stream
+            make(Sudo::LineComment)
         }
     }
 }

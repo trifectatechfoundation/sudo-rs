@@ -573,6 +573,12 @@ mod test {
         let Sudo::Include(_) = parse_line("#include foo bar") else { todo!() };
     }
 
+    #[test]
+    #[should_panic]
+    fn include_regression() {
+        let Sudo::Include(_) = parse_line("#4,#include foo") else { todo!() };
+    }
+
     fn test_topo_sort(n: usize) {
         let alias = |s: &str| Qualified::Allow(Meta::<UserSpecifier>::Alias(s.to_string()));
         let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);
