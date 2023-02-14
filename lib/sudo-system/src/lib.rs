@@ -6,6 +6,8 @@ use std::{
     path::PathBuf,
 };
 
+pub use libc::PATH_MAX;
+
 fn cerr(res: libc::c_int) -> std::io::Result<libc::c_int> {
     match res {
         -1 => Err(std::io::Error::last_os_error()),

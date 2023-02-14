@@ -3,10 +3,11 @@ use crate::{
     wildcard_match::wildcard_match,
 };
 use std::collections::HashMap;
+use sudo_system::PATH_MAX;
+
+include!(concat!(env!("OUT_DIR"), "/paths.rs"));
 
 pub type Environment = HashMap<String, String>;
-
-const MAIL_DIR: &str = "/var/mail/";
 
 /// Remove if these environment variables if the value contains '/' or '%'
 const CHECK_ENV_TABLE: &[&str] = &[
@@ -78,8 +79,40 @@ fn get_extra_env(context: &Context) -> Environment {
         ("USER", context.target_user.name.clone()),
         // TODO: check home dir config + options
         ("HOME", context.target_user.home.clone()),
-        ("MAIL", format!("{MAIL_DIR}{}", context.target_user.name)),
+        (
+            "MAIL",
+            format!("{PATH_MAILDIR}{}", context.target_user.name),
+        ),
     ])
+}
+
+fn is_printable(input: &str) -> bool {
+    input.chars().all(|c| ('!'..='~').contains(&c))
+}
+
+/// The TZ variable is considered unsafe if any of the following are true:
+/// It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that does not match the location of the zoneinfo directory.
+/// It contains a .. path element.
+/// It contains white space or non-printable characters.
+/// It is longer than the value of PATH_MAX.
+fn is_safe_tz(value: &str) -> bool {
+    let check_value = value.trim_start_matches(':');
+
+    if check_value.starts_with('/') {
+        if let Some(path) = PATH_ZONEINFO {
+            if !check_value.starts_with(path)
+                || check_value.chars().nth(path.len() + 1) != Some('/')
+            {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    !check_value.contains("..")
+        && !is_printable(check_value)
+        && check_value.len() < PATH_MAX as usize
 }
 
 /// Check whether the needle exists in a haystack, in which the haystack is a list of patterns, possibly containing wildcards
@@ -92,6 +125,10 @@ fn in_table(needle: &str, haystack: &[&str]) -> bool {
 /// Determine whether a specific environment variable should be kept
 fn should_keep(key: &str, value: &str, check_env: &[&str], keep_env: &[&str]) -> bool {
     if value.starts_with("()") {
+        return false;
+    }
+
+    if key == "TZ" && !is_safe_tz(value) {
         return false;
     }
 
