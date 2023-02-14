@@ -81,13 +81,16 @@ fn get_extra_env(context: &Context) -> Environment {
         ("HOME", context.target_user.home.clone()),
         (
             "MAIL",
-            format!("{PATH_MAILDIR}{}", context.target_user.name),
+            format!("{PATH_MAILDIR}/{}", context.target_user.name),
         ),
     ])
 }
 
+/// Check a string only contains printable (non-space) characters
 fn is_printable(input: &str) -> bool {
-    input.chars().all(|c| ('!'..='~').contains(&c))
+    input
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
 }
 
 /// The TZ variable is considered unsafe if any of the following are true:

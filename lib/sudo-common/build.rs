@@ -23,7 +23,7 @@ fn main() {
 
     let code = format!(
         "
-    const PATH_MAILDIR: &str = \"{path_maildir}\";
+    const PATH_MAILDIR: &str = {path_maildir:?};
     const PATH_ZONEINFO: Option<&str> = {path_zoneinfo:?};
     "
     );
