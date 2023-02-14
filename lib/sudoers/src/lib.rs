@@ -1,5 +1,3 @@
-//TODO: sanitize_...() panics when it finds errors; it should emit warnings instead and come to some solution that is conservative
-
 //! Code that checks (and in the future: lists) permissions in the sudoers file
 
 mod ast;
@@ -334,10 +332,10 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
     result.process(sudoers, &mut diagnostics);
 
     let alias = &mut result.aliases;
-    alias.user.0 = sanitize_alias_table(&alias.user.1);
-    alias.host.0 = sanitize_alias_table(&alias.host.1);
-    alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1);
-    alias.runas.0 = sanitize_alias_table(&alias.runas.1);
+    alias.user.0 = sanitize_alias_table(&alias.user.1, &mut diagnostics);
+    alias.host.0 = sanitize_alias_table(&alias.host.1, &mut diagnostics);
+    alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1, &mut diagnostics);
+    alias.runas.0 = sanitize_alias_table(&alias.runas.1, &mut diagnostics);
 
     (result, diagnostics)
 }
@@ -346,7 +344,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
 /// It is much easier if they are presented in a "definitional order" (i.e. aliases that use other aliases occur later)
 /// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and cycles.
 
-fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
+fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) -> Vec<usize> {
     fn remqualify<U>(item: &Qualified<U>) -> &U {
         match item {
             Qualified::Allow(x) => x,
@@ -359,23 +357,29 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
         seen: HashSet<usize>,
         table: &'a Vec<Def<T>>,
         order: Vec<usize>,
+        diagnostics: &'a mut Vec<Error>,
     }
 
     impl<T> Visitor<'_, T> {
+        fn complain(&mut self, text: String) {
+            self.diagnostics.push(Error::Fatal(text))
+        }
+
         fn visit(&mut self, pos: usize) {
             if self.seen.insert(pos) {
                 let Def(_, members) = &self.table[pos];
                 for elem in members {
                     let Meta::Alias(name) = remqualify(elem) else { break };
                     let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
-                        panic!("undefined alias: `{name}'");
+                        self.complain(format!("undefined alias: `{name}'"));
+                        continue;
                     };
                     self.visit(dependency);
                 }
                 self.order.push(pos);
             } else if !self.order.contains(&pos) {
                 let Def(id, _) = &self.table[pos];
-                panic!("recursive alias: `{id}'");
+                self.complain(format!("recursive alias: `{id}'"));
             }
         }
     }
@@ -384,12 +388,13 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
         seen: HashSet::new(),
         table,
         order: Vec::with_capacity(table.len()),
+        diagnostics,
     };
 
     let mut dupe = HashSet::new();
     for (i, Def(name, _)) in table.iter().enumerate() {
         if !dupe.insert(name) {
-            panic!("multiple occurences of `{name}'");
+            visitor.complain(format!("multiple occurences of `{name}'"));
         } else {
             visitor.visit(i);
         }
@@ -617,7 +622,9 @@ mod test {
                 Def("NOOT".to_string(), vec![x2]),
                 Def("MIES".to_string(), vec![x3]),
             ];
-            let order = sanitize_alias_table(&table);
+            let mut err = vec![];
+            let order = sanitize_alias_table(&table, &mut err);
+            assert!(err.is_empty());
             let mut seen = HashSet::new();
             for Def(id, defns) in order.iter().map(|&i| &table[i]) {
                 if defns.iter().any(|spec| {
@@ -690,9 +697,11 @@ mod test {
                 .map(|(i, x)| Def(name(i as u8), vec![x]))
                 .collect();
 
-            let Ok(order) = std::panic::catch_unwind(||
-	        sanitize_alias_table(&table)
-            ) else { return; };
+            let mut err = vec![];
+            let order = sanitize_alias_table(&table, &mut err);
+            if !err.is_empty() {
+                return;
+            }
 
             let mut seen = HashSet::new();
             for Def(id, defns) in order.iter().map(|&i| &table[i]) {
