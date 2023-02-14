@@ -7,3 +7,5 @@ license = "Apache-2.0 OR MIT"
 [dependencies]
 pam-client = "0.5"
 sudo-system = { path = "../sudo-system" }
+sudo-pam = { path = "../sudo-pam" }
+thiserror = "1.0.38"

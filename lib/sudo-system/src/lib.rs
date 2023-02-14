@@ -1,64 +1,12 @@
-use std::{
-    ffi::{CStr, CString},
-    fs::OpenOptions,
-    mem::MaybeUninit,
-    os::fd::AsRawFd,
-    path::PathBuf,
-};
+use std::{ffi::CString, fs::OpenOptions, mem::MaybeUninit, os::fd::AsRawFd, path::PathBuf};
 
-fn cerr(res: libc::c_int) -> std::io::Result<libc::c_int> {
-    match res {
-        -1 => Err(std::io::Error::last_os_error()),
-        _ => Ok(res),
-    }
-}
-
-fn cerr_long(res: libc::c_long) -> std::io::Result<libc::c_long> {
-    match res {
-        -1 => Err(std::io::Error::last_os_error()),
-        _ => Ok(res),
-    }
-}
-
-extern "C" {
-    #[cfg_attr(
-        any(target_os = "macos", target_os = "ios", target_os = "freebsd"),
-        link_name = "__error"
-    )]
-    #[cfg_attr(
-        any(target_os = "openbsd", target_os = "netbsd", target_os = "android"),
-        link_name = "__errno"
-    )]
-    #[cfg_attr(target_os = "linux", link_name = "__errno_location")]
-    fn errno_location() -> *mut libc::c_int;
-}
-
-fn set_errno(no: libc::c_int) {
-    unsafe { *errno_location() = no };
-}
-
-fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
-    set_errno(0);
-    match cerr_long(unsafe { libc::sysconf(name) }) {
-        Ok(res) => Some(res),
-        Err(_) => None,
-    }
-}
-
-fn string_from_ptr(ptr: *const libc::c_char) -> String {
-    if ptr.is_null() {
-        String::new()
-    } else {
-        let cstr = unsafe { CStr::from_ptr(ptr) };
-        cstr.to_string_lossy().to_string()
-    }
-}
+use sudo_cutils::*;
 
 pub fn hostname() -> String {
     let max_hostname_size = sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(256);
     let mut buf = vec![0; max_hostname_size as usize];
     match cerr(unsafe { libc::gethostname(buf.as_mut_ptr(), buf.len() - 1) }) {
-        Ok(_) => string_from_ptr(buf.as_ptr()),
+        Ok(_) => unsafe { string_from_ptr(buf.as_ptr()) },
         Err(_) => {
             // there aren't any known conditions under which the gethostname call should fail
             panic!("Unexpected error while retrieving hostname, this should not happen");
@@ -82,11 +30,11 @@ impl User {
         User {
             uid: pwd.pw_uid,
             gid: pwd.pw_gid,
-            name: string_from_ptr(pwd.pw_name),
-            gecos: string_from_ptr(pwd.pw_gecos),
-            home: string_from_ptr(pwd.pw_dir),
-            shell: string_from_ptr(pwd.pw_shell),
-            passwd: string_from_ptr(pwd.pw_passwd),
+            name: unsafe { string_from_ptr(pwd.pw_name) },
+            gecos: unsafe { string_from_ptr(pwd.pw_gecos) },
+            home: unsafe { string_from_ptr(pwd.pw_dir) },
+            shell: unsafe { string_from_ptr(pwd.pw_shell) },
+            passwd: unsafe { string_from_ptr(pwd.pw_passwd) },
         }
     }
 
@@ -172,13 +120,13 @@ impl Group {
         let mut members = Vec::with_capacity(mem_count as usize);
         let mem_slice = unsafe { std::slice::from_raw_parts(grp.gr_mem, mem_count as usize) };
         for mem in mem_slice {
-            members.push(string_from_ptr(*mem));
+            members.push(unsafe { string_from_ptr(*mem) });
         }
 
         Group {
             gid: grp.gr_gid,
-            name: string_from_ptr(grp.gr_name),
-            passwd: string_from_ptr(grp.gr_passwd),
+            name: unsafe { string_from_ptr(grp.gr_name) },
+            passwd: unsafe { string_from_ptr(grp.gr_passwd) },
             members,
         }
     }
