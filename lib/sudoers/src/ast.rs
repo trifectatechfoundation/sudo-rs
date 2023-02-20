@@ -19,7 +19,7 @@ pub type SpecList<T> = Vec<Spec<T>>;
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub enum Identifier {
     Name(String),
-    ID(libc::gid_t),
+    ID(u32),
 }
 
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
@@ -284,7 +284,7 @@ impl Parse for CommandSpec {
             }
         }
 
-        let digest = if let Some(Username(keyword)) = maybe(try_nonterminal(stream))? {
+        let digest = if let Some(Username(keyword)) = try_nonterminal(stream)? {
             let hash_type = match keyword.as_str() {
                 "sha224" => 224,
                 "sha256" => 256,
