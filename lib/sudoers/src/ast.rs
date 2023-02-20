@@ -268,7 +268,7 @@ impl Parse for MetaOrTag {
 
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        let no_hash = Sha2(Vec::new());
+        let no_hash = Sha2(Box::default());
         let mut tags = Vec::new();
         while let Some(MetaOrTag(keyword)) = try_nonterminal(stream)? {
             use Qualified::Allow;

@@ -246,7 +246,7 @@ impl Token for StringParameter {
 /// A digest specifier; note that the type of hash is implied by the length; if sudo would support
 /// multiple hashes with the same hash length, this needs to be recorded explicity.
 #[derive(Debug, Deref)]
-pub struct Sha2(pub Vec<u8>);
+pub struct Sha2(pub Box<[u8]>);
 
 impl Token for Sha2 {
     const MAX_LEN: usize = 512 / 4;
@@ -255,7 +255,7 @@ impl Token for Sha2 {
         if s.len() % 2 != 0 {
             unrecoverable!("token: odd hexadecimal hash length")
         }
-        let bytes = (0..s.len())
+        let bytes: Vec<u8> = (0..s.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
             .collect::<Result<_, _>>()
@@ -263,7 +263,7 @@ impl Token for Sha2 {
                 Status::Fatal("should not happen: hexadecimal decoding failed".to_string())
             })?;
 
-        Ok(Sha2(bytes))
+        Ok(Sha2(bytes.into_boxed_slice()))
     }
 
     fn accept(c: char) -> bool {

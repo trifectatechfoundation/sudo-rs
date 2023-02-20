@@ -404,14 +404,14 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
     visitor.order
 }
 
-fn check_all_sha2(cmdline: &str) -> impl FnMut(&Vec<u8>) -> bool + '_ {
+fn check_all_sha2(cmdline: &str) -> impl FnMut(&Box<[u8]>) -> bool + '_ {
     // this is a stub for an actual SHA2 computation
-    fn sha2(bits: u16, _path: &str) -> Vec<u8> {
+    fn sha2(bits: u16, _path: &str) -> Box<[u8]> {
         assert!(bits == 224);
         vec![
             0xac, 0x15, 0x59, 0xa0, 0xd6, 0x0a, 0x24, 0xfa, 0x59, 0x53, 0xee, 0xbb, 0x44, 0xf8,
             0x0d, 0x7e, 0x9e, 0xc4, 0x93, 0x7e, 0x53, 0x6f, 0x84, 0xaa, 0x49, 0xfe, 0x44, 0x7d,
-        ]
+        ].into()
     }
 
     let mut memo = std::collections::HashMap::new(); // pun not intended
