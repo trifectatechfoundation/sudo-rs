@@ -8,14 +8,12 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
+use sudo_common::sysuser::{UnixGroup, UnixUser};
 use tokens::*;
 
 /// Export some necessary symbols from modules
 pub use ast::Tag;
 pub type Error = basic_parser::Status;
-
-mod sysuser;
-pub use sysuser::*;
 
 #[derive(Default)]
 pub struct Sudoers {
@@ -24,7 +22,7 @@ pub struct Sudoers {
     pub settings: Settings,
 }
 
-pub struct Request<'a, User: Identifiable, Group: UnixGroup> {
+pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub user: &'a User,
     pub group: &'a Group,
 }
@@ -71,7 +69,7 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
-pub fn check_permission<User: Identifiable + PartialEq<User>, Group: UnixGroup>(
+pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     Sudoers {
         rules,
         aliases,
@@ -149,7 +147,7 @@ where
     result
 }
 
-fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ {
+fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(id) => match_identifier(user, id),
         UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name),
@@ -159,7 +157,7 @@ fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ 
 }
 
 //TODO: in real life, just checking the gid should suffice; for testability, we check the name first; THIS MUST BE REMOVED
-fn in_group(user: &impl Identifiable, group: &impl UnixGroup) -> bool {
+fn in_group(user: &impl UnixUser, group: &impl UnixGroup) -> bool {
     if cfg!(test) {
         group
             .try_as_name()
@@ -220,9 +218,9 @@ where
     set
 }
 
-/// Code to map an ast::Identifier to the Identifiable trait
+/// Code to map an ast::Identifier to the UnixUser trait
 
-fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
+fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
     match ident {
         Identifier::Name(name) => user.has_name(name),
         Identifier::ID(num) => user.has_uid(*num),
@@ -431,15 +429,6 @@ mod test {
     // alternative to parse_eval, but goes through sudoer! directly
     fn parse_line(s: &str) -> Sudo {
         sudoer![s].next().unwrap().unwrap()
-    }
-
-    impl UnixGroup for (u16, &str) {
-        fn try_as_name(&self) -> Option<&str> {
-            Some(self.1)
-        }
-        fn as_gid(&self) -> libc::gid_t {
-            self.0 as libc::gid_t
-        }
     }
 
     #[test]

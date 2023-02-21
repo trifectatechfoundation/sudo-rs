@@ -93,6 +93,7 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
         home: "/home/test".to_string(),
         shell: "/bin/sh".to_string(),
         passwd: String::new(),
+        groups: None,
     };
 
     let current_group = Group {
@@ -110,6 +111,7 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
         home: "/root".to_string(),
         shell: "/bin/bash".to_string(),
         passwd: String::new(),
+        groups: None,
     };
 
     let root_group = Group {

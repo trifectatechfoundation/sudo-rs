@@ -23,6 +23,7 @@ pub struct User {
     pub home: String,
     pub shell: String,
     pub passwd: String,
+    pub groups: Option<Vec<libc::gid_t>>,
 }
 
 impl User {
@@ -35,6 +36,7 @@ impl User {
             home: unsafe { string_from_ptr(pwd.pw_dir) },
             shell: unsafe { string_from_ptr(pwd.pw_shell) },
             passwd: unsafe { string_from_ptr(pwd.pw_passwd) },
+            groups: None,
         }
     }
 
@@ -97,6 +99,42 @@ impl User {
             let pwd = unsafe { pwd.assume_init() };
             Ok(Some(Self::from_libc(&pwd)))
         }
+    }
+
+    pub fn with_groups(mut self) -> User {
+        let mut groups = vec![];
+        let mut buf_len: libc::c_int = 32;
+        let mut buffer: Vec<libc::gid_t>;
+
+        while {
+            let username = CString::new(self.name.as_str()).expect("String contained null bytes");
+
+            buffer = vec![0; buf_len as usize];
+            let result = unsafe {
+                libc::getgrouplist(
+                    username.as_ptr(),
+                    self.gid,
+                    buffer.as_mut_ptr(),
+                    &mut buf_len,
+                )
+            };
+
+            result == -1
+        } {
+            if buf_len >= 65536 {
+                panic!("User has too many groups, this should not happen");
+            }
+
+            buf_len = buf_len * 2;
+        }
+
+        for i in 0..buf_len {
+            groups.push(buffer[i as usize]);
+        }
+
+        self.groups = Some(groups);
+
+        self
     }
 }
 
@@ -259,5 +297,19 @@ impl Process {
             }
             Err(_) => 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::User;
+
+    #[test]
+    #[ignore = "system specific"]
+    fn test_get_user() {
+        let root = User::from_uid(0).unwrap().unwrap();
+
+        assert_eq!(root.uid, 0);
+        assert_eq!(root.name, "root");
     }
 }
