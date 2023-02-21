@@ -1,9 +1,11 @@
+use std::path::PathBuf;
+
 use sudo_system::{Group, User};
 
 use crate::{env::Environment, error::Error};
 
 pub struct CommandAndArguments {
-    pub command: String,
+    pub command: PathBuf,
     pub arguments: Vec<String>,
 }
 
@@ -14,6 +16,8 @@ impl TryFrom<Vec<&str>> for CommandAndArguments {
         let mut iter = external_args.into_iter();
 
         let command = iter.next().ok_or(Error::InvalidCommand)?.to_string();
+        // TODO: we resolve in the context of the current user using the 'which' crate - we want to reconsider this in the future
+        let command = which::which(command).map_err(|_| Error::InvalidCommand)?;
 
         Ok(CommandAndArguments {
             command,

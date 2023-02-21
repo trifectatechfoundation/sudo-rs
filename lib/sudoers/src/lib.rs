@@ -1,36 +1,55 @@
-//TODO: sanitize_...() panics when it finds errors; it should emit warnings instead and come to some solution that is conservative
-
 //! Code that checks (and in the future: lists) permissions in the sudoers file
 
 mod ast;
 mod basic_parser;
 mod tokens;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
 use ast::*;
 use tokens::*;
 
 /// Export some necessary symbols from modules
-pub use ast::Sudo;
 pub use ast::Tag;
-pub use basic_parser::parse_string;
+pub type Error = basic_parser::Status;
 
-/// TODO: this interface should be replaced by something that interacts with the operating system
-/// Right now, we emulate that a user is always only in its own group.
+mod sysuser;
+pub use sysuser::*;
 
-fn in_group(user: &str, group: &str) -> bool {
-    user == group
-}
-
-pub struct UserInfo<'a> {
-    pub user: &'a str,
-    pub group: &'a str,
-}
-
-// TODO: combine this with Vec<PermissionSpec> into a single data structure?
 #[derive(Default)]
-pub struct AliasTable {
+pub struct Sudoers {
+    rules: Vec<PermissionSpec>,
+    aliases: AliasTable,
+    pub settings: Settings,
+}
+
+pub struct Request<'a, User: Identifiable, Group: UnixGroup> {
+    pub user: &'a User,
+    pub group: &'a Group,
+}
+
+/// This function takes a file argument for a sudoers file and processes it.
+
+pub fn compile(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io::Error> {
+    let sudoers = read_sudoers(path.as_ref())?;
+    Ok(analyze(sudoers))
+}
+
+fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io::Error> {
+    use std::fs::File;
+    use std::io::Read;
+    let mut source = File::open(path)?;
+
+    // it's a bit frustrating that BufReader.chars() does not exist
+    let mut buffer = String::new();
+    source.read_to_string(&mut buffer)?;
+
+    Ok(basic_parser::parse_lines(&mut buffer.chars().peekable()))
+}
+
+#[derive(Default)]
+pub(crate) struct AliasTable {
     user: VecOrd<Def<UserSpecifier>>,
     host: VecOrd<Def<Hostname>>,
     cmnd: VecOrd<Def<Command>>,
@@ -52,22 +71,25 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
-pub fn check_permission<'a>(
-    sudoers: impl IntoIterator<Item = &'a PermissionSpec>,
-    alias_table: &AliasTable,
-    am_user: &str,
-    request: &UserInfo,
+pub fn check_permission<User: Identifiable + PartialEq<User>, Group: UnixGroup>(
+    Sudoers {
+        rules,
+        aliases,
+        settings: _,
+    }: &Sudoers,
+    am_user: &User,
+    request: Request<User, Group>,
     on_host: &str,
     cmdline: &str,
 ) -> Option<Vec<Tag>> {
-    let user_aliases = get_aliases(&alias_table.user, &match_user(am_user));
-    let host_aliases = get_aliases(&alias_table.host, &match_token(on_host));
-    let cmnd_aliases = get_aliases(&alias_table.cmnd, &match_command(cmdline));
-    let runas_user_aliases = get_aliases(&alias_table.runas, &match_user(request.user));
-    let runas_group_aliases = get_aliases(&alias_table.runas, &match_group_alias(request.group));
+    let user_aliases = get_aliases(&aliases.user, &match_user(am_user));
+    let host_aliases = get_aliases(&aliases.host, &match_token(on_host));
+    let cmnd_aliases = get_aliases(&aliases.cmnd, &match_command(cmdline));
+    let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
+    let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
-    let allowed_commands = sudoers
-        .into_iter()
+    let allowed_commands = rules
+        .iter()
         .filter_map(|sudo| {
             find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
 
@@ -82,9 +104,9 @@ pub fn check_permission<'a>(
                             *find_item(users, &match_user(request.user), &runas_user_aliases)?
                         }
                         if !in_group(request.user, request.group) {
-                            *find_item(groups, &match_token(request.group), &runas_group_aliases)?
+                            *find_item(groups, &match_group(request.group), &runas_group_aliases)?
                         }
-                    } else if request.user != "root" || !in_group("root", request.group) {
+                    } else if !(request.user.is_root() && in_group(request.user, request.group)) {
                         None?;
                     }
 
@@ -127,20 +149,43 @@ where
     result
 }
 
-fn match_user(username: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
+fn match_user(user: &impl Identifiable) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
-        UserSpecifier::User(name) => name.0 == username,
-        UserSpecifier::Group(groupname) => in_group(username, groupname.0.as_str()),
+        UserSpecifier::User(id) => match_identifier(user, id),
+        UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name),
+        UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(*num),
+        _ => todo!(), // nonunix-groups, netgroups, etc.
     }
 }
 
-fn match_group_alias(groupname: &str) -> (impl Fn(&UserSpecifier) -> bool + '_) {
+//TODO: in real life, just checking the gid should suffice; for testability, we check the name first; THIS MUST BE REMOVED
+fn in_group(user: &impl Identifiable, group: &impl UnixGroup) -> bool {
+    if cfg!(test) {
+        group
+            .try_as_name()
+            .as_ref()
+            .map_or(user.in_group_by_gid(group.as_gid()), |name| {
+                user.in_group_by_name(name)
+            })
+    } else {
+        user.in_group_by_gid(group.as_gid())
+    }
+}
+
+fn match_group(group: &impl UnixGroup) -> impl Fn(&Identifier) -> bool + '_ {
+    move |id| match id {
+        Identifier::ID(num) => group.as_gid() == *num,
+        Identifier::Name(name) => group.try_as_name().map_or(false, |s| s == name),
+    }
+}
+
+fn match_group_alias(group: &impl UnixGroup) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
-        UserSpecifier::User(name) => name.0 == groupname,
-        /* the parser rejects this, but can happen due to Runas_Alias,
+        UserSpecifier::User(ident) => match_group(group)(ident),
+        /* the parser does not allow this, but can happen due to Runas_Alias,
          * see https://github.com/memorysafety/sudo-rs/issues/13 */
-        UserSpecifier::Group(_) => {
-            eprintln!("warning: ignoring %group syntax for use sudo -g");
+        _ => {
+            eprintln!("warning: ignoring %group syntax in runas_alias for checking sudo -g");
             false
         }
     }
@@ -175,34 +220,131 @@ where
     set
 }
 
-/// Process a sudoers-parsing file into a workable AST
+/// Code to map an ast::Identifier to the Identifiable trait
 
-pub fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
+    match ident {
+        Identifier::Name(name) => user.has_name(name),
+        Identifier::ID(num) => user.has_uid(*num),
+    }
+}
+
+//TODO: don't derive Default, but implement it (based on what the actual defaults are)
+#[derive(Debug, Default)]
+pub struct Settings {
+    pub flags: HashSet<String>,
+    pub str_value: HashMap<String, String>,
+    pub list: HashMap<String, HashSet<String>>,
+}
+
+/// Process a sudoers-parsing file into a workable AST
+fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Sudoers, Vec<Error>) {
+    use DefaultValue::*;
     use Directive::*;
-    let mut permits = Vec::new();
-    let mut alias: AliasTable = Default::default();
-    for item in sudoers {
-        match item {
-            Sudo::Spec(permission) => permits.push(permission),
-            Sudo::Decl(UserAlias(def)) => alias.user.1.push(def),
-            Sudo::Decl(HostAlias(def)) => alias.host.1.push(def),
-            Sudo::Decl(CmndAlias(def)) => alias.cmnd.1.push(def),
-            Sudo::Decl(RunasAlias(def)) => alias.runas.1.push(def),
+
+    let mut result: Sudoers = Default::default();
+
+    impl Sudoers {
+        fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>) {
+            if let Ok(subsudoer) = read_sudoers(path) {
+                self.process(subsudoer, diagnostics)
+            } else {
+                diagnostics.push(Error::Fatal(format!(
+                    "cannot open sudoers file {}",
+                    path.display()
+                )))
+            }
+        }
+
+        fn process(
+            &mut self,
+            sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
+            diagnostics: &mut Vec<Error>,
+        ) {
+            for item in sudoers {
+                match item {
+                    Ok(line) => match line {
+                        Sudo::LineComment => {}
+
+                        Sudo::Spec(permission) => self.rules.push(permission),
+
+                        Sudo::Decl(UserAlias(def)) => self.aliases.user.1.push(def),
+                        Sudo::Decl(HostAlias(def)) => self.aliases.host.1.push(def),
+                        Sudo::Decl(CmndAlias(def)) => self.aliases.cmnd.1.push(def),
+                        Sudo::Decl(RunasAlias(def)) => self.aliases.runas.1.push(def),
+
+                        Sudo::Decl(Defaults(name, Flag(value))) => {
+                            if value {
+                                self.settings.flags.insert(name);
+                            } else {
+                                self.settings.flags.remove(&name);
+                            }
+                        }
+                        Sudo::Decl(Defaults(name, Text(value))) => {
+                            self.settings.str_value.insert(name, value);
+                        }
+
+                        Sudo::Decl(Defaults(name, List(mode, values))) => {
+                            let slot: &mut _ = self.settings.list.entry(name).or_default();
+                            match mode {
+                                Mode::Set => *slot = values.into_iter().collect(),
+                                Mode::Add => slot.extend(values),
+                                Mode::Del => {
+                                    for key in values {
+                                        slot.remove(&key);
+                                    }
+                                }
+                            }
+                        }
+
+                        Sudo::Include(path) => self.include(path.as_ref(), diagnostics),
+
+                        Sudo::IncludeDir(path) => {
+                            let Ok(files) = std::fs::read_dir(&path) else {
+                                diagnostics.push(Error::Fatal(format!("cannot open sudoers file {path}")));
+                                continue;
+                            };
+                            let mut safe_files = files
+                                .filter_map(|direntry| {
+                                    let path = direntry.ok()?.path();
+                                    let text = path.to_str()?;
+                                    if text.contains('~') || text.contains('.') {
+                                        None
+                                    } else {
+                                        Some(path)
+                                    }
+                                })
+                                .collect::<Vec<_>>();
+                            safe_files.sort();
+                            for file in safe_files {
+                                self.include(file.as_ref(), diagnostics)
+                            }
+                        }
+                    },
+
+                    Err(error) => diagnostics.push(error),
+                }
+            }
         }
     }
 
-    alias.user.0 = sanitize_alias_table(&alias.user.1);
-    alias.host.0 = sanitize_alias_table(&alias.host.1);
-    alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1);
-    alias.runas.0 = sanitize_alias_table(&alias.runas.1);
-    (permits, alias)
+    let mut diagnostics = vec![];
+    result.process(sudoers, &mut diagnostics);
+
+    let alias = &mut result.aliases;
+    alias.user.0 = sanitize_alias_table(&alias.user.1, &mut diagnostics);
+    alias.host.0 = sanitize_alias_table(&alias.host.1, &mut diagnostics);
+    alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1, &mut diagnostics);
+    alias.runas.0 = sanitize_alias_table(&alias.runas.1, &mut diagnostics);
+
+    (result, diagnostics)
 }
 
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
 /// It is much easier if they are presented in a "definitional order" (i.e. aliases that use other aliases occur later)
 /// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and cycles.
 
-fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
+fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) -> Vec<usize> {
     fn remqualify<U>(item: &Qualified<U>) -> &U {
         match item {
             Qualified::Allow(x) => x,
@@ -215,23 +357,29 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
         seen: HashSet<usize>,
         table: &'a Vec<Def<T>>,
         order: Vec<usize>,
+        diagnostics: &'a mut Vec<Error>,
     }
 
     impl<T> Visitor<'_, T> {
+        fn complain(&mut self, text: String) {
+            self.diagnostics.push(Error::Fatal(text))
+        }
+
         fn visit(&mut self, pos: usize) {
             if self.seen.insert(pos) {
                 let Def(_, members) = &self.table[pos];
                 for elem in members {
                     let Meta::Alias(name) = remqualify(elem) else { break };
                     let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
-			panic!("undefined alias: `{name}'");
-		    };
+                        self.complain(format!("undefined alias: `{name}'"));
+                        continue;
+                    };
                     self.visit(dependency);
                 }
                 self.order.push(pos);
             } else if !self.order.contains(&pos) {
                 let Def(id, _) = &self.table[pos];
-                panic!("recursive alias: `{id}'");
+                self.complain(format!("recursive alias: `{id}'"));
             }
         }
     }
@@ -240,12 +388,13 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
         seen: HashSet::new(),
         table,
         order: Vec::with_capacity(table.len()),
+        diagnostics,
     };
 
     let mut dupe = HashSet::new();
     for (i, Def(name, _)) in table.iter().enumerate() {
         if !dupe.insert(name) {
-            panic!("multiple occurences of `{name}'");
+            visitor.complain(format!("multiple occurences of `{name}'"));
         } else {
             visitor.visit(i);
         }
@@ -258,124 +407,142 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
 mod test {
     use super::*;
     use crate::ast;
-    use basic_parser::parse_eval;
+    use basic_parser::{parse_eval, parse_lines, parse_string};
     use std::iter;
 
     macro_rules! sudoer {
         ($h:expr $(,$e:expr)*) => {
-            (
-                iter::once($h)
-                $(
-                    .chain(iter::once($e))
-                )*
-            ).map(parse_eval)
+	    parse_lines(&mut
+		(
+		    iter::once($h)
+		    $(
+			.chain(iter::once($e))
+		    )*
+		)
+		.map(|s|s.chars().chain(iter::once('\n')))
+		.flatten()
+		.peekable()
+	    )
+	    .into_iter()
+	    .map(|x| Ok::<_,basic_parser::Status>(x.unwrap()))
+        }
+    }
+
+    // alternative to parse_eval, but goes through sudoer! directly
+    fn parse_line(s: &str) -> Sudo {
+        sudoer![s].next().unwrap().unwrap()
+    }
+
+    impl UnixGroup for (u16, &str) {
+        fn try_as_name(&self) -> Option<&str> {
+            Some(self.1)
+        }
+        fn as_gid(&self) -> libc::gid_t {
+            self.0 as libc::gid_t
         }
     }
 
     #[test]
-    #[should_panic]
-    fn invalid_spec() {
-        parse_eval::<ast::Sudo>("ALL ALL = (;) ALL");
-    }
-
-    #[test]
-    fn ambiguous_spec1() {
+    fn ambiguous_spec() {
         let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else { todo!() };
     }
 
     #[test]
-    fn ambiguous_spec2() {
-        let Sudo::Decl(_) = parse_eval::<ast::Sudo>("User_Alias ALIAS = ALL") else { todo!() };
-    }
-
-    #[test]
-    #[should_panic]
-    fn ambiguous_spec3() {
-        parse_eval::<ast::Sudo>("User_Alias, marc ALL = ALL");
-    }
-
-    #[test]
     fn permission_test() {
-        let root = UserInfo {
-            user: "root",
-            group: "root",
+        let root = || Request::<&str, _> {
+            user: &"root",
+            group: &(0, "root"),
         };
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-                let (input,alias) = analyze(sudoer![$($sudo),*]);
-                assert_eq!(check_permission(&input, &alias, $user, $req, $server, $command), None);
+                let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
+                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command), None);
             }
         }
 
         macro_rules! pass {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
-                let (input,alias) = analyze(sudoer![$($sudo),*]);
-                let result = check_permission(&input, &alias, $user, $req, $server, $command);
+                let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
+                let result = check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command);
                 $(assert_eq!(result, Some(vec![$($list),*]));)?
                 assert!(!result.is_none());
             }
         }
+        macro_rules! SYNTAX {
+            ([$sudo:expr]) => {
+                assert!(parse_string::<Sudo>($sudo).is_err())
+            };
+        }
+
         use crate::ast::Tag::*;
 
-        FAIL!(["user ALL=(ALL:ALL) ALL"], "nobody"    => &root, "server"; "/bin/hello");
-        pass!(["user ALL=(ALL:ALL) ALL"], "user"      => &root, "server"; "/bin/hello");
-        pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => &root, "server"; "/bin/foo");
-        FAIL!(["user ALL=(ALL:ALL) /bin/foo"], "user" => &root, "server"; "/bin/hello");
-        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => &root, "server"; "/bin/foo");
-        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => &root, "server"; "/bin/bar" => [NoPasswd]);
+        SYNTAX!(["ALL ALL = (;) ALL"]);
+        FAIL!(["user ALL=(ALL:ALL) ALL"], "nobody"    => root(), "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) ALL"], "user"      => root(), "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo");
+        FAIL!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/hello");
+        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo");
+        pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [NoPasswd]);
 
-        pass!(["user server=(ALL:ALL) ALL"], "user" => &root, "server"; "/bin/hello");
-        FAIL!(["user laptop=(ALL:ALL) ALL"], "user" => &root, "server"; "/bin/hello");
+        pass!(["user ALL=/bin/e##o"], "user" => root(), "vm"; "/bin/e");
+        SYNTAX!(["ALL ALL=(ALL) /bin/\n/echo"]);
 
-        pass!(["user ALL=!/bin/hello", "user ALL=/bin/hello"], "user" => &root, "server"; "/bin/hello");
-        FAIL!(["user ALL=/bin/hello", "user ALL=!/bin/hello"], "user" => &root, "server"; "/bin/hello");
+        pass!(["user server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+        FAIL!(["user laptop=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+
+        pass!(["user ALL=!/bin/hello", "user ALL=/bin/hello"], "user" => root(), "server"; "/bin/hello");
+        FAIL!(["user ALL=/bin/hello", "user ALL=!/bin/hello"], "user" => root(), "server"; "/bin/hello");
 
         for alias in [
             "User_Alias GROUP=user1, user2",
             "User_Alias GROUP=ALL,!user3",
         ] {
-            pass!([alias,"GROUP ALL=/bin/hello"], "user1" => &root, "server"; "/bin/hello");
-            pass!([alias,"GROUP ALL=/bin/hello"], "user2" => &root, "server"; "/bin/hello");
-            FAIL!([alias,"GROUP ALL=/bin/hello"], "user3" => &root, "server"; "/bin/hello");
+            pass!([alias,"GROUP ALL=/bin/hello"], "user1" => root(), "server"; "/bin/hello");
+            pass!([alias,"GROUP ALL=/bin/hello"], "user2" => root(), "server"; "/bin/hello");
+            FAIL!([alias,"GROUP ALL=/bin/hello"], "user3" => root(), "server"; "/bin/hello");
         }
-        pass!(["user ALL=/bin/hello arg"], "user" => &root, "server"; "/bin/hello arg");
-        pass!(["user ALL=/bin/hello  arg"], "user" => &root, "server"; "/bin/hello arg");
-        pass!(["user ALL=/bin/hello arg"], "user" => &root, "server"; "/bin/hello  arg");
-        FAIL!(["user ALL=/bin/hello arg"], "user" => &root, "server"; "/bin/hello boo");
-        pass!(["user ALL=/bin/hello a*g"], "user" => &root, "server"; "/bin/hello  aaaarg");
-        FAIL!(["user ALL=/bin/hello a*g"], "user" => &root, "server"; "/bin/hello boo");
-        pass!(["user ALL=/bin/hello"], "user" => &root, "server"; "/bin/hello boo");
-        FAIL!(["user ALL=/bin/hello \"\""], "user" => &root, "server"; "/bin/hello boo");
-        pass!(["user ALL=/bin/hello \"\""], "user" => &root, "server"; "/bin/hello");
-        pass!(["user ALL=/bin/hel*"], "user" => &root, "server"; "/bin/hello");
-        pass!(["user ALL=/bin/hel*"], "user" => &root, "server"; "/bin/help");
-        pass!(["user ALL=/bin/hel*"], "user" => &root, "server"; "/bin/help me");
-        pass!(["user ALL=/bin/hel* *"], "user" => &root, "server"; "/bin/help");
-        FAIL!(["user ALL=/bin/hel* me"], "user" => &root, "server"; "/bin/help");
-        pass!(["user ALL=/bin/hel* me"], "user" => &root, "server"; "/bin/help me");
-        FAIL!(["user ALL=/bin/hel* me"], "user" => &root, "server"; "/bin/help me please");
+        pass!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello arg");
+        pass!(["user ALL=/bin/hello  arg"], "user" => root(), "server"; "/bin/hello arg");
+        pass!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello  arg");
+        FAIL!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello boo");
+        pass!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello  aaaarg");
+        FAIL!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello boo");
+        pass!(["user ALL=/bin/hello"], "user" => root(), "server"; "/bin/hello boo");
+        FAIL!(["user ALL=/bin/hello \"\""], "user" => root(), "server"; "/bin/hello boo");
+        pass!(["user ALL=/bin/hello \"\""], "user" => root(), "server"; "/bin/hello");
+        pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/hello");
+        pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help");
+        pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help me");
+        pass!(["user ALL=/bin/hel* *"], "user" => root(), "server"; "/bin/help");
+        FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help");
+        pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
+        FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");
 
-        pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => &root, "server"; "/bin/bash");
-        FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => &root, "server"; "/bin/bash");
-        FAIL!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "user" => &root, "server"; "/bin/bash");
-        pass!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "marc" => &root, "server"; "/bin/bash");
-        pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "server"; "/bin/bash");
-        pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "laptop"; "/bin/bash");
-        FAIL!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => &root, "desktop"; "/bin/bash");
-        pass!(["Cmnd_Alias WHAT=/bin/dd, /bin/rm","user ALL=WHAT"], "user" => &root, "server"; "/bin/rm");
-        pass!(["Cmd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => &root, "laptop"; "/bin/dd");
-        FAIL!(["Cmnd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => &root, "desktop"; "/bin/bash");
+        SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
-        pass!(["User_Alias A=B","User_Alias B=user","A ALL=ALL"], "user" => &root, "vm"; "/bin/ls");
-        pass!(["Host_Alias A=B","Host_Alias B=vm","ALL A=ALL"], "user" => &root, "vm"; "/bin/ls");
-        pass!(["Cmnd_Alias A=B","Cmnd_Alias B=/bin/ls","ALL ALL=A"], "user" => &root, "vm"; "/bin/ls");
+        pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
+        FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
+        FAIL!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
+        pass!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
+        pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => root(), "server"; "/bin/bash");
+        pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => root(), "laptop"; "/bin/bash");
+        FAIL!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => root(), "desktop"; "/bin/bash");
+        pass!(["Cmnd_Alias WHAT=/bin/dd, /bin/rm","user ALL=WHAT"], "user" => root(), "server"; "/bin/rm");
+        pass!(["Cmd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => root(), "laptop"; "/bin/dd");
+        FAIL!(["Cmnd_Alias WHAT=/bin/dd,/bin/rm","user ALL=WHAT"], "user" => root(), "desktop"; "/bin/bash");
 
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo" }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo" }, "vm"; "/bin/ls");
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "sudo", group: "sudo" }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => &UserInfo{ user: "user", group: "sudo" }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => &UserInfo{ user: "wheel", group: "wheel" }, "vm"; "/bin/ls");
+        pass!(["User_Alias A=B","User_Alias B=user","A ALL=ALL"], "user" => root(), "vm"; "/bin/ls");
+        pass!(["Host_Alias A=B","Host_Alias B=vm","ALL A=ALL"], "user" => root(), "vm"; "/bin/ls");
+        pass!(["Cmnd_Alias A=B","Cmnd_Alias B=/bin/ls","ALL ALL=A"], "user" => root(), "vm"; "/bin/ls");
+
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => Request{ user: &"sudo", group: &(42,"sudo") }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => Request{ user: &"sudo", group: &(42,"sudo") }, "vm"; "/bin/ls");
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => Request{ user: &"sudo", group: &(42,"sudo") }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => Request{ user: &"user", group: &(42,"sudo") }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => Request{ user: &"wheel", group: &(37,"wheel") }, "vm"; "/bin/ls");
+
+        pass!(["Runas_Alias \\"," TIME=%wheel\\",",sudo # hallo","user ALL\\","=(TIME) ALL"], "user" => Request{ user: &"wheel", group: &(37,"wheel") }, "vm"; "/bin/ls");
     }
 
     #[test]
@@ -411,6 +578,40 @@ mod test {
         }
     }
 
+    #[test]
+    // the overloading of '#' causes a lot of issues
+    fn hashsign_test() {
+        let Sudo::Spec(_) = parse_line("#42 ALL=ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(%#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(:#42) ALL") else { panic!() };
+        let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else { panic!() };
+        let Sudo::LineComment = parse_line("") else { panic!() };
+        let Sudo::LineComment = parse_line("#this is a comment") else { panic!() };
+        let Sudo::Include(_) = parse_line("#include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("#includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("#include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
+        // this is fine
+        let Sudo::LineComment = parse_line("#inlcudedir foo") else { panic!() };
+        let Sudo::Include(_) = parse_line("@include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("@includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("@include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
+    }
+
+    #[test]
+    #[should_panic]
+    fn hashsign_error() {
+        let Sudo::Include(_) = parse_line("#include foo bar") else { todo!() };
+    }
+
+    #[test]
+    #[should_panic]
+    fn include_regression() {
+        let Sudo::Include(_) = parse_line("#4,#include foo") else { todo!() };
+    }
+
     fn test_topo_sort(n: usize) {
         let alias = |s: &str| Qualified::Allow(Meta::<UserSpecifier>::Alias(s.to_string()));
         let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);
@@ -421,7 +622,9 @@ mod test {
                 Def("NOOT".to_string(), vec![x2]),
                 Def("MIES".to_string(), vec![x3]),
             ];
-            let order = sanitize_alias_table(&table);
+            let mut err = vec![];
+            let order = sanitize_alias_table(&table, &mut err);
+            assert!(err.is_empty());
             let mut seen = HashSet::new();
             for Def(id, defns) in order.iter().map(|&i| &table[i]) {
                 if defns.iter().any(|spec| {
@@ -494,9 +697,11 @@ mod test {
                 .map(|(i, x)| Def(name(i as u8), vec![x]))
                 .collect();
 
-            let Ok(order) = std::panic::catch_unwind(||
-	        sanitize_alias_table(&table)
-            ) else { return; };
+            let mut err = vec![];
+            let order = sanitize_alias_table(&table, &mut err);
+            if !err.is_empty() {
+                return;
+            }
 
             let mut seen = HashSet::new();
             for Def(id, defns) in order.iter().map(|&i| &table[i]) {

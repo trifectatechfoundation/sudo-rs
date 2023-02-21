@@ -9,3 +9,7 @@ pam-client = "0.5"
 sudo-system = { path = "../sudo-system" }
 sudo-pam = { path = "../sudo-pam" }
 thiserror = "1.0.38"
+which = "4.4.0"
+
+[dev-dependencies]
+sudo-cli = { path = "../sudo-cli" }

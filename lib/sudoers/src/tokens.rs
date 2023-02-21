@@ -25,6 +25,21 @@ impl Token for Username {
 impl Many for Username {}
 
 #[derive(Debug)]
+pub struct Digits(pub u32);
+
+impl Token for Digits {
+    const MAX_LEN: usize = 10;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(Digits(s.parse().unwrap()))
+    }
+
+    fn accept(c: char) -> bool {
+        c.is_ascii_digit()
+    }
+}
+
+#[derive(Debug)]
 pub struct Decimal(pub i32);
 
 impl Token for Decimal {
@@ -56,34 +71,6 @@ impl Token for Hostname {
 }
 
 impl Many for Hostname {}
-
-/// A userspecifier is either a username, or a group name (TODO: user ID and group ID)
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
-pub enum UserSpecifier {
-    User(Username),
-    Group(Username),
-}
-
-impl Token for UserSpecifier {
-    fn construct(text: String) -> Parsed<Self> {
-        let mut chars = text.chars();
-        Ok(if let Some('%') = chars.next() {
-            UserSpecifier::Group(Username(chars.as_str().to_string()))
-        } else {
-            UserSpecifier::User(Username(text))
-        })
-    }
-
-    fn accept(c: char) -> bool {
-        Username::accept(c)
-    }
-    fn accept_1st(c: char) -> bool {
-        Self::accept(c) || c == '%'
-    }
-}
-
-impl Many for UserSpecifier {}
 
 /// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
 /// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::basic_parser::Parse])
@@ -173,13 +160,85 @@ impl Token for Command {
     }
 
     fn accept(c: char) -> bool {
+        !Self::escaped(c) && !c.is_control()
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\,:=#".contains(c)
+    }
+}
+
+impl Many for Command {}
+
+/// An environment variable name pattern consists of alphanumeric characters as well as "_", "%" and wildcard "*"
+/// (Value patterns are not supported yet)
+pub struct EnvVar(pub String);
+
+impl Token for EnvVar {
+    fn construct(text: String) -> Parsed<Self> {
+        Ok(EnvVar(text))
+    }
+
+    fn accept(c: char) -> bool {
+        c.is_ascii_alphanumeric() || "*_%".contains(c)
+    }
+}
+
+pub struct QuotedText(pub String);
+
+impl Token for QuotedText {
+    const MAX_LEN: usize = 1024;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(QuotedText(s))
+    }
+
+    fn accept(c: char) -> bool {
         !Self::escaped(c)
     }
 
     const ESCAPE: char = '\\';
     fn escaped(c: char) -> bool {
-        "\\,:=".contains(c)
+        "\\\"".contains(c) || c.is_control()
     }
 }
 
-impl Many for Command {}
+pub struct IncludePath(pub String);
+
+impl Token for IncludePath {
+    const MAX_LEN: usize = 1024;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(IncludePath(s))
+    }
+
+    fn accept(c: char) -> bool {
+        !c.is_control() && !Self::escaped(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\\" ".contains(c)
+    }
+}
+
+// used for Defaults where
+pub struct StringParameter(pub String);
+
+impl Token for StringParameter {
+    const MAX_LEN: usize = QuotedText::MAX_LEN;
+
+    fn construct(s: String) -> Parsed<Self> {
+        Ok(StringParameter(s))
+    }
+
+    fn accept(c: char) -> bool {
+        !c.is_control() && !Self::escaped(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\\" #".contains(c)
+    }
+}
