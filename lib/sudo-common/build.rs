@@ -1,5 +1,3 @@
-use std::env;
-use std::fs;
 use std::path::Path;
 
 // Return the first existing path given a list of paths as string slices
@@ -8,27 +6,18 @@ fn get_first_path(paths: &[&'static str]) -> Option<&'static str> {
 }
 
 fn main() {
-    let out_dir = env::var_os("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("paths.rs");
-
-    let path_zoneinfo: Option<&str> = get_first_path(&[
+    let path_zoneinfo: &str = get_first_path(&[
         "/usr/share/zoneinfo",
         "/usr/share/lib/zoneinfo",
         "/usr/lib/zoneinfo",
         "/usr/lib/zoneinfo",
-    ]);
+    ])
+    .unwrap_or("");
 
     let path_maildir: &str =
         get_first_path(&["/var/mail", "/var/spool/mail", "/usr/spool/mail"]).unwrap_or("/var/mail");
 
-    let code = format!(
-        "
-    const PATH_MAILDIR: &str = {path_maildir:?};
-    const PATH_ZONEINFO: Option<&str> = {path_zoneinfo:?};
-    "
-    );
-
-    fs::write(dest_path, code).unwrap();
-
+    println!("cargo:rustc-env=PATH_MAILDIR={path_maildir}");
+    println!("cargo:rustc-env=PATH_ZONEINFO={path_zoneinfo}");
     println!("cargo:rerun-if-changed=build.rs");
 }

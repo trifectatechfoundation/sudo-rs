@@ -5,9 +5,10 @@ use crate::{
 use std::collections::HashMap;
 use sudo_system::PATH_MAX;
 
-include!(concat!(env!("OUT_DIR"), "/paths.rs"));
-
 pub type Environment = HashMap<String, String>;
+
+const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
+const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 
 /// Remove if these environment variables if the value contains '/' or '%'
 const CHECK_ENV_TABLE: &[&str] = &[
@@ -102,9 +103,9 @@ fn is_safe_tz(value: &str) -> bool {
     let check_value = value.trim_start_matches(':');
 
     if check_value.starts_with('/') {
-        if let Some(path) = PATH_ZONEINFO {
-            if !check_value.starts_with(path)
-                || check_value.chars().nth(path.len() + 1) != Some('/')
+        if !PATH_ZONEINFO.is_empty() {
+            if !check_value.starts_with(PATH_ZONEINFO)
+                || check_value.chars().nth(PATH_ZONEINFO.len()) != Some('/')
             {
                 return false;
             }
@@ -114,7 +115,7 @@ fn is_safe_tz(value: &str) -> bool {
     }
 
     !check_value.contains("..")
-        && !is_printable(check_value)
+        && is_printable(check_value)
         && check_value.len() < PATH_MAX as usize
 }
 
@@ -167,4 +168,30 @@ pub fn get_target_environment(current_env: Environment, context: &Context) -> En
     result.extend(get_extra_env(context));
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::env::{is_safe_tz, PATH_ZONEINFO};
+
+    #[test]
+    fn test_tzinfo() {
+        assert_eq!(is_safe_tz("Europe/Amsterdam"), true);
+        assert_eq!(
+            is_safe_tz(format!("{PATH_ZONEINFO}/Europe/London").as_str()),
+            true
+        );
+        assert_eq!(
+            is_safe_tz(format!(":{PATH_ZONEINFO}/Europe/Amsterdam").as_str()),
+            true
+        );
+        assert_eq!(
+            is_safe_tz(format!("/schaap/Europe/Amsterdam").as_str()),
+            false
+        );
+        assert_eq!(
+            is_safe_tz(format!("{PATH_ZONEINFO}/../Europe/London").as_str()),
+            false
+        );
+    }
 }
