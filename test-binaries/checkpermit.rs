@@ -22,6 +22,7 @@ fn main() {
         for foobar in warn {
             println!("ERROR: {foobar:?}")
         }
+        println!("SETTINGS: {:?}", cfg.settings);
         println!(
             "{:?}",
             chatty_check_permission(

@@ -14,6 +14,14 @@ pub enum Qualified<T> {
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
+/// An identifier is a name or a #number
+#[derive(Debug)]
+#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+pub enum Identifier {
+    Name(String),
+    ID(libc::gid_t),
+}
+
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
 #[derive(Debug)]
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
@@ -22,8 +30,6 @@ pub enum UserSpecifier {
     Group(Identifier),
     NonunixGroup(Identifier),
 }
-
-pub use crate::tokens::Identifier;
 
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
 #[derive(Debug, Default)]
@@ -55,21 +61,60 @@ pub struct Def<T>(pub String, pub SpecList<T>);
 
 /// AST object for directive specifications (aliases, arguments, etc)
 #[derive(Debug)]
-#[allow(clippy::enum_variant_names)] // this is temporary
 pub enum Directive {
     UserAlias(Def<UserSpecifier>),
     HostAlias(Def<Hostname>),
     CmndAlias(Def<Command>),
     RunasAlias(Def<UserSpecifier>),
+    Defaults(String, DefaultValue),
+}
+
+#[derive(Debug)]
+//TODO: integer values and "boolean context strings/lists/integers"
+pub enum DefaultValue {
+    Flag(bool),
+    Text(String),
+
+    // encoding: -1 = subtract, 0 = set, +1 = add
+    List(Mode, Vec<String>),
+}
+
+#[derive(Debug)]
+pub enum Mode {
+    Add,
+    Set,
+    Del,
 }
 
 /// The Sudoers file can contain permissions and directives
-// TODO: Defaults
 #[derive(Debug)]
 pub enum Sudo {
     Spec(PermissionSpec),
     Decl(Directive),
+    Include(String),
+    IncludeDir(String),
+    LineComment,
 }
+
+/// grammar:
+/// ```text
+/// identifier = name
+///            | #<numerical id>
+/// ```
+
+impl Parse for Identifier {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        if accept_if(|c| c == '#', stream).is_ok() {
+            let Digits(guid) = expect_nonterminal(stream)?;
+            make(Identifier::ID(guid))
+        } else {
+            let Username(name) = try_nonterminal(stream)?;
+            make(Identifier::Name(name))
+        }
+    }
+}
+
+impl Many for Identifier {}
 
 /// grammar:
 /// ```text
@@ -81,9 +126,9 @@ pub enum Sudo {
 
 impl<T: Parse> Parse for Qualified<T> {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        if try_syntax('!', stream).is_ok() {
+        if is_syntax('!', stream)? {
             let mut neg = true;
-            while try_syntax('!', stream).is_ok() {
+            while is_syntax('!', stream)? {
                 neg = !neg;
             }
             let ident = expect_nonterminal(stream)?;
@@ -104,40 +149,68 @@ impl<T: Many> Many for Qualified<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
-/// Since UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>
-impl Parse for Meta<UserSpecifier> {
-    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        use UserSpecifier::*;
-        if let Some(meta) = maybe(try_nonterminal::<Meta<Username>>(stream))? {
-            make(match meta {
-                Meta::All => Meta::All,
-                Meta::Alias(alias) => Meta::Alias(alias),
-                Meta::Only(Username(name)) => Meta::Only(User(Identifier::Name(name))),
-            })
-        } else {
-            let userspec = if maybe(accept_if(|c| c == '%', stream))?.is_some() {
-                let ctor = if maybe(accept_if(|c| c == ':', stream))?.is_some() {
-                    UserSpecifier::NonunixGroup
-                } else {
-                    UserSpecifier::Group
-                };
-                // in this case we must fail 'hard', since input has been consumed
-                ctor(expect_nonterminal(stream)?)
-            } else if maybe(accept_if(|c| c == '+', stream))?.is_some() {
-                // TODO Netgroups; in this case we need to "return early" since
-                // netgroups don't share the syntactic structure of the other alternatives
-                unrecoverable!("netgroups are not supported yet");
-            } else {
-                // in this case we must fail 'softly', since no input has been consumed yet
-                UserSpecifier::User(try_nonterminal(stream)?)
-            };
+/// Helper function for parsing Meta<T> things where T is not a token
 
-            make(Meta::Only(userspec))
-        }
+fn parse_meta<T: Parse>(
+    stream: &mut Peekable<impl Iterator<Item = char>>,
+    embed: impl FnOnce(String) -> T,
+) -> Parsed<Meta<T>> {
+    if let Some(meta) = try_nonterminal(stream)? {
+        make(match meta {
+            Meta::All => Meta::All,
+            Meta::Alias(alias) => Meta::Alias(alias),
+            Meta::Only(Username(name)) => Meta::Only(embed(name)),
+        })
+    } else {
+        make(Meta::Only(T::parse(stream)?))
+    }
+}
+
+/// Since Identifier is not a token, add the parser for Meta<Identifier>
+
+impl Parse for Meta<Identifier> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        parse_meta(stream, Identifier::Name)
+    }
+}
+
+/// grammar:
+/// ```text
+/// userspec = identifier
+///          | %identifier
+///          | %:identifier
+///          | +netgroup
+/// ```
+impl Parse for UserSpecifier {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        let userspec = if accept_if(|c| c == '%', stream).is_ok() {
+            let ctor = if accept_if(|c| c == ':', stream).is_ok() {
+                UserSpecifier::NonunixGroup
+            } else {
+                UserSpecifier::Group
+            };
+            // in this case we must fail 'hard', since input has been consumed
+            ctor(expect_nonterminal(stream)?)
+        } else if accept_if(|c| c == '+', stream).is_ok() {
+            // TODO Netgroups
+            unrecoverable!("netgroups are not supported yet");
+        } else {
+            // in this case we must fail 'softly', since no input has been consumed yet
+            UserSpecifier::User(try_nonterminal(stream)?)
+        };
+
+        make(userspec)
     }
 }
 
 impl Many for UserSpecifier {}
+
+/// UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>
+impl Parse for Meta<UserSpecifier> {
+    fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        parse_meta(stream, |name| UserSpecifier::User(Identifier::Name(name)))
+    }
+}
 
 /// grammar:
 /// ```text
@@ -196,7 +269,7 @@ impl Parse for MetaOrTag {
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
         let mut tags = Vec::new();
-        while let Some(MetaOrTag(keyword)) = maybe(try_nonterminal(stream))? {
+        while let Some(MetaOrTag(keyword)) = try_nonterminal(stream)? {
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
                 Meta::All => return make(CommandSpec(tags, Qualified::Allow(Meta::All))),
@@ -259,7 +332,8 @@ impl Parse for PermissionSpec {
 /// grammar:
 /// ```text
 /// sudo = permissionspec
-///      | Keyword identifier = identifier_list
+///      | Keyword_Alias identifier = identifier_list
+///      | Defaults name [+-]?= ...
 /// ```
 /// There is a syntactical ambiguity in the sudoer Directive and Permission specifications, so we
 /// have to parse them 'together' and do a delayed decision on which category we are in.
@@ -270,19 +344,97 @@ impl Parse for Sudo {
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
-        let users = try_nonterminal::<SpecList<_>>(stream)?;
-        // element 1 always exists (parse_list fails on an empty list)
-        let key = &users[0];
-        if let Some(directive) = maybe(get_directive(key, stream))? {
-            if users.len() != 1 {
-                unrecoverable!("parse error: user name list cannot start with a directive keyword");
+        if accept_if(|c| c == '@', stream).is_ok() {
+            return parse_include(stream);
+        }
+
+        // the existence of "#include" forces us to handle lines that start with #<ID> explicitly
+        if stream.peek() == Some(&'#') {
+            return if let Ok(ident) = try_nonterminal::<Identifier>(stream) {
+                let first_user = Qualified::Allow(Meta::Only(UserSpecifier::User(ident)));
+                let users = if is_syntax(',', stream)? {
+                    // parse the rest of the userlist and add the already-parsed user in front
+                    let mut rest = expect_nonterminal::<SpecList<_>>(stream)?;
+                    rest.insert(0, first_user);
+                    rest
+                } else {
+                    vec![first_user]
+                };
+                // no need to check get_directive as no other directive starts with #
+                let permissions = expect_nonterminal(stream)?;
+                make(Sudo::Spec(PermissionSpec { users, permissions }))
+            } else {
+                // the failed "try_nonterminal::<Identifier>" will have consumed the '#'
+                // the most ignominious part of sudoers: having to parse bits of comments
+                parse_include(stream).or_else(|_| {
+                    while accept_if(|c| c != '\n', stream).is_ok() {}
+                    make(Sudo::LineComment)
+                })
+            };
+        }
+
+        if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
+            // element 1 always exists (parse_list fails on an empty list)
+            let key = &users[0];
+            if let Some(directive) = maybe(get_directive(key, stream))? {
+                if users.len() != 1 {
+                    unrecoverable!(
+                        "parse error: user name list cannot start with a directive keyword"
+                    );
+                }
+                make(Sudo::Decl(directive))
+            } else {
+                let permissions = expect_nonterminal(stream)?;
+                make(Sudo::Spec(PermissionSpec { users, permissions }))
             }
-            make(Sudo::Decl(directive))
         } else {
-            let permissions = expect_nonterminal(stream)?;
-            make(Sudo::Spec(PermissionSpec { users, permissions }))
+            // this will leave whatever could not be parsed on the input stream
+            make(Sudo::LineComment)
         }
     }
+}
+
+/// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
+
+fn parse_include(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Sudo> {
+    let get_path = |stream: &mut _| {
+        if accept_if(|c| c == '"', stream).is_ok() {
+            let QuotedText(path) = expect_nonterminal(stream)?;
+            expect_syntax('"', stream)?;
+            make(path)
+        } else {
+            let IncludePath(path) = expect_nonterminal(stream)?;
+            if stream.peek() != Some(&'\n') {
+                unrecoverable!("use quotes around filenames or escape whitespace")
+            }
+            make(path)
+        }
+    };
+    let result = match try_nonterminal(stream)? {
+        Some(Username(key)) if key == "include" => Sudo::Include(get_path(stream)?),
+        Some(Username(key)) if key == "includedir" => Sudo::IncludeDir(get_path(stream)?),
+        _ => unrecoverable!("unknown directive"),
+    };
+
+    make(result)
+}
+
+// temporary stubs
+fn is_bool_param(_name: &str) -> bool {
+    true
+}
+// code currently doesn't recognize integer params,
+// so everything that isn't a list is a string
+#[allow(dead_code)]
+fn is_int_param(_name: &str) -> bool {
+    true
+}
+#[allow(dead_code)]
+fn is_string_param(_name: &str) -> bool {
+    true
+}
+fn is_list_param(_name: &str) -> bool {
+    _name != "secure_path" && _name != "lecture_file"
 }
 
 fn get_directive(
@@ -295,6 +447,7 @@ fn get_directive(
     use crate::ast::UserSpecifier::*;
     let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else { return reject() };
 
+    /// Parse an alias definition
     fn parse_alias<T>(
         ctor: fn(Def<T>) -> Directive,
         stream: &mut Peekable<impl Iterator<Item = char>>,
@@ -308,11 +461,89 @@ fn get_directive(
         make(ctor(Def(name, expect_nonterminal(stream)?)))
     }
 
+    /// Parse multiple entries enclosed in quotes (for list-like Defaults-settings)
+    fn parse_vars(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Vec<String>> {
+        if accept_if(|c| c == '"', stream).is_ok() {
+            let mut result = Vec::new();
+            while let Some(EnvVar(name)) = try_nonterminal(stream)? {
+                result.push(name);
+                if is_syntax('=', stream)? {
+                    let QuotedText(_) = expect_nonterminal(stream)?;
+                    expect_syntax('"', stream)?;
+                    unrecoverable!("values in environment variables not yet supported")
+                }
+            }
+            expect_syntax('"', stream)?;
+            if result.is_empty() {
+                unrecoverable!("empty string not allowed");
+            }
+
+            make(result)
+        } else {
+            let EnvVar(name) = expect_nonterminal(stream)?;
+
+            make(vec![name])
+        }
+    }
+
+    /// Parse "Defaults" entries
+    fn parse_default(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Directive> {
+        let bool_setting = |name: String, value: bool| {
+            // TODO: other types in a boolean context
+            if is_bool_param(&name) {
+                make(Defaults(name, DefaultValue::Flag(value)))
+            } else {
+                unrecoverable!("{name} is not a boolean setting");
+            }
+        };
+
+        let list_items = |mode: Mode, name: String, stream: &mut _| {
+            expect_syntax('=', stream)?;
+            if !is_list_param(&name) {
+                unrecoverable!("{name} is not a list parameter");
+            }
+            let items = parse_vars(stream)?;
+
+            make(Defaults(name, DefaultValue::List(mode, items)))
+        };
+
+        if is_syntax('!', stream)? {
+            let EnvVar(name) = expect_nonterminal(stream)?;
+            bool_setting(name, false)
+        } else {
+            let EnvVar(name) = try_nonterminal(stream)?;
+
+            if is_syntax('+', stream)? {
+                list_items(Mode::Add, name, stream)
+            } else if is_syntax('-', stream)? {
+                list_items(Mode::Del, name, stream)
+            } else if is_syntax('=', stream)? {
+                if is_list_param(&name) {
+                    let items = parse_vars(stream)?;
+                    make(Defaults(name, DefaultValue::List(Mode::Set, items)))
+                } else {
+                    let text = if accept_if(|c| c == '"', stream).is_ok() {
+                        let QuotedText(text) = expect_nonterminal(stream)?;
+                        expect_syntax('"', stream)?;
+                        text
+                    } else {
+                        let StringParameter(name) = expect_nonterminal(stream)?;
+                        name
+                    };
+                    make(Defaults(name, DefaultValue::Text(text)))
+                }
+            } else {
+                bool_setting(name, true)
+            }
+        }
+    }
+
     match keyword.as_str() {
         "User_Alias" => parse_alias(UserAlias, stream),
         "Host_Alias" => parse_alias(HostAlias, stream),
         "Cmnd_Alias" | "Cmd_Alias" => parse_alias(CmndAlias, stream),
         "Runas_Alias" => parse_alias(RunasAlias, stream),
+        "Defaults" => parse_default(stream),
         _ => reject(),
     }
 }

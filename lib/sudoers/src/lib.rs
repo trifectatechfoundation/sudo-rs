@@ -6,7 +6,7 @@ mod ast;
 mod basic_parser;
 mod tokens;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
@@ -22,6 +22,7 @@ pub use sysuser::*;
 pub struct Sudoers {
     rules: Vec<PermissionSpec>,
     aliases: AliasTable,
+    pub settings: Settings,
 }
 
 pub struct Request<'a, User: Identifiable, Group: UnixGroup> {
@@ -49,8 +50,15 @@ pub fn compile(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io:
         .filter_map(|line| line.as_ref().err().cloned())
         .collect();
 
-    let (rules, aliases) = analyze(sudoers.into_iter().flatten());
-    Ok((Sudoers { rules, aliases }, diagnostics))
+    let (rules, aliases, settings) = analyze(sudoers.into_iter().flatten());
+    Ok((
+        Sudoers {
+            rules,
+            aliases,
+            settings,
+        },
+        diagnostics,
+    ))
 }
 
 #[derive(Default)]
@@ -77,7 +85,11 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
 pub fn check_permission<User: Identifiable + PartialEq<User>, Group: UnixGroup>(
-    Sudoers { rules, aliases }: &Sudoers,
+    Sudoers {
+        rules,
+        aliases,
+        settings: _,
+    }: &Sudoers,
     am_user: &User,
     request: Request<User, Group>,
     on_host: &str,
@@ -230,19 +242,65 @@ fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
     }
 }
 
-/// Process a sudoers-parsing file into a workable AST
+//TODO: don't derive Default, but implement it (based on what the actual defaults are)
+#[derive(Debug, Default)]
+pub struct Settings {
+    pub flags: HashSet<String>,
+    pub str_value: HashMap<String, String>,
+    pub list: HashMap<String, HashSet<String>>,
+}
 
-fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+/// Process a sudoers-parsing file into a workable AST
+fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable, Settings) {
+    use DefaultValue::*;
     use Directive::*;
     let mut permits = Vec::new();
     let mut alias: AliasTable = Default::default();
+
+    let mut settings = Default::default();
+    let Settings {
+        ref mut flags,
+        ref mut str_value,
+        ref mut list,
+    } = settings;
+
     for item in sudoers {
         match item {
+            Sudo::LineComment => {}
+
             Sudo::Spec(permission) => permits.push(permission),
+
             Sudo::Decl(UserAlias(def)) => alias.user.1.push(def),
             Sudo::Decl(HostAlias(def)) => alias.host.1.push(def),
             Sudo::Decl(CmndAlias(def)) => alias.cmnd.1.push(def),
             Sudo::Decl(RunasAlias(def)) => alias.runas.1.push(def),
+
+            Sudo::Decl(Defaults(name, Flag(value))) => {
+                if value {
+                    flags.insert(name);
+                } else {
+                    flags.remove(&name);
+                }
+            }
+            Sudo::Decl(Defaults(name, Text(value))) => {
+                str_value.insert(name, value);
+            }
+
+            Sudo::Decl(Defaults(name, List(mode, values))) => {
+                let slot: &mut _ = list.entry(name).or_default();
+                match mode {
+                    Mode::Set => *slot = values.into_iter().collect(),
+                    Mode::Add => slot.extend(values),
+                    Mode::Del => {
+                        for key in values {
+                            slot.remove(&key);
+                        }
+                    }
+                }
+            }
+
+            Sudo::Include(path) => eprintln!("TODO: this would include the file {path}"),
+            Sudo::IncludeDir(path) => eprintln!("TODO: this would include the folder {path}"),
         }
     }
 
@@ -250,7 +308,8 @@ fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, Ali
     alias.host.0 = sanitize_alias_table(&alias.host.1);
     alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1);
     alias.runas.0 = sanitize_alias_table(&alias.runas.1);
-    (permits, alias)
+
+    (permits, alias, settings)
 }
 
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
@@ -334,6 +393,11 @@ mod test {
         }
     }
 
+    // alternative to parse_eval, but goes through sudoer! directly
+    fn parse_line(s: &str) -> Sudo {
+        sudoer![s].next().unwrap()
+    }
+
     impl UnixGroup for (u16, &str) {
         fn try_as_name(&self) -> Option<&str> {
             Some(self.1)
@@ -357,15 +421,17 @@ mod test {
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-                let (rules,aliases) = analyze(sudoer![$($sudo),*]);
-                assert_eq!(check_permission(&Sudoers { rules, aliases }, &$user, $req, $server, $command), None);
+                let (rules,aliases, _) = analyze(sudoer![$($sudo),*]);
+                let settings = Default::default();
+                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command), None);
             }
         }
 
         macro_rules! pass {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
-                let (rules,aliases) = analyze(sudoer![$($sudo),*]);
-                let result = check_permission(&Sudoers { rules, aliases}, &$user, $req, $server, $command);
+                let (rules,aliases, _) = analyze(sudoer![$($sudo),*]);
+                let settings = Default::default();
+                let result = check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command);
                 $(assert_eq!(result, Some(vec![$($list),*]));)?
                 assert!(!result.is_none());
             }
@@ -477,6 +543,40 @@ mod test {
             }
             _ => panic!("incorrectly parsed"),
         }
+    }
+
+    #[test]
+    // the overloading of '#' causes a lot of issues
+    fn hashsign_test() {
+        let Sudo::Spec(_) = parse_line("#42 ALL=ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(%#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(:#42) ALL") else { panic!() };
+        let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else { panic!() };
+        let Sudo::LineComment = parse_line("") else { panic!() };
+        let Sudo::LineComment = parse_line("#this is a comment") else { panic!() };
+        let Sudo::Include(_) = parse_line("#include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("#includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("#include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
+        // this is fine
+        let Sudo::LineComment = parse_line("#inlcudedir foo") else { panic!() };
+        let Sudo::Include(_) = parse_line("@include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("@includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("@include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
+    }
+
+    #[test]
+    #[should_panic]
+    fn hashsign_error() {
+        let Sudo::Include(_) = parse_line("#include foo bar") else { todo!() };
+    }
+
+    #[test]
+    #[should_panic]
+    fn include_regression() {
+        let Sudo::Include(_) = parse_line("#4,#include foo") else { todo!() };
     }
 
     fn test_topo_sort(n: usize) {
