@@ -260,19 +260,35 @@ impl<C: Converser> PamContext<C> {
     /// will be asked to be replaced, otherwise a replacement will always be
     /// requested.
     pub fn change_auth_token(&mut self, expired_only: bool) -> Result<(), PamError> {
-        todo!("pam_chauthtok")
+        let mut flags = 0;
+        flags |= self.silent_flag();
+        if expired_only {
+            flags |= PAM_CHANGE_EXPIRED_AUTHTOK as i32;
+        }
+        self.pam_err(unsafe { pam_chauthtok(self.pamh, flags) })?;
+        Ok(())
     }
 
     /// Start a user session for the authenticated user.
     pub fn open_session(&mut self) -> Result<(), PamError> {
-        self.session_started = true;
-        todo!("pam_open_session")
+        if !self.session_started {
+            self.pam_err(unsafe { pam_open_session(self.pamh, self.silent_flag()) })?;
+            self.session_started = true;
+            Ok(())
+        } else {
+            Err(PamError::SessionAlreadyOpen)
+        }
     }
 
     /// End the user session.
     pub fn close_session(&mut self) -> Result<(), PamError> {
-        self.session_started = false;
-        todo!("pam_close_session")
+        if self.session_started {
+            self.pam_err(unsafe { pam_close_session(self.pamh, self.silent_flag()) })?;
+            self.session_started = true;
+            Ok(())
+        } else {
+            Err(PamError::SessionNotOpen)
+        }
     }
 
     /// Set an environment variable in the PAM environment

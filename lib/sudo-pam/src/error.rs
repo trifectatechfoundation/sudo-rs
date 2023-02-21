@@ -154,6 +154,10 @@ pub enum PamError {
     Pam(PamErrorType, String),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Cannot open session while one is already open")]
+    SessionAlreadyOpen,
+    #[error("Cannot close session while none is open")]
+    SessionNotOpen,
 }
 
 impl PamError {
