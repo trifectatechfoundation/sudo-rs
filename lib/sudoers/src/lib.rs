@@ -1,6 +1,7 @@
 //! Code that checks (and in the future: lists) permissions in the sudoers file
 
 mod ast;
+mod ast_names;
 mod basic_parser;
 mod char_stream;
 mod tokens;

@@ -159,6 +159,11 @@ impl Token for Command {
         Ok((cmd, args))
     }
 
+    // all commands start with "/" except "sudoedit"
+    fn accept_1st(c: char) -> bool {
+        c == '/' || c == 's'
+    }
+
     fn accept(c: char) -> bool {
         !Self::escaped(c) && !c.is_control()
     }
@@ -223,7 +228,7 @@ impl Token for IncludePath {
     }
 }
 
-// used for Defaults where
+// used for Defaults where quotes around some items are optional
 pub struct StringParameter(pub String);
 
 impl Token for StringParameter {

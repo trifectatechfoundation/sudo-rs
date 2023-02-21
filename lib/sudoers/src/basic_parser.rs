@@ -174,10 +174,7 @@ pub fn expect_syntax(syntax: char, stream: &mut impl CharStream) -> Parsed<()> {
         } else {
             "EOF".to_string()
         };
-        unrecoverable!(
-            stream,
-            "parse error: expecting `{syntax}' but found `{str}'"
-        )
+        unrecoverable!(stream, "expecting `{syntax}' but found `{str}'")
     }
     make(())
 }
@@ -198,14 +195,12 @@ pub fn try_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 
 /// Interface for working with types that implement the [Parse] trait; this expects to parse
 /// the given type or aborts parsing if not.
-pub fn expect_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
+use crate::ast_names::UserFriendly;
+
+pub fn expect_nonterminal<T: Parse + UserFriendly>(stream: &mut impl CharStream) -> Parsed<T> {
     match try_nonterminal(stream) {
         Err(Status::Reject) => {
-            unrecoverable!(
-                stream,
-                "parse error: expected `{}'",
-                std::any::type_name::<T>()
-            )
+            unrecoverable!(stream, "expected {}", T::DESCRIPTION)
         }
         result => result,
     }
@@ -243,7 +238,7 @@ impl<T: Token> Parse for T {
                 if let Ok(c) = accept_if(T::escaped, stream) {
                     Ok(c)
                 } else {
-                    unrecoverable!(stream, "tokenizer: illegal escape sequence")
+                    unrecoverable!(stream, "illegal escape sequence")
                 }
             } else {
                 reject()
@@ -253,7 +248,7 @@ impl<T: Token> Parse for T {
         let mut str = accept_escaped::<T>(T::accept_1st, stream)?.to_string();
         while let Ok(c) = accept_escaped::<T>(T::accept, stream) {
             if str.len() >= T::MAX_LEN {
-                unrecoverable!(stream, "tokenizer: exceeded safety margin")
+                unrecoverable!(stream, "token exceeds maximum length")
             }
             str.push(c)
         }
@@ -273,15 +268,15 @@ impl<T: Parse> Parse for Option<T> {
 }
 
 /// Parsing method for lists of items separated by a given character; this adheres to the contract of the [Parse] trait.
-fn parse_list<T: Parse>(sep_by: char, max: usize, stream: &mut impl CharStream) -> Parsed<Vec<T>> {
+fn parse_list<T: Parse>(sep_by: char, max: usize, stream: &mut impl CharStream) -> Parsed<Vec<T>>
+where
+    T: Parse + UserFriendly,
+{
     let mut elems = Vec::new();
     elems.push(try_nonterminal(stream)?);
     while maybe(try_syntax(sep_by, stream))?.is_some() {
         if elems.len() >= max {
-            unrecoverable!(
-                stream,
-                "parse_list: parsing multiple items: safety margin exceeded"
-            )
+            unrecoverable!(stream, "too many items in list")
         }
         elems.push(expect_nonterminal(stream)?);
     }
@@ -298,14 +293,17 @@ pub trait Many {
 
 /// Generic implementation for parsing multiple items of a type `T` that implements the [Parse] and
 /// [Many] traits.
-impl<T: Parse + Many> Parse for Vec<T> {
+impl<T: Parse + Many + UserFriendly> Parse for Vec<T> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         parse_list(T::SEP, T::LIMIT, stream)
     }
 }
 
 /// Entry point utility function; parse a Vec<T> but with fatal error recovery per line
-pub fn parse_lines<T: Parse, Stream: CharStream>(stream: &mut Stream) -> Vec<Parsed<T>> {
+pub fn parse_lines<T, Stream: CharStream>(stream: &mut Stream) -> Vec<Parsed<T>>
+where
+    T: Parse + UserFriendly,
+{
     let mut result = Vec::new();
 
     // this will terminate; if the inner accept_if is an error, either a character will be consumed
@@ -321,9 +319,9 @@ pub fn parse_lines<T: Parse, Stream: CharStream>(stream: &mut Stream) -> Vec<Par
         if accept_if(|c| c == '\n', stream).is_err() {
             if parsed_item_ok {
                 let msg = if stream.peek().is_none() {
-                    "parse error: missing line terminator at end of file"
+                    "missing line terminator at end of file"
                 } else {
-                    "parse error: garbage at end of line"
+                    "garbage at end of line"
                 };
                 let error = |stream: &mut Stream| unrecoverable!(stream, "{msg}");
                 result.push(error(stream));
@@ -339,7 +337,7 @@ pub fn parse_lines<T: Parse, Stream: CharStream>(stream: &mut Stream) -> Vec<Par
 fn expect_complete<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
     let result = expect_nonterminal(stream)?;
     if let Some(c) = stream.peek() {
-        unrecoverable!(stream, "parse error: garbage at end of line: {c}")
+        unrecoverable!(stream, "garbage at end of line: {c}")
     }
     make(result)
 }

@@ -1,3 +1,4 @@
+use crate::ast_names::UserFriendly;
 use crate::basic_parser::*;
 use crate::tokens::*;
 
@@ -123,7 +124,7 @@ impl Many for Identifier {}
 /// This computes the correct negation with multiple exclamation marks in the parsing stage so we
 /// are not bothered by it later.
 
-impl<T: Parse> Parse for Qualified<T> {
+impl<T: Parse + UserFriendly> Parse for Qualified<T> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         if is_syntax('!', stream)? {
             let mut neg = true;
@@ -279,7 +280,7 @@ impl Parse for CommandSpec {
                 }
             }
             if tags.len() > CommandSpec::LIMIT {
-                unrecoverable!(stream, "parse error: too many tags for command specifier")
+                unrecoverable!(stream, "too many tags for command specifier")
             }
         }
 
@@ -399,10 +400,7 @@ impl Parse for Sudo {
             let key = &users[0];
             if let Some(directive) = maybe(get_directive(key, stream))? {
                 if users.len() != 1 {
-                    unrecoverable!(
-                        stream,
-                        "parse error: user name list cannot start with a directive keyword"
-                    );
+                    unrecoverable!(stream, "invalid user name list");
                 }
                 make(Sudo::Decl(directive))
             } else {
@@ -471,7 +469,7 @@ fn get_directive(
     let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else { return reject() };
 
     /// Parse an alias definition
-    fn parse_alias<T>(
+    fn parse_alias<T: UserFriendly>(
         ctor: fn(Def<T>) -> Directive,
         stream: &mut impl CharStream,
     ) -> Parsed<Directive>
