@@ -33,8 +33,8 @@ pub type Position = (usize, usize);
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum Status {
-    Fatal(Option<Position>, String), // not recoverable; stream in inconsistent state
-    Reject,                          // parsing failed by no input consumed
+    Fatal(Position, String), // not recoverable; stream in inconsistent state
+    Reject,                  // parsing failed by no input consumed
 }
 
 pub fn make<T>(value: T) -> Parsed<T> {
@@ -47,7 +47,7 @@ pub fn reject<T>() -> Parsed<T> {
 
 macro_rules! unrecoverable {
     ($stream:ident, $($str:expr),*) => {
-        return Err(crate::basic_parser::Status::Fatal(Some($stream.get_pos()),format![$($str),*]))
+        return Err(crate::basic_parser::Status::Fatal($stream.get_pos(),format![$($str),*]))
     };
     ($($str:expr),*) => {
         return Err(crate::basic_parser::Status::Fatal(None,format![$($str),*]))

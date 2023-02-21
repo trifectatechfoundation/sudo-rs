@@ -290,12 +290,12 @@ impl Parse for CommandSpec {
                 "sha384" => 384,
                 "sha512" => 512,
                 "sudoedit" => todo!(), // note: special behaviour of forward slashes in wildcards, tread carefully
-                _ => unrecoverable!("parse error: expected command but found {keyword}"),
+                _ => unrecoverable!(stream, "parse error: expected command but found {keyword}"),
             };
             expect_syntax(':', stream)?;
             let hex = expect_nonterminal::<Sha2>(stream)?;
             if 8 * hex.0.len() != hash_type {
-                unrecoverable!("parse error: digest length incorrect for sha{hash_type}")
+                unrecoverable!(stream, "parse error: digest length incorrect for sha{hash_type}")
             };
 
             hex
