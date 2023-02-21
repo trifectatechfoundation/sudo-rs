@@ -217,7 +217,7 @@ pub fn expect_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 pub trait Token: Sized {
     const MAX_LEN: usize = 255;
 
-    fn construct(s: String) -> Parsed<Self>;
+    fn construct(s: String) -> Result<Self, String>;
 
     fn accept(c: char) -> bool;
     fn accept_1st(c: char) -> bool {
@@ -259,8 +259,8 @@ impl<T: Token> Parse for T {
         }
 
         match T::construct(str) {
-            Err(Status::Fatal(None, msg)) => unrecoverable!(stream, "{msg}"),
-            result => result,
+            Ok(result) => make(result),
+            Err(msg) => unrecoverable!(stream, "{msg}"),
         }
     }
 }
@@ -305,7 +305,7 @@ impl<T: Parse + Many> Parse for Vec<T> {
 }
 
 /// Entry point utility function; parse a Vec<T> but with fatal error recovery per line
-pub fn parse_lines<T: Parse>(stream: &mut impl CharStream) -> Vec<Parsed<T>> {
+pub fn parse_lines<T: Parse, Stream: CharStream>(stream: &mut Stream) -> Vec<Parsed<T>> {
     let mut result = Vec::new();
 
     // this will terminate; if the inner accept_if is an error, either a character will be consumed
@@ -313,18 +313,21 @@ pub fn parse_lines<T: Parse>(stream: &mut impl CharStream) -> Vec<Parsed<T>> {
     // (which will cause the next iteration to fall through)
 
     while LeadingWhitespace::parse(stream).is_ok() {
-        result.push(expect_nonterminal(stream));
+        let item = expect_nonterminal(stream);
+        let parsed_item_ok = item.is_ok();
+        result.push(item);
+
         let _ = maybe(Comment::parse(stream));
         if accept_if(|c| c == '\n', stream).is_err() {
-            result.push(Err(Status::Fatal(
-                Some(stream.get_pos()),
-                if stream.peek().is_none() {
+            if parsed_item_ok {
+                let msg = if stream.peek().is_none() {
                     "parse error: missing line terminator at end of file"
                 } else {
                     "parse error: garbage at end of line"
-                }
-                .to_string(),
-            )));
+                };
+                let error = |stream: &mut Stream| unrecoverable!(stream, "{msg}");
+                result.push(error(stream));
+            }
             while accept_if(|c| c != '\n', stream).is_ok() {}
         }
     }
@@ -358,8 +361,8 @@ mod test {
     use super::*;
 
     impl Token for String {
-        fn construct(val: String) -> Parsed<Self> {
-            make(val)
+        fn construct(val: String) -> Result<Self, String> {
+            Ok(val)
         }
 
         fn accept(c: char) -> bool {

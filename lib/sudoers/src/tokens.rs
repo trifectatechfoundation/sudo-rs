@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{unrecoverable, Many, Parsed, Status, Token};
+use crate::basic_parser::{Many, Token};
 use derive_more::Deref;
 
 #[derive(Debug, Deref)]
@@ -9,7 +9,7 @@ pub struct Username(pub String);
 
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
 impl Token for Username {
-    fn construct(text: String) -> Parsed<Self> {
+    fn construct(text: String) -> Result<Self, String> {
         Ok(Username(text))
     }
 
@@ -30,7 +30,7 @@ pub struct Digits(pub u32);
 impl Token for Digits {
     const MAX_LEN: usize = 9;
 
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         Ok(Digits(s.parse().unwrap()))
     }
 
@@ -43,7 +43,7 @@ impl Token for Digits {
 pub struct Decimal(pub i32);
 
 impl Token for Decimal {
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         Ok(Decimal(s.parse().unwrap()))
     }
 
@@ -61,7 +61,7 @@ impl Token for Decimal {
 pub struct Hostname(pub String);
 
 impl Token for Hostname {
-    fn construct(text: String) -> Parsed<Self> {
+    fn construct(text: String) -> Result<Self, String> {
         Ok(Hostname(text))
     }
 
@@ -83,7 +83,7 @@ pub enum Meta<T> {
 }
 
 impl<T: Token> Token for Meta<T> {
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         Ok(if s.chars().all(char::is_uppercase) {
             if s == "ALL" {
                 Meta::All
@@ -121,7 +121,7 @@ impl<T: Many> Many for Meta<T> {
 pub struct Upper(pub String);
 
 impl Token for Upper {
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         Ok(Upper(s))
     }
 
@@ -141,9 +141,9 @@ pub fn split_args(text: &str) -> Vec<&str> {
 impl Token for Command {
     const MAX_LEN: usize = 1024;
 
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         let cvt_err = |pat: Result<_, glob::PatternError>| {
-            pat.map_err(|err| Status::Fatal(None, format!("wildcard pattern error {}", err.msg)))
+            pat.map_err(|err| format!("wildcard pattern error {err}"))
         };
         let mut cmdvec = split_args(&s);
         if cmdvec.len() == 1 {
@@ -176,7 +176,7 @@ impl Many for Command {}
 pub struct EnvVar(pub String);
 
 impl Token for EnvVar {
-    fn construct(text: String) -> Parsed<Self> {
+    fn construct(text: String) -> Result<Self, String> {
         Ok(EnvVar(text))
     }
 
@@ -190,7 +190,7 @@ pub struct QuotedText(pub String);
 impl Token for QuotedText {
     const MAX_LEN: usize = 1024;
 
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         Ok(QuotedText(s))
     }
 
@@ -209,7 +209,7 @@ pub struct IncludePath(pub String);
 impl Token for IncludePath {
     const MAX_LEN: usize = 1024;
 
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         Ok(IncludePath(s))
     }
 
@@ -229,7 +229,7 @@ pub struct StringParameter(pub String);
 impl Token for StringParameter {
     const MAX_LEN: usize = QuotedText::MAX_LEN;
 
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         Ok(StringParameter(s))
     }
 
@@ -251,20 +251,15 @@ pub struct Sha2(pub Box<[u8]>);
 impl Token for Sha2 {
     const MAX_LEN: usize = 512 / 4;
 
-    fn construct(s: String) -> Parsed<Self> {
+    fn construct(s: String) -> Result<Self, String> {
         if s.len() % 2 != 0 {
-            unrecoverable!("token: odd hexadecimal hash length")
+            return Err("odd hexadecimal hash length".to_string());
         }
         let bytes: Vec<u8> = (0..s.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
             .collect::<Result<_, _>>()
-            .map_err(|_| {
-                Status::Fatal(
-                    None,
-                    "should not happen: hexadecimal decoding failed".to_string(),
-                )
-            })?;
+            .map_err(|_| "should not happen: hexadecimal decoding failed")?;
 
         Ok(Sha2(bytes.into_boxed_slice()))
     }
