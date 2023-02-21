@@ -2,6 +2,7 @@
 
 mod ast;
 mod basic_parser;
+mod char_stream;
 mod tokens;
 
 use std::collections::{HashMap, HashSet};
@@ -46,7 +47,9 @@ fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io:
     let mut buffer = String::new();
     source.read_to_string(&mut buffer)?;
 
-    Ok(basic_parser::parse_lines(&mut buffer.chars().peekable()))
+    use basic_parser::parse_lines;
+    use char_stream::*;
+    Ok(parse_lines(&mut PeekableWithPos::new(buffer.chars())))
 }
 
 #[derive(Default)]
@@ -251,18 +254,18 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
     impl Sudoers {
         fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>, count: &mut u8) {
             if *count >= INCLUDE_LIMIT {
-                diagnostics.push(Error::Fatal(format!(
-                    "include file limit reached opening `{}'",
-                    path.display()
-                )))
+                diagnostics.push(Error::Fatal(
+                    None,
+                    format!("include file limit reached opening `{}'", path.display()),
+                ))
             } else if let Ok(subsudoer) = read_sudoers(path) {
                 *count += 1;
                 self.process(subsudoer, diagnostics, count)
             } else {
-                diagnostics.push(Error::Fatal(format!(
-                    "cannot open sudoers file `{}'",
-                    path.display()
-                )))
+                diagnostics.push(Error::Fatal(
+                    None,
+                    format!("cannot open sudoers file `{}'", path.display()),
+                ))
             }
         }
 
@@ -314,7 +317,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
 
                         Sudo::IncludeDir(path) => {
                             let Ok(files) = std::fs::read_dir(&path) else {
-                                diagnostics.push(Error::Fatal(format!("cannot open sudoers file {path}")));
+                                diagnostics.push(Error::Fatal(None,format!("cannot open sudoers file {path}")));
                                 continue;
                             };
                             let mut safe_files = files
@@ -375,7 +378,7 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
 
     impl<T> Visitor<'_, T> {
         fn complain(&mut self, text: String) {
-            self.diagnostics.push(Error::Fatal(text))
+            self.diagnostics.push(Error::Fatal(None, text))
         }
 
         fn visit(&mut self, pos: usize) {

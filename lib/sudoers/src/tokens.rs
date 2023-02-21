@@ -143,7 +143,7 @@ impl Token for Command {
 
     fn construct(s: String) -> Parsed<Self> {
         let cvt_err = |pat: Result<_, glob::PatternError>| {
-            pat.map_err(|err| Status::Fatal(format!("wildcard pattern error {}", err.msg)))
+            pat.map_err(|err| Status::Fatal(None, format!("wildcard pattern error {}", err.msg)))
         };
         let mut cmdvec = split_args(&s);
         if cmdvec.len() == 1 {
@@ -260,7 +260,10 @@ impl Token for Sha2 {
             .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
             .collect::<Result<_, _>>()
             .map_err(|_| {
-                Status::Fatal("should not happen: hexadecimal decoding failed".to_string())
+                Status::Fatal(
+                    None,
+                    "should not happen: hexadecimal decoding failed".to_string(),
+                )
             })?;
 
         Ok(Sha2(bytes.into_boxed_slice()))
