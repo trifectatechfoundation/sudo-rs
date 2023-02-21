@@ -1,7 +1,10 @@
+use std::env;
+use sudo_common::sysuser::{UnixGroup, UnixUser};
+
 fn chatty_check_permission(
     sudoers: sudoers::Sudoers,
     am_user: &str,
-    request: sudoers::Request<&str, sudoers::GroupID>,
+    request: sudoers::Request<&str, GroupID>,
     on_host: &str,
     chosen_poison: &str,
 ) {
@@ -13,10 +16,55 @@ fn chatty_check_permission(
     println!("OUTCOME: {result:?}");
 }
 
-use std::env;
+/// This is the "canonical" info that we need
+#[derive(Debug)]
+pub struct GroupID(pub libc::gid_t, pub Option<String>);
+
+impl UnixGroup for GroupID {
+    fn as_gid(&self) -> libc::gid_t {
+        self.0
+    }
+
+    fn try_as_name(&self) -> Option<&str> {
+        self.1.as_deref()
+    }
+}
+
+impl UnixUser for GroupID {
+    fn has_uid(&self, uid: libc::gid_t) -> bool {
+        self.0 == uid
+    }
+    fn has_name(&self, name: &str) -> bool {
+        self.1.as_ref().map_or(false, |s| s == name)
+    }
+}
+
+#[derive(Debug)]
+pub struct UserRecord(pub libc::gid_t, pub Option<String>, pub Vec<GroupID>);
+
+impl PartialEq<UserRecord> for UserRecord {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
+impl Eq for UserRecord {}
+
+impl UnixUser for UserRecord {
+    fn is_root(&self) -> bool {
+        self.has_name("root") && self.has_uid(0)
+    }
+
+    fn in_group_by_name(&self, name: &str) -> bool {
+        self.2.iter().any(|g| g.has_name(name))
+    }
+
+    fn in_group_by_gid(&self, id: libc::gid_t) -> bool {
+        self.2.iter().any(|g| g.has_uid(id))
+    }
+}
 
 fn main() {
-    use sudoers::GroupID;
     let args: Vec<String> = env::args().collect();
     if let Ok((cfg, warn)) = sudoers::compile("./sudoers") {
         for foobar in warn {

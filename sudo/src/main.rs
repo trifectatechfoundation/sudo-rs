@@ -27,7 +27,8 @@ fn build_context(sudo_options: &SudoOptions) -> Result<Context, Error> {
 
     let target_user = User::from_name(sudo_options.user.as_deref().unwrap_or("root"))
         .map_err(|_| Error::UserNotFound)?
-        .ok_or(Error::UserNotFound)?;
+        .ok_or(Error::UserNotFound)?
+        .with_groups();
 
     let target_group = Group::from_gid(target_user.gid)
         .map_err(|_| Error::UserNotFound)?
