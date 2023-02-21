@@ -39,6 +39,11 @@ pub fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
     }
 }
 
+/// Create a Rust string copy from a C string pointer
+///
+/// # Safety
+/// This function assumes that the pointer is either a null pointer or that
+/// it points to a valid NUL-terminated C string.
 pub unsafe fn string_from_ptr(ptr: *const libc::c_char) -> String {
     if ptr.is_null() {
         String::new()

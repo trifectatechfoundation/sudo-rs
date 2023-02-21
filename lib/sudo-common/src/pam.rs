@@ -1,13 +1,16 @@
 use crate::error::Error;
 
 pub fn authenticate(username: &str) -> Result<(), Error> {
-    let mut pam = sudo_pam::PamContext::new_cli()
+    let mut pam = sudo_pam::PamContext::builder_cli()
         .target_user(username)
         .service_name("sudo")
         .build()?;
 
-    pam.authenticate(false, true)?;
-    pam.validate_account(false, true)?;
+    pam.mark_silent(true);
+    pam.mark_allow_null_auth_token(false);
+
+    pam.authenticate()?;
+    pam.validate_account()?;
 
     Ok(())
 }
