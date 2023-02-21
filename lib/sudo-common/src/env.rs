@@ -34,7 +34,7 @@ const KEEP_ENV_TABLE: &[&str] = &[
     "XDG_CURRENT_DESKTOP",
 ];
 
-/// Convert a list of Into<String> key value pars to an Environment
+/// Convert a list of `Into<String>` key value pars to an Environment
 pub fn environment_from_list<K: Into<String>, V: Into<String>>(list: Vec<(K, V)>) -> Environment {
     list.into_iter()
         .map(|(k, v)| (k.into(), v.into()))
@@ -103,8 +103,8 @@ fn should_keep(key: &str, value: &str, check_env: &[&str], keep_env: &[&str]) ->
 }
 
 /// Construct the final environment from the current one and a sudo context
-/// see https://github.com/sudo-project/sudo/blob/main/plugins/sudoers/env.c for the original implementation
-/// see https://www.sudo.ws/docs/man/sudoers.man/#Command_environment for the original documentation
+/// see <https://github.com/sudo-project/sudo/blob/main/plugins/sudoers/env.c> for the original implementation
+/// see <https://www.sudo.ws/docs/man/sudoers.man/#Command_environment> for the original documentation
 ///
 /// The HOME, MAIL, SHELL, LOGNAME and USER environment variables are initialized based on the target user
 /// and the SUDO_* variables are set based on the invoking user.

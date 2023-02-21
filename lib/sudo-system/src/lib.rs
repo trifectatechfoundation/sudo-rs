@@ -177,7 +177,7 @@ impl User {
                 panic!("User has too many groups, this should not happen");
             }
 
-            buf_len = buf_len * 2;
+            buf_len *= 2;
         }
 
         for i in 0..buf_len {
