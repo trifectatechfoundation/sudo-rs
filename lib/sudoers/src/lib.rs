@@ -1,12 +1,10 @@
-//TODO: sanitize_...() panics when it finds errors; it should emit warnings instead and come to some solution that is conservative
-
 //! Code that checks (and in the future: lists) permissions in the sudoers file
 
 mod ast;
 mod basic_parser;
 mod tokens;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
@@ -19,9 +17,11 @@ pub type Error = basic_parser::Status;
 mod sysuser;
 pub use sysuser::*;
 
+#[derive(Default)]
 pub struct Sudoers {
     rules: Vec<PermissionSpec>,
     aliases: AliasTable,
+    pub settings: Settings,
 }
 
 pub struct Request<'a, User: Identifiable, Group: UnixGroup> {
@@ -32,25 +32,20 @@ pub struct Request<'a, User: Identifiable, Group: UnixGroup> {
 /// This function takes a file argument for a sudoers file and processes it.
 
 pub fn compile(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io::Error> {
-    let sudoers: Vec<basic_parser::Parsed<Sudo>> = {
-        use std::fs::File;
-        use std::io::Read;
-        let mut source = std::io::BufReader::new(File::open(path)?);
+    let sudoers = read_sudoers(path.as_ref())?;
+    Ok(analyze(sudoers))
+}
 
-        // it's a bit frustrating that BufReader.chars() does not exist
-        let mut buffer = String::new();
-        source.read_to_string(&mut buffer)?;
+fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io::Error> {
+    use std::fs::File;
+    use std::io::Read;
+    let mut source = File::open(path)?;
 
-        basic_parser::parse_lines(&mut buffer.chars().peekable())
-    };
+    // it's a bit frustrating that BufReader.chars() does not exist
+    let mut buffer = String::new();
+    source.read_to_string(&mut buffer)?;
 
-    let diagnostics = sudoers
-        .iter()
-        .filter_map(|line| line.as_ref().err().cloned())
-        .collect();
-
-    let (rules, aliases) = analyze(sudoers.into_iter().flatten());
-    Ok((Sudoers { rules, aliases }, diagnostics))
+    Ok(basic_parser::parse_lines(&mut buffer.chars().peekable()))
 }
 
 #[derive(Default)]
@@ -77,7 +72,11 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
 pub fn check_permission<User: Identifiable + PartialEq<User>, Group: UnixGroup>(
-    Sudoers { rules, aliases }: &Sudoers,
+    Sudoers {
+        rules,
+        aliases,
+        settings: _,
+    }: &Sudoers,
     am_user: &User,
     request: Request<User, Group>,
     on_host: &str,
@@ -230,34 +229,122 @@ fn match_identifier(user: &impl Identifiable, ident: &ast::Identifier) -> bool {
     }
 }
 
-/// Process a sudoers-parsing file into a workable AST
+//TODO: don't derive Default, but implement it (based on what the actual defaults are)
+#[derive(Debug, Default)]
+pub struct Settings {
+    pub flags: HashSet<String>,
+    pub str_value: HashMap<String, String>,
+    pub list: HashMap<String, HashSet<String>>,
+}
 
-fn analyze(sudoers: impl IntoIterator<Item = Sudo>) -> (Vec<PermissionSpec>, AliasTable) {
+/// Process a sudoers-parsing file into a workable AST
+fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Sudoers, Vec<Error>) {
+    use DefaultValue::*;
     use Directive::*;
-    let mut permits = Vec::new();
-    let mut alias: AliasTable = Default::default();
-    for item in sudoers {
-        match item {
-            Sudo::Spec(permission) => permits.push(permission),
-            Sudo::Decl(UserAlias(def)) => alias.user.1.push(def),
-            Sudo::Decl(HostAlias(def)) => alias.host.1.push(def),
-            Sudo::Decl(CmndAlias(def)) => alias.cmnd.1.push(def),
-            Sudo::Decl(RunasAlias(def)) => alias.runas.1.push(def),
+
+    let mut result: Sudoers = Default::default();
+
+    impl Sudoers {
+        fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>) {
+            if let Ok(subsudoer) = read_sudoers(path) {
+                self.process(subsudoer, diagnostics)
+            } else {
+                diagnostics.push(Error::Fatal(format!(
+                    "cannot open sudoers file {}",
+                    path.display()
+                )))
+            }
+        }
+
+        fn process(
+            &mut self,
+            sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
+            diagnostics: &mut Vec<Error>,
+        ) {
+            for item in sudoers {
+                match item {
+                    Ok(line) => match line {
+                        Sudo::LineComment => {}
+
+                        Sudo::Spec(permission) => self.rules.push(permission),
+
+                        Sudo::Decl(UserAlias(def)) => self.aliases.user.1.push(def),
+                        Sudo::Decl(HostAlias(def)) => self.aliases.host.1.push(def),
+                        Sudo::Decl(CmndAlias(def)) => self.aliases.cmnd.1.push(def),
+                        Sudo::Decl(RunasAlias(def)) => self.aliases.runas.1.push(def),
+
+                        Sudo::Decl(Defaults(name, Flag(value))) => {
+                            if value {
+                                self.settings.flags.insert(name);
+                            } else {
+                                self.settings.flags.remove(&name);
+                            }
+                        }
+                        Sudo::Decl(Defaults(name, Text(value))) => {
+                            self.settings.str_value.insert(name, value);
+                        }
+
+                        Sudo::Decl(Defaults(name, List(mode, values))) => {
+                            let slot: &mut _ = self.settings.list.entry(name).or_default();
+                            match mode {
+                                Mode::Set => *slot = values.into_iter().collect(),
+                                Mode::Add => slot.extend(values),
+                                Mode::Del => {
+                                    for key in values {
+                                        slot.remove(&key);
+                                    }
+                                }
+                            }
+                        }
+
+                        Sudo::Include(path) => self.include(path.as_ref(), diagnostics),
+
+                        Sudo::IncludeDir(path) => {
+                            let Ok(files) = std::fs::read_dir(&path) else {
+                                diagnostics.push(Error::Fatal(format!("cannot open sudoers file {path}")));
+                                continue;
+                            };
+                            let mut safe_files = files
+                                .filter_map(|direntry| {
+                                    let path = direntry.ok()?.path();
+                                    let text = path.to_str()?;
+                                    if text.contains('~') || text.contains('.') {
+                                        None
+                                    } else {
+                                        Some(path)
+                                    }
+                                })
+                                .collect::<Vec<_>>();
+                            safe_files.sort();
+                            for file in safe_files {
+                                self.include(file.as_ref(), diagnostics)
+                            }
+                        }
+                    },
+
+                    Err(error) => diagnostics.push(error),
+                }
+            }
         }
     }
 
-    alias.user.0 = sanitize_alias_table(&alias.user.1);
-    alias.host.0 = sanitize_alias_table(&alias.host.1);
-    alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1);
-    alias.runas.0 = sanitize_alias_table(&alias.runas.1);
-    (permits, alias)
+    let mut diagnostics = vec![];
+    result.process(sudoers, &mut diagnostics);
+
+    let alias = &mut result.aliases;
+    alias.user.0 = sanitize_alias_table(&alias.user.1, &mut diagnostics);
+    alias.host.0 = sanitize_alias_table(&alias.host.1, &mut diagnostics);
+    alias.cmnd.0 = sanitize_alias_table(&alias.cmnd.1, &mut diagnostics);
+    alias.runas.0 = sanitize_alias_table(&alias.runas.1, &mut diagnostics);
+
+    (result, diagnostics)
 }
 
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
 /// It is much easier if they are presented in a "definitional order" (i.e. aliases that use other aliases occur later)
 /// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and cycles.
 
-fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
+fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) -> Vec<usize> {
     fn remqualify<U>(item: &Qualified<U>) -> &U {
         match item {
             Qualified::Allow(x) => x,
@@ -270,23 +357,29 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
         seen: HashSet<usize>,
         table: &'a Vec<Def<T>>,
         order: Vec<usize>,
+        diagnostics: &'a mut Vec<Error>,
     }
 
     impl<T> Visitor<'_, T> {
+        fn complain(&mut self, text: String) {
+            self.diagnostics.push(Error::Fatal(text))
+        }
+
         fn visit(&mut self, pos: usize) {
             if self.seen.insert(pos) {
                 let Def(_, members) = &self.table[pos];
                 for elem in members {
                     let Meta::Alias(name) = remqualify(elem) else { break };
                     let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
-			panic!("undefined alias: `{name}'");
-		    };
+                        self.complain(format!("undefined alias: `{name}'"));
+                        continue;
+                    };
                     self.visit(dependency);
                 }
                 self.order.push(pos);
             } else if !self.order.contains(&pos) {
                 let Def(id, _) = &self.table[pos];
-                panic!("recursive alias: `{id}'");
+                self.complain(format!("recursive alias: `{id}'"));
             }
         }
     }
@@ -295,12 +388,13 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>) -> Vec<usize> {
         seen: HashSet::new(),
         table,
         order: Vec::with_capacity(table.len()),
+        diagnostics,
     };
 
     let mut dupe = HashSet::new();
     for (i, Def(name, _)) in table.iter().enumerate() {
         if !dupe.insert(name) {
-            panic!("multiple occurences of `{name}'");
+            visitor.complain(format!("multiple occurences of `{name}'"));
         } else {
             visitor.visit(i);
         }
@@ -330,8 +424,13 @@ mod test {
 		.peekable()
 	    )
 	    .into_iter()
-	    .map(|x| x.unwrap())
+	    .map(|x| Ok::<_,basic_parser::Status>(x.unwrap()))
         }
+    }
+
+    // alternative to parse_eval, but goes through sudoer! directly
+    fn parse_line(s: &str) -> Sudo {
+        sudoer![s].next().unwrap().unwrap()
     }
 
     impl UnixGroup for (u16, &str) {
@@ -357,15 +456,15 @@ mod test {
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-                let (rules,aliases) = analyze(sudoer![$($sudo),*]);
-                assert_eq!(check_permission(&Sudoers { rules, aliases }, &$user, $req, $server, $command), None);
+                let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
+                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command), None);
             }
         }
 
         macro_rules! pass {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
-                let (rules,aliases) = analyze(sudoer![$($sudo),*]);
-                let result = check_permission(&Sudoers { rules, aliases}, &$user, $req, $server, $command);
+                let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
+                let result = check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command);
                 $(assert_eq!(result, Some(vec![$($list),*]));)?
                 assert!(!result.is_none());
             }
@@ -479,6 +578,40 @@ mod test {
         }
     }
 
+    #[test]
+    // the overloading of '#' causes a lot of issues
+    fn hashsign_test() {
+        let Sudo::Spec(_) = parse_line("#42 ALL=ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(%#42) ALL") else { panic!() };
+        let Sudo::Spec(_) = parse_line("ALL ALL=(:#42) ALL") else { panic!() };
+        let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else { panic!() };
+        let Sudo::LineComment = parse_line("") else { panic!() };
+        let Sudo::LineComment = parse_line("#this is a comment") else { panic!() };
+        let Sudo::Include(_) = parse_line("#include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("#includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("#include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
+        // this is fine
+        let Sudo::LineComment = parse_line("#inlcudedir foo") else { panic!() };
+        let Sudo::Include(_) = parse_line("@include foo") else { panic!() };
+        let Sudo::IncludeDir(_) = parse_line("@includedir foo") else { panic!() };
+        let Sudo::Include(x) = parse_line("@include \"foo bar\"") else { panic!() };
+        assert_eq!(x, "foo bar");
+    }
+
+    #[test]
+    #[should_panic]
+    fn hashsign_error() {
+        let Sudo::Include(_) = parse_line("#include foo bar") else { todo!() };
+    }
+
+    #[test]
+    #[should_panic]
+    fn include_regression() {
+        let Sudo::Include(_) = parse_line("#4,#include foo") else { todo!() };
+    }
+
     fn test_topo_sort(n: usize) {
         let alias = |s: &str| Qualified::Allow(Meta::<UserSpecifier>::Alias(s.to_string()));
         let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);
@@ -489,7 +622,9 @@ mod test {
                 Def("NOOT".to_string(), vec![x2]),
                 Def("MIES".to_string(), vec![x3]),
             ];
-            let order = sanitize_alias_table(&table);
+            let mut err = vec![];
+            let order = sanitize_alias_table(&table, &mut err);
+            assert!(err.is_empty());
             let mut seen = HashSet::new();
             for Def(id, defns) in order.iter().map(|&i| &table[i]) {
                 if defns.iter().any(|spec| {
@@ -562,9 +697,11 @@ mod test {
                 .map(|(i, x)| Def(name(i as u8), vec![x]))
                 .collect();
 
-            let Ok(order) = std::panic::catch_unwind(||
-	        sanitize_alias_table(&table)
-            ) else { return; };
+            let mut err = vec![];
+            let order = sanitize_alias_table(&table, &mut err);
+            if !err.is_empty() {
+                return;
+            }
 
             let mut seen = HashSet::new();
             for Def(id, defns) in order.iter().map(|&i| &table[i]) {
