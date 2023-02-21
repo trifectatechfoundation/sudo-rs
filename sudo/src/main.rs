@@ -1,56 +1,6 @@
-use std::env;
 use sudo_cli::SudoOptions;
-use sudo_common::{
-    context::{CommandAndArguments, Context},
-    env::Environment,
-    error::Error,
-    pam::authenticate,
-};
-use sudo_system::{hostname, Group, User};
+use sudo_common::{context::Context, env::Environment, error::Error, pam::authenticate};
 use sudoers::Tag;
-
-/// retrieve user information and build context object
-fn build_context(sudo_options: &SudoOptions) -> Result<Context, Error> {
-    let command_args = sudo_options
-        .external_args
-        .iter()
-        .map(|v| v.as_str())
-        .collect::<Vec<&str>>();
-
-    let command = CommandAndArguments::try_from(command_args)?;
-
-    let hostname = hostname();
-
-    let current_user = User::real()
-        .map_err(|_| Error::UserNotFound)?
-        .ok_or(Error::UserNotFound)?;
-
-    let target_user = User::from_name(sudo_options.user.as_deref().unwrap_or("root"))
-        .map_err(|_| Error::UserNotFound)?
-        .ok_or(Error::UserNotFound)?
-        .with_groups();
-
-    let target_group = Group::from_gid(target_user.gid)
-        .map_err(|_| Error::UserNotFound)?
-        .ok_or(Error::UserNotFound)?;
-
-    let mut context = Context {
-        hostname,
-        command,
-        current_user,
-        target_user,
-        target_group,
-        target_environment: Default::default(),
-        preserve_env: sudo_options.preserve_env,
-        set_home: sudo_options.set_home,
-        preserve_env_list: sudo_options.preserve_env_list.clone(),
-    };
-
-    let current = env::vars().collect::<Environment>();
-    context.target_environment = sudo_common::env::get_target_environment(current, &context);
-
-    Ok(context)
-}
 
 /// parse suoers file and check permission to run the provided command given the context
 fn check_sudoers(context: &Context, sudo_options: &SudoOptions) -> Result<Option<Vec<Tag>>, Error> {
@@ -81,7 +31,8 @@ fn main() -> Result<(), Error> {
     let sudo_options = SudoOptions::parse();
 
     // build context and environment
-    let context = build_context(&sudo_options)?;
+    let current_env = std::env::vars().collect::<Environment>();
+    let context = Context::build_from_options(&sudo_options)?.with_filtered_env(current_env);
 
     // check sudoers file for permission
     match check_sudoers(&context, &sudo_options)? {

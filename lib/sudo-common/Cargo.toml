@@ -6,10 +6,8 @@ license = "Apache-2.0 OR MIT"
 build = "build.rs"
 
 [dependencies]
+libc = "0.2.139"
 pam-client = "0.5"
+sudo-cli = { path = "../sudo-cli" }
 sudo-system = { path = "../sudo-system" }
 which = "4.4.0"
-libc = "0.2.139"
-
-[dev-dependencies]
-sudo-cli = { path = "../sudo-cli" }

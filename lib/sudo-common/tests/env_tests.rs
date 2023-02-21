@@ -77,13 +77,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
 }
 
 fn create_test_context(sudo_options: &SudoOptions) -> Context {
-    let command_args = sudo_options
-        .external_args
-        .iter()
-        .map(|v| v.as_str())
-        .collect::<Vec<&str>>();
-
-    let command = CommandAndArguments::try_from(command_args).unwrap();
+    let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice()).unwrap();
 
     let current_user = User {
         uid: 1000,

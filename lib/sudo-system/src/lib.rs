@@ -179,7 +179,7 @@ impl User {
                 panic!("User has too many groups, this should not happen");
             }
 
-            buf_len = buf_len * 2;
+            buf_len *= 2;
         }
 
         for i in 0..buf_len {
@@ -359,7 +359,6 @@ mod tests {
     use crate::User;
 
     #[test]
-    #[ignore = "system specific"]
     fn test_get_user() {
         let root = User::from_uid(0).unwrap().unwrap();
 
