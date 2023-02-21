@@ -3,7 +3,8 @@ use std::fmt;
 #[derive(Debug)]
 pub enum Error {
     InvalidCommand,
-    UserNotFound,
+    UserNotFound(String),
+    GroupNotFound(String),
     Exec,
     Authentication(String),
     Configuration(String),
@@ -14,7 +15,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::InvalidCommand => write!(f, "Invalid command provided"),
-            Error::UserNotFound => write!(f, "User not found"),
+            Error::UserNotFound(e) => write!(f, "User not found {}", e),
+            Error::GroupNotFound(e) => write!(f, "Group not found {}", e),
             Error::Exec => write!(f, "Error executing the command"),
             Error::Authentication(e) => write!(f, "Authentication failed. {e}"),
             Error::Configuration(e) => write!(f, "Invalid configuration. {e}"),

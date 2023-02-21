@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 use sudo_cli::SudoOptions;
 use sudo_system::{hostname, Group, User};
 
@@ -28,6 +28,23 @@ impl<'a> TryFrom<&'a [String]> for CommandAndArguments<'a> {
     }
 }
 
+enum NameOrId<'a, T: FromStr> {
+    Name(&'a str),
+    Id(T),
+}
+
+impl<'a, T: FromStr> NameOrId<'a, T> {
+    pub fn parse(input: &'a str) -> Option<Self> {
+        if input.is_empty() {
+            None
+        } else if input.starts_with('#') {
+            input[1..].parse::<T>().ok().map(|id| Self::Id(id))
+        } else {
+            Some(Self::Name(input))
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Context<'a> {
     pub preserve_env: bool,
@@ -45,13 +62,30 @@ impl<'a> Context<'a> {
     pub fn build_from_options(sudo_options: &SudoOptions) -> Result<Context, Error> {
         let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice())?;
         let hostname = hostname();
-        let current_user = User::real()?.ok_or(Error::UserNotFound)?;
-        let target_username = sudo_options.user.as_deref().unwrap_or("root");
-        let target_user = User::from_name(target_username)?
-            .ok_or(Error::UserNotFound)?
-            .with_groups();
+        let current_user = User::real()?.ok_or(Error::UserNotFound("current user".to_string()))?;
 
-        let target_group = Group::from_gid(target_user.gid)?.ok_or(Error::UserNotFound)?;
+        let target_name_or_id = sudo_options.user.as_deref().unwrap_or("root");
+        let target_user = match NameOrId::parse(target_name_or_id) {
+            Some(NameOrId::Name(name)) => User::from_name(name)?,
+            Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
+            _ => None,
+        }
+        .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))?;
+
+        let target_group = match sudo_options.group.as_deref() {
+            Some(name_or_id) => match NameOrId::parse(name_or_id) {
+                Some(NameOrId::Name(name)) => Group::from_name(name)?,
+                Some(NameOrId::Id(gid)) => Group::from_gid(gid)?,
+                _ => None,
+            },
+            None => Group::from_gid(target_user.gid)?,
+        }
+        .ok_or(Error::GroupNotFound(
+            sudo_options
+                .group
+                .clone()
+                .unwrap_or(target_user.gid.to_string()),
+        ))?;
 
         Ok(Context {
             hostname,
