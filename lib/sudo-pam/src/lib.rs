@@ -1,4 +1,7 @@
-use std::{ffi::CString, time::Duration};
+use std::{
+    ffi::{CStr, CString},
+    time::Duration,
+};
 
 use converse::{Converser, ConverserData};
 use error::pam_err;
@@ -32,7 +35,10 @@ impl<C: Converser> PamContextBuilder<C> {
         if let (Some(converser), Some(service_name)) = (self.converser, self.service_name) {
             let c_service_name = CString::new(service_name)?;
             let c_user = self.target_user.map(CString::new).transpose()?;
-            let c_user_ptr = c_user.map(|cu| cu.as_ptr()).unwrap_or_else(std::ptr::null);
+            let c_user_ptr = match c_user {
+                Some(ref c) => c.as_ptr(),
+                None => std::ptr::null(),
+            };
 
             let data = ConverserData {
                 converser,
@@ -185,7 +191,7 @@ impl<C: Converser> PamContext<C> {
 
     /// Set the user that is requesting the authentication.
     pub fn set_requesting_user(&mut self, user: &str) -> Result<(), PamError> {
-        let c_user = CString::new(user).expect("String contained null bytes");
+        let c_user = CString::new(user)?;
         self.pam_err(unsafe {
             pam_set_item(
                 self.pamh,
@@ -204,7 +210,7 @@ impl<C: Converser> PamContext<C> {
 
     /// Set the user that will be authenticated.
     pub fn set_user(&mut self, user: &str) -> Result<(), PamError> {
-        let c_user = CString::new(user).expect("String contained null bytes");
+        let c_user = CString::new(user)?;
         self.pam_err(unsafe {
             pam_set_item(
                 self.pamh,
@@ -234,7 +240,7 @@ impl<C: Converser> PamContext<C> {
 
     /// Set the host that is requesting authentication
     pub fn set_requesting_host(&mut self, host: &str) -> Result<(), PamError> {
-        let c_host = CString::new(host).expect("String contained null bytes");
+        let c_host = CString::new(host)?;
         self.pam_err(unsafe {
             pam_set_item(
                 self.pamh,
@@ -293,22 +299,59 @@ impl<C: Converser> PamContext<C> {
 
     /// Set an environment variable in the PAM environment
     pub fn set_env(&mut self, variable: &str, value: &str) -> Result<(), PamError> {
-        todo!("pam_putenv add")
+        let env = format!("{variable}={value}");
+        let c_env = CString::new(env)?;
+        self.pam_err(unsafe { pam_putenv(self.pamh, c_env.as_ptr()) })?;
+        Ok(())
     }
 
     /// Remove an environment variable in the PAM environment
     pub fn unset_env(&mut self, variable: &str) -> Result<(), PamError> {
-        todo!("pam_putenv delete")
+        let c_env = CString::new(variable)?;
+        self.pam_err(unsafe { pam_putenv(self.pamh, c_env.as_ptr()) })?;
+
+        Ok(())
     }
 
     /// Get an environment variable from the PAM environment
-    pub fn get_env(&mut self, variable: &str) -> Result<Option<String>, PamError> {
-        todo!("pam_getenv")
+    pub fn get_env(&mut self, variable: &str) -> Option<String> {
+        let c_env = CString::new(variable).expect("String contained nul bytes");
+        let c_res = unsafe { pam_getenv(self.pamh, c_env.as_ptr()) };
+        if c_res.is_null() {
+            None
+        } else {
+            Some(unsafe { string_from_ptr(c_res) })
+        }
     }
 
     /// Get a full listing of the current PAM environment
     pub fn env(&mut self) -> Result<Vec<(String, String)>, PamError> {
-        todo!("pam_getenvlist")
+        let mut res = vec![];
+        let envs = unsafe { pam_getenvlist(self.pamh) };
+        let mut curr_env = envs;
+        while unsafe { !(*curr_env).is_null() } {
+            let curr_str = unsafe { *curr_env };
+            let data = {
+                let cstr = unsafe { CStr::from_ptr(curr_str) };
+                if let Some((key, value)) = cstr.to_string_lossy().split_once('=') {
+                    Some((String::from(key), String::from(value)))
+                } else {
+                    None
+                }
+            };
+            if let Some(kv) = data {
+                res.push(kv);
+            }
+
+            // free the current string and move to the next one
+            unsafe { libc::free(curr_str as *mut libc::c_void) };
+            curr_env = unsafe { curr_env.offset(1) };
+        }
+
+        // free the entire array
+        unsafe { libc::free(envs as *mut libc::c_void) };
+
+        Ok(res)
     }
 }
 
