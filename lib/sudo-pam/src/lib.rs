@@ -30,6 +30,27 @@ pub struct PamContextBuilder<C> {
     target_user: Option<String>,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum CredentialsAction {
+    Establish,
+    Delete,
+    Reinitialize,
+    Refresh,
+}
+
+impl CredentialsAction {
+    pub fn as_int(&self) -> libc::c_int {
+        use CredentialsAction::*;
+
+        match self {
+            Establish => PAM_ESTABLISH_CRED as libc::c_int,
+            Delete => PAM_DELETE_CRED as libc::c_int,
+            Reinitialize => PAM_REINITIALIZE_CRED as libc::c_int,
+            Refresh => PAM_REFRESH_CRED as libc::c_int,
+        }
+    }
+}
+
 impl<C: Converser> PamContextBuilder<C> {
     pub fn build(self) -> Result<PamContext<C>, PamError> {
         if let (Some(converser), Some(service_name)) = (self.converser, self.service_name) {
@@ -257,8 +278,35 @@ impl<C: Converser> PamContext<C> {
         Ok(())
     }
 
-    // TODO: figure out what pam_setcred is supposed to do, and how the flags to it are used
-    // TODO: implement pam_setcred in a way that makes sense in our Rust context
+    /// Establish credentials to be stored in PAM
+    pub fn credentials_establish(&mut self) -> Result<(), PamError> {
+        self.credentials(CredentialsAction::Establish)
+    }
+
+    /// Delete the credentials stored in PAM
+    pub fn credentials_delete(&mut self) -> Result<(), PamError> {
+        self.credentials(CredentialsAction::Delete)
+    }
+
+    /// Re-initialize the credentials stored in PAM
+    pub fn credentials_reinitialize(&mut self) -> Result<(), PamError> {
+        self.credentials(CredentialsAction::Reinitialize)
+    }
+
+    /// Refresh the credentials stored in PAM
+    pub fn credentials_refresh(&mut self) -> Result<(), PamError> {
+        self.credentials(CredentialsAction::Refresh)
+    }
+
+    /// Updates to the credentials stored in PAM
+    pub fn credentials(&mut self, action: CredentialsAction) -> Result<(), PamError> {
+        let mut flags = action.as_int();
+        flags |= self.silent_flag();
+
+        self.pam_err(unsafe { pam_setcred(self.pamh, flags) })?;
+
+        Ok(())
+    }
 
     /// Ask the user to change the authentication token (password).
     ///
