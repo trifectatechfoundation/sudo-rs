@@ -15,10 +15,10 @@ mod error;
 
 pub use converse::CLIConverser;
 
-pub struct PamContext<C: Converser> {
+pub struct PamContext<'a, C: Converser> {
     data: Pin<Box<ConverserData<C>>>,
     pam_conv: Option<pam_conv>,
-    pamh: *mut pam_handle_t,
+    pamh: Option<&'a mut pam_handle_t>,
     silent: bool,
     allow_null_auth_token: bool,
     last_pam_status: Option<libc::c_int>,
@@ -53,7 +53,7 @@ impl CredentialsAction {
 }
 
 impl<C: Converser> PamContextBuilder<C> {
-    pub fn build(self) -> Result<PamContext<C>, PamError> {
+    pub fn build<'a>(self) -> Result<PamContext<'a, C>, PamError> {
         if let (Some(converser), Some(service_name)) = (self.converser, self.service_name) {
             let c_service_name = CString::new(service_name)?;
             let c_user = self.target_user.map(CString::new).transpose()?;
@@ -66,10 +66,11 @@ impl<C: Converser> PamContextBuilder<C> {
                 converser,
                 panicked: false,
             };
+
             let mut context = PamContext {
                 data: Box::pin(data),
                 pam_conv: None,
-                pamh: std::ptr::null_mut(),
+                pamh: None,
                 silent: false,
                 allow_null_auth_token: true,
                 last_pam_status: None,
@@ -77,19 +78,24 @@ impl<C: Converser> PamContextBuilder<C> {
             };
             context.pam_conv = Some(unsafe { context.data.as_mut().create_pam_conv() });
 
-            pam_err(
-                unsafe {
-                    pam_start(
-                        c_service_name.as_ptr(),
-                        c_user_ptr,
-                        &context.pam_conv.unwrap(),
-                        &mut context.pamh,
-                    )
-                },
-                context.pamh,
-            )?;
+            let mut pamh = std::ptr::null_mut();
+            let res = unsafe {
+                pam_start(
+                    c_service_name.as_ptr(),
+                    c_user_ptr,
+                    &context.pam_conv.unwrap(),
+                    &mut pamh,
+                )
+            };
 
-            Ok(context)
+            pam_err(res, pamh)?;
+
+            if pamh.is_null() {
+                Err(PamError::InvalidState)
+            } else {
+                context.pamh = Some(unsafe { &mut *pamh });
+                Ok(context)
+            }
         } else {
             Err(PamError::InvalidState)
         }
@@ -126,7 +132,14 @@ impl<C> Default for PamContextBuilder<C> {
     }
 }
 
-impl<C: Converser> PamContext<C> {
+impl<'a, C: Converser> PamContext<'a, C> {
+    fn handle(&mut self) -> Result<&mut pam_handle_t, PamError> {
+        match &mut self.pamh {
+            Some(h) => Ok(*h),
+            None => Err(PamError::InvalidState),
+        }
+    }
+
     /// Create a new builder that can be used to create a new context.
     pub fn builder() -> PamContextBuilder<C> {
         PamContextBuilder::default()
@@ -136,7 +149,11 @@ impl<C: Converser> PamContext<C> {
     /// for correct handling of the shutdown function.
     fn pam_err(&mut self, err: libc::c_int) -> Result<(), PamError> {
         self.last_pam_status = Some(err);
-        pam_err(err, self.pamh)
+        let ptr = match &mut self.pamh {
+            Some(h) => *h,
+            None => std::ptr::null_mut(),
+        };
+        pam_err(err, ptr)
     }
 
     /// Set whether output of pam calls should be silent or not, by default
@@ -175,7 +192,8 @@ impl<C: Converser> PamContext<C> {
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
 
-        self.pam_err(unsafe { pam_authenticate(self.pamh, flags) })?;
+        let res = unsafe { pam_authenticate(self.handle()?, flags) };
+        self.pam_err(res)?;
         Ok(())
     }
 
@@ -185,7 +203,8 @@ impl<C: Converser> PamContext<C> {
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
 
-        self.pam_err(unsafe { pam_acct_mgmt(self.pamh, flags) })?;
+        let res = unsafe { pam_acct_mgmt(self.handle()?, flags) };
+        self.pam_err(res)?;
         Ok(())
     }
 
@@ -207,45 +226,50 @@ impl<C: Converser> PamContext<C> {
     pub fn request_failure_delay(&mut self, delay: Duration) -> Result<(), PamError> {
         let delay = delay.as_micros();
         let delay = delay.min(libc::c_uint::MAX as u128) as libc::c_uint;
-        self.pam_err(unsafe { pam_fail_delay(self.pamh, delay) })?;
+        let res = unsafe { pam_fail_delay(self.handle()?, delay) };
+        self.pam_err(res)?;
         Ok(())
     }
 
     /// Set the user that is requesting the authentication.
     pub fn set_requesting_user(&mut self, user: &str) -> Result<(), PamError> {
         let c_user = CString::new(user)?;
-        self.pam_err(unsafe {
+        let res = unsafe {
             pam_set_item(
-                self.pamh,
+                self.handle()?,
                 PAM_RUSER as i32,
                 c_user.as_ptr() as *const libc::c_void,
             )
-        })?;
+        };
+        self.pam_err(res)?;
         Ok(())
     }
 
     /// Clear the user that is requesting the authentication.
     pub fn clear_requesting_user(&mut self) -> Result<(), PamError> {
-        self.pam_err(unsafe { pam_set_item(self.pamh, PAM_RUSER as i32, std::ptr::null()) })?;
+        let res = unsafe { pam_set_item(self.handle()?, PAM_RUSER as i32, std::ptr::null()) };
+        self.pam_err(res)?;
         Ok(())
     }
 
     /// Set the user that will be authenticated.
     pub fn set_user(&mut self, user: &str) -> Result<(), PamError> {
         let c_user = CString::new(user)?;
-        self.pam_err(unsafe {
+        let res = unsafe {
             pam_set_item(
-                self.pamh,
+                self.handle()?,
                 PAM_USER as i32,
                 c_user.as_ptr() as *const libc::c_void,
             )
-        })?;
+        };
+        self.pam_err(res)?;
         Ok(())
     }
 
     /// Clear the user that will be authenticated
     pub fn clear_user(&mut self) -> Result<(), PamError> {
-        self.pam_err(unsafe { pam_set_item(self.pamh, PAM_USER as i32, std::ptr::null()) })?;
+        let res = unsafe { pam_set_item(self.handle()?, PAM_USER as i32, std::ptr::null()) };
+        self.pam_err(res)?;
         Ok(())
     }
 
@@ -256,26 +280,29 @@ impl<C: Converser> PamContext<C> {
     /// authenticated user is.
     pub fn get_user(&mut self) -> Result<String, PamError> {
         let mut ptr = std::ptr::null();
-        self.pam_err(unsafe { pam_get_item(self.pamh, PAM_USER as i32, &mut ptr) })?;
+        let res = unsafe { pam_get_item(self.handle()?, PAM_USER as i32, &mut ptr) };
+        self.pam_err(res)?;
         Ok(unsafe { string_from_ptr(ptr as *const libc::c_char) })
     }
 
     /// Set the host that is requesting authentication
     pub fn set_requesting_host(&mut self, host: &str) -> Result<(), PamError> {
         let c_host = CString::new(host)?;
-        self.pam_err(unsafe {
+        let res = unsafe {
             pam_set_item(
-                self.pamh,
+                self.handle()?,
                 PAM_RHOST as i32,
                 c_host.as_ptr() as *const libc::c_void,
             )
-        })?;
+        };
+        self.pam_err(res)?;
         Ok(())
     }
 
     /// Clear the host that is requesting authentication
     pub fn clear_requesting_host(&mut self) -> Result<(), PamError> {
-        self.pam_err(unsafe { pam_set_item(self.pamh, PAM_RHOST as i32, std::ptr::null()) })?;
+        let res = unsafe { pam_set_item(self.handle()?, PAM_RHOST as i32, std::ptr::null()) };
+        self.pam_err(res)?;
         Ok(())
     }
 
@@ -304,7 +331,8 @@ impl<C: Converser> PamContext<C> {
         let mut flags = action.as_int();
         flags |= self.silent_flag();
 
-        self.pam_err(unsafe { pam_setcred(self.pamh, flags) })?;
+        let res = unsafe { pam_setcred(self.handle()?, flags) };
+        self.pam_err(res)?;
 
         Ok(())
     }
@@ -320,14 +348,16 @@ impl<C: Converser> PamContext<C> {
         if expired_only {
             flags |= PAM_CHANGE_EXPIRED_AUTHTOK as i32;
         }
-        self.pam_err(unsafe { pam_chauthtok(self.pamh, flags) })?;
+        let res = unsafe { pam_chauthtok(self.handle()?, flags) };
+        self.pam_err(res)?;
         Ok(())
     }
 
     /// Start a user session for the authenticated user.
     pub fn open_session(&mut self) -> Result<(), PamError> {
         if !self.session_started {
-            self.pam_err(unsafe { pam_open_session(self.pamh, self.silent_flag()) })?;
+            let res = unsafe { pam_open_session(self.handle()?, self.silent_flag()) };
+            self.pam_err(res)?;
             self.session_started = true;
             Ok(())
         } else {
@@ -338,7 +368,8 @@ impl<C: Converser> PamContext<C> {
     /// End the user session.
     pub fn close_session(&mut self) -> Result<(), PamError> {
         if self.session_started {
-            self.pam_err(unsafe { pam_close_session(self.pamh, self.silent_flag()) })?;
+            let res = unsafe { pam_close_session(self.handle()?, self.silent_flag()) };
+            self.pam_err(res)?;
             self.session_started = true;
             Ok(())
         } else {
@@ -350,33 +381,35 @@ impl<C: Converser> PamContext<C> {
     pub fn set_env(&mut self, variable: &str, value: &str) -> Result<(), PamError> {
         let env = format!("{variable}={value}");
         let c_env = CString::new(env)?;
-        self.pam_err(unsafe { pam_putenv(self.pamh, c_env.as_ptr()) })?;
+        let res = unsafe { pam_putenv(self.handle()?, c_env.as_ptr()) };
+        self.pam_err(res)?;
         Ok(())
     }
 
     /// Remove an environment variable in the PAM environment
     pub fn unset_env(&mut self, variable: &str) -> Result<(), PamError> {
         let c_env = CString::new(variable)?;
-        self.pam_err(unsafe { pam_putenv(self.pamh, c_env.as_ptr()) })?;
+        let res = unsafe { pam_putenv(self.handle()?, c_env.as_ptr()) };
+        self.pam_err(res)?;
 
         Ok(())
     }
 
     /// Get an environment variable from the PAM environment
-    pub fn get_env(&mut self, variable: &str) -> Option<String> {
+    pub fn get_env(&mut self, variable: &str) -> Result<Option<String>, PamError> {
         let c_env = CString::new(variable).expect("String contained nul bytes");
-        let c_res = unsafe { pam_getenv(self.pamh, c_env.as_ptr()) };
+        let c_res = unsafe { pam_getenv(self.handle()?, c_env.as_ptr()) };
         if c_res.is_null() {
-            None
+            Ok(None)
         } else {
-            Some(unsafe { string_from_ptr(c_res) })
+            Ok(Some(unsafe { string_from_ptr(c_res) }))
         }
     }
 
     /// Get a full listing of the current PAM environment
     pub fn env(&mut self) -> Result<Vec<(String, String)>, PamError> {
         let mut res = vec![];
-        let envs = unsafe { pam_getenvlist(self.pamh) };
+        let envs = unsafe { pam_getenvlist(self.handle()?) };
         let mut curr_env = envs;
         while unsafe { !(*curr_env).is_null() } {
             let curr_str = unsafe { *curr_env };
@@ -404,15 +437,15 @@ impl<C: Converser> PamContext<C> {
     }
 }
 
-impl PamContext<CLIConverser> {
+impl<'a> PamContext<'a, CLIConverser> {
     pub fn builder_cli() -> PamContextBuilder<CLIConverser> {
         PamContextBuilder::default().converser(CLIConverser)
     }
 }
 
-impl<C: Converser> Drop for PamContext<C> {
+impl<'a, C: Converser> Drop for PamContext<'a, C> {
     fn drop(&mut self) {
-        if !self.pamh.is_null() {
+        if self.pamh.is_some() {
             if !self.session_started {
                 let _ = self.close_session();
             }
@@ -423,7 +456,7 @@ impl<C: Converser> Drop for PamContext<C> {
             // Also see https://github.com/systemd/systemd/issues/22318
             unsafe {
                 pam_end(
-                    self.pamh,
+                    self.handle().unwrap(),
                     self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int),
                 ) | PAM_DATA_SILENT as i32
             };
