@@ -46,6 +46,10 @@ pub fn reject<T>() -> Parsed<T> {
 }
 
 macro_rules! unrecoverable {
+    // TODO: transmit begin-and-end position information to give an accurate "underlining" of the full error
+    (pos=$pos:expr, $stream:ident, $($str:expr),*) => {
+        return Err(crate::basic_parser::Status::Fatal($pos,format![$($str),*]))
+    };
     ($stream:ident, $($str:expr),*) => {
         return Err(crate::basic_parser::Status::Fatal($stream.get_pos(),format![$($str),*]))
     };
@@ -245,6 +249,7 @@ impl<T: Token> Parse for T {
             }
         }
 
+        let start_pos = stream.get_pos();
         let mut str = accept_escaped::<T>(T::accept_1st, stream)?.to_string();
         while let Ok(c) = accept_escaped::<T>(T::accept, stream) {
             if str.len() >= T::MAX_LEN {
@@ -255,7 +260,7 @@ impl<T: Token> Parse for T {
 
         match T::construct(str) {
             Ok(result) => make(result),
-            Err(msg) => unrecoverable!(stream, "{msg}"),
+            Err(msg) => unrecoverable!(pos = start_pos, stream, "{msg}"),
         }
     }
 }

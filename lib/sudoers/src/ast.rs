@@ -291,12 +291,12 @@ impl Parse for CommandSpec {
                 "sha384" => 384,
                 "sha512" => 512,
                 "sudoedit" => todo!(), // note: special behaviour of forward slashes in wildcards, tread carefully
-                _ => unrecoverable!(stream, "parse error: expected command but found {keyword}"),
+                _ => unrecoverable!(stream, "expected command but found {keyword}"),
             };
             expect_syntax(':', stream)?;
             let hex = expect_nonterminal::<Sha2>(stream)?;
             if 8 * hex.0.len() != hash_type {
-                unrecoverable!(stream, "parse error: digest length incorrect for sha{hash_type}")
+                unrecoverable!(stream, "digest length incorrect for sha{hash_type}")
             };
 
             hex
@@ -395,12 +395,13 @@ impl Parse for Sudo {
             };
         }
 
+        let start_pos = stream.get_pos();
         if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
             // element 1 always exists (parse_list fails on an empty list)
             let key = &users[0];
             if let Some(directive) = maybe(get_directive(key, stream))? {
                 if users.len() != 1 {
-                    unrecoverable!(stream, "invalid user name list");
+                    unrecoverable!(pos = start_pos, stream, "invalid user name list");
                 }
                 make(Sudo::Decl(directive))
             } else {
@@ -509,19 +510,20 @@ fn get_directive(
 
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
-        let bool_setting = |name: String, value: bool, stream: &mut T| {
+        let id_pos = stream.get_pos();
+        let bool_setting = |name: String, value: bool, _stream: &mut T| {
             // TODO: other types in a boolean context
             if is_bool_param(&name) {
                 make(Defaults(name, DefaultValue::Flag(value)))
             } else {
-                unrecoverable!(stream, "{name} is not a boolean setting");
+                unrecoverable!(pos = id_pos, _stream, "{name} is not a boolean setting");
             }
         };
 
         let list_items = |mode: Mode, name: String, stream: &mut T| {
             expect_syntax('=', stream)?;
             if !is_list_param(&name) {
-                unrecoverable!(stream, "{name} is not a list parameter");
+                unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
             }
             let items = parse_vars(stream)?;
 
