@@ -129,14 +129,30 @@ pub(crate) struct ConverserData<C> {
 }
 
 impl<C: Converser> ConverserData<C> {
-    pub(crate) unsafe fn create_pam_conv(&mut self) -> pam_conv {
+    /// This function creates a pam_conv struct with the converse function for
+    /// the specific converser.
+    pub(crate) unsafe fn create_pam_conv(self: std::pin::Pin<&mut Self>) -> pam_conv {
         pam_conv {
             conv: Some(converse::<C>),
-            appdata_ptr: self as *mut ConverserData<C> as *mut libc::c_void,
+            appdata_ptr: self.get_unchecked_mut() as *mut ConverserData<C> as *mut libc::c_void,
         }
     }
 }
 
+/// This function implements the conversation function of `pam_conv`.
+///
+/// This function should always be called with an appdata_ptr that implements
+/// the `Converser` trait. It then collects the messages provided into a vector
+/// that is passed to the converser. The converser can then respond to those
+/// messages and add their replies (where applicable). Finally the replies are
+/// converted back to the C interface and returned to PAM. This function tries
+/// to catch any unwinding panics and sets state to indicate that a panic
+/// occured.
+///
+/// # Safety
+/// * If called with an appdata_ptr that does not correspond with the Converser
+///   this function will exhibit undefined behavior.
+/// * The messages from PAM are assumed to be formatted correctly.
 pub(crate) extern "C" fn converse<C: Converser>(
     num_msg: libc::c_int,
     msg: *mut *const pam_message,

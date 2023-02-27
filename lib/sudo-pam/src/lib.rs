@@ -1,5 +1,6 @@
 use std::{
     ffi::{CStr, CString},
+    pin::Pin,
     time::Duration,
 };
 
@@ -15,7 +16,7 @@ mod error;
 pub use converse::CLIConverser;
 
 pub struct PamContext<C: Converser> {
-    data: ConverserData<C>,
+    data: Pin<Box<ConverserData<C>>>,
     pam_conv: Option<pam_conv>,
     pamh: *mut pam_handle_t,
     silent: bool,
@@ -66,7 +67,7 @@ impl<C: Converser> PamContextBuilder<C> {
                 panicked: false,
             };
             let mut context = PamContext {
-                data,
+                data: Box::pin(data),
                 pam_conv: None,
                 pamh: std::ptr::null_mut(),
                 silent: false,
@@ -74,7 +75,7 @@ impl<C: Converser> PamContextBuilder<C> {
                 last_pam_status: None,
                 session_started: false,
             };
-            context.pam_conv = Some(unsafe { context.data.create_pam_conv() });
+            context.pam_conv = Some(unsafe { context.data.as_mut().create_pam_conv() });
 
             pam_err(
                 unsafe {
