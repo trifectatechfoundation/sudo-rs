@@ -3,6 +3,8 @@ use std::ffi::NulError;
 use sudo_pam_sys::*;
 use thiserror::Error;
 
+pub type PamResult<T, E = PamError> = Result<T, E>;
+
 #[derive(PartialEq, Eq, Debug)]
 pub enum PamErrorType {
     Success,

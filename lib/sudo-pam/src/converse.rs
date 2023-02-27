@@ -2,12 +2,21 @@ use std::io::{BufRead, Write};
 
 use sudo_pam_sys::*;
 
-use crate::{PamError, PamErrorType};
+use crate::{error::PamResult, PamErrorType};
 
+/// Each message in a PAM conversation will have a message style. Each of these
+/// styles must be handled separately.
 pub enum PamMessageStyle {
+    /// Prompt for input using a message. The input should considered secret
+    /// and should be hidden from view.
     PromptEchoOff = PAM_PROMPT_ECHO_OFF as isize,
+    /// Prompt for input using a message. The input does not have to be
+    /// considered a secret and may be displayed to the user.
     PromptEchoOn = PAM_PROMPT_ECHO_ON as isize,
+    /// Display an error message. The user should not be prompted for any input.
     ErrorMessage = PAM_ERROR_MSG as isize,
+    /// Display some informational text. The user should not be prompted for any
+    /// input.
     TextInfo = PAM_TEXT_INFO as isize,
 }
 
@@ -25,6 +34,8 @@ impl PamMessageStyle {
     }
 }
 
+/// A PamMessage contains the data in a single message of a pam conversation
+/// and contains the response to that message.
 pub struct PamMessage {
     pub msg: String,
     pub style: PamMessageStyle,
@@ -32,45 +43,70 @@ pub struct PamMessage {
 }
 
 impl PamMessage {
+    /// Set a response value to the message.
     pub fn set_response(&mut self, resp: String) {
         self.response = Some(resp);
     }
 
+    /// Clear the response to the message.
     pub fn clear_response(&mut self) {
         self.response = None;
     }
 }
 
+/// Contains the conversation messages and allows setting responses to
+/// each of these messages.
+///
+/// Note that generally there will only be one message in each conversation
+/// because of historical reasons, and instead multiple conversations will
+/// be started for individual messages.
 pub struct Conversation {
     messages: Vec<PamMessage>,
 }
 
 impl Conversation {
+    /// Get an iterator of the messages in this conversation.
     pub fn messages(&self) -> impl Iterator<Item = &PamMessage> {
         self.messages.iter()
     }
 
+    /// Get a mutable iterator of the messages in this conversation.
+    ///
+    /// This can be used to add the resulting values to the messages.
     pub fn messages_mut(&mut self) -> impl Iterator<Item = &mut PamMessage> {
         self.messages.iter_mut()
     }
 }
 
 pub trait Converser {
-    fn handle_conversation(&self, conversation: &mut Conversation) -> Result<(), PamError>;
+    /// Handle all the message in the given conversation. They may all be
+    /// handled in sequence or at the same time if possible.
+    fn handle_conversation(&self, conversation: &mut Conversation) -> PamResult<()>;
 }
 
 pub trait SequentialConverser: Converser {
-    fn handle_normal_prompt(&self, msg: &str) -> Result<String, PamError>;
-    fn handle_hidden_prompt(&self, msg: &str) -> Result<String, PamError>;
-    fn handle_error(&self, msg: &str) -> Result<(), PamError>;
-    fn handle_info(&self, msg: &str) -> Result<(), PamError>;
+    /// Handle a normal prompt, i.e. present some message and ask for a value.
+    /// The value is not considered a secret.
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<String>;
+
+    /// Handle a hidden prompt, i.e. present some message and ask for a value.
+    /// The value is considered secret and should not be visible.
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String>;
+
+    /// Display an error message to the user, the user does not need to input a
+    /// value.
+    fn handle_error(&self, msg: &str) -> PamResult<()>;
+
+    /// Display an informational message to the user, the user does not need to
+    /// input a value.
+    fn handle_info(&self, msg: &str) -> PamResult<()>;
 }
 
 impl<T> Converser for T
 where
     T: SequentialConverser,
 {
-    fn handle_conversation(&self, conversation: &mut Conversation) -> Result<(), PamError> {
+    fn handle_conversation(&self, conversation: &mut Conversation) -> PamResult<()> {
         use PamMessageStyle::*;
 
         for msg in conversation.messages_mut() {
@@ -94,10 +130,12 @@ where
     }
 }
 
+/// A converser that uses stdin/stdout/stderr to display messages and to request
+/// input from the user.
 pub struct CLIConverser;
 
 impl SequentialConverser for CLIConverser {
-    fn handle_normal_prompt(&self, msg: &str) -> Result<String, PamError> {
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
         print!("{msg}");
         std::io::stdout().flush().unwrap();
 
@@ -107,16 +145,16 @@ impl SequentialConverser for CLIConverser {
         Ok(s)
     }
 
-    fn handle_hidden_prompt(&self, msg: &str) -> Result<String, PamError> {
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
         Ok(rpassword::prompt_password(msg)?)
     }
 
-    fn handle_error(&self, msg: &str) -> Result<(), PamError> {
+    fn handle_error(&self, msg: &str) -> PamResult<()> {
         eprintln!("{msg}");
         Ok(())
     }
 
-    fn handle_info(&self, msg: &str) -> Result<(), PamError> {
+    fn handle_info(&self, msg: &str) -> PamResult<()> {
         println!("{msg}");
         Ok(())
     }
