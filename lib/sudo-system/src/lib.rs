@@ -1,5 +1,6 @@
 use std::{ffi::CString, fs::OpenOptions, mem::MaybeUninit, os::fd::AsRawFd, path::PathBuf};
 
+pub use libc::PATH_MAX;
 use sudo_cutils::*;
 
 pub fn hostname() -> String {
