@@ -28,7 +28,7 @@ impl Many for Username {}
 pub struct Digits(pub u32);
 
 impl Token for Digits {
-    const MAX_LEN: usize = 10;
+    const MAX_LEN: usize = 9;
 
     fn construct(s: String) -> Parsed<Self> {
         Ok(Digits(s.parse().unwrap()))
