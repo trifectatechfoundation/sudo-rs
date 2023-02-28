@@ -1,19 +1,16 @@
 use crate::error::Error;
 
 pub fn authenticate(username: &str) -> Result<(), Error> {
-    let mut conversation = pam_client::conv_cli::Conversation::new();
-    conversation.set_info_prefix("");
+    let mut pam = sudo_pam::PamContext::builder_cli()
+        .target_user(username)
+        .service_name("sudo")
+        .build()?;
 
-    let mut context = pam_client::Context::new("sukkelsudo", Some(username), conversation)
-        .map_err(|_| Error::auth("failed to initialize PAM context"))?;
+    pam.mark_silent(true);
+    pam.mark_allow_null_auth_token(false);
 
-    context
-        .authenticate(pam_client::Flag::NONE)
-        .map_err(|_| Error::auth("could not authenticate"))?;
-
-    context
-        .acct_mgmt(pam_client::Flag::NONE)
-        .map_err(|_| Error::auth("account validation failed"))?;
+    pam.authenticate()?;
+    pam.validate_account()?;
 
     Ok(())
 }

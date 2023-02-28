@@ -9,3 +9,4 @@ sudo-common = { path = "../lib/sudo-common" }
 sudo-system = { path = "../lib/sudo-system" }
 sudo-cli = { path = "../lib/sudo-cli" }
 sudoers = { path = "../lib/sudoers" }
+sudo-pam = { path = "../lib/sudo-pam" }
