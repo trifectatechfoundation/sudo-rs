@@ -6,11 +6,12 @@ license = "Apache-2.0 OR MIT"
 build = "build.rs"
 
 [dependencies]
-sudo-system = { path = "../sudo-system" }
+libc = "0.2.139"
+sudo-cli = { path = "../sudo-cli" }
 sudo-pam = { path = "../sudo-pam" }
+sudo-system = { path = "../sudo-system" }
 thiserror = "1.0.38"
 which = "4.4.0"
-libc = "0.2.139"
 
 [dev-dependencies]
 sudo-cli = { path = "../sudo-cli" }

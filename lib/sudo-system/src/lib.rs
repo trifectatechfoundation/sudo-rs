@@ -306,7 +306,6 @@ mod tests {
     use crate::User;
 
     #[test]
-    #[ignore = "system specific"]
     fn test_get_user() {
         let root = User::from_uid(0).unwrap().unwrap();
 

@@ -5,8 +5,10 @@ use thiserror::Error;
 pub enum Error {
     #[error("Invalid command")]
     InvalidCommand,
-    #[error("User not found")]
-    UserNotFound,
+    #[error("User '{0}' not found")]
+    UserNotFound(String),
+    #[error("Group '{0}' not found")]
+    GroupNotFound(String),
     #[error("Exec failed")]
     Exec,
     #[error("Authentication error: {0}")]
@@ -15,6 +17,8 @@ pub enum Error {
     Configuration(String),
     #[error("PAM error: {0}")]
     Pam(#[from] PamError),
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 impl Error {
