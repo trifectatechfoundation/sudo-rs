@@ -1,3 +1,9 @@
+// TODO: add "allowed:" restrictions on string parameters that are enum-like; and maybe also on
+// integers that have a particular range restriction
+//
+// FUTURE IDEA: use a representation that allows for more Rust-type structure rather than passing
+// strings around; some settings in sudoers file are more naturally represented like that, such as
+// "verifypw" and "logfile"
 #[derive(Debug)]
 pub enum SudoDefault {
     Flag(bool),
@@ -6,7 +12,11 @@ pub enum SudoDefault {
     List(&'static [&'static str]),
 }
 
-type OptTuple<T> = (T, Option<T>);
+#[derive(Debug)]
+pub struct OptTuple<T> {
+    pub default: T,
+    pub negated: Option<T>,
+}
 
 mod settings_dsl;
 use settings_dsl::*;
@@ -38,10 +48,10 @@ mod test {
 
         use SudoDefault::*;
         test! { env_reset    => Flag(true) };
-        test! { passwd_tries => Integer((3,None)) };
-        test! { editor       => Text((_, None))};
-        test! { env_keep     => List(_)};
-        test! { umask        => Integer((18, Some(511))) };
-        test! { verifypw     => Text(("all", Some("never"))) };
+        test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }) };
+        test! { editor       => Text(_) };
+        test! { env_keep     => List(_) };
+        test! { umask        => Integer(OptTuple { default: 18, negated: Some(511) }) };
+        test! { verifypw     => Text(OptTuple { default: "all", negated: Some("never") }) };
     }
 }

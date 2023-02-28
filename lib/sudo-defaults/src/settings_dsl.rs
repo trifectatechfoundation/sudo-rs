@@ -1,8 +1,6 @@
-use super::SudoDefault;
-
 macro_rules! add_from {
     ($ctor:ident, $type:ty) => {
-        impl From<$type> for SudoDefault {
+        impl From<$type> for $crate::SudoDefault {
             fn from(value: $type) -> Self {
                 SudoDefault::$ctor(value)
             }
@@ -10,30 +8,33 @@ macro_rules! add_from {
     };
 
     ($ctor:ident, $type:ty, negatable) => {
-        impl From<$type> for SudoDefault {
+        impl From<$type> for $crate::SudoDefault {
             fn from(value: $type) -> Self {
-                SudoDefault::$ctor((value, None))
+                SudoDefault::$ctor(OptTuple {
+                    default: value,
+                    negated: None,
+                })
             }
         }
 
-        impl From<($type, $type)> for SudoDefault {
+        impl From<($type, $type)> for $crate::SudoDefault {
             fn from((value, neg): ($type, $type)) -> Self {
-                SudoDefault::$ctor((value, Some(neg)))
+                SudoDefault::$ctor(OptTuple {
+                    default: value,
+                    negated: Some(neg),
+                })
             }
         }
     };
 }
 
-add_from!(Flag, bool);
-add_from!(Integer, usize, negatable);
-add_from!(Text, &'static str, negatable);
-add_from!(List, &'static [&'static str]);
-
 macro_rules! sliceify {
     ([$($value:tt),*]) => {
         &[$($value),*][..]
     };
-    ($value:tt) => { $value };
+    ($value:tt) => {
+        $value
+    };
 }
 
 macro_rules! tupleify {
@@ -48,6 +49,11 @@ macro_rules! tupleify {
 macro_rules! defaults {
     ($($name:ident = $value:tt $((!= $negate:tt))?)*) => {
         pub fn sudo_default(var: &str) -> Option<SudoDefault> {
+            add_from!(Flag, bool);
+            add_from!(Integer, usize, negatable);
+            add_from!(Text, &'static str, negatable);
+            add_from!(List, &'static [&'static str]);
+
             Some(
                 match var {
                     $(stringify!($name) => {
@@ -62,6 +68,7 @@ macro_rules! defaults {
     };
 }
 
+pub(super) use add_from;
 pub(super) use defaults;
 pub(super) use sliceify;
 pub(super) use tupleify;
