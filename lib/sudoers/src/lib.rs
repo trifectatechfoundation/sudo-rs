@@ -11,6 +11,9 @@ use ast::*;
 use sudo_common::sysuser::{UnixGroup, UnixUser};
 use tokens::*;
 
+/// How many nested include files do we allow?
+const INCLUDE_LIMIT: u8 = 128;
+
 /// Export some necessary symbols from modules
 pub use ast::Tag;
 pub type Error = basic_parser::Status;
@@ -86,6 +89,8 @@ pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
     let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
+    let mut sha2_eq = check_all_sha2(cmdline);
+
     let allowed_commands = rules
         .iter()
         .filter_map(|sudo| {
@@ -114,7 +119,8 @@ pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 
             Some(matching_rules.collect::<Vec<_>>())
         })
-        .flatten();
+        .flatten()
+        .filter(|CommandSpec(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
 
     find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases).cloned()
 }
@@ -243,12 +249,18 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
     let mut result: Sudoers = Default::default();
 
     impl Sudoers {
-        fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>) {
-            if let Ok(subsudoer) = read_sudoers(path) {
-                self.process(subsudoer, diagnostics)
+        fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>, count: &mut u8) {
+            if *count >= INCLUDE_LIMIT {
+                diagnostics.push(Error::Fatal(format!(
+                    "include file limit reached opening `{}'",
+                    path.display()
+                )))
+            } else if let Ok(subsudoer) = read_sudoers(path) {
+                *count += 1;
+                self.process(subsudoer, diagnostics, count)
             } else {
                 diagnostics.push(Error::Fatal(format!(
-                    "cannot open sudoers file {}",
+                    "cannot open sudoers file `{}'",
                     path.display()
                 )))
             }
@@ -258,6 +270,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
             &mut self,
             sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
             diagnostics: &mut Vec<Error>,
+            safety_count: &mut u8,
         ) {
             for item in sudoers {
                 match item {
@@ -295,7 +308,9 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                             }
                         }
 
-                        Sudo::Include(path) => self.include(path.as_ref(), diagnostics),
+                        Sudo::Include(path) => {
+                            self.include(path.as_ref(), diagnostics, safety_count)
+                        }
 
                         Sudo::IncludeDir(path) => {
                             let Ok(files) = std::fs::read_dir(&path) else {
@@ -306,7 +321,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                                 .filter_map(|direntry| {
                                     let path = direntry.ok()?.path();
                                     let text = path.to_str()?;
-                                    if text.contains('~') || text.contains('.') {
+                                    if text.ends_with('~') || text.contains('.') {
                                         None
                                     } else {
                                         Some(path)
@@ -315,7 +330,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                                 .collect::<Vec<_>>();
                             safe_files.sort();
                             for file in safe_files {
-                                self.include(file.as_ref(), diagnostics)
+                                self.include(file.as_ref(), diagnostics, safety_count)
                             }
                         }
                     },
@@ -327,7 +342,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
     }
 
     let mut diagnostics = vec![];
-    result.process(sudoers, &mut diagnostics);
+    result.process(sudoers, &mut diagnostics, &mut 0);
 
     let alias = &mut result.aliases;
     alias.user.0 = sanitize_alias_table(&alias.user.1, &mut diagnostics);
@@ -401,6 +416,19 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
     visitor.order
 }
 
+mod compute_hash;
+
+fn check_all_sha2(cmdline: &str) -> impl FnMut(&Box<[u8]>) -> bool + '_ {
+    use compute_hash::sha2;
+
+    let mut memo = std::collections::HashMap::new(); // pun not intended
+
+    move |bytes| {
+        let bits = 8 * bytes.len() as u16;
+        memo.entry(bits).or_insert_with(|| sha2(bits, cmdline)) == bytes
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -434,6 +462,48 @@ mod test {
     #[test]
     fn ambiguous_spec() {
         let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else { todo!() };
+    }
+
+    #[test]
+    fn digest_spec() {
+        let CommandSpec(_, _, digest) = parse_eval(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777f34236 /bin/ls",
+        );
+        let Sha2(vec) = digest;
+        assert_eq!(
+            *vec,
+            [
+                0xc1, 0x20, 0x53, 0xca, 0x89, 0x41, 0x81, 0xbc, 0x13, 0x7b, 0x94, 0x0b, 0x06, 0xb2,
+                0xe2, 0x45, 0x9e, 0x9a, 0xa7, 0xb4, 0x6d, 0x2d, 0x31, 0x77, 0x77, 0xf3, 0x42, 0x36,
+            ]
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn digest_spec_fail1() {
+        // the hash length is incorrect
+        parse_eval::<CommandSpec>(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777f342 /bin/ls",
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn digest_spec_fail2() {
+        // the hash length has an odd length
+        parse_eval::<CommandSpec>(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777f3421 /bin/ls",
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn digest_spec_fail3() {
+        // the hash length has an invalid char
+        parse_eval::<CommandSpec>(
+            "NOPASSWD: sha224: c12053ca894181bc137b940b06b2e2459e9aa7b46d2d317777g34236 /bin/ls",
+        );
     }
 
     #[test]

@@ -14,7 +14,7 @@ impl<'a> TryFrom<&'a [String]> for CommandAndArguments<'a> {
     type Error = Error;
 
     fn try_from(external_args: &'a [String]) -> Result<Self, Self::Error> {
-        let mut iter = external_args.into_iter();
+        let mut iter = external_args.iter();
 
         let command = iter.next().ok_or(Error::InvalidCommand)?.to_string();
 
@@ -37,8 +37,8 @@ impl<'a, T: FromStr> NameOrId<'a, T> {
     pub fn parse(input: &'a str) -> Option<Self> {
         if input.is_empty() {
             None
-        } else if input.starts_with('#') {
-            input[1..].parse::<T>().ok().map(|id| Self::Id(id))
+        } else if let Some(stripped) = input.strip_prefix('#') {
+            stripped.parse::<T>().ok().map(|id| Self::Id(id))
         } else {
             Some(Self::Name(input))
         }

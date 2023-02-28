@@ -1,43 +1,24 @@
-use std::fmt;
+use sudo_pam::PamError;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
+    #[error("Invalid command")]
     InvalidCommand,
+    #[error("User '{0}' not found")]
     UserNotFound(String),
+    #[error("Group '{0}' not found")]
     GroupNotFound(String),
+    #[error("Exec failed")]
     Exec,
+    #[error("Authentication error: {0}")]
     Authentication(String),
+    #[error("Configuration error: {0}")]
     Configuration(String),
-    IoError(std::io::Error),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::InvalidCommand => write!(f, "Invalid command provided"),
-            Error::UserNotFound(e) => write!(f, "User not found {}", e),
-            Error::GroupNotFound(e) => write!(f, "Group not found {}", e),
-            Error::Exec => write!(f, "Error executing the command"),
-            Error::Authentication(e) => write!(f, "Authentication failed. {e}"),
-            Error::Configuration(e) => write!(f, "Invalid configuration. {e}"),
-            Error::IoError(e) => write!(f, "{e}"),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::IoError(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(e: std::io::Error) -> Self {
-        Error::IoError(e)
-    }
+    #[error("PAM error: {0}")]
+    Pam(#[from] PamError),
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 impl Error {

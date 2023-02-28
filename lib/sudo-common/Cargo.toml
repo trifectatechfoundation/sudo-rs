@@ -7,7 +7,11 @@ build = "build.rs"
 
 [dependencies]
 libc = "0.2.139"
-pam-client = "0.5"
 sudo-cli = { path = "../sudo-cli" }
+sudo-pam = { path = "../sudo-pam" }
 sudo-system = { path = "../sudo-system" }
+thiserror = "1.0.38"
 which = "4.4.0"
+
+[dev-dependencies]
+sudo-cli = { path = "../sudo-cli" }

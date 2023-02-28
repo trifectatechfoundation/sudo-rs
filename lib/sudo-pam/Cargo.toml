@@ -1,9 +1,12 @@
 [package]
-name = "sudo-system"
+name = "sudo-pam"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-libc = "0.2.139"
+sudo-pam-sys = { path = "../sudo-pam-sys" }
 sudo-cutils = { path = "../sudo-cutils" }
+thiserror = "1.0.38"
+libc = "0.2.139"
+rpassword = "7.2.0"

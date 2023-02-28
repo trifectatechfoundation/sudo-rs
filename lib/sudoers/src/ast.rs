@@ -19,7 +19,7 @@ pub type SpecList<T> = Vec<Spec<T>>;
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub enum Identifier {
     Name(String),
-    ID(libc::gid_t),
+    ID(u32),
 }
 
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
@@ -47,7 +47,7 @@ pub enum Tag {
 
 /// Commands with attached attributes.
 #[derive(Debug)]
-pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>);
+pub struct CommandSpec(pub Vec<Tag>, pub Spec<Command>, pub Sha2);
 
 /// The main AST object for one sudoer-permission line
 #[derive(Debug)]
@@ -268,13 +268,15 @@ impl Parse for MetaOrTag {
 
 impl Parse for CommandSpec {
     fn parse(stream: &mut Peekable<impl Iterator<Item = char>>) -> Parsed<Self> {
+        let no_hash = Sha2(Box::default());
         let mut tags = Vec::new();
         while let Some(MetaOrTag(keyword)) = try_nonterminal(stream)? {
+            use Qualified::Allow;
             match keyword {
                 Meta::Only(tag) => tags.push(tag),
-                Meta::All => return make(CommandSpec(tags, Qualified::Allow(Meta::All))),
+                Meta::All => return make(CommandSpec(tags, Allow(Meta::All), no_hash)),
                 Meta::Alias(name) => {
-                    return make(CommandSpec(tags, Qualified::Allow(Meta::Alias(name))))
+                    return make(CommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
                 }
             }
             if tags.len() > CommandSpec::LIMIT {
@@ -282,9 +284,29 @@ impl Parse for CommandSpec {
             }
         }
 
+        let digest = if let Some(Username(keyword)) = try_nonterminal(stream)? {
+            let hash_type = match keyword.as_str() {
+                "sha224" => 224,
+                "sha256" => 256,
+                "sha384" => 384,
+                "sha512" => 512,
+                "sudoedit" => todo!(), // note: special behaviour of forward slashes in wildcards, tread carefully
+                _ => unrecoverable!("parse error: expected command but found {keyword}"),
+            };
+            expect_syntax(':', stream)?;
+            let hex = expect_nonterminal::<Sha2>(stream)?;
+            if 8 * hex.0.len() != hash_type {
+                unrecoverable!("parse error: digest length incorrect for sha{hash_type}")
+            };
+
+            hex
+        } else {
+            no_hash
+        };
+
         let cmd: Spec<Command> = expect_nonterminal(stream)?;
 
-        make(CommandSpec(tags, cmd))
+        make(CommandSpec(tags, cmd, digest))
     }
 }
 

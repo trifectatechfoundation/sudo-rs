@@ -4,7 +4,10 @@ members = [
   "test-binaries",
   "lib/sudo-cli",
   "lib/sudo-common",
+  "lib/sudo-cutils",
   "lib/sudo-system",
   "lib/sudoers",
+  "lib/sudo-pam-sys",
+  "lib/sudo-pam",
 ]
 default-members = ["sudo"]
