@@ -24,25 +24,27 @@ impl Container {
         Ok(Container { id })
     }
 
-    pub fn exec(&self, cmd: &[&str], user: As) -> Result<ExecOutput> {
-        let mut docker_cmd = Command::new("docker");
-        docker_cmd.arg("exec");
-        if let Some(user) = user.as_string() {
-            docker_cmd.arg("--user");
-            docker_cmd.arg(user);
-        }
-        helpers::run(docker_cmd.arg(&self.id).args(cmd))
+    pub fn exec(&self, cmd: &[impl AsRef<str>], user: As) -> Result<ExecOutput> {
+        helpers::run(&mut self.docker_cmd(cmd, user))
     }
 
     /// Returns `$cmd`'s stdout if it successfully exists
-    pub fn stdout(&self, cmd: &[&str], user: As) -> Result<String> {
+    pub fn stdout(&self, cmd: &[impl AsRef<str>], user: As) -> Result<String> {
+        helpers::stdout(&mut self.docker_cmd(cmd, user))
+    }
+
+    fn docker_cmd(&self, cmd: &[impl AsRef<str>], user: As) -> Command {
         let mut docker_cmd = Command::new("docker");
         docker_cmd.arg("exec");
         if let Some(user) = user.as_string() {
             docker_cmd.arg("--user");
             docker_cmd.arg(user);
         }
-        helpers::stdout(docker_cmd.arg(&self.id).args(cmd))
+        docker_cmd.arg(&self.id);
+        for arg in cmd {
+            docker_cmd.arg(arg.as_ref());
+        }
+        docker_cmd
     }
 
     pub fn cp(&self, path_in_container: &str, file_contents: &str) -> Result<()> {
