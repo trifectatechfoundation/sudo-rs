@@ -242,12 +242,13 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
 pub struct Settings {
     pub flags: HashSet<String>,
     pub str_value: HashMap<String, String>,
+    pub int_value: HashMap<String, i128>,
     pub list: HashMap<String, HashSet<String>>,
 }
 
 /// Process a sudoers-parsing file into a workable AST
 fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Sudoers, Vec<Error>) {
-    use DefaultValue::*;
+    use ConfigValue::*;
     use Directive::*;
 
     let mut result: Sudoers = Default::default();
@@ -297,6 +298,9 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                         }
                         Sudo::Decl(Defaults(name, Text(value))) => {
                             self.settings.str_value.insert(name, value);
+                        }
+                        Sudo::Decl(Defaults(name, Num(value))) => {
+                            self.settings.int_value.insert(name, value);
                         }
 
                         Sudo::Decl(Defaults(name, List(mode, values))) => {

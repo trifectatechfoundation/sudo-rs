@@ -7,7 +7,7 @@
 #[derive(Debug)]
 pub enum SudoDefault {
     Flag(bool),
-    Integer(OptTuple<usize>),
+    Integer(OptTuple<i128>),
     Text(OptTuple<&'static str>),
     List(&'static [&'static str]),
 }
@@ -23,14 +23,23 @@ use settings_dsl::*;
 
 defaults! {
     env_reset       = true
+    mail_badpass    = true
+    use_pty         = false
 
     passwd_tries    = 3
     umask           = 0o22 (!= 0o777)
 
     editor          = "/usr/bin/editor"
+
+    secure_path     = "" (!= "")
     verifypw        = "all" (!= "never")
 
-    env_keep        = ["*=()*", "XDG_CURRENT_DESKTOP", "XAUTHORIZATION", "XAUTHORITY", "PS2", "PS1", "PATH", "LS_COLORS", "KRB5CCNAME", "HOSTNAME", "DPKG_COLORS", "DISPLAY", "COLORS"]
+
+    env_keep        = ["XDG_CURRENT_DESKTOP", "XAUTHORIZATION", "XAUTHORITY", "PS2", "PS1", "PATH", "LS_COLORS", "KRB5CCNAME", "HOSTNAME", "DPKG_COLORS", "DISPLAY", "COLORS"]
+
+    env_delete      = ["*=()*", "RUBYOPT", "RUBYLIB", "PYTHONUSERBASE", "PYTHONINSPECT", "PYTHONPATH", "PYTHONHOME", "TMPPREFIX", "ZDOTDIR", "READNULLCMD", "NULLCMD", "FPATH",
+                       "PERL5DB", "PERL5OPT", "PERL5LIB", "PERLLIB", "PERLIO_DEBUG", "JAVA_TOOL_OPTIONS", "SHELLOPTS", "BASHOPTS", "GLOBIGNORE", "PS4", "BASH_ENV", "ENV",
+                       "TERMCAP", "TERMPATH", "TERMINFO_DIRS", "TERMINFO", "_RLD*", "LD_*", "PATH_LOCALE", "NLSPATH", "HOSTALIASES", "RES_OPTIONS", "LOCALDOMAIN", "CDPATH", "IFS"]
 }
 
 #[cfg(test)]
