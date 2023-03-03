@@ -1,5 +1,5 @@
 use std::env;
-use sudo_common::sysuser::{UnixGroup, UnixUser};
+use sudo_system::interface::{UnixGroup, UnixUser};
 
 fn chatty_check_permission(
     sudoers: sudoers::Sudoers,

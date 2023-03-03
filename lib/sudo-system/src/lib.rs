@@ -232,6 +232,9 @@ impl Group {
     }
 }
 
+// generalized traits for when we want to hide implementations
+pub mod interface;
+
 #[derive(Debug, Clone)]
 pub struct Process {
     pub pid: libc::pid_t,

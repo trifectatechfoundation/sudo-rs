@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
-use sudo_common::sysuser::{UnixGroup, UnixUser};
+use sudo_system::interface::{UnixGroup, UnixUser};
 use tokens::*;
 
 /// How many nested include files do we allow?

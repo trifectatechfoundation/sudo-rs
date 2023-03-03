@@ -1,4 +1,4 @@
-use sudo_system::Group;
+use super::Group;
 
 pub type GroupId = libc::gid_t;
 pub type UserId = libc::uid_t;
@@ -43,7 +43,7 @@ impl UnixUser for &str {
     }
 }
 
-impl UnixUser for sudo_system::User {
+impl UnixUser for super::User {
     fn has_name(&self, name: &str) -> bool {
         self.name == name
     }
@@ -68,7 +68,7 @@ impl UnixUser for sudo_system::User {
     }
 }
 
-impl UnixGroup for sudo_system::Group {
+impl UnixGroup for super::Group {
     fn as_gid(&self) -> GroupId {
         self.gid
     }

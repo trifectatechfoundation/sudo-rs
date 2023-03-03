@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sudo-common = {path="../lib/sudo-common"}
+sudo-system = {path="../lib/sudo-system"}
 sudoers = {path="../lib/sudoers"}
 libc = "0.2.139"
 

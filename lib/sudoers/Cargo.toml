@@ -9,4 +9,4 @@ derive_more = "0.99.17"
 glob = "0.3.1"
 sha2 = "0.10.6"
 digest = "0.10.6"
-sudo-common = {path="../sudo-common"}
+sudo-system = {path="../sudo-system"}
