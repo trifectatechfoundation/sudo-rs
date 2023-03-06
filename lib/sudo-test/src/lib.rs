@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs,
+    env, fs,
+    path::PathBuf,
     process::Command,
     sync::Once,
 };
@@ -145,11 +146,50 @@ impl EnvBuilder {
     }
 }
 
+enum SudoUnderTest {
+    Ours,
+    Theirs,
+}
+
+impl SudoUnderTest {
+    fn from_env() -> Result<Self> {
+        if let Ok(under_test) = env::var("SUDO_UNDER_TEST") {
+            if under_test == "ours" {
+                Ok(Self::Ours)
+            } else if under_test == "theirs" {
+                Ok(Self::Theirs)
+            } else {
+                Err("variable SUDO_UNDER_TEST must be set to one of: ours, theirs".into())
+            }
+        } else {
+            Ok(Self::Theirs)
+        }
+    }
+}
+
 fn build_base_image() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let temp_dir = temp_dir.path();
 
-    fs::write(temp_dir.join("Dockerfile"), include_str!("Dockerfile"))?;
+    match SudoUnderTest::from_env()? {
+        SudoUnderTest::Ours => {
+            let _ = helpers::stdout(
+                Command::new("git")
+                    .arg("clone")
+                    .arg(workspace_root())
+                    .arg(temp_dir),
+            )?;
+
+            fs::write(temp_dir.join("Dockerfile"), include_str!("ours.Dockerfile"))?;
+        }
+
+        SudoUnderTest::Theirs => {
+            fs::write(
+                temp_dir.join("Dockerfile"),
+                include_str!("theirs.Dockerfile"),
+            )?;
+        }
+    }
 
     helpers::stdout(
         Command::new("docker")
@@ -158,6 +198,13 @@ fn build_base_image() -> Result<()> {
     )?;
 
     Ok(())
+}
+
+fn workspace_root() -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.pop();
+    path.pop();
+    path
 }
 
 fn get_groups(container: &Container) -> Result<HashSet<String>> {
