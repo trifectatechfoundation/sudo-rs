@@ -5,3 +5,5 @@ WORKDIR /usr/src/sudo
 COPY . .
 # TODO should use `--locked` but the repository does not include a `Cargo.lock` file
 RUN cargo install --debug --path sudo
+# HACK sudo-rs is hard-coded to use /etc/sudoers.test
+RUN ln -s sudoers /etc/sudoers.test
