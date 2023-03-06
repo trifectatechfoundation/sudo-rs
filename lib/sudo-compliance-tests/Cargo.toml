@@ -1,0 +1,11 @@
+[package]
+name = "sudo-compliance-tests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dev-dependencies]
+pretty_assertions = "1.3.0"
+sudo-test.path = "../sudo-test"
