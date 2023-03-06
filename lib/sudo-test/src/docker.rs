@@ -54,7 +54,7 @@ impl Container {
         let src_path = temp_file.path().display().to_string();
         let dest_path = format!("{}:{path_in_container}", self.id);
 
-        helpers::stdout(Command::new("docker").args(["cp", "-q", &src_path, &dest_path]))?;
+        helpers::stdout(Command::new("docker").args(["cp", &src_path, &dest_path]))?;
 
         Ok(())
     }
