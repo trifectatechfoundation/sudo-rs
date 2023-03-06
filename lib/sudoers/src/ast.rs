@@ -549,6 +549,9 @@ fn get_directive(
                         };
                         make(Defaults(name, ConfigValue::Text(text)))
                     }
+                    Setting::Enum(_,_) => {
+                        todo!()
+                    }
                 }
             } else {
                 if !matches!(cfg, Setting::Flag(_)) {

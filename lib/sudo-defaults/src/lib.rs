@@ -10,6 +10,7 @@ pub enum SudoDefault {
     Integer(OptTuple<i128>),
     Text(OptTuple<&'static str>),
     List(&'static [&'static str]),
+    Enum(OptTuple<&'static str>, &'static [&'static str]),
 }
 
 #[derive(Debug)]
@@ -32,8 +33,7 @@ defaults! {
     editor          = "/usr/bin/editor"
 
     secure_path     = "" (!= "")
-    verifypw        = "all" (!= "never")
-
+    verifypw        = "all" (!= "never") [all, always, any, never]
 
     env_keep        = ["XDG_CURRENT_DESKTOP", "XAUTHORIZATION", "XAUTHORITY", "PS2", "PS1", "PATH", "LS_COLORS", "KRB5CCNAME", "HOSTNAME", "DPKG_COLORS", "DISPLAY", "COLORS"]
 
@@ -50,7 +50,11 @@ mod test {
     fn check() {
         macro_rules! test {
             ($name:ident => $value:pat) => {
-                let Some($value) = sudo_default(stringify!($name)) else { unreachable!() };
+                let Some(foo@$value) = sudo_default(stringify!($name)) else { unreachable!() };
+                if let SudoDefault::Enum(OptTuple { default, negated }, keys) = foo {
+                    assert!(keys.iter().any(|x| *x as *const str == default));
+                    negated.map(|neg| assert!(keys.contains(&neg)));
+                }
             };
         }
         assert!(sudo_default("bla").is_none());
@@ -61,6 +65,7 @@ mod test {
         test! { editor       => Text(_) };
         test! { env_keep     => List(_) };
         test! { umask        => Integer(OptTuple { default: 18, negated: Some(511) }) };
-        test! { verifypw     => Text(OptTuple { default: "all", negated: Some("never") }) };
+        test! { secure_path  => Text(OptTuple { default: "", negated: Some("") }) };
+        test! { verifypw     => Enum(OptTuple { default: "all", negated: Some("never") }, [_, "always", "any", _]) };
     }
 }
