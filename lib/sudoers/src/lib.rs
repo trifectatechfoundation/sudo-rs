@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Code that checks (and in the future: lists) permissions in the sudoers file
 
 mod ast;
