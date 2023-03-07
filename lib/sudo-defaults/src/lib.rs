@@ -1,6 +1,3 @@
-// TODO: add "allowed:" restrictions on string parameters that are enum-like; and maybe also on
-// integers that have a particular range restriction
-//
 // FUTURE IDEA: use a representation that allows for more Rust-type structure rather than passing
 // strings around; some settings in sudoers file are more naturally represented like that, such as
 // "verifypw" and "logfile"
