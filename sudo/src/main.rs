@@ -2,10 +2,9 @@
 
 use sudo_cli::SudoOptions;
 use sudo_common::{context::Context, env::Environment, error::Error, pam::authenticate};
-use sudoers::Tag;
+use sudoers::{Tag, Sudoers};
 
-/// parse suoers file and check permission to run the provided command given the context
-fn check_sudoers(context: &Context, sudo_options: &SudoOptions) -> Result<Option<Vec<Tag>>, Error> {
+fn parse_sudoers() -> Sudoers {
     // TODO: move to global configuration
     let sudoers_path = "/etc/sudoers.test";
 
@@ -16,15 +15,20 @@ fn check_sudoers(context: &Context, sudo_options: &SudoOptions) -> Result<Option
         eprintln!("Parse error: {error}");
     }
 
+    sudoers
+}
+
+/// parse suoers file and check permission to run the provided command given the context
+fn check_sudoers(sudoers: &Sudoers, context: &Context) -> Result<Option<Vec<Tag>>, Error> {
     Ok(sudoers::check_permission(
-        &sudoers,
+        sudoers,
         &context.current_user,
         sudoers::Request {
             user: &context.target_user,
             group: &context.target_group,
         },
         &context.hostname,
-        &sudo_options.external_args.join(" "),
+        context.command.to_string().as_str()
     ))
 }
 
@@ -32,12 +36,15 @@ fn main() -> Result<(), Error> {
     // parse cli options
     let sudo_options = SudoOptions::parse();
 
+    // parse sudoers file
+    let sudoers = parse_sudoers();
+
     // build context and environment
     let current_env = std::env::vars().collect::<Environment>();
-    let context = Context::build_from_options(&sudo_options)?.with_filtered_env(current_env);
+    let context = Context::build_from_options(&sudo_options, &sudoers.settings)?.with_filtered_env(current_env);
 
     // check sudoers file for permission
-    match check_sudoers(&context, &sudo_options)? {
+    match check_sudoers(&sudoers, &context)? {
         Some(tags) => {
             if !tags.contains(&Tag::NoPasswd) {
                 // authenticate user using pam
