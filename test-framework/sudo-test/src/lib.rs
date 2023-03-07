@@ -1,13 +1,13 @@
 use std::{
     collections::{HashMap, HashSet},
-    env, fs,
+    env,
+    fs::File,
     path::PathBuf,
-    process::Command,
+    process::{Command, Stdio},
     sync::Once,
 };
 
 use docker::Container;
-use tempfile::TempDir;
 
 pub use docker::{As, ExecOutput};
 
@@ -170,39 +170,33 @@ impl SudoUnderTest {
 }
 
 fn build_base_image() -> Result<()> {
-    let temp_dir = TempDir::new()?;
-    let temp_dir = temp_dir.path();
+    let repo_root = repo_root();
+    let mut cmd = Command::new("docker");
+
+    cmd.args(["build", "-t", BASE_IMAGE]);
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {
-            let _ = helpers::stdout(
-                Command::new("git")
-                    .arg("clone")
-                    .arg(workspace_root())
-                    .arg(temp_dir),
-            )?;
+            // needed for dockerfile-specific dockerignore (e.g. `Dockerfile.dockerignore`) support
+            cmd.env("DOCKER_BUILDKIT", "1");
 
-            fs::write(temp_dir.join("Dockerfile"), include_str!("ours.Dockerfile"))?;
+            cmd.current_dir(repo_root);
+            cmd.args(["-f", "test-framework/sudo-test/src/ours.Dockerfile", "."]);
         }
 
         SudoUnderTest::Theirs => {
-            fs::write(
-                temp_dir.join("Dockerfile"),
-                include_str!("theirs.Dockerfile"),
-            )?;
+            // pass Dockerfile via stdin to not provide the repository as a build context
+            let f = File::open(repo_root.join("test-framework/sudo-test/src/theirs.Dockerfile"))?;
+            cmd.arg("-").stdin(Stdio::from(f));
         }
     }
 
-    helpers::stdout(
-        Command::new("docker")
-            .args(["build", "-t", BASE_IMAGE, "."])
-            .current_dir(temp_dir),
-    )?;
+    helpers::stdout(&mut cmd)?;
 
     Ok(())
 }
 
-fn workspace_root() -> PathBuf {
+fn repo_root() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.pop();
     path.pop();

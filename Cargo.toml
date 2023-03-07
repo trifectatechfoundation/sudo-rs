@@ -10,8 +10,6 @@ members = [
   "lib/sudo-defaults",
   "lib/sudo-pam-sys",
   "lib/sudo-pam",
-  "lib/sudo-test",
-  "lib/sudo-compliance-tests",
 ]
 default-members = ["sudo"]
 
