@@ -1,12 +1,15 @@
 [package]
 name = "sudo-pam"
-version = "0.1.0"
-edition = "2021"
-license = "Apache-2.0 OR MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
 
 [dependencies]
-sudo-pam-sys = { path = "../sudo-pam-sys" }
-sudo-cutils = { path = "../sudo-cutils" }
-thiserror = "1.0.38"
-libc = "0.2.139"
-rpassword = "7.2.0"
+sudo-pam-sys.workspace = true
+sudo-cutils.workspace = true
+thiserror.workspace = true
+libc.workspace = true
+rpassword.workspace = true

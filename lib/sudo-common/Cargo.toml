@@ -1,17 +1,17 @@
 [package]
 name = "sudo-common"
-version = "0.1.0"
-edition = "2021"
-license = "Apache-2.0 OR MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
 build = "build.rs"
 
 [dependencies]
-libc = "0.2.139"
-sudo-cli = { path = "../sudo-cli" }
-sudo-pam = { path = "../sudo-pam" }
-sudo-system = { path = "../sudo-system" }
-thiserror = "1.0.38"
-which = "4.4.0"
-
-[dev-dependencies]
-sudo-cli = { path = "../sudo-cli" }
+sudo-cli.workspace = true
+sudo-pam.workspace = true
+sudo-system.workspace = true
+libc.workspace = true
+thiserror.workspace = true
+which.workspace = true
