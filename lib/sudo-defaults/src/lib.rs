@@ -23,23 +23,34 @@ mod settings_dsl;
 use settings_dsl::*;
 
 defaults! {
-    env_reset       = true
-    mail_badpass    = true
-    use_pty         = false
+    always_query_group_plugin = false
+    always_set_home           = false
+    env_reset                 = true
+    mail_badpass              = true
+    match_group_by_gid        = false
+    use_pty                   = false
+    visiblepw                 = false
 
-    passwd_tries    = 3
-    umask           = 0o22 (!= 0o777)
+    passwd_tries              = 3
+    umask                     = 0o22 (!= 0o777)
 
-    editor          = "/usr/bin/editor"
+    editor                    = "/usr/bin/editor"
+    lecture_file              = ""
+    secure_path               = "" (!= "")
+    verifypw                  = "all" (!= "never") [all, always, any, never]
 
-    secure_path     = "" (!= "")
-    verifypw        = "all" (!= "never") [all, always, any, never]
+    env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",
+                                 "PS1", "PS2", "XAUTHORITY", "XAUTHORIZATION", "XDG_CURRENT_DESKTOP"]
 
-    env_keep        = ["XDG_CURRENT_DESKTOP", "XAUTHORIZATION", "XAUTHORITY", "PS2", "PS1", "PATH", "LS_COLORS", "KRB5CCNAME", "HOSTNAME", "DPKG_COLORS", "DISPLAY", "COLORS"]
+    env_check                 = ["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]
 
-    env_delete      = ["*=()*", "RUBYOPT", "RUBYLIB", "PYTHONUSERBASE", "PYTHONINSPECT", "PYTHONPATH", "PYTHONHOME", "TMPPREFIX", "ZDOTDIR", "READNULLCMD", "NULLCMD", "FPATH",
-                       "PERL5DB", "PERL5OPT", "PERL5LIB", "PERLLIB", "PERLIO_DEBUG", "JAVA_TOOL_OPTIONS", "SHELLOPTS", "BASHOPTS", "GLOBIGNORE", "PS4", "BASH_ENV", "ENV",
-                       "TERMCAP", "TERMPATH", "TERMINFO_DIRS", "TERMINFO", "_RLD*", "LD_*", "PATH_LOCALE", "NLSPATH", "HOSTALIASES", "RES_OPTIONS", "LOCALDOMAIN", "CDPATH", "IFS"]
+    env_delete                = ["IFS", "CDPATH", "LOCALDOMAIN", "RES_OPTIONS", "HOSTALIASES",
+                                "NLSPATH", "PATH_LOCALE", "LD_*", "_RLD*", "TERMINFO", "TERMINFO_DIRS",
+                                "TERMPATH", "TERMCAP", "ENV", "BASH_ENV", "PS4", "GLOBIGNORE",
+                                "BASHOPTS", "SHELLOPTS", "JAVA_TOOL_OPTIONS", "PERLIO_DEBUG",
+                                "PERLLIB", "PERL5LIB", "PERL5OPT", "PERL5DB", "FPATH", "NULLCMD",
+                                "READNULLCMD", "ZDOTDIR", "TMPPREFIX", "PYTHONHOME", "PYTHONPATH",
+                                "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"]
 }
 
 #[cfg(test)]
@@ -60,12 +71,22 @@ mod test {
         assert!(sudo_default("bla").is_none());
 
         use SudoDefault::*;
-        test! { env_reset    => Flag(true) };
+
+        test! { always_query_group_plugin => Flag(false) };
+        test! { always_set_home => Flag(false) };
+        test! { env_reset => Flag(true) };
+        test! { mail_badpass => Flag(true) };
+        test! { match_group_by_gid => Flag(false) };
+        test! { use_pty => Flag(false) };
+        test! { visiblepw => Flag(false) };
         test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }) };
-        test! { editor       => Text(_) };
-        test! { env_keep     => List(_) };
-        test! { umask        => Integer(OptTuple { default: 18, negated: Some(511) }) };
-        test! { secure_path  => Text(OptTuple { default: "", negated: Some("") }) };
-        test! { verifypw     => Enum(OptTuple { default: "all", negated: Some("never") }, [_, "always", "any", _]) };
+        test! { umask => Integer(OptTuple { default: 18, negated: Some(511) }) };
+        test! { editor => Text(OptTuple { default: "/usr/bin/editor", negated: None }) };
+        test! { lecture_file => Text(_) };
+        test! { secure_path => Text(OptTuple { default: "", negated: Some("") }) };
+        test! { verifypw => Enum(OptTuple { default: "all", negated: Some("never") }, [_, "always", "any", _]) };
+        test! { env_keep => List(_) };
+        test! { env_check => List(["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]) };
+        test! { env_delete => List(_) };
     }
 }

@@ -52,7 +52,7 @@ macro_rules! optional {
     };
     ($block: block) => {
         $block
-    }
+    };
 }
 
 macro_rules! defaults {
@@ -101,6 +101,6 @@ macro_rules! defaults {
 
 pub(super) use add_from;
 pub(super) use defaults;
+pub(super) use optional;
 pub(super) use sliceify;
 pub(super) use tupleify;
-pub(super) use optional;
