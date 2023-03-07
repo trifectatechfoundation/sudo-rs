@@ -93,7 +93,7 @@ mod test {
         test! { env_keep => List(_) };
         test! { env_check => List(["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]) };
         test! { env_delete => List(_) };
-        test! { verifypw     => Enum(OptTuple { default: StrEnum { value: "all", possible_values: [_, "always", "any", _] }, negated: Some(StrEnum { value: "never", .. }) }) };
+        test! { verifypw => Enum(OptTuple { default: StrEnum { value: "all", possible_values: [_, "always", "any", _] }, negated: Some(StrEnum { value: "never", .. }) }) };
 
         let myenum = StrEnum::new("hello", &["hello", "goodbye"]).unwrap();
         assert!(&myenum as &str == "hello");

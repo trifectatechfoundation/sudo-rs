@@ -1,9 +1,12 @@
 [package]
 name = "sudo-system"
-version = "0.1.0"
-edition = "2021"
-license = "Apache-2.0 OR MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
 
 [dependencies]
-libc = "0.2.139"
-sudo-cutils = { path = "../sudo-cutils" }
+libc.workspace = true
+sudo-cutils.workspace = true

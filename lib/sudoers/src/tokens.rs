@@ -1,9 +1,8 @@
 //! Various tokens
 
 use crate::basic_parser::{Many, Token};
-use derive_more::Deref;
 
-#[derive(Debug, Deref)]
+#[derive(Debug)]
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub struct Username(pub String);
 
@@ -57,8 +56,16 @@ impl Token for Decimal {
 }
 
 /// A hostname consists of alphanumeric characters and ".", "-",  "_"
-#[derive(Debug, Deref)]
+#[derive(Debug)]
 pub struct Hostname(pub String);
+
+impl std::ops::Deref for Hostname {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Token for Hostname {
     fn construct(text: String) -> Result<Self, String> {
@@ -117,7 +124,7 @@ impl<T: Many> Many for Meta<T> {
 }
 
 /// An identifier that consits of only uppercase characters.
-#[derive(Debug, Deref)]
+#[derive(Debug)]
 pub struct Upper(pub String);
 
 impl Token for Upper {
@@ -250,7 +257,7 @@ impl Token for StringParameter {
 
 /// A digest specifier; note that the type of hash is implied by the length; if sudo would support
 /// multiple hashes with the same hash length, this needs to be recorded explicity.
-#[derive(Debug, Deref)]
+#[derive(Debug)]
 pub struct Sha2(pub Box<[u8]>);
 
 impl Token for Sha2 {
