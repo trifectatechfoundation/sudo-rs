@@ -66,17 +66,18 @@ pub enum Directive {
     HostAlias(Def<Hostname>),
     CmndAlias(Def<Command>),
     RunasAlias(Def<UserSpecifier>),
-    Defaults(String, DefaultValue),
+    Defaults(String, ConfigValue),
 }
 
+pub type TextEnum = sudo_defaults::StrEnum<'static>;
+
 #[derive(Debug)]
-//TODO: integer values and "boolean context strings/lists/integers"
-pub enum DefaultValue {
+pub enum ConfigValue {
     Flag(bool),
     Text(String),
-
-    // encoding: -1 = subtract, 0 = set, +1 = add
+    Num(i128),
     List(Mode, Vec<String>),
+    Enum(TextEnum),
 }
 
 #[derive(Debug)]
@@ -441,23 +442,8 @@ fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
     make(result)
 }
 
-// temporary stubs
-fn is_bool_param(_name: &str) -> bool {
-    true
-}
-// code currently doesn't recognize integer params,
-// so everything that isn't a list is a string
-#[allow(dead_code)]
-fn is_int_param(_name: &str) -> bool {
-    true
-}
-#[allow(dead_code)]
-fn is_string_param(_name: &str) -> bool {
-    true
-}
-fn is_list_param(_name: &str) -> bool {
-    _name != "secure_path" && _name != "lecture_file"
-}
+use sudo_defaults::sudo_default;
+use sudo_defaults::SudoDefault as Setting;
 
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
@@ -511,52 +497,85 @@ fn get_directive(
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
         let id_pos = stream.get_pos();
-        let bool_setting = |name: String, value: bool, _stream: &mut T| {
-            // TODO: other types in a boolean context
-            if is_bool_param(&name) {
-                make(Defaults(name, DefaultValue::Flag(value)))
-            } else {
-                unrecoverable!(pos = id_pos, _stream, "{name} is not a boolean setting");
-            }
-        };
 
-        let list_items = |mode: Mode, name: String, stream: &mut T| {
+        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut _| {
             expect_syntax('=', stream)?;
-            if !is_list_param(&name) {
+            if !matches!(cfg, Setting::List(_)) {
                 unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
             }
             let items = parse_vars(stream)?;
 
-            make(Defaults(name, DefaultValue::List(mode, items)))
+            make(Defaults(name, ConfigValue::List(mode, items)))
         };
+
+        let text_item = |stream: &mut _| {
+            if accept_if(|c| c == '"', stream).is_ok() {
+                let QuotedText(text) = expect_nonterminal(stream)?;
+                expect_syntax('"', stream)?;
+                make(text)
+            } else {
+                let StringParameter(name) = expect_nonterminal(stream)?;
+                make(name)
+            }
+        };
+
+        use sudo_defaults::OptTuple;
 
         if is_syntax('!', stream)? {
             let EnvVar(name) = expect_nonterminal(stream)?;
-            bool_setting(name, false, stream)
+            let value = match sudo_default(&name) {
+                Some(Setting::Flag(_)) => ConfigValue::Flag(false),
+                Some(Setting::List(_)) => ConfigValue::List(Mode::Set, vec![]),
+                Some(Setting::Text(OptTuple {
+                    negated: Some(val), ..
+                })) => ConfigValue::Text(val.to_string()),
+                Some(Setting::Enum(OptTuple {
+                    negated: Some(val), ..
+                })) => ConfigValue::Enum(val),
+                Some(Setting::Integer(OptTuple {
+                    negated: Some(val), ..
+                })) => ConfigValue::Num(val),
+                _ => unrecoverable!(stream, "`{name}' cannot be used in a boolean context"),
+            };
+            make(Defaults(name, value))
         } else {
             let EnvVar(name) = try_nonterminal(stream)?;
+            let Some(cfg) = sudo_default(&name) else {
+                unrecoverable!(pos=id_pos, stream, "unknown setting: `{name}'");
+            };
 
             if is_syntax('+', stream)? {
-                list_items(Mode::Add, name, stream)
+                list_items(Mode::Add, name, cfg, stream)
             } else if is_syntax('-', stream)? {
-                list_items(Mode::Del, name, stream)
+                list_items(Mode::Del, name, cfg, stream)
             } else if is_syntax('=', stream)? {
-                if is_list_param(&name) {
-                    let items = parse_vars(stream)?;
-                    make(Defaults(name, DefaultValue::List(Mode::Set, items)))
-                } else {
-                    let text = if accept_if(|c| c == '"', stream).is_ok() {
-                        let QuotedText(text) = expect_nonterminal(stream)?;
-                        expect_syntax('"', stream)?;
-                        text
-                    } else {
-                        let StringParameter(name) = expect_nonterminal(stream)?;
-                        name
-                    };
-                    make(Defaults(name, DefaultValue::Text(text)))
+                match cfg {
+                    Setting::Flag(_) => {
+                        unrecoverable!(stream, "can't assign to boolean setting `{name}'")
+                    }
+                    Setting::Integer(_) => todo!(),
+                    Setting::List(_) => {
+                        let items = parse_vars(stream)?;
+                        make(Defaults(name, ConfigValue::List(Mode::Set, items)))
+                    }
+                    Setting::Text(_) => {
+                        let text = text_item(stream)?;
+                        make(Defaults(name, ConfigValue::Text(text)))
+                    }
+                    Setting::Enum(sudo_defaults::OptTuple { default: key, .. }) => {
+                        let value_pos = stream.get_pos();
+                        let text = text_item(stream)?;
+                        let Some(value) = key.alt(&text) else {
+                            unrecoverable!(pos = value_pos, stream, "`{text}' is not a valid value for {name}");
+                        };
+                        make(Defaults(name, ConfigValue::Enum(value)))
+                    }
                 }
             } else {
-                bool_setting(name, true, stream)
+                if !matches!(cfg, Setting::Flag(_)) {
+                    unrecoverable!(pos = id_pos, stream, "`{name}' is not a boolean setting");
+                }
+                make(Defaults(name, ConfigValue::Flag(true)))
             }
         }
     }

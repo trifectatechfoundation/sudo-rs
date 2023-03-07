@@ -494,6 +494,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sudo-defaults"
+version = "0.1.0"
+
+[[package]]
 name = "sudo-pam"
 version = "0.1.0-alpha.1"
 dependencies = [
@@ -527,6 +531,7 @@ dependencies = [
  "digest",
  "glob",
  "sha2",
+ "sudo-defaults",
  "sudo-system",
 ]
 
