@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use sudo_cli::SudoOptions;
 use sudo_common::{context::Context, env::Environment, error::Error, pam::authenticate};
 use sudoers::Tag;

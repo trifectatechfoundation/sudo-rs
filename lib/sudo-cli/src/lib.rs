@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use clap::{error::Error, Parser};
 use std::{path::PathBuf, process::exit};
 
