@@ -1,11 +1,11 @@
 [package]
 name = "sudo-cli"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-clap = { version = "4.0.32", features = ["derive", "cargo"] }
+clap = { workspace = true, features = ["derive", "cargo"] }
 
 [dev-dependencies]
-pretty_assertions = "1.3.0"
+pretty_assertions.workspace = true

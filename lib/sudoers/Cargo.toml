@@ -1,12 +1,13 @@
 [package]
 name = "sudoers"
-version = "0.4.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-derive_more = "0.99.17"
-glob = "0.3.1"
-sha2 = "0.10.6"
-digest = "0.10.6"
-sudo-system = {path="../sudo-system"}
+sudo-system.workspace = true
+
+derive_more.workspace = true
+glob.workspace = true
+sha2.workspace = true
+digest.workspace = true

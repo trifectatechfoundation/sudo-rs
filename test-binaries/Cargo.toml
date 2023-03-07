@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sudo-system = {path="../lib/sudo-system"}
-sudoers = {path="../lib/sudoers"}
-libc = "0.2.139"
+sudo-system.workspace = true
+sudoers.workspace = true
+libc.workspace = true
 
 [[bin]]
 name = "checkpermit"
