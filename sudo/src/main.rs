@@ -10,8 +10,8 @@ fn check_sudoers(context: &Context, sudo_options: &SudoOptions) -> Result<Option
     let (sudoers, syntax_errors) = sudoers::compile(sudoers_path)
         .map_err(|e| Error::Configuration(format!("no sudoers file {e}")))?;
 
-    for error in syntax_errors {
-        eprintln!("Parse error: {error:?}");
+    for sudoers::Error(_pos, error) in syntax_errors {
+        eprintln!("Parse error: {error}");
     }
 
     Ok(sudoers::check_permission(

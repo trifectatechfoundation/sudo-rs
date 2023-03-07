@@ -92,11 +92,32 @@ impl std::fmt::Display for UserRecord {
     }
 }
 
+fn fancy_error(x: usize, y: usize, path: &str) {
+    use std::io::*;
+    let inp = BufReader::new(std::fs::File::open(path).unwrap());
+    let line = inp.lines().nth(x - 1).unwrap().unwrap();
+    eprintln!("{line}");
+    for (i, c) in line.chars().enumerate() {
+        if i == y - 1 {
+            break;
+        }
+        if c.is_whitespace() {
+            eprint!("{c}");
+        } else {
+            eprint!(" ");
+        }
+    }
+    eprintln!("^");
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if let Ok((cfg, warn)) = sudoers::compile("./sudoers") {
-        for foobar in warn {
-            println!("ERROR: {foobar:?}")
+        for sudoers::Error(pos, msg) in warn {
+            if let Some((x, y)) = pos {
+                fancy_error(x, y, "./sudoers");
+            }
+            eprintln!("{msg}");
         }
         println!("SETTINGS: {:?}", cfg.settings);
         println!(
