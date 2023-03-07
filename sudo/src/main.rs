@@ -4,7 +4,7 @@ use sudo_cli::SudoOptions;
 use sudo_common::{context::Context, env::Environment, error::Error, pam::authenticate};
 use sudoers::{Sudoers, Tag};
 
-fn parse_sudoers() -> Sudoers {
+fn parse_sudoers() -> Result<Sudoers, Error> {
     // TODO: move to global configuration
     let sudoers_path = "/etc/sudoers.test";
 
@@ -15,7 +15,7 @@ fn parse_sudoers() -> Sudoers {
         eprintln!("Parse error: {error}");
     }
 
-    sudoers
+    Ok(sudoers)
 }
 
 /// parse suoers file and check permission to run the provided command given the context
@@ -37,7 +37,7 @@ fn main() -> Result<(), Error> {
     let sudo_options = SudoOptions::parse();
 
     // parse sudoers file
-    let sudoers = parse_sudoers();
+    let sudoers = parse_sudoers()?;
 
     // build context and environment
     let current_env = std::env::vars().collect::<Environment>();

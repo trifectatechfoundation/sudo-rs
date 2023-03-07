@@ -68,7 +68,7 @@ pub struct Context<'a> {
     pub target_user: User,
     pub target_group: Group,
     // configuration
-    pub env_reset: &'a HashSet<String>,
+    pub env_delete: &'a HashSet<String>,
     pub env_keep: &'a HashSet<String>,
     pub env_check: &'a HashSet<String>,
     pub always_set_home: bool,
@@ -81,7 +81,7 @@ pub struct Context<'a> {
 }
 
 pub trait Configuration {
-    fn env_reset(&self) -> &HashSet<String>;
+    fn env_delete(&self) -> &HashSet<String>;
     fn env_keep(&self) -> &HashSet<String>;
     fn env_check(&self) -> &HashSet<String>;
     fn always_set_home(&self) -> bool;
@@ -89,10 +89,10 @@ pub trait Configuration {
 }
 
 impl Configuration for Settings {
-    fn env_reset(&self) -> &HashSet<String> {
+    fn env_delete(&self) -> &HashSet<String> {
         self.list
-            .get("env_reset")
-            .expect("env_reset missing from settings")
+            .get("env_delete")
+            .expect("env_delete missing from settings")
     }
 
     fn env_keep(&self) -> &HashSet<String> {
@@ -123,12 +123,12 @@ fn resolve_current_user() -> Result<User, Error> {
 fn resolve_target_user(target_name_or_id: &Option<String>) -> Result<User, Error> {
     let target_name_or_id = target_name_or_id.as_deref().unwrap_or("root");
 
-    Ok(match NameOrId::parse(target_name_or_id) {
+    match NameOrId::parse(target_name_or_id) {
         Some(NameOrId::Name(name)) => User::from_name(name)?,
         Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
         _ => None,
     }
-    .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))?)
+    .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))
 }
 
 fn resolve_target_group(
@@ -173,7 +173,7 @@ impl<'a> Context<'a> {
             login: sudo_options.login,
             shell: sudo_options.shell,
             chdir: sudo_options.directory.clone(),
-            env_reset: settings.env_reset(),
+            env_delete: settings.env_delete(),
             env_keep: settings.env_keep(),
             env_check: settings.env_check(),
             always_set_home: settings.always_set_home(),
