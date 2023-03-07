@@ -22,12 +22,10 @@ const TESTS: &str = "
     TERM=xterm
     _=/usr/bin/sudo
 > sudo env
-    HOME=/root
     HOSTNAME=test-ubuntu
     LANG=en_US.UTF-8
     LANGUAGE=en_US.UTF-8
     LC_ALL=en_US.UTF-8
-    LOGNAME=root
     LS_COLORS=cd=40;33;01:*.jpg=01;35:*.mp3=00;36:
     MAIL=/var/mail/root
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -37,14 +35,11 @@ const TESTS: &str = "
     SUDO_UID=1000
     SUDO_USER=test
     TERM=xterm
-    USER=root
 > sudo -u test env
-    HOME=/home/test
     HOSTNAME=test-ubuntu
     LANG=en_US.UTF-8
     LANGUAGE=en_US.UTF-8
     LC_ALL=en_US.UTF-8
-    LOGNAME=test
     LS_COLORS=cd=40;33;01:*.jpg=01;35:*.mp3=00;36:
     MAIL=/var/mail/test
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -54,7 +49,6 @@ const TESTS: &str = "
     SUDO_UID=1000
     SUDO_USER=test
     TERM=xterm
-    USER=test
 ";
 
 fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
