@@ -11,6 +11,7 @@ members = [
   "lib/sudo-defaults",
   "lib/sudo-pam-sys",
   "lib/sudo-pam",
+  "lib/sudo-exec",
 ]
 default-members = ["sudo"]
 
@@ -46,4 +47,5 @@ sudo-pam-sys = { version = "0.1.0-alpha.1", path = "./lib/sudo-pam-sys" }
 sudo-cutils = { version = "0.1.0-alpha.1", path = "./lib/sudo-cutils" }
 sudo-common = { version = "0.1.0-alpha.1", path = "./lib/sudo-common" }
 sudo-defaults = { version = "0.1.0-alpha.1", path = "./lib/sudo-defaults" }
+sudo-exec = { version = "0.1.0-alpha.1", path = "./lib/sudo-exec" }
 sudoers = { version = "0.1.0-alpha.1", path = "./lib/sudoers" }
