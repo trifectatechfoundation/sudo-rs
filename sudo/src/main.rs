@@ -2,7 +2,7 @@
 
 use sudo_cli::SudoOptions;
 use sudo_common::{context::Context, env::Environment, error::Error, pam::authenticate};
-use sudoers::{Tag, Sudoers};
+use sudoers::{Sudoers, Tag};
 
 fn parse_sudoers() -> Sudoers {
     // TODO: move to global configuration
@@ -28,7 +28,7 @@ fn check_sudoers(sudoers: &Sudoers, context: &Context) -> Result<Option<Vec<Tag>
             group: &context.target_group,
         },
         &context.hostname,
-        context.command.to_string().as_str()
+        context.command.to_string().as_str(),
     ))
 }
 
@@ -41,7 +41,8 @@ fn main() -> Result<(), Error> {
 
     // build context and environment
     let current_env = std::env::vars().collect::<Environment>();
-    let context = Context::build_from_options(&sudo_options, &sudoers.settings)?.with_filtered_env(current_env);
+    let context = Context::build_from_options(&sudo_options, &sudoers.settings)?
+        .with_filtered_env(current_env);
 
     // check sudoers file for permission
     match check_sudoers(&sudoers, &context)? {

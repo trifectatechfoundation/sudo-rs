@@ -1,11 +1,11 @@
 use std::collections::HashSet;
-
 use sudo_cli::SudoOptions;
 use sudo_common::{
-    context::{CommandAndArguments, Context},
+    context::{CommandAndArguments, Context, Configuration},
     env::{get_target_environment, Environment},
 };
 use sudo_system::{Group, User};
+use sudoers::Settings;
 
 const TESTS: &str = "
 > env
@@ -115,6 +115,8 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
         members: Vec::new(),
     };
 
+    let settings = Settings::default();
+
     Context {
         hostname: "test-ubuntu".to_string(),
         command,
@@ -130,9 +132,16 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
             root_group
         },
         target_environment: Default::default(),
-        preserve_env: sudo_options.preserve_env,
         set_home: sudo_options.set_home,
         preserve_env_list: sudo_options.preserve_env_list.clone(),
+        login: sudo_options.login,
+        shell: sudo_options.shell,
+        chdir: sudo_options.directory.clone(),
+        env_reset: settings.env_reset(),
+        env_keep: settings.env_keep(),
+        env_check: settings.env_check(),
+        always_set_home: settings.always_set_home(),
+        use_pty: settings.use_pty(),
     }
 }
 

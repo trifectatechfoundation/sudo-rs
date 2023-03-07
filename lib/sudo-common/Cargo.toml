@@ -12,6 +12,7 @@ build = "build.rs"
 sudo-cli.workspace = true
 sudo-pam.workspace = true
 sudo-system.workspace = true
+sudoers.workspace = true
 libc.workspace = true
 thiserror.workspace = true
 which.workspace = true
