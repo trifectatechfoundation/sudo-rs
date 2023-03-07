@@ -1,12 +1,14 @@
 [package]
 name = "sudoers"
-version = "0.1.0-alpha.1"
-edition = "2021"
-license = "Apache-2.0 OR MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
 
 [dependencies]
 sudo-system.workspace = true
-
 derive_more.workspace = true
 glob.workspace = true
 sha2.workspace = true

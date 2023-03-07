@@ -12,6 +12,14 @@ members = [
 ]
 default-members = ["sudo"]
 
+[workspace.package]
+version = "0.1.0-alpha.1"
+license = "Apache-2.0 OR MIT"
+edition = "2021"
+repository = "https://github.com/memorysafety/sudo-rs"
+homepage = "https://github.com/memorysafety/sudo-rs"
+publish = true
+
 [workspace.dependencies]
 clap = "4.0.32"
 pretty_assertions = "1.3.0"
