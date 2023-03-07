@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
-use sudo_common::sysuser::{UnixGroup, UnixUser};
+use sudo_system::interface::{UnixGroup, UnixUser};
 use tokens::*;
 
 /// How many nested include files do we allow?
@@ -443,6 +443,45 @@ mod test {
     use basic_parser::{parse_eval, parse_lines, parse_string};
     use std::iter;
 
+    #[derive(PartialEq)]
+    struct Named(&'static str);
+
+    impl UnixUser for Named {
+        fn has_name(&self, name: &str) -> bool {
+            self.0 == name
+        }
+
+        fn in_group_by_name(&self, name: &str) -> bool {
+            self.has_name(name)
+        }
+
+        fn is_root(&self) -> bool {
+            self.0 == "root"
+        }
+    }
+
+    impl UnixGroup for Named {
+        fn as_gid(&self) -> sudo_system::interface::GroupId {
+            if self.0 == "root" {
+                0
+            } else {
+                self.0.chars().fold(0, |x, y| (x * 97 + y as u32) % 1361)
+            }
+        }
+        fn try_as_name(&self) -> Option<&str> {
+            Some(&self.0)
+        }
+    }
+
+    macro_rules! request {
+        ($user:ident, $group:ident) => {
+            Request {
+                user: &Named(stringify!($user)),
+                group: &Named(stringify!($group)),
+            }
+        };
+    }
+
     macro_rules! sudoer {
         ($h:expr $(,$e:expr)*) => {
 	    parse_lines(&mut
@@ -515,22 +554,22 @@ mod test {
 
     #[test]
     fn permission_test() {
-        let root = || Request::<&str, _> {
-            user: &"root",
-            group: &(0, "root"),
+        let root = || Request::<Named, Named> {
+            user: &Named("root"),
+            group: &Named("root"),
         };
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
                 let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command), None);
+                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $req, $server, $command), None);
             }
         }
 
         macro_rules! pass {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
                 let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-                let result = check_permission(&Sudoers { rules, aliases, settings }, &$user, $req, $server, $command);
+                let result = check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $req, $server, $command);
                 $(assert_eq!(result, Some(vec![$($list),*]));)?
                 assert!(!result.is_none());
             }
@@ -602,13 +641,13 @@ mod test {
         pass!(["Host_Alias A=B","Host_Alias B=vm","ALL A=ALL"], "user" => root(), "vm"; "/bin/ls");
         pass!(["Cmnd_Alias A=B","Cmnd_Alias B=/bin/ls","ALL ALL=A"], "user" => root(), "vm"; "/bin/ls");
 
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => Request{ user: &"sudo", group: &(42,"sudo") }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => Request{ user: &"sudo", group: &(42,"sudo") }, "vm"; "/bin/ls");
-        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => Request{ user: &"sudo", group: &(42,"sudo") }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => Request{ user: &"user", group: &(42,"sudo") }, "vm"; "/bin/ls");
-        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => Request{ user: &"wheel", group: &(37,"wheel") }, "vm"; "/bin/ls");
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => request!{ sudo, sudo }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => request! { sudo, sudo }, "vm"; "/bin/ls");
+        FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => request! { sudo, sudo }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => request! { user, sudo }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => request! { wheel, wheel }, "vm"; "/bin/ls");
 
-        pass!(["Runas_Alias \\"," TIME=%wheel\\",",sudo # hallo","user ALL\\","=(TIME) ALL"], "user" => Request{ user: &"wheel", group: &(37,"wheel") }, "vm"; "/bin/ls");
+        pass!(["Runas_Alias \\"," TIME=%wheel\\",",sudo # hallo","user ALL\\","=(TIME) ALL"], "user" => request! { wheel, wheel }, "vm"; "/bin/ls");
     }
 
     #[test]

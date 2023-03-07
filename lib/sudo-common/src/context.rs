@@ -84,7 +84,7 @@ impl<'a> Context<'a> {
             sudo_options
                 .group
                 .clone()
-                .unwrap_or(target_user.gid.to_string()),
+                .unwrap_or_else(|| target_user.gid.to_string()),
         ))?;
 
         Ok(Context {

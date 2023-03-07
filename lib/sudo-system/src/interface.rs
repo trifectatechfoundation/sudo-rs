@@ -1,5 +1,3 @@
-use sudo_system::Group;
-
 pub type GroupId = libc::gid_t;
 pub type UserId = libc::uid_t;
 
@@ -29,21 +27,7 @@ pub trait UnixGroup {
     fn try_as_name(&self) -> Option<&str>;
 }
 
-impl UnixUser for &str {
-    fn has_name(&self, name: &str) -> bool {
-        *self == name
-    }
-
-    fn in_group_by_name(&self, name: &str) -> bool {
-        self.has_name(name)
-    }
-
-    fn is_root(&self) -> bool {
-        self.has_name("root")
-    }
-}
-
-impl UnixUser for sudo_system::User {
+impl UnixUser for super::User {
     fn has_name(&self, name: &str) -> bool {
         self.name == name
     }
@@ -54,7 +38,7 @@ impl UnixUser for sudo_system::User {
         self.has_uid(0)
     }
     fn in_group_by_name(&self, name: &str) -> bool {
-        if let Ok(Some(group)) = Group::from_name(name) {
+        if let Ok(Some(group)) = super::Group::from_name(name) {
             self.in_group_by_gid(group.gid)
         } else {
             false
@@ -68,21 +52,12 @@ impl UnixUser for sudo_system::User {
     }
 }
 
-impl UnixGroup for sudo_system::Group {
+impl UnixGroup for super::Group {
     fn as_gid(&self) -> GroupId {
         self.gid
     }
 
     fn try_as_name(&self) -> Option<&str> {
         Some(&self.name)
-    }
-}
-
-impl UnixGroup for (u16, &str) {
-    fn try_as_name(&self) -> Option<&str> {
-        Some(self.1)
-    }
-    fn as_gid(&self) -> GroupId {
-        self.0 as GroupId
     }
 }
