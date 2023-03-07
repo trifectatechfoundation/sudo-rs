@@ -2,22 +2,23 @@
 
 use sudo_cli::SudoOptions;
 use sudo_common::{context::Context, env::Environment, error::Error, pam::authenticate};
-use sudoers::Tag;
 
 /// parse suoers file and check permission to run the provided command given the context
-fn check_sudoers(context: &Context, sudo_options: &SudoOptions) -> Result<Option<Vec<Tag>>, Error> {
+fn check_sudoers(
+    context: &Context,
+    sudo_options: &SudoOptions,
+) -> Result<Option<impl Iterator<Item = sudoers::Condition>>, Error> {
     // TODO: move to global configuration
     let sudoers_path = "/etc/sudoers.test";
 
-    let (sudoers, syntax_errors) = sudoers::compile(sudoers_path)
+    let (sudoers, syntax_errors) = sudoers::Sudoers::new(sudoers_path)
         .map_err(|e| Error::Configuration(format!("no sudoers file {e}")))?;
 
     for sudoers::Error(_pos, error) in syntax_errors {
         eprintln!("Parse error: {error}");
     }
 
-    Ok(sudoers::check_permission(
-        &sudoers,
+    Ok(sudoers.check(
         &context.current_user,
         sudoers::Request {
             user: &context.target_user,
@@ -38,10 +39,14 @@ fn main() -> Result<(), Error> {
 
     // check sudoers file for permission
     match check_sudoers(&context, &sudo_options)? {
-        Some(tags) => {
-            if !tags.contains(&Tag::NoPasswd) {
-                // authenticate user using pam
-                authenticate(&context.current_user.name)?;
+        Some(conditions) => {
+            for cond in conditions {
+                match cond {
+                    sudoers::Condition::NeedsAuthentication => {
+                        // authenticate user using pam
+                        authenticate(&context.current_user.name)?
+                    }
+                }
             }
         }
         None => {

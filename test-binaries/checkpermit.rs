@@ -1,19 +1,18 @@
 use std::env;
 use sudo_system::interface::{UnixGroup, UnixUser};
+use sudoers::Sudoers;
 
 fn chatty_check_permission(
-    sudoers: sudoers::Sudoers,
+    sudoers: Sudoers,
     am_user: UserRecord,
     (user, group): (UserRecord, GroupID),
     on_host: &str,
     chosen_poison: &str,
 ) {
     println!(
-        "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
-        am_user, on_host, chosen_poison, user, group
+        "Is '{am_user}' allowed on '{on_host}' to run: '{chosen_poison}' (as {user}:{group})?"
     );
-    let result = sudoers::check_permission(
-        &sudoers,
+    if let Some(result) = sudoers.check(
         &am_user,
         sudoers::Request {
             user: &user,
@@ -21,8 +20,12 @@ fn chatty_check_permission(
         },
         on_host,
         chosen_poison,
-    );
-    println!("OUTCOME: {result:?}");
+    ) {
+        println!("yes.");
+        println!("flags: {result:?}");
+    } else {
+        println!("no.");
+    }
 }
 
 /// This is the "canonical" info that we need
@@ -120,33 +123,29 @@ fn fancy_error(x: usize, y: usize, path: &str) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if let Ok((cfg, warn)) = sudoers::compile("./sudoers") {
+    if let Ok((cfg, warn)) = Sudoers::new("./sudoers") {
         for sudoers::Error(pos, msg) in warn {
             if let Some((x, y)) = pos {
                 fancy_error(x, y, "./sudoers");
             }
             eprintln!("{msg}");
         }
-        println!("SETTINGS: {:?}", cfg.settings);
-        println!(
-            "{:?}",
-            chatty_check_permission(
-                cfg,
-                UserRecord(12314, Some(args[1].clone()), vec![]),
-                (
-                    UserRecord(
-                        8123,
-                        Some(args.get(4).unwrap_or(&"root".to_owned()).to_string()),
-                        vec![]
-                    ),
-                    args.get(5)
-                        .map(|x| GroupID(2347, Some(x.clone())))
-                        .unwrap_or_else(|| (GroupID(0, Some("root".to_owned()))))
+        chatty_check_permission(
+            cfg,
+            UserRecord(12314, Some(args[1].clone()), vec![]),
+            (
+                UserRecord(
+                    8123,
+                    Some(args.get(4).unwrap_or(&"root".to_owned()).to_string()),
+                    vec![],
                 ),
-                &args[2],
-                &args[3],
-            )
-        );
+                args.get(5)
+                    .map(|x| GroupID(2347, Some(x.clone())))
+                    .unwrap_or_else(|| (GroupID(0, Some("root".to_owned())))),
+            ),
+            &args[2],
+            &args[3],
+        )
     } else {
         panic!("no sudoers file!");
     }

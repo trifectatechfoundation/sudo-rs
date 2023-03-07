@@ -19,15 +19,39 @@ use tokens::*;
 const INCLUDE_LIMIT: u8 = 128;
 
 /// Export some necessary symbols from modules
-pub use ast::Tag;
-pub use ast::TextEnum;
 pub struct Error(pub Option<basic_parser::Position>, pub String);
+
+// This type should be moved to a different crate in the future (i.e. probably one which
+// also generalizes the impl block for Sudoers below, with a trait)
+pub enum Condition {
+    NeedsAuthentication,
+}
+
+#[derive(Debug)]
+struct TagIterator(Option<Vec<Tag>>);
+
+impl std::iter::Iterator for TagIterator {
+    type Item = Condition;
+
+    fn next(&mut self) -> Option<Condition> {
+        use Condition::*;
+        // we only ever iterate once, right now
+        let tags = self.0.as_ref()?;
+        let result = if tags.contains(&Tag::NoPasswd) {
+            None
+        } else {
+            Some(NeedsAuthentication)
+        };
+        self.0 = None;
+        result
+    }
+}
 
 #[derive(Default)]
 pub struct Sudoers {
     rules: Vec<PermissionSpec>,
     aliases: AliasTable,
-    pub settings: Settings,
+    settings: Settings,
 }
 
 pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
@@ -35,11 +59,28 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub group: &'a Group,
 }
 
-/// This function takes a file argument for a sudoers file and processes it.
+impl Sudoers {
+    /// This function takes a file argument for a sudoers file and processes it.
+    pub fn new(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io::Error> {
+        let sudoers = read_sudoers(path.as_ref())?;
+        Ok(analyze(sudoers))
+    }
 
-pub fn compile(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io::Error> {
-    let sudoers = read_sudoers(path.as_ref())?;
-    Ok(analyze(sudoers))
+    /// This function checks if a certain action is permitted.
+    pub fn check<User, Group>(
+        &self,
+        am_user: &User,
+        request: Request<User, Group>,
+        on_host: &str,
+        cmdline: &str,
+    ) -> Option<impl Iterator<Item = Condition> + std::fmt::Debug>
+    where
+        User: UnixUser + PartialEq<User>,
+        Group: UnixGroup,
+    {
+        let tags = check_permission(self, am_user, request, on_host, cmdline);
+        Some(TagIterator(tags))
+    }
 }
 
 fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io::Error> {
@@ -80,11 +121,7 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
 pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
-    Sudoers {
-        rules,
-        aliases,
-        settings: _,
-    }: &Sudoers,
+    Sudoers { rules, aliases, .. }: &Sudoers,
     am_user: &User,
     request: Request<User, Group>,
     on_host: &str,
