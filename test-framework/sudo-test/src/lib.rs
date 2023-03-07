@@ -269,6 +269,8 @@ impl Env {
         self.container.exec(cmd, user, stdin)
     }
 
+    /// utility function on top of `exec` that checks that `cmd` executed successfully and returns
+    /// its stdout
     pub fn stdout(&self, cmd: &[impl AsRef<str>], user: As, stdin: Option<&str>) -> Result<String> {
         if let As::User { name } = user {
             assert!(
