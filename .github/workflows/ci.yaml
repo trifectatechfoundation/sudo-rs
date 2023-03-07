@@ -9,6 +9,32 @@ on:
       - main
 
 jobs:
+  compliance-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Test sudo-test itself
+        working-directory: test-framework
+        run: cargo test -p sudo-test
+
+      - name: Test sudo-rs
+        working-directory: test-framework
+        env:
+          SUDO_UNDER_TEST: ours
+        run: cargo test -p sudo-compliance-tests
+
+      - name: Test original sudo
+        if: always()
+        working-directory: test-framework
+        run: cargo test -p sudo-compliance-tests
+
   build-and-test:
     runs-on: ubuntu-latest
 
