@@ -6,14 +6,6 @@ use crate::basic_parser::{Many, Token};
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub struct Username(pub String);
 
-impl std::ops::Deref for Username {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
 impl Token for Username {
     fn construct(text: String) -> Result<Self, String> {
@@ -134,14 +126,6 @@ impl<T: Many> Many for Meta<T> {
 /// An identifier that consits of only uppercase characters.
 #[derive(Debug)]
 pub struct Upper(pub String);
-
-impl std::ops::Deref for Upper {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl Token for Upper {
     fn construct(s: String) -> Result<Self, String> {
@@ -275,14 +259,6 @@ impl Token for StringParameter {
 /// multiple hashes with the same hash length, this needs to be recorded explicity.
 #[derive(Debug)]
 pub struct Sha2(pub Box<[u8]>);
-
-impl std::ops::Deref for Sha2 {
-    type Target = Box<[u8]>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl Token for Sha2 {
     const MAX_LEN: usize = 512 / 4;
