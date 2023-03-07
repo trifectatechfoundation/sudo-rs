@@ -20,7 +20,7 @@ pub struct OptTuple<T> {
 }
 
 mod strenum;
-use strenum::StrEnum;
+pub use strenum::StrEnum;
 
 mod settings_dsl;
 use settings_dsl::*;

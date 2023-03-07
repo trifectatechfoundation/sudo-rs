@@ -69,12 +69,15 @@ pub enum Directive {
     Defaults(String, ConfigValue),
 }
 
+pub type TextEnum = sudo_defaults::StrEnum<'static>;
+
 #[derive(Debug)]
 pub enum ConfigValue {
     Flag(bool),
     Text(String),
     Num(i128),
     List(Mode, Vec<String>),
+    Enum(TextEnum),
 }
 
 #[derive(Debug)]
@@ -494,6 +497,7 @@ fn get_directive(
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
         let id_pos = stream.get_pos();
+
         let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut _| {
             expect_syntax('=', stream)?;
             if !matches!(cfg, Setting::List(_)) {
@@ -504,15 +508,31 @@ fn get_directive(
             make(Defaults(name, ConfigValue::List(mode, items)))
         };
 
+        let text_item = |stream: &mut _| {
+            if accept_if(|c| c == '"', stream).is_ok() {
+                let QuotedText(text) = expect_nonterminal(stream)?;
+                expect_syntax('"', stream)?;
+                make(text)
+            } else {
+                let StringParameter(name) = expect_nonterminal(stream)?;
+                make(name)
+            }
+        };
+
+        use sudo_defaults::OptTuple;
+
         if is_syntax('!', stream)? {
             let EnvVar(name) = expect_nonterminal(stream)?;
             let value = match sudo_default(&name) {
                 Some(Setting::Flag(_)) => ConfigValue::Flag(false),
                 Some(Setting::List(_)) => ConfigValue::List(Mode::Set, vec![]),
-                Some(Setting::Text(sudo_defaults::OptTuple {
+                Some(Setting::Text(OptTuple {
                     negated: Some(val), ..
                 })) => ConfigValue::Text(val.to_string()),
-                Some(Setting::Integer(sudo_defaults::OptTuple {
+                Some(Setting::Enum(OptTuple {
+                    negated: Some(val), ..
+                })) => ConfigValue::Enum(val),
+                Some(Setting::Integer(OptTuple {
                     negated: Some(val), ..
                 })) => ConfigValue::Num(val),
                 _ => unrecoverable!(stream, "`{name}' cannot be used in a boolean context"),
@@ -539,18 +559,16 @@ fn get_directive(
                         make(Defaults(name, ConfigValue::List(Mode::Set, items)))
                     }
                     Setting::Text(_) => {
-                        let text = if accept_if(|c| c == '"', stream).is_ok() {
-                            let QuotedText(text) = expect_nonterminal(stream)?;
-                            expect_syntax('"', stream)?;
-                            text
-                        } else {
-                            let StringParameter(name) = expect_nonterminal(stream)?;
-                            name
-                        };
+                        let text = text_item(stream)?;
                         make(Defaults(name, ConfigValue::Text(text)))
                     }
-                    Setting::Enum(_) => {
-                        todo!()
+                    Setting::Enum(sudo_defaults::OptTuple { default: key, .. }) => {
+                        let value_pos = stream.get_pos();
+                        let text = text_item(stream)?;
+                        let Some(value) = key.alt(&text) else {
+                            unrecoverable!(pos = value_pos, stream, "`{text}' is not a valid value for {name}");
+                        };
+                        make(Defaults(name, ConfigValue::Enum(value)))
                     }
                 }
             } else {
