@@ -57,6 +57,10 @@ macro_rules! optional {
 
 macro_rules! defaults {
     ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])?)*) => {
+        pub const ALL_PARAMS: &'static [&'static str] = &[
+            $(stringify!($name)),*
+        ];
+
         pub fn sudo_default(var: &str) -> Option<SudoDefault> {
             add_from!(Flag, bool);
             add_from!(Integer, i128, negatable);

@@ -239,13 +239,53 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
 }
 
 //TODO: don't derive Default, but implement it (based on what the actual defaults are)
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Settings {
     pub flags: HashSet<String>,
     pub str_value: HashMap<String, String>,
     pub enum_value: HashMap<String, TextEnum>,
     pub int_value: HashMap<String, i128>,
     pub list: HashMap<String, HashSet<String>>,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        let mut this = Settings {
+            flags: Default::default(),
+            str_value: Default::default(),
+            enum_value: Default::default(),
+            int_value: Default::default(),
+            list: Default::default(),
+        };
+
+        use sudo_defaults::{sudo_default, OptTuple, SudoDefault};
+        for key in sudo_defaults::ALL_PARAMS.iter() {
+            match sudo_default(key).expect("internal error") {
+                SudoDefault::Flag(default) => {
+                    if default {
+                        this.flags.insert(key.to_string());
+                    }
+                }
+                SudoDefault::Text(OptTuple { default, .. }) => {
+                    this.str_value.insert(key.to_string(), default.to_string());
+                }
+                SudoDefault::Enum(OptTuple { default, .. }) => {
+                    this.enum_value.insert(key.to_string(), default);
+                }
+                SudoDefault::Integer(OptTuple { default, .. }) => {
+                    this.int_value.insert(key.to_string(), default);
+                }
+                SudoDefault::List(default) => {
+                    this.list.insert(
+                        key.to_string(),
+                        default.iter().map(|x| x.to_string()).collect(),
+                    );
+                }
+            }
+        }
+
+        this
+    }
 }
 
 /// Process a sudoers-parsing file into a workable AST
