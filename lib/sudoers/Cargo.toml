@@ -9,7 +9,6 @@ publish.workspace = true
 
 [dependencies]
 sudo-system.workspace = true
-derive_more.workspace = true
 glob.workspace = true
 sha2.workspace = true
 digest.workspace = true
