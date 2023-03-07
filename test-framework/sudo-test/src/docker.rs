@@ -18,24 +18,32 @@ impl Container {
     pub fn new(image: &str) -> Result<Self> {
         let mut cmd = Command::new("docker");
         cmd.args(["run", "-d", "--rm", image]).args(DEFAULT_COMMAND);
-        let id = helpers::stdout(&mut cmd)?;
+        let id = helpers::stdout(&mut cmd, None)?;
         validate_docker_id(&id, &cmd)?;
 
         Ok(Container { id })
     }
 
-    pub fn exec(&self, cmd: &[impl AsRef<str>], user: As) -> Result<ExecOutput> {
-        helpers::run(&mut self.docker_cmd(cmd, user))
+    pub fn exec(
+        &self,
+        cmd: &[impl AsRef<str>],
+        user: As,
+        stdin: Option<&str>,
+    ) -> Result<ExecOutput> {
+        helpers::run(&mut self.docker_cmd(cmd, user, stdin.is_some()), stdin)
     }
 
     /// Returns `$cmd`'s stdout if it successfully exists
-    pub fn stdout(&self, cmd: &[impl AsRef<str>], user: As) -> Result<String> {
-        helpers::stdout(&mut self.docker_cmd(cmd, user))
+    pub fn stdout(&self, cmd: &[impl AsRef<str>], user: As, stdin: Option<&str>) -> Result<String> {
+        helpers::stdout(&mut self.docker_cmd(cmd, user, stdin.is_some()), stdin)
     }
 
-    fn docker_cmd(&self, cmd: &[impl AsRef<str>], user: As) -> Command {
+    fn docker_cmd(&self, cmd: &[impl AsRef<str>], user: As, with_stdin: bool) -> Command {
         let mut docker_cmd = Command::new("docker");
         docker_cmd.arg("exec");
+        if with_stdin {
+            docker_cmd.arg("-i");
+        }
         if let Some(user) = user.as_string() {
             docker_cmd.arg("--user");
             docker_cmd.arg(user);
@@ -54,7 +62,10 @@ impl Container {
         let src_path = temp_file.path().display().to_string();
         let dest_path = format!("{}:{path_in_container}", self.id);
 
-        helpers::stdout(Command::new("docker").args(["cp", &src_path, &dest_path]))?;
+        helpers::stdout(
+            Command::new("docker").args(["cp", &src_path, &dest_path]),
+            None,
+        )?;
 
         Ok(())
     }
@@ -121,14 +132,14 @@ mod tests {
         check_cmd.args(["ps", "--all", "--quiet", "--filter"]);
         check_cmd.arg(format!("id={}", docker.id));
 
-        let matches = helpers::stdout(&mut check_cmd)?;
+        let matches = helpers::stdout(&mut check_cmd, None)?;
         assert_eq!(1, matches.lines().count());
         drop(docker);
 
         // wait for a bit until `stop` and `--rm` have done their work
         thread::sleep(Duration::from_secs(15));
 
-        let matches = helpers::stdout(&mut check_cmd)?;
+        let matches = helpers::stdout(&mut check_cmd, None)?;
         assert_eq!(0, matches.lines().count());
 
         Ok(())
@@ -137,9 +148,9 @@ mod tests {
     #[test]
     fn exec_as_root_works() -> Result<()> {
         let docker = Container::new(IMAGE)?;
-        let output = docker.exec(&["true"], As::Root)?;
+        let output = docker.exec(&["true"], As::Root, None)?;
         assert!(output.status.success());
-        let output = docker.exec(&["false"], As::Root)?;
+        let output = docker.exec(&["false"], As::Root, None)?;
         assert_eq!(Some(1), output.status.code());
         Ok(())
     }
@@ -147,7 +158,7 @@ mod tests {
     #[test]
     fn exec_as_user_named_root_works() -> Result<()> {
         let docker = Container::new(IMAGE)?;
-        let output = docker.exec(&["true"], As::User { name: "root" })?;
+        let output = docker.exec(&["true"], As::User { name: "root" }, None)?;
         assert!(output.status.success());
         Ok(())
     }
@@ -156,9 +167,9 @@ mod tests {
     fn exec_as_non_root_user_works() -> Result<()> {
         let docker = Container::new(IMAGE)?;
         let username = "ferris";
-        let output = docker.exec(&["useradd", username], As::Root)?;
+        let output = docker.exec(&["useradd", username], As::Root, None)?;
         assert!(output.status.success());
-        let output = docker.exec(&["true"], As::User { name: username })?;
+        let output = docker.exec(&["true"], As::User { name: username }, None)?;
         assert!(output.status.success());
         Ok(())
     }
@@ -168,8 +179,23 @@ mod tests {
         let docker = Container::new(IMAGE)?;
         let expected = "Hello, world!";
         docker.cp("/tmp/file", expected)?;
-        let actual = docker.stdout(&["cat", "/tmp/file"], As::Root)?;
+        let actual = docker.stdout(&["cat", "/tmp/file"], As::Root, None)?;
         assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn stdin_works() -> Result<()> {
+        let expected = "Hello, root!";
+
+        let docker = Container::new(IMAGE)?;
+
+        docker.stdout(&["tee", "greeting"], As::Root, Some(expected))?;
+
+        let actual = docker.stdout(&["cat", "greeting"], As::Root, None)?;
+
+        assert_eq!(expected, actual);
+
         Ok(())
     }
 }

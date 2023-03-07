@@ -1,8 +1,19 @@
-use std::process::Command;
+use std::{
+    io::{Seek, Write},
+    process::{Command, Stdio},
+};
 
 use crate::{docker::ExecOutput, Result};
 
-pub fn run(cmd: &mut Command) -> Result<ExecOutput> {
+pub fn run(cmd: &mut Command, stdin: Option<&str>) -> Result<ExecOutput> {
+    let mut temp_file;
+    if let Some(stdin) = stdin {
+        temp_file = tempfile::tempfile()?;
+        temp_file.write_all(stdin.as_bytes())?;
+        temp_file.seek(std::io::SeekFrom::Start(0))?;
+        cmd.stdin(Stdio::from(temp_file));
+    }
+
     let output = cmd.output()?;
 
     let mut stderr = String::from_utf8(output.stderr)?;
@@ -24,8 +35,8 @@ pub fn run(cmd: &mut Command) -> Result<ExecOutput> {
     })
 }
 
-pub fn stdout(cmd: &mut Command) -> Result<String> {
-    let output = run(cmd)?;
+pub fn stdout(cmd: &mut Command, stdin: Option<&str>) -> Result<String> {
+    let output = run(cmd, stdin)?;
 
     if !output.status.success() {
         let reason = if let Some(code) = output.status.code() {

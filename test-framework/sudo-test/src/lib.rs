@@ -108,6 +108,7 @@ impl EnvBuilder {
                 path,
             ],
             As::Root,
+            None,
         )?;
 
         container.stdout(
@@ -119,12 +120,13 @@ impl EnvBuilder {
                 path,
             ],
             As::Root,
+            None,
         )?;
 
         for user_groups in self.username_to_groups.values() {
             for user_group in user_groups {
                 if !groups.contains(user_group) {
-                    container.stdout(&["groupadd", user_group], As::Root)?;
+                    container.stdout(&["groupadd", user_group], As::Root, None)?;
 
                     groups.insert(user_group.to_string());
                 }
@@ -138,7 +140,7 @@ impl EnvBuilder {
                 group_list = user_groups.iter().cloned().collect::<Vec<_>>().join(",");
                 cmd.extend_from_slice(&["-G", &group_list]);
             }
-            container.stdout(&cmd, As::Root)?;
+            container.stdout(&cmd, As::Root, None)?;
 
             users.insert(username.to_string());
             groups.insert(username.to_string());
@@ -191,7 +193,7 @@ fn build_base_image() -> Result<()> {
         }
     }
 
-    helpers::stdout(&mut cmd)?;
+    helpers::stdout(&mut cmd, None)?;
 
     Ok(())
 }
@@ -204,7 +206,7 @@ fn repo_root() -> PathBuf {
 }
 
 fn get_groups(container: &Container) -> Result<HashSet<String>> {
-    let stdout = container.stdout(&["getent", "group"], As::Root)?;
+    let stdout = container.stdout(&["getent", "group"], As::Root, None)?;
     let mut groups = HashSet::new();
     for line in stdout.lines() {
         if let Some((name, _rest)) = line.split_once(':') {
@@ -216,7 +218,7 @@ fn get_groups(container: &Container) -> Result<HashSet<String>> {
 }
 
 fn get_users(container: &Container) -> Result<HashSet<String>> {
-    let stdout = container.stdout(&["getent", "passwd"], As::Root)?;
+    let stdout = container.stdout(&["getent", "passwd"], As::Root, None)?;
     let mut users = HashSet::new();
     for line in stdout.lines() {
         if let Some((name, _rest)) = line.split_once(':') {
@@ -234,7 +236,12 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn exec(&self, cmd: &[impl AsRef<str>], user: As) -> Result<ExecOutput> {
+    pub fn exec(
+        &self,
+        cmd: &[impl AsRef<str>],
+        user: As,
+        stdin: Option<&str>,
+    ) -> Result<ExecOutput> {
         if let As::User { name } = user {
             assert!(
                 self.users.contains(name),
@@ -242,10 +249,10 @@ impl Env {
             );
         }
 
-        self.container.exec(cmd, user)
+        self.container.exec(cmd, user, stdin)
     }
 
-    pub fn stdout(&self, cmd: &[impl AsRef<str>], user: As) -> Result<String> {
+    pub fn stdout(&self, cmd: &[impl AsRef<str>], user: As, stdin: Option<&str>) -> Result<String> {
         if let As::User { name } = user {
             assert!(
                 self.users.contains(name),
@@ -253,7 +260,7 @@ impl Env {
             );
         }
 
-        self.container.stdout(cmd, user)
+        self.container.stdout(cmd, user, stdin)
     }
 }
 
@@ -289,7 +296,7 @@ mod tests {
         let new_user = "ferris";
         let env = EnvBuilder::default().user(new_user, &[]).build()?;
 
-        let output = env.exec(&["sh", "-c", "[ -d /home/ferris ]"], As::Root)?;
+        let output = env.exec(&["sh", "-c", "[ -d /home/ferris ]"], As::Root, None)?;
         assert!(output.status.success());
 
         Ok(())
@@ -300,7 +307,7 @@ mod tests {
         let new_user = "ferris";
         let env = EnvBuilder::default().user(new_user, &[]).build()?;
 
-        let output = env.exec(&["groups"], As::User { name: new_user })?;
+        let output = env.exec(&["groups"], As::User { name: new_user }, None)?;
         assert!(output.status.success());
 
         let groups = output.stdout.split(' ').collect::<HashSet<_>>();
@@ -315,7 +322,7 @@ mod tests {
         let group = "users";
         let env = EnvBuilder::default().user(user, &[group]).build()?;
 
-        let output = env.exec(&["groups"], As::User { name: user })?;
+        let output = env.exec(&["groups"], As::User { name: user }, None)?;
         assert!(output.status.success());
 
         let user_groups = output.stdout.split(' ').collect::<HashSet<_>>();
@@ -330,7 +337,7 @@ mod tests {
         let expected = "Hello, root!";
         let env = EnvBuilder::default().sudoers(expected).build()?;
 
-        let output = env.exec(&["cat", "/etc/sudoers"], As::Root)?;
+        let output = env.exec(&["cat", "/etc/sudoers"], As::Root, None)?;
         assert!(output.status.success());
 
         let actual = output.stdout;

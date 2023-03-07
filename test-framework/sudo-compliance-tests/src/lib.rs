@@ -35,7 +35,7 @@ fn parse_env_output(env_output: &str) -> Result<HashMap<&str, &str>> {
 fn cannot_sudo_with_empty_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default().build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root)?;
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert_eq!(Some(1), output.status.code());
     assert_contains!(output.stderr, "root is not in the sudoers file");
 
@@ -46,7 +46,7 @@ fn cannot_sudo_with_empty_sudoers_file() -> Result<()> {
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
     let env = EnvBuilder::default().sudoers_chmod("446").build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root)?;
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert_eq!(Some(1), output.status.code());
     assert_contains!(output.stderr, "/etc/sudoers is world writable");
 
@@ -54,12 +54,12 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
 }
 
 #[test]
-fn can_sudo_if_user_is_in_sudoers_file() -> Result<()> {
+fn can_sudo_as_root_if_root_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
         .sudoers("root    ALL=(ALL:ALL) ALL")
         .build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root)?;
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert!(output.status.success(), "{}", output.stderr);
 
     Ok(())
@@ -75,7 +75,7 @@ fn can_sudo_if_users_group_is_in_sudoers_file() -> Result<()> {
         .user(username, &[groupname])
         .build()?;
 
-    let output = env.exec(&["sudo", "true"], As::User { name: username })?;
+    let output = env.exec(&["sudo", "true"], As::User { name: username }, None)?;
     assert!(output.status.success(), "{}", output.stderr);
 
     Ok(())
@@ -85,7 +85,7 @@ fn can_sudo_if_users_group_is_in_sudoers_file() -> Result<()> {
 fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
     let env = EnvBuilder::default().sudoers("invalid syntax").build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root)?;
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert!(!output.status.success());
     assert_eq!(Some(1), output.status.code());
     assert_contains!(output.stderr, "syntax error");
@@ -93,7 +93,7 @@ fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
     Ok(())
 }
 
-// see 'envirnoment' section in`man sudo`
+// see 'environment' section in`man sudo`
 // see 'command environment' section in`man sudoers`
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
@@ -102,11 +102,11 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
         .sudoers("root    ALL=(ALL:ALL) ALL")
         .build()?;
 
-    let stdout = env.stdout(&["env"], As::Root)?;
+    let stdout = env.stdout(&["env"], As::Root, None)?;
     let normal_env = parse_env_output(&stdout)?;
 
     // run sudo in an empty environment
-    let stdout = env.stdout(&["env", "-i", "sudo", "/usr/bin/env"], As::Root)?;
+    let stdout = env.stdout(&["env", "-i", "sudo", "/usr/bin/env"], As::Root, None)?;
     let mut sudo_env = parse_env_output(&stdout)?;
 
     // # man sudo
