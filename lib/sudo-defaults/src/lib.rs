@@ -10,7 +10,7 @@ pub enum SudoDefault {
     Integer(OptTuple<i128>),
     Text(OptTuple<&'static str>),
     List(&'static [&'static str]),
-    Enum(OptTuple<&'static str>, &'static [&'static str]),
+    Enum(OptTuple<StrEnum<'static>>),
 }
 
 #[derive(Debug)]
@@ -18,6 +18,9 @@ pub struct OptTuple<T> {
     pub default: T,
     pub negated: Option<T>,
 }
+
+mod strenum;
+use strenum::StrEnum;
 
 mod settings_dsl;
 use settings_dsl::*;
@@ -62,9 +65,12 @@ mod test {
         macro_rules! test {
             ($name:ident => $value:pat) => {
                 let Some(foo@$value) = sudo_default(stringify!($name)) else { unreachable!() };
-                if let SudoDefault::Enum(OptTuple { default, negated }, keys) = foo {
-                    assert!(keys.iter().any(|x| *x as *const str == default));
-                    negated.map(|neg| assert!(keys.contains(&neg)));
+                if let SudoDefault::Enum(OptTuple { default, negated }) = foo {
+                    assert!(default
+                        .possible_values
+                        .iter()
+                        .any(|x| *x as *const str == default.get()));
+                    negated.map(|neg| assert!(neg.possible_values.contains(&neg.get())));
                 }
             };
         }
@@ -84,9 +90,12 @@ mod test {
         test! { editor => Text(OptTuple { default: "/usr/bin/editor", negated: None }) };
         test! { lecture_file => Text(_) };
         test! { secure_path => Text(OptTuple { default: "", negated: Some("") }) };
-        test! { verifypw => Enum(OptTuple { default: "all", negated: Some("never") }, [_, "always", "any", _]) };
         test! { env_keep => List(_) };
         test! { env_check => List(["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]) };
         test! { env_delete => List(_) };
+        test! { verifypw     => Enum(OptTuple { default: StrEnum { value: "all", possible_values: [_, "always", "any", _] }, negated: Some(StrEnum { value: "never", .. }) }) };
+
+        let myenum = StrEnum::new("hello", &["hello", "goodbye"]).unwrap();
+        assert!(&myenum as &str == "hello");
     }
 }

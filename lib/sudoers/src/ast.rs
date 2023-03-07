@@ -549,7 +549,7 @@ fn get_directive(
                         };
                         make(Defaults(name, ConfigValue::Text(text)))
                     }
-                    Setting::Enum(_, _) => {
+                    Setting::Enum(_) => {
                         todo!()
                     }
                 }
