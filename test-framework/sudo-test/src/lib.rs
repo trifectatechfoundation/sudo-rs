@@ -26,6 +26,7 @@ pub struct EnvBuilder {
     sudoers_chmod: Option<String>,
     sudoers_chown: Option<String>,
     username_to_groups: HashMap<String, HashSet<String>>,
+    username_to_passwords: HashMap<String, String>,
 }
 
 impl EnvBuilder {
@@ -53,6 +54,12 @@ impl EnvBuilder {
 
         self.username_to_groups.insert(username.to_string(), set);
 
+        self
+    }
+
+    pub fn user_password(&mut self, username: &str, password: &str) -> &mut Self {
+        self.username_to_passwords
+            .insert(username.to_string(), password.to_string());
         self
     }
 
@@ -144,6 +151,16 @@ impl EnvBuilder {
 
             users.insert(username.to_string());
             groups.insert(username.to_string());
+        }
+
+        for (username, password) in &self.username_to_passwords {
+            assert!(
+                users.contains(username),
+                "cannot assign password to non-existing user: {username}"
+            );
+
+            let stdin = format!("{username}:{password}");
+            container.stdout(&["chpasswd"], As::Root, Some(&stdin))?;
         }
 
         Ok(Env { container, users })

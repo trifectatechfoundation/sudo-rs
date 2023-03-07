@@ -66,17 +66,41 @@ fn can_sudo_as_root_if_root_is_in_sudoers_file() -> Result<()> {
 }
 
 #[test]
-#[ignore = "need a way to stdin the password"]
-fn can_sudo_if_users_group_is_in_sudoers_file() -> Result<()> {
+fn can_sudo_as_user_if_users_group_is_in_sudoers_file_and_password_provided() -> Result<()> {
     let username = "ferris";
     let groupname = "rustaceans";
+    let password = "strong-password";
     let env = EnvBuilder::default()
         .sudoers(&format!("%{groupname}    ALL=(ALL:ALL) ALL"))
         .user(username, &[groupname])
+        .user_password(username, password)
         .build()?;
 
-    let output = env.exec(&["sudo", "true"], As::User { name: username }, None)?;
+    let output = env.exec(
+        &["sudo", "-S", "true"],
+        As::User { name: username },
+        Some(password),
+    )?;
     assert!(output.status.success(), "{}", output.stderr);
+
+    Ok(())
+}
+
+#[test]
+fn cannot_sudo_as_user_if_users_group_is_in_sudoers_file_and_password_is_not_provided() -> Result<()>
+{
+    let username = "ferris";
+    let groupname = "rustaceans";
+    let password = "strong-password";
+    let env = EnvBuilder::default()
+        .sudoers(&format!("%{groupname}    ALL=(ALL:ALL) ALL"))
+        .user(username, &[groupname])
+        .user_password(username, password)
+        .build()?;
+
+    let output = env.exec(&["sudo", "-S", "true"], As::User { name: username }, None)?;
+    assert_eq!(Some(1), output.status.code());
+    assert_contains!(output.stderr, "no password was provided");
 
     Ok(())
 }
