@@ -1,5 +1,6 @@
 [package]
 name = "sudo"
+copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
