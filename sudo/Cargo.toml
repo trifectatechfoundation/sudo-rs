@@ -14,3 +14,9 @@ sudo-system.workspace = true
 sudo-cli.workspace = true
 sudoers.workspace = true
 sudo-pam.workspace = true
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/sudo", dest = "/usr/bin/sudo-rs", mode = "755" },
+]
+
