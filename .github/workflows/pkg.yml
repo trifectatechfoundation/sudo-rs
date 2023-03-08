@@ -9,7 +9,9 @@ jobs:
       workspace_package: sudo
       package_build_rules: |
         pkg: mytest
-        image: "rockylinux:8"
+        image:
+          - "rockylinux:8"
+          - "ubuntu:jammy"
         target: x86_64
       rpm_extra_build_packages: pam-devel
       rpm_scriptlets_path: pkg/rpm/scriptlets.toml
