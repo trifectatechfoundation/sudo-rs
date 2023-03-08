@@ -15,7 +15,7 @@ jobs:
           - "ubuntu:jammy"
         target: x86_64
 
-      deb_extra_build_packages: libclang-dev
+      deb_extra_build_packages: libclang-dev libpam-dev
 
       rpm_extra_build_packages: pam-devel clang
       rpm_scriptlets_path: pkg/rpm/scriptlets.toml
