@@ -13,5 +13,5 @@ jobs:
           - "rockylinux:8"
           - "ubuntu:jammy"
         target: x86_64
-      rpm_extra_build_packages: pam-devel
+      rpm_extra_build_packages: pam-devel clang
       rpm_scriptlets_path: pkg/rpm/scriptlets.toml
