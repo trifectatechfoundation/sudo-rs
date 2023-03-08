@@ -7,11 +7,15 @@ jobs:
     uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@support-virtual-manifests
     with:
       workspace_package: sudo
+  
       package_build_rules: |
         pkg: mytest
         image:
           - "rockylinux:8"
           - "ubuntu:jammy"
         target: x86_64
+
+      deb_extra_build_packages: libclang-dev
+
       rpm_extra_build_packages: pam-devel clang
       rpm_scriptlets_path: pkg/rpm/scriptlets.toml
