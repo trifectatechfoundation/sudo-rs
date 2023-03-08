@@ -1,0 +1,13 @@
+on:
+  push:
+  workflow_dispatch:
+  
+jobs:
+  package:
+    uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@v6
+    with:
+      package_build_rules: |
+        pkg: mytest
+        image: "rockylinux:8"
+        target: x86_64
+      rpm_extra_build_packages: pam-devel
