@@ -17,9 +17,9 @@ sudo-pam.workspace = true
 
 [package.metadata.deb]
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
+maintainer = "ISRG"
 
 [package.metadata.generate-rpm]
 assets = [
   { source = "target/release/sudo", dest = "/usr/bin/sudo-rs", mode = "755" },
 ]
-
