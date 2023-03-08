@@ -4,10 +4,12 @@ on:
   
 jobs:
   package:
-    uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@v6
+    uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@support-virtual-manifests
     with:
+      workspace_package: sudo
       package_build_rules: |
         pkg: mytest
         image: "rockylinux:8"
         target: x86_64
       rpm_extra_build_packages: pam-devel
+      rpm_scriptlets_path: pkg/rpm/scriptlets.toml
