@@ -17,7 +17,7 @@ sudo-pam.workspace = true
 
 [package.metadata.deb]
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
-maintainer = "ISRG"
+maintainer = "Prossimo (ISRG) <sudo-rs-maintainer@memorysafety.org>"
 
 [package.metadata.generate-rpm]
 assets = [
