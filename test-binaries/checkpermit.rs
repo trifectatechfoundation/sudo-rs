@@ -60,6 +60,14 @@ impl PartialEq<UserRecord> for UserRecord {
 impl Eq for UserRecord {}
 
 impl UnixUser for UserRecord {
+    fn has_uid(&self, uid: libc::gid_t) -> bool {
+        self.0 == uid
+    }
+
+    fn has_name(&self, name: &str) -> bool {
+        self.1.as_ref().map_or(false, |s| s == name)
+    }
+
     fn is_root(&self) -> bool {
         self.has_name("root") && self.has_uid(0)
     }
