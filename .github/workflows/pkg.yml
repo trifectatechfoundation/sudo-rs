@@ -4,7 +4,7 @@ on:
   
 jobs:
   package:
-    uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@support-virtual-manifests
+    uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@v7
     with:
       workspace_package: sudo
   
