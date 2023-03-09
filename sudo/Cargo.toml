@@ -16,10 +16,11 @@ sudoers.workspace = true
 sudo-pam.workspace = true
 
 [package.metadata.deb]
+# All paths must be relative to the workspace root, i.e. ../
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
 maintainer = "Prossimo (ISRG) <sudo-rs-maintainer@memorysafety.org>"
-extended-description-file = "../README.md"
-maintainer-scripts = "../pkg/deb/"
+extended-description-file = "README.md"
+maintainer-scripts = "pkg/deb/"
 
 [package.metadata.generate-rpm]
 assets = [
