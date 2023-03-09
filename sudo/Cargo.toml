@@ -1,5 +1,5 @@
 [package]
-name = "sudo-rs"
+name = "sudo"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -19,6 +19,7 @@ sudo-pam.workspace = true
 
 [package.metadata.deb]
 # All paths must be relative to the workspace root, i.e. ../
+name = "sudo-rs"
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
 maintainer = "Prossimo (ISRG) <sudo-rs-maintainer@memorysafety.org>"
 maintainer-scripts = "pkg/deb/"
