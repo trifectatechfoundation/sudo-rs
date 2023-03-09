@@ -14,6 +14,8 @@ jobs:
           - "rockylinux:8"
           - "ubuntu:jammy"
         target: x86_64
+ 
+      package_test_scripts_path: pkg/test-scripts/test-sudo.sh
 
       deb_extra_build_packages: libclang-dev libpam-dev
 
