@@ -24,6 +24,8 @@ maintainer = "Prossimo (ISRG) <sudo-rs-maintainer@memorysafety.org>"
 maintainer-scripts = "pkg/deb/"
 
 [package.metadata.generate-rpm]
+# See: https://fedoraproject.org/wiki/Licensing:Main?rd=Licensing#Good_Licenses
+license = "ASL 2.0"
 assets = [
   { source = "target/release/sudo", dest = "/usr/bin/sudo-rs", mode = "755" },
 ]
