@@ -6,6 +6,8 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 publish.workspace = true
+readme.workspace = true
+description.workspace = true
 categories = ["command-line-interface"]
 
 [dependencies]
@@ -19,7 +21,6 @@ sudo-pam.workspace = true
 # All paths must be relative to the workspace root, i.e. ../
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
 maintainer = "Prossimo (ISRG) <sudo-rs-maintainer@memorysafety.org>"
-extended-description-file = "README.md"
 maintainer-scripts = "pkg/deb/"
 
 [package.metadata.generate-rpm]

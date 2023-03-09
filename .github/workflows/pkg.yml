@@ -9,13 +9,13 @@ jobs:
       workspace_package: sudo
   
       package_build_rules: |
-        pkg: mytest
+        pkg: sudo-rs
         image:
           - "rockylinux:8"
           - "ubuntu:jammy"
         target: x86_64
  
-      package_test_scripts_path: pkg/test-scripts/test-sudo.sh
+      package_test_scripts_path: pkg/test-scripts/test-sudo-rs.sh
 
       deb_extra_build_packages: libclang-dev libpam-dev
 
