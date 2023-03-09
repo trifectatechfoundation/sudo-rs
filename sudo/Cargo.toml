@@ -18,11 +18,10 @@ sudoers.workspace = true
 sudo-pam.workspace = true
 
 [package.metadata.deb]
-# All paths must be relative to the workspace root, i.e. ../
 name = "sudo-rs"
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
 maintainer = "Prossimo (ISRG) <sudo-rs-maintainer@memorysafety.org>"
-maintainer-scripts = "pkg/deb/"
+maintainer-scripts = "../pkg/deb/"
 # Until we think it is safe to actually replace the real sudo package, don't
 # mark it as breaking or replacing the real sudo package and don't attempt to
 # overwrite /usr/bin/sudo, instead explicitly via assets install it under new
