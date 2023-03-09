@@ -23,7 +23,8 @@ name = "sudo-rs"
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
 maintainer = "Prossimo (ISRG) <sudo-rs-maintainer@memorysafety.org>"
 maintainer-scripts = "pkg/deb/"
-conflicts = "sudo" # cargo-deb doesn't support "Breaks" and "Replaces"
+breaks = "sudo"
+replaces = "sudo"
 
 [package.metadata.generate-rpm]
 # See: https://fedoraproject.org/wiki/Licensing:Main?rd=Licensing#Good_Licenses
