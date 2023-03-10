@@ -23,6 +23,9 @@ fn chatty_check_permission(
     ) {
         println!("yes.");
         println!("flags: {result:?}");
+        for cond in result {
+            println!("{cond:?}");
+        }
     } else {
         println!("no.");
     }

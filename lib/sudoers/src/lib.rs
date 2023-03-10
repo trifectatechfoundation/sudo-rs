@@ -23,12 +23,14 @@ pub struct Error(pub Option<basic_parser::Position>, pub String);
 
 // This type should be moved to a different crate in the future (i.e. probably one which
 // also generalizes the impl block for Sudoers below, with a trait)
+#[derive(Debug)]
 pub enum Condition {
+    NotPermitted,
     NeedsAuthentication,
 }
 
 #[derive(Debug)]
-struct TagIterator(Option<Vec<Tag>>);
+struct TagIterator(Option<Vec<Tag>>, bool);
 
 impl std::iter::Iterator for TagIterator {
     type Item = Condition;
@@ -36,14 +38,20 @@ impl std::iter::Iterator for TagIterator {
     fn next(&mut self) -> Option<Condition> {
         use Condition::*;
         // we only ever iterate once, right now
-        let tags = self.0.as_ref()?;
-        let result = if tags.contains(&Tag::NoPasswd) {
-            None
+        if self.1 {
+            self.1 = false;
+            if let Some(tags) = self.0.as_ref() {
+                if !tags.contains(&Tag::NoPasswd) {
+                    Some(NeedsAuthentication)
+                } else {
+                    None
+                }
+            } else {
+                Some(NotPermitted)
+            }
         } else {
-            Some(NeedsAuthentication)
-        };
-        self.0 = None;
-        result
+            None
+        }
     }
 }
 
@@ -73,13 +81,13 @@ impl Sudoers {
         request: Request<User, Group>,
         on_host: &str,
         cmdline: &str,
-    ) -> Option<impl Iterator<Item = Condition> + std::fmt::Debug>
+    ) -> impl Iterator<Item = Condition> + std::fmt::Debug
     where
         User: UnixUser + PartialEq<User>,
         Group: UnixGroup,
     {
         let tags = check_permission(self, am_user, request, on_host, cmdline);
-        Some(TagIterator(tags))
+        TagIterator(tags, true)
     }
 }
 

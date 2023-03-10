@@ -7,7 +7,7 @@ use sudo_common::{context::Context, env::Environment, error::Error, pam::authent
 fn check_sudoers(
     context: &Context,
     sudo_options: &SudoOptions,
-) -> Result<Option<impl Iterator<Item = sudoers::Condition>>, Error> {
+) -> Result<impl Iterator<Item = sudoers::Condition>, Error> {
     // TODO: move to global configuration
     let sudoers_path = "/etc/sudoers.test";
 
@@ -38,21 +38,17 @@ fn main() -> Result<(), Error> {
     let context = Context::build_from_options(&sudo_options)?.with_filtered_env(current_env);
 
     // check sudoers file for permission
-    match check_sudoers(&context, &sudo_options)? {
-        Some(conditions) => {
-            for cond in conditions {
-                match cond {
-                    sudoers::Condition::NeedsAuthentication => {
-                        // authenticate user using pam
-                        authenticate(&context.current_user.name)?
-                    }
-                }
+    for cond in check_sudoers(&context, &sudo_options)? {
+        match cond {
+            sudoers::Condition::NeedsAuthentication => {
+                // authenticate user using pam
+                authenticate(&context.current_user.name)?
+            }
+            sudoers::Condition::NotPermitted => {
+                return Err(Error::auth("no permission"));
             }
         }
-        None => {
-            return Err(Error::auth("no permission"));
-        }
-    };
+    }
 
     // run command and return corresponding exit code
     match sudo_common::exec::exec(context) {
