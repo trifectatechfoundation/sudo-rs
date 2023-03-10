@@ -141,8 +141,15 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     let stdout = env.stdout(&["env"], As::Root, None)?;
     let normal_env = parse_env_output(&stdout)?;
 
+    let sudo_abs_path = env.stdout(&["which", "sudo"], As::Root, None)?;
+    let env_abs_path = env.stdout(&["which", "env"], As::Root, None)?;
+
     // run sudo in an empty environment
-    let stdout = env.stdout(&["env", "-i", "sudo", "/usr/bin/env"], As::Root, None)?;
+    let stdout = env.stdout(
+        &["env", "-i", &sudo_abs_path, &env_abs_path],
+        As::Root,
+        None,
+    )?;
     let mut sudo_env = parse_env_output(&stdout)?;
 
     // # man sudo
