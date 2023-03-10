@@ -5,7 +5,10 @@ RUN apt-get update && \
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
-# TODO should use `--locked` but the repository does not include a `Cargo.lock` file
-RUN cargo install --debug --path sudo
+RUN cargo build --locked -p sudo
+# set setuid
+RUN install --mode 4755 target/debug/sudo /usr/bin/sudo
+# remove build dependencies
+RUN apt-get autoremove -y libclang-dev
 # HACK sudo-rs is hard-coded to use /etc/sudoers.test
 RUN ln -s sudoers /etc/sudoers.test
