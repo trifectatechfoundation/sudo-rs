@@ -19,6 +19,10 @@ mod helpers;
 
 const BASE_IMAGE: &str = env!("CARGO_CRATE_NAME");
 
+pub fn is_original_sudo() -> bool {
+    matches!(SudoUnderTest::from_env(), Ok(SudoUnderTest::Theirs))
+}
+
 /// test environment builder
 #[derive(Default)]
 pub struct EnvBuilder {

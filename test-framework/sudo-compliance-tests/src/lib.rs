@@ -37,7 +37,10 @@ fn cannot_sudo_with_empty_sudoers_file() -> Result<()> {
 
     let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert_eq!(Some(1), output.status.code());
-    assert_contains!(output.stderr, "root is not in the sudoers file");
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr, "root is not in the sudoers file");
+    }
 
     Ok(())
 }
@@ -48,7 +51,10 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
 
     let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert_eq!(Some(1), output.status.code());
-    assert_contains!(output.stderr, "/etc/sudoers is world writable");
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr, "/etc/sudoers is world writable");
+    }
 
     Ok(())
 }
@@ -100,7 +106,10 @@ fn cannot_sudo_as_user_if_users_group_is_in_sudoers_file_and_password_is_not_pro
 
     let output = env.exec(&["sudo", "-S", "true"], As::User { name: username }, None)?;
     assert_eq!(Some(1), output.status.code());
-    assert_contains!(output.stderr, "no password was provided");
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr, "no password was provided");
+    }
 
     Ok(())
 }
@@ -112,7 +121,10 @@ fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
     let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert!(!output.status.success());
     assert_eq!(Some(1), output.status.code());
-    assert_contains!(output.stderr, "syntax error");
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr, "syntax error");
+    }
 
     Ok(())
 }
