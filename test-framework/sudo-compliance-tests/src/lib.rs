@@ -59,8 +59,10 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
     Ok(())
 }
 
+// man sudoers > User Authentication:
+// "A password is not required if the invoking user is root"
 #[test]
-fn can_sudo_as_root_if_root_is_in_sudoers_file() -> Result<()> {
+fn can_sudo_as_root_without_providing_a_password_if_root_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
         .sudoers("root    ALL=(ALL:ALL) ALL")
         .build()?;
@@ -72,7 +74,8 @@ fn can_sudo_as_root_if_root_is_in_sudoers_file() -> Result<()> {
 }
 
 #[test]
-fn can_sudo_as_user_if_users_group_is_in_sudoers_file_and_password_provided() -> Result<()> {
+fn can_sudo_as_user_if_users_group_is_in_sudoers_file_and_correct_password_is_provided(
+) -> Result<()> {
     let username = "ferris";
     let groupname = "rustaceans";
     let password = "strong-password";
