@@ -45,23 +45,3 @@ fn user_can_become_another_user() -> Result<()> {
 
     Ok(())
 }
-
-#[ignore]
-#[test]
-fn user_can_become_themselves_without_providing_a_password() -> Result<()> {
-    let username = "ferris";
-    let env = EnvBuilder::default()
-        .user(username, &[])
-        .sudoers(&format!("{username}    ALL=(ALL:ALL) ALL"))
-        .build()?;
-
-    let output = env.exec(
-        &["sudo", "-u", username, "true"],
-        As::User { name: username },
-        None,
-    )?;
-
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
-}

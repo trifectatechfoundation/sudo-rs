@@ -61,3 +61,25 @@ fn can_sudo_as_user_without_providing_a_password_if_user_is_in_sudoers_file_and_
 
     Ok(())
 }
+
+// man sudoers > User Authentication:
+// "A password is not required if (..) the target user is the same as the invoking user"
+#[ignore]
+#[test]
+fn user_can_become_themselves_without_providing_a_password() -> Result<()> {
+    let username = "ferris";
+    let env = EnvBuilder::default()
+        .user(username, &[])
+        .sudoers(&format!("{username}    ALL=(ALL:ALL) ALL"))
+        .build()?;
+
+    let output = env.exec(
+        &["sudo", "-u", username, "true"],
+        As::User { name: username },
+        None,
+    )?;
+
+    assert!(output.status.success(), "{}", output.stderr);
+
+    Ok(())
+}
