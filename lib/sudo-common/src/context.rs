@@ -157,8 +157,8 @@ impl<'a> Context<'a> {
     ) -> Result<Context<'a>, Error> {
         let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice())?;
         let hostname = hostname();
-        let current_user = resolve_current_user()?;
-        let target_user = resolve_target_user(&sudo_options.user)?;
+        let current_user = resolve_current_user()?.with_groups();
+        let target_user = resolve_target_user(&sudo_options.user)?.with_groups();
         let target_group = resolve_target_group(&sudo_options.group, &target_user)?;
 
         Ok(Context {

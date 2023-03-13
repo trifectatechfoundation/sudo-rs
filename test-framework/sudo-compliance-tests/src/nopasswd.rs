@@ -30,7 +30,6 @@ fn can_sudo_as_root_without_providing_a_password_if_roots_group_is_in_sudoers_fi
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn can_sudo_as_user_without_providing_a_password_if_users_group_is_in_sudoers_file_and_nopasswd_is_set(
 ) -> Result<()> {
