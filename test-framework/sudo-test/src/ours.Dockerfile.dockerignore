@@ -1,0 +1,4 @@
+target/**
+.git/**
+# changes in test framework not trigger a rebuild of sudo binary
+test-framework/**
