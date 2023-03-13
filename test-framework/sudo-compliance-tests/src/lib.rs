@@ -238,7 +238,7 @@ fn can_sudo_as_user_without_providing_a_password_if_users_group_is_in_sudoers_fi
         .user(username, &[groupname])
         .build()?;
 
-    let output = env.exec(&["sudo", "-S", "true"], As::User { name: username }, None)?;
+    let output = env.exec(&["sudo", "true"], As::User { name: username }, None)?;
     assert!(output.status.success(), "{}", output.stderr);
 
     Ok(())
@@ -253,7 +253,7 @@ fn can_sudo_as_user_without_providing_a_password_if_user_is_in_sudoers_file_and_
         .user(username, &["rustaceans"])
         .build()?;
 
-    let output = env.exec(&["sudo", "-S", "true"], As::User { name: username }, None)?;
+    let output = env.exec(&["sudo", "true"], As::User { name: username }, None)?;
     assert!(output.status.success(), "{}", output.stderr);
 
     Ok(())
