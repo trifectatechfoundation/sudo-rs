@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use sudo_cli::SudoOptions;
 use sudo_common::{
-    context::{CommandAndArguments, Configuration, Context},
+    context::{CommandAndArguments, Context},
     env::{get_target_environment, Environment},
 };
 use sudo_system::{Group, User};
@@ -70,7 +70,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .collect()
 }
 
-fn create_test_context<'a>(sudo_options: &'a SudoOptions, settings: &'a Settings) -> Context<'a> {
+fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
     let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice()).unwrap();
 
     let current_user = User {
@@ -123,17 +123,11 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions, settings: &'a Settings
         } else {
             root_group
         },
-        target_environment: Default::default(),
         set_home: sudo_options.set_home,
         preserve_env_list: sudo_options.preserve_env_list.clone(),
         login: sudo_options.login,
         shell: sudo_options.shell,
         chdir: sudo_options.directory.clone(),
-        env_delete: settings.env_delete(),
-        env_keep: settings.env_keep(),
-        env_check: settings.env_check(),
-        always_set_home: settings.always_set_home(),
-        use_pty: settings.use_pty(),
     }
 }
 
@@ -149,8 +143,8 @@ fn test_environment_variable_filtering() {
     for (cmd, expected_env) in parts {
         let options = SudoOptions::try_parse_from(cmd.split_whitespace()).unwrap();
         let settings = Settings::default();
-        let context = create_test_context(&options, &settings);
-        let resulting_env = get_target_environment(initial_env.clone(), &context);
+        let context = create_test_context(&options);
+        let resulting_env = get_target_environment(initial_env.clone(), &context, &settings);
 
         let resulting_env = environment_to_set(resulting_env);
         let expected_env = environment_to_set(expected_env);

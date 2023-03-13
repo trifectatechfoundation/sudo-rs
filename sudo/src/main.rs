@@ -19,8 +19,8 @@ fn parse_sudoers() -> Result<Sudoers, Error> {
 }
 
 /// parse suoers file and check permission to run the provided command given the context
-fn check_sudoers(sudoers: &Sudoers, context: &Context) -> Result<sudoers::Policy, Error> {
-    Ok(sudoers.check(
+fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Policy {
+    sudoers.check(
         &context.current_user,
         &context.hostname,
         sudoers::Request {
@@ -29,7 +29,7 @@ fn check_sudoers(sudoers: &Sudoers, context: &Context) -> Result<sudoers::Policy
             command: &context.command.command,
             arguments: &context.command.arguments.join(" "),
         },
-    ))
+    )
 }
 
 fn main() -> Result<(), Error> {
@@ -41,15 +41,15 @@ fn main() -> Result<(), Error> {
 
     // build context and environment
     let current_env = std::env::vars().collect::<Environment>();
-    let context = Context::build_from_options(&sudo_options, &sudoers.settings)?
-        .with_filtered_env(current_env);
+    let context = Context::build_from_options(&sudo_options)?
+        .with_filtered_env(current_env, &sudoers.settings);
 
     // check sudoers file for permission
-    let policy = check_sudoers(&sudoers, &context)?;
+    let policy = check_sudoers(&sudoers, &context.context);
     match policy.authorization() {
         Authorization::Required => {
             // authenticate user using pam
-            authenticate(&context.current_user.name)?;
+            authenticate(&context.context.current_user.name)?;
         }
         Authorization::Passed => {}
         Authorization::Forbidden => {

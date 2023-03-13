@@ -46,6 +46,7 @@ impl<'a, T: FromStr> NameOrId<'a, T> {
     }
 }
 
+/// A Context is based off of global information and is 'non-judgmental'
 #[derive(Debug)]
 pub struct Context<'a> {
     // cli options
@@ -57,15 +58,17 @@ pub struct Context<'a> {
     pub command: CommandAndArguments<'a>,
     pub target_user: User,
     pub target_group: Group,
-    // configuration
-    pub env_delete: &'a HashSet<String>,
-    pub env_keep: &'a HashSet<String>,
-    pub env_check: &'a HashSet<String>,
-    pub always_set_home: bool,
-    pub use_pty: bool,
     // system
     pub hostname: String,
     pub current_user: User,
+}
+
+/// A ContextWithEnv is specific to the operation and obtaining it indicates approval
+#[derive(Debug)]
+pub struct ContextWithEnv<'a> {
+    pub context: Context<'a>,
+    // command-specific
+    pub settings: &'a Settings,
     // computed
     pub target_environment: Environment,
 }
@@ -141,10 +144,7 @@ fn resolve_target_group(
 }
 
 impl<'a> Context<'a> {
-    pub fn build_from_options(
-        sudo_options: &'a SudoOptions,
-        settings: &'a Settings,
-    ) -> Result<Context<'a>, Error> {
+    pub fn build_from_options(sudo_options: &'a SudoOptions) -> Result<Context<'a>, Error> {
         let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice())?;
         let hostname = hostname();
         let current_user = resolve_current_user()?;
@@ -157,24 +157,25 @@ impl<'a> Context<'a> {
             current_user,
             target_user,
             target_group,
-            target_environment: Default::default(),
             set_home: sudo_options.set_home,
             preserve_env_list: sudo_options.preserve_env_list.clone(),
             login: sudo_options.login,
             shell: sudo_options.shell,
             chdir: sudo_options.directory.clone(),
-            env_delete: settings.env_delete(),
-            env_keep: settings.env_keep(),
-            env_check: settings.env_check(),
-            always_set_home: settings.always_set_home(),
-            use_pty: settings.use_pty(),
         })
     }
 
-    pub fn with_filtered_env(mut self, current_env: Environment) -> Context<'a> {
-        self.target_environment = crate::env::get_target_environment(current_env, &self);
-
-        self
+    pub fn with_filtered_env(
+        self,
+        current_env: Environment,
+        settings: &'a Settings,
+    ) -> ContextWithEnv<'a> {
+        let env = crate::env::get_target_environment(current_env, &self, settings);
+        ContextWithEnv {
+            context: self,
+            settings,
+            target_environment: env,
+        }
     }
 }
 
@@ -194,17 +195,20 @@ mod tests {
         current_env.insert("FOO".to_string(), "BAR".to_string());
 
         let settings = Settings::default();
-        let context = Context::build_from_options(&options, &settings)
+        let context = Context::build_from_options(&options)
             .unwrap()
-            .with_filtered_env(current_env);
+            .with_filtered_env(current_env, &settings);
 
-        assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
-        assert_eq!(context.command.arguments, ["hello"]);
-        assert_eq!(context.hostname, sudo_system::hostname());
-        assert_eq!(context.target_user.uid, 0);
+        assert_eq!(
+            context.context.command.command.to_str().unwrap(),
+            "/usr/bin/echo"
+        );
+        assert_eq!(context.context.command.arguments, ["hello"]);
+        assert_eq!(context.context.hostname, sudo_system::hostname());
+        assert_eq!(context.context.target_user.uid, 0);
         assert_eq!(
             context.target_environment["SUDO_USER"],
-            context.current_user.name
+            context.context.current_user.name
         );
     }
 }
