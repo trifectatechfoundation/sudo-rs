@@ -24,15 +24,24 @@ jobs:
         working-directory: test-framework
         run: cargo test -p sudo-test
 
-      - name: Test sudo-rs
+      - name: Run all compliance tests against original sudo
+        working-directory: test-framework
+        run: cargo test -p sudo-compliance-tests -- --include-ignored
+
+      - name: Run gated compliance tests against sudo-rs
         working-directory: test-framework
         env:
           SUDO_UNDER_TEST: ours
-        run: cargo test -p sudo-compliance-tests || true
-
-      - name: Test original sudo
-        working-directory: test-framework
         run: cargo test -p sudo-compliance-tests
+
+      - name: Check that we didn't forgot to gate a passing compliance test
+        working-directory: test-framework
+        env:
+          SUDO_UNDER_TEST: ours
+        run: |
+          tmpfile="$(mktemp)"
+          cargo test -p sudo-compliance-tests -- --ignored | tee "$tmpfile"
+          grep 'test result: FAILED. 0 passed' "$tmpfile" || exit 1
 
   build-and-test:
     runs-on: ubuntu-latest

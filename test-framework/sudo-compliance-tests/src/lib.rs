@@ -61,6 +61,7 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
 
 // man sudoers > User Authentication:
 // "A password is not required if the invoking user is root"
+#[ignore]
 #[test]
 fn can_sudo_as_root_without_providing_a_password_if_root_user_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
@@ -73,6 +74,7 @@ fn can_sudo_as_root_without_providing_a_password_if_root_user_is_in_sudoers_file
     Ok(())
 }
 
+#[ignore]
 #[test]
 fn can_sudo_as_root_without_providing_a_password_if_roots_group_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
@@ -85,6 +87,7 @@ fn can_sudo_as_root_without_providing_a_password_if_roots_group_is_in_sudoers_fi
     Ok(())
 }
 
+#[ignore]
 #[test]
 fn can_sudo_as_user_if_users_group_is_in_sudoers_file_and_correct_password_is_provided(
 ) -> Result<()> {
@@ -155,6 +158,7 @@ fn cannot_sudo_as_user_if_users_group_is_in_sudoers_file_and_password_is_not_pro
     Ok(())
 }
 
+#[ignore]
 #[test]
 fn can_sudo_as_user_if_user_is_in_sudoers_file_and_correct_password_is_provided() -> Result<()> {
     let username = "ferris";
@@ -220,6 +224,7 @@ fn cannot_sudo_as_user_if_user_is_in_sudoers_file_and_password_is_not_provided()
     Ok(())
 }
 
+#[ignore]
 #[test]
 fn can_sudo_as_user_without_providing_a_password_if_users_group_is_in_sudoers_file_and_nopasswd_is_set(
 ) -> Result<()> {
@@ -268,6 +273,7 @@ fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
 
 // see 'environment' section in`man sudo`
 // see 'command environment' section in`man sudoers`
+#[ignore]
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     // 'env_reset' is enabled by default
