@@ -23,12 +23,13 @@ fn check_sudoers(sudoers: &Sudoers, context: &Context) -> Result<Option<Vec<Tag>
     Ok(sudoers::check_permission(
         sudoers,
         &context.current_user,
+        &context.hostname,
         sudoers::Request {
             user: &context.target_user,
             group: &context.target_group,
+            command: &context.command.command,
+            arguments: &context.command.arguments.join(" "),
         },
-        &context.hostname,
-        context.command.to_string().as_str(),
     ))
 }
 

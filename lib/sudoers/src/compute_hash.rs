@@ -1,9 +1,9 @@
-pub fn sha2(bits: u16, path: &str) -> Box<[u8]> {
+pub fn sha2(bits: u16, path: &std::path::Path) -> Box<[u8]> {
     use digest::{Digest, DynDigest};
 
     fn compute_hash(
         mut hasher: Box<dyn DynDigest>,
-        path: &str,
+        path: &std::path::Path,
     ) -> Result<Box<[u8]>, std::io::Error> {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
@@ -38,7 +38,7 @@ pub fn sha2(bits: u16, path: &str) -> Box<[u8]> {
 mod test {
     #[test]
     fn check_hash() {
-        let file_to_check = "/bin/more";
+        let file_to_check = std::path::Path::new("/bin/more");
         use crate::basic_parser::parse_eval;
         use crate::tokens::Sha2;
         use std::process::Command;
