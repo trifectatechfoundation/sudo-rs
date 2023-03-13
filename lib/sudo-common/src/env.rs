@@ -10,13 +10,6 @@ pub type Environment = HashMap<String, String>;
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 
-/// Convert a list of `Into<String>` key value pars to an Environment
-pub fn environment_from_list<K: Into<String>, V: Into<String>>(list: Vec<(K, V)>) -> Environment {
-    list.into_iter()
-        .map(|(k, v)| (k.into(), v.into()))
-        .collect::<Environment>()
-}
-
 /// Formats the command and arguments passed for the SUDO_COMMAND
 /// environment variable. Limit the length of arguments to 4096 bytes to prevent
 /// execve failure for very long argument vectors
@@ -39,7 +32,10 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> String {
 }
 
 /// Construct sudo-specific environment variables
-fn get_extra_env(context: &Context, settings: &impl Configuration) -> Environment {
+fn get_extra_env(
+    context: &Context,
+    settings: &impl Configuration,
+) -> impl Iterator<Item = (String, String)> {
     let mut extra = vec![
         ("SUDO_COMMAND", format_command(&context.command)),
         ("SUDO_UID", context.current_user.uid.to_string()),
@@ -68,7 +64,9 @@ fn get_extra_env(context: &Context, settings: &impl Configuration) -> Environmen
         extra.push(("HOME", context.target_user.home.clone()));
     }
 
-    environment_from_list(extra)
+    extra
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value))
 }
 
 /// Check a string only contains printable (non-space) characters
@@ -145,17 +143,11 @@ pub fn get_target_environment(
     context: &Context,
     settings: &impl Configuration,
 ) -> Environment {
-    let mut result = Environment::new();
-
-    for (key, value) in current_env.into_iter() {
-        if should_keep(&key, &value, settings) {
-            result.insert(key, value);
-        }
-    }
-
-    result.extend(get_extra_env(context, settings));
-
-    result
+    current_env
+        .into_iter()
+        .filter(|(key, value)| should_keep(key, value, settings))
+        .chain(get_extra_env(context, settings))
+        .collect()
 }
 
 #[cfg(test)]
