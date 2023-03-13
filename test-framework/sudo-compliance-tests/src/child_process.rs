@@ -1,12 +1,13 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{As, EnvBuilder};
 
-use crate::{Result, SUDOERS_ROOT_ALL};
+use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 
-#[ignore]
 #[test]
 fn sudo_forwards_childs_exit_code() -> Result<()> {
-    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
+        .build()?;
 
     let expected = 42;
     let output = env.exec(
@@ -19,10 +20,11 @@ fn sudo_forwards_childs_exit_code() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn sudo_forwards_childs_stdout() -> Result<()> {
-    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
+        .build()?;
 
     let expected = "hello";
     let output = env.exec(&["sudo", "echo", expected], As::Root, None)?;
@@ -32,10 +34,11 @@ fn sudo_forwards_childs_stdout() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn sudo_forwards_childs_stderr() -> Result<()> {
-    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
+        .build()?;
 
     let expected = "hello";
     let output = env.exec(

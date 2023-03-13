@@ -16,3 +16,4 @@ type Result<T> = core::result::Result<T, Error>;
 
 const SUDOERS_FERRIS_ALL_NOPASSWD: &str = "ferris    ALL=(ALL:ALL) NOPASSWD: ALL";
 const SUDOERS_ROOT_ALL: &str = "root    ALL=(ALL:ALL) ALL";
+const SUDOERS_ROOT_ALL_NOPASSWD: &str = "root    ALL=(ALL:ALL) NOPASSWD: ALL";

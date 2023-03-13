@@ -1,15 +1,14 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{As, EnvBuilder};
 
-use crate::{Result, SUDOERS_FERRIS_ALL_NOPASSWD, SUDOERS_ROOT_ALL};
+use crate::{Result, SUDOERS_FERRIS_ALL_NOPASSWD, SUDOERS_ROOT_ALL_NOPASSWD};
 
-#[ignore]
 #[test]
 fn root_can_become_another_user_by_name() -> Result<()> {
     let username = "ferris";
     let env = EnvBuilder::default()
         .user(username, &[])
-        .sudoers(SUDOERS_ROOT_ALL)
+        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
         .build()?;
 
     let expected = env.stdout(&["id"], As::User { name: username }, None)?;
@@ -20,13 +19,12 @@ fn root_can_become_another_user_by_name() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn root_can_become_another_user_by_uid() -> Result<()> {
     let username = "ferris";
     let env = EnvBuilder::default()
         .user(username, &[])
-        .sudoers(SUDOERS_ROOT_ALL)
+        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
         .build()?;
 
     let uid = env

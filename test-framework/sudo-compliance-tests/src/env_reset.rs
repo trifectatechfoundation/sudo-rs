@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 use sudo_test::{As, EnvBuilder};
 
-use crate::{Result, SUDOERS_ROOT_ALL};
+use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 
 // NOTE if 'env_reset' is not in `/etc/sudoers` it is enabled by default
 
@@ -12,7 +12,9 @@ use crate::{Result, SUDOERS_ROOT_ALL};
 #[ignore]
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
-    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
+        .build()?;
 
     let stdout = env.stdout(&["env"], As::Root, None)?;
     let normal_env = parse_env_output(&stdout)?;
@@ -75,10 +77,11 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn env_reset_mode_clears_env_vars() -> Result<()> {
-    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
+        .build()?;
 
     let varname = "SHOULD_BE_REMOVED";
     let set_env_var = format!("export {varname}=1");
