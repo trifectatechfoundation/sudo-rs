@@ -59,13 +59,15 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
     Ok(())
 }
 
+const SUDOERS_ROOT_FULL_PERMS: &str = "root    ALL=(ALL:ALL) ALL";
+
 // man sudoers > User Authentication:
 // "A password is not required if the invoking user is root"
 #[ignore]
 #[test]
 fn can_sudo_as_root_without_providing_a_password_if_root_user_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
-        .sudoers("root    ALL=(ALL:ALL) ALL")
+        .sudoers(SUDOERS_ROOT_FULL_PERMS)
         .build()?;
 
     let output = env.exec(&["sudo", "true"], As::Root, None)?;
@@ -278,7 +280,7 @@ fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     // 'env_reset' is enabled by default
     let env = EnvBuilder::default()
-        .sudoers("root    ALL=(ALL:ALL) ALL")
+        .sudoers(SUDOERS_ROOT_FULL_PERMS)
         .build()?;
 
     let stdout = env.stdout(&["env"], As::Root, None)?;
@@ -338,6 +340,58 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
 
     let empty = HashMap::new();
     assert_eq!(empty, sudo_env);
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn sudo_forwards_childs_exit_code() -> Result<()> {
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_FULL_PERMS)
+        .build()?;
+
+    let expected = 42;
+    let output = env.exec(
+        &["sudo", "sh", "-c", &format!("exit {expected}")],
+        As::Root,
+        None,
+    )?;
+    assert_eq!(Some(expected), output.status.code());
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn sudo_forwards_childs_stdout() -> Result<()> {
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_FULL_PERMS)
+        .build()?;
+
+    let expected = "hello";
+    let output = env.exec(&["sudo", "echo", expected], As::Root, None)?;
+    assert_eq!(expected, output.stdout);
+    assert!(output.stderr.is_empty());
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn sudo_forwards_childs_stderr() -> Result<()> {
+    let env = EnvBuilder::default()
+        .sudoers(SUDOERS_ROOT_FULL_PERMS)
+        .build()?;
+
+    let expected = "hello";
+    let output = env.exec(
+        &["sudo", "sh", "-c", &format!(">&2 echo {expected}")],
+        As::Root,
+        None,
+    )?;
+    assert_eq!(expected, output.stderr);
+    assert!(output.stdout.is_empty());
 
     Ok(())
 }
