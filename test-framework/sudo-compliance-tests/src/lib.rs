@@ -8,8 +8,8 @@ use sudo_test::{As, EnvBuilder};
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;
 
-const SUDOERS_ROOT_FULL_PERMS: &str = "root    ALL=(ALL:ALL) ALL";
-const FERRIS_NOPASSWD_PERMS: &str = "ferris    ALL=(ALL:ALL) NOPASSWD: ALL";
+const SUDOERS_FERRIS_ALL_NOPASSWD: &str = "ferris    ALL=(ALL:ALL) NOPASSWD: ALL";
+const SUDOERS_ROOT_ALL: &str = "root    ALL=(ALL:ALL) ALL";
 
 macro_rules! assert_contains {
     ($haystack:expr, $needle:expr) => {
@@ -67,9 +67,7 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
 #[ignore]
 #[test]
 fn can_sudo_as_root_without_providing_a_password_if_root_user_is_in_sudoers_file() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers(SUDOERS_ROOT_FULL_PERMS)
-        .build()?;
+    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
 
     let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert!(output.status.success(), "{}", output.stderr);
@@ -280,9 +278,7 @@ fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     // 'env_reset' is enabled by default
-    let env = EnvBuilder::default()
-        .sudoers(SUDOERS_ROOT_FULL_PERMS)
-        .build()?;
+    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
 
     let stdout = env.stdout(&["env"], As::Root, None)?;
     let normal_env = parse_env_output(&stdout)?;
@@ -348,9 +344,7 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
 #[ignore]
 #[test]
 fn sudo_forwards_childs_exit_code() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers(SUDOERS_ROOT_FULL_PERMS)
-        .build()?;
+    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
 
     let expected = 42;
     let output = env.exec(
@@ -366,9 +360,7 @@ fn sudo_forwards_childs_exit_code() -> Result<()> {
 #[ignore]
 #[test]
 fn sudo_forwards_childs_stdout() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers(SUDOERS_ROOT_FULL_PERMS)
-        .build()?;
+    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
 
     let expected = "hello";
     let output = env.exec(&["sudo", "echo", expected], As::Root, None)?;
@@ -381,9 +373,7 @@ fn sudo_forwards_childs_stdout() -> Result<()> {
 #[ignore]
 #[test]
 fn sudo_forwards_childs_stderr() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers(SUDOERS_ROOT_FULL_PERMS)
-        .build()?;
+    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
 
     let expected = "hello";
     let output = env.exec(
@@ -403,7 +393,7 @@ fn user_can_read_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
     let env = EnvBuilder::default()
         .user("ferris", &[])
-        .sudoers(FERRIS_NOPASSWD_PERMS)
+        .sudoers(SUDOERS_FERRIS_ALL_NOPASSWD)
         .text_file(path, "root:root", "000", expected)
         .build()?;
 
@@ -418,7 +408,7 @@ fn user_can_write_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
     let env = EnvBuilder::default()
         .user("ferris", &[])
-        .sudoers(FERRIS_NOPASSWD_PERMS)
+        .sudoers(SUDOERS_FERRIS_ALL_NOPASSWD)
         .text_file(path, "root:root", "000", "")
         .build()?;
 
@@ -434,7 +424,7 @@ fn user_can_execute_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
     let env = EnvBuilder::default()
         .user("ferris", &[])
-        .sudoers(FERRIS_NOPASSWD_PERMS)
+        .sudoers(SUDOERS_FERRIS_ALL_NOPASSWD)
         .text_file(
             path,
             "root:root",
@@ -455,7 +445,7 @@ exit 0"#,
 fn root_can_become_another_user() -> Result<()> {
     let env = EnvBuilder::default()
         .user("ferris", &[])
-        .sudoers(SUDOERS_ROOT_FULL_PERMS)
+        .sudoers(SUDOERS_ROOT_ALL)
         .build()?;
 
     let expected = env.stdout(&["id"], As::User { name: "ferris" }, None)?;
@@ -472,7 +462,7 @@ fn user_can_become_another_user() -> Result<()> {
     let env = EnvBuilder::default()
         .user("ferris", &[])
         .user("someone_else", &[])
-        .sudoers(FERRIS_NOPASSWD_PERMS)
+        .sudoers(SUDOERS_FERRIS_ALL_NOPASSWD)
         .build()?;
 
     let expected = env.stdout(
