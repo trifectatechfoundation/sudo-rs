@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     env,
     fs::File,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::Once,
 };
@@ -30,8 +30,15 @@ pub struct EnvBuilder {
     sudoers: String,
     sudoers_chmod: Option<String>,
     sudoers_chown: Option<String>,
+    text_files: HashMap<String, TextFile>,
     username_to_groups: HashMap<String, HashSet<String>>,
     username_to_passwords: HashMap<String, String>,
+}
+
+struct TextFile {
+    contents: String,
+    chmod: String,
+    chown: String,
 }
 
 impl EnvBuilder {
@@ -109,6 +116,29 @@ impl EnvBuilder {
     pub fn sudoers_chmod(&mut self, chmod: &str) -> &mut Self {
         assert!(self.sudoers_chown.is_none(), "sudoers_chmod already set");
         self.sudoers_chmod = Some(chmod.to_string());
+        self
+    }
+
+    /// Creates a file at `path` with specified `contents` and permissions
+    ///
+    /// NOTE `path` must be absolute
+    pub fn text_file(&mut self, path: &str, chown: &str, chmod: &str, contents: &str) -> &mut Self {
+        assert!(Path::new(path).is_absolute(), "path must be absolute");
+
+        assert!(
+            !self.text_files.contains_key(path),
+            "text file has already been declared"
+        );
+
+        self.text_files.insert(
+            path.to_string(),
+            TextFile {
+                contents: contents.to_string(),
+                chmod: chmod.to_string(),
+                chown: chown.to_string(),
+            },
+        );
+
         self
     }
 
@@ -194,6 +224,13 @@ impl EnvBuilder {
 
             let stdin = format!("{username}:{password}");
             container.stdout(&["chpasswd"], As::Root, Some(&stdin))?;
+        }
+
+        for (path, text_file) in &self.text_files {
+            container.cp(path, &text_file.contents)?;
+
+            container.stdout(&["chown", &text_file.chown, path], As::Root, None)?;
+            container.stdout(&["chmod", &text_file.chmod, path], As::Root, None)?;
         }
 
         Ok(Env { container, users })
@@ -417,6 +454,27 @@ mod tests {
         let actual = env.stdout(&["cat", "/etc/pam.d/sudo"], As::Root, None)?;
 
         assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn text_file_gets_created_with_right_perms() -> Result<()> {
+        let chown = "ferris:ferris";
+        let chmod = "600";
+        let expected_contents = "hello";
+        let path = "/root/file";
+        let env = EnvBuilder::default()
+            .user("ferris", &[])
+            .text_file(path, chown, chmod, expected_contents)
+            .build()?;
+
+        let actual_contents = env.stdout(&["cat", path], As::Root, None)?;
+        assert_eq!(expected_contents, &actual_contents);
+
+        let ls_l = env.stdout(&["ls", "-l", path], As::Root, None)?;
+        assert!(ls_l.starts_with("-rw-------"));
+        assert!(ls_l.contains("ferris ferris"));
+
         Ok(())
     }
 }
