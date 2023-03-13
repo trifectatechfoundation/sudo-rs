@@ -13,14 +13,20 @@ $ sudo pacman -S docker docker-buildx
 
 ## Running the tests
 
-To run the compliance tests against the original sudo execute the following command from this directory:
+To run all the compliance tests against the original sudo execute the following command from this directory:
 
 ``` console
-$ cargo test -p sudo-compliance-tests
+$ cargo test -p sudo-compliance-tests -- --include-ignored
 ```
 
-To run the tests against sudo-rs set the `SUDO_UNDER_TEST` variable to `ours` before invoking Cargo:
+To run the "gated" compliance tests against sudo-rs set the `SUDO_UNDER_TEST` variable to `ours` before invoking Cargo:
 
 ``` console
 $ SUDO_UNDER_TEST=ours cargo test -p sudo-compliance-tests
 ```
+
+## Gating CI on selected tests
+
+Tests (`#[test]` functions) that exercise behavior not yet implemented in sudo-rs MUST be marked as `#[ignored]`.
+When said behavior is implemented in sudo-rs, the `#[ignored]` attribute MUST be removed from the test.
+CI will run `#[ignored]` tests against sudo-rs and fail the build if any of them passes -- as that indicates that an `#[ignored]` attribute was not removed.
