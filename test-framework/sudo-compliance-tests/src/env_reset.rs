@@ -5,23 +5,13 @@ use sudo_test::{As, EnvBuilder};
 
 use crate::{Result, SUDOERS_ROOT_ALL};
 
-fn parse_env_output(env_output: &str) -> Result<HashMap<&str, &str>> {
-    let mut env = HashMap::new();
-    for line in env_output.lines() {
-        if let Some((key, value)) = line.split_once('=') {
-            env.insert(key, value);
-        }
-    }
-
-    Ok(env)
-}
+// NOTE if 'env_reset' is not in `/etc/sudoers` it is enabled by default
 
 // see 'environment' section in`man sudo`
 // see 'command environment' section in`man sudoers`
 #[ignore]
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
-    // 'env_reset' is enabled by default
     let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
 
     let stdout = env.stdout(&["env"], As::Root, None)?;
@@ -83,4 +73,43 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     assert_eq!(empty, sudo_env);
 
     Ok(())
+}
+
+#[ignore]
+#[test]
+fn env_reset_mode_clears_env_vars() -> Result<()> {
+    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+
+    let varname = "SHOULD_BE_REMOVED";
+    let set_env_var = format!("export {varname}=1");
+
+    // sanity check that `set_env_var` makes `varname` visible to `env` program
+    let stdout = env.stdout(
+        &["sh", "-c", &format!("{set_env_var}; env")],
+        As::Root,
+        None,
+    )?;
+    let env_vars = parse_env_output(&stdout)?;
+    assert!(env_vars.contains_key(varname));
+
+    let stdout = env.stdout(
+        &["sh", "-c", &format!("{set_env_var}; sudo env")],
+        As::Root,
+        None,
+    )?;
+    let env_vars = parse_env_output(&stdout)?;
+    assert!(!env_vars.contains_key(varname));
+
+    Ok(())
+}
+
+fn parse_env_output(env_output: &str) -> Result<HashMap<&str, &str>> {
+    let mut env = HashMap::new();
+    for line in env_output.lines() {
+        if let Some((key, value)) = line.split_once('=') {
+            env.insert(key, value);
+        }
+    }
+
+    Ok(env)
 }
