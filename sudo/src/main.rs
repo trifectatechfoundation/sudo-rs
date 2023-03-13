@@ -41,21 +41,22 @@ fn main() -> Result<(), Error> {
 
     // build context and environment
     let current_env = std::env::vars().collect::<Environment>();
-    let context = Context::build_from_options(&sudo_options)?
-        .with_filtered_env(current_env, &sudoers.settings);
+    let context = Context::build_from_options(&sudo_options)?;
 
     // check sudoers file for permission
-    let policy = check_sudoers(&sudoers, &context.context);
+    let policy = check_sudoers(&sudoers, &context);
     match policy.authorization() {
         Authorization::Required => {
             // authenticate user using pam
-            authenticate(&context.context.current_user.name)?;
+            authenticate(&context.current_user.name)?;
         }
         Authorization::Passed => {}
         Authorization::Forbidden => {
             return Err(Error::auth("no permission"));
         }
     };
+
+    let context = context.with_filtered_env(current_env, &policy.settings);
 
     // run command and return corresponding exit code
     match sudo_common::exec::exec(context) {

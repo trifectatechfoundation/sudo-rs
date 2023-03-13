@@ -132,7 +132,6 @@ fn main() {
             }
             eprintln!("{msg}");
         }
-        println!("SETTINGS: {:?}", cfg.settings);
         println!(
             "{:?}",
             chatty_check_permission(

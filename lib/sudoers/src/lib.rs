@@ -26,7 +26,7 @@ pub struct Error(pub Option<basic_parser::Position>, pub String);
 pub struct Sudoers {
     rules: Vec<PermissionSpec>,
     aliases: AliasTable,
-    pub settings: Settings, // TODO: will become private
+    settings: Settings,
 }
 
 /// A structure that represents what the user wants to do
