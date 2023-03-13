@@ -141,10 +141,6 @@ impl Token for Upper {
 /// limited to 1024 characters.
 pub type Command = (glob::Pattern, glob::Pattern);
 
-pub fn split_args(text: &str) -> Vec<&str> {
-    text.split_whitespace().collect::<Vec<_>>()
-}
-
 impl Token for Command {
     const MAX_LEN: usize = 1024;
 
@@ -152,7 +148,7 @@ impl Token for Command {
         let cvt_err = |pat: Result<_, glob::PatternError>| {
             pat.map_err(|err| format!("wildcard pattern error {err}"))
         };
-        let mut cmdvec = split_args(&s);
+        let mut cmdvec = s.split_whitespace().collect::<Vec<_>>();
         if cmdvec.len() == 1 {
             // if no arguments are mentioned, anything is allowed
             cmdvec.push("*");

@@ -11,16 +11,6 @@ pub struct CommandAndArguments<'a> {
     pub arguments: Vec<&'a str>,
 }
 
-impl<'a> ToString for CommandAndArguments<'a> {
-    fn to_string(&self) -> String {
-        format!(
-            "{} {}",
-            self.command.to_string_lossy(),
-            self.arguments.join(" ")
-        )
-    }
-}
-
 impl<'a> TryFrom<&'a [String]> for CommandAndArguments<'a> {
     type Error = Error;
 

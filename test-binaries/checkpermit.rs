@@ -12,15 +12,20 @@ fn chatty_check_permission(
         "Is '{}' allowed on '{}' to run: '{}' (as {}:{})?",
         am_user, on_host, chosen_poison, user, group
     );
+    let (command, arguments) = {
+        let mut items = chosen_poison.split_whitespace();
+        (items.next().unwrap(), items.collect::<Vec<_>>().join(" "))
+    };
     let result = sudoers::check_permission(
         &sudoers,
         &am_user,
+        on_host,
         sudoers::Request {
             user: &user,
             group: &group,
+            command: command.as_ref(),
+            arguments: &arguments,
         },
-        on_host,
-        chosen_poison,
     );
     println!("OUTCOME: {result:?}");
 }

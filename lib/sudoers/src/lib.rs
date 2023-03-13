@@ -33,6 +33,8 @@ pub struct Sudoers {
 pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub user: &'a User,
     pub group: &'a Group,
+    pub command: &'a Path,
+    pub arguments: &'a str,
 }
 
 /// This function takes a file argument for a sudoers file and processes it.
@@ -86,17 +88,18 @@ pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         settings: _,
     }: &Sudoers,
     am_user: &User,
-    request: Request<User, Group>,
     on_host: &str,
-    cmdline: &str,
+    request: Request<User, Group>,
 ) -> Option<Vec<Tag>> {
+    let cmdline = (request.command, request.arguments);
+
     let user_aliases = get_aliases(&aliases.user, &match_user(am_user));
     let host_aliases = get_aliases(&aliases.host, &match_token(on_host));
     let cmnd_aliases = get_aliases(&aliases.cmnd, &match_command(cmdline));
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
     let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
-    let mut sha2_eq = check_all_sha2(cmdline);
+    let mut sha2_eq = check_all_sha2(request.command);
 
     let allowed_commands = rules
         .iter()
@@ -208,10 +211,8 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-fn match_command(text: &str) -> (impl Fn(&Command) -> bool + '_) {
-    let text = split_args(text);
-    let (cmd, args) = (text[0], text[1..].join(" "));
-    move |(cmdpat, argpat)| cmdpat.matches(cmd) && argpat.matches(&args)
+fn match_command<'a>((cmd, args): (&'a Path, &'a str)) -> (impl Fn(&Command) -> bool + 'a) {
+    move |(cmdpat, argpat)| cmdpat.matches_path(cmd) && argpat.matches(args)
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
@@ -476,14 +477,14 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
 
 mod compute_hash;
 
-fn check_all_sha2(cmdline: &str) -> impl FnMut(&Box<[u8]>) -> bool + '_ {
+fn check_all_sha2(binary: &Path) -> impl FnMut(&Box<[u8]>) -> bool + '_ {
     use compute_hash::sha2;
 
     let mut memo = std::collections::HashMap::new(); // pun not intended
 
     move |bytes| {
         let bits = 8 * bytes.len() as u16;
-        memo.entry(bits).or_insert_with(|| sha2(bits, cmdline)) == bytes
+        memo.entry(bits).or_insert_with(|| sha2(bits, binary)) == bytes
     }
 }
 
@@ -526,10 +527,7 @@ mod test {
 
     macro_rules! request {
         ($user:ident, $group:ident) => {
-            Request {
-                user: &Named(stringify!($user)),
-                group: &Named(stringify!($group)),
-            }
+            (&Named(stringify!($user)), &Named(stringify!($group)))
         };
     }
 
@@ -605,22 +603,23 @@ mod test {
 
     #[test]
     fn permission_test() {
-        let root = || Request::<Named, Named> {
-            user: &Named("root"),
-            group: &Named("root"),
-        };
+        let root = || (&Named("root"), &Named("root"));
 
         macro_rules! FAIL {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
                 let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $req, $server, $command), None);
+                let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
+                let req = Request { user: $req.0, group: $req.1, command: cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
+                assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $server, req), None);
             }
         }
 
         macro_rules! pass {
             ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
                 let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-                let result = check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $req, $server, $command);
+                let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
+                let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
+                let result = check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $server, req);
                 $(assert_eq!(result, Some(vec![$($list),*]));)?
                 assert!(!result.is_none());
             }
