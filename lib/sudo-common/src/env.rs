@@ -2,39 +2,13 @@ use crate::{
     context::{CommandAndArguments, Context},
     wildcard_match::wildcard_match,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use sudo_system::PATH_MAX;
 
 pub type Environment = HashMap<String, String>;
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
-
-/// Remove if these environment variables if the value contains '/' or '%'
-const CHECK_ENV_TABLE: &[&str] = &[
-    "COLORTERM",
-    "LANG",
-    "LANGUAGE",
-    "LC_*",
-    "LINGUAS",
-    "TERM",
-    "TZ",
-];
-
-/// Keep these environment variables by default
-const KEEP_ENV_TABLE: &[&str] = &[
-    "COLORS",
-    "DISPLAY",
-    "HOSTNAME",
-    "KRB5CCNAME",
-    "LS_COLORS",
-    "PATH",
-    "PS1",
-    "PS2",
-    "XAUTHORITY",
-    "XAUTHORIZATION",
-    "XDG_CURRENT_DESKTOP",
-];
 
 /// Convert a list of `Into<String>` key value pars to an Environment
 pub fn environment_from_list<K: Into<String>, V: Into<String>>(list: Vec<(K, V)>) -> Environment {
@@ -66,25 +40,35 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> String {
 
 /// Construct sudo-specific environment variables
 fn get_extra_env(context: &Context) -> Environment {
-    environment_from_list(vec![
+    let mut extra = vec![
         ("SUDO_COMMAND", format_command(&context.command)),
         ("SUDO_UID", context.current_user.uid.to_string()),
         ("SUDO_GID", context.current_user.gid.to_string()),
         ("SUDO_USER", context.current_user.name.clone()),
-        // TODO: preserve exsisting when sudo -s
-        ("SHELL", context.target_user.shell.clone()),
-        // TODO: Set to the login name of the target user when the -i option is specified,
-        // when the set_logname option is enabled in sudoers, or when the env_reset option
-        // is enabled in sudoers (unless LOGNAME is present in the env_keep list).
-        ("LOGNAME", context.target_user.name.clone()),
-        ("USER", context.target_user.name.clone()),
-        // TODO: check home dir config + options
-        ("HOME", context.target_user.home.clone()),
         (
             "MAIL",
             format!("{PATH_MAILDIR}/{}", context.target_user.name),
         ),
-    ])
+    ];
+
+    // TODO: preserve exsisting when sudo -s
+    if !context.shell {
+        extra.push(("SHELL", context.target_user.shell.clone()));
+    }
+
+    // TODO: Set to the login name of the target user when the -i option is specified,
+    // when the set_logname option is enabled in sudoers, or when the env_reset option
+    // is enabled in sudoers (unless LOGNAME is present in the env_keep list).
+    if context.login {
+        extra.push(("LOGNAME", context.target_user.name.clone()));
+        extra.push(("USER", context.target_user.name.clone()));
+    }
+
+    if context.always_set_home || context.set_home {
+        extra.push(("HOME", context.target_user.home.clone()));
+    }
+
+    environment_from_list(extra)
 }
 
 /// Check a string only contains printable (non-space) characters
@@ -120,14 +104,14 @@ fn is_safe_tz(value: &str) -> bool {
 }
 
 /// Check whether the needle exists in a haystack, in which the haystack is a list of patterns, possibly containing wildcards
-fn in_table(needle: &str, haystack: &[&str]) -> bool {
+fn in_table(needle: &str, haystack: &HashSet<String>) -> bool {
     haystack
         .iter()
         .any(|pattern| wildcard_match(needle, pattern))
 }
 
 /// Determine whether a specific environment variable should be kept
-fn should_keep(key: &str, value: &str, check_env: &[&str], keep_env: &[&str]) -> bool {
+fn should_keep(key: &str, value: &str, context: &Context) -> bool {
     if value.starts_with("()") {
         return false;
     }
@@ -136,11 +120,11 @@ fn should_keep(key: &str, value: &str, check_env: &[&str], keep_env: &[&str]) ->
         return false;
     }
 
-    if in_table(key, check_env) && !value.contains(|c| c == '%' || c == '/') {
+    if in_table(key, context.env_check) && !value.contains(|c| c == '%' || c == '/') {
         return true;
     }
 
-    in_table(key, keep_env)
+    in_table(key, context.env_keep)
 }
 
 /// Construct the final environment from the current one and a sudo context
@@ -160,7 +144,7 @@ pub fn get_target_environment(current_env: Environment, context: &Context) -> En
     let mut result = Environment::new();
 
     for (key, value) in current_env.into_iter() {
-        if should_keep(&key, &value, CHECK_ENV_TABLE, KEEP_ENV_TABLE) {
+        if should_keep(&key, &value, context) {
             result.insert(key, value);
         }
     }

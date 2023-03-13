@@ -1,6 +1,7 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{collections::HashSet, path::PathBuf, str::FromStr};
 use sudo_cli::SudoOptions;
 use sudo_system::{hostname, Group, User};
+use sudoers::Settings;
 
 use crate::{env::Environment, error::Error};
 
@@ -8,6 +9,16 @@ use crate::{env::Environment, error::Error};
 pub struct CommandAndArguments<'a> {
     pub command: PathBuf,
     pub arguments: Vec<&'a str>,
+}
+
+impl<'a> ToString for CommandAndArguments<'a> {
+    fn to_string(&self) -> String {
+        format!(
+            "{} {}",
+            self.command.to_string_lossy(),
+            self.arguments.join(" ")
+        )
+    }
 }
 
 impl<'a> TryFrom<&'a [String]> for CommandAndArguments<'a> {
@@ -47,45 +58,108 @@ impl<'a, T: FromStr> NameOrId<'a, T> {
 
 #[derive(Debug)]
 pub struct Context<'a> {
-    pub preserve_env: bool,
+    // cli options
     pub preserve_env_list: Vec<String>,
     pub set_home: bool,
+    pub login: bool,
+    pub shell: bool,
+    pub chdir: Option<PathBuf>,
     pub command: CommandAndArguments<'a>,
-    pub hostname: String,
-    pub current_user: User,
     pub target_user: User,
     pub target_group: Group,
+    // configuration
+    pub env_delete: &'a HashSet<String>,
+    pub env_keep: &'a HashSet<String>,
+    pub env_check: &'a HashSet<String>,
+    pub always_set_home: bool,
+    pub use_pty: bool,
+    // system
+    pub hostname: String,
+    pub current_user: User,
+    // computed
     pub target_environment: Environment,
 }
 
+pub trait Configuration {
+    fn env_delete(&self) -> &HashSet<String>;
+    fn env_keep(&self) -> &HashSet<String>;
+    fn env_check(&self) -> &HashSet<String>;
+    fn always_set_home(&self) -> bool;
+    fn use_pty(&self) -> bool;
+}
+
+impl Configuration for Settings {
+    fn env_delete(&self) -> &HashSet<String> {
+        self.list
+            .get("env_delete")
+            .expect("env_delete missing from settings")
+    }
+
+    fn env_keep(&self) -> &HashSet<String> {
+        self.list
+            .get("env_keep")
+            .expect("env_keep missing from settings")
+    }
+
+    fn env_check(&self) -> &HashSet<String> {
+        self.list
+            .get("env_check")
+            .expect("env_check missing from settings")
+    }
+
+    fn always_set_home(&self) -> bool {
+        self.flags.contains("always_set_home")
+    }
+
+    fn use_pty(&self) -> bool {
+        self.flags.contains("use_pty")
+    }
+}
+
+fn resolve_current_user() -> Result<User, Error> {
+    User::real()?.ok_or(Error::UserNotFound("current user".to_string()))
+}
+
+fn resolve_target_user(target_name_or_id: &Option<String>) -> Result<User, Error> {
+    let target_name_or_id = target_name_or_id.as_deref().unwrap_or("root");
+
+    match NameOrId::parse(target_name_or_id) {
+        Some(NameOrId::Name(name)) => User::from_name(name)?,
+        Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
+        _ => None,
+    }
+    .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))
+}
+
+fn resolve_target_group(
+    target_name_or_id: &Option<String>,
+    target_user: &User,
+) -> Result<Group, Error> {
+    match target_name_or_id.as_deref() {
+        Some(name_or_id) => match NameOrId::parse(name_or_id) {
+            Some(NameOrId::Name(name)) => Group::from_name(name)?,
+            Some(NameOrId::Id(gid)) => Group::from_gid(gid)?,
+            _ => None,
+        },
+        None => Group::from_gid(target_user.gid)?,
+    }
+    .ok_or(Error::GroupNotFound(
+        target_name_or_id
+            .clone()
+            .unwrap_or_else(|| target_user.gid.to_string()),
+    ))
+}
+
 impl<'a> Context<'a> {
-    pub fn build_from_options(sudo_options: &SudoOptions) -> Result<Context, Error> {
+    pub fn build_from_options(
+        sudo_options: &'a SudoOptions,
+        settings: &'a Settings,
+    ) -> Result<Context<'a>, Error> {
         let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice())?;
         let hostname = hostname();
-        let current_user = User::real()?.ok_or(Error::UserNotFound("current user".to_string()))?;
-
-        let target_name_or_id = sudo_options.user.as_deref().unwrap_or("root");
-        let target_user = match NameOrId::parse(target_name_or_id) {
-            Some(NameOrId::Name(name)) => User::from_name(name)?,
-            Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
-            _ => None,
-        }
-        .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))?;
-
-        let target_group = match sudo_options.group.as_deref() {
-            Some(name_or_id) => match NameOrId::parse(name_or_id) {
-                Some(NameOrId::Name(name)) => Group::from_name(name)?,
-                Some(NameOrId::Id(gid)) => Group::from_gid(gid)?,
-                _ => None,
-            },
-            None => Group::from_gid(target_user.gid)?,
-        }
-        .ok_or(Error::GroupNotFound(
-            sudo_options
-                .group
-                .clone()
-                .unwrap_or_else(|| target_user.gid.to_string()),
-        ))?;
+        let current_user = resolve_current_user()?;
+        let target_user = resolve_target_user(&sudo_options.user)?;
+        let target_group = resolve_target_group(&sudo_options.group, &target_user)?;
 
         Ok(Context {
             hostname,
@@ -94,9 +168,16 @@ impl<'a> Context<'a> {
             target_user,
             target_group,
             target_environment: Default::default(),
-            preserve_env: sudo_options.preserve_env,
             set_home: sudo_options.set_home,
             preserve_env_list: sudo_options.preserve_env_list.clone(),
+            login: sudo_options.login,
+            shell: sudo_options.shell,
+            chdir: sudo_options.directory.clone(),
+            env_delete: settings.env_delete(),
+            env_keep: settings.env_keep(),
+            env_check: settings.env_check(),
+            always_set_home: settings.always_set_home(),
+            use_pty: settings.use_pty(),
         })
     }
 
@@ -113,6 +194,7 @@ mod tests {
 
     use super::Context;
     use sudo_cli::SudoOptions;
+    use sudoers::Settings;
 
     #[test]
     fn test_build_context() {
@@ -121,7 +203,8 @@ mod tests {
         let mut current_env = HashMap::new();
         current_env.insert("FOO".to_string(), "BAR".to_string());
 
-        let context = Context::build_from_options(&options)
+        let settings = Settings::default();
+        let context = Context::build_from_options(&options, &settings)
             .unwrap()
             .with_filtered_env(current_env);
 

@@ -482,6 +482,7 @@ dependencies = [
  "sudo-cli",
  "sudo-pam",
  "sudo-system",
+ "sudoers",
  "thiserror",
  "which",
 ]

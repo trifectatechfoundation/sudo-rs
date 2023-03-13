@@ -1,11 +1,11 @@
 use std::collections::HashSet;
-
 use sudo_cli::SudoOptions;
 use sudo_common::{
-    context::{CommandAndArguments, Context},
+    context::{CommandAndArguments, Configuration, Context},
     env::{get_target_environment, Environment},
 };
 use sudo_system::{Group, User};
+use sudoers::Settings;
 
 const TESTS: &str = "
 > env
@@ -22,12 +22,10 @@ const TESTS: &str = "
     TERM=xterm
     _=/usr/bin/sudo
 > sudo env
-    HOME=/root
     HOSTNAME=test-ubuntu
     LANG=en_US.UTF-8
     LANGUAGE=en_US.UTF-8
     LC_ALL=en_US.UTF-8
-    LOGNAME=root
     LS_COLORS=cd=40;33;01:*.jpg=01;35:*.mp3=00;36:
     MAIL=/var/mail/root
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -37,14 +35,11 @@ const TESTS: &str = "
     SUDO_UID=1000
     SUDO_USER=test
     TERM=xterm
-    USER=root
 > sudo -u test env
-    HOME=/home/test
     HOSTNAME=test-ubuntu
     LANG=en_US.UTF-8
     LANGUAGE=en_US.UTF-8
     LC_ALL=en_US.UTF-8
-    LOGNAME=test
     LS_COLORS=cd=40;33;01:*.jpg=01;35:*.mp3=00;36:
     MAIL=/var/mail/test
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -54,7 +49,6 @@ const TESTS: &str = "
     SUDO_UID=1000
     SUDO_USER=test
     TERM=xterm
-    USER=test
 ";
 
 fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
@@ -76,7 +70,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .collect()
 }
 
-fn create_test_context(sudo_options: &SudoOptions) -> Context {
+fn create_test_context<'a>(sudo_options: &'a SudoOptions, settings: &'a Settings) -> Context<'a> {
     let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice()).unwrap();
 
     let current_user = User {
@@ -130,9 +124,16 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
             root_group
         },
         target_environment: Default::default(),
-        preserve_env: sudo_options.preserve_env,
         set_home: sudo_options.set_home,
         preserve_env_list: sudo_options.preserve_env_list.clone(),
+        login: sudo_options.login,
+        shell: sudo_options.shell,
+        chdir: sudo_options.directory.clone(),
+        env_delete: settings.env_delete(),
+        env_keep: settings.env_keep(),
+        env_check: settings.env_check(),
+        always_set_home: settings.always_set_home(),
+        use_pty: settings.use_pty(),
     }
 }
 
@@ -147,7 +148,8 @@ fn test_environment_variable_filtering() {
 
     for (cmd, expected_env) in parts {
         let options = SudoOptions::try_parse_from(cmd.split_whitespace()).unwrap();
-        let context = create_test_context(&options);
+        let settings = Settings::default();
+        let context = create_test_context(&options, &settings);
         let resulting_env = get_target_environment(initial_env.clone(), &context);
 
         let resulting_env = environment_to_set(resulting_env);
