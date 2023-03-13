@@ -1,5 +1,6 @@
 use std::env;
 use sudo_system::interface::{UnixGroup, UnixUser};
+use sudoers::Sudoers;
 
 fn chatty_check_permission(
     sudoers: sudoers::Sudoers,
@@ -16,8 +17,7 @@ fn chatty_check_permission(
         let mut items = chosen_poison.split_whitespace();
         (items.next().unwrap(), items.collect::<Vec<_>>().join(" "))
     };
-    let result = sudoers::check_permission(
-        &sudoers,
+    let result = sudoers.check(
         &am_user,
         on_host,
         sudoers::Request {
@@ -125,7 +125,7 @@ fn fancy_error(x: usize, y: usize, path: &str) {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if let Ok((cfg, warn)) = sudoers::compile("./sudoers") {
+    if let Ok((cfg, warn)) = Sudoers::new("./sudoers") {
         for sudoers::Error(pos, msg) in warn {
             if let Some((x, y)) = pos {
                 fancy_error(x, y, "./sudoers");

@@ -2,7 +2,7 @@
 /// compile-time guarantees as an actual Enum. On the other hand this allows for a bit more
 /// flexibility.
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StrEnum<'a> {
     pub(super) value: &'a str,
     pub possible_values: &'a [&'a str],

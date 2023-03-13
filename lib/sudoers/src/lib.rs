@@ -19,7 +19,6 @@ use tokens::*;
 const INCLUDE_LIMIT: u8 = 128;
 
 /// Export some necessary symbols from modules
-pub use ast::Tag;
 pub use ast::TextEnum;
 pub struct Error(pub Option<basic_parser::Position>, pub String);
 
@@ -27,9 +26,10 @@ pub struct Error(pub Option<basic_parser::Position>, pub String);
 pub struct Sudoers {
     rules: Vec<PermissionSpec>,
     aliases: AliasTable,
-    pub settings: Settings,
+    pub settings: Settings, // TODO: will become private
 }
 
+/// A structure that represents what the user wants to do
 pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub user: &'a User,
     pub group: &'a Group,
@@ -37,11 +37,52 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub arguments: &'a str,
 }
 
-/// This function takes a file argument for a sudoers file and processes it.
+/// Data types that represent what the "terms and conditions" are
+/// (this is currently a stub and should later be turned into a trait and moved to a sudo-policies crate)
+#[derive(Debug)]
+pub struct Policy {
+    flags: Option<Vec<Tag>>,
+    pub settings: Settings, // TODO: hide behind interface
+}
 
-pub fn compile(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io::Error> {
-    let sudoers = read_sudoers(path.as_ref())?;
-    Ok(analyze(sudoers))
+pub enum Authorization {
+    Required,
+    Passed,
+    Forbidden,
+}
+
+impl Policy {
+    pub fn authorization(&self) -> Authorization {
+        if let Some(vec) = &self.flags {
+            if vec.contains(&Tag::NoPasswd) {
+                Authorization::Passed
+            } else {
+                Authorization::Required
+            }
+        } else {
+            Authorization::Forbidden
+        }
+    }
+}
+
+/// This function takes a file argument for a sudoers file and processes it.
+impl Sudoers {
+    pub fn new(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io::Error> {
+        let sudoers = read_sudoers(path.as_ref())?;
+        Ok(analyze(sudoers))
+    }
+
+    pub fn check<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
+        &self,
+        am_user: &User,
+        on_host: &str,
+        request: Request<User, Group>,
+    ) -> Policy {
+        Policy {
+            flags: check_permission(self, am_user, on_host, request),
+            settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
+        }
+    }
 }
 
 fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io::Error> {
@@ -81,12 +122,8 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
-pub fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
-    Sudoers {
-        rules,
-        aliases,
-        settings: _,
-    }: &Sudoers,
+fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
+    Sudoers { rules, aliases, .. }: &Sudoers,
     am_user: &User,
     on_host: &str,
     request: Request<User, Group>,
@@ -241,8 +278,7 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
     }
 }
 
-//TODO: don't derive Default, but implement it (based on what the actual defaults are)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Settings {
     pub flags: HashSet<String>,
     pub str_value: HashMap<String, String>,
