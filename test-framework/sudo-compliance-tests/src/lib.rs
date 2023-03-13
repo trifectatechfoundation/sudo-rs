@@ -8,6 +8,9 @@ use sudo_test::{As, EnvBuilder};
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;
 
+const SUDOERS_ROOT_FULL_PERMS: &str = "root    ALL=(ALL:ALL) ALL";
+const FERRIS_NOPASSWD_PERMS: &str = "ferris    ALL=(ALL:ALL) NOPASSWD: ALL";
+
 macro_rules! assert_contains {
     ($haystack:expr, $needle:expr) => {
         let haystack = &$haystack;
@@ -58,8 +61,6 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
 
     Ok(())
 }
-
-const SUDOERS_ROOT_FULL_PERMS: &str = "root    ALL=(ALL:ALL) ALL";
 
 // man sudoers > User Authentication:
 // "A password is not required if the invoking user is root"
@@ -392,6 +393,59 @@ fn sudo_forwards_childs_stderr() -> Result<()> {
     )?;
     assert_eq!(expected, output.stderr);
     assert!(output.stdout.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn user_can_read_file_owned_by_root() -> Result<()> {
+    let expected = "hello";
+    let path = "/root/file";
+    let env = EnvBuilder::default()
+        .user("ferris", &[])
+        .sudoers(FERRIS_NOPASSWD_PERMS)
+        .text_file(path, "root:root", "000", expected)
+        .build()?;
+
+    let stdout = env.stdout(&["sudo", "cat", path], As::User { name: "ferris" }, None)?;
+    assert_eq!(expected, stdout);
+
+    Ok(())
+}
+
+#[test]
+fn user_can_write_file_owned_by_root() -> Result<()> {
+    let path = "/root/file";
+    let env = EnvBuilder::default()
+        .user("ferris", &[])
+        .sudoers(FERRIS_NOPASSWD_PERMS)
+        .text_file(path, "root:root", "000", "")
+        .build()?;
+
+    let output = env.exec(&["sudo", "rm", path], As::User { name: "ferris" }, None)?;
+    assert!(output.status.success());
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn user_can_execute_file_owned_by_root() -> Result<()> {
+    let path = "/root/file";
+    let env = EnvBuilder::default()
+        .user("ferris", &[])
+        .sudoers(FERRIS_NOPASSWD_PERMS)
+        .text_file(
+            path,
+            "root:root",
+            "100",
+            r#"#!/bin/sh
+exit 0"#,
+        )
+        .build()?;
+
+    let output = env.exec(&["sudo", path], As::User { name: "ferris" }, None)?;
+    assert!(output.status.success(), "{}", output.stderr);
 
     Ok(())
 }
