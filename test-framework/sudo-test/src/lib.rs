@@ -19,9 +19,14 @@ mod helpers;
 
 const BASE_IMAGE: &str = env!("CARGO_CRATE_NAME");
 
+pub fn is_original_sudo() -> bool {
+    matches!(SudoUnderTest::from_env(), Ok(SudoUnderTest::Theirs))
+}
+
 /// test environment builder
 #[derive(Default)]
 pub struct EnvBuilder {
+    pam_d_sudo: Option<String>,
     sudoers: String,
     sudoers_chmod: Option<String>,
     sudoers_chown: Option<String>,
@@ -72,9 +77,26 @@ impl EnvBuilder {
         self
     }
 
+    const DEFAULT_PAM_D_SUDO: &str = r#"#%PAM-1.0
+
+@include common-auth
+@include common-account
+@include common-session-noninteractive"#;
+
+    /// overwrites the contents of `/etc/pam.d/sudo`
+    ///
+    /// if this method is not called the contents of `/etc/pam.d/sudo` will match the contents of
+    /// the file provided by the `sudo` package
+    pub fn pam_d_sudo(&mut self, pam_conf: &str) -> &mut Self {
+        let pam_d_sudo = self.pam_d_sudo.get_or_insert_with(String::new);
+        pam_d_sudo.push_str(pam_conf);
+        pam_d_sudo.push('\n');
+        self
+    }
+
     const DEFAULT_SUDOERS_CHOWN: &str = "root:root";
 
-    /// NOTE defaults to "root:root"
+    /// NOTE if unset, defaults to "root:root"
     pub fn sudoers_chown(&mut self, chown: &str) -> &mut Self {
         assert!(self.sudoers_chown.is_none(), "sudoers_chown already set");
         self.sudoers_chown = Some(chown.to_string());
@@ -83,7 +105,7 @@ impl EnvBuilder {
 
     const DEFAULT_SUDOERS_CHMOD: &str = "440";
 
-    /// NOTE defaults to "440"
+    /// NOTE if unset, defaults to "440"
     pub fn sudoers_chmod(&mut self, chmod: &str) -> &mut Self {
         assert!(self.sudoers_chown.is_none(), "sudoers_chmod already set");
         self.sudoers_chmod = Some(chmod.to_string());
@@ -129,6 +151,17 @@ impl EnvBuilder {
             As::Root,
             None,
         )?;
+
+        let path = "/etc/pam.d/sudo";
+        container.cp(
+            path,
+            self.pam_d_sudo
+                .as_deref()
+                .unwrap_or(Self::DEFAULT_PAM_D_SUDO),
+        )?;
+
+        container.stdout(&["chown", "root:root", path], As::Root, None)?;
+        container.stdout(&["chmod", "644", path], As::Root, None)?;
 
         for user_groups in self.username_to_groups.values() {
             for user_group in user_groups {
@@ -362,6 +395,28 @@ mod tests {
         let actual = output.stdout;
         assert_eq!(expected, actual);
 
+        Ok(())
+    }
+
+    #[test]
+    fn default_pam_d_sudo() -> Result<()> {
+        let env = EnvBuilder::default().build()?;
+
+        let actual = env.stdout(&["cat", "/etc/pam.d/sudo"], As::Root, None)?;
+        let expected = EnvBuilder::DEFAULT_PAM_D_SUDO;
+
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn overwrite_pam_d_sudo() -> Result<()> {
+        let expected = "invalid pam.d file";
+        let env = EnvBuilder::default().pam_d_sudo(expected).build()?;
+
+        let actual = env.stdout(&["cat", "/etc/pam.d/sudo"], As::Root, None)?;
+
+        assert_eq!(expected, actual);
         Ok(())
     }
 }
