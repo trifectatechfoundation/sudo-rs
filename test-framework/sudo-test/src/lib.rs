@@ -7,6 +7,7 @@ use std::{
     sync::Once,
 };
 
+use bimap::BiMap;
 use docker::Container;
 
 pub use docker::{As, ExecOutput};
@@ -33,6 +34,8 @@ pub struct EnvBuilder {
     text_files: HashMap<String, TextFile>,
     username_to_groups: HashMap<String, HashSet<String>>,
     username_to_passwords: HashMap<String, String>,
+    user_id_to_username: BiMap<u32, String>,
+    group_id_to_groupname: BiMap<u32, String>,
 }
 
 struct TextFile {
@@ -65,6 +68,46 @@ impl EnvBuilder {
         assert!(!set.contains(username), "do not list $username in $groups");
 
         self.username_to_groups.insert(username.to_string(), set);
+
+        self
+    }
+
+    /// assign a known user ID to a user instead of relying on runtime allocation
+    pub fn user_id(&mut self, username: &str, user_id: u32) -> &mut Self {
+        // > 1000 because we want to avoid collisions with system user ids
+        // 100 should be enough for testing purposes
+        assert!(
+            (1000..=1100).contains(&user_id),
+            "user ID range is limited to 1000-1100"
+        );
+
+        assert!(
+            !self.user_id_to_username.contains_left(&user_id),
+            "user ID {user_id} has already been assigned"
+        );
+
+        self.user_id_to_username
+            .insert(user_id, username.to_string());
+
+        self
+    }
+
+    /// assign a known group ID to a group instead of relying on runtime allocation
+    pub fn group_id(&mut self, groupname: &str, group_id: u32) -> &mut Self {
+        // > 1000 because we want to avoid collisions with system group ids
+        // 100 should be enough for testing purposes
+        assert!(
+            (1000..=1100).contains(&group_id),
+            "group ID range is limited to 1000-1100"
+        );
+
+        assert!(
+            !self.group_id_to_groupname.contains_left(&group_id),
+            "group ID {group_id} has already been assigned"
+        );
+
+        self.group_id_to_groupname
+            .insert(group_id, groupname.to_string());
 
         self
     }
@@ -150,8 +193,44 @@ impl EnvBuilder {
 
         let container = Container::new(BASE_IMAGE)?;
 
-        let mut groups = get_groups(&container)?;
         let mut users = get_users(&container)?;
+
+        for username in &users {
+            assert!(
+                !self.user_id_to_username.contains_right(username),
+                "cannot override the user ID of system user {username}"
+            );
+        }
+
+        for username in self.user_id_to_username.right_values() {
+            assert!(
+                self.username_to_groups.contains_key(username),
+                "cannot assign user ID to non-existent user {username}"
+            );
+        }
+
+        let mut groups = get_groups(&container)?;
+
+        for groupname in &groups {
+            assert!(
+                !self.group_id_to_groupname.contains_right(groupname),
+                "cannot override the group ID of system group {groupname}"
+            );
+        }
+
+        for groupname in self.group_id_to_groupname.right_values() {
+            assert!(
+                !self.username_to_groups.contains_key(groupname),
+                "cannot assign group ID to the implicit user group {groupname}"
+            );
+
+            assert!(
+                self.username_to_groups
+                    .values()
+                    .any(|groups| groups.contains(groupname)),
+                "cannot assign group ID to non-existent group {groupname}"
+            );
+        }
 
         // normally this would be done with `visudo` as that uses a file lock but as it's guaranteed
         // that no user is active in the container at this point doing it like this is fine
@@ -193,6 +272,18 @@ impl EnvBuilder {
         container.stdout(&["chown", "root:root", path], As::Root, None)?;
         container.stdout(&["chmod", "644", path], As::Root, None)?;
 
+        // create groups with known IDs first to avoid collisions ..
+        for (group_id, groupname) in &self.group_id_to_groupname {
+            container.stdout(
+                &["groupadd", "-g", &group_id.to_string(), groupname],
+                As::Root,
+                None,
+            )?;
+
+            groups.insert(groupname.to_string());
+        }
+
+        // .. with groups that get assigned IDs dynamically
         for user_groups in self.username_to_groups.values() {
             for user_group in user_groups {
                 if !groups.contains(user_group) {
@@ -203,14 +294,38 @@ impl EnvBuilder {
             }
         }
 
+        // create users with known IDs first to avoid collisions ..
+        for (user_id, username) in &self.user_id_to_username {
+            //
+            let user = User {
+                name: username,
+                id: Some(*user_id),
+                groups: self
+                    .username_to_groups
+                    .get(username)
+                    .cloned()
+                    .unwrap_or_default(),
+            };
+
+            user.create(&container)?;
+
+            users.insert(username.to_string());
+            groups.insert(username.to_string());
+        }
+
+        // .. with users that get assigned IDs dynamically
         for (username, user_groups) in &self.username_to_groups {
-            let mut cmd = vec!["useradd", "-m", username];
-            let group_list;
-            if !user_groups.is_empty() {
-                group_list = user_groups.iter().cloned().collect::<Vec<_>>().join(",");
-                cmd.extend_from_slice(&["-G", &group_list]);
+            if users.contains(username) {
+                continue;
             }
-            container.stdout(&cmd, As::Root, None)?;
+
+            let user = User {
+                name: username,
+                id: None,
+                groups: user_groups.clone(),
+            };
+
+            user.create(&container)?;
 
             users.insert(username.to_string());
             groups.insert(username.to_string());
@@ -353,6 +468,36 @@ impl Env {
     }
 }
 
+struct User<'a> {
+    name: &'a str,
+    id: Option<u32>,
+    groups: HashSet<String>,
+}
+
+impl User<'_> {
+    fn create(&self, container: &Container) -> Result<()> {
+        let mut cmd = vec!["useradd", "-m"];
+
+        let id_as_string;
+        if let Some(id) = self.id {
+            id_as_string = id.to_string();
+            cmd.extend_from_slice(&["-u", &id_as_string]);
+        }
+
+        let group_list;
+        if !self.groups.is_empty() {
+            group_list = self.groups.iter().cloned().collect::<Vec<_>>().join(",");
+            cmd.extend_from_slice(&["-G", &group_list]);
+        }
+
+        cmd.push(self.name);
+
+        container.stdout(&cmd, As::Root, None)?;
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -475,6 +620,81 @@ mod tests {
         assert!(ls_l.starts_with("-rw-------"));
         assert!(ls_l.contains("ferris ferris"));
 
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic = "cannot override the user ID of system user root"]
+    fn override_root_user_id_fails() {
+        EnvBuilder::default().user_id("root", 1000).build().unwrap();
+    }
+
+    #[test]
+    #[should_panic = "cannot override the group ID of system group root"]
+    fn override_root_group_id_fails() {
+        EnvBuilder::default()
+            .group_id("root", 1000)
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic = "cannot assign user ID to non-existent user ferris"]
+    fn set_user_id_of_nonexistent_user_fails() {
+        EnvBuilder::default()
+            .user_id("ferris", 1000)
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic = "cannot assign group ID to the implicit user group ferris"]
+    fn set_group_id_of_implicit_user_group_fails() {
+        EnvBuilder::default()
+            .user("ferris", &[])
+            .group_id("ferris", 1000)
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic = "cannot assign group ID to non-existent group rustaceans"]
+    fn set_group_id_of_nonexistent_group_fails() {
+        EnvBuilder::default()
+            .group_id("rustaceans", 1000)
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    fn user_id_override_works() -> Result<()> {
+        let expected = 1023;
+        let username = "ferris";
+        let env = EnvBuilder::default()
+            .user(username, &[])
+            .user_id(username, expected)
+            .build()?;
+
+        let actual = env
+            .stdout(&["id", "-u", username], As::Root, None)?
+            .parse()?;
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn group_id_override_works() -> Result<()> {
+        let expected = 1023;
+        let username = "ferris";
+        let groupname = "rustaceans";
+        let env = EnvBuilder::default()
+            .user(username, &[groupname])
+            .group_id(groupname, expected)
+            .build()?;
+
+        let stdout = env.stdout(&["getent", "group", groupname], As::Root, None)?;
+        let actual = stdout.split(':').nth(2);
+        assert_eq!(Some(expected.to_string().as_str()), actual);
         Ok(())
     }
 }
