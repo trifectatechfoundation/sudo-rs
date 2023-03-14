@@ -3,15 +3,18 @@ use std::{
     process::{Command, ExitStatus},
 };
 
-use crate::{context::ContextWithEnv, error::Error};
+use crate::{
+    context::{Context, Environment},
+    error::Error,
+};
 
-pub fn exec(setup: ContextWithEnv) -> Result<ExitStatus, Error> {
-    Command::new(setup.context.command.command)
-        .args(setup.context.command.arguments)
-        .uid(setup.context.target_user.uid)
-        .gid(setup.context.target_user.gid)
+pub fn exec(context: Context, env: Environment) -> Result<ExitStatus, Error> {
+    Command::new(context.command.command)
+        .args(context.command.arguments)
+        .uid(context.target_user.uid)
+        .gid(context.target_user.gid)
         .env_clear()
-        .envs(setup.target_environment)
+        .envs(env)
         .status()
         .map_err(|_| Error::Exec)
 }

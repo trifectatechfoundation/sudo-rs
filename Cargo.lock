@@ -461,6 +461,7 @@ version = "0.1.0-alpha.1"
 dependencies = [
  "sudo-cli",
  "sudo-common",
+ "sudo-env",
  "sudo-pam",
  "sudo-system",
  "sudoers",
@@ -497,6 +498,16 @@ dependencies = [
 [[package]]
 name = "sudo-defaults"
 version = "0.1.0-alpha.1"
+
+[[package]]
+name = "sudo-env"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "sudo-cli",
+ "sudo-common",
+ "sudo-system",
+ "sudoers",
+]
 
 [[package]]
 name = "sudo-pam"

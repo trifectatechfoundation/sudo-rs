@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 use sudo_cli::SudoOptions;
-use sudo_common::{
-    context::{CommandAndArguments, Context},
-    env::{get_target_environment, Environment},
-};
+use sudo_common::context::{CommandAndArguments, Context, Environment};
+use sudo_env::environment::get_target_environment;
 use sudo_system::{Group, User};
 use sudoers::Settings;
 

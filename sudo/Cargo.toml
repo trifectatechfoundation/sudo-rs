@@ -9,6 +9,7 @@ publish.workspace = true
 categories = ["command-line-interface"]
 
 [dependencies]
+sudo-env.workspace = true
 sudo-common.workspace = true
 sudo-system.workspace = true
 sudo-cli.workspace = true
