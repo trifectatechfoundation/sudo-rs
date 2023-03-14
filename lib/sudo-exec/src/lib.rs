@@ -4,6 +4,7 @@ use std::{
     io,
     os::unix::process::CommandExt,
     process::{Command, ExitStatus},
+    time::Duration,
 };
 
 use signal_hook::{
@@ -52,11 +53,7 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                     // FIXME: check `handle_sigchld_nopty`
                     cmd.kill()?;
                 }
-                SIGWINCH => {
-                    // FIXME: check `handle_sigwinch`
-                    cmd.kill()?;
-                }
-                SIGINT | SIGQUIT | SIGTSTP => {
+                SIGWINCH | SIGINT | SIGQUIT | SIGTSTP => {
                     if cause != Cause::Sent(Sent::User) {
                         continue;
                     }
@@ -98,10 +95,16 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                 }
             }
 
-            if signal == SIGALRM {
-                // FIXME: check `terminate_command` to match behavior.
-                cmd.kill()?;
-            } else if kill(cmd_pid, signal) != 0 {
+            let status = if signal == SIGALRM {
+                kill(cmd_pid, SIGHUP);
+                kill(cmd_pid, SIGTERM);
+                std::thread::sleep(Duration::from_secs(2));
+                kill(cmd_pid, SIGKILL)
+            } else {
+                kill(cmd_pid, signal)
+            };
+
+            if status != 0 {
                 eprintln!("kill failed");
             }
         }
