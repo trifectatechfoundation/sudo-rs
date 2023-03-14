@@ -8,8 +8,8 @@ use crate::Result;
 
 #[ignore]
 #[test]
-fn can_sudo_as_user_if_users_group_is_in_sudoers_file_and_correct_password_is_provided(
-) -> Result<()> {
+fn user_can_sudo_if_users_group_is_in_sudoers_file_and_correct_password_is_provided() -> Result<()>
+{
     let username = "ferris";
     let groupname = "rustaceans";
     let password = "strong-password";
@@ -30,7 +30,7 @@ fn can_sudo_as_user_if_users_group_is_in_sudoers_file_and_correct_password_is_pr
 }
 
 #[test]
-fn cannot_sudo_as_user_if_users_group_is_in_sudoers_file_and_incorrect_password_is_provided(
+fn user_cannot_sudo_if_users_group_is_in_sudoers_file_and_incorrect_password_is_provided(
 ) -> Result<()> {
     let username = "ferris";
     let groupname = "rustaceans";
@@ -56,8 +56,7 @@ fn cannot_sudo_as_user_if_users_group_is_in_sudoers_file_and_incorrect_password_
 }
 
 #[test]
-fn cannot_sudo_as_user_if_users_group_is_in_sudoers_file_and_password_is_not_provided() -> Result<()>
-{
+fn user_cannot_sudo_if_users_group_is_in_sudoers_file_and_password_is_not_provided() -> Result<()> {
     let username = "ferris";
     let groupname = "rustaceans";
     let password = "strong-password";
@@ -79,7 +78,7 @@ fn cannot_sudo_as_user_if_users_group_is_in_sudoers_file_and_password_is_not_pro
 
 #[ignore]
 #[test]
-fn can_sudo_as_user_if_user_is_in_sudoers_file_and_correct_password_is_provided() -> Result<()> {
+fn user_can_sudo_if_user_is_in_sudoers_file_and_correct_password_is_provided() -> Result<()> {
     let username = "ferris";
     let password = "strong-password";
     let env = EnvBuilder::default()
@@ -99,8 +98,7 @@ fn can_sudo_as_user_if_user_is_in_sudoers_file_and_correct_password_is_provided(
 }
 
 #[test]
-fn cannot_sudo_as_user_if_user_is_in_sudoers_file_and_incorrect_password_is_provided() -> Result<()>
-{
+fn user_cannot_sudo_if_user_is_in_sudoers_file_and_incorrect_password_is_provided() -> Result<()> {
     let username = "ferris";
     let env = EnvBuilder::default()
         .sudoers(&format!("{username}    ALL=(ALL:ALL) ALL"))
@@ -124,7 +122,7 @@ fn cannot_sudo_as_user_if_user_is_in_sudoers_file_and_incorrect_password_is_prov
 }
 
 #[test]
-fn cannot_sudo_as_user_if_user_is_in_sudoers_file_and_password_is_not_provided() -> Result<()> {
+fn user_cannot_sudo_if_user_is_in_sudoers_file_and_password_is_not_provided() -> Result<()> {
     let username = "ferris";
     let password = "strong-password";
     let env = EnvBuilder::default()
