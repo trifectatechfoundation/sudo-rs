@@ -153,7 +153,40 @@ pub fn get_target_environment(
 
 #[cfg(test)]
 mod tests {
-    use crate::env::{is_safe_tz, PATH_ZONEINFO};
+    use std::collections::{HashSet};
+
+    use crate::{env::{is_safe_tz, PATH_ZONEINFO, should_keep}, context::Configuration};
+
+    struct TestConfiguration {
+        keep: HashSet<String>,
+        check: HashSet<String>,
+    }
+
+    impl Configuration for TestConfiguration {    
+        fn env_keep(&self) -> &HashSet<String> {
+            &self.keep
+        }
+    
+        fn env_check(&self) -> &HashSet<String> {
+            &self.check
+        }
+    }
+
+    #[test]
+    fn test_filtering() {
+        let config = TestConfiguration {
+            keep: HashSet::from(["AAP".to_string(), "NOOT".to_string(), "TZ".to_string()]),
+            check: HashSet::from(["MIES".to_string()]),
+        };
+
+        assert_eq!(should_keep("AAP", "FOO", &config), true);
+        assert_eq!(should_keep("MIES", "BAR", &config), true);
+        assert_eq!(should_keep("AAP", "()=foo", &config), false);
+        assert_eq!(should_keep("TZ", "Europe/Amsterdam", &config), true);
+        assert_eq!(should_keep("TZ", "../Europe/Berlin", &config), false);
+        assert_eq!(should_keep("MIES", "FOO/BAR", &config), false);
+        assert_eq!(should_keep("MIES", "FOO%", &config), false);
+    }
 
     #[test]
     fn test_tzinfo() {
@@ -168,6 +201,10 @@ mod tests {
         );
         assert_eq!(
             is_safe_tz(format!("/schaap/Europe/Amsterdam").as_str()),
+            false
+        );
+        assert_eq!(
+            is_safe_tz(format!("{PATH_ZONEINFO}/../Europe/London").as_str()),
             false
         );
         assert_eq!(
