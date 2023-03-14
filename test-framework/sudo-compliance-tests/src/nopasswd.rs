@@ -8,7 +8,7 @@ use crate::{Result, SUDOERS_ROOT_ALL};
 // "A password is not required if the invoking user is root"
 #[ignore]
 #[test]
-fn root_can_sudo_without_providing_a_password_if_root_user_is_in_sudoers_file() -> Result<()> {
+fn root_can_sudo_if_root_user_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
 
     let output = env.exec(&["sudo", "true"], As::Root, None)?;
@@ -19,7 +19,7 @@ fn root_can_sudo_without_providing_a_password_if_root_user_is_in_sudoers_file() 
 
 #[ignore]
 #[test]
-fn root_can_sudo_without_providing_a_password_if_roots_group_is_in_sudoers_file() -> Result<()> {
+fn root_can_sudo_if_roots_group_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
         .sudoers("%root    ALL=(ALL:ALL) ALL")
         .build()?;
@@ -31,7 +31,7 @@ fn root_can_sudo_without_providing_a_password_if_roots_group_is_in_sudoers_file(
 }
 
 #[test]
-fn root_can_sudo_without_providing_a_password_if_roots_user_id_is_in_sudoers_file() -> Result<()> {
+fn root_can_sudo_if_roots_user_id_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
         .sudoers("#0 ALL=(ALL:ALL) ALL")
         .build()?;
@@ -44,7 +44,7 @@ fn root_can_sudo_without_providing_a_password_if_roots_user_id_is_in_sudoers_fil
 
 #[ignore]
 #[test]
-fn root_can_sudo_without_providing_a_password_if_roots_group_id_is_in_sudoers_file() -> Result<()> {
+fn root_can_sudo_if_roots_group_id_is_in_sudoers_file() -> Result<()> {
     let env = EnvBuilder::default()
         .sudoers("%#0 ALL=(ALL:ALL) ALL")
         .build()?;
@@ -57,8 +57,7 @@ fn root_can_sudo_without_providing_a_password_if_roots_group_id_is_in_sudoers_fi
 
 #[ignore]
 #[test]
-fn user_can_sudo_without_providing_a_password_if_users_group_is_in_sudoers_file_and_nopasswd_is_set(
-) -> Result<()> {
+fn user_can_sudo_if_users_group_is_in_sudoers_file_and_nopasswd_is_set() -> Result<()> {
     let username = "ferris";
     let groupname = "rustaceans";
     let env = EnvBuilder::default()
@@ -73,8 +72,7 @@ fn user_can_sudo_without_providing_a_password_if_users_group_is_in_sudoers_file_
 }
 
 #[test]
-fn user_can_sudo_without_providing_a_password_if_user_is_in_sudoers_file_and_nopasswd_is_set(
-) -> Result<()> {
+fn user_can_sudo_if_user_is_in_sudoers_file_and_nopasswd_is_set() -> Result<()> {
     let username = "ferris";
     let env = EnvBuilder::default()
         .sudoers(&format!("{username}    ALL=(ALL:ALL) NOPASSWD: ALL"))
@@ -91,7 +89,7 @@ fn user_can_sudo_without_providing_a_password_if_user_is_in_sudoers_file_and_nop
 // "A password is not required if (..) the target user is the same as the invoking user"
 #[ignore]
 #[test]
-fn user_can_become_themselves_without_providing_a_password() -> Result<()> {
+fn user_can_sudo_as_themselves() -> Result<()> {
     let username = "ferris";
     let env = EnvBuilder::default()
         .user(username, &[])
