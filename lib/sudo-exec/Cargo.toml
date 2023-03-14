@@ -8,6 +8,6 @@ homepage.workspace = true
 publish.workspace = true
 
 [dependencies]
-libc = "0.2.139"
-signal-hook = { version = "0.3.15", features = [ "extended-siginfo" ] }
-sudo-common = { path = "../sudo-common/" }
+libc.workspace = true
+signal-hook = { workspace = true, features = [ "extended-siginfo" ] }
+sudo-common.workspace = true 
