@@ -70,14 +70,6 @@ pub struct Context<'a> {
     pub current_user: User,
 }
 
-/// A ContextWithEnv is specific to the operation and obtaining it indicates approval
-#[derive(Debug)]
-pub struct ContextWithEnv<'a> {
-    pub context: Context<'a>,
-    // computed
-    pub target_environment: Environment,
-}
-
 pub trait Configuration {
     fn env_keep(&self) -> &HashSet<String>;
     fn env_check(&self) -> &HashSet<String>;
@@ -152,13 +144,6 @@ impl<'a> Context<'a> {
             chdir: sudo_options.directory.clone(),
         })
     }
-
-    pub fn with_filtered_env(self, target_environment: Environment) -> ContextWithEnv<'a> {
-        ContextWithEnv {
-            context: self,
-            target_environment,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -229,18 +214,9 @@ mod tests {
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
 
-        let context = context.with_filtered_env(target_environment);
-
-        assert_eq!(
-            context.context.command.command.to_str().unwrap(),
-            "/usr/bin/echo"
-        );
-        assert_eq!(context.context.command.arguments, ["hello"]);
-        assert_eq!(context.context.hostname, sudo_system::hostname());
-        assert_eq!(context.context.target_user.uid, 0);
-        assert_eq!(
-            context.target_environment["SUDO_USER"],
-            context.context.current_user.name
-        );
+        assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
+        assert_eq!(context.command.arguments, ["hello"]);
+        assert_eq!(context.hostname, sudo_system::hostname());
+        assert_eq!(context.target_user.uid, 0);
     }
 }
