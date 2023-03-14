@@ -3,7 +3,7 @@ use std::{
     ffi::c_int,
     io,
     os::unix::process::CommandExt,
-    process::{Command, ExitStatus, Stdio},
+    process::{Command, ExitStatus},
 };
 
 use signal_hook::{
@@ -26,16 +26,13 @@ const SIGNALS: &[c_int] = &[
 
 /// Based on `ogsudo`s `exec_nopty` function.
 pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus> {
+    // FIXME: should we pipe the stdio streams?
     let mut cmd = Command::new(ctx.command.command)
         .args(ctx.command.arguments)
         .uid(ctx.target_user.uid)
         .gid(ctx.target_user.gid)
         .env_clear()
         .envs(env)
-        // FIXME: should we pipe everything?
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
         .spawn()?;
 
     let cmd_pid = cmd.id() as i32;
