@@ -84,8 +84,12 @@ mod names {
         const DESCRIPTION: &'static str = "digest";
     }
 
-    impl UserFriendly for (Vec<fn(&mut Tag)>, Spec<tokens::Command>, tokens::Sha2) {
-        const DESCRIPTION: &'static str = tokens::Command::DESCRIPTION;
+    impl UserFriendly for ProtoCommandSpec {
+        const DESCRIPTION: &'static str = CommandSpec::DESCRIPTION;
+    }
+
+    impl UserFriendly for tokens::ChDir {
+        const DESCRIPTION: &'static str = "directory or `*'";
     }
 }
 

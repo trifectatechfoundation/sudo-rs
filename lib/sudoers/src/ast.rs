@@ -39,10 +39,10 @@ pub struct RunAs {
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Tag {
     pub passwd: bool,
-    pub chdir: Option<String>,
+    pub chdir: Option<ChDir>,
 }
 
 impl Default for Tag {
@@ -244,7 +244,10 @@ impl Parse for RunAs {
 /// The reason for combining a parser for these two unrelated categories is that this is one spot
 /// where the sudoer grammar isn't nicely LL(1); so at the same place where "NOPASSWD" can appear,
 /// we could also see "ALL".
-struct MetaOrTag(Meta<fn(&mut Tag)>);
+struct MetaOrTag(Meta<Modifier>);
+
+/// A `Modifier` is something that updates the `Tag`.
+pub type Modifier = Box<dyn Fn(&mut Tag)>;
 
 // note: at present, "ALL" can be distinguished from a tag using a lookup of 1, since no tag starts with an "A"; but this feels like hanging onto
 // the parseability by a thread (although the original sudo also has some ugly parts, like 'sha224' being an illegal user name).
@@ -258,13 +261,13 @@ impl Parse for MetaOrTag {
         let result = match keyword.as_str() {
             "PASSWD" => |tag: &mut Tag| tag.passwd = true,
             "NOPASSWD" => |tag: &mut Tag| tag.passwd = false,
-            /*
             "CWD" => {
                 expect_syntax('=', stream)?;
-                let ChDir(path) = expect_nonterminal(stream)?;
-                return make(MetaOrTag(Only(move |tag: &mut Tag| tag.chdir = Some(path))));
+                let path: ChDir = expect_nonterminal(stream)?;
+                return make(MetaOrTag(Only(Box::new(move |tag: &mut Tag| {
+                    tag.chdir = Some(path.clone())
+                }))));
             }
-            */
             "ALL" => return make(MetaOrTag(All)),
             alias => return make(MetaOrTag(Alias(alias.to_string()))),
         };
@@ -272,16 +275,18 @@ impl Parse for MetaOrTag {
         // we have parsed a boolean tag in 'result', terminate it
         expect_syntax(':', stream)?;
 
-        make(MetaOrTag(Only(result)))
+        make(MetaOrTag(Only(Box::new(result))))
     }
 }
 
 /// grammar:
 /// ```text
-/// commandspec = [tags]*, command
+/// commandspec = [tag modifiers]*, command
 /// ```
 
-impl Parse for (Vec<fn(&mut Tag)>, Spec<Command>, Sha2) {
+pub struct ProtoCommandSpec(Vec<Modifier>, Spec<Command>, Sha2);
+
+impl Parse for ProtoCommandSpec {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let no_hash = Sha2(Box::default());
         let mut tags = vec![];
@@ -289,8 +294,10 @@ impl Parse for (Vec<fn(&mut Tag)>, Spec<Command>, Sha2) {
             use Qualified::Allow;
             match keyword {
                 Meta::Only(modifier) => tags.push(modifier),
-                Meta::All => return make((tags, Allow(Meta::All), no_hash)),
-                Meta::Alias(name) => return make((tags, Allow(Meta::Alias(name)), no_hash)),
+                Meta::All => return make(ProtoCommandSpec(tags, Allow(Meta::All), no_hash)),
+                Meta::Alias(name) => {
+                    return make(ProtoCommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
+                }
             }
             if tags.len() > Identifier::LIMIT {
                 unrecoverable!(stream, "too many tags for command specifier")
@@ -319,20 +326,20 @@ impl Parse for (Vec<fn(&mut Tag)>, Spec<Command>, Sha2) {
 
         let cmd: Spec<Command> = expect_nonterminal(stream)?;
 
-        make((tags, cmd, digest))
+        make(ProtoCommandSpec(tags, cmd, digest))
     }
 }
 
 /// A manual implementation (instead of using Many) to chain Tag's together.
 impl Parse for Vec<CommandSpec> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        impl Many for (Vec<fn(&mut Tag)>, Spec<Command>, Sha2) {}
-        let commands: Vec<(Vec<fn(&mut Tag)>, _, _)> = try_nonterminal(stream)?;
+        impl Many for ProtoCommandSpec {}
+        let cmdspecs = try_nonterminal::<Vec<ProtoCommandSpec>>(stream)?;
 
         let mut tag = Default::default();
-        let commands = commands
+        let chained_specs = cmdspecs
             .into_iter()
-            .map(|(modifiers, cmd, digest)| {
+            .map(|ProtoCommandSpec(modifiers, cmd, digest)| {
                 for f in modifiers {
                     f(&mut tag);
                 }
@@ -340,7 +347,7 @@ impl Parse for Vec<CommandSpec> {
             })
             .collect();
 
-        make(commands)
+        make(chained_specs)
     }
 }
 
