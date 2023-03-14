@@ -3,6 +3,16 @@ use crate::ast;
 use basic_parser::{parse_eval, parse_lines, parse_string};
 use std::iter;
 
+// parsing a single CommandSpec is useful in some tests
+impl basic_parser::Parse for CommandSpec {
+    fn parse(stream: &mut impl basic_parser::CharStream) -> basic_parser::Parsed<Self> {
+        let vec: Vec<_> = basic_parser::try_nonterminal(stream)?;
+        assert_eq!(vec.len(), 1);
+        let result = vec.into_iter().next().unwrap();
+        Ok(result)
+    }
+}
+
 #[derive(PartialEq)]
 struct Named(&'static str);
 
@@ -131,13 +141,16 @@ fn permission_test() {
     }
 
     macro_rules! pass {
-        ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($list:expr),*])?) => {
+        ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
             let result = check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $server, req);
-            $(assert_eq!(result, Some(vec![$($list),*]));)?
             assert!(!result.is_none());
+            $(
+                let result = result.unwrap();
+                $(assert_eq!(result.$key, $val);)*
+            )?
         }
     }
     macro_rules! SYNTAX {
@@ -146,16 +159,14 @@ fn permission_test() {
         };
     }
 
-    use crate::ast::Tag::*;
-
     SYNTAX!(["ALL ALL = (;) ALL"]);
     FAIL!(["user ALL=(ALL:ALL) ALL"], "nobody"    => root(), "server"; "/bin/hello");
     pass!(["user ALL=(ALL:ALL) ALL"], "user"      => root(), "server"; "/bin/hello");
     pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo");
     FAIL!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/hello");
-    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo");
-    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [NoPasswd]);
-    pass!(["user ALL=(ALL:ALL) NOPASSWD: /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [NoPasswd]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo" => [passwd: true]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: false]);
+    pass!(["user ALL=(ALL:ALL) NOPASSWD: /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: false]);
 
     pass!(["user ALL=/bin/e##o"], "user" => root(), "vm"; "/bin/e");
     SYNTAX!(["ALL ALL=(ALL) /bin/\n/echo"]);

@@ -83,6 +83,10 @@ mod names {
     impl UserFriendly for tokens::Sha2 {
         const DESCRIPTION: &'static str = "digest";
     }
+
+    impl UserFriendly for (Vec<fn(&mut Tag)>, Spec<tokens::Command>, tokens::Sha2) {
+        const DESCRIPTION: &'static str = tokens::Command::DESCRIPTION;
+    }
 }
 
 #[cfg(test)]
