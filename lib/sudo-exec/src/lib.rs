@@ -52,11 +52,11 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
             match signal {
                 SIGCHLD => {
                     // FIXME: check `handle_sigchld_nopty`
-                    todo!()
+                    cmd.kill()?;
                 }
                 SIGWINCH => {
                     // FIXME: check `handle_sigwinch`
-                    todo!()
+                    cmd.kill()?;
                 }
                 SIGINT | SIGQUIT | SIGTSTP => {
                     if cause != Cause::Sent(Sent::User) {
@@ -104,7 +104,7 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                 // FIXME: check `terminate_command` to match behavior.
                 cmd.kill()?;
             } else if unsafe { libc::kill(cmd_pid, signal) } != 0 {
-                panic!("kill failed");
+                eprintln!("kill failed");
             }
         }
 
