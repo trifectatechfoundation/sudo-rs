@@ -140,3 +140,51 @@ fn user_cannot_sudo_if_user_is_in_sudoers_file_and_password_is_not_provided() ->
 
     Ok(())
 }
+
+#[ignore]
+#[test]
+fn user_can_sudo_if_user_id_is_in_sudoers_file_and_correct_password_is_provided() -> Result<()> {
+    let username = "ferris";
+    let user_id = 1023;
+    let password = "strong-password";
+    let env = EnvBuilder::default()
+        .sudoers(&format!("#{user_id}    ALL=(ALL:ALL) ALL"))
+        .user(username, &[])
+        .user_id(username, user_id)
+        .user_password(username, password)
+        .build()?;
+
+    let output = env.exec(
+        &["sudo", "-S", "true"],
+        As::User { name: username },
+        Some(password),
+    )?;
+    assert!(output.status.success(), "{}", output.stderr);
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn user_can_sudo_if_theirs_group_id_is_in_sudoers_file_and_correct_password_is_provided(
+) -> Result<()> {
+    let username = "ferris";
+    let group_id = 1023;
+    let groupname = "rustaceans";
+    let password = "strong-password";
+    let env = EnvBuilder::default()
+        .sudoers(&format!("%#{group_id}    ALL=(ALL:ALL) ALL"))
+        .user(username, &[groupname])
+        .group_id(groupname, group_id)
+        .user_password(username, password)
+        .build()?;
+
+    let output = env.exec(
+        &["sudo", "-S", "true"],
+        As::User { name: username },
+        Some(password),
+    )?;
+    assert!(output.status.success(), "{}", output.stderr);
+
+    Ok(())
+}
