@@ -13,11 +13,14 @@ use signal_hook::{
 };
 use sudo_common::context::{Context, Environment};
 
-/// FIXME: are we missing any signals?
+/// We do not handle `SIGKILL`, `SIGSTOP`, `SIGILL`, `SIGFPE` nor `SIGSEGV` because those should
+/// not be intercepted and replaced. according to `POSIX`.
+// FIXME: are we missing any signals? `SIGEMT`, `SIGLOST` and `SIGPWR` are not exposed by
+// `signal-hook`.
 const SIGNALS: &[c_int] = &[
     SIGABRT, SIGALRM, SIGBUS, SIGCHLD, SIGCONT, SIGHUP, SIGINT, SIGPIPE, SIGPROF, SIGQUIT, SIGSYS,
     SIGTERM, SIGTRAP, SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGUSR1, SIGUSR2, SIGVTALRM, SIGWINCH,
-    SIGXCPU, SIGXFSZ,
+    SIGXCPU, SIGXFSZ, SIGIO,
 ];
 
 /// Based on `ogsudo`s `exec_nopty` function.
