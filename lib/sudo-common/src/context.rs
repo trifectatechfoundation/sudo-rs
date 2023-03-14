@@ -167,6 +167,7 @@ impl<'a> Context<'a> {
 mod tests {
     use std::collections::HashMap;
     use sudo_cli::SudoOptions;
+    use sudo_system::User;
     use sudoers::Settings;
 
     use super::{resolve_target_group, resolve_target_user, Context, NameOrId};
@@ -188,6 +189,7 @@ mod tests {
         );
         assert_eq!(resolve_target_user(&Some("root".to_string())).is_ok(), true);
         assert_eq!(resolve_target_user(&Some("#1".to_string())).is_ok(), true);
+        assert_eq!(resolve_target_user(&Some("#-1".to_string())).is_err(), true);
         assert_eq!(
             resolve_target_user(&Some("#1337".to_string())).is_err(),
             true
@@ -196,7 +198,29 @@ mod tests {
 
     #[test]
     fn test_resolve_target_group() {
-        // resolve_target_group()
+        let current_user = User {
+            uid: 1000,
+            gid: 1000,
+            name: "test".to_string(),
+            gecos: String::new(),
+            home: "/home/test".to_string(),
+            shell: "/bin/sh".to_string(),
+            passwd: String::new(),
+            groups: None,
+        };
+
+        assert_eq!(
+            resolve_target_group(&Some("root".to_string()), &current_user).is_ok(),
+            true
+        );
+        assert_eq!(
+            resolve_target_group(&Some("#1".to_string()), &current_user).is_ok(),
+            true
+        );
+        assert_eq!(
+            resolve_target_group(&Some("#-1".to_string()), &current_user).is_err(),
+            true
+        );
     }
 
     #[test]
