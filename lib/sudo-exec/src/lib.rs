@@ -10,7 +10,7 @@ use std::{
 use signal_hook::{
     consts::*,
     iterator::{exfiltrator::WithOrigin, SignalsInfo},
-    low_level::siginfo::{Cause, Origin, Sent},
+    low_level::siginfo::{Cause, Origin, Process, Sent},
 };
 use sudo_common::context::{Context, Environment};
 use sudo_system::{getpgid, kill};
@@ -54,43 +54,15 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                     cmd.kill()?;
                 }
                 SIGWINCH | SIGINT | SIGQUIT | SIGTSTP => {
-                    if cause != Cause::Sent(Sent::User) {
+                    if cause != Cause::Sent(Sent::User) || handle_process(process, cmd_pid, ctx.pid)
+                    {
                         continue;
-                    }
-
-                    if let Some(process) = process {
-                        if process.pid != 0 {
-                            if process.pid == cmd_pid {
-                                continue;
-                            }
-                            let process_grp = getpgid(process.pid);
-                            if process_grp != -1 {
-                                // FIXME: we should also check that the process group is not the
-                                // sudo PID.
-                                if process_grp == cmd_pid {
-                                    continue;
-                                }
-                            }
-                        }
                     }
                 }
                 _ => {
-                    if cause == Cause::Sent(Sent::User) {
-                        if let Some(process) = process {
-                            if process.pid != 0 {
-                                if process.pid == cmd_pid {
-                                    continue;
-                                }
-                                let process_grp = getpgid(process.pid);
-                                if process_grp != -1 {
-                                    // FIXME: we should also check that the process group is not the
-                                    // sudo PID.
-                                    if process_grp == cmd_pid {
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
+                    if cause == Cause::Sent(Sent::User) && handle_process(process, cmd_pid, ctx.pid)
+                    {
+                        continue;
                     }
                 }
             }
@@ -113,4 +85,21 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
             return Ok(code);
         }
     }
+}
+
+fn handle_process(process: Option<Process>, cmd_pid: i32, sudo_pid: i32) -> bool {
+    if let Some(process) = process {
+        if process.pid != 0 {
+            if process.pid == cmd_pid {
+                return true;
+            }
+            let process_grp = getpgid(process.pid);
+
+            if process_grp != -1 || process_grp == cmd_pid || process_grp == sudo_pid {
+                return true;
+            }
+        }
+    }
+
+    false
 }
