@@ -140,18 +140,3 @@ fn user_cannot_sudo_if_user_is_in_sudoers_file_and_password_is_not_provided() ->
 
     Ok(())
 }
-
-#[test]
-fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
-    let env = EnvBuilder::default().sudoers("invalid syntax").build()?;
-
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(!output.status.success());
-    assert_eq!(Some(1), output.status.code());
-
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr, "syntax error");
-    }
-
-    Ok(())
-}

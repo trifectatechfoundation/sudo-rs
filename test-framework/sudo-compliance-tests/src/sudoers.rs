@@ -17,6 +17,21 @@ fn cannot_sudo_with_empty_sudoers_file() -> Result<()> {
 }
 
 #[test]
+fn cannot_sudo_if_sudoers_has_invalid_syntax() -> Result<()> {
+    let env = EnvBuilder::default().sudoers("invalid syntax").build()?;
+
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
+    assert!(!output.status.success());
+    assert_eq!(Some(1), output.status.code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr, "syntax error");
+    }
+
+    Ok(())
+}
+
+#[test]
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
     let env = EnvBuilder::default().sudoers_chmod("446").build()?;
 
