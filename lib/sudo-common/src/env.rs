@@ -1,5 +1,5 @@
 use crate::{
-    context::{CommandAndArguments, Context},
+    context::{CommandAndArguments, Configuration, Context},
     wildcard_match::wildcard_match,
 };
 use std::collections::{HashMap, HashSet};
@@ -9,13 +9,6 @@ pub type Environment = HashMap<String, String>;
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
-
-/// Convert a list of `Into<String>` key value pars to an Environment
-pub fn environment_from_list<K: Into<String>, V: Into<String>>(list: Vec<(K, V)>) -> Environment {
-    list.into_iter()
-        .map(|(k, v)| (k.into(), v.into()))
-        .collect::<Environment>()
-}
 
 /// Formats the command and arguments passed for the SUDO_COMMAND
 /// environment variable. Limit the length of arguments to 4096 bytes to prevent
@@ -39,7 +32,10 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> String {
 }
 
 /// Construct sudo-specific environment variables
-fn get_extra_env(context: &Context) -> Environment {
+fn get_extra_env(
+    context: &Context,
+    settings: &impl Configuration,
+) -> impl Iterator<Item = (String, String)> {
     let mut extra = vec![
         ("SUDO_COMMAND", format_command(&context.command)),
         ("SUDO_UID", context.current_user.uid.to_string()),
@@ -51,7 +47,7 @@ fn get_extra_env(context: &Context) -> Environment {
         ),
     ];
 
-    // TODO: preserve exsisting when sudo -s
+    // TODO: preserve existing when sudo -s
     if !context.shell {
         extra.push(("SHELL", context.target_user.shell.clone()));
     }
@@ -64,11 +60,13 @@ fn get_extra_env(context: &Context) -> Environment {
         extra.push(("USER", context.target_user.name.clone()));
     }
 
-    if context.always_set_home || context.set_home {
+    if settings.always_set_home() || context.set_home {
         extra.push(("HOME", context.target_user.home.clone()));
     }
 
-    environment_from_list(extra)
+    extra
+        .into_iter()
+        .map(|(name, value)| (name.to_string(), value))
 }
 
 /// Check a string only contains printable (non-space) characters
@@ -111,7 +109,7 @@ fn in_table(needle: &str, haystack: &HashSet<String>) -> bool {
 }
 
 /// Determine whether a specific environment variable should be kept
-fn should_keep(key: &str, value: &str, context: &Context) -> bool {
+fn should_keep(key: &str, value: &str, cfg: &impl Configuration) -> bool {
     if value.starts_with("()") {
         return false;
     }
@@ -120,11 +118,11 @@ fn should_keep(key: &str, value: &str, context: &Context) -> bool {
         return false;
     }
 
-    if in_table(key, context.env_check) && !value.contains(|c| c == '%' || c == '/') {
+    if in_table(key, cfg.env_check()) && !value.contains(|c| c == '%' || c == '/') {
         return true;
     }
 
-    in_table(key, context.env_keep)
+    in_table(key, cfg.env_keep())
 }
 
 /// Construct the final environment from the current one and a sudo context
@@ -140,18 +138,16 @@ fn should_keep(key: &str, value: &str, context: &Context) -> bool {
 /// TODO: If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
 ///
 /// Environment variables with a value beginning with ‘()’ are removed
-pub fn get_target_environment(current_env: Environment, context: &Context) -> Environment {
-    let mut result = Environment::new();
-
-    for (key, value) in current_env.into_iter() {
-        if should_keep(&key, &value, context) {
-            result.insert(key, value);
-        }
-    }
-
-    result.extend(get_extra_env(context));
-
-    result
+pub fn get_target_environment(
+    current_env: Environment,
+    context: &Context,
+    settings: &impl Configuration,
+) -> Environment {
+    current_env
+        .into_iter()
+        .filter(|(key, value)| should_keep(key, value, settings))
+        .chain(get_extra_env(context, settings))
+        .collect()
 }
 
 #[cfg(test)]
