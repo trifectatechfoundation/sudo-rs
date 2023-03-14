@@ -1,0 +1,13 @@
+[package]
+name = "sudo-exec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[dependencies]
+signal-hook = { workspace = true, features = [ "extended-siginfo" ] }
+sudo-common.workspace = true 
+sudo-system.workspace = true 

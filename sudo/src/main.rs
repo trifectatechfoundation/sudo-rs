@@ -66,7 +66,7 @@ fn main() -> Result<(), Error> {
     let target_env = environment::get_target_environment(current_env, &context, &policy.settings);
 
     // run command and return corresponding exit code
-    match sudo_common::exec::exec(context, target_env) {
+    match sudo_exec::run_command(context, target_env) {
         Ok(status) => {
             if let Some(code) = status.code() {
                 std::process::exit(code);

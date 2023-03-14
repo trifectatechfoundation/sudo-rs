@@ -1,5 +1,12 @@
-use std::{ffi::CString, fs::OpenOptions, mem::MaybeUninit, os::fd::AsRawFd, path::PathBuf};
+use std::{
+    ffi::{c_int, CString},
+    fs::OpenOptions,
+    mem::MaybeUninit,
+    os::fd::AsRawFd,
+    path::PathBuf,
+};
 
+use libc::pid_t;
 pub use libc::PATH_MAX;
 use sudo_cutils::*;
 
@@ -13,6 +20,19 @@ pub fn hostname() -> String {
             panic!("Unexpected error while retrieving hostname, this should not happen");
         }
     }
+}
+
+/// Send a signal to a process.
+pub fn kill(pid: pid_t, signal: c_int) -> c_int {
+    // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
+    // `signal` is not a valid signal code.
+    unsafe { libc::kill(pid, signal) }
+}
+
+/// Get a process group ID.
+pub fn getpgid(pid: pid_t) -> pid_t {
+    // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
+    unsafe { libc::getpgid(pid) }
 }
 
 #[derive(Debug, Clone, PartialEq)]
