@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use std::{
     ffi::c_int,
     io,
@@ -5,13 +6,13 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 
-use libc::getpgid;
 use signal_hook::{
     consts::*,
     iterator::{exfiltrator::WithOrigin, SignalsInfo},
     low_level::siginfo::{Cause, Origin, Sent},
 };
 use sudo_common::context::{Context, Environment};
+use sudo_system::{getpgid, kill};
 
 /// We do not handle `SIGKILL`, `SIGSTOP`, `SIGILL`, `SIGFPE` nor `SIGSEGV` because those should
 /// not be intercepted and replaced. according to `POSIX`.
@@ -68,7 +69,7 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                             if process.pid == cmd_pid {
                                 continue;
                             }
-                            let process_grp = unsafe { getpgid(process.pid) };
+                            let process_grp = getpgid(process.pid);
                             if process_grp != -1 {
                                 // FIXME: we should also check that the process group is not the
                                 // sudo PID.
@@ -86,7 +87,7 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                                 if process.pid == cmd_pid {
                                     continue;
                                 }
-                                let process_grp = unsafe { getpgid(process.pid) };
+                                let process_grp = getpgid(process.pid);
                                 if process_grp != -1 {
                                     // FIXME: we should also check that the process group is not the
                                     // sudo PID.
@@ -103,7 +104,7 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
             if signal == SIGALRM {
                 // FIXME: check `terminate_command` to match behavior.
                 cmd.kill()?;
-            } else if unsafe { libc::kill(cmd_pid, signal) } != 0 {
+            } else if kill(cmd_pid, signal) != 0 {
                 eprintln!("kill failed");
             }
         }

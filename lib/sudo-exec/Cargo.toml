@@ -8,6 +8,6 @@ homepage.workspace = true
 publish.workspace = true
 
 [dependencies]
-libc.workspace = true
 signal-hook = { workspace = true, features = [ "extended-siginfo" ] }
 sudo-common.workspace = true 
+sudo-system.workspace = true 
