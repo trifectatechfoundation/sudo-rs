@@ -167,6 +167,8 @@ fn permission_test() {
     pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo" => [passwd: true]);
     pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: false]);
     pass!(["user ALL=(ALL:ALL) NOPASSWD: /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: false]);
+    pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [chdir: Some(ChDir::Path("/".to_string()))]);
+    pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, CWD=* /bin/bar"], "user" => root(), "server"; "/bin/bar" => [chdir: Some(ChDir::Asterisk)]);
 
     pass!(["user ALL=/bin/e##o"], "user" => root(), "vm"; "/bin/e");
     SYNTAX!(["ALL ALL=(ALL) /bin/\n/echo"]);

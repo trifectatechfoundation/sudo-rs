@@ -253,6 +253,7 @@ impl Token for StringParameter {
 
 // a path used for in CWD and CHROOT specs
 #[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum ChDir {
     Path(String),
     Asterisk,

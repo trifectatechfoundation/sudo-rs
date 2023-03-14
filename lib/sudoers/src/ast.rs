@@ -40,6 +40,7 @@ pub struct RunAs {
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Tag {
     pub passwd: bool,
     pub chdir: Option<ChDir>,
@@ -258,24 +259,24 @@ impl Parse for MetaOrTag {
         use Meta::*;
         let Upper(keyword) = try_nonterminal(stream)?;
 
-        let result = match keyword.as_str() {
-            "PASSWD" => |tag: &mut Tag| tag.passwd = true,
-            "NOPASSWD" => |tag: &mut Tag| tag.passwd = false,
+        let mut switch = |modifier: fn(&mut Tag)| {
+            expect_syntax(':', stream)?;
+            make(Box::new(modifier))
+        };
+
+        let result: Modifier = match keyword.as_str() {
+            "PASSWD" => switch(|tag| tag.passwd = true)?,
+            "NOPASSWD" => switch(|tag| tag.passwd = false)?,
             "CWD" => {
                 expect_syntax('=', stream)?;
                 let path: ChDir = expect_nonterminal(stream)?;
-                return make(MetaOrTag(Only(Box::new(move |tag: &mut Tag| {
-                    tag.chdir = Some(path.clone())
-                }))));
+                Box::new(move |tag| tag.chdir = Some(path.clone()))
             }
             "ALL" => return make(MetaOrTag(All)),
             alias => return make(MetaOrTag(Alias(alias.to_string()))),
         };
 
-        // we have parsed a boolean tag in 'result', terminate it
-        expect_syntax(':', stream)?;
-
-        make(MetaOrTag(Only(Box::new(result))))
+        make(MetaOrTag(Only(result)))
     }
 }
 
