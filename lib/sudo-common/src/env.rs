@@ -153,20 +153,23 @@ pub fn get_target_environment(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashSet};
+    use std::collections::HashSet;
 
-    use crate::{env::{is_safe_tz, PATH_ZONEINFO, should_keep}, context::Configuration};
+    use crate::{
+        context::Configuration,
+        env::{is_safe_tz, should_keep, PATH_ZONEINFO},
+    };
 
     struct TestConfiguration {
         keep: HashSet<String>,
         check: HashSet<String>,
     }
 
-    impl Configuration for TestConfiguration {    
+    impl Configuration for TestConfiguration {
         fn env_keep(&self) -> &HashSet<String> {
             &self.keep
         }
-    
+
         fn env_check(&self) -> &HashSet<String> {
             &self.check
         }

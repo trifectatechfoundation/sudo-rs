@@ -169,7 +169,7 @@ mod tests {
     use sudo_cli::SudoOptions;
     use sudoers::Settings;
 
-    use super::{Context, NameOrId, resolve_target_user, resolve_target_group};
+    use super::{resolve_target_group, resolve_target_user, Context, NameOrId};
 
     #[test]
     fn test_name_or_id() {
@@ -186,14 +186,8 @@ mod tests {
             resolve_target_user(&Some("mies".to_string())).is_err(),
             true
         );
-        assert_eq!(
-            resolve_target_user(&Some("root".to_string())).is_ok(),
-            true
-        );
-        assert_eq!(
-            resolve_target_user(&Some("#1".to_string())).is_ok(),
-            true
-        );
+        assert_eq!(resolve_target_user(&Some("root".to_string())).is_ok(), true);
+        assert_eq!(resolve_target_user(&Some("#1".to_string())).is_ok(), true);
         assert_eq!(
             resolve_target_user(&Some("#1337".to_string())).is_err(),
             true
