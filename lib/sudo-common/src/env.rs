@@ -9,6 +9,7 @@ pub type Environment = HashMap<String, String>;
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
+const PATH_DEFAULT: &str = env!("PATH_DEFAULT");
 
 /// Formats the command and arguments passed for the SUDO_COMMAND
 /// environment variable. Limit the length of arguments to 4096 bytes to prevent
@@ -32,41 +33,38 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> String {
 }
 
 /// Construct sudo-specific environment variables
-fn get_extra_env(
-    context: &Context,
-    settings: &impl Configuration,
-) -> impl Iterator<Item = (String, String)> {
-    let mut extra = vec![
-        ("SUDO_COMMAND", format_command(&context.command)),
-        ("SUDO_UID", context.current_user.uid.to_string()),
-        ("SUDO_GID", context.current_user.gid.to_string()),
-        ("SUDO_USER", context.current_user.name.clone()),
-        (
-            "MAIL",
-            format!("{PATH_MAILDIR}/{}", context.target_user.name),
-        ),
-    ];
-
-    // TODO: preserve existing when sudo -s
-    if !context.shell {
-        extra.push(("SHELL", context.target_user.shell.clone()));
-    }
-
-    // TODO: Set to the login name of the target user when the -i option is specified,
+fn add_extra_env(context: &Context, environment: &mut Environment) {
+    // current user
+    environment.insert("SUDO_COMMAND".to_string(), format_command(&context.command));
+    environment.insert("SUDO_UID".to_string(), context.current_user.uid.to_string());
+    environment.insert("SUDO_GID".to_string(), context.current_user.gid.to_string());
+    environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
+    // target user
+    environment.insert(
+        "MAIL".to_string(),
+        format!("{PATH_MAILDIR}/{}", context.target_user.name),
+    );
+    // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
+    environment.insert("SHELL".to_string(), context.target_user.shell.clone());
+    // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
+    // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
+    // Since we always want to do env_reset -> always set HOME
+    environment.insert("HOME".to_string(), context.target_user.home.clone());
+    // Set to the login name of the target user when the -i option is specified,
     // when the set_logname option is enabled in sudoers, or when the env_reset option
     // is enabled in sudoers (unless LOGNAME is present in the env_keep list).
-    if context.login {
-        extra.push(("LOGNAME", context.target_user.name.clone()));
-        extra.push(("USER", context.target_user.name.clone()));
+    // Since we always want to do env_reset -> always set these except when present in env
+    if !environment.contains_key("LOGNAME") && !environment.contains_key("USER") {
+        environment.insert("LOGNAME".to_string(), context.target_user.name.clone());
+        environment.insert("USER".to_string(), context.target_user.name.clone());
     }
-
-    if settings.always_set_home() || context.set_home {
-        extra.push(("HOME", context.target_user.home.clone()));
+    // If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
+    if !environment.contains_key("PATH") {
+        environment.insert("PATH".to_string(), PATH_DEFAULT.to_string());
     }
-
-    extra
-        .into_iter()
-        .map(|(name, value)| (name.to_string(), value))
+    if !environment.contains_key("TERM") {
+        environment.insert("TERM".to_string(), "unknown".to_string());
+    }
 }
 
 /// Check a string only contains printable (non-space) characters
@@ -135,7 +133,7 @@ fn should_keep(key: &str, value: &str, cfg: &impl Configuration) -> bool {
 /// Additional variables, such as DISPLAY, PATH and TERM, are preserved from the invoking user's
 /// environment if permitted by the env_check, or env_keep options
 ///
-/// TODO: If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
+/// If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
 ///
 /// Environment variables with a value beginning with ‘()’ are removed
 pub fn get_target_environment(
@@ -143,16 +141,55 @@ pub fn get_target_environment(
     context: &Context,
     settings: &impl Configuration,
 ) -> Environment {
-    current_env
+    let mut environment = current_env
         .into_iter()
         .filter(|(key, value)| should_keep(key, value, settings))
-        .chain(get_extra_env(context, settings))
-        .collect()
+        .collect();
+
+    add_extra_env(context, &mut environment);
+
+    environment
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::env::{is_safe_tz, PATH_ZONEINFO};
+    use std::collections::HashSet;
+
+    use crate::{
+        context::Configuration,
+        env::{is_safe_tz, should_keep, PATH_ZONEINFO},
+    };
+
+    struct TestConfiguration {
+        keep: HashSet<String>,
+        check: HashSet<String>,
+    }
+
+    impl Configuration for TestConfiguration {
+        fn env_keep(&self) -> &HashSet<String> {
+            &self.keep
+        }
+
+        fn env_check(&self) -> &HashSet<String> {
+            &self.check
+        }
+    }
+
+    #[test]
+    fn test_filtering() {
+        let config = TestConfiguration {
+            keep: HashSet::from(["AAP".to_string(), "NOOT".to_string(), "TZ".to_string()]),
+            check: HashSet::from(["MIES".to_string()]),
+        };
+
+        assert_eq!(should_keep("AAP", "FOO", &config), true);
+        assert_eq!(should_keep("MIES", "BAR", &config), true);
+        assert_eq!(should_keep("AAP", "()=foo", &config), false);
+        assert_eq!(should_keep("TZ", "Europe/Amsterdam", &config), true);
+        assert_eq!(should_keep("TZ", "../Europe/Berlin", &config), false);
+        assert_eq!(should_keep("MIES", "FOO/BAR", &config), false);
+        assert_eq!(should_keep("MIES", "FOO%", &config), false);
+    }
 
     #[test]
     fn test_tzinfo() {
@@ -167,6 +204,10 @@ mod tests {
         );
         assert_eq!(
             is_safe_tz(format!("/schaap/Europe/Amsterdam").as_str()),
+            false
+        );
+        assert_eq!(
+            is_safe_tz(format!("{PATH_ZONEINFO}/../Europe/London").as_str()),
             false
         );
         assert_eq!(

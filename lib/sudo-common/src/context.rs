@@ -29,6 +29,7 @@ impl<'a> TryFrom<&'a [String]> for CommandAndArguments<'a> {
     }
 }
 
+#[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
     Name(&'a str),
     Id(T),
@@ -74,20 +75,11 @@ pub struct ContextWithEnv<'a> {
 }
 
 pub trait Configuration {
-    fn env_delete(&self) -> &HashSet<String>;
     fn env_keep(&self) -> &HashSet<String>;
     fn env_check(&self) -> &HashSet<String>;
-    fn always_set_home(&self) -> bool;
-    fn use_pty(&self) -> bool;
 }
 
 impl Configuration for Settings {
-    fn env_delete(&self) -> &HashSet<String> {
-        self.list
-            .get("env_delete")
-            .expect("env_delete missing from settings")
-    }
-
     fn env_keep(&self) -> &HashSet<String> {
         self.list
             .get("env_keep")
@@ -98,14 +90,6 @@ impl Configuration for Settings {
         self.list
             .get("env_check")
             .expect("env_check missing from settings")
-    }
-
-    fn always_set_home(&self) -> bool {
-        self.flags.contains("always_set_home")
-    }
-
-    fn use_pty(&self) -> bool {
-        self.flags.contains("use_pty")
     }
 }
 
@@ -182,10 +166,62 @@ impl<'a> Context<'a> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-
-    use super::Context;
     use sudo_cli::SudoOptions;
+    use sudo_system::User;
     use sudoers::Settings;
+
+    use super::{resolve_target_group, resolve_target_user, Context, NameOrId};
+
+    #[test]
+    fn test_name_or_id() {
+        assert_eq!(NameOrId::<u32>::parse(""), None);
+        assert_eq!(NameOrId::<u32>::parse("mies"), Some(NameOrId::Name("mies")));
+        assert_eq!(NameOrId::<u32>::parse("1337"), Some(NameOrId::Name("1337")));
+        assert_eq!(NameOrId::<u32>::parse("#1337"), Some(NameOrId::Id(1337)));
+        assert_eq!(NameOrId::<u32>::parse("#-1"), None);
+    }
+
+    #[test]
+    fn test_resolve_target_user() {
+        assert_eq!(
+            resolve_target_user(&Some("mies".to_string())).is_err(),
+            true
+        );
+        assert_eq!(resolve_target_user(&Some("root".to_string())).is_ok(), true);
+        assert_eq!(resolve_target_user(&Some("#1".to_string())).is_ok(), true);
+        assert_eq!(resolve_target_user(&Some("#-1".to_string())).is_err(), true);
+        assert_eq!(
+            resolve_target_user(&Some("#1337".to_string())).is_err(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_resolve_target_group() {
+        let current_user = User {
+            uid: 1000,
+            gid: 1000,
+            name: "test".to_string(),
+            gecos: String::new(),
+            home: "/home/test".to_string(),
+            shell: "/bin/sh".to_string(),
+            passwd: String::new(),
+            groups: None,
+        };
+
+        assert_eq!(
+            resolve_target_group(&Some("root".to_string()), &current_user).is_ok(),
+            true
+        );
+        assert_eq!(
+            resolve_target_group(&Some("#1".to_string()), &current_user).is_ok(),
+            true
+        );
+        assert_eq!(
+            resolve_target_group(&Some("#-1".to_string()), &current_user).is_err(),
+            true
+        );
+    }
 
     #[test]
     fn test_build_context() {
