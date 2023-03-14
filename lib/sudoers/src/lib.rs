@@ -172,18 +172,8 @@ fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     }
 }
 
-//TODO: in real life, just checking the gid should suffice; for testability, we check the name first; THIS MUST BE REMOVED
 fn in_group(user: &impl UnixUser, group: &impl UnixGroup) -> bool {
-    if cfg!(test) {
-        group
-            .try_as_name()
-            .as_ref()
-            .map_or(user.in_group_by_gid(group.as_gid()), |name| {
-                user.in_group_by_name(name)
-            })
-    } else {
-        user.in_group_by_gid(group.as_gid())
-    }
+    user.in_group_by_gid(group.as_gid())
 }
 
 fn match_group(group: &impl UnixGroup) -> impl Fn(&Identifier) -> bool + '_ {

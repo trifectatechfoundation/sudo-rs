@@ -6,6 +6,14 @@ use std::iter;
 #[derive(PartialEq)]
 struct Named(&'static str);
 
+fn dummy_cksum(name: &str) -> u32 {
+    if name == "root" {
+        0
+    } else {
+        1000 + name.chars().fold(0, |x, y| (x * 97 + y as u32) % 1361)
+    }
+}
+
 impl UnixUser for Named {
     fn has_name(&self, name: &str) -> bool {
         self.0 == name
@@ -15,6 +23,10 @@ impl UnixUser for Named {
         self.has_name(name)
     }
 
+    fn in_group_by_gid(&self, gid: u32) -> bool {
+        dummy_cksum(self.0) == gid
+    }
+
     fn is_root(&self) -> bool {
         self.0 == "root"
     }
@@ -22,11 +34,7 @@ impl UnixUser for Named {
 
 impl UnixGroup for Named {
     fn as_gid(&self) -> sudo_system::interface::GroupId {
-        if self.0 == "root" {
-            0
-        } else {
-            self.0.chars().fold(0, |x, y| (x * 97 + y as u32) % 1361)
-        }
+        dummy_cksum(&self.0)
     }
     fn try_as_name(&self) -> Option<&str> {
         Some(&self.0)
