@@ -155,6 +155,7 @@ fn permission_test() {
     FAIL!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/hello");
     pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo");
     pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [NoPasswd]);
+    pass!(["user ALL=(ALL:ALL) NOPASSWD: /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [NoPasswd]);
 
     pass!(["user ALL=/bin/e##o"], "user" => root(), "vm"; "/bin/e");
     SYNTAX!(["ALL ALL=(ALL) /bin/\n/echo"]);

@@ -280,7 +280,7 @@ impl Parse for CommandSpec {
                     return make(CommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
                 }
             }
-            if tags.len() > CommandSpec::LIMIT {
+            if tags.len() > Identifier::LIMIT {
                 unrecoverable!(stream, "too many tags for command specifier")
             }
         }
@@ -311,7 +311,22 @@ impl Parse for CommandSpec {
     }
 }
 
-impl Many for CommandSpec {}
+/// A manual implementation (instead of using Many) to chain Tag's together.
+impl Parse for Vec<CommandSpec> {
+    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+        // get the default seperator and limit from Many
+        impl Many for () {}
+        let mut commands = parse_list(<()>::SEP, <()>::LIMIT, stream)?;
+        //TODO: Vec<Tag> is a temporary solution; tags can also be 'turned off again'
+        let mut acc: Vec<Tag> = vec![];
+        for CommandSpec(ref mut tag, _, _) in &mut commands {
+            acc.append(tag);
+            *tag = acc.clone();
+        }
+
+        make(commands)
+    }
+}
 
 /// Parsing for a tuple of hostname, runas specifier and commandspec.
 /// grammar:
