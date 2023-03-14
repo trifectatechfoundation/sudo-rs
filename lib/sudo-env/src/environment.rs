@@ -1,11 +1,9 @@
-use crate::{
-    context::{CommandAndArguments, Configuration, Context},
-    wildcard_match::wildcard_match,
-};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+
+use sudo_common::context::{CommandAndArguments, Configuration, Context, Environment};
 use sudo_system::PATH_MAX;
 
-pub type Environment = HashMap<String, String>;
+use crate::wildcard_match::wildcard_match;
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
@@ -154,11 +152,9 @@ pub fn get_target_environment(
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
+    use sudo_common::context::Configuration;
 
-    use crate::{
-        context::Configuration,
-        env::{is_safe_tz, should_keep, PATH_ZONEINFO},
-    };
+    use crate::environment::{is_safe_tz, should_keep, PATH_ZONEINFO};
 
     struct TestConfiguration {
         keep: HashSet<String>,

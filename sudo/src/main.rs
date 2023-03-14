@@ -1,8 +1,15 @@
 #![forbid(unsafe_code)]
 
+use pam::authenticate;
 use sudo_cli::SudoOptions;
-use sudo_common::{context::Context, env::Environment, error::Error, pam::authenticate};
+use sudo_common::{
+    context::{Context, Environment},
+    error::Error,
+};
+use sudo_env::environment;
 use sudoers::{Authorization, Sudoers};
+
+mod pam;
 
 fn parse_sudoers() -> Result<Sudoers, Error> {
     // TODO: move to global configuration
@@ -56,7 +63,8 @@ fn main() -> Result<(), Error> {
         }
     };
 
-    let context = context.with_filtered_env(current_env, &policy.settings);
+    let target_env = environment::get_target_environment(current_env, &context, &policy.settings);
+    let context = context.with_filtered_env(target_env);
 
     // run command and return corresponding exit code
     match sudo_common::exec::exec(context) {

@@ -1,4 +1,4 @@
-use crate::error::Error;
+use sudo_common::error::Error;
 
 pub fn authenticate(username: &str) -> Result<(), Error> {
     let mut pam = sudo_pam::PamContext::builder_cli()

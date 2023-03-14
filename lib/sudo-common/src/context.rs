@@ -1,9 +1,15 @@
-use std::{collections::HashSet, path::PathBuf, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    str::FromStr,
+};
 use sudo_cli::SudoOptions;
 use sudo_system::{hostname, Group, User};
 use sudoers::Settings;
 
-use crate::{env::Environment, error::Error};
+use crate::error::Error;
+
+pub type Environment = HashMap<String, String>;
 
 #[derive(Debug)]
 pub struct CommandAndArguments<'a> {
@@ -68,8 +74,6 @@ pub struct Context<'a> {
 #[derive(Debug)]
 pub struct ContextWithEnv<'a> {
     pub context: Context<'a>,
-    // command-specific
-    pub settings: &'a Settings,
     // computed
     pub target_environment: Environment,
 }
@@ -149,16 +153,10 @@ impl<'a> Context<'a> {
         })
     }
 
-    pub fn with_filtered_env(
-        self,
-        current_env: Environment,
-        settings: &'a Settings,
-    ) -> ContextWithEnv<'a> {
-        let env = crate::env::get_target_environment(current_env, &self, settings);
+    pub fn with_filtered_env(self, target_environment: Environment) -> ContextWithEnv<'a> {
         ContextWithEnv {
             context: self,
-            settings,
-            target_environment: env,
+            target_environment,
         }
     }
 }
@@ -168,7 +166,6 @@ mod tests {
     use std::collections::HashMap;
     use sudo_cli::SudoOptions;
     use sudo_system::User;
-    use sudoers::Settings;
 
     use super::{resolve_target_group, resolve_target_user, Context, NameOrId};
 
@@ -227,13 +224,12 @@ mod tests {
     fn test_build_context() {
         let options = SudoOptions::try_parse_from(["sudo", "echo", "hello"]).unwrap();
 
-        let mut current_env = HashMap::new();
-        current_env.insert("FOO".to_string(), "BAR".to_string());
+        let context = Context::build_from_options(&options).unwrap();
 
-        let settings = Settings::default();
-        let context = Context::build_from_options(&options)
-            .unwrap()
-            .with_filtered_env(current_env, &settings);
+        let mut target_environment = HashMap::new();
+        target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
+
+        let context = context.with_filtered_env(target_environment);
 
         assert_eq!(
             context.context.command.command.to_str().unwrap(),
