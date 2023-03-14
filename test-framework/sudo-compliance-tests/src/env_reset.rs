@@ -9,7 +9,6 @@ use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 
 // see 'environment' section in`man sudo`
 // see 'command environment' section in`man sudoers`
-#[ignore]
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     let env = EnvBuilder::default()
@@ -77,7 +76,6 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn env_reset_mode_clears_env_vars() -> Result<()> {
     let env = EnvBuilder::default()

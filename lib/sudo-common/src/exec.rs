@@ -10,6 +10,7 @@ pub fn exec(setup: ContextWithEnv) -> Result<ExitStatus, Error> {
         .args(setup.context.command.arguments)
         .uid(setup.context.target_user.uid)
         .gid(setup.context.target_user.gid)
+        .env_clear()
         .envs(setup.target_environment)
         .status()
         .map_err(|_| Error::Exec)

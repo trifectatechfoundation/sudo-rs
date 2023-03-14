@@ -34,6 +34,9 @@ const TESTS: &str = "
     SUDO_GID=1000
     SUDO_UID=1000
     SUDO_USER=test
+    HOME=/root
+    LOGNAME=root
+    USER=root
     TERM=xterm
 > sudo -u test env
     HOSTNAME=test-ubuntu
@@ -48,6 +51,9 @@ const TESTS: &str = "
     SUDO_GID=1000
     SUDO_UID=1000
     SUDO_USER=test
+    HOME=/home/test
+    LOGNAME=test
+    USER=test
     TERM=xterm
 ";
 
