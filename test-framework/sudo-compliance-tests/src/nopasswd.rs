@@ -11,7 +11,7 @@ use crate::{Result, SUDOERS_ROOT_ALL};
 #[ignore]
 #[test]
 fn user_is_root() -> Result<()> {
-    let env = Env::new(SUDOERS_ROOT_ALL).build()?;
+    let env = Env(SUDOERS_ROOT_ALL).build()?;
 
     Command::new("sudo")
         .arg("true")
@@ -25,8 +25,8 @@ fn user_is_root() -> Result<()> {
 #[test]
 fn user_as_themselves() -> Result<()> {
     let username = "ferris";
-    let env = Env::new(&format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(username, &[])
+    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
+        .user(username)
         .build()?;
 
     Command::new("sudo")
@@ -39,8 +39,8 @@ fn user_as_themselves() -> Result<()> {
 #[test]
 fn nopasswd_tag() -> Result<()> {
     let username = "ferris";
-    let env = Env::new(&format!("{username}    ALL=(ALL:ALL) NOPASSWD: ALL"))
-        .user(username, &[])
+    let env = Env(format!("{username}    ALL=(ALL:ALL) NOPASSWD: ALL"))
+        .user(username)
         .build()?;
 
     Command::new("sudo")

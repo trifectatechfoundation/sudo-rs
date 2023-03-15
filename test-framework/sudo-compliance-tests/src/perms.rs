@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, TextFile};
 
 use crate::{Result, SUDOERS_FERRIS_ALL_NOPASSWD};
 
@@ -8,9 +8,9 @@ fn user_can_read_file_owned_by_root() -> Result<()> {
     let expected = "hello";
     let path = "/root/file";
     let username = "ferris";
-    let env = Env::new(SUDOERS_FERRIS_ALL_NOPASSWD)
-        .user(username, &[])
-        .text_file(path, "root:root", "000", expected)
+    let env = Env(SUDOERS_FERRIS_ALL_NOPASSWD)
+        .user(username)
+        .file(path, expected)
         .build()?;
 
     let actual = Command::new("sudo")
@@ -27,9 +27,9 @@ fn user_can_read_file_owned_by_root() -> Result<()> {
 fn user_can_write_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
     let username = "ferris";
-    let env = Env::new(SUDOERS_FERRIS_ALL_NOPASSWD)
-        .user(username, &[])
-        .text_file(path, "root:root", "000", "")
+    let env = Env(SUDOERS_FERRIS_ALL_NOPASSWD)
+        .user(username)
+        .file(path, "")
         .build()?;
 
     Command::new("sudo")
@@ -44,14 +44,15 @@ fn user_can_write_file_owned_by_root() -> Result<()> {
 fn user_can_execute_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
     let username = "ferris";
-    let env = Env::new(SUDOERS_FERRIS_ALL_NOPASSWD)
-        .user(username, &[])
-        .text_file(
+    let env = Env(SUDOERS_FERRIS_ALL_NOPASSWD)
+        .user(username)
+        .file(
             path,
-            "root:root",
-            "100",
-            r#"#!/bin/sh
+            TextFile(
+                r#"#!/bin/sh
 exit 0"#,
+            )
+            .chmod("100"),
         )
         .build()?;
 

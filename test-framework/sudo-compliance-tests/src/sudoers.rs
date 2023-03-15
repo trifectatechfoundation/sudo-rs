@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, TextFile, User};
 
 use crate::Result;
 
@@ -6,7 +6,7 @@ mod user_list;
 
 #[test]
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
-    let env = Env::new("").sudoers_chmod("446").build()?;
+    let env = Env(TextFile("").chmod("446")).build()?;
 
     let output = Command::new("sudo").arg("true").exec(&env)?;
     assert_eq!(Some(1), output.status().code());
@@ -23,12 +23,9 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
 fn user_specifications_evaluated_bottom_to_top() -> Result<()> {
     let username = "ferris";
     let password = "strong-password";
-    let env = Env::new(
-        r#"ferris ALL=(ALL:ALL) NOPASSWD: ALL
-ferris ALL=(ALL:ALL) ALL"#,
-    )
-    .user(username, &[])
-    .user_password(username, password)
+    let env = Env(r#"ferris ALL=(ALL:ALL) NOPASSWD: ALL
+ferris ALL=(ALL:ALL) ALL"#)
+    .user(User(username).password(password))
     .build()?;
 
     let output = Command::new("sudo")

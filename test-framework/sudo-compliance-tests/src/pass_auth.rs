@@ -3,7 +3,7 @@
 // NOTE all these tests assume that the invoking user passes the sudoers file 'User_List' criteria
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, User};
 
 use crate::Result;
 
@@ -12,9 +12,8 @@ use crate::Result;
 fn correct_password() -> Result<()> {
     let username = "ferris";
     let password = "strong-password";
-    let env = Env::new(&format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(username, &[])
-        .user_password(username, password)
+    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
+        .user(User(username).password(password))
         .build()?;
 
     Command::new("sudo")
@@ -28,9 +27,8 @@ fn correct_password() -> Result<()> {
 #[test]
 fn incorrect_password() -> Result<()> {
     let username = "ferris";
-    let env = Env::new(&format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(username, &[])
-        .user_password(username, "strong-password")
+    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
+        .user(User(username).password("strong-password"))
         .build()?;
 
     let output = Command::new("sudo")
@@ -52,9 +50,8 @@ fn incorrect_password() -> Result<()> {
 fn no_password() -> Result<()> {
     let username = "ferris";
     let password = "strong-password";
-    let env = Env::new(&format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(username, &[])
-        .user_password(username, password)
+    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
+        .user(User(username).password(password))
         .build()?;
 
     let output = Command::new("sudo")

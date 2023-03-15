@@ -5,7 +5,7 @@ use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 
 #[test]
 fn sudo_forwards_childs_exit_code() -> Result<()> {
-    let env = Env::new(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let expected = 42;
     let output = Command::new("sudo")
@@ -19,7 +19,7 @@ fn sudo_forwards_childs_exit_code() -> Result<()> {
 
 #[test]
 fn sudo_forwards_childs_stdout() -> Result<()> {
-    let env = Env::new(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let expected = "hello";
     let output = Command::new("sudo").args(["echo", expected]).exec(&env)?;
@@ -31,7 +31,7 @@ fn sudo_forwards_childs_stdout() -> Result<()> {
 
 #[test]
 fn sudo_forwards_childs_stderr() -> Result<()> {
-    let env = Env::new(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let expected = "hello";
     let output = Command::new("sudo")

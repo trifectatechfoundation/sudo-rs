@@ -6,9 +6,7 @@ use crate::{Result, SUDOERS_FERRIS_ALL_NOPASSWD, SUDOERS_ROOT_ALL_NOPASSWD};
 #[test]
 fn root_can_become_another_user_by_name() -> Result<()> {
     let username = "ferris";
-    let env = Env::new(SUDOERS_ROOT_ALL_NOPASSWD)
-        .user(username, &[])
-        .build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(username).build()?;
 
     let expected = Command::new("id").as_user(username).exec(&env)?.stdout()?;
     let actual = Command::new("sudo")
@@ -24,9 +22,7 @@ fn root_can_become_another_user_by_name() -> Result<()> {
 #[test]
 fn root_can_become_another_user_by_uid() -> Result<()> {
     let username = "ferris";
-    let env = Env::new(SUDOERS_ROOT_ALL_NOPASSWD)
-        .user(username, &[])
-        .build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(username).build()?;
 
     let uid = Command::new("id")
         .arg("-u")
@@ -50,9 +46,9 @@ fn root_can_become_another_user_by_uid() -> Result<()> {
 #[ignore]
 #[test]
 fn user_can_become_another_user() -> Result<()> {
-    let env = Env::new(SUDOERS_FERRIS_ALL_NOPASSWD)
-        .user("ferris", &[])
-        .user("someone_else", &[])
+    let env = Env(SUDOERS_FERRIS_ALL_NOPASSWD)
+        .user("ferris")
+        .user("someone_else")
         .build()?;
 
     let expected = Command::new("id")

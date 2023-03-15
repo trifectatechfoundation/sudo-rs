@@ -11,7 +11,7 @@ use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 // see 'command environment' section in`man sudoers`
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
-    let env = Env::new(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let stdout = Command::new("env").exec(&env)?.stdout()?;
     let normal_env = parse_env_output(&stdout)?;
@@ -80,7 +80,7 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
 
 #[test]
 fn env_reset_mode_clears_env_vars() -> Result<()> {
-    let env = Env::new(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let varname = "SHOULD_BE_REMOVED";
     let set_env_var = format!("export {varname}=1");

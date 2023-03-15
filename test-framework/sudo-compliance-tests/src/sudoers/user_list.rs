@@ -7,7 +7,7 @@ use crate::Result;
 
 #[test]
 fn no_match() -> Result<()> {
-    let env = Env::new("").build()?;
+    let env = Env("").build()?;
 
     let output = Command::new("sudo").arg("true").exec(&env)?;
     assert_eq!(Some(1), output.status().code());
@@ -22,8 +22,8 @@ fn no_match() -> Result<()> {
 #[test]
 fn all() -> Result<()> {
     let username = "ferris";
-    let env = Env::new("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
-        .user(username, &[])
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+        .user(username)
         .build()?;
 
     Command::new("sudo")
@@ -40,7 +40,7 @@ fn all() -> Result<()> {
 
 #[test]
 fn user_name() -> Result<()> {
-    let env = Env::new("root ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
+    let env = Env("root ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
     Command::new("sudo")
         .arg("true")
@@ -50,7 +50,7 @@ fn user_name() -> Result<()> {
 
 #[test]
 fn user_id() -> Result<()> {
-    let env = Env::new("#0 ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
+    let env = Env("#0 ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
     Command::new("sudo")
         .arg("true")
@@ -60,7 +60,7 @@ fn user_id() -> Result<()> {
 
 #[test]
 fn group_name() -> Result<()> {
-    let env = Env::new("%root ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
+    let env = Env("%root ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
     Command::new("sudo")
         .arg("true")
@@ -70,7 +70,7 @@ fn group_name() -> Result<()> {
 
 #[test]
 fn group_id() -> Result<()> {
-    let env = Env::new("%#0 ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
+    let env = Env("%#0 ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
     Command::new("sudo")
         .arg("true")
