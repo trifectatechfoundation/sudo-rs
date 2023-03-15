@@ -1,6 +1,6 @@
 //! Scenarios where a password does not need to be provided
 
-use sudo_test::{As, EnvBuilder};
+use sudo_test::{Command, Env};
 
 use crate::{Result, SUDOERS_ROOT_ALL};
 
@@ -11,12 +11,12 @@ use crate::{Result, SUDOERS_ROOT_ALL};
 #[ignore]
 #[test]
 fn user_is_root() -> Result<()> {
-    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+    let env = Env::new(SUDOERS_ROOT_ALL).build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
 }
 
 // man sudoers > User Authentication:
@@ -25,32 +25,27 @@ fn user_is_root() -> Result<()> {
 #[test]
 fn user_as_themselves() -> Result<()> {
     let username = "ferris";
-    let env = EnvBuilder::default()
+    let env = Env::new(&format!("{username}    ALL=(ALL:ALL) ALL"))
         .user(username, &[])
-        .sudoers(&format!("{username}    ALL=(ALL:ALL) ALL"))
         .build()?;
 
-    let output = env.exec(
-        &["sudo", "-u", username, "true"],
-        As::User { name: username },
-        None,
-    )?;
-
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .args(["-u", username, "true"])
+        .as_user(username)
+        .exec(&env)?
+        .assert_success()
 }
 
 #[test]
 fn nopasswd_tag() -> Result<()> {
     let username = "ferris";
-    let env = EnvBuilder::default()
-        .sudoers(&format!("{username}    ALL=(ALL:ALL) NOPASSWD: ALL"))
+    let env = Env::new(&format!("{username}    ALL=(ALL:ALL) NOPASSWD: ALL"))
         .user(username, &[])
         .build()?;
 
-    let output = env.exec(&["sudo", "true"], As::User { name: username }, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .as_user(username)
+        .exec(&env)?
+        .assert_success()
 }

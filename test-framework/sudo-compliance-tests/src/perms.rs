@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use sudo_test::{As, EnvBuilder};
+use sudo_test::{Command, Env};
 
 use crate::{Result, SUDOERS_FERRIS_ALL_NOPASSWD};
 
@@ -7,14 +7,18 @@ use crate::{Result, SUDOERS_FERRIS_ALL_NOPASSWD};
 fn user_can_read_file_owned_by_root() -> Result<()> {
     let expected = "hello";
     let path = "/root/file";
-    let env = EnvBuilder::default()
-        .user("ferris", &[])
-        .sudoers(SUDOERS_FERRIS_ALL_NOPASSWD)
+    let username = "ferris";
+    let env = Env::new(SUDOERS_FERRIS_ALL_NOPASSWD)
+        .user(username, &[])
         .text_file(path, "root:root", "000", expected)
         .build()?;
 
-    let stdout = env.stdout(&["sudo", "cat", path], As::User { name: "ferris" }, None)?;
-    assert_eq!(expected, stdout);
+    let actual = Command::new("sudo")
+        .args(["cat", path])
+        .as_user(username)
+        .exec(&env)?
+        .stdout()?;
+    assert_eq!(expected, actual);
 
     Ok(())
 }
@@ -22,25 +26,26 @@ fn user_can_read_file_owned_by_root() -> Result<()> {
 #[test]
 fn user_can_write_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
-    let env = EnvBuilder::default()
-        .user("ferris", &[])
-        .sudoers(SUDOERS_FERRIS_ALL_NOPASSWD)
+    let username = "ferris";
+    let env = Env::new(SUDOERS_FERRIS_ALL_NOPASSWD)
+        .user(username, &[])
         .text_file(path, "root:root", "000", "")
         .build()?;
 
-    let output = env.exec(&["sudo", "rm", path], As::User { name: "ferris" }, None)?;
-    assert!(output.status.success());
-
-    Ok(())
+    Command::new("sudo")
+        .args(["rm", path])
+        .as_user(username)
+        .exec(&env)?
+        .assert_success()
 }
 
 #[test]
 #[ignore]
 fn user_can_execute_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
-    let env = EnvBuilder::default()
-        .user("ferris", &[])
-        .sudoers(SUDOERS_FERRIS_ALL_NOPASSWD)
+    let username = "ferris";
+    let env = Env::new(SUDOERS_FERRIS_ALL_NOPASSWD)
+        .user(username, &[])
         .text_file(
             path,
             "root:root",
@@ -50,8 +55,9 @@ exit 0"#,
         )
         .build()?;
 
-    let output = env.exec(&["sudo", path], As::User { name: "ferris" }, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg(path)
+        .as_user(username)
+        .exec(&env)?
+        .assert_success()
 }

@@ -1,18 +1,19 @@
 //! Test the first component of the user specification: `<user_list> ALL=(ALL:ALL) ALL`
 
-use sudo_test::{As, EnvBuilder};
+use pretty_assertions::assert_eq;
+use sudo_test::{Command, Env};
 
 use crate::Result;
 
 #[test]
 fn no_match() -> Result<()> {
-    let env = EnvBuilder::default().build()?;
+    let env = Env::new("").build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert_eq!(Some(1), output.status.code());
+    let output = Command::new("sudo").arg("true").exec(&env)?;
+    assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr, "root is not in the sudoers file");
+        assert_contains!(output.stderr(), "root is not in the sudoers file");
     }
 
     Ok(())
@@ -21,64 +22,58 @@ fn no_match() -> Result<()> {
 #[test]
 fn all() -> Result<()> {
     let username = "ferris";
-    let env = EnvBuilder::default()
-        .sudoers("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+    let env = Env::new("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
         .user(username, &[])
         .build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()?;
 
-    let output = env.exec(&["sudo", "true"], As::User { name: username }, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .as_user(username)
+        .exec(&env)?
+        .assert_success()
 }
 
 #[test]
 fn user_name() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers("root ALL=(ALL:ALL) NOPASSWD: ALL")
-        .build()?;
+    let env = Env::new("root ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
 }
 
 #[test]
 fn user_id() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers("#0 ALL=(ALL:ALL) NOPASSWD: ALL")
-        .build()?;
+    let env = Env::new("#0 ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
 }
 
 #[test]
 fn group_name() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers("%root ALL=(ALL:ALL) NOPASSWD: ALL")
-        .build()?;
+    let env = Env::new("%root ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
 }
 
 #[test]
 fn group_id() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers("%#0 ALL=(ALL:ALL) NOPASSWD: ALL")
-        .build()?;
+    let env = Env::new("%#0 ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
 }
