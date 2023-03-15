@@ -1,25 +1,28 @@
+//! sudo-rs test framework
+
+#![deny(missing_docs)]
+#![deny(unsafe_code)]
+
 use std::{
     collections::{HashMap, HashSet},
     env,
-    fs::File,
-    path::{Path, PathBuf},
-    process::{Command, Stdio},
+    path::Path,
     sync::Once,
 };
 
 use bimap::BiMap;
 use docker::Container;
 
-pub use docker::{As, ExecOutput};
+pub use docker::{Command, Output};
 
-pub type Error = Box<dyn std::error::Error>;
-pub type Result<T> = core::result::Result<T, Error>;
+type Error = Box<dyn std::error::Error>;
+type Result<T> = core::result::Result<T, Error>;
 
 mod docker;
-mod helpers;
 
 const BASE_IMAGE: &str = env!("CARGO_CRATE_NAME");
 
+/// are we testing the original sudo?
 pub fn is_original_sudo() -> bool {
     matches!(SudoUnderTest::from_env(), Ok(SudoUnderTest::Theirs))
 }
@@ -112,6 +115,9 @@ impl EnvBuilder {
         self
     }
 
+    /// assigns the given `password` to the specified user
+    ///
+    /// NOTE by default users have no password
     pub fn user_password(&mut self, username: &str, password: &str) -> &mut Self {
         self.username_to_passwords
             .insert(username.to_string(), password.to_string());
@@ -185,10 +191,11 @@ impl EnvBuilder {
         self
     }
 
+    /// builds the test environment
     pub fn build(&self) -> Result<Env> {
         static ONCE: Once = Once::new();
         ONCE.call_once(|| {
-            build_base_image().expect("fatal error: could not build the base Docker image")
+            docker::build_base_image().expect("fatal error: could not build the base Docker image")
         });
 
         let container = Container::new(BASE_IMAGE)?;
@@ -237,29 +244,29 @@ impl EnvBuilder {
         let path = "/etc/sudoers";
         container.cp(path, &self.sudoers)?;
 
-        container.stdout(
-            &[
-                "chown",
-                self.sudoers_chown
-                    .as_deref()
-                    .unwrap_or(Self::DEFAULT_SUDOERS_CHOWN),
-                path,
-            ],
-            As::Root,
-            None,
-        )?;
+        container
+            .exec(
+                Command::new("chown")
+                    .arg(
+                        self.sudoers_chown
+                            .as_deref()
+                            .unwrap_or(Self::DEFAULT_SUDOERS_CHOWN),
+                    )
+                    .arg(path),
+            )?
+            .assert_success()?;
 
-        container.stdout(
-            &[
-                "chmod",
-                self.sudoers_chmod
-                    .as_deref()
-                    .unwrap_or(Self::DEFAULT_SUDOERS_CHMOD),
-                path,
-            ],
-            As::Root,
-            None,
-        )?;
+        container
+            .exec(
+                Command::new("chmod")
+                    .arg(
+                        self.sudoers_chmod
+                            .as_deref()
+                            .unwrap_or(Self::DEFAULT_SUDOERS_CHMOD),
+                    )
+                    .arg(path),
+            )?
+            .assert_success()?;
 
         let path = "/etc/pam.d/sudo";
         container.cp(
@@ -269,16 +276,23 @@ impl EnvBuilder {
                 .unwrap_or(Self::DEFAULT_PAM_D_SUDO),
         )?;
 
-        container.stdout(&["chown", "root:root", path], As::Root, None)?;
-        container.stdout(&["chmod", "644", path], As::Root, None)?;
+        container
+            .exec(Command::new("chown").args(["root:root", path]))?
+            .assert_success()?;
+        container
+            .exec(Command::new("chmod").args(["644", path]))?
+            .assert_success()?;
 
         // create groups with known IDs first to avoid collisions ..
         for (group_id, groupname) in &self.group_id_to_groupname {
-            container.stdout(
-                &["groupadd", "-g", &group_id.to_string(), groupname],
-                As::Root,
-                None,
-            )?;
+            container
+                .exec(
+                    Command::new("groupadd")
+                        .arg("-g")
+                        .arg(group_id.to_string())
+                        .arg(groupname),
+                )?
+                .assert_success()?;
 
             groups.insert(groupname.to_string());
         }
@@ -287,7 +301,9 @@ impl EnvBuilder {
         for user_groups in self.username_to_groups.values() {
             for user_group in user_groups {
                 if !groups.contains(user_group) {
-                    container.stdout(&["groupadd", user_group], As::Root, None)?;
+                    container
+                        .exec(Command::new("groupadd").arg(user_group))?
+                        .assert_success()?;
 
                     groups.insert(user_group.to_string());
                 }
@@ -337,15 +353,20 @@ impl EnvBuilder {
                 "cannot assign password to non-existing user: {username}"
             );
 
-            let stdin = format!("{username}:{password}");
-            container.stdout(&["chpasswd"], As::Root, Some(&stdin))?;
+            container
+                .exec(Command::new("chpasswd").stdin(format!("{username}:{password}")))?
+                .assert_success()?;
         }
 
         for (path, text_file) in &self.text_files {
             container.cp(path, &text_file.contents)?;
 
-            container.stdout(&["chown", &text_file.chown, path], As::Root, None)?;
-            container.stdout(&["chmod", &text_file.chmod, path], As::Root, None)?;
+            container
+                .exec(Command::new("chown").args([&text_file.chown, path]))?
+                .assert_success()?;
+            container
+                .exec(Command::new("chmod").args([&text_file.chmod, path]))?
+                .assert_success()?;
         }
 
         Ok(Env { container, users })
@@ -373,42 +394,10 @@ impl SudoUnderTest {
     }
 }
 
-fn build_base_image() -> Result<()> {
-    let repo_root = repo_root();
-    let mut cmd = Command::new("docker");
-
-    cmd.args(["build", "-t", BASE_IMAGE]);
-
-    match SudoUnderTest::from_env()? {
-        SudoUnderTest::Ours => {
-            // needed for dockerfile-specific dockerignore (e.g. `Dockerfile.dockerignore`) support
-            cmd.env("DOCKER_BUILDKIT", "1");
-
-            cmd.current_dir(repo_root);
-            cmd.args(["-f", "test-framework/sudo-test/src/ours.Dockerfile", "."]);
-        }
-
-        SudoUnderTest::Theirs => {
-            // pass Dockerfile via stdin to not provide the repository as a build context
-            let f = File::open(repo_root.join("test-framework/sudo-test/src/theirs.Dockerfile"))?;
-            cmd.arg("-").stdin(Stdio::from(f));
-        }
-    }
-
-    helpers::stdout(&mut cmd, None)?;
-
-    Ok(())
-}
-
-fn repo_root() -> PathBuf {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.pop();
-    path.pop();
-    path
-}
-
 fn get_groups(container: &Container) -> Result<HashSet<String>> {
-    let stdout = container.stdout(&["getent", "group"], As::Root, None)?;
+    let stdout = container
+        .exec(Command::new("getent").arg("group"))?
+        .stdout()?;
     let mut groups = HashSet::new();
     for line in stdout.lines() {
         if let Some((name, _rest)) = line.split_once(':') {
@@ -420,7 +409,9 @@ fn get_groups(container: &Container) -> Result<HashSet<String>> {
 }
 
 fn get_users(container: &Container) -> Result<HashSet<String>> {
-    let stdout = container.stdout(&["getent", "passwd"], As::Root, None)?;
+    let stdout = container
+        .exec(Command::new("getent").arg("passwd"))?
+        .stdout()?;
     let mut users = HashSet::new();
     for line in stdout.lines() {
         if let Some((name, _rest)) = line.split_once(':') {
@@ -438,33 +429,26 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn exec(
-        &self,
-        cmd: &[impl AsRef<str>],
-        user: As,
-        stdin: Option<&str>,
-    ) -> Result<ExecOutput> {
-        if let As::User { name } = user {
-            assert!(
-                self.users.contains(name),
-                "tried to exec as non-existing user"
-            );
-        }
-
-        self.container.exec(cmd, user, stdin)
+    /// creates a new env builder and uses the specified `sudoers` string as the initial contents of
+    /// the `/etc/sudoers` file
+    pub fn new(sudoers: &str) -> EnvBuilder {
+        let mut builder = EnvBuilder::default();
+        builder.sudoers(sudoers);
+        builder
     }
+}
 
-    /// utility function on top of `exec` that checks that `cmd` executed successfully and returns
-    /// its stdout
-    pub fn stdout(&self, cmd: &[impl AsRef<str>], user: As, stdin: Option<&str>) -> Result<String> {
-        if let As::User { name } = user {
+impl Command {
+    /// executes the command in the specified test environment
+    pub fn exec(&self, env: &Env) -> Result<Output> {
+        if let Some(username) = self.get_user() {
             assert!(
-                self.users.contains(name),
-                "tried to exec as non-existing user"
+                env.users.contains(username),
+                "tried to exec as non-existent user: {username}"
             );
         }
 
-        self.container.stdout(cmd, user, stdin)
+        env.container.exec(self)
     }
 }
 
@@ -476,25 +460,22 @@ struct User<'a> {
 
 impl User<'_> {
     fn create(&self, container: &Container) -> Result<()> {
-        let mut cmd = vec!["useradd", "-m"];
+        let mut useradd = Command::new("useradd");
+        useradd.arg("-m");
 
-        let id_as_string;
         if let Some(id) = self.id {
-            id_as_string = id.to_string();
-            cmd.extend_from_slice(&["-u", &id_as_string]);
+            useradd.arg("-u").arg(id.to_string());
         }
 
-        let group_list;
         if !self.groups.is_empty() {
-            group_list = self.groups.iter().cloned().collect::<Vec<_>>().join(",");
-            cmd.extend_from_slice(&["-G", &group_list]);
+            useradd
+                .arg("-G")
+                .arg(self.groups.iter().cloned().collect::<Vec<_>>().join(","));
         }
 
-        cmd.push(self.name);
+        useradd.arg(self.name);
 
-        container.stdout(&cmd, As::Root, None)?;
-
-        Ok(())
+        container.exec(&useradd)?.assert_success()
     }
 }
 
@@ -530,22 +511,24 @@ mod tests {
         let new_user = "ferris";
         let env = EnvBuilder::default().user(new_user, &[]).build()?;
 
-        let output = env.exec(&["sh", "-c", "[ -d /home/ferris ]"], As::Root, None)?;
-        assert!(output.status.success());
-
-        Ok(())
+        Command::new("sh")
+            .arg("-c")
+            .arg("[ -d /home/ferris ]")
+            .exec(&env)?
+            .assert_success()
     }
 
     #[test]
     fn created_user_belongs_to_group_named_after_themselves() -> Result<()> {
-        let new_user = "ferris";
-        let env = EnvBuilder::default().user(new_user, &[]).build()?;
+        let username = "ferris";
+        let env = EnvBuilder::default().user(username, &[]).build()?;
 
-        let output = env.exec(&["groups"], As::User { name: new_user }, None)?;
-        assert!(output.status.success());
-
-        let groups = output.stdout.split(' ').collect::<HashSet<_>>();
-        assert!(groups.contains(new_user));
+        let stdout = Command::new("groups")
+            .as_user(username)
+            .exec(&env)?
+            .stdout()?;
+        let groups = stdout.split(' ').collect::<HashSet<_>>();
+        assert!(groups.contains(username));
 
         Ok(())
     }
@@ -556,11 +539,8 @@ mod tests {
         let group = "users";
         let env = EnvBuilder::default().user(user, &[group]).build()?;
 
-        let output = env.exec(&["groups"], As::User { name: user }, None)?;
-        assert!(output.status.success());
-
-        let user_groups = output.stdout.split(' ').collect::<HashSet<_>>();
-        dbg!(&user_groups);
+        let stdout = Command::new("groups").as_user(user).exec(&env)?.stdout()?;
+        let user_groups = stdout.split(' ').collect::<HashSet<_>>();
         assert!(user_groups.contains(group));
 
         Ok(())
@@ -569,12 +549,12 @@ mod tests {
     #[test]
     fn sudoers_file_get_created_with_expected_contents() -> Result<()> {
         let expected = "Hello, root!";
-        let env = EnvBuilder::default().sudoers(expected).build()?;
+        let env = Env::new(expected).build()?;
 
-        let output = env.exec(&["cat", "/etc/sudoers"], As::Root, None)?;
-        assert!(output.status.success());
-
-        let actual = output.stdout;
+        let actual = Command::new("cat")
+            .arg("/etc/sudoers")
+            .exec(&env)?
+            .stdout()?;
         assert_eq!(expected, actual);
 
         Ok(())
@@ -582,12 +562,15 @@ mod tests {
 
     #[test]
     fn default_pam_d_sudo() -> Result<()> {
+        let expected = EnvBuilder::DEFAULT_PAM_D_SUDO;
         let env = EnvBuilder::default().build()?;
 
-        let actual = env.stdout(&["cat", "/etc/pam.d/sudo"], As::Root, None)?;
-        let expected = EnvBuilder::DEFAULT_PAM_D_SUDO;
-
+        let actual = Command::new("cat")
+            .arg("/etc/pam.d/sudo")
+            .exec(&env)?
+            .stdout()?;
         assert_eq!(expected, actual);
+
         Ok(())
     }
 
@@ -596,9 +579,12 @@ mod tests {
         let expected = "invalid pam.d file";
         let env = EnvBuilder::default().pam_d_sudo(expected).build()?;
 
-        let actual = env.stdout(&["cat", "/etc/pam.d/sudo"], As::Root, None)?;
-
+        let actual = Command::new("cat")
+            .arg("/etc/pam.d/sudo")
+            .exec(&env)?
+            .stdout()?;
         assert_eq!(expected, actual);
+
         Ok(())
     }
 
@@ -613,10 +599,10 @@ mod tests {
             .text_file(path, chown, chmod, expected_contents)
             .build()?;
 
-        let actual_contents = env.stdout(&["cat", path], As::Root, None)?;
+        let actual_contents = Command::new("cat").arg(path).exec(&env)?.stdout()?;
         assert_eq!(expected_contents, &actual_contents);
 
-        let ls_l = env.stdout(&["ls", "-l", path], As::Root, None)?;
+        let ls_l = Command::new("ls").args(["-l", path]).exec(&env)?.stdout()?;
         assert!(ls_l.starts_with("-rw-------"));
         assert!(ls_l.contains("ferris ferris"));
 
@@ -675,10 +661,13 @@ mod tests {
             .user_id(username, expected)
             .build()?;
 
-        let actual = env
-            .stdout(&["id", "-u", username], As::Root, None)?
+        let actual = Command::new("id")
+            .args(["-u", username])
+            .exec(&env)?
+            .stdout()?
             .parse()?;
         assert_eq!(expected, actual);
+
         Ok(())
     }
 
@@ -692,9 +681,13 @@ mod tests {
             .group_id(groupname, expected)
             .build()?;
 
-        let stdout = env.stdout(&["getent", "group", groupname], As::Root, None)?;
+        let stdout = Command::new("getent")
+            .args(["group", groupname])
+            .exec(&env)?
+            .stdout()?;
         let actual = stdout.split(':').nth(2);
         assert_eq!(Some(expected.to_string().as_str()), actual);
+
         Ok(())
     }
 }
