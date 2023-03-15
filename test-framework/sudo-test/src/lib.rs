@@ -431,6 +431,7 @@ pub struct Env {
 impl Env {
     /// creates a new env builder and uses the specified `sudoers` string as the initial contents of
     /// the `/etc/sudoers` file
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(sudoers: &str) -> EnvBuilder {
         let mut builder = EnvBuilder::default();
         builder.sudoers(sudoers);
