@@ -1,21 +1,20 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{Result, SUDOERS_FERRIS_ALL_NOPASSWD};
+use crate::{Result, SUDOERS_USER_ALL_NOPASSWD, USERNAME};
 
 #[test]
 fn user_can_read_file_owned_by_root() -> Result<()> {
     let expected = "hello";
     let path = "/root/file";
-    let username = "ferris";
-    let env = Env(SUDOERS_FERRIS_ALL_NOPASSWD)
-        .user(username)
+    let env = Env(SUDOERS_USER_ALL_NOPASSWD)
+        .user(USERNAME)
         .file(path, expected)
         .build()?;
 
     let actual = Command::new("sudo")
         .args(["cat", path])
-        .as_user(username)
+        .as_user(USERNAME)
         .exec(&env)?
         .stdout()?;
     assert_eq!(expected, actual);
@@ -26,15 +25,14 @@ fn user_can_read_file_owned_by_root() -> Result<()> {
 #[test]
 fn user_can_write_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
-    let username = "ferris";
-    let env = Env(SUDOERS_FERRIS_ALL_NOPASSWD)
-        .user(username)
+    let env = Env(SUDOERS_USER_ALL_NOPASSWD)
+        .user(USERNAME)
         .file(path, "")
         .build()?;
 
     Command::new("sudo")
         .args(["rm", path])
-        .as_user(username)
+        .as_user(USERNAME)
         .exec(&env)?
         .assert_success()
 }
@@ -43,9 +41,8 @@ fn user_can_write_file_owned_by_root() -> Result<()> {
 #[ignore]
 fn user_can_execute_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
-    let username = "ferris";
-    let env = Env(SUDOERS_FERRIS_ALL_NOPASSWD)
-        .user(username)
+    let env = Env(SUDOERS_USER_ALL_NOPASSWD)
+        .user(USERNAME)
         .file(
             path,
             TextFile(
@@ -58,7 +55,7 @@ exit 0"#,
 
     Command::new("sudo")
         .arg(path)
-        .as_user(username)
+        .as_user(USERNAME)
         .exec(&env)?
         .assert_success()
 }

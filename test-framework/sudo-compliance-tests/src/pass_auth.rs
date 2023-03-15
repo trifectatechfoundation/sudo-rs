@@ -5,35 +5,32 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
-use crate::Result;
+use crate::{Result, PASSWORD, USERNAME};
 
 #[ignore]
 #[test]
 fn correct_password() -> Result<()> {
-    let username = "ferris";
-    let password = "strong-password";
-    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(User(username).password(password))
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
     Command::new("sudo")
         .args(["-S", "true"])
-        .as_user(username)
-        .stdin(password)
+        .as_user(USERNAME)
+        .stdin(PASSWORD)
         .exec(&env)?
         .assert_success()
 }
 
 #[test]
 fn incorrect_password() -> Result<()> {
-    let username = "ferris";
-    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(User(username).password("strong-password"))
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password("strong-password"))
         .build()?;
 
     let output = Command::new("sudo")
         .args(["-S", "true"])
-        .as_user(username)
+        .as_user(USERNAME)
         .stdin("incorrect-password")
         .exec(&env)?;
     assert!(!output.status().success());
@@ -48,15 +45,13 @@ fn incorrect_password() -> Result<()> {
 
 #[test]
 fn no_password() -> Result<()> {
-    let username = "ferris";
-    let password = "strong-password";
-    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(User(username).password(password))
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
     let output = Command::new("sudo")
         .args(["-S", "true"])
-        .as_user(username)
+        .as_user(USERNAME)
         .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
 

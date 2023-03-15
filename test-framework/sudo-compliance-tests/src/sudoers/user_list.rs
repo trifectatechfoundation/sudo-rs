@@ -3,7 +3,7 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env};
 
-use crate::Result;
+use crate::{Result, USERNAME};
 
 #[test]
 fn no_match() -> Result<()> {
@@ -21,9 +21,8 @@ fn no_match() -> Result<()> {
 
 #[test]
 fn all() -> Result<()> {
-    let username = "ferris";
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
-        .user(username)
+        .user(USERNAME)
         .build()?;
 
     Command::new("sudo")
@@ -33,7 +32,7 @@ fn all() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .as_user(username)
+        .as_user(USERNAME)
         .exec(&env)?
         .assert_success()
 }

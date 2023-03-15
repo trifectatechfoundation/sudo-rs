@@ -482,36 +482,36 @@ fn getent_passwd(container: &Container) -> Result<(HashSet<Username>, HashSet<u3
 mod tests {
     use super::*;
 
+    const USERNAME: &str = "ferris";
+    const GROUPNAME: &str = "rustaceans";
+
     #[test]
     fn group_creation_works() -> Result<()> {
-        let groupname = "rustaceans";
-        let env = EnvBuilder::default().group(groupname).build()?;
+        let env = EnvBuilder::default().group(GROUPNAME).build()?;
 
         let groupnames = getent_group(&env.container)?.0;
-        assert!(groupnames.contains(groupname));
+        assert!(groupnames.contains(GROUPNAME));
 
         Ok(())
     }
 
     #[test]
     fn user_creation_works() -> Result<()> {
-        let username = "ferris";
-        let env = EnvBuilder::default().user(username).build()?;
+        let env = EnvBuilder::default().user(USERNAME).build()?;
 
         let usernames = getent_passwd(&env.container)?.0;
-        assert!(usernames.contains(username));
+        assert!(usernames.contains(USERNAME));
 
         Ok(())
     }
 
     #[test]
     fn no_implicit_home_creation() -> Result<()> {
-        let username = "ferris";
-        let env = EnvBuilder::default().user(username).build()?;
+        let env = EnvBuilder::default().user(USERNAME).build()?;
 
         let output = Command::new("sh")
             .arg("-c")
-            .arg("[ -d /home/ferris ]")
+            .arg(format!("[ -d /home/{USERNAME} ]"))
             .exec(&env)?;
         assert!(!output.status().success());
         Ok(())
@@ -519,45 +519,42 @@ mod tests {
 
     #[test]
     fn no_implicit_user_group_creation() -> Result<()> {
-        let username = "ferris";
-        let env = EnvBuilder::default().user(username).build()?;
+        let env = EnvBuilder::default().user(USERNAME).build()?;
 
         let stdout = Command::new("groups")
-            .as_user(username)
+            .as_user(USERNAME)
             .exec(&env)?
             .stdout()?;
         let groups = stdout.split(' ').collect::<HashSet<_>>();
-        assert!(!groups.contains(username));
+        assert!(!groups.contains(USERNAME));
 
         Ok(())
     }
 
     #[test]
     fn no_password_by_default() -> Result<()> {
-        let username = "ferris";
-        let env = EnvBuilder::default().user(username).build()?;
+        let env = EnvBuilder::default().user(USERNAME).build()?;
 
         let stdout = Command::new("passwd")
-            .args(["--status", username])
+            .args(["--status", USERNAME])
             .exec(&env)?
             .stdout()?;
 
-        assert!(stdout.starts_with("ferris L"));
+        assert!(stdout.starts_with(&format!("{USERNAME} L")));
 
         Ok(())
     }
 
     #[test]
     fn password_assignment_works() -> Result<()> {
-        let username = "ferris";
         let password = "strong-password";
         let env = Env("ALL ALL=(ALL:ALL) ALL")
-            .user(User(username).password(password))
+            .user(User(USERNAME).password(password))
             .build()?;
 
         Command::new("sudo")
             .args(["-S", "true"])
-            .as_user(username)
+            .as_user(USERNAME)
             .stdin(password)
             .exec(&env)?
             .assert_success()
@@ -565,14 +562,13 @@ mod tests {
 
     #[test]
     fn creating_user_part_of_existing_group_works() -> Result<()> {
-        let username = "ferris";
         let groupname = "users";
         let env = EnvBuilder::default()
-            .user(User(username).group(groupname))
+            .user(User(USERNAME).group(groupname))
             .build()?;
 
         let stdout = Command::new("groups")
-            .as_user(username)
+            .as_user(USERNAME)
             .exec(&env)?
             .stdout()?;
         let user_groups = stdout.split(' ').collect::<HashSet<_>>();
@@ -597,13 +593,13 @@ mod tests {
 
     #[test]
     fn text_file_gets_created_with_right_perms() -> Result<()> {
-        let chown = "ferris:rustaceans";
+        let chown = format!("{USERNAME}:{GROUPNAME}");
         let chmod = "600";
         let expected_contents = "hello";
         let path = "/root/file";
         let env = EnvBuilder::default()
-            .user("ferris")
-            .group("rustaceans")
+            .user(USERNAME)
+            .group(GROUPNAME)
             .file(path, TextFile(expected_contents).chown(chown).chmod(chmod))
             .build()?;
 
@@ -612,7 +608,7 @@ mod tests {
 
         let ls_l = Command::new("ls").args(["-l", path]).exec(&env)?.stdout()?;
         assert!(ls_l.starts_with("-rw-------"));
-        assert!(ls_l.contains("ferris rustaceans"));
+        assert!(ls_l.contains(&format!("{USERNAME} {GROUPNAME}")));
 
         Ok(())
     }
@@ -627,7 +623,7 @@ mod tests {
     #[should_panic = "user ID 0 already exists in base image"]
     fn cannot_assign_user_id_that_already_exists_in_base_image() {
         EnvBuilder::default()
-            .user(User("ferris").id(0))
+            .user(User(USERNAME).id(0))
             .build()
             .unwrap();
     }
@@ -642,7 +638,7 @@ mod tests {
     #[should_panic = "group ID 0 already exists in base image"]
     fn cannot_assign_group_id_that_already_exists_in_base_image() {
         EnvBuilder::default()
-            .group(Group("rustaceans").id(0))
+            .group(Group(GROUPNAME).id(0))
             .build()
             .unwrap();
     }
@@ -650,13 +646,12 @@ mod tests {
     #[test]
     fn setting_user_id_works() -> Result<()> {
         let expected = 1023;
-        let username = "ferris";
         let env = EnvBuilder::default()
-            .user(User(username).id(expected))
+            .user(User(USERNAME).id(expected))
             .build()?;
 
         let actual = Command::new("id")
-            .args(["-u", username])
+            .args(["-u", USERNAME])
             .exec(&env)?
             .stdout()?
             .parse()?;
@@ -668,13 +663,12 @@ mod tests {
     #[test]
     fn setting_group_id_works() -> Result<()> {
         let expected = 1023;
-        let groupname = "rustaceans";
         let env = EnvBuilder::default()
-            .group(Group(groupname).id(expected))
+            .group(Group(GROUPNAME).id(expected))
             .build()?;
 
         let stdout = Command::new("getent")
-            .args(["group", groupname])
+            .args(["group", GROUPNAME])
             .exec(&env)?
             .stdout()?;
         let actual = stdout.split(':').nth(2);

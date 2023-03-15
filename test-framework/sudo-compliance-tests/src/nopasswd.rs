@@ -2,7 +2,7 @@
 
 use sudo_test::{Command, Env};
 
-use crate::{Result, SUDOERS_ROOT_ALL};
+use crate::{Result, SUDOERS_ROOT_ALL, USERNAME};
 
 // NOTE all these tests assume that the invoking user passes the sudoers file 'User_List' criteria
 
@@ -24,28 +24,26 @@ fn user_is_root() -> Result<()> {
 #[ignore]
 #[test]
 fn user_as_themselves() -> Result<()> {
-    let username = "ferris";
-    let env = Env(format!("{username}    ALL=(ALL:ALL) ALL"))
-        .user(username)
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(USERNAME)
         .build()?;
 
     Command::new("sudo")
-        .args(["-u", username, "true"])
-        .as_user(username)
+        .args(["-u", USERNAME, "true"])
+        .as_user(USERNAME)
         .exec(&env)?
         .assert_success()
 }
 
 #[test]
 fn nopasswd_tag() -> Result<()> {
-    let username = "ferris";
-    let env = Env(format!("{username}    ALL=(ALL:ALL) NOPASSWD: ALL"))
-        .user(username)
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) NOPASSWD: ALL"))
+        .user(USERNAME)
         .build()?;
 
     Command::new("sudo")
         .arg("true")
-        .as_user(username)
+        .as_user(USERNAME)
         .exec(&env)?
         .assert_success()
 }
