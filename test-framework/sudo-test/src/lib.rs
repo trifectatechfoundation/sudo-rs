@@ -61,7 +61,10 @@ pub struct Env {
 #[allow(non_snake_case)]
 pub fn Env(sudoers: impl Into<TextFile>) -> EnvBuilder {
     let mut builder = EnvBuilder::default();
-    builder.file("/etc/sudoers", sudoers.into());
+    let mut sudoers = sudoers.into();
+    // HACK append newline to work around memorysafety/sudo-rs#102
+    sudoers.contents.push('\n');
+    builder.file("/etc/sudoers", sudoers);
     builder
 }
 
