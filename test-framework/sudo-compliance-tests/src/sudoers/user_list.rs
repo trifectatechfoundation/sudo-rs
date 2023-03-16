@@ -60,7 +60,6 @@ fn user_id() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn group_name() -> Result<()> {
     let env = EnvBuilder::default()
         .sudoers("%root ALL=(ALL:ALL) NOPASSWD: ALL")
@@ -73,7 +72,6 @@ fn group_name() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn group_id() -> Result<()> {
     let env = EnvBuilder::default()
         .sudoers("%#0 ALL=(ALL:ALL) NOPASSWD: ALL")
