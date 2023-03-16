@@ -43,14 +43,14 @@ pub struct RunAs {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct Tag {
     pub passwd: bool,
-    pub chdir: Option<ChDir>,
+    pub cwd: Option<ChDir>,
 }
 
 impl Default for Tag {
     fn default() -> Tag {
         Tag {
             passwd: true,
-            chdir: None,
+            cwd: None,
         }
     }
 }
@@ -270,7 +270,7 @@ impl Parse for MetaOrTag {
             "CWD" => {
                 expect_syntax('=', stream)?;
                 let path: ChDir = expect_nonterminal(stream)?;
-                Box::new(move |tag| tag.chdir = Some(path.clone()))
+                Box::new(move |tag| tag.cwd = Some(path.clone()))
             }
             "ALL" => return make(MetaOrTag(All)),
             alias => return make(MetaOrTag(Alias(alias.to_string()))),
