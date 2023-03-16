@@ -251,6 +251,41 @@ impl Token for StringParameter {
     }
 }
 
+// a path used for in CWD and CHROOT specs
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+pub enum ChDir {
+    Path(String),
+    Asterisk,
+}
+
+impl Token for ChDir {
+    const MAX_LEN: usize = 1024;
+
+    fn construct(s: String) -> Result<Self, String> {
+        if s == "*" {
+            Ok(ChDir::Asterisk)
+        } else if s.contains('*') {
+            Err("path cannot contain `*'".to_string())
+        } else {
+            Ok(ChDir::Path(s))
+        }
+    }
+
+    fn accept(c: char) -> bool {
+        !c.is_control() && !Self::escaped(c)
+    }
+
+    fn accept_1st(c: char) -> bool {
+        "~/*".contains(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\\" ".contains(c)
+    }
+}
+
 /// A digest specifier; note that the type of hash is implied by the length; if sudo would support
 /// multiple hashes with the same hash length, this needs to be recorded explicity.
 #[derive(Debug)]

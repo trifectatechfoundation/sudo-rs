@@ -273,7 +273,11 @@ impl<T: Parse> Parse for Option<T> {
 }
 
 /// Parsing method for lists of items separated by a given character; this adheres to the contract of the [Parse] trait.
-fn parse_list<T: Parse>(sep_by: char, max: usize, stream: &mut impl CharStream) -> Parsed<Vec<T>>
+pub(crate) fn parse_list<T: Parse>(
+    sep_by: char,
+    max: usize,
+    stream: &mut impl CharStream,
+) -> Parsed<Vec<T>>
 where
     T: Parse + UserFriendly,
 {

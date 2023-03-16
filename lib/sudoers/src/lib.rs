@@ -41,7 +41,7 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
 /// (this is currently a stub and should later be turned into a trait and moved to a sudo-policies crate)
 #[derive(Debug)]
 pub struct Policy {
-    flags: Option<Vec<Tag>>,
+    flags: Option<Tag>,
     pub settings: Settings, // TODO: hide behind interface
 }
 
@@ -53,8 +53,8 @@ pub enum Authorization {
 
 impl Policy {
     pub fn authorization(&self) -> Authorization {
-        if let Some(vec) = &self.flags {
-            if vec.contains(&Tag::NoPasswd) {
+        if let Some(tag) = &self.flags {
+            if !tag.passwd {
                 Authorization::Passed
             } else {
                 Authorization::Required
@@ -127,7 +127,7 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     am_user: &User,
     on_host: &str,
     request: Request<User, Group>,
-) -> Option<Vec<Tag>> {
+) -> Option<Tag> {
     let cmdline = (request.command, request.arguments);
 
     let user_aliases = get_aliases(&aliases.user, &match_user(am_user));

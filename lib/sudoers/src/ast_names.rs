@@ -83,6 +83,14 @@ mod names {
     impl UserFriendly for tokens::Sha2 {
         const DESCRIPTION: &'static str = "digest";
     }
+
+    impl UserFriendly for ProtoCommandSpec {
+        const DESCRIPTION: &'static str = CommandSpec::DESCRIPTION;
+    }
+
+    impl UserFriendly for tokens::ChDir {
+        const DESCRIPTION: &'static str = "directory or `*'";
+    }
 }
 
 #[cfg(test)]
