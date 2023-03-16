@@ -43,6 +43,24 @@ fn main() -> Result<(), Error> {
     // parse cli options
     let sudo_options = SudoOptions::parse();
 
+    let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
+
+    if check_var != "I accept that my system may break unexpectedly" {
+        eprintln!("WARNING!");
+        eprintln!("Sudo-rs is in the early stages of development and could potentially break your system.");
+        eprintln!(
+            "We recommend that you do not run this on any production environment. To turn off this"
+        );
+        eprintln!(
+            "warning and start using sudo-rs set the environment variable SUDO_RS_IS_UNSTABLE to"
+        );
+        eprintln!(
+            "the value `I accept that my system may break unexpectedly`. If you are unsure how to"
+        );
+        eprintln!("do this then this software is not suited for you at this time.");
+        std::process::exit(1);
+    }
+
     // parse sudoers file
     let sudoers = parse_sudoers()?;
 

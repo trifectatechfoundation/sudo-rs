@@ -12,3 +12,5 @@ RUN install --mode 4755 target/debug/sudo /usr/bin/sudo
 RUN apt-get autoremove -y clang libclang-dev
 # HACK sudo-rs is hard-coded to use /etc/sudoers.test
 RUN ln -s sudoers /etc/sudoers.test
+# Makes sure our sudo implementation actually runs
+ENV SUDO_RS_IS_UNSTABLE="I accept that my system may break unexpectedly"
