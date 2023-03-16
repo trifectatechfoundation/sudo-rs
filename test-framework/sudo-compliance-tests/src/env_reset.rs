@@ -23,7 +23,7 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
 
     // run sudo in an empty environment
     let stdout = env.stdout(
-        &["env", "-i", &sudo_abs_path, &env_abs_path],
+        &["env", "-i", "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly", &sudo_abs_path, &env_abs_path],
         As::Root,
         None,
     )?;
