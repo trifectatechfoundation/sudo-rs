@@ -44,6 +44,7 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
 
         // Then we check any pending signals that we received.
         for info in signals.pending() {
+            let user_signaled = info.cause == Cause::Sent(Sent::User);
             match info.signal {
                 SIGCHLD => {
                     // FIXME: check `handle_sigchld_nopty`
@@ -51,22 +52,22 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                     continue;
                 }
                 SIGWINCH | SIGINT | SIGQUIT | SIGTSTP => {
-                    if info.cause != Cause::Sent(Sent::User)
-                        || handle_process(info.process, cmd_pid, ctx.pid)
-                    {
+                    // Skip the signal if it was not sent by the user or if it is self-terminating.
+                    if !user_signaled || is_self_terminating(info.process, cmd_pid, ctx.pid) {
                         continue;
                     }
                 }
                 _ => {
-                    if info.cause == Cause::Sent(Sent::User)
-                        && handle_process(info.process, cmd_pid, ctx.pid)
-                    {
+                    // Skip the signal if it was sent by the user and it is self-terminating.
+                    if user_signaled && is_self_terminating(info.process, cmd_pid, ctx.pid) {
                         continue;
                     }
                 }
             }
 
             let status = if info.signal == SIGALRM {
+                // Kill the command with increasing urgency.
+                // Based on `terminate_command`.
                 kill(cmd_pid, SIGHUP);
                 kill(cmd_pid, SIGTERM);
                 std::thread::sleep(Duration::from_secs(2));
@@ -82,15 +83,20 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
     }
 }
 
-fn handle_process(process: Option<Process>, cmd_pid: i32, sudo_pid: i32) -> bool {
+/// Decides if the signal sent by `process` is self-terminating.
+///
+/// A signal is self-terminating if the PID of the `process`:
+/// - is the same PID of the command, or
+/// - is in the process group of the command and either sudo of the command are the leader.
+fn is_self_terminating(process: Option<Process>, cmd_pid: i32, sudo_pid: i32) -> bool {
     if let Some(process) = process {
         if process.pid != 0 {
             if process.pid == cmd_pid {
                 return true;
             }
-            let process_grp = getpgid(process.pid);
+            let grp_leader = getpgid(process.pid);
 
-            if process_grp != -1 || process_grp == cmd_pid || process_grp == sudo_pid {
+            if grp_leader != -1 || grp_leader == cmd_pid || grp_leader == sudo_pid {
                 return true;
             }
         }
