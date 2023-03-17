@@ -3,6 +3,8 @@ use sudo_test::{Command, Env};
 
 use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 
+mod signal_handling;
+
 #[test]
 fn sudo_forwards_childs_exit_code() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
