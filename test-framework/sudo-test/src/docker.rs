@@ -253,6 +253,9 @@ mod tests {
 
         let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]))?;
 
+        // `sh` process may not be immediately visible to `pidof` since it was spawned so wait a bit
+        thread::sleep(Duration::from_millis(500));
+
         docker
             .exec(Command::new("pidof").arg("sh"))?
             .assert_success()?;
