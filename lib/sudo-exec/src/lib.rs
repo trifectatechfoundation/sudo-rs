@@ -47,7 +47,8 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
             match signal {
                 SIGCHLD => {
                     // FIXME: check `handle_sigchld_nopty`
-                    cmd.kill()?;
+                    // We just wait until all the children are done.
+                    continue;
                 }
                 SIGWINCH | SIGINT | SIGQUIT | SIGTSTP => {
                     if cause != Cause::Sent(Sent::User) || handle_process(process, cmd_pid, ctx.pid)
