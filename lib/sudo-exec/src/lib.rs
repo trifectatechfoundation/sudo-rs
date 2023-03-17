@@ -10,7 +10,7 @@ use std::{
 use signal_hook::{
     consts::*,
     iterator::{exfiltrator::WithOrigin, SignalsInfo},
-    low_level::siginfo::{Cause, Origin, Process, Sent},
+    low_level::siginfo::{Cause, Process, Sent},
 };
 use sudo_common::context::{Context, Environment};
 use sudo_system::{getpgid, kill};
@@ -96,7 +96,7 @@ fn is_self_terminating(process: Option<Process>, cmd_pid: i32, sudo_pid: i32) ->
             }
             let grp_leader = getpgid(process.pid);
 
-            if grp_leader != -1 || grp_leader == cmd_pid || grp_leader == sudo_pid {
+            if grp_leader != -1 && (grp_leader == cmd_pid || grp_leader == sudo_pid) {
                 return true;
             }
         }
