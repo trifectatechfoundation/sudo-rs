@@ -9,6 +9,7 @@ use sudo_common::{
 use sudo_env::environment;
 use sudoers::{Authorization, Sudoers};
 
+mod diagnostic;
 mod pam;
 
 fn parse_sudoers() -> Result<Sudoers, Error> {
@@ -18,8 +19,8 @@ fn parse_sudoers() -> Result<Sudoers, Error> {
     let (sudoers, syntax_errors) = Sudoers::new(sudoers_path)
         .map_err(|e| Error::Configuration(format!("no sudoers file {e}")))?;
 
-    for sudoers::Error(_pos, error) in syntax_errors {
-        eprintln!("Parse error: {error}");
+    for sudoers::Error(pos, error) in syntax_errors {
+        diagnostic::diagnostic!("{error}", sudoers_path @ pos);
     }
 
     Ok(sudoers)
