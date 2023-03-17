@@ -1,3 +1,4 @@
+use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env};
 
 use crate::{Result, SUDOERS_USER_ALL_NOPASSWD, USERNAME};
@@ -45,6 +46,25 @@ fn signal_is_forwarded_to_child() -> Result<()> {
     let actual = child.wait()?.stdout()?;
 
     assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+// man sudo > Exit value
+// "If the command terminated due to receipt of a signal, sudo will send itself the same signal that terminated the command."
+#[test]
+#[ignore]
+fn child_terminated_by_signal() -> Result<()> {
+    let env = Env(SUDOERS_USER_ALL_NOPASSWD).user(USERNAME).build()?;
+
+    // child process sends SIGTERM to itself
+    let output = Command::new("sudo")
+        .args(["sh", "-c", "kill $$"])
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert_eq!(Some(143), output.status().code());
+    assert!(output.stderr().is_empty());
 
     Ok(())
 }
