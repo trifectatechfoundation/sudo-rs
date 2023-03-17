@@ -5,7 +5,7 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
-fn pam_permit() -> Result<()> {
+fn given_pam_permit_then_no_password_auth_required() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(USERNAME)
         .file("/etc/pam.d/sudo", "auth sufficient pam_permit.so")
@@ -19,7 +19,7 @@ fn pam_permit() -> Result<()> {
 }
 
 #[test]
-fn pam_deny() -> Result<()> {
+fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(PASSWORD))
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
@@ -43,7 +43,7 @@ fn pam_deny() -> Result<()> {
 
 #[test]
 #[ignore]
-fn being_root_has_precedence() -> Result<()> {
+fn being_root_has_precedence_over_pam() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
         .build()?;
@@ -55,7 +55,7 @@ fn being_root_has_precedence() -> Result<()> {
 }
 
 #[test]
-fn nopasswd_has_precedence() -> Result<()> {
+fn nopasswd_in_sudoers_has_precedence_over_pam() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
         .user(USERNAME)
