@@ -37,49 +37,47 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
     let mut signals = SignalsInfo::<WithOrigin>::new(SIGNALS)?;
 
     loop {
-        for Origin {
-            signal,
-            process,
-            cause,
-            ..
-        } in signals.pending()
-        {
-            match signal {
+        // First we check for the command
+        if let Some(code) = cmd.try_wait()? {
+            return Ok(code);
+        }
+
+        // Then we check any pending signals that we received.
+        for info in signals.pending() {
+            match info.signal {
                 SIGCHLD => {
                     // FIXME: check `handle_sigchld_nopty`
                     // We just wait until all the children are done.
                     continue;
                 }
                 SIGWINCH | SIGINT | SIGQUIT | SIGTSTP => {
-                    if cause != Cause::Sent(Sent::User) || handle_process(process, cmd_pid, ctx.pid)
+                    if info.cause != Cause::Sent(Sent::User)
+                        || handle_process(info.process, cmd_pid, ctx.pid)
                     {
                         continue;
                     }
                 }
                 _ => {
-                    if cause == Cause::Sent(Sent::User) && handle_process(process, cmd_pid, ctx.pid)
+                    if info.cause == Cause::Sent(Sent::User)
+                        && handle_process(info.process, cmd_pid, ctx.pid)
                     {
                         continue;
                     }
                 }
             }
 
-            let status = if signal == SIGALRM {
+            let status = if info.signal == SIGALRM {
                 kill(cmd_pid, SIGHUP);
                 kill(cmd_pid, SIGTERM);
                 std::thread::sleep(Duration::from_secs(2));
                 kill(cmd_pid, SIGKILL)
             } else {
-                kill(cmd_pid, signal)
+                kill(cmd_pid, info.signal)
             };
 
             if status != 0 {
                 eprintln!("kill failed");
             }
-        }
-
-        if let Some(code) = cmd.try_wait()? {
-            return Ok(code);
         }
     }
 }
