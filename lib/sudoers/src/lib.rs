@@ -90,6 +90,15 @@ fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io:
     use std::io::Read;
     let mut source = File::open(path)?;
 
+    if !source.metadata()?.permissions().readonly() {
+        use std::io::{Error, ErrorKind};
+        // sudoers should not be writeable; this is a hard error to prevent security issues
+        return Err(Error::new(
+            ErrorKind::PermissionDenied,
+            "sudoers file must be read-only",
+        ));
+    }
+
     // it's a bit frustrating that BufReader.chars() does not exist
     let mut buffer = String::new();
     source.read_to_string(&mut buffer)?;

@@ -18,7 +18,10 @@ fn cannot_sudo_with_empty_sudoers_file() -> Result<()> {
 
 #[test]
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
-    let env = EnvBuilder::default().sudoers_chmod("446").build()?;
+    let env = EnvBuilder::default()
+        .sudoers("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+        .sudoers_chmod("446")
+        .build()?;
 
     let output = env.exec(&["sudo", "true"], As::Root, None)?;
     assert_eq!(Some(1), output.status.code());
