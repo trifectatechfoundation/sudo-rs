@@ -7,4 +7,5 @@ edition = "2021"
 doctest = false
 
 [dependencies]
+bimap = "0.6.2"
 tempfile = "3.4.0"
