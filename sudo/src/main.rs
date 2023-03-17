@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+use std::os::unix::process::ExitStatusExt;
+
 use pam::authenticate;
 use sudo_cli::SudoOptions;
 use sudo_common::{
@@ -84,17 +86,18 @@ fn main() -> Result<(), Error> {
     let target_env = environment::get_target_environment(current_env, &context, &policy.settings);
 
     // run command and return corresponding exit code
-    match sudo_exec::run_command(context, target_env) {
-        Ok(status) => {
-            if let Some(code) = status.code() {
-                std::process::exit(code);
-            } else {
-                std::process::exit(1);
-            }
-        }
+    let exit_code = match sudo_exec::run_command(context, target_env) {
+        Ok(status) => status
+            .code()
+            // If the command was terminated by a signal we follow the [Advanced Bash-Scripting
+            // Guide](https://tldp.org/LDP/abs/html/exitcodes.html)
+            .or_else(|| status.signal().map(|s| s + 128))
+            .unwrap_or(1),
         Err(e) => {
             eprintln!("{e}");
-            std::process::exit(1);
+            1
         }
-    }
+    };
+
+    std::process::exit(exit_code);
 }
