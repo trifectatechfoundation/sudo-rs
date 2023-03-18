@@ -96,8 +96,12 @@ fn is_self_terminating(process: Option<Process>, cmd_pid: i32, sudo_pid: i32) ->
             }
             let grp_leader = getpgid(process.pid);
 
-            if grp_leader != -1 && (grp_leader == cmd_pid || grp_leader == sudo_pid) {
-                return true;
+            if grp_leader != -1 {
+                if grp_leader == cmd_pid || grp_leader == sudo_pid {
+                    return true;
+                }
+            } else {
+                eprintln!("Could not fetch process group ID");
             }
         }
     }
