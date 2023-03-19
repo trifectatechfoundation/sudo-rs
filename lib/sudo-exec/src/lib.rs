@@ -2,7 +2,7 @@
 use std::{
     ffi::c_int,
     io,
-    os::unix::process::CommandExt,
+    os::unix::process::{CommandExt, ExitStatusExt},
     process::{Command, ExitStatus},
     time::Duration,
 };
@@ -10,7 +10,10 @@ use std::{
 use signal_hook::{
     consts::*,
     iterator::{exfiltrator::WithOrigin, SignalsInfo},
-    low_level::siginfo::{Cause, Process, Sent},
+    low_level::{
+        emulate_default_handler,
+        siginfo::{Cause, Process, Sent},
+    },
 };
 use sudo_common::context::{Context, Environment};
 use sudo_system::{getpgid, kill};
@@ -37,9 +40,22 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
     let mut signals = SignalsInfo::<WithOrigin>::new(SIGNALS)?;
 
     loop {
-        // First we check for the command
-        if let Some(code) = cmd.try_wait()? {
-            return Ok(code);
+        // First we check if the command is done.
+        if let Some(status) = cmd.try_wait()? {
+            if let Some(signal) = status.signal() {
+                // If the command terminated because of a signal, we send this signal to sudo
+                // itself to match the original sudo behavior. If we fail we just return the status
+                // code.
+                if kill(ctx.pid, signal) != -1 {
+                    // Given that we overwrote the default handlers for all the signals, we must
+                    // emulate them to handle the signal we just sent correctly.
+                    for info in signals.pending() {
+                        emulate_default_handler(info.signal)?;
+                    }
+                }
+            }
+
+            return Ok(status);
         }
 
         // Then we check any pending signals that we received.
