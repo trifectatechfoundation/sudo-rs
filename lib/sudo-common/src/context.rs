@@ -68,6 +68,7 @@ pub struct Context<'a> {
     // system
     pub hostname: String,
     pub current_user: User,
+    pub pid: i32,
 }
 
 pub trait Configuration {
@@ -142,6 +143,7 @@ impl<'a> Context<'a> {
             login: sudo_options.login,
             shell: sudo_options.shell,
             chdir: sudo_options.directory.clone(),
+            pid: sudo_system::Process::process_id(),
         })
     }
 }
