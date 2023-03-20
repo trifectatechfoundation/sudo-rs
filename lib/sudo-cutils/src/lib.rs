@@ -53,17 +53,19 @@ pub unsafe fn string_from_ptr(ptr: *const libc::c_char) -> String {
     }
 }
 
-pub fn into_leaky_cstring(s: &str) -> *const libc::c_char {
-    let alloc_len = s.len() as isize;
-    let mem = unsafe { libc::malloc(alloc_len as usize + 1) as *mut u8 };
+/// Create a C string copy of a Rust string copy, allocated by libc::malloc()
+///
+/// # Safety
+/// This function assumes that the caller will clean up the returned pointer
+/// via a call to libc::free.
+pub unsafe fn into_leaky_cstring(s: &str) -> *const libc::c_char {
+    let alloc_len: isize = s.len().try_into().expect("absurd string size");
+    let mem = libc::malloc(alloc_len as usize + 1) as *mut u8;
     if mem.is_null() {
         panic!("libc malloc failed");
     } else {
-        for (i, e) in s.bytes().enumerate() {
-            let signed_i = i as isize;
-            unsafe { *mem.offset(signed_i) = e };
-        }
-        unsafe { *mem.offset(alloc_len) = 0 };
+        std::ptr::copy_nonoverlapping(s.as_ptr(), mem, alloc_len as usize);
+        *mem.offset(alloc_len) = 0;
     }
 
     mem as *mut libc::c_char
@@ -83,12 +85,13 @@ mod test {
 
     #[test]
     fn test_leaky_cstring() {
-        let strp = |ptr| unsafe {
+        let test = |text| unsafe {
+            let ptr = into_leaky_cstring(text);
             let result = string_from_ptr(ptr);
             libc::free(ptr as *mut libc::c_void);
             result
         };
-        assert_eq!(strp(into_leaky_cstring("")), "");
-        assert_eq!(strp(into_leaky_cstring("hello")), "hello");
+        assert_eq!(test(""), "");
+        assert_eq!(test("hello"), "hello");
     }
 }
