@@ -33,6 +33,62 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn cannot_sudo_if_sudoers_file_is_group_writable() -> Result<()> {
+    let username = "ferris";
+    let password = "strong-password";
+    let env = EnvBuilder::default()
+        .user(username, &[])
+        .user_password(username, password)
+        .sudoers("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+        .sudoers_chown("root:1234")
+        .sudoers_chmod("464")
+        .build()?;
+
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
+    assert_eq!(Some(1), output.status.code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr, "/etc/sudoers is owned by gid 1234, should be 0");
+    }
+
+    Ok(())
+}
+
+#[test]
+fn can_sudo_if_sudoers_file_is_owner_writable() -> Result<()> {
+    let env = EnvBuilder::default()
+        .sudoers("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+        .sudoers_chmod("644")
+        .build()?;
+
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
+    assert_eq!(Some(0), output.status.code());
+
+    Ok(())
+}
+
+#[test]
+fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() -> Result<()> {
+    let username = "ferris";
+    let password = "strong-password";
+    let env = EnvBuilder::default()
+        .user(username, &[])
+        .user_password(username, password)
+        .sudoers("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+        .sudoers_chown("1234:root")
+        .build()?;
+
+    let output = env.exec(&["sudo", "true"], As::Root, None)?;
+    assert_eq!(Some(1), output.status.code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr, "/etc/sudoers is owned by uid 1234, should be 0");
+    }
+
+    Ok(())
+}
+
 #[ignore]
 #[test]
 fn user_specifications_evaluated_bottom_to_top() -> Result<()> {
