@@ -114,7 +114,7 @@ impl EnvBuilder {
 
     /// NOTE if unset, defaults to "440"
     pub fn sudoers_chmod(&mut self, chmod: &str) -> &mut Self {
-        assert!(self.sudoers_chown.is_none(), "sudoers_chmod already set");
+        assert!(self.sudoers_chmod.is_none(), "sudoers_chmod already set");
         self.sudoers_chmod = Some(chmod.to_string());
         self
     }
