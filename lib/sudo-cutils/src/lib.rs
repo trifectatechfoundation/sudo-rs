@@ -68,3 +68,27 @@ pub fn into_leaky_cstring(s: &str) -> *const libc::c_char {
 
     mem as *mut libc::c_char
 }
+
+#[cfg(test)]
+mod test {
+    use super::{into_leaky_cstring, string_from_ptr};
+
+    #[test]
+    fn test_str_to_ptr() {
+        let strp = |ptr| unsafe { string_from_ptr(ptr) };
+        assert_eq!(strp(std::ptr::null()), "");
+        assert_eq!(strp("\0".as_ptr() as *const libc::c_char), "");
+        assert_eq!(strp("hello\0".as_ptr() as *const libc::c_char), "hello");
+    }
+
+    #[test]
+    fn test_leaky_cstring() {
+        let strp = |ptr| unsafe {
+            let result = string_from_ptr(ptr);
+            libc::free(ptr as *mut libc::c_void);
+            result
+        };
+        assert_eq!(strp(into_leaky_cstring("")), "");
+        assert_eq!(strp(into_leaky_cstring("hello")), "hello");
+    }
+}
