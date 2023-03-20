@@ -136,7 +136,7 @@ fn permission_test() {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
-            assert_eq!(check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $server, req), None);
+            assert_eq!(Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags, None);
         }
     }
 
@@ -145,7 +145,7 @@ fn permission_test() {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
-            let result = check_permission(&Sudoers { rules, aliases, settings }, &Named($user), $server, req);
+            let result = Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags;
             assert!(!result.is_none());
             $(
                 let result = result.unwrap();
@@ -210,6 +210,9 @@ fn permission_test() {
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help");
     pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");
+
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: true]);
+    pass!(["root ALL=(ALL:ALL) /bin/foo"], "root" => root(), "server"; "/bin/foo" => [passwd: false]);
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
