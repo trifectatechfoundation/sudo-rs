@@ -213,6 +213,8 @@ fn permission_test() {
 
     pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: true]);
     pass!(["root ALL=(ALL:ALL) /bin/foo"], "root" => root(), "server"; "/bin/foo" => [passwd: false]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => (&Named("user"), &Named("user")), "server"; "/bin/foo" => [passwd: false]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => (&Named("user"), &Named("root")), "server"; "/bin/foo" => [passwd: true]);
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
