@@ -55,3 +55,21 @@ impl<Iter: Iterator<Item = char>> CharStream for std::iter::Peekable<Iter> {
         (0, 0)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_iter() {
+        let mut stream = PeekableWithPos::<std::str::Chars>::new("12\n3\n".chars());
+        assert_eq!(stream.peek(), Some('1'));
+        stream.advance();
+        assert_eq!(stream.peek(), Some('2'));
+        stream.advance();
+        stream.advance();
+        assert_eq!(stream.peek(), Some('3'));
+        stream.advance();
+        assert_eq!(stream.get_pos(), (2, 2));
+    }
+}
