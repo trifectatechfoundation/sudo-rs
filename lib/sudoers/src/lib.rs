@@ -86,9 +86,8 @@ impl Sudoers {
 }
 
 fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io::Error> {
-    use std::fs::File;
     use std::io::Read;
-    let mut source = File::open(path)?;
+    let mut source = sudo_system::secure_open(path)?;
 
     // it's a bit frustrating that BufReader.chars() does not exist
     let mut buffer = String::new();
