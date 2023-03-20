@@ -16,7 +16,7 @@ fn parse_sudoers() -> Result<Sudoers, Error> {
     let sudoers_path = "/etc/sudoers.test";
 
     let (sudoers, syntax_errors) = Sudoers::new(sudoers_path)
-        .map_err(|e| Error::Configuration(format!("no sudoers file {e}")))?;
+        .map_err(|e| Error::Configuration(format!("no valid sudoers file: {e}")))?;
 
     for sudoers::Error(_pos, error) in syntax_errors {
         eprintln!("Parse error: {error}");
