@@ -3,7 +3,7 @@
 // "verifypw" and "logfile"
 pub enum SudoDefault {
     Flag(bool),
-    Integer(OptTuple<i128>, fn(&str)->Option<i128>),
+    Integer(OptTuple<i128>, fn(&str) -> Option<i128>),
     Text(OptTuple<&'static str>),
     List(&'static [&'static str]),
     Enum(OptTuple<StrEnum<'static>>),

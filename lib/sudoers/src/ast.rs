@@ -586,9 +586,12 @@ fn get_directive(
                 Some(Setting::Enum(OptTuple {
                     negated: Some(val), ..
                 })) => ConfigValue::Enum(val),
-                Some(Setting::Integer(OptTuple {
-                    negated: Some(val), ..
-                }, _checker)) => ConfigValue::Num(val),
+                Some(Setting::Integer(
+                    OptTuple {
+                        negated: Some(val), ..
+                    },
+                    _checker,
+                )) => ConfigValue::Num(val),
                 _ => unrecoverable!(
                     pos = value_pos,
                     stream,
@@ -617,9 +620,13 @@ fn get_directive(
                         if let Some(value) = checker(&denotation) {
                             make(Defaults(name, ConfigValue::Num(value)))
                         } else {
-                            unrecoverable!(pos = value_pos, stream, "`{denotation}' is not a valid value for {name}");
+                            unrecoverable!(
+                                pos = value_pos,
+                                stream,
+                                "`{denotation}' is not a valid value for {name}"
+                            );
                         }
-                    },
+                    }
                     Setting::List(_) => {
                         let items = parse_vars(stream)?;
                         make(Defaults(name, ConfigValue::List(Mode::Set, items)))
@@ -631,7 +638,11 @@ fn get_directive(
                     Setting::Enum(sudo_defaults::OptTuple { default: key, .. }) => {
                         let text = text_item(stream)?;
                         let Some(value) = key.alt(&text) else {
-                            unrecoverable!(pos = value_pos, stream, "`{text}' is not a valid value for {name}");
+                            unrecoverable!(
+                                pos = value_pos,
+                                stream,
+                                "`{text}' is not a valid value for {name}"
+                            );
                         };
                         make(Defaults(name, ConfigValue::Enum(value)))
                     }

@@ -61,7 +61,11 @@ macro_rules! defaults {
             $(stringify!($name)),*
         ];
 
+        // because of the nature of radix and ranges, 'let mut result' is not always necessary, and
+        // a radix of 10 can also not always be avoided (and for uniformity, I would also not avoid this
+        // if this was hand-written code.
         #[allow(unused_mut)]
+        #[allow(clippy::from_str_radix_10)]
         pub fn sudo_default(var: &str) -> Option<SudoDefault> {
             add_from!(Flag, bool);
             add_from!(Integer, i128, negatable, |text| i128::from_str_radix(text, 10).ok());
