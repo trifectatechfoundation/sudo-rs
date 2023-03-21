@@ -6,6 +6,7 @@ use crate::{error::PamResult, PamErrorType};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
+#[derive(Clone, Copy)]
 pub enum PamMessageStyle {
     /// Prompt for input using a message. The input should considered secret
     /// and should be hidden from view.
@@ -272,4 +273,135 @@ pub(crate) extern "C" fn converse<C: Converser>(
         }
     };
     res.as_int()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::pin::Pin;
+    use PamMessageStyle::*;
+
+    impl SequentialConverser for String {
+        fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
+            Ok(format!("{self} says {msg}"))
+        }
+
+        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
+            Ok(format!("{self}s secret is {msg}"))
+        }
+
+        fn handle_error(&self, msg: &str) -> PamResult<()> {
+            panic!("{msg}")
+        }
+
+        fn handle_info(&self, _msg: &str) -> PamResult<()> {
+            Ok(())
+        }
+    }
+
+    // essentially do the inverse of the "conversation function"
+    fn dummy_pam(msgs: &[PamMessage], talkie: &pam_conv) -> Vec<Option<String>> {
+        let pam_msgs = msgs
+            .iter()
+            .map(|PamMessage { msg, style, .. }| pam_message {
+                msg: unsafe { sudo_cutils::into_leaky_cstring(msg) },
+                msg_style: *style as i32,
+            })
+            .collect::<Vec<_>>();
+        let ptrs = pam_msgs
+            .iter()
+            .map(|x| x as *const pam_message)
+            .collect::<Vec<_>>();
+
+        let mut raw_response = std::ptr::null::<pam_response>() as *mut _;
+        let conv_err = converse::<String>(
+            ptrs.len() as i32,
+            ptrs.as_ptr() as *mut _,
+            &mut raw_response,
+            talkie.appdata_ptr,
+        );
+
+        // deallocate the leaky strings
+        for rec in pam_msgs {
+            unsafe { libc::free(rec.msg as *mut _) }
+        }
+        if conv_err != 0 {
+            return vec![];
+        }
+
+        let result = msgs
+            .iter()
+            .enumerate()
+            .map(|(i, _)| unsafe {
+                let ptr = raw_response.add(i);
+                if (*ptr).resp.is_null() {
+                    None
+                } else {
+                    // "The resp_retcode member of this struct is unused and should be set to zero."
+                    assert_eq!((*ptr).resp_retcode, 0);
+                    Some(sudo_cutils::string_from_ptr((*ptr).resp))
+                }
+            })
+            .collect();
+
+        unsafe { libc::free(raw_response as *mut _ as *mut _) };
+        result
+    }
+
+    fn msg(style: PamMessageStyle, msg: &str) -> PamMessage {
+        let msg = msg.to_string();
+        PamMessage {
+            style,
+            msg,
+            response: None,
+        }
+    }
+
+    #[test]
+    fn pam_gpt() {
+        let mut hello = ConverserData {
+            converser: "tux".to_string(),
+            panicked: false,
+        };
+        let pinned = Pin::new(&mut hello);
+        let pam_conv = unsafe { pinned.create_pam_conv() };
+
+        assert_eq!(dummy_pam(&[], &pam_conv), vec![]);
+
+        assert_eq!(
+            dummy_pam(&[msg(PromptEchoOn, "hello")], &pam_conv),
+            vec![Some("tux says hello".to_string())]
+        );
+
+        assert_eq!(
+            dummy_pam(&[msg(PromptEchoOff, "fish")], &pam_conv),
+            vec![Some("tuxs secret is fish".to_string())]
+        );
+
+        assert_eq!(dummy_pam(&[msg(TextInfo, "mars")], &pam_conv), vec![None]);
+
+        assert_eq!(
+            dummy_pam(
+                &[
+                    msg(PromptEchoOff, "banging the rocks together"),
+                    msg(TextInfo, ""),
+                    msg(PromptEchoOn, ""),
+                ],
+                &pam_conv
+            ),
+            vec![
+                Some("tuxs secret is banging the rocks together".to_string()),
+                None,
+                Some("tux says ".to_string()),
+            ]
+        );
+
+        // does the Rust compiler guarantee that updates via 'pam_conv'
+        // change the value of "hello"?
+        assert!(!hello.panicked);
+
+        assert_eq!(dummy_pam(&[msg(ErrorMessage, "oops")], &pam_conv), vec![]);
+
+        assert!(hello.panicked);
+    }
 }
