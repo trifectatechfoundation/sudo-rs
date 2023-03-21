@@ -25,10 +25,13 @@ pub fn hostname() -> String {
     }
 }
 
-// sets the supplementary group IDs for the calling process
-pub fn setgroups(groups: Vec<libc::gid_t>) {
+pub fn setgroup_on_command(cmd: &mut std::process::Command, groups: Vec<libc::gid_t>) {
+    use std::os::unix::process::CommandExt;
     unsafe {
-        libc::setgroups(groups.len(), groups.as_ptr());
+        cmd.pre_exec(move || {
+            libc::setgroups(groups.len(), groups.as_ptr());
+            Ok(())
+        });
     }
 }
 
