@@ -79,6 +79,4 @@ work twice or not being able to include your work.
 While our initial target is a drop-in replacement for most basic use cases of
 sudo, our work may evolve beyond that target. We are also looking into
 alternative ways to configure sudo without the sudoers config file syntax and to
-extract parts of our work in usable crates for other people. We are also looking
-at a better plugin system that allows pluggable policies, authentication methods
-and more.
+extract parts of our work in usable crates for other people.
