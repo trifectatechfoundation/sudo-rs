@@ -53,7 +53,6 @@ fn signal_is_forwarded_to_child() -> Result<()> {
 // man sudo > Exit value
 // "If the command terminated due to receipt of a signal, sudo will send itself the same signal that terminated the command."
 #[test]
-#[ignore]
 fn child_terminated_by_signal() -> Result<()> {
     let env = Env(SUDOERS_USER_ALL_NOPASSWD).user(USERNAME).build()?;
 
