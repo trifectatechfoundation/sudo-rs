@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
-use sudo_test::{As, EnvBuilder};
+use sudo_test::{Command, Env};
 
 use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 
@@ -11,22 +11,24 @@ use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
 // see 'command environment' section in`man sudoers`
 #[test]
 fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
-        .build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
-    let stdout = env.stdout(&["env"], As::Root, None)?;
+    let stdout = Command::new("env").exec(&env)?.stdout()?;
     let normal_env = parse_env_output(&stdout)?;
 
-    let sudo_abs_path = env.stdout(&["which", "sudo"], As::Root, None)?;
-    let env_abs_path = env.stdout(&["which", "env"], As::Root, None)?;
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
 
     // run sudo in an empty environment
-    let stdout = env.stdout(
-        &["env", "-i", "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly", &sudo_abs_path, &env_abs_path],
-        As::Root,
-        None,
-    )?;
+    let stdout = Command::new("env")
+        .args([
+            "-i",
+            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
+            &sudo_abs_path,
+            &env_abs_path,
+        ])
+        .exec(&env)?
+        .stdout()?;
     let mut sudo_env = parse_env_output(&stdout)?;
 
     // # man sudo
@@ -78,27 +80,25 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
 
 #[test]
 fn env_reset_mode_clears_env_vars() -> Result<()> {
-    let env = EnvBuilder::default()
-        .sudoers(SUDOERS_ROOT_ALL_NOPASSWD)
-        .build()?;
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let varname = "SHOULD_BE_REMOVED";
     let set_env_var = format!("export {varname}=1");
 
     // sanity check that `set_env_var` makes `varname` visible to `env` program
-    let stdout = env.stdout(
-        &["sh", "-c", &format!("{set_env_var}; env")],
-        As::Root,
-        None,
-    )?;
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!("{set_env_var}; env"))
+        .exec(&env)?
+        .stdout()?;
     let env_vars = parse_env_output(&stdout)?;
     assert!(env_vars.contains_key(varname));
 
-    let stdout = env.stdout(
-        &["sh", "-c", &format!("{set_env_var}; sudo env")],
-        As::Root,
-        None,
-    )?;
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!("{set_env_var}; sudo env"))
+        .exec(&env)?
+        .stdout()?;
     let env_vars = parse_env_output(&stdout)?;
     assert!(!env_vars.contains_key(varname));
 
@@ -110,6 +110,8 @@ fn parse_env_output(env_output: &str) -> Result<HashMap<&str, &str>> {
     for line in env_output.lines() {
         if let Some((key, value)) = line.split_once('=') {
             env.insert(key, value);
+        } else {
+            return Err(format!("invalid env syntax: {line}").into());
         }
     }
 

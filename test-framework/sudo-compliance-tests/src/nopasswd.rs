@@ -1,8 +1,8 @@
 //! Scenarios where a password does not need to be provided
 
-use sudo_test::{As, EnvBuilder};
+use sudo_test::{Command, Env};
 
-use crate::{Result, SUDOERS_ROOT_ALL};
+use crate::{Result, SUDOERS_ROOT_ALL, USERNAME};
 
 // NOTE all these tests assume that the invoking user passes the sudoers file 'User_List' criteria
 
@@ -11,12 +11,12 @@ use crate::{Result, SUDOERS_ROOT_ALL};
 #[ignore]
 #[test]
 fn user_is_root() -> Result<()> {
-    let env = EnvBuilder::default().sudoers(SUDOERS_ROOT_ALL).build()?;
+    let env = Env(SUDOERS_ROOT_ALL).build()?;
 
-    let output = env.exec(&["sudo", "true"], As::Root, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
 }
 
 // man sudoers > User Authentication:
@@ -24,33 +24,26 @@ fn user_is_root() -> Result<()> {
 #[ignore]
 #[test]
 fn user_as_themselves() -> Result<()> {
-    let username = "ferris";
-    let env = EnvBuilder::default()
-        .user(username, &[])
-        .sudoers(&format!("{username}    ALL=(ALL:ALL) ALL"))
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(USERNAME)
         .build()?;
 
-    let output = env.exec(
-        &["sudo", "-u", username, "true"],
-        As::User { name: username },
-        None,
-    )?;
-
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .args(["-u", USERNAME, "true"])
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()
 }
 
 #[test]
 fn nopasswd_tag() -> Result<()> {
-    let username = "ferris";
-    let env = EnvBuilder::default()
-        .sudoers(&format!("{username}    ALL=(ALL:ALL) NOPASSWD: ALL"))
-        .user(username, &[])
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) NOPASSWD: ALL"))
+        .user(USERNAME)
         .build()?;
 
-    let output = env.exec(&["sudo", "true"], As::User { name: username }, None)?;
-    assert!(output.status.success(), "{}", output.stderr);
-
-    Ok(())
+    Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()
 }
