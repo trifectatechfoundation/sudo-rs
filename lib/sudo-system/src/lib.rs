@@ -25,6 +25,13 @@ pub fn hostname() -> String {
     }
 }
 
+// sets the supplementary group IDs for the calling process
+pub fn setgroups(groups: Vec<libc::gid_t>) {
+    unsafe {
+        libc::setgroups(groups.len(), groups.as_ptr());
+    }
+}
+
 /// Send a signal to a process.
 pub fn kill(pid: pid_t, signal: c_int) -> c_int {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if

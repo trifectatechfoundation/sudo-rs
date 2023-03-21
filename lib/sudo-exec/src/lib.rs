@@ -16,7 +16,7 @@ use signal_hook::{
     },
 };
 use sudo_common::context::{Context, Environment};
-use sudo_system::{getpgid, kill};
+use sudo_system::{getpgid, kill, setgroups};
 
 /// We only handle the signals that ogsudo handles.
 const SIGNALS: &[c_int] = &[
@@ -26,6 +26,8 @@ const SIGNALS: &[c_int] = &[
 
 /// Based on `ogsudo`s `exec_nopty` function.
 pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus> {
+    // set user groups (this is unstable for the std Command wrapper)
+    setgroups(ctx.target_user.groups.unwrap_or_default());
     // FIXME: should we pipe the stdio streams?
     let mut cmd = Command::new(ctx.command.command)
         .args(ctx.command.arguments)
