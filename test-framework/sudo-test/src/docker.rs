@@ -3,14 +3,14 @@ use std::{
     fs::{self, File},
     io::{Seek, SeekFrom, Write},
     path::PathBuf,
-    process::{Command as StdCommand, Stdio},
+    process::{self, Command as StdCommand, Stdio},
 };
 
 use tempfile::NamedTempFile;
 
 use crate::{Result, SudoUnderTest, BASE_IMAGE};
 
-pub use self::command::{Command, Output};
+pub use self::command::{Child, Command, Output};
 
 mod command;
 
@@ -33,6 +33,25 @@ impl Container {
     }
 
     pub fn exec(&self, cmd: &Command) -> Result<Output> {
+        run(&mut self.docker_exec(cmd), cmd.get_stdin())
+    }
+
+    pub fn spawn(&self, cmd: &Command) -> Result<Child> {
+        let mut docker_exec = self.docker_exec(cmd);
+
+        docker_exec.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        if let Some(stdin) = cmd.get_stdin() {
+            let mut temp_file = tempfile::tempfile()?;
+            temp_file.write_all(stdin.as_bytes())?;
+            temp_file.seek(SeekFrom::Start(0))?;
+            docker_exec.stdin(Stdio::from(temp_file));
+        }
+
+        Ok(Child::new(docker_exec.spawn()?))
+    }
+
+    fn docker_exec(&self, cmd: &Command) -> process::Command {
         let mut docker_exec = StdCommand::new("docker");
         docker_exec.arg("exec");
         if cmd.get_stdin().is_some() {
@@ -44,8 +63,7 @@ impl Container {
         }
         docker_exec.arg(&self.id);
         docker_exec.args(cmd.get_args());
-
-        run(&mut docker_exec, cmd.get_stdin())
+        docker_exec
     }
 
     pub fn cp(&self, path_in_container: &str, file_contents: &str) -> Result<()> {
@@ -112,33 +130,14 @@ fn repo_root() -> PathBuf {
 }
 
 fn run(cmd: &mut StdCommand, stdin: Option<&str>) -> Result<Output> {
-    let mut temp_file;
     if let Some(stdin) = stdin {
-        temp_file = tempfile::tempfile()?;
+        let mut temp_file = tempfile::tempfile()?;
         temp_file.write_all(stdin.as_bytes())?;
         temp_file.seek(SeekFrom::Start(0))?;
         cmd.stdin(Stdio::from(temp_file));
     }
 
-    let output = cmd.output()?;
-
-    let mut stderr = String::from_utf8(output.stderr)?;
-    let mut stdout = String::from_utf8(output.stdout)?;
-
-    // it's a common pitfall to forget to remove the trailing '\n' so remove it here
-    if stderr.ends_with('\n') {
-        stderr.pop();
-    }
-
-    if stdout.ends_with('\n') {
-        stdout.pop();
-    }
-
-    Ok(Output {
-        status: output.status,
-        stderr,
-        stdout,
-    })
+    cmd.output()?.try_into()
 }
 
 fn validate_docker_id(id: &str, cmd: &StdCommand) -> Result<()> {
@@ -244,6 +243,29 @@ mod tests {
 
         let actual = docker.exec(Command::new("cat").arg(filename))?.stdout()?;
         assert_eq!(expected, actual);
+
+        Ok(())
+    }
+
+    #[test]
+    fn spawn_works() -> Result<()> {
+        let docker = Container::new(IMAGE)?;
+
+        let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]))?;
+
+        // `sh` process may not be immediately visible to `pidof` since it was spawned so wait a bit
+        thread::sleep(Duration::from_millis(500));
+
+        docker
+            .exec(Command::new("pidof").arg("sh"))?
+            .assert_success()?;
+
+        child.wait()?.assert_success()?;
+
+        let output = docker.exec(Command::new("pidof").arg("sh"))?;
+
+        assert!(!output.status().success());
+        assert_eq!(Some(1), output.status().code());
 
         Ok(())
     }
