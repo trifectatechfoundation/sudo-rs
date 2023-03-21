@@ -38,7 +38,6 @@ fn user_can_write_file_owned_by_root() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn user_can_execute_file_owned_by_root() -> Result<()> {
     let path = "/root/file";
     let env = Env(SUDOERS_USER_ALL_NOPASSWD)
