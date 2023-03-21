@@ -7,6 +7,7 @@ mod child_process;
 mod env_reset;
 mod flag_user;
 mod nopasswd;
+mod pam;
 mod pass_auth;
 mod perms;
 mod sudoers;
