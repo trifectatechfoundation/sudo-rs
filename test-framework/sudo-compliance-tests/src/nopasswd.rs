@@ -8,7 +8,6 @@ use crate::{Result, SUDOERS_ROOT_ALL, USERNAME};
 
 // man sudoers > User Authentication:
 // "A password is not required if the invoking user is root"
-#[ignore]
 #[test]
 fn user_is_root() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL).build()?;
@@ -21,7 +20,6 @@ fn user_is_root() -> Result<()> {
 
 // man sudoers > User Authentication:
 // "A password is not required if (..) the target user is the same as the invoking user"
-#[ignore]
 #[test]
 fn user_as_themselves() -> Result<()> {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))

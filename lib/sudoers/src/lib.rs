@@ -78,8 +78,19 @@ impl Sudoers {
         on_host: &str,
         request: Request<User, Group>,
     ) -> Policy {
+        // exception: if user is root or does not switch users, NOPASSWD is implied
+        let skip_passwd =
+            am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));
+
+        let mut flags = check_permission(self, am_user, on_host, request);
+        if let Some(Tag { passwd, .. }) = flags.as_mut() {
+            if skip_passwd {
+                *passwd = false
+            }
+        }
+
         Policy {
-            flags: check_permission(self, am_user, on_host, request),
+            flags,
             settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
         }
     }
