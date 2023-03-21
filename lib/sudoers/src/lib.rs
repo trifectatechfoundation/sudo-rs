@@ -80,7 +80,7 @@ impl Sudoers {
     ) -> Policy {
         // exception: if user is root or does not switch users, NOPASSWD is implied
         let skip_passwd =
-            am_user.is_root() || request.user == am_user && in_group(am_user, request.group);
+            am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));
 
         let mut flags = check_permission(self, am_user, on_host, request);
         if let Some(Tag { passwd, .. }) = flags.as_mut() {
