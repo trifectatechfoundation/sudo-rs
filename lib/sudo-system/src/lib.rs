@@ -10,6 +10,9 @@ use libc::pid_t;
 pub use libc::PATH_MAX;
 use sudo_cutils::*;
 
+mod audit;
+pub use audit::secure_open;
+
 pub fn hostname() -> String {
     let max_hostname_size = sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(256);
     let mut buf = vec![0; max_hostname_size as usize];
