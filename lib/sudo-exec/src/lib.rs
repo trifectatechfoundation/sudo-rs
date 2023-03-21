@@ -2,7 +2,7 @@
 use std::{
     ffi::c_int,
     io,
-    os::unix::process::{CommandExt, ExitStatusExt},
+    os::unix::process::ExitStatusExt,
     process::{Command, ExitStatus},
     time::Duration,
 };
@@ -16,7 +16,7 @@ use signal_hook::{
     },
 };
 use sudo_common::context::{Context, Environment};
-use sudo_system::{getpgid, kill, setgroup_on_command};
+use sudo_system::{getpgid, kill, set_target_user};
 
 /// We only handle the signals that ogsudo handles.
 const SIGNALS: &[c_int] = &[
@@ -29,14 +29,9 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
     // FIXME: should we pipe the stdio streams?
     let mut command = Command::new(ctx.command.command);
 
-    command
-        .args(ctx.command.arguments)
-        .uid(ctx.target_user.uid)
-        .gid(ctx.target_user.gid)
-        .env_clear()
-        .envs(env);
+    command.args(ctx.command.arguments).env_clear().envs(env);
 
-    setgroup_on_command(&mut command, ctx.target_user.groups.unwrap_or_default());
+    set_target_user(&mut command, ctx.target_user);
 
     let mut child = command.spawn()?;
 

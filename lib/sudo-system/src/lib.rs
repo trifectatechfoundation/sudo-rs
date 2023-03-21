@@ -25,11 +25,20 @@ pub fn hostname() -> String {
     }
 }
 
-pub fn setgroup_on_command(cmd: &mut std::process::Command, groups: Vec<libc::gid_t>) {
+/// set target user and groups (uid, gid, additional groups) for a command
+pub fn set_target_user(cmd: &mut std::process::Command, target_user: User) {
     use std::os::unix::process::CommandExt;
+
+    let uid = target_user.uid;
+    let gid = target_user.gid;
+    let groups = target_user.groups.unwrap_or_default();
+
     unsafe {
         cmd.pre_exec(move || {
             libc::setgroups(groups.len(), groups.as_ptr());
+            libc::setgid(gid);
+            libc::setuid(uid);
+
             Ok(())
         });
     }
