@@ -23,6 +23,14 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Test sudo-test itself
+        working-directory: test-framework
+        run: cargo test -p sudo-test
+
+      - name: Run all compliance tests against original sudo
+        working-directory: test-framework
+        run: cargo test -p sudo-compliance-tests -- --include-ignored
+
       - name: Run gated compliance tests against sudo-rs
         working-directory: test-framework
         env:
