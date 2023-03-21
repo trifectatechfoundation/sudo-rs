@@ -249,7 +249,7 @@ pub(crate) extern "C" fn converse<C: Converser>(
             // Unwrap here should be ok because we previously allocated an array of the same size
             let our_resp = &conversation.messages.get(i as usize).unwrap().response;
             if let Some(r) = our_resp {
-                let cstr = sudo_cutils::into_leaky_cstring(r);
+                let cstr = unsafe { sudo_cutils::into_leaky_cstring(r) };
                 response.resp = cstr as *mut _;
             }
         }
