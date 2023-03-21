@@ -33,11 +33,14 @@ pub fn set_target_user(cmd: &mut std::process::Command, target_user: User) {
     let gid = target_user.gid;
     let groups = target_user.groups.unwrap_or_default();
 
+    // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
+    // see https://github.com/rust-lang/rust/blob/master/library/std/src/sys/unix/process/process_unix.rs
+    // for the std implementation of the libc calls to `setgroups`, `setgid` and `setuid`
     unsafe {
         cmd.pre_exec(move || {
-            libc::setgroups(groups.len(), groups.as_ptr());
-            libc::setgid(gid);
-            libc::setuid(uid);
+            cerr(libc::setgroups(groups.len(), groups.as_ptr()))?;
+            cerr(libc::setgid(gid))?;
+            cerr(libc::setuid(uid))?;
 
             Ok(())
         });

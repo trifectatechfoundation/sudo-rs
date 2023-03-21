@@ -28,11 +28,11 @@ const SIGNALS: &[c_int] = &[
 pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus> {
     // FIXME: should we pipe the stdio streams?
     let mut command = Command::new(ctx.command.command);
-
+    // reset env and set filtered environment
     command.args(ctx.command.arguments).env_clear().envs(env);
-
+    // set target user and groups
     set_target_user(&mut command, ctx.target_user);
-
+    // spawn and exec to command
     let mut child = command.spawn()?;
 
     let child_pid = child.id() as i32;
