@@ -42,7 +42,6 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn being_root_has_precedence_over_pam() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
