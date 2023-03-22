@@ -1,6 +1,6 @@
-use std::process::ExitStatus;
+use std::process::{self, ExitStatus};
 
-use crate::Result;
+use crate::{Error, Result};
 
 /// command builder
 pub struct Command {
@@ -62,6 +62,23 @@ impl Command {
     }
 }
 
+/// A process spawned in the test environment
+pub struct Child {
+    inner: process::Child,
+}
+
+impl Child {
+    pub(super) fn new(inner: process::Child) -> Self {
+        Self { inner }
+    }
+
+    /// waits for the child to exit and collects its stdout and stderr
+    pub fn wait(self) -> Result<Output> {
+        let output = self.inner.wait_with_output()?;
+        output.try_into()
+    }
+}
+
 /// the output of a finished `Command`
 #[must_use]
 pub struct Output {
@@ -104,5 +121,29 @@ impl Output {
     pub fn stdout(self) -> Result<String> {
         self.assert_success()?;
         Ok(self.stdout)
+    }
+}
+
+impl TryFrom<process::Output> for Output {
+    type Error = Error;
+
+    fn try_from(output: process::Output) -> std::result::Result<Self, Self::Error> {
+        let mut stderr = String::from_utf8(output.stderr)?;
+        let mut stdout = String::from_utf8(output.stdout)?;
+
+        // it's a common pitfall to forget to remove the trailing '\n' so remove it here
+        if stderr.ends_with('\n') {
+            stderr.pop();
+        }
+
+        if stdout.ends_with('\n') {
+            stdout.pop();
+        }
+
+        Ok(Output {
+            status: output.status,
+            stderr,
+            stdout,
+        })
     }
 }

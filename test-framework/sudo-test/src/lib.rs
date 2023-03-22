@@ -12,7 +12,7 @@ use std::{
 
 use docker::Container;
 
-pub use docker::{Command, Output};
+pub use docker::{Child, Command, Output};
 
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;
@@ -79,6 +79,18 @@ impl Command {
         }
 
         env.container.exec(self)
+    }
+
+    /// spawns the command in the specified test environment
+    pub fn spawn(&self, env: &Env) -> Result<Child> {
+        if let Some(username) = self.get_user() {
+            assert!(
+                env.users.contains(username),
+                "tried to exec as non-existent user: {username}"
+            );
+        }
+
+        env.container.spawn(self)
     }
 }
 

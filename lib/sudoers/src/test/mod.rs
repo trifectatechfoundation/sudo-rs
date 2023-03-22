@@ -29,6 +29,10 @@ impl UnixUser for Named {
         self.0 == name
     }
 
+    fn has_uid(&self, uid: u32) -> bool {
+        dummy_cksum(self.0) == uid
+    }
+
     fn in_group_by_name(&self, name: &str) -> bool {
         self.has_name(name)
     }
@@ -58,7 +62,7 @@ macro_rules! request {
 }
 
 macro_rules! sudoer {
-    ($h:expr $(,$e:expr)*) => {
+    ($h:expr $(,$e:expr)* $(,)?) => {
 	    parse_lines(&mut
 		(
 		    iter::once($h)
@@ -213,15 +217,41 @@ fn permission_test() {
 
     pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: true]);
     pass!(["root ALL=(ALL:ALL) /bin/foo"], "root" => root(), "server"; "/bin/foo" => [passwd: false]);
-    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => (&Named("user"), &Named("user")), "server"; "/bin/foo" => [passwd: false]);
-    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => (&Named("user"), &Named("root")), "server"; "/bin/foo" => [passwd: true]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => request! { user, user }, "server"; "/bin/foo" => [passwd: false]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => request! { user, root }, "server"; "/bin/foo" => [passwd: true]);
+
+    assert_eq!(Named("user").as_gid(), 1466);
+    pass!(["#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    pass!(["%#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    FAIL!(["#1466 server=(ALL:ALL) ALL"], "root" => root(), "server"; "/bin/hello");
+    FAIL!(["%#1466 server=(ALL:ALL) ALL"], "root" => root(), "server"; "/bin/hello");
+    pass!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
+    FAIL!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, other }, "server"; "/bin/foo");
+    pass!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, user }, "server"; "/bin/foo");
+    pass!(["user ALL=(root,user:ALL) /bin/foo"], "user" => request! { root, wheel }, "server"; "/bin/foo");
+    pass!(["user ALL=(root,user:ALL) /bin/foo"], "user" => request! { user, wheel }, "server"; "/bin/foo");
+    FAIL!(["user ALL=(root,user:ALL) /bin/foo"], "user" => request! { sudo, wheel }, "server"; "/bin/foo");
+    FAIL!(["user ALL=(#0:wheel) /bin/foo"], "user" => request! { sudo, wheel }, "server"; "/bin/foo");
+    pass!(["user ALL=(#0:wheel) /bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
+    FAIL!(["user ALL=(%#1466:wheel) /bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
+    pass!(["user ALL=(%#1466:wheel) /bin/foo"], "user" => request! { user, user }, "server"; "/bin/foo");
+
+    // tests with a 'singular' runas spec
+    FAIL!(["user ALL=(ALL) /bin/foo"], "user" => request! { sudo, wheel }, "server"; "/bin/foo");
+    pass!(["user ALL=(ALL) /bin/foo"], "user" => request! { sudo, sudo }, "server"; "/bin/foo");
+
+    // tests without a runas spec
+    FAIL!(["user ALL=/bin/foo"], "user" => request! { sudo, sudo }, "server"; "/bin/foo");
+    FAIL!(["user ALL=/bin/foo"], "user" => request! { sudo, root }, "server"; "/bin/foo");
+    FAIL!(["user ALL=/bin/foo"], "user" => request! { root, sudo }, "server"; "/bin/foo");
+    pass!(["user ALL=/bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
     pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
     FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
     FAIL!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
-    pass!(["User_Alias FULLTIME=ALL,!marc","ALL,!FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
+    pass!(["User_Alias FULLTIME=ALL,!!!marc","ALL,!FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
     pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => root(), "server"; "/bin/bash");
     pass!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => root(), "laptop"; "/bin/bash");
     FAIL!(["Host_Alias MACHINE=laptop,server","user MACHINE=ALL"], "user" => root(), "desktop"; "/bin/bash");
@@ -233,13 +263,59 @@ fn permission_test() {
     pass!(["Host_Alias A=B","Host_Alias B=vm","ALL A=ALL"], "user" => root(), "vm"; "/bin/ls");
     pass!(["Cmnd_Alias A=B","Cmnd_Alias B=/bin/ls","ALL ALL=A"], "user" => root(), "vm"; "/bin/ls");
 
-    FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=() ALL"], "user" => request!{ sudo, sudo }, "vm"; "/bin/ls");
-    pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => request! { sudo, sudo }, "vm"; "/bin/ls");
-    FAIL!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => request! { sudo, sudo }, "vm"; "/bin/ls");
-    pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(:TIME) ALL"], "user" => request! { user, sudo }, "vm"; "/bin/ls");
-    pass!(["Runas_Alias TIME=%wheel,sudo","user ALL=(TIME) ALL"], "user" => request! { wheel, wheel }, "vm"; "/bin/ls");
+    FAIL!(["Runas_Alias TIME=%wheel,!!sudo","user ALL=() ALL"], "user" => request!{ sudo, sudo }, "vm"; "/bin/ls");
+    pass!(["Runas_Alias TIME=%wheel,!!sudo","user ALL=(TIME) ALL"], "user" => request! { sudo, sudo }, "vm"; "/bin/ls");
+    FAIL!(["Runas_Alias TIME=%wheel,!!sudo","user ALL=(:TIME) ALL"], "user" => request! { sudo, sudo }, "vm"; "/bin/ls");
+    pass!(["Runas_Alias TIME=%wheel,!!sudo","user ALL=(:TIME) ALL"], "user" => request! { user, sudo }, "vm"; "/bin/ls");
+    pass!(["Runas_Alias TIME=%wheel,!!sudo","user ALL=(TIME) ALL"], "user" => request! { wheel, wheel }, "vm"; "/bin/ls");
 
     pass!(["Runas_Alias \\"," TIME=%wheel\\",",sudo # hallo","user ALL\\","=(TIME) ALL"], "user" => request! { wheel, wheel }, "vm"; "/bin/ls");
+}
+
+#[test]
+fn default_bool_test() {
+    let (Sudoers { settings, .. }, _) = analyze(sudoer![
+        "Defaults env_reset",
+        "Defaults !use_pty",
+        "Defaults !env_keep",
+        "Defaults !umask",
+        "Defaults !secure_path"
+    ]);
+    assert!(settings.flags.contains("env_reset"));
+    assert!(!settings.flags.contains("use_pty"));
+    assert!(settings.list["env_keep"].is_empty());
+    assert_eq!(settings.str_value["secure_path"], "");
+    assert_eq!(settings.int_value["umask"], 0o777);
+}
+
+#[test]
+fn default_set_test() {
+    let (Sudoers { settings, .. }, _) = analyze(sudoer![
+        "Defaults env_keep = \"FOO HUK BAR\"",
+        "Defaults env_keep -= HUK",
+        "Defaults !env_check",
+        "Defaults env_check += \"FOO\"",
+        "Defaults env_check += \"XYZZY\"",
+        //"Defaults umask = 0123",
+        //"Defaults passwd_tries = 5",
+        "Defaults lecture_file = \"/etc/sudoers\"",
+        "Defaults secure_path = /etc"
+    ]);
+    assert_eq!(
+        settings.list["env_keep"],
+        ["FOO", "BAR"].into_iter().map(|x| x.to_string()).collect()
+    );
+    assert_eq!(
+        settings.list["env_check"],
+        ["FOO", "XYZZY"]
+            .into_iter()
+            .map(|x| x.to_string())
+            .collect()
+    );
+    assert_eq!(settings.str_value["lecture_file"], "/etc/sudoers");
+    assert_eq!(settings.str_value["secure_path"], "/etc");
+    //assert_eq!(settings.int_value["umask"], 0o123);
+    //assert_eq!(settings.int_value["passwd_tries"], 5);
 }
 
 #[test]
