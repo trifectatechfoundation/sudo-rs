@@ -40,10 +40,10 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
     let mut signals = SignalsInfo::<WithOrigin>::new(SIGNALS)?;
 
     loop {
-        // First we check if the command is done.
+        // First we check if the child is finished
         if let Some(status) = child.try_wait()? {
             if let Some(signal) = status.signal() {
-                // If the command terminated because of a signal, we send this signal to sudo
+                // If the child terminated because of a signal, we send this signal to sudo
                 // itself to match the original sudo behavior. If we fail we just return the status
                 // code.
                 if kill(ctx.pid, signal) != -1 {
@@ -82,7 +82,7 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
             }
 
             let status = if info.signal == SIGALRM {
-                // Kill the command with increasing urgency.
+                // Kill the child with increasing urgency.
                 // Based on `terminate_command`.
                 kill(child_pid, SIGHUP);
                 kill(child_pid, SIGTERM);
@@ -102,8 +102,8 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
 /// Decides if the signal sent by `process` is self-terminating.
 ///
 /// A signal is self-terminating if the PID of the `process`:
-/// - is the same PID of the command, or
-/// - is in the process group of the command and either sudo of the command are the leader.
+/// - is the same PID of the child, or
+/// - is in the process group of the child and either sudo or the child is the leader.
 fn is_self_terminating(process: Option<Process>, child_pid: i32, sudo_pid: i32) -> bool {
     if let Some(process) = process {
         if process.pid != 0 {

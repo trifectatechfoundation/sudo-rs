@@ -34,7 +34,7 @@ pub fn set_target_user(cmd: &mut std::process::Command, target_user: User) {
     let groups = target_user.groups.unwrap_or_default();
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
-    // see https://github.com/rust-lang/rust/blob/master/library/std/src/sys/unix/process/process_unix.rs
+    // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
     // for the std implementation of the libc calls to `setgroups`, `setgid` and `setuid`
     unsafe {
         cmd.pre_exec(move || {
