@@ -202,9 +202,10 @@ pub fn try_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 use crate::ast_names::UserFriendly;
 
 pub fn expect_nonterminal<T: Parse + UserFriendly>(stream: &mut impl CharStream) -> Parsed<T> {
+    let begin_pos = stream.get_pos();
     match try_nonterminal(stream) {
         Err(Status::Reject) => {
-            unrecoverable!(stream, "expected {}", T::DESCRIPTION)
+            unrecoverable!(pos = begin_pos, stream, "expected {}", T::DESCRIPTION)
         }
         result => result,
     }
