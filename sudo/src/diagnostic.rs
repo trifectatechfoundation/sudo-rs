@@ -1,12 +1,20 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::ops::Range;
 use std::path::Path;
 
-// TODO: in the future, we will have range information (i.e. error starts here and ends here)
-
-pub(crate) fn cited_error(message: &str, line: usize, col: usize, path: impl AsRef<Path>) {
+pub(crate) fn cited_error(message: &str, range: Range<(usize, usize)>, path: impl AsRef<Path>) {
     let path_str = path.as_ref().display();
+    let Range {
+        start: (line, col),
+        end: (end_line, mut end_col),
+    } = range;
     eprintln!("{path_str}:{line}:{col}: {message}");
+
+    // we won't try to "span" errors across multiple lines
+    if line != end_line {
+        end_col = col;
+    }
 
     let citation = || {
         let inp = BufReader::new(File::open(path).ok()?);
@@ -16,8 +24,12 @@ pub(crate) fn cited_error(message: &str, line: usize, col: usize, path: impl AsR
             .take(col - 1)
             .map(|c| if c.is_whitespace() { c } else { ' ' })
             .collect::<String>();
+        let lineunder = std::iter::repeat('~')
+            .take(end_col - col)
+            .skip(1)
+            .collect::<String>();
         eprintln!("{line}");
-        eprintln!("{padding}^");
+        eprintln!("{padding}^{lineunder}");
         Some(())
     };
 
@@ -27,8 +39,8 @@ pub(crate) fn cited_error(message: &str, line: usize, col: usize, path: impl AsR
 
 macro_rules! diagnostic {
     ($str:expr, $path:tt @ $pos:ident) => {
-        if let Some((line, col)) = $pos {
-            $crate::diagnostic::cited_error(&format!($str), line, col, $path);
+        if let Some(range) = $pos {
+            $crate::diagnostic::cited_error(&format!($str), range, $path);
         } else {
             eprintln!($str);
         }

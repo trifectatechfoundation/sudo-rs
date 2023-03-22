@@ -548,7 +548,7 @@ fn get_directive(
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
         let id_pos = stream.get_pos();
 
-        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut _| {
+        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut T| {
             expect_syntax('=', stream)?;
             if !matches!(cfg, Setting::List(_)) {
                 unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");

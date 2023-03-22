@@ -128,7 +128,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if let Ok((cfg, warn)) = Sudoers::new("./sudoers") {
         for sudoers::Error(pos, msg) in warn {
-            if let Some((x, y)) = pos {
+            if let Some(std::ops::Range { start: (x, y), .. }) = pos {
                 fancy_error(x, y, "./sudoers");
             }
             eprintln!("{msg}");
