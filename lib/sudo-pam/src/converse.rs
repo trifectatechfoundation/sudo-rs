@@ -357,28 +357,50 @@ mod test {
         }
     }
 
+    // sanity check on the test cases; lib.rs is expected to manage the lifetime of the pointer
+    // inside the pam_conv object explicitly.
+
+    use std::marker::PhantomData;
+    struct PamConvBorrow<'a> {
+        pam_conv: pam_conv,
+        _marker: std::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> PamConvBorrow<'a> {
+        fn new<C: Converser>(data: Pin<&'a mut ConverserData<C>>) -> PamConvBorrow<'a> {
+            PamConvBorrow {
+                pam_conv: unsafe { data.create_pam_conv() },
+                _marker: PhantomData,
+            }
+        }
+
+        fn borrow(&self) -> &pam_conv {
+            &self.pam_conv
+        }
+    }
+
     #[test]
     fn pam_gpt() {
         let mut hello = ConverserData {
             converser: "tux".to_string(),
             panicked: false,
         };
-        let pinned = Pin::new(&mut hello);
-        let pam_conv = unsafe { pinned.create_pam_conv() };
+        let cookie = PamConvBorrow::new(Pin::new(&mut hello));
+        let pam_conv = cookie.borrow();
 
-        assert_eq!(dummy_pam(&[], &pam_conv), vec![]);
+        assert_eq!(dummy_pam(&[], pam_conv), vec![]);
 
         assert_eq!(
-            dummy_pam(&[msg(PromptEchoOn, "hello")], &pam_conv),
+            dummy_pam(&[msg(PromptEchoOn, "hello")], pam_conv),
             vec![Some("tux says hello".to_string())]
         );
 
         assert_eq!(
-            dummy_pam(&[msg(PromptEchoOff, "fish")], &pam_conv),
+            dummy_pam(&[msg(PromptEchoOff, "fish")], pam_conv),
             vec![Some("tuxs secret is fish".to_string())]
         );
 
-        assert_eq!(dummy_pam(&[msg(TextInfo, "mars")], &pam_conv), vec![None]);
+        assert_eq!(dummy_pam(&[msg(TextInfo, "mars")], pam_conv), vec![None]);
 
         assert_eq!(
             dummy_pam(
@@ -387,7 +409,7 @@ mod test {
                     msg(TextInfo, ""),
                     msg(PromptEchoOn, ""),
                 ],
-                &pam_conv
+                pam_conv
             ),
             vec![
                 Some("tuxs secret is banging the rocks together".to_string()),
@@ -396,12 +418,12 @@ mod test {
             ]
         );
 
-        // does the Rust compiler guarantee that updates via 'pam_conv'
-        // change the value of "hello"?
-        assert!(!hello.panicked);
+        //assert!(!hello.panicked); // not allowed by borrow checker
+        let real_hello = unsafe { &mut *(pam_conv.appdata_ptr as *mut ConverserData<String>) };
+        assert!(!real_hello.panicked);
 
-        assert_eq!(dummy_pam(&[msg(ErrorMessage, "oops")], &pam_conv), vec![]);
+        assert_eq!(dummy_pam(&[msg(ErrorMessage, "oops")], pam_conv), vec![]);
 
-        assert!(hello.panicked);
+        assert!(hello.panicked); // allowed now
     }
 }
