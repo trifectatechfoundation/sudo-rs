@@ -25,6 +25,28 @@ pub fn hostname() -> String {
     }
 }
 
+/// set target user and groups (uid, gid, additional groups) for a command
+pub fn set_target_user(cmd: &mut std::process::Command, target_user: User) {
+    use std::os::unix::process::CommandExt;
+
+    let uid = target_user.uid;
+    let gid = target_user.gid;
+    let groups = target_user.groups.unwrap_or_default();
+
+    // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
+    // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
+    // for the std implementation of the libc calls to `setgroups`, `setgid` and `setuid`
+    unsafe {
+        cmd.pre_exec(move || {
+            cerr(libc::setgroups(groups.len(), groups.as_ptr()))?;
+            cerr(libc::setgid(gid))?;
+            cerr(libc::setuid(uid))?;
+
+            Ok(())
+        });
+    }
+}
+
 /// Send a signal to a process.
 pub fn kill(pid: pid_t, signal: c_int) -> c_int {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if

@@ -67,7 +67,6 @@ fn user_can_become_another_user() -> Result<()> {
 
 // regression test for memorysafety/sudo-rs#81
 #[test]
-#[ignore]
 fn invoking_user_groups_are_lost_when_becoming_another_user() -> Result<()> {
     let invoking_user = USERNAME;
     let another_user = "another_user";

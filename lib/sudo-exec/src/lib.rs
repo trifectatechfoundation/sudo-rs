@@ -2,7 +2,7 @@
 use std::{
     ffi::c_int,
     io,
-    os::unix::process::{CommandExt, ExitStatusExt},
+    os::unix::process::ExitStatusExt,
     process::{Command, ExitStatus},
     time::Duration,
 };
@@ -16,7 +16,7 @@ use signal_hook::{
     },
 };
 use sudo_common::context::{Context, Environment};
-use sudo_system::{getpgid, kill};
+use sudo_system::{getpgid, kill, set_target_user};
 
 /// We only handle the signals that ogsudo handles.
 const SIGNALS: &[c_int] = &[
@@ -27,23 +27,23 @@ const SIGNALS: &[c_int] = &[
 /// Based on `ogsudo`s `exec_nopty` function.
 pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus> {
     // FIXME: should we pipe the stdio streams?
-    let mut cmd = Command::new(ctx.command.command)
-        .args(ctx.command.arguments)
-        .uid(ctx.target_user.uid)
-        .gid(ctx.target_user.gid)
-        .env_clear()
-        .envs(env)
-        .spawn()?;
+    let mut command = Command::new(ctx.command.command);
+    // reset env and set filtered environment
+    command.args(ctx.command.arguments).env_clear().envs(env);
+    // set target user and groups
+    set_target_user(&mut command, ctx.target_user);
+    // spawn and exec to command
+    let mut child = command.spawn()?;
 
-    let cmd_pid = cmd.id() as i32;
+    let child_pid = child.id() as i32;
 
     let mut signals = SignalsInfo::<WithOrigin>::new(SIGNALS)?;
 
     loop {
-        // First we check if the command is done.
-        if let Some(status) = cmd.try_wait()? {
+        // First we check if the child is finished
+        if let Some(status) = child.try_wait()? {
             if let Some(signal) = status.signal() {
-                // If the command terminated because of a signal, we send this signal to sudo
+                // If the child terminated because of a signal, we send this signal to sudo
                 // itself to match the original sudo behavior. If we fail we just return the status
                 // code.
                 if kill(ctx.pid, signal) != -1 {
@@ -69,27 +69,27 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
                 }
                 SIGWINCH | SIGINT | SIGQUIT | SIGTSTP => {
                     // Skip the signal if it was not sent by the user or if it is self-terminating.
-                    if !user_signaled || is_self_terminating(info.process, cmd_pid, ctx.pid) {
+                    if !user_signaled || is_self_terminating(info.process, child_pid, ctx.pid) {
                         continue;
                     }
                 }
                 _ => {
                     // Skip the signal if it was sent by the user and it is self-terminating.
-                    if user_signaled && is_self_terminating(info.process, cmd_pid, ctx.pid) {
+                    if user_signaled && is_self_terminating(info.process, child_pid, ctx.pid) {
                         continue;
                     }
                 }
             }
 
             let status = if info.signal == SIGALRM {
-                // Kill the command with increasing urgency.
+                // Kill the child with increasing urgency.
                 // Based on `terminate_command`.
-                kill(cmd_pid, SIGHUP);
-                kill(cmd_pid, SIGTERM);
+                kill(child_pid, SIGHUP);
+                kill(child_pid, SIGTERM);
                 std::thread::sleep(Duration::from_secs(2));
-                kill(cmd_pid, SIGKILL)
+                kill(child_pid, SIGKILL)
             } else {
-                kill(cmd_pid, info.signal)
+                kill(child_pid, info.signal)
             };
 
             if status != 0 {
@@ -102,18 +102,18 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
 /// Decides if the signal sent by `process` is self-terminating.
 ///
 /// A signal is self-terminating if the PID of the `process`:
-/// - is the same PID of the command, or
-/// - is in the process group of the command and either sudo of the command are the leader.
-fn is_self_terminating(process: Option<Process>, cmd_pid: i32, sudo_pid: i32) -> bool {
+/// - is the same PID of the child, or
+/// - is in the process group of the child and either sudo or the child is the leader.
+fn is_self_terminating(process: Option<Process>, child_pid: i32, sudo_pid: i32) -> bool {
     if let Some(process) = process {
         if process.pid != 0 {
-            if process.pid == cmd_pid {
+            if process.pid == child_pid {
                 return true;
             }
             let grp_leader = getpgid(process.pid);
 
             if grp_leader != -1 {
-                if grp_leader == cmd_pid || grp_leader == sudo_pid {
+                if grp_leader == child_pid || grp_leader == sudo_pid {
                     return true;
                 }
             } else {
