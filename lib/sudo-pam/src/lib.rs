@@ -16,8 +16,8 @@ mod error;
 pub use converse::CLIConverser;
 
 pub struct PamContext<'a, C: Converser> {
-    data: Pin<Box<ConverserData<C>>>,
-    pam_conv: Option<pam_conv>,
+    data: Option<Pin<Box<ConverserData<C>>>>,
+    pam_conv: pam_conv,
     pamh: Option<&'a mut pam_handle_t>,
     silent: bool,
     allow_null_auth_token: bool,
@@ -66,29 +66,29 @@ impl<C: Converser> PamContextBuilder<C> {
                 None => std::ptr::null(),
             };
 
-            let data = ConverserData {
+            let mut data = Box::pin(ConverserData {
                 converser,
                 panicked: false,
                 _marker: std::marker::PhantomPinned,
-            };
+            });
 
             let mut context = PamContext {
-                data: Box::pin(data),
-                pam_conv: None,
+                data: None,
+                pam_conv: unsafe { data.as_mut().create_pam_conv() },
                 pamh: None,
                 silent: false,
                 allow_null_auth_token: true,
                 last_pam_status: None,
                 session_started: false,
             };
-            context.pam_conv = Some(unsafe { context.data.as_mut().create_pam_conv() });
+            context.data = Some(data);
 
             let mut pamh = std::ptr::null_mut();
             let res = unsafe {
                 pam_start(
                     c_service_name.as_ptr(),
                     c_user_ptr,
-                    &context.pam_conv.unwrap(),
+                    &context.pam_conv,
                     &mut pamh,
                 )
             };
@@ -480,6 +480,5 @@ impl<'a, C: Converser> Drop for PamContext<'a, C> {
                 ) | PAM_DATA_SILENT as i32
             };
         }
-        self.pam_conv = None;
     }
 }
