@@ -90,3 +90,20 @@ fn invoking_user_groups_are_lost_when_becoming_another_user() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn user_does_not_exist() -> Result<()> {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+
+    let output = Command::new("sudo")
+        .args(["-u", "ghost", "true"])
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "unknown user: ghost");
+    }
+
+    Ok(())
+}
