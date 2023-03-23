@@ -26,11 +26,11 @@ pub fn hostname() -> String {
 }
 
 /// set target user and groups (uid, gid, additional groups) for a command
-pub fn set_target_user(cmd: &mut std::process::Command, target_user: User) {
+pub fn set_target_user(cmd: &mut std::process::Command, target_user: User, target_group: Group) {
     use std::os::unix::process::CommandExt;
 
     let uid = target_user.uid;
-    let gid = target_user.gid;
+    let gid = target_group.gid;
     let groups = target_user.groups.unwrap_or_default();
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
