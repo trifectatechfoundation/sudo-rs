@@ -205,7 +205,7 @@ pub(crate) extern "C" fn converse<C: Converser>(
             messages: Vec::with_capacity(num_msg as usize),
         };
         for i in 0..num_msg as isize {
-            let message: &pam_message = unsafe { &*((*msg).offset(i)) };
+            let message: &pam_message = unsafe { &**msg.offset(i) };
 
             let msg = unsafe { sudo_cutils::string_from_ptr(message.msg) };
             let style = if let Some(style) = PamMessageStyle::from_int(message.msg_style) {
