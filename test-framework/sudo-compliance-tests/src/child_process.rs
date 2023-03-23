@@ -45,3 +45,22 @@ fn sudo_forwards_childs_stderr() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn sudo_forwards_stdin_to_child() -> Result<()> {
+    let expected = "hello";
+    let path = "/root/file";
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+
+    Command::new("sudo")
+        .args(["tee", path])
+        .stdin(expected)
+        .exec(&env)?
+        .assert_success()?;
+
+    let actual = Command::new("cat").arg(path).exec(&env)?.stdout()?;
+
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
