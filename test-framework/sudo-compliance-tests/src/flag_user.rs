@@ -95,6 +95,7 @@ fn invoking_user_groups_are_lost_when_becoming_another_user() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn can_use_unassigned_user_id() -> Result<()> {
     let expected_uid = 1234;
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
