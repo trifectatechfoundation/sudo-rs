@@ -69,6 +69,7 @@ impl<C: Converser> PamContextBuilder<C> {
             let data = ConverserData {
                 converser,
                 panicked: false,
+                _marker: std::marker::PhantomPinned,
             };
 
             let mut context = PamContext {

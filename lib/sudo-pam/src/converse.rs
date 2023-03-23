@@ -165,6 +165,7 @@ impl SequentialConverser for CLIConverser {
 pub(crate) struct ConverserData<C> {
     pub(crate) converser: C,
     pub(crate) panicked: bool,
+    pub(crate) _marker: std::marker::PhantomPinned,
 }
 
 impl<C: Converser> ConverserData<C> {
@@ -383,11 +384,12 @@ mod test {
 
     #[test]
     fn pam_gpt() {
-        let mut hello = ConverserData {
+        let mut hello = Box::pin(ConverserData {
             converser: "tux".to_string(),
             panicked: false,
-        };
-        let cookie = PamConvBorrow::new(Pin::new(&mut hello));
+            _marker: std::marker::PhantomPinned,
+        });
+        let cookie = PamConvBorrow::new(hello.as_mut());
         let pam_conv = cookie.borrow();
 
         assert_eq!(dummy_pam(&[], pam_conv), vec![]);
