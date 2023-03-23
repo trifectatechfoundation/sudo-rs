@@ -28,7 +28,7 @@
 /// Type holding a parsed object (or error information if parsing failed)
 pub type Parsed<T> = Result<T, Status>;
 
-pub type Position = (usize, usize);
+pub type Position = std::ops::Range<(usize, usize)>;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -46,15 +46,17 @@ pub fn reject<T>() -> Parsed<T> {
 }
 
 macro_rules! unrecoverable {
-    // TODO: transmit begin-and-end position information to give an accurate "underlining" of the full error
     (pos=$pos:expr, $stream:ident, $($str:expr),*) => {
-        return Err(crate::basic_parser::Status::Fatal($pos,format![$($str),*]))
+        return Err(crate::basic_parser::Status::Fatal($pos .. $stream.get_pos(), format![$($str),*]))
     };
     ($stream:ident, $($str:expr),*) => {
-        return Err(crate::basic_parser::Status::Fatal($stream.get_pos(),format![$($str),*]))
+        {
+            let pos = $stream.get_pos();
+            return Err(crate::basic_parser::Status::Fatal(pos .. pos, format![$($str),*]))
+        }
     };
     ($($str:expr),*) => {
-        return Err(crate::basic_parser::Status::Fatal(None,format![$($str),*]))
+        return Err(crate::basic_parser::Status::Fatal(Default::default(), format![$($str),*]))
     };
 }
 
@@ -202,9 +204,10 @@ pub fn try_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 use crate::ast_names::UserFriendly;
 
 pub fn expect_nonterminal<T: Parse + UserFriendly>(stream: &mut impl CharStream) -> Parsed<T> {
+    let begin_pos = stream.get_pos();
     match try_nonterminal(stream) {
         Err(Status::Reject) => {
-            unrecoverable!(stream, "expected {}", T::DESCRIPTION)
+            unrecoverable!(pos = begin_pos, stream, "expected {}", T::DESCRIPTION)
         }
         result => result,
     }

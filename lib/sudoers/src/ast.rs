@@ -305,6 +305,7 @@ impl Parse for ProtoCommandSpec {
             }
         }
 
+        let start_pos = stream.get_pos();
         let digest = if let Some(Username(keyword)) = try_nonterminal(stream)? {
             let hash_type = match keyword.as_str() {
                 "sha224" => 224,
@@ -312,7 +313,11 @@ impl Parse for ProtoCommandSpec {
                 "sha384" => 384,
                 "sha512" => 512,
                 "sudoedit" => todo!(), // note: special behaviour of forward slashes in wildcards, tread carefully
-                _ => unrecoverable!(stream, "expected command but found {keyword}"),
+                _ => unrecoverable!(
+                    pos = start_pos,
+                    stream,
+                    "expected command but found {keyword}"
+                ),
             };
             expect_syntax(':', stream)?;
             let hex = expect_nonterminal::<Sha2>(stream)?;
@@ -464,18 +469,24 @@ fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
             expect_syntax('"', stream)?;
             make(path)
         } else {
+            let value_pos = stream.get_pos();
             let IncludePath(path) = expect_nonterminal(stream)?;
             if stream.peek() != Some('\n') {
-                unrecoverable!(stream, "use quotes around filenames or escape whitespace")
+                unrecoverable!(
+                    pos = value_pos,
+                    stream,
+                    "use quotes around filenames or escape whitespace"
+                )
             }
             make(path)
         }
     }
 
+    let key_pos = stream.get_pos();
     let result = match try_nonterminal(stream)? {
         Some(Username(key)) if key == "include" => Sudo::Include(get_path(stream)?),
         Some(Username(key)) if key == "includedir" => Sudo::IncludeDir(get_path(stream)?),
-        _ => unrecoverable!(stream, "unknown directive"),
+        _ => unrecoverable!(pos = key_pos, stream, "unknown directive"),
     };
 
     make(result)
@@ -537,7 +548,7 @@ fn get_directive(
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
         let id_pos = stream.get_pos();
 
-        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut _| {
+        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut T| {
             expect_syntax('=', stream)?;
             if !matches!(cfg, Setting::List(_)) {
                 unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
@@ -561,6 +572,7 @@ fn get_directive(
         use sudo_defaults::OptTuple;
 
         if is_syntax('!', stream)? {
+            let value_pos = stream.get_pos();
             let EnvVar(name) = expect_nonterminal(stream)?;
             let value = match sudo_default(&name) {
                 Some(Setting::Flag(_)) => ConfigValue::Flag(false),
@@ -574,13 +586,17 @@ fn get_directive(
                 Some(Setting::Integer(OptTuple {
                     negated: Some(val), ..
                 })) => ConfigValue::Num(val),
-                _ => unrecoverable!(stream, "`{name}' cannot be used in a boolean context"),
+                _ => unrecoverable!(
+                    pos = value_pos,
+                    stream,
+                    "`{name}' cannot be used in a boolean context"
+                ),
             };
             make(Defaults(name, value))
         } else {
             let EnvVar(name) = try_nonterminal(stream)?;
             let Some(cfg) = sudo_default(&name) else {
-                unrecoverable!(pos=id_pos, stream, "unknown setting: `{name}'");
+                unrecoverable!(pos = id_pos, stream, "unknown setting: `{name}'");
             };
 
             if is_syntax('+', stream)? {
