@@ -308,25 +308,25 @@ mod test {
                 msg: unsafe { sudo_cutils::into_leaky_cstring(msg) },
                 msg_style: *style as i32,
             })
-            .collect::<Vec<_>>();
-        let ptrs = pam_msgs
+            .collect::<Vec<pam_message>>();
+        let mut ptrs = pam_msgs
             .iter()
             .map(|x| x as *const pam_message)
-            .collect::<Vec<_>>();
+            .collect::<Vec<*const pam_message>>();
 
-        let mut raw_response = std::ptr::null::<pam_response>() as *mut _;
+        let mut raw_response = std::ptr::null_mut::<pam_response>();
         let conv_err = unsafe {
             talkie.conv.expect("non-null fn ptr")(
                 ptrs.len() as i32,
-                ptrs.as_ptr() as *mut _,
+                ptrs.as_mut_ptr(),
                 &mut raw_response,
                 talkie.appdata_ptr,
             )
         };
 
         // deallocate the leaky strings
-        for rec in pam_msgs {
-            unsafe { libc::free(rec.msg as *mut _) }
+        for rec in ptrs {
+            unsafe { libc::free((*rec).msg as *mut _) }
         }
         if conv_err != 0 {
             return vec![];
@@ -349,7 +349,7 @@ mod test {
             })
             .collect();
 
-        unsafe { libc::free(raw_response as *mut _ as *mut _) };
+        unsafe { libc::free(raw_response as *mut _) };
         result
     }
 
