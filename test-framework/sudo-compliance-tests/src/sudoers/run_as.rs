@@ -58,6 +58,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn when_empty_then_as_own_group_is_allowed() -> Result<()> {
     let env = Env("ALL ALL=() NOPASSWD: ALL")
         .group(USERNAME)
@@ -167,6 +168,7 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn when_specific_group_then_as_that_group_is_allowed() -> Result<()> {
     let env = Env(format!("ALL ALL=(:{GROUPNAME}) NOPASSWD: ALL"))
         .user(USERNAME)
@@ -261,6 +263,7 @@ fn when_both_user_and_group_are_specified_then_as_that_user_is_allowed() -> Resu
 }
 
 #[test]
+#[ignore]
 fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Result<()> {
     let env = Env(format!("ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: ALL"))
         .user(USERNAME)

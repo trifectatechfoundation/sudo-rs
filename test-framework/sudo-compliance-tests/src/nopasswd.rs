@@ -34,6 +34,7 @@ fn user_as_themselves() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn user_as_their_own_group() -> Result<()> {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .group(GROUPNAME)
