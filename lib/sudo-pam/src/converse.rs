@@ -342,7 +342,9 @@ mod test {
                 } else {
                     // "The resp_retcode member of this struct is unused and should be set to zero."
                     assert_eq!((*ptr).resp_retcode, 0);
-                    Some(sudo_cutils::string_from_ptr((*ptr).resp))
+                    let response = sudo_cutils::string_from_ptr((*ptr).resp);
+                    libc::free((*ptr).resp as *mut _);
+                    Some(response)
                 }
             })
             .collect();
