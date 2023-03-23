@@ -314,12 +314,14 @@ mod test {
             .collect::<Vec<_>>();
 
         let mut raw_response = std::ptr::null::<pam_response>() as *mut _;
-        let conv_err = converse::<String>(
-            ptrs.len() as i32,
-            ptrs.as_ptr() as *mut _,
-            &mut raw_response,
-            talkie.appdata_ptr,
-        );
+        let conv_err = unsafe {
+            talkie.conv.expect("non-null fn ptr")(
+                ptrs.len() as i32,
+                ptrs.as_ptr() as *mut _,
+                &mut raw_response,
+                talkie.appdata_ptr,
+            )
+        };
 
         // deallocate the leaky strings
         for rec in pam_msgs {
