@@ -25,8 +25,15 @@ impl<'a> TryFrom<&'a [String]> for CommandAndArguments<'a> {
 
         let command = iter.next().ok_or(Error::InvalidCommand)?.to_string();
 
-        // TODO: we resolve in the context of the current user using the 'which' crate - we want to reconsider this in the future
-        let command = which::which(command).map_err(|_| Error::InvalidCommand)?;
+        // resolve the binary if the path is not absolute
+        let command = if command.starts_with("/") {
+            PathBuf::from(command)
+        } else {
+            // TODO: we resolve in the context of the current user using the 'which' crate - we want to reconsider this in the future
+            // TODO: use value of secure_path setting to possible override current path
+            // FIXME: propagating the error is a possible security problem since it leaks information before any permission check is done
+            which::which(command).map_err(|_| Error::InvalidCommand)?
+        };
 
         Ok(CommandAndArguments {
             command,
