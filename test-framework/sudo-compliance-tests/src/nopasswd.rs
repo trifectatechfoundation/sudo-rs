@@ -1,8 +1,8 @@
 //! Scenarios where a password does not need to be provided
 
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, User};
 
-use crate::{Result, SUDOERS_ROOT_ALL, USERNAME};
+use crate::{Result, GROUPNAME, SUDOERS_ROOT_ALL, USERNAME};
 
 // NOTE all these tests assume that the invoking user passes the sudoers file 'User_List' criteria
 
@@ -28,6 +28,21 @@ fn user_as_themselves() -> Result<()> {
 
     Command::new("sudo")
         .args(["-u", USERNAME, "true"])
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()
+}
+
+#[test]
+#[ignore]
+fn user_as_their_own_group() -> Result<()> {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .group(GROUPNAME)
+        .user(User(USERNAME).group(GROUPNAME))
+        .build()?;
+
+    Command::new("sudo")
+        .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
         .exec(&env)?
         .assert_success()

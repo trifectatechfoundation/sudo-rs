@@ -1,7 +1,10 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, GROUPNAME, SUDOERS_ROOT_ALL_NOPASSWD, SUDOERS_USER_ALL_NOPASSWD, USERNAME};
+use crate::{
+    Result, GROUPNAME, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL_NOPASSWD,
+    SUDOERS_USER_ALL_NOPASSWD, USERNAME,
+};
 
 #[test]
 fn root_can_become_another_user_by_name() -> Result<()> {
@@ -87,6 +90,45 @@ fn invoking_user_groups_are_lost_when_becoming_another_user() -> Result<()> {
         .stdout()?;
 
     assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn can_use_unassigned_user_id() -> Result<()> {
+    let expected_uid = 1234;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+
+    for user in ["root", USERNAME] {
+        let actual = Command::new("sudo")
+            .arg("-u")
+            .arg(format!("#{expected_uid}"))
+            .args(["id", "-u"])
+            .as_user(user)
+            .exec(&env)?
+            .stdout()?
+            .parse::<u32>()?;
+
+        assert_eq!(expected_uid, actual);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn user_does_not_exist() -> Result<()> {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+
+    let output = Command::new("sudo")
+        .args(["-u", "ghost", "true"])
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "unknown user: ghost");
+    }
 
     Ok(())
 }
