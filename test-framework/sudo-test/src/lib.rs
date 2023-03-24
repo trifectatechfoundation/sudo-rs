@@ -250,14 +250,22 @@ pub struct User {
     password: Option<String>,
 }
 
-/// creates a new user with the specified `name`
+/// creates a new user with the specified `name` and the following defaults:
+///
+/// - on Debian containers, primary group = `users` (GID=100)
+/// - automatically assigned user ID
+/// - no assigned secondary groups
+/// - no assigned password
+/// - home directory set to `/home/<name>` but not automatically created
 #[allow(non_snake_case)]
 pub fn User(name: impl AsRef<str>) -> User {
     name.as_ref().into()
 }
 
 impl User {
-    /// assigns this user to the specified `group`
+    /// assigns this user to the specified *secondary* `group`
+    ///
+    /// NOTE on Debian containers, all new users will be assigned to the `users` primary group (GID=100)
     pub fn group(mut self, group: impl AsRef<str>) -> Self {
         let groupname = group.as_ref();
         assert!(
@@ -271,7 +279,9 @@ impl User {
         self
     }
 
-    /// assigns this user to all the specified `groups`
+    /// assigns this user to all the specified *secondary* `groups`
+    ///
+    /// NOTE on Debian containers, all new users will be assigned to the `users` primary group (GID=100)
     pub fn groups(mut self, groups: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         for group in groups {
             self = self.group(group);
