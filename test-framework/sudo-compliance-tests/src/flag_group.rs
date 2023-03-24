@@ -6,7 +6,6 @@ use sudo_test::{Command, Env, Group, User};
 use crate::{Result, GROUPNAME, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
-#[ignore]
 fn changes_the_group_id() -> Result<()> {
     let expected_gid = 1234;
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
@@ -57,7 +56,6 @@ fn adds_group_to_groups_output() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn group_can_be_specified_by_id() -> Result<()> {
     let expected_gid = 1234;
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
