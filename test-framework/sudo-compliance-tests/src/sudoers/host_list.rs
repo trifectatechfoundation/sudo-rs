@@ -80,3 +80,15 @@ fn negation_rejects() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn double_negation_cancels() -> Result<()> {
+    let env = Env("ALL !!container = (ALL:ALL) ALL")
+        .hostname("container")
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
+}
