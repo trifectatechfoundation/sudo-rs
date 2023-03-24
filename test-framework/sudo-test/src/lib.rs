@@ -266,7 +266,7 @@ impl User {
     /// assigns this user to the specified *secondary* `group`
     ///
     /// NOTE on Debian containers, all new users will be assigned to the `users` primary group (GID=100)
-    pub fn group(mut self, group: impl AsRef<str>) -> Self {
+    pub fn secondary_group(mut self, group: impl AsRef<str>) -> Self {
         let groupname = group.as_ref();
         assert!(
             !self.groups.contains(groupname),
@@ -282,9 +282,9 @@ impl User {
     /// assigns this user to all the specified *secondary* `groups`
     ///
     /// NOTE on Debian containers, all new users will be assigned to the `users` primary group (GID=100)
-    pub fn groups(mut self, groups: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+    pub fn secondary_groups(mut self, groups: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         for group in groups {
-            self = self.group(group);
+            self = self.secondary_group(group);
         }
         self
     }
@@ -586,7 +586,7 @@ mod tests {
     fn creating_user_part_of_existing_group_works() -> Result<()> {
         let groupname = "users";
         let env = EnvBuilder::default()
-            .user(User(USERNAME).group(groupname))
+            .user(User(USERNAME).secondary_group(groupname))
             .build()?;
 
         let stdout = Command::new("groups")
