@@ -32,8 +32,9 @@ fn changes_the_group_id() -> Result<()> {
 fn adds_group_to_groups_output() -> Result<()> {
     let extra_group = "rustaceans";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-        .user(User(USERNAME).secondary_group("users"))
+        .user(User(USERNAME).secondary_group("secondary-group"))
         .group(Group(extra_group))
+        .group("secondary-group")
         .build()?;
 
     for user in ["root", USERNAME] {
