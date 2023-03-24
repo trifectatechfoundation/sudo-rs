@@ -2,6 +2,7 @@ use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{Result, PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
 
+mod cmnd;
 mod run_as;
 mod user_list;
 
