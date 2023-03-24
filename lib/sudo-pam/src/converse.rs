@@ -308,10 +308,12 @@ mod test {
                 msg: unsafe { sudo_cutils::into_leaky_cstring(msg) },
                 msg_style: *style as i32,
             })
+            .rev()
             .collect::<Vec<pam_message>>();
         let mut ptrs = pam_msgs
             .iter()
             .map(|x| x as *const pam_message)
+            .rev()
             .collect::<Vec<*const pam_message>>();
 
         let mut raw_response = std::ptr::null_mut::<pam_response>();
