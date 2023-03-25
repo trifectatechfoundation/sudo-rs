@@ -250,6 +250,7 @@ impl<'a, C: Converser> PamContext<'a, C> {
 
     /// Set the user that is requesting the authentication.
     pub fn set_requesting_user(&mut self, user: &str) -> PamResult<()> {
+        eprintln!("REQUIESTING USER: {:?}", user);
         let c_user = CString::new(user)?;
         let res = unsafe {
             pam_set_item(
@@ -271,6 +272,7 @@ impl<'a, C: Converser> PamContext<'a, C> {
 
     /// Set the user that will be authenticated.
     pub fn set_user(&mut self, user: &str) -> PamResult<()> {
+        eprintln!("SET USER: {:?}", user);
         let c_user = CString::new(user)?;
         let res = unsafe {
             pam_set_item(
