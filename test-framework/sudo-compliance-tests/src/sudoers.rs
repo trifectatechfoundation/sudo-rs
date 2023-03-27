@@ -98,3 +98,15 @@ fn user_specifications_evaluated_bottom_to_top() -> Result<()> {
         .exec(&env)?
         .assert_success()
 }
+
+#[test]
+fn accepts_sudoers_file_that_has_no_trailing_newline() -> Result<()> {
+    let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).no_trailing_newline())
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
+}
