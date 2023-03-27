@@ -46,6 +46,9 @@ impl UnixGroup for Named {
 }
 
 macro_rules! request {
+    ($user:ident) => {
+        (&Named(stringify!($user)), &Named(stringify!($user)))
+    };
     ($user:ident, $group:ident) => {
         (&Named(stringify!($user)), &Named(stringify!($group)))
     };
@@ -240,6 +243,12 @@ fn permission_test() {
     FAIL!(["user ALL=/bin/foo"], "user" => request! { sudo, root }, "server"; "/bin/foo");
     FAIL!(["user ALL=/bin/foo"], "user" => request! { root, sudo }, "server"; "/bin/foo");
     pass!(["user ALL=/bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
+
+    // tests with multiple runas specs
+    pass!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/ls");
+    pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/true" => [passwd: false]);
+    FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/ls");
+    FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/true");
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
