@@ -27,7 +27,7 @@ fn parse_sudoers() -> Result<Sudoers, Error> {
 }
 
 /// parse suoers file and check permission to run the provided command given the context
-fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Policy {
+fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Judgement {
     sudoers.check(
         &context.current_user,
         &context.hostname,
@@ -82,7 +82,7 @@ fn main() -> Result<(), Error> {
         }
     };
 
-    let target_env = environment::get_target_environment(current_env, &context, &policy.settings);
+    let target_env = environment::get_target_environment(current_env, &context, &policy);
 
     // run command and return corresponding exit code
     match sudo_exec::run_command(context, target_env) {

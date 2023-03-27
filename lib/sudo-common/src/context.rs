@@ -1,11 +1,6 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    str::FromStr,
-};
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use sudo_cli::SudoOptions;
 use sudo_system::{hostname, Group, User};
-use sudoers::Settings;
 
 use crate::error::Error;
 
@@ -26,7 +21,7 @@ impl<'a> TryFrom<&'a [String]> for CommandAndArguments<'a> {
         let command = iter.next().ok_or(Error::InvalidCommand)?.to_string();
 
         // resolve the binary if the path is not absolute
-        let command = if command.starts_with("/") {
+        let command = if command.starts_with('/') {
             PathBuf::from(command)
         } else {
             // TODO: we resolve in the context of the current user using the 'which' crate - we want to reconsider this in the future
@@ -76,25 +71,6 @@ pub struct Context<'a> {
     pub hostname: String,
     pub current_user: User,
     pub pid: i32,
-}
-
-pub trait Configuration {
-    fn env_keep(&self) -> &HashSet<String>;
-    fn env_check(&self) -> &HashSet<String>;
-}
-
-impl Configuration for Settings {
-    fn env_keep(&self) -> &HashSet<String> {
-        self.list
-            .get("env_keep")
-            .expect("env_keep missing from settings")
-    }
-
-    fn env_check(&self) -> &HashSet<String> {
-        self.list
-            .get("env_check")
-            .expect("env_check missing from settings")
-    }
 }
 
 fn resolve_current_user() -> Result<User, Error> {
