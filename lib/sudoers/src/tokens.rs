@@ -49,7 +49,7 @@ impl Token for Numeric {
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_digit()
+        c.is_ascii_hexdigit()
     }
 }
 
