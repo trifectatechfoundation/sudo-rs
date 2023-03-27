@@ -61,15 +61,14 @@ pub struct Env {
 #[allow(non_snake_case)]
 pub fn Env(sudoers: impl Into<TextFile>) -> EnvBuilder {
     let mut builder = EnvBuilder::default();
-    let mut sudoers = sudoers.into();
-    // HACK append newline to work around memorysafety/sudo-rs#102
-    sudoers.contents.push('\n');
     builder.file("/etc/sudoers", sudoers);
     builder
 }
 
 impl Command {
     /// executes the command in the specified test environment
+    ///
+    /// NOTE that the trailing newline from `stdout` and `stderr` will be removed
     pub fn exec(&self, env: &Env) -> Result<Output> {
         if let Some(username) = self.get_user() {
             assert!(
@@ -397,12 +396,16 @@ impl From<&'_ str> for Group {
 /// a text file
 pub struct TextFile {
     contents: String,
+    trailing_newline: bool,
 
     chmod: String,
     chown: String,
 }
 
 /// creates a text file with the specified `contents`
+///
+/// NOTE by default, a trailing newline will be appended to the contents if it doesn't contain one.
+/// to omit the trailing newline use the `TextFile::no_trailing_newline` method
 #[allow(non_snake_case)]
 pub fn TextFile(contents: impl AsRef<str>) -> TextFile {
     contents.as_ref().into()
@@ -428,8 +431,24 @@ impl TextFile {
         self
     }
 
+    /// strips newlines from the end of the file
+    pub fn no_trailing_newline(mut self) -> Self {
+        self.trailing_newline = false;
+        self
+    }
+
     fn create(&self, path: &str, container: &Container) -> Result<()> {
-        container.cp(path, &self.contents)?;
+        let mut contents = self.contents.clone();
+
+        if self.trailing_newline {
+            if !contents.ends_with('\n') {
+                contents.push('\n');
+            }
+        } else if contents.ends_with('\n') {
+            contents.pop();
+        }
+
+        container.cp(path, &contents)?;
 
         container
             .exec(Command::new("chown").args([&self.chown, path]))?
@@ -446,6 +465,7 @@ impl From<String> for TextFile {
             contents,
             chmod: Self::DEFAULT_CHMOD.to_string(),
             chown: Self::DEFAULT_CHOWN.to_string(),
+            trailing_newline: true,
         }
     }
 }
@@ -695,6 +715,55 @@ mod tests {
             .stdout()?;
         let actual = stdout.split(':').nth(2);
         assert_eq!(Some(expected.to_string().as_str()), actual);
+
+        Ok(())
+    }
+
+    #[test]
+    fn trailing_newline_by_default() -> Result<()> {
+        let path_a = "/root/a";
+        let path_b = "/root/b";
+        let env = EnvBuilder::default()
+            .file(path_a, "hello")
+            .file(path_b, "hello\n")
+            .build()?;
+
+        let a_last_char = Command::new("tail")
+            .args(["-c1", path_a])
+            .exec(&env)?
+            .stdout()?;
+        assert_eq!("", a_last_char);
+
+        let b_last_char = Command::new("tail")
+            .args(["-c1", path_b])
+            .exec(&env)?
+            .stdout()?;
+        assert_eq!("", b_last_char);
+
+        Ok(())
+    }
+
+    #[test]
+    fn no_trailing_newline() -> Result<()> {
+        let path_a = "/root/a";
+        let path_b = "/root/b";
+        let env = EnvBuilder::default()
+            .file(path_a, TextFile("hello").no_trailing_newline())
+            .file(path_b, TextFile("hello\n").no_trailing_newline())
+            .build()?;
+
+        let a_last_char = Command::new("tail")
+            .args(["-c1", path_a])
+            .exec(&env)?
+            .stdout()?;
+        assert_eq!("o", a_last_char);
+
+        let b_last_char = Command::new("tail")
+            .args(["-c1", path_b])
+            .exec(&env)?
+            .stdout()?;
+
+        assert_eq!("o", b_last_char);
 
         Ok(())
     }
