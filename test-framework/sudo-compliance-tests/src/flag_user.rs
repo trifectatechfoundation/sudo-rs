@@ -75,7 +75,7 @@ fn invoking_user_groups_are_lost_when_becoming_another_user() -> Result<()> {
     let another_user = "another_user";
     let env = Env(SUDOERS_USER_ALL_NOPASSWD)
         .group(GROUPNAME)
-        .user(User(invoking_user).group(GROUPNAME))
+        .user(User(invoking_user).secondary_group(GROUPNAME))
         .user(another_user)
         .build()?;
 
