@@ -19,7 +19,13 @@ type Result<T> = core::result::Result<T, Error>;
 
 mod docker;
 
-const BASE_IMAGE: &str = env!("CARGO_CRATE_NAME");
+fn base_image() -> &'static str {
+    if is_original_sudo() {
+        "sudo-test-og"
+    } else {
+        "sudo-test-rs"
+    }
+}
 
 /// are we testing the original sudo?
 pub fn is_original_sudo() -> bool {
@@ -172,7 +178,7 @@ impl EnvBuilder {
             docker::build_base_image().expect("fatal error: could not build the base Docker image")
         });
 
-        let container = Container::new(BASE_IMAGE)?;
+        let container = Container::new(base_image())?;
 
         let (mut usernames, user_ids) = getent_passwd(&container)?;
 
