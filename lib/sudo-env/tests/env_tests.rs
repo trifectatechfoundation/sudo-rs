@@ -3,7 +3,6 @@ use sudo_cli::SudoOptions;
 use sudo_common::context::{CommandAndArguments, Context, Environment};
 use sudo_env::environment::get_target_environment;
 use sudo_system::{Group, User};
-use sudoers::Settings;
 
 const TESTS: &str = "
 > env
@@ -147,7 +146,7 @@ fn test_environment_variable_filtering() {
 
     for (cmd, expected_env) in parts {
         let options = SudoOptions::try_parse_from(cmd.split_whitespace()).unwrap();
-        let settings = Settings::default();
+        let settings = sudoers::Judgement::default();
         let context = create_test_context(&options);
         let resulting_env = get_target_environment(initial_env.clone(), &context, &settings);
 

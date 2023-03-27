@@ -7,7 +7,7 @@ use sudo_common::{
     error::Error,
 };
 use sudo_env::environment;
-use sudoers::{Authorization, Sudoers};
+use sudoers::{Authorization, Policy, Sudoers};
 
 mod diagnostic;
 mod pam;

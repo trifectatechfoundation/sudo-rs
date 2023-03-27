@@ -37,14 +37,14 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub arguments: &'a str,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Judgement {
     flags: Option<Tag>,
     settings: Settings,
 }
 
 mod policy;
-pub use policy::{Authorization, Configuration};
+pub use policy::{Authorization, Policy};
 
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
