@@ -82,7 +82,7 @@ fn negation_rejects() -> Result<()> {
 }
 
 #[test]
-fn double_negation_cancels() -> Result<()> {
+fn double_negative_is_positive() -> Result<()> {
     let env = Env("ALL !!container = (ALL:ALL) ALL")
         .hostname("container")
         .build()?;

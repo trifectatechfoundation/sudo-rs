@@ -106,7 +106,7 @@ fn many_repeated() -> Result<()> {
 }
 
 #[test]
-fn double_negation_cancels() -> Result<()> {
+fn double_negative_is_positive() -> Result<()> {
     let env = Env("!!root ALL=(ALL:ALL) NOPASSWD: ALL")
         .user(USERNAME)
         .build()?;
@@ -150,7 +150,7 @@ fn negation_excludes_group_members() -> Result<()> {
 
 #[test]
 fn negation_is_order_sensitive() -> Result<()> {
-    // the group item overrides the preceding negated item
+    // negated items at the start of a specifier list  are meaningless
     let env = Env("!ghost, %users ALL=(ALL:ALL) NOPASSWD: ALL")
         // the primary group of all new users is `users`
         .user("ferris")
