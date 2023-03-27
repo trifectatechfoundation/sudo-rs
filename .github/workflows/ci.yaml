@@ -259,11 +259,15 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "stable"
+          shared-key: "audit"
       - name: Run audit
-        uses: actions-rs/audit-check@v1
+        uses: actions-rs/cargo@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          command: audit
