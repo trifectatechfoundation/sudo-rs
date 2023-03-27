@@ -62,7 +62,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
 fn when_empty_then_as_own_group_is_allowed() -> Result<()> {
     let env = Env("ALL ALL=() NOPASSWD: ALL")
         .group(USERNAME)
-        .user(User(USERNAME).group(USERNAME))
+        .user(User(USERNAME).secondary_group(USERNAME))
         .build()?;
 
     for user in ["root", USERNAME] {

@@ -38,7 +38,7 @@ fn user_as_themselves() -> Result<()> {
 fn user_as_their_own_group() -> Result<()> {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .group(GROUPNAME)
-        .user(User(USERNAME).group(GROUPNAME))
+        .user(User(USERNAME).secondary_group(GROUPNAME))
         .build()?;
 
     Command::new("sudo")
