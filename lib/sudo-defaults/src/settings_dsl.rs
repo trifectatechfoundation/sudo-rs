@@ -56,7 +56,7 @@ macro_rules! optional {
 }
 
 macro_rules! defaults {
-    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([#$radix:expr, $range:expr])?)*) => {
+    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])?)*) => {
         pub const ALL_PARAMS: &'static [&'static str] = &[
             $(stringify!($name)),*
         ];
@@ -84,7 +84,7 @@ macro_rules! defaults {
                           let mut result = tupleify!(datum$(, restrict($negate))?).into();
                           $(
                               if let SudoDefault::Integer(_, ref mut checker) = &mut result {
-                                  *checker = |text| i128::from_str_radix(text, $radix).ok().filter(|val| $range.contains(val));
+                                  *checker = |text| i128::from_str_radix(text, 10$(*0 + $radix)?).ok().filter(|val| ($first ..= $last).contains(val));
                               }
                           )?
                           result

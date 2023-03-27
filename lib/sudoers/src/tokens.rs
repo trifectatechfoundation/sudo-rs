@@ -39,13 +39,13 @@ impl Token for Digits {
 }
 
 #[derive(Debug)]
-pub struct Decimal(pub String);
+pub struct Numeric(pub String);
 
-impl Token for Decimal {
+impl Token for Numeric {
     const MAX_LEN: usize = 38;
 
     fn construct(s: String) -> Result<Self, String> {
-        Ok(Decimal(s))
+        Ok(Numeric(s))
     }
 
     fn accept(c: char) -> bool {

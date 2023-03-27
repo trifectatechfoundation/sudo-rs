@@ -616,7 +616,7 @@ fn get_directive(
                         unrecoverable!(stream, "can't assign to boolean setting `{name}'")
                     }
                     Setting::Integer(_, checker) => {
-                        let Decimal(denotation) = expect_nonterminal(stream)?;
+                        let Numeric(denotation) = expect_nonterminal(stream)?;
                         if let Some(value) = checker(&denotation) {
                             make(Defaults(name, ConfigValue::Num(value)))
                         } else {
