@@ -17,7 +17,7 @@ pub use converse::CLIConverser;
 
 pub struct PamContext<'a, C: Converser> {
     data: Option<Pin<Box<ConverserData<C>>>>,
-    pam_conv: pam_conv,
+    appdata_ptr: *mut ConverserData<C>,
     pamh: Option<&'a mut pam_handle_t>,
     silent: bool,
     allow_null_auth_token: bool,
@@ -72,9 +72,11 @@ impl<C: Converser> PamContextBuilder<C> {
                 _marker: std::marker::PhantomPinned,
             });
 
+            let pam_conv = unsafe { data.as_mut().create_pam_conv() };
+
             let mut context = PamContext {
                 data: None,
-                pam_conv: unsafe { data.as_mut().create_pam_conv() },
+                appdata_ptr: pam_conv.appdata_ptr as *mut ConverserData<C>,
                 pamh: None,
                 silent: false,
                 allow_null_auth_token: true,
@@ -88,7 +90,7 @@ impl<C: Converser> PamContextBuilder<C> {
                 pam_start(
                     c_service_name.as_ptr(),
                     c_user_ptr,
-                    &context.pam_conv,
+                    &pam_conv,
                     &mut pamh,
                 )
             };
@@ -452,6 +454,11 @@ impl<'a, C: Converser> PamContext<'a, C> {
         unsafe { libc::free(envs as *mut libc::c_void) };
 
         Ok(res)
+    }
+
+    /// Check if anything panicked since the last call.
+    pub fn has_panicked(&self) -> bool {
+        unsafe { (*self.appdata_ptr).panicked }
     }
 }
 
