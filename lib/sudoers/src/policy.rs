@@ -36,17 +36,11 @@ impl Policy for Judgement {
     }
 
     fn env_keep(&self) -> &HashSet<String> {
-        self.settings
-            .list
-            .get("env_keep")
-            .expect("env_keep missing from settings")
+        &self.settings.list["env_keep"]
     }
 
     fn env_check(&self) -> &HashSet<String> {
-        self.settings
-            .list
-            .get("env_check")
-            .expect("env_check missing from settings")
+        &self.settings.list["env_check"]
     }
 }
 
@@ -56,11 +50,7 @@ pub trait PreJudgementPolicy {
 
 impl PreJudgementPolicy for Sudoers {
     fn secure_path(&self) -> Option<&str> {
-        let path = self
-            .settings
-            .str_value
-            .get("secure_path")
-            .expect("secure_path missing from settings");
+        let path = &self.settings.str_value["secure_path"];
         if path.is_empty() {
             None
         } else {
