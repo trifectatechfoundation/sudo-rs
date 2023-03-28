@@ -266,7 +266,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "stable"
+          shared-key: "audit"
       - name: Run audit
         uses: actions-rs/cargo@v1
         with:
