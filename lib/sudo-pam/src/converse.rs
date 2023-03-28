@@ -165,18 +165,6 @@ impl SequentialConverser for CLIConverser {
 pub(crate) struct ConverserData<C> {
     pub(crate) converser: C,
     pub(crate) panicked: bool,
-    pub(crate) _marker: std::marker::PhantomPinned,
-}
-
-impl<C: Converser> ConverserData<C> {
-    /// This function creates a pam_conv struct with the converse function for
-    /// the specific converser.
-    pub(crate) unsafe fn create_pam_conv(self: std::pin::Pin<&mut Self>) -> pam_conv {
-        pam_conv {
-            conv: Some(converse::<C>),
-            appdata_ptr: self.get_unchecked_mut() as *mut ConverserData<C> as *mut libc::c_void,
-        }
-    }
 }
 
 /// This function implements the conversation function of `pam_conv`.
@@ -375,8 +363,13 @@ mod test {
 
     impl<'a> PamConvBorrow<'a> {
         fn new<C: Converser>(data: Pin<&'a mut ConverserData<C>>) -> PamConvBorrow<'a> {
+            let appdata_ptr =
+                unsafe { data.get_unchecked_mut() as *mut ConverserData<C> as *mut libc::c_void };
             PamConvBorrow {
-                pam_conv: unsafe { data.create_pam_conv() },
+                pam_conv: pam_conv {
+                    conv: Some(converse::<C>),
+                    appdata_ptr,
+                },
                 _marker: PhantomData,
             }
         }
@@ -391,7 +384,6 @@ mod test {
         let mut hello = Box::pin(ConverserData {
             converser: "tux".to_string(),
             panicked: false,
-            _marker: std::marker::PhantomPinned,
         });
         let cookie = PamConvBorrow::new(hello.as_mut());
         let pam_conv = cookie.borrow();

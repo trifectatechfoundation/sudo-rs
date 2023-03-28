@@ -1,6 +1,5 @@
 use std::{
     ffi::{CStr, CString},
-    pin::Pin,
     time::Duration,
 };
 
@@ -65,16 +64,14 @@ impl<C: Converser> PamContextBuilder<C> {
                 None => std::ptr::null(),
             };
 
-            let mut data = Box::pin(ConverserData {
+            // this will be de-allocated explicitly in this type's drop method
+            let data_ptr = Box::into_raw(Box::new(ConverserData {
                 converser,
                 panicked: false,
-                _marker: std::marker::PhantomPinned,
-            });
-
-            let pam_conv = unsafe { data.as_mut().create_pam_conv() };
+            }));
 
             let mut context = PamContext {
-                data_ptr: Box::into_raw(unsafe { Pin::into_inner_unchecked(data) }),
+                data_ptr,
                 pamh: None,
                 silent: false,
                 allow_null_auth_token: true,
@@ -87,7 +84,10 @@ impl<C: Converser> PamContextBuilder<C> {
                 pam_start(
                     c_service_name.as_ptr(),
                     c_user_ptr,
-                    &pam_conv,
+                    &pam_conv {
+                        conv: Some(converse::converse::<C>),
+                        appdata_ptr: data_ptr as *mut libc::c_void,
+                    },
                     &mut pamh,
                 )
             };
