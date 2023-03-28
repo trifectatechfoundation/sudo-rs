@@ -26,12 +26,44 @@ pub fn hostname() -> String {
 }
 
 /// set target user and groups (uid, gid, additional groups) for a command
-pub fn set_target_user(cmd: &mut std::process::Command, target_user: User, target_group: Group) {
+pub fn set_target_user(
+    cmd: &mut std::process::Command,
+    current_user: User,
+    target_user: User,
+    target_group: Group,
+) {
     use std::os::unix::process::CommandExt;
 
-    let uid = target_user.uid;
-    let gid = target_group.gid;
-    let groups = target_user.groups.unwrap_or_default();
+    // means that we are using the default user because `-u` was not passed.
+    let user_is_default = target_user.is_default;
+    // means that we are using the principal gid of the target user because `-g` was not passed or
+    // was passed with the principal gid.
+    let group_is_default = target_user.uid == target_group.gid;
+
+    let (uid, gid, groups) = if group_is_default {
+        // no `-g`: We just set the uid, gid and groups using the target user.
+        (
+            target_user.uid,
+            target_user.gid,
+            target_user.groups.unwrap_or_default(),
+        )
+    } else if user_is_default {
+        //  `-g` and no `-u`: The set uid must be the one of the current user and the set groups
+        //  must be the ones of the current user extended with the target group gid.
+        let mut groups = current_user.groups.unwrap_or_default();
+        if !groups.contains(&target_group.gid) {
+            groups.push(target_group.gid);
+        }
+        (current_user.uid, target_group.gid, groups)
+    } else {
+        // `-g` and `-u`: The set uid must be the one of the target user and the set groups must be
+        // the ones of the target group extended with the target group gid.
+        let mut groups = target_user.groups.unwrap_or_default();
+        if !groups.contains(&target_group.gid) {
+            groups.push(target_group.gid);
+        }
+        (target_user.uid, target_group.gid, groups)
+    };
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
@@ -70,6 +102,7 @@ pub struct User {
     pub shell: String,
     pub passwd: String,
     pub groups: Option<Vec<libc::gid_t>>,
+    pub is_default: bool,
 }
 
 impl User {
@@ -83,6 +116,7 @@ impl User {
             shell: unsafe { string_from_ptr(pwd.pw_shell) },
             passwd: unsafe { string_from_ptr(pwd.pw_passwd) },
             groups: None,
+            is_default: false,
         }
     }
 

@@ -105,6 +105,7 @@ impl Command {
 pub struct EnvBuilder {
     files: HashMap<AbsolutePath, TextFile>,
     groups: HashMap<Groupname, Group>,
+    hostname: Option<String>,
     users: HashMap<Username, User>,
 }
 
@@ -164,6 +165,12 @@ impl EnvBuilder {
         self
     }
 
+    /// Sets the hostname of the container to the specified string
+    pub fn hostname(&mut self, hostname: impl AsRef<str>) -> &mut Self {
+        self.hostname = Some(hostname.as_ref().to_string());
+        self
+    }
+
     /// builds the test environment
     ///
     /// # Panics
@@ -178,7 +185,7 @@ impl EnvBuilder {
             docker::build_base_image().expect("fatal error: could not build the base Docker image")
         });
 
-        let container = Container::new(base_image())?;
+        let container = Container::new_with_hostname(base_image(), self.hostname.as_deref())?;
 
         let (mut usernames, user_ids) = getent_passwd(&container)?;
 
@@ -701,6 +708,18 @@ mod tests {
             .stdout()?;
         let actual = stdout.split(':').nth(2);
         assert_eq!(Some(expected.to_string().as_str()), actual);
+
+        Ok(())
+    }
+
+    #[test]
+    fn setting_hostname_works() -> Result<()> {
+        let expected = "container";
+
+        let env = EnvBuilder::default().hostname(expected).build()?;
+
+        let actual = Command::new("hostname").exec(&env)?.stdout()?;
+        assert_eq!(expected, actual);
 
         Ok(())
     }

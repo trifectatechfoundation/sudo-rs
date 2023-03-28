@@ -102,14 +102,19 @@ fn resolve_current_user() -> Result<User, Error> {
 }
 
 fn resolve_target_user(target_name_or_id: &Option<String>) -> Result<User, Error> {
+    let is_default = target_name_or_id.is_none();
     let target_name_or_id = target_name_or_id.as_deref().unwrap_or("root");
 
-    match NameOrId::parse(target_name_or_id) {
+    let mut user = match NameOrId::parse(target_name_or_id) {
         Some(NameOrId::Name(name)) => User::from_name(name)?,
         Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
         _ => None,
     }
-    .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))
+    .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))?;
+
+    user.is_default = is_default;
+
+    Ok(user)
 }
 
 fn resolve_target_group(
@@ -198,6 +203,7 @@ mod tests {
             shell: "/bin/sh".to_string(),
             passwd: String::new(),
             groups: None,
+            is_default: false,
         };
 
         assert_eq!(
