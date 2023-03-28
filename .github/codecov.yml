@@ -1,5 +1,6 @@
 ignore:
  - "test-binaries"
+ - "test-framework"
 coverage:
   status:
     project:
