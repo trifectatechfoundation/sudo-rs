@@ -8,7 +8,7 @@ use std::{
 
 use tempfile::NamedTempFile;
 
-use crate::{Result, SudoUnderTest, BASE_IMAGE};
+use crate::{base_image, Result, SudoUnderTest};
 
 pub use self::command::{Child, Command, Output};
 
@@ -106,7 +106,7 @@ pub fn build_base_image() -> Result<()> {
     let repo_root = repo_root();
     let mut cmd = StdCommand::new("docker");
 
-    cmd.args(["build", "-t", BASE_IMAGE]);
+    cmd.args(["build", "-t", base_image()]);
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {
