@@ -37,33 +37,14 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub arguments: &'a str,
 }
 
-/// Data types that represent what the "terms and conditions" are
-/// (this is currently a stub and should later be turned into a trait and moved to a sudo-policies crate)
-#[derive(Debug)]
-pub struct Policy {
+#[derive(Debug, Default)]
+pub struct Judgement {
     flags: Option<Tag>,
-    pub settings: Settings, // TODO: hide behind interface
+    settings: Settings,
 }
 
-pub enum Authorization {
-    Required,
-    Passed,
-    Forbidden,
-}
-
-impl Policy {
-    pub fn authorization(&self) -> Authorization {
-        if let Some(tag) = &self.flags {
-            if !tag.passwd {
-                Authorization::Passed
-            } else {
-                Authorization::Required
-            }
-        } else {
-            Authorization::Forbidden
-        }
-    }
-}
+mod policy;
+pub use policy::{Authorization, Policy};
 
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
@@ -77,7 +58,7 @@ impl Sudoers {
         am_user: &User,
         on_host: &str,
         request: Request<User, Group>,
-    ) -> Policy {
+    ) -> Judgement {
         // exception: if user is root or does not switch users, NOPASSWD is implied
         let skip_passwd =
             am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));
@@ -89,7 +70,7 @@ impl Sudoers {
             }
         }
 
-        Policy {
+        Judgement {
             flags,
             settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
         }

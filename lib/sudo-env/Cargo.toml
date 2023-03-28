@@ -11,7 +11,7 @@ build = "build.rs"
 [dependencies]
 sudo-system.workspace = true
 sudo-common.workspace = true
+sudoers.workspace = true
 
 [dev-dependencies]
 sudo-cli.workspace = true
-sudoers.workspace = true
