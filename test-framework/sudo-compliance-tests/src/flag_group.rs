@@ -28,7 +28,6 @@ fn changes_the_group_id() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn adds_group_to_groups_output() -> Result<()> {
     let extra_group = "rustaceans";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
