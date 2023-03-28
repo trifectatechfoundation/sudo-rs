@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use sudo_cli::SudoOptions;
-use sudo_common::context::{CommandAndArguments, Context, Environment};
+use sudo_common::{CommandAndArguments, Context, Environment};
 use sudo_env::environment::get_target_environment;
 use sudo_system::{Group, User};
 
@@ -74,7 +74,9 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
 }
 
 fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
-    let command = CommandAndArguments::try_from(sudo_options.external_args.as_slice()).unwrap();
+    let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    let command =
+        CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), path).unwrap();
 
     let current_user = User {
         uid: 1000,

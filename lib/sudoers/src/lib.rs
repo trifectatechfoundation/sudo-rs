@@ -44,7 +44,8 @@ pub struct Judgement {
 }
 
 mod policy;
-pub use policy::{Authorization, Policy};
+
+pub use policy::{Authorization, Policy, PreJudgementPolicy};
 
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {

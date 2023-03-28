@@ -1,3 +1,5 @@
+use crate::Sudoers;
+
 use super::Judgement;
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
 /// permission check.
@@ -45,5 +47,24 @@ impl Policy for Judgement {
             .list
             .get("env_check")
             .expect("env_check missing from settings")
+    }
+}
+
+pub trait PreJudgementPolicy {
+    fn secure_path(&self) -> Option<&str>;
+}
+
+impl PreJudgementPolicy for Sudoers {
+    fn secure_path(&self) -> Option<&str> {
+        let path = self
+            .settings
+            .str_value
+            .get("secure_path")
+            .expect("secure_path missing from settings");
+        if path.is_empty() {
+            None
+        } else {
+            Some(path)
+        }
     }
 }
