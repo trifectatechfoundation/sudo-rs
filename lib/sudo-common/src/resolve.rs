@@ -65,6 +65,18 @@ pub(crate) fn resolve_target_group(
     ))
 }
 
+/// Check whether a path points to a regular file and any executable flag is set
+fn is_valid_executable(path: &PathBuf) -> bool {
+    if path.is_file() {
+        match fs::metadata(path) {
+            Ok(meta) => meta.mode() & 0o111 != 0,
+            _ => false,
+        }
+    } else {
+        false
+    }
+}
+
 /// Resolve a executable name based in the PATH environment variable
 /// When resolving a path, this code checks whether the target file is
 /// a regular file and has any executable bits set. It does not specifically
@@ -90,27 +102,18 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
         })
         // construct a possible executable absolute path candidate
         .map(|path| PathBuf::from(path).join(command))
-        // check whether the candidate is a regular file and any execitable flag is set
-        .find(|path| {
-            if path.is_file() {
-                match fs::metadata(path) {
-                    Ok(meta) => meta.mode() & 0o111 != 0,
-                    _ => false,
-                }
-            } else {
-                false
-            }
-        })
-        // if no no execitable could be resolved try the current directory
+        // check whether the candidate is a regular file and any executable flag is set
+        .find(is_valid_executable)
+        // if no no executable could be resolved try the current directory
         // if it was present in the PATH
         .or_else(|| {
             if resolve_current_path {
                 env::current_dir()
                     .ok()
                     .map(|dir| dir.join(command))
-                    .and_then(|command| {
-                        if command.is_file() {
-                            Some(command)
+                    .and_then(|path| {
+                        if is_valid_executable(&path) {
+                            Some(path)
                         } else {
                             None
                         }
