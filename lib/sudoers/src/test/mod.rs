@@ -225,6 +225,11 @@ fn permission_test() {
     pass!(["%#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
     FAIL!(["#1466 server=(ALL:ALL) ALL"], "root" => root(), "server"; "/bin/hello");
     FAIL!(["%#1466 server=(ALL:ALL) ALL"], "root" => root(), "server"; "/bin/hello");
+    pass!(["#1466,#1234,foo server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    pass!(["#1234,foo,#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    pass!(["foo,#1234,#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    FAIL!(["foo,#1234,#1366 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    FAIL!(["#1366,#1234,foo server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
     pass!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
     FAIL!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, other }, "server"; "/bin/foo");
     pass!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, user }, "server"; "/bin/foo");
