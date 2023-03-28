@@ -89,7 +89,6 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
     let mut resolve_current_path = false;
 
     path.split(':')
-        .into_iter()
         // register whether to look in the current directory, but first check the other PATH segments
         .filter(|&path| {
             if path.is_empty() || path == "." {

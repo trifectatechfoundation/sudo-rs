@@ -51,11 +51,20 @@ impl Policy for Judgement {
 }
 
 pub trait PreJudgementPolicy {
-    fn secure_path(&self) -> Option<&String>;
+    fn secure_path(&self) -> Option<&str>;
 }
 
 impl PreJudgementPolicy for Sudoers {
-    fn secure_path(&self) -> Option<&String> {
-        self.settings.str_value.get("secure_path")
+    fn secure_path(&self) -> Option<&str> {
+        let path = self
+            .settings
+            .str_value
+            .get("secure_path")
+            .expect("secure_path missing from settings");
+        if path.is_empty() {
+            None
+        } else {
+            Some(path)
+        }
     }
 }
