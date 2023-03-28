@@ -311,7 +311,7 @@ impl Default for Settings {
                 SudoDefault::Enum(OptTuple { default, .. }) => {
                     this.enum_value.insert(key.to_string(), default);
                 }
-                SudoDefault::Integer(OptTuple { default, .. }) => {
+                SudoDefault::Integer(OptTuple { default, .. }, _) => {
                     this.int_value.insert(key.to_string(), default);
                 }
                 SudoDefault::List(default) => {

@@ -1,10 +1,9 @@
 // FUTURE IDEA: use a representation that allows for more Rust-type structure rather than passing
 // strings around; some settings in sudoers file are more naturally represented like that, such as
 // "verifypw" and "logfile"
-#[derive(Debug)]
 pub enum SudoDefault {
     Flag(bool),
-    Integer(OptTuple<i128>),
+    Integer(OptTuple<i128>, fn(&str) -> Option<i128>),
     Text(OptTuple<&'static str>),
     List(&'static [&'static str]),
     Enum(OptTuple<StrEnum<'static>>),
@@ -32,7 +31,7 @@ defaults! {
     visiblepw                 = false
 
     passwd_tries              = 3
-    umask                     = 0o22 (!= 0o777)
+    umask                     = 0o22 (!= 0o777)    [0..=0o777; radix: 8]
 
     editor                    = "/usr/bin/editor"
     lecture_file              = ""
@@ -82,8 +81,8 @@ mod test {
         test! { match_group_by_gid => Flag(false) };
         test! { use_pty => Flag(false) };
         test! { visiblepw => Flag(false) };
-        test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }) };
-        test! { umask => Integer(OptTuple { default: 18, negated: Some(511) }) };
+        test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }, _) };
+        test! { umask => Integer(OptTuple { default: 18, negated: Some(511) }, _) };
         test! { editor => Text(OptTuple { default: "/usr/bin/editor", negated: None }) };
         test! { lecture_file => Text(_) };
         test! { secure_path => Text(OptTuple { default: "", negated: Some("") }) };

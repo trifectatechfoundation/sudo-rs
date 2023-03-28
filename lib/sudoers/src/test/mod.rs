@@ -296,8 +296,8 @@ fn default_set_test() {
         "Defaults !env_check",
         "Defaults env_check += \"FOO\"",
         "Defaults env_check += \"XYZZY\"",
-        //"Defaults umask = 0123",
-        //"Defaults passwd_tries = 5",
+        "Defaults umask = 0123",
+        "Defaults passwd_tries = 5",
         "Defaults lecture_file = \"/etc/sudoers\"",
         "Defaults secure_path = /etc"
     ]);
@@ -314,8 +314,14 @@ fn default_set_test() {
     );
     assert_eq!(settings.str_value["lecture_file"], "/etc/sudoers");
     assert_eq!(settings.str_value["secure_path"], "/etc");
-    //assert_eq!(settings.int_value["umask"], 0o123);
-    //assert_eq!(settings.int_value["passwd_tries"], 5);
+    assert_eq!(settings.int_value["umask"], 0o123);
+    assert_eq!(settings.int_value["passwd_tries"], 5);
+
+    assert!(parse_string::<Sudo>("Defaults umask = 789").is_err());
+    assert!(parse_string::<Sudo>("Defaults umask = 1234").is_err());
+    assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
+    assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
+    assert!(parse_string::<Sudo>("Defaults verifypw = never").is_ok());
 }
 
 #[test]

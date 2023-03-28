@@ -15,7 +15,7 @@ mod names {
         const DESCRIPTION: &'static str = "number";
     }
 
-    impl UserFriendly for tokens::Decimal {
+    impl UserFriendly for tokens::Numeric {
         const DESCRIPTION: &'static str = "number";
     }
 
