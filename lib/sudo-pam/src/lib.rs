@@ -16,8 +16,7 @@ mod error;
 pub use converse::CLIConverser;
 
 pub struct PamContext<'a, C: Converser> {
-    data: Option<Pin<Box<ConverserData<C>>>>,
-    appdata_ptr: *mut ConverserData<C>,
+    data_ptr: *mut ConverserData<C>,
     pamh: Option<&'a mut pam_handle_t>,
     silent: bool,
     allow_null_auth_token: bool,
@@ -75,15 +74,13 @@ impl<C: Converser> PamContextBuilder<C> {
             let pam_conv = unsafe { data.as_mut().create_pam_conv() };
 
             let mut context = PamContext {
-                data: None,
-                appdata_ptr: pam_conv.appdata_ptr as *mut ConverserData<C>,
+                data_ptr: Box::into_raw(unsafe { Pin::into_inner_unchecked(data) }),
                 pamh: None,
                 silent: false,
                 allow_null_auth_token: true,
                 last_pam_status: None,
                 session_started: false,
             };
-            context.data = Some(data);
 
             let mut pamh = std::ptr::null_mut();
             let res = unsafe {
@@ -458,7 +455,7 @@ impl<'a, C: Converser> PamContext<'a, C> {
 
     /// Check if anything panicked since the last call.
     pub fn has_panicked(&self) -> bool {
-        unsafe { (*self.appdata_ptr).panicked }
+        unsafe { (*self.data_ptr).panicked }
     }
 }
 
@@ -471,6 +468,8 @@ impl<'a> PamContext<'a, CLIConverser> {
 
 impl<'a, C: Converser> Drop for PamContext<'a, C> {
     fn drop(&mut self) {
+        // data_ptr's pointee is de-allocated in this scope
+        let _data = unsafe { Box::from_raw(self.data_ptr) };
         if self.pamh.is_some() {
             if !self.session_started {
                 let _ = self.close_session();
