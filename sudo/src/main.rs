@@ -45,9 +45,18 @@ fn build_context<'a>(
     sudoers: &impl PreJudgementPolicy,
 ) -> Result<Context<'a>, Error> {
     let env_path = env::var("PATH").unwrap_or_default();
-    let path = sudoers.secure_path().unwrap_or(&env_path);
+    let path = match sudoers.secure_path().cloned() {
+        Some(path) => {
+            if path.is_empty() {
+                env_path
+            } else {
+                path
+            }
+        }
+        _ => env_path,
+    };
 
-    Context::build_from_options(sudo_options, path)
+    Context::build_from_options(sudo_options, &path)
 }
 
 /// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
