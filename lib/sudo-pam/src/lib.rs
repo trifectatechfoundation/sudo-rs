@@ -1,6 +1,5 @@
 use std::{
     ffi::{CStr, CString},
-    pin::Pin,
     time::Duration,
 };
 
@@ -16,8 +15,7 @@ mod error;
 pub use converse::CLIConverser;
 
 pub struct PamContext<'a, C: Converser> {
-    data: Pin<Box<ConverserData<C>>>,
-    pam_conv: Option<pam_conv>,
+    data_ptr: *mut ConverserData<C>,
     pamh: Option<&'a mut pam_handle_t>,
     silent: bool,
     allow_null_auth_token: bool,
@@ -66,28 +64,30 @@ impl<C: Converser> PamContextBuilder<C> {
                 None => std::ptr::null(),
             };
 
-            let data = ConverserData {
+            // this will be de-allocated explicitly in this type's drop method
+            let data_ptr = Box::into_raw(Box::new(ConverserData {
                 converser,
                 panicked: false,
-            };
+            }));
 
             let mut context = PamContext {
-                data: Box::pin(data),
-                pam_conv: None,
+                data_ptr,
                 pamh: None,
                 silent: false,
                 allow_null_auth_token: true,
                 last_pam_status: None,
                 session_started: false,
             };
-            context.pam_conv = Some(unsafe { context.data.as_mut().create_pam_conv() });
 
             let mut pamh = std::ptr::null_mut();
             let res = unsafe {
                 pam_start(
                     c_service_name.as_ptr(),
                     c_user_ptr,
-                    &context.pam_conv.unwrap(),
+                    &pam_conv {
+                        conv: Some(converse::converse::<C>),
+                        appdata_ptr: data_ptr as *mut libc::c_void,
+                    },
                     &mut pamh,
                 )
             };
@@ -452,6 +452,11 @@ impl<'a, C: Converser> PamContext<'a, C> {
 
         Ok(res)
     }
+
+    /// Check if anything panicked since the last call.
+    pub fn has_panicked(&self) -> bool {
+        unsafe { (*self.data_ptr).panicked }
+    }
 }
 
 impl<'a> PamContext<'a, CLIConverser> {
@@ -463,6 +468,8 @@ impl<'a> PamContext<'a, CLIConverser> {
 
 impl<'a, C: Converser> Drop for PamContext<'a, C> {
     fn drop(&mut self) {
+        // data_ptr's pointee is de-allocated in this scope
+        let _data = unsafe { Box::from_raw(self.data_ptr) };
         if self.pamh.is_some() {
             if !self.session_started {
                 let _ = self.close_session();
@@ -479,6 +486,5 @@ impl<'a, C: Converser> Drop for PamContext<'a, C> {
                 ) | PAM_DATA_SILENT as i32
             };
         }
-        self.pam_conv = None;
     }
 }

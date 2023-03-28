@@ -6,6 +6,7 @@ use crate::{error::PamResult, PamErrorType};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
+#[derive(Clone, Copy)]
 pub enum PamMessageStyle {
     /// Prompt for input using a message. The input should considered secret
     /// and should be hidden from view.
@@ -166,17 +167,6 @@ pub(crate) struct ConverserData<C> {
     pub(crate) panicked: bool,
 }
 
-impl<C: Converser> ConverserData<C> {
-    /// This function creates a pam_conv struct with the converse function for
-    /// the specific converser.
-    pub(crate) unsafe fn create_pam_conv(self: std::pin::Pin<&mut Self>) -> pam_conv {
-        pam_conv {
-            conv: Some(converse::<C>),
-            appdata_ptr: self.get_unchecked_mut() as *mut ConverserData<C> as *mut libc::c_void,
-        }
-    }
-}
-
 /// This function implements the conversation function of `pam_conv`.
 ///
 /// This function should always be called with an appdata_ptr that implements
@@ -203,7 +193,7 @@ pub(crate) extern "C" fn converse<C: Converser>(
             messages: Vec::with_capacity(num_msg as usize),
         };
         for i in 0..num_msg as isize {
-            let message: &pam_message = unsafe { &*((*msg).offset(i)) };
+            let message: &pam_message = unsafe { &**msg.offset(i) };
 
             let msg = unsafe { sudo_cutils::string_from_ptr(message.msg) };
             let style = if let Some(style) = PamMessageStyle::from_int(message.msg_style) {
@@ -272,4 +262,168 @@ pub(crate) extern "C" fn converse<C: Converser>(
         }
     };
     res.as_int()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::pin::Pin;
+    use PamMessageStyle::*;
+
+    impl SequentialConverser for String {
+        fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
+            Ok(format!("{self} says {msg}"))
+        }
+
+        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
+            Ok(format!("{self}s secret is {msg}"))
+        }
+
+        fn handle_error(&self, msg: &str) -> PamResult<()> {
+            panic!("{msg}")
+        }
+
+        fn handle_info(&self, _msg: &str) -> PamResult<()> {
+            Ok(())
+        }
+    }
+
+    // essentially do the inverse of the "conversation function"
+    fn dummy_pam(msgs: &[PamMessage], talkie: &pam_conv) -> Vec<Option<String>> {
+        let pam_msgs = msgs
+            .iter()
+            .map(|PamMessage { msg, style, .. }| pam_message {
+                msg: unsafe { sudo_cutils::into_leaky_cstring(msg) },
+                msg_style: *style as i32,
+            })
+            .rev()
+            .collect::<Vec<pam_message>>();
+        let mut ptrs = pam_msgs
+            .iter()
+            .map(|x| x as *const pam_message)
+            .rev()
+            .collect::<Vec<*const pam_message>>();
+
+        let mut raw_response = std::ptr::null_mut::<pam_response>();
+        let conv_err = unsafe {
+            talkie.conv.expect("non-null fn ptr")(
+                ptrs.len() as i32,
+                ptrs.as_mut_ptr(),
+                &mut raw_response,
+                talkie.appdata_ptr,
+            )
+        };
+
+        // deallocate the leaky strings
+        for rec in ptrs {
+            unsafe { libc::free((*rec).msg as *mut _) }
+        }
+        if conv_err != 0 {
+            return vec![];
+        }
+
+        let result = msgs
+            .iter()
+            .enumerate()
+            .map(|(i, _)| unsafe {
+                let ptr = raw_response.add(i);
+                if (*ptr).resp.is_null() {
+                    None
+                } else {
+                    // "The resp_retcode member of this struct is unused and should be set to zero."
+                    assert_eq!((*ptr).resp_retcode, 0);
+                    let response = sudo_cutils::string_from_ptr((*ptr).resp);
+                    libc::free((*ptr).resp as *mut _);
+                    Some(response)
+                }
+            })
+            .collect();
+
+        unsafe { libc::free(raw_response as *mut _) };
+        result
+    }
+
+    fn msg(style: PamMessageStyle, msg: &str) -> PamMessage {
+        let msg = msg.to_string();
+        PamMessage {
+            style,
+            msg,
+            response: None,
+        }
+    }
+
+    // sanity check on the test cases; lib.rs is expected to manage the lifetime of the pointer
+    // inside the pam_conv object explicitly.
+
+    use std::marker::PhantomData;
+    struct PamConvBorrow<'a> {
+        pam_conv: pam_conv,
+        _marker: std::marker::PhantomData<&'a ()>,
+    }
+
+    impl<'a> PamConvBorrow<'a> {
+        fn new<C: Converser>(data: Pin<&'a mut ConverserData<C>>) -> PamConvBorrow<'a> {
+            let appdata_ptr =
+                unsafe { data.get_unchecked_mut() as *mut ConverserData<C> as *mut libc::c_void };
+            PamConvBorrow {
+                pam_conv: pam_conv {
+                    conv: Some(converse::<C>),
+                    appdata_ptr,
+                },
+                _marker: PhantomData,
+            }
+        }
+
+        fn borrow(&self) -> &pam_conv {
+            &self.pam_conv
+        }
+    }
+
+    #[test]
+    fn pam_gpt() {
+        let mut hello = Box::pin(ConverserData {
+            converser: "tux".to_string(),
+            panicked: false,
+        });
+        let cookie = PamConvBorrow::new(hello.as_mut());
+        let pam_conv = cookie.borrow();
+
+        assert_eq!(dummy_pam(&[], pam_conv), vec![]);
+
+        assert_eq!(
+            dummy_pam(&[msg(PromptEchoOn, "hello")], pam_conv),
+            vec![Some("tux says hello".to_string())]
+        );
+
+        assert_eq!(
+            dummy_pam(&[msg(PromptEchoOff, "fish")], pam_conv),
+            vec![Some("tuxs secret is fish".to_string())]
+        );
+
+        assert_eq!(dummy_pam(&[msg(TextInfo, "mars")], pam_conv), vec![None]);
+
+        assert_eq!(
+            dummy_pam(
+                &[
+                    msg(PromptEchoOff, "banging the rocks together"),
+                    msg(TextInfo, ""),
+                    msg(PromptEchoOn, ""),
+                ],
+                pam_conv
+            ),
+            vec![
+                Some("tuxs secret is banging the rocks together".to_string()),
+                None,
+                Some("tux says ".to_string()),
+            ]
+        );
+
+        //assert!(!hello.panicked); // not allowed by borrow checker
+        let real_hello = unsafe { &mut *(pam_conv.appdata_ptr as *mut ConverserData<String>) };
+        assert!(!real_hello.panicked);
+
+        assert_eq!(dummy_pam(&[msg(ErrorMessage, "oops")], pam_conv), vec![]);
+
+        assert!(hello.panicked); // allowed now
+    }
 }

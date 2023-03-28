@@ -180,3 +180,17 @@ pub(crate) fn pam_err(err: libc::c_int, handle: *const pam_handle_t) -> Result<(
         Err(PamError::from_pam(err, handle))
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::PamErrorType;
+
+    #[test]
+    fn isomorphy() {
+        for i in -100..100 {
+            let pam = PamErrorType::from_int(i);
+            assert_eq!(pam.as_int(), i);
+            assert_eq!(PamErrorType::from_int(pam.as_int()), pam);
+        }
+    }
+}
