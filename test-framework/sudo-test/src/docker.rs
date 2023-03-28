@@ -8,7 +8,7 @@ use std::{
 
 use tempfile::NamedTempFile;
 
-use crate::{Result, SudoUnderTest, BASE_IMAGE};
+use crate::{base_image, Result, SudoUnderTest};
 
 pub use self::command::{Child, Command, Output};
 
@@ -21,11 +21,18 @@ pub struct Container {
 }
 
 impl Container {
-    pub fn new(image: &str) -> Result<Self> {
+    #[cfg(test)]
+    fn new(image: &str) -> Result<Self> {
+        Self::new_with_hostname(image, None)
+    }
+
+    pub fn new_with_hostname(image: &str, hostname: Option<&str>) -> Result<Self> {
         let mut docker_run = StdCommand::new("docker");
-        docker_run
-            .args(["run", "-d", "--rm", image])
-            .args(DOCKER_RUN_COMMAND);
+        docker_run.args(["run", "--detach"]);
+        if let Some(hostname) = hostname {
+            docker_run.args(["--hostname", hostname]);
+        }
+        docker_run.args(["--rm", image]).args(DOCKER_RUN_COMMAND);
         let id = run(&mut docker_run, None)?.stdout()?;
         validate_docker_id(&id, &docker_run)?;
 
@@ -99,7 +106,7 @@ pub fn build_base_image() -> Result<()> {
     let repo_root = repo_root();
     let mut cmd = StdCommand::new("docker");
 
-    cmd.args(["build", "-t", BASE_IMAGE]);
+    cmd.args(["build", "-t", base_image()]);
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {

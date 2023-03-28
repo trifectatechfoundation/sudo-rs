@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 
-use sudo_common::context::{CommandAndArguments, Configuration, Context, Environment};
+use sudo_common::context::{CommandAndArguments, Context, Environment};
 use sudo_system::PATH_MAX;
+use sudoers::Policy;
 
 use crate::wildcard_match::wildcard_match;
 
@@ -105,7 +106,7 @@ fn in_table(needle: &str, haystack: &HashSet<String>) -> bool {
 }
 
 /// Determine whether a specific environment variable should be kept
-fn should_keep(key: &str, value: &str, cfg: &impl Configuration) -> bool {
+fn should_keep(key: &str, value: &str, cfg: &impl Policy) -> bool {
     if value.starts_with("()") {
         return false;
     }
@@ -137,7 +138,7 @@ fn should_keep(key: &str, value: &str, cfg: &impl Configuration) -> bool {
 pub fn get_target_environment(
     current_env: Environment,
     context: &Context,
-    settings: &impl Configuration,
+    settings: &impl Policy,
 ) -> Environment {
     let mut environment = current_env
         .into_iter()
@@ -152,7 +153,7 @@ pub fn get_target_environment(
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use sudo_common::context::Configuration;
+    use sudoers::Policy;
 
     use crate::environment::{is_safe_tz, should_keep, PATH_ZONEINFO};
 
@@ -161,7 +162,7 @@ mod tests {
         check: HashSet<String>,
     }
 
-    impl Configuration for TestConfiguration {
+    impl Policy for TestConfiguration {
         fn env_keep(&self) -> &HashSet<String> {
             &self.keep
         }

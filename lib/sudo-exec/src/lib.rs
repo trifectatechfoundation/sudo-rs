@@ -31,7 +31,12 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
     // reset env and set filtered environment
     command.args(ctx.command.arguments).env_clear().envs(env);
     // set target user and groups
-    set_target_user(&mut command, ctx.target_user, ctx.target_group);
+    set_target_user(
+        &mut command,
+        ctx.current_user,
+        ctx.target_user,
+        ctx.target_group,
+    );
     // spawn and exec to command
     let mut child = command.spawn()?;
 

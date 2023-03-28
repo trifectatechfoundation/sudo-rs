@@ -39,19 +39,17 @@ impl Token for Digits {
 }
 
 #[derive(Debug)]
-pub struct Decimal(pub i32);
+pub struct Numeric(pub String);
 
-impl Token for Decimal {
+impl Token for Numeric {
+    const MAX_LEN: usize = 38;
+
     fn construct(s: String) -> Result<Self, String> {
-        Ok(Decimal(s.parse().unwrap()))
+        Ok(Numeric(s))
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_digit()
-    }
-
-    fn accept_1st(c: char) -> bool {
-        c.is_ascii_digit() || "+-".contains(c)
+        c.is_ascii_hexdigit()
     }
 }
 

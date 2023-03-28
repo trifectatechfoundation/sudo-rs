@@ -2,6 +2,7 @@ Defaults	env_reset
 Defaults	env_keep = "AAP NOOT MIES"
 Defaults	env_keep += "MIES WIM ZUS JET" * AAP
 Defaults	env_keep -= "AAP NOOT ZUS JET"
+Defaults	umask=778
 
 Defaults	mail_badpass
 Defaults	secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"

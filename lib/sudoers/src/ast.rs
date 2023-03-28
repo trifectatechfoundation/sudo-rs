@@ -312,7 +312,10 @@ impl Parse for ProtoCommandSpec {
                 "sha256" => 256,
                 "sha384" => 384,
                 "sha512" => 512,
-                "sudoedit" => todo!(), // note: special behaviour of forward slashes in wildcards, tread carefully
+                "sudoedit" => {
+                    // note: special behaviour of forward slashes in wildcards, tread carefully
+                    unrecoverable!(stream, "sudoedit is not yet supported");
+                }
                 _ => unrecoverable!(
                     pos = start_pos,
                     stream,
@@ -583,9 +586,12 @@ fn get_directive(
                 Some(Setting::Enum(OptTuple {
                     negated: Some(val), ..
                 })) => ConfigValue::Enum(val),
-                Some(Setting::Integer(OptTuple {
-                    negated: Some(val), ..
-                })) => ConfigValue::Num(val),
+                Some(Setting::Integer(
+                    OptTuple {
+                        negated: Some(val), ..
+                    },
+                    _checker,
+                )) => ConfigValue::Num(val),
                 _ => unrecoverable!(
                     pos = value_pos,
                     stream,
@@ -604,11 +610,23 @@ fn get_directive(
             } else if is_syntax('-', stream)? {
                 list_items(Mode::Del, name, cfg, stream)
             } else if is_syntax('=', stream)? {
+                let value_pos = stream.get_pos();
                 match cfg {
                     Setting::Flag(_) => {
                         unrecoverable!(stream, "can't assign to boolean setting `{name}'")
                     }
-                    Setting::Integer(_) => todo!(),
+                    Setting::Integer(_, checker) => {
+                        let Numeric(denotation) = expect_nonterminal(stream)?;
+                        if let Some(value) = checker(&denotation) {
+                            make(Defaults(name, ConfigValue::Num(value)))
+                        } else {
+                            unrecoverable!(
+                                pos = value_pos,
+                                stream,
+                                "`{denotation}' is not a valid value for {name}"
+                            );
+                        }
+                    }
                     Setting::List(_) => {
                         let items = parse_vars(stream)?;
                         make(Defaults(name, ConfigValue::List(Mode::Set, items)))
@@ -618,10 +636,13 @@ fn get_directive(
                         make(Defaults(name, ConfigValue::Text(text)))
                     }
                     Setting::Enum(sudo_defaults::OptTuple { default: key, .. }) => {
-                        let value_pos = stream.get_pos();
                         let text = text_item(stream)?;
                         let Some(value) = key.alt(&text) else {
-                            unrecoverable!(pos = value_pos, stream, "`{text}' is not a valid value for {name}");
+                            unrecoverable!(
+                                pos = value_pos,
+                                stream,
+                                "`{text}' is not a valid value for {name}"
+                            );
                         };
                         make(Defaults(name, ConfigValue::Enum(value)))
                     }
