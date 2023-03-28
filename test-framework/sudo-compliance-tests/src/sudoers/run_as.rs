@@ -168,7 +168,6 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn when_specific_group_then_as_that_group_is_allowed() -> Result<()> {
     let env = Env(format!("ALL ALL=(:{GROUPNAME}) NOPASSWD: ALL"))
         .user(USERNAME)
