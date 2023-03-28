@@ -1,13 +1,12 @@
 #![forbid(unsafe_code)]
 
+use std::env;
+
 use pam::authenticate;
 use sudo_cli::SudoOptions;
-use sudo_common::{
-    context::{Context, Environment},
-    error::Error,
-};
+use sudo_common::{Context, Environment, Error};
 use sudo_env::environment;
-use sudoers::{Authorization, Policy, Sudoers};
+use sudoers::{Authorization, Policy, PreJudgementPolicy, Sudoers};
 
 mod diagnostic;
 mod pam;
@@ -40,34 +39,46 @@ fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Judgement {
     )
 }
 
+/// Resolve the path to use and build a context object from the options
+fn build_context<'a>(
+    sudo_options: &'a SudoOptions,
+    sudoers: &impl PreJudgementPolicy,
+) -> Result<Context<'a>, Error> {
+    let env_path = env::var("PATH").unwrap_or_default();
+    let path = sudoers.secure_path().unwrap_or(&env_path);
+
+    Context::build_from_options(sudo_options, path)
+}
+
+/// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
+fn unstable_warning() {
+    let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
+
+    if check_var != "I accept that my system may break unexpectedly" {
+        eprintln!(
+            "WARNING!
+Sudo-rs is in the early stages of development and could potentially break your system.
+We recommend that you do not run this on any production environment. To turn off this
+warning and start using sudo-rs set the environment variable SUDO_RS_IS_UNSTABLE to
+the value `I accept that my system may break unexpectedly`. If you are unsure how to
+do this then this software is not suited for you at this time."
+        );
+
+        std::process::exit(1);
+    }
+}
+
 fn main() -> Result<(), Error> {
     // parse cli options
     let sudo_options = SudoOptions::parse();
 
-    let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
-
-    if check_var != "I accept that my system may break unexpectedly" {
-        eprintln!("WARNING!");
-        eprintln!("Sudo-rs is in the early stages of development and could potentially break your system.");
-        eprintln!(
-            "We recommend that you do not run this on any production environment. To turn off this"
-        );
-        eprintln!(
-            "warning and start using sudo-rs set the environment variable SUDO_RS_IS_UNSTABLE to"
-        );
-        eprintln!(
-            "the value `I accept that my system may break unexpectedly`. If you are unsure how to"
-        );
-        eprintln!("do this then this software is not suited for you at this time.");
-        std::process::exit(1);
-    }
+    unstable_warning();
 
     // parse sudoers file
     let sudoers = parse_sudoers()?;
 
-    // build context and environment
-    let current_env = std::env::vars().collect::<Environment>();
-    let context = Context::build_from_options(&sudo_options)?;
+    // build context given a path
+    let context = build_context(&sudo_options, &sudoers)?;
 
     // check sudoers file for permission
     let policy = check_sudoers(&sudoers, &context);
@@ -82,6 +93,8 @@ fn main() -> Result<(), Error> {
         }
     };
 
+    // build environment
+    let current_env = std::env::vars().collect::<Environment>();
     let target_env = environment::get_target_environment(current_env, &context, &policy);
 
     // run command and return corresponding exit code

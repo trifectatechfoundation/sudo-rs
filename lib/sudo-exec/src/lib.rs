@@ -15,7 +15,7 @@ use signal_hook::{
         siginfo::{Cause, Process, Sent},
     },
 };
-use sudo_common::context::{Context, Environment};
+use sudo_common::{Context, Environment};
 use sudo_system::{getpgid, kill, set_target_user};
 
 /// We only handle the signals that ogsudo handles.

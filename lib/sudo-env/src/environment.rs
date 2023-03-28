@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use sudo_common::context::{CommandAndArguments, Context, Environment};
+use sudo_common::{CommandAndArguments, Context, Environment};
 use sudo_system::PATH_MAX;
 use sudoers::Policy;
 
