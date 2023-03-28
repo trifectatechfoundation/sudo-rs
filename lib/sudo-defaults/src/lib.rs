@@ -4,7 +4,7 @@
 pub enum SudoDefault {
     Flag(bool),
     Integer(OptTuple<i128>, fn(&str) -> Option<i128>),
-    Text(OptTuple<&'static str>),
+    Text(OptTuple<Option<&'static str>>),
     List(&'static [&'static str]),
     Enum(OptTuple<StrEnum<'static>>),
 }
@@ -34,8 +34,8 @@ defaults! {
     umask                     = 0o22 (!= 0o777)    [0..=0o777; radix: 8]
 
     editor                    = "/usr/bin/editor"
-    lecture_file              = ""
-    secure_path               = "" (!= "")
+    lecture_file              = None
+    secure_path               = None (!= None)
     verifypw                  = "all" (!= "never") [all, always, any, never]
 
     env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",
@@ -83,9 +83,9 @@ mod test {
         test! { visiblepw => Flag(false) };
         test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }, _) };
         test! { umask => Integer(OptTuple { default: 18, negated: Some(511) }, _) };
-        test! { editor => Text(OptTuple { default: "/usr/bin/editor", negated: None }) };
+        test! { editor => Text(OptTuple { default: Some("/usr/bin/editor"), negated: None }) };
         test! { lecture_file => Text(_) };
-        test! { secure_path => Text(OptTuple { default: "", negated: Some("") }) };
+        test! { secure_path => Text(OptTuple { default: None, negated: Some(None) }) };
         test! { env_keep => List(_) };
         test! { env_check => List(["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]) };
         test! { env_delete => List(_) };
