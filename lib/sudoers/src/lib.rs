@@ -263,7 +263,7 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub flags: HashSet<String>,
-    pub str_value: HashMap<String, Option<String>>,
+    pub str_value: HashMap<String, Option<Box<str>>>,
     pub enum_value: HashMap<String, TextEnum>,
     pub int_value: HashMap<String, i128>,
     pub list: HashMap<String, HashSet<String>>,
