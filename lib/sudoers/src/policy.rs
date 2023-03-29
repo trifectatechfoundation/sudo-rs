@@ -63,11 +63,7 @@ impl PreJudgementPolicy for Sudoers {
             .str_value
             .get("secure_path")
             .expect("secure_path missing from settings");
-        if path.is_empty() {
-            None
-        } else {
-            Some(path)
-        }
+        path.as_deref()
     }
 }
 
