@@ -314,10 +314,6 @@ mod test {
             )
         };
 
-        // deallocate the leaky strings
-        for rec in ptrs {
-            unsafe { libc::free((*rec).msg as *mut _) }
-        }
         if conv_err != 0 {
             return vec![];
         }
