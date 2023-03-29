@@ -382,7 +382,7 @@ mod test {
     }
 
     #[test]
-    fn pam_gpt() {
+    fn miri_pam_gpt() {
         let mut hello = Box::pin(ConverserData {
             converser: "tux".to_string(),
             panicked: false,

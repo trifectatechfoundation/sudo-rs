@@ -76,7 +76,7 @@ mod test {
     use super::{into_leaky_cstring, string_from_ptr};
 
     #[test]
-    fn test_str_to_ptr() {
+    fn miri_test_str_to_ptr() {
         let strp = |ptr| unsafe { string_from_ptr(ptr) };
         assert_eq!(strp(std::ptr::null()), "");
         assert_eq!(strp("\0".as_ptr() as *const libc::c_char), "");
@@ -84,7 +84,7 @@ mod test {
     }
 
     #[test]
-    fn test_leaky_cstring() {
+    fn miri_test_leaky_cstring() {
         let test = |text| unsafe {
             let ptr = into_leaky_cstring(text);
             let result = string_from_ptr(ptr);

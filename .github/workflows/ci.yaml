@@ -125,7 +125,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: test --release --all-features
+          args: test --workspace --all-features miri
 
   format:
     runs-on: ubuntu-latest
