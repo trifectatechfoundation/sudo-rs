@@ -137,7 +137,7 @@ pub struct CLIConverser;
 
 impl SequentialConverser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
-        print!("{msg}");
+        print!("[Sudo: input needed] {msg}");
         std::io::stdout().flush().unwrap();
 
         let mut s = String::new();
@@ -147,16 +147,18 @@ impl SequentialConverser for CLIConverser {
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
-        Ok(rpassword::prompt_password(msg)?)
+        Ok(rpassword::prompt_password(format!(
+            "[Sudo: authenticate] {msg}"
+        ))?)
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
-        eprintln!("{msg}");
+        eprintln!("[Sudo error] {msg}");
         Ok(())
     }
 
     fn handle_info(&self, msg: &str) -> PamResult<()> {
-        println!("{msg}");
+        println!("[Sudo] {msg}");
         Ok(())
     }
 }
