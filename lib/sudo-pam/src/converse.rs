@@ -181,7 +181,7 @@ pub(crate) struct ConverserData<C> {
 /// * If called with an appdata_ptr that does not correspond with the Converser
 ///   this function will exhibit undefined behavior.
 /// * The messages from PAM are assumed to be formatted correctly.
-pub(crate) extern "C" fn converse<C: Converser>(
+pub(crate) unsafe extern "C" fn converse<C: Converser>(
     num_msg: libc::c_int,
     msg: *mut *const pam_message,
     response: *mut *mut pam_response,
