@@ -2,7 +2,7 @@ macro_rules! add_from {
     ($ctor:ident, $type:ty) => {
         impl From<$type> for $crate::SudoDefault {
             fn from(value: $type) -> Self {
-                $crate::SudoDefault::$ctor(value)
+                $crate::SudoDefault::$ctor(value.into())
             }
         }
     };
@@ -11,7 +11,7 @@ macro_rules! add_from {
         impl From<$type> for $crate::SudoDefault {
             fn from(value: $type) -> Self {
                 $crate::SudoDefault::$ctor(OptTuple {
-                    default: value,
+                    default: value.into(),
                     negated: None,
                 }$(, $vetting_function)?)
             }
@@ -20,8 +20,8 @@ macro_rules! add_from {
         impl From<($type, $type)> for $crate::SudoDefault {
             fn from((value, neg): ($type, $type)) -> Self {
                 $crate::SudoDefault::$ctor(OptTuple {
-                    default: value,
-                    negated: Some(neg),
+                    default: value.into(),
+                    negated: Some(neg.into()),
                 }$(, $vetting_function)?)
             }
         }
@@ -70,6 +70,7 @@ macro_rules! defaults {
             add_from!(Flag, bool);
             add_from!(Integer, i128, negatable, |text| i128::from_str_radix(text, 10).ok());
             add_from!(Text, &'static str, negatable);
+            add_from!(Text, Option<&'static str>, negatable);
             add_from!(List, &'static [&'static str]);
             add_from!(Enum, StrEnum<'static>, negatable);
 

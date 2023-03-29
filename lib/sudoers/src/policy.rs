@@ -16,6 +16,8 @@ pub trait Policy {
     }
 }
 
+#[must_use]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum Authorization {
     Required,
     Passed,
@@ -50,11 +52,28 @@ pub trait PreJudgementPolicy {
 
 impl PreJudgementPolicy for Sudoers {
     fn secure_path(&self) -> Option<&str> {
-        let path = &self.settings.str_value["secure_path"];
-        if path.is_empty() {
-            None
-        } else {
-            Some(path)
-        }
+        self.settings.str_value["secure_path"].as_deref()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn authority_xlat_test() {
+        use crate::Tag;
+        let mut judge: Judgement = Default::default();
+        assert_eq!(judge.authorization(), Authorization::Forbidden);
+        judge.flags = Some(Tag {
+            passwd: true,
+            ..judge.flags.unwrap_or_default()
+        });
+        assert_eq!(judge.authorization(), Authorization::Required);
+        judge.flags = Some(Tag {
+            passwd: false,
+            ..judge.flags.unwrap_or_default()
+        });
+        assert_eq!(judge.authorization(), Authorization::Passed);
     }
 }

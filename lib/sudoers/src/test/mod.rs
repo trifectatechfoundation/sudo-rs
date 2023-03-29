@@ -225,6 +225,11 @@ fn permission_test() {
     pass!(["%#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
     FAIL!(["#1466 server=(ALL:ALL) ALL"], "root" => root(), "server"; "/bin/hello");
     FAIL!(["%#1466 server=(ALL:ALL) ALL"], "root" => root(), "server"; "/bin/hello");
+    pass!(["#1466,#1234,foo server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    pass!(["#1234,foo,#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    pass!(["foo,#1234,#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    FAIL!(["foo,#1234,#1366 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
+    FAIL!(["#1366,#1234,foo server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
     pass!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
     FAIL!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, other }, "server"; "/bin/foo");
     pass!(["user ALL=(ALL:#1466) /bin/foo"], "user" => request! { root, user }, "server"; "/bin/foo");
@@ -284,7 +289,7 @@ fn default_bool_test() {
     assert!(settings.flags.contains("env_reset"));
     assert!(!settings.flags.contains("use_pty"));
     assert!(settings.list["env_keep"].is_empty());
-    assert_eq!(settings.str_value["secure_path"], "");
+    assert_eq!(settings.str_value["secure_path"], None);
     assert_eq!(settings.int_value["umask"], 0o777);
 }
 
@@ -312,8 +317,11 @@ fn default_set_test() {
             .map(|x| x.to_string())
             .collect()
     );
-    assert_eq!(settings.str_value["lecture_file"], "/etc/sudoers");
-    assert_eq!(settings.str_value["secure_path"], "/etc");
+    assert_eq!(
+        settings.str_value["lecture_file"].as_deref(),
+        Some("/etc/sudoers")
+    );
+    assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));
     assert_eq!(settings.int_value["umask"], 0o123);
     assert_eq!(settings.int_value["passwd_tries"], 5);
 

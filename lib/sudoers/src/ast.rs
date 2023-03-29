@@ -84,7 +84,7 @@ pub type TextEnum = sudo_defaults::StrEnum<'static>;
 #[derive(Debug)]
 pub enum ConfigValue {
     Flag(bool),
-    Text(String),
+    Text(Option<Box<str>>),
     Num(i128),
     List(Mode, Vec<String>),
     Enum(TextEnum),
@@ -582,7 +582,7 @@ fn get_directive(
                 Some(Setting::List(_)) => ConfigValue::List(Mode::Set, vec![]),
                 Some(Setting::Text(OptTuple {
                     negated: Some(val), ..
-                })) => ConfigValue::Text(val.to_string()),
+                })) => ConfigValue::Text(val.map(|x| x.into())),
                 Some(Setting::Enum(OptTuple {
                     negated: Some(val), ..
                 })) => ConfigValue::Enum(val),
@@ -633,7 +633,10 @@ fn get_directive(
                     }
                     Setting::Text(_) => {
                         let text = text_item(stream)?;
-                        make(Defaults(name, ConfigValue::Text(text)))
+                        make(Defaults(
+                            name,
+                            ConfigValue::Text(Some(text.into_boxed_str())),
+                        ))
                     }
                     Setting::Enum(sudo_defaults::OptTuple { default: key, .. }) => {
                         let text = text_item(stream)?;

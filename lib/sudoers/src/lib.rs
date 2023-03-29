@@ -263,7 +263,7 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub flags: HashSet<String>,
-    pub str_value: HashMap<String, String>,
+    pub str_value: HashMap<String, Option<Box<str>>>,
     pub enum_value: HashMap<String, TextEnum>,
     pub int_value: HashMap<String, i128>,
     pub list: HashMap<String, HashSet<String>>,
@@ -288,7 +288,8 @@ impl Default for Settings {
                     }
                 }
                 SudoDefault::Text(OptTuple { default, .. }) => {
-                    this.str_value.insert(key.to_string(), default.to_string());
+                    this.str_value
+                        .insert(key.to_string(), default.map(|x| x.into()));
                 }
                 SudoDefault::Enum(OptTuple { default, .. }) => {
                     this.enum_value.insert(key.to_string(), default);
