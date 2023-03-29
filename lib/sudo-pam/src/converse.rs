@@ -239,7 +239,7 @@ pub(crate) unsafe extern "C" fn converse<C: Converser>(
             // Unwrap here should be ok because we previously allocated an array of the same size
             let our_resp = &conversation.messages.get(i as usize).unwrap().response;
             if let Some(r) = our_resp {
-                let cstr = unsafe { sudo_cutils::into_leaky_cstring(r) };
+                let cstr = sudo_cutils::into_leaky_cstring(r);
                 response.resp = cstr as *mut _;
             }
         }
@@ -293,7 +293,7 @@ mod test {
         let pam_msgs = msgs
             .iter()
             .map(|PamMessage { msg, style, .. }| pam_message {
-                msg: unsafe { sudo_cutils::into_leaky_cstring(msg) },
+                msg: sudo_cutils::into_leaky_cstring(msg),
                 msg_style: *style as i32,
             })
             .rev()
