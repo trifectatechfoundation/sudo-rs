@@ -78,6 +78,26 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     Ok(())
 }
 
+// the preceding test tests the case where PATH is unset. this one tests the case where PATH is set
+#[test]
+fn user_path_remains_unchanged_when_not_unset() -> Result<()> {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+
+    let expected = "/root";
+
+    let actual = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "export PATH={expected}; /usr/bin/sudo /usr/bin/printenv PATH"
+        ))
+        .exec(&env)?
+        .stdout()?;
+
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
 #[test]
 fn env_reset_mode_clears_env_vars() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
