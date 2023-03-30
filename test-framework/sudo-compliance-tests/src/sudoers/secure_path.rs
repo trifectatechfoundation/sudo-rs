@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
 #[test]
 fn if_unset_searches_program_in_invoking_users_path() -> Result<()> {
@@ -53,20 +53,19 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL"
     ))
     .build()?;
 
-    let user_path_set = "cd /; sudo /usr/bin/env";
-    let user_path_unset = "unset PATH; cd /; /usr/bin/sudo /usr/bin/env";
+    let user_path_set = "cd /; sudo /usr/bin/printenv PATH";
+    let user_path_unset = "unset PATH; cd /; /usr/bin/sudo /usr/bin/printenv PATH";
     let scripts = [user_path_set, user_path_unset];
 
     for script in scripts {
         println!("{script}");
 
-        let env_output = Command::new("sh")
+        let path = Command::new("sh")
             .args(["-c", script])
             .exec(&env)?
             .stdout()?;
 
-        let env_output = helpers::parse_env_output(&env_output)?;
-        assert_eq!(&secure_path, &env_output["PATH"]);
+        assert_eq!(secure_path, &path);
     }
 
     Ok(())
