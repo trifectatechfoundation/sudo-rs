@@ -26,14 +26,14 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
         .file(path, TextFile("#!/bin/sh"))
         .build()?;
 
-    let env_output = Command::new("sh")
-        .args(["-c", "unset PATH; /usr/bin/sudo /usr/bin/env"])
+    let default_path = Command::new("sh")
+        .args(["-c", "unset PATH; /usr/bin/sudo /usr/bin/printenv PATH"])
         .exec(&env)?
         .stdout()?;
 
     // sanity check that `/usr/bin` is in sudo's default PATH
-    let default_path = helpers::parse_env_output(&env_output)?["PATH"];
-    assert!(helpers::parse_path(default_path).contains("/usr/bin"));
+    let default_path = helpers::parse_path(&default_path);
+    assert!(default_path.contains("/usr/bin"));
 
     let output = Command::new("sh")
         .args(["-c", "unset PATH; /usr/bin/sudo my-script"])
