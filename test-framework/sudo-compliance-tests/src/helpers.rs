@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::Result;
 
@@ -13,4 +13,8 @@ pub fn parse_env_output(env_output: &str) -> Result<HashMap<&str, &str>> {
     }
 
     Ok(env)
+}
+
+pub fn parse_path(path: &str) -> HashSet<&str> {
+    path.split(':').collect()
 }

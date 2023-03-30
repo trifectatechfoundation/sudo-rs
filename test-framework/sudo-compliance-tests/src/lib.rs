@@ -10,6 +10,7 @@ mod flag_user;
 mod nopasswd;
 mod pam;
 mod pass_auth;
+mod path_search;
 mod perms;
 mod sudoers;
 
