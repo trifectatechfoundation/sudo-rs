@@ -43,6 +43,25 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     Ok(())
 }
 
+#[test]
+fn if_set_it_does_not_search_in_original_user_path() -> Result<()> {
+    let env = Env("\
+        Defaults secure_path=/root
+ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+    .build()?;
+
+    let output = Command::new("sudo").arg("true").exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "sudo: true: command not found");
+    }
+
+    Ok(())
+}
+
 #[ignore]
 #[test]
 fn if_set_it_becomes_the_path_set_for_program_execution() -> Result<()> {
