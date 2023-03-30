@@ -1,3 +1,4 @@
+use core::fmt;
 use std::process::{self, ExitStatus};
 
 use crate::{Error, Result};
@@ -5,8 +6,22 @@ use crate::{Error, Result};
 /// command builder
 pub struct Command {
     args: Vec<String>,
-    user: Option<String>,
+    as_: Option<As>,
     stdin: Option<String>,
+}
+
+pub enum As {
+    User(String),
+    UserId(u16),
+}
+
+impl fmt::Display for As {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            As::User(name) => f.write_str(name),
+            As::UserId(id) => write!(f, "{id}"),
+        }
+    }
 }
 
 impl Command {
@@ -14,7 +29,7 @@ impl Command {
     pub fn new(program: impl AsRef<str>) -> Self {
         Self {
             args: vec![program.as_ref().to_string()],
-            user: None,
+            as_: None,
             stdin: None,
         }
     }
@@ -36,8 +51,22 @@ impl Command {
     /// the user to run the program as
     ///
     /// NOTE if this method is not used the default is to run the program as `root`
+    ///
+    /// # Panics
+    ///
+    /// - if both `as_user` and `as_user_id` are specified
     pub fn as_user(&mut self, username: impl AsRef<str>) -> &mut Self {
-        self.user = Some(username.as_ref().to_string());
+        assert!(self.get_as().is_none());
+        self.as_ = Some(As::User(username.as_ref().to_string()));
+        self
+    }
+
+    /// the user ID to run the program as
+    ///
+    /// NOTE if this method is not used the default is to run the program as `root`
+    pub fn as_user_id(&mut self, user_id: u16) -> &mut Self {
+        assert!(self.get_as().is_none());
+        self.as_ = Some(As::UserId(user_id));
         self
     }
 
@@ -57,8 +86,8 @@ impl Command {
         self.stdin.as_deref()
     }
 
-    pub(crate) fn get_user(&self) -> Option<&str> {
-        self.user.as_deref()
+    pub(crate) fn get_as(&self) -> Option<&As> {
+        self.as_.as_ref()
     }
 }
 
