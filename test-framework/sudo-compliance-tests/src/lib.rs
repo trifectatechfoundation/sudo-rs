@@ -4,6 +4,7 @@
 mod macros;
 
 mod child_process;
+mod cli;
 mod env_reset;
 mod flag_group;
 mod flag_user;
