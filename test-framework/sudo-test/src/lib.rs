@@ -4,7 +4,7 @@
 #![deny(unsafe_code)]
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     env,
     path::Path,
     sync::Once,
@@ -102,6 +102,7 @@ impl Command {
 /// test environment builder
 #[derive(Default)]
 pub struct EnvBuilder {
+    directories: BTreeMap<AbsolutePath, Directory>,
     files: HashMap<AbsolutePath, TextFile>,
     groups: HashMap<Groupname, Group>,
     hostname: Option<String>,
@@ -125,6 +126,23 @@ impl EnvBuilder {
 
         self.files.insert(path.to_string(), file.into());
 
+        self
+    }
+
+    /// adds a `directory` to the test environment
+    ///
+    /// # Panics
+    ///
+    /// - if `path` is not an absolute path
+    /// - if `path` has previously been declared
+    pub fn directory(&mut self, directory: impl Into<Directory>) -> &mut Self {
+        let directory = directory.into();
+        let path = directory.get_path();
+        assert!(
+            !self.directories.contains_key(path),
+            "directory at {path} has already been declared"
+        );
+        self.directories.insert(path.to_string(), directory);
         self
     }
 
@@ -240,6 +258,10 @@ impl EnvBuilder {
         for user in self.users.values().filter(|user| user.id.is_none()) {
             user.create(&container)?;
             usernames.insert(user.name.to_string());
+        }
+
+        for directory in self.directories.values() {
+            directory.create(&container)?;
         }
 
         for (path, file) in &self.files {
@@ -486,6 +508,73 @@ impl From<String> for TextFile {
 impl From<&'_ str> for TextFile {
     fn from(contents: &'_ str) -> Self {
         contents.to_string().into()
+    }
+}
+
+/// creates a directory at the specified `path`
+#[allow(non_snake_case)]
+pub fn Directory(path: impl AsRef<str>) -> Directory {
+    Directory::from(path.as_ref())
+}
+
+/// a directory
+pub struct Directory {
+    path: String,
+    chmod: String,
+    chown: String,
+}
+
+impl Directory {
+    const DEFAULT_CHMOD: &str = "100";
+    const DEFAULT_CHOWN: &str = "root:root";
+
+    /// chmod string to apply to the file
+    ///
+    /// if not specified, the default is "000"
+    pub fn chmod(mut self, chmod: impl AsRef<str>) -> Self {
+        self.chmod = chmod.as_ref().to_string();
+        self
+    }
+
+    /// chown string to apply to the file
+    ///
+    /// if not specified, the default is "root:root"
+    pub fn chown(mut self, chown: impl AsRef<str>) -> Self {
+        self.chown = chown.as_ref().to_string();
+        self
+    }
+
+    fn get_path(&self) -> &str {
+        &self.path
+    }
+
+    fn create(&self, container: &Container) -> Result<()> {
+        let path = &self.path;
+        container
+            .exec(Command::new("mkdir").args([path]))?
+            .assert_success()?;
+        container
+            .exec(Command::new("chown").args([&self.chown, path]))?
+            .assert_success()?;
+        container
+            .exec(Command::new("chmod").args([&self.chmod, path]))?
+            .assert_success()
+    }
+}
+
+impl From<String> for Directory {
+    fn from(path: String) -> Self {
+        Self {
+            path,
+            chmod: Self::DEFAULT_CHMOD.to_string(),
+            chown: Self::DEFAULT_CHOWN.to_string(),
+        }
+    }
+}
+
+impl From<&'_ str> for Directory {
+    fn from(path: &str) -> Self {
+        Directory::from(path.to_string())
     }
 }
 
@@ -789,6 +878,68 @@ mod tests {
             .stdout()?;
 
         assert_eq!("o", b_last_char);
+
+        Ok(())
+    }
+
+    #[test]
+    fn directory_gets_created_with_right_perms() -> Result<()> {
+        let chown = format!("{USERNAME}:{GROUPNAME}");
+        let chmod = "700";
+        let path = "/tmp/dir";
+        let env = EnvBuilder::default()
+            .user(USERNAME)
+            .group(GROUPNAME)
+            .directory(Directory(path).chown(chown).chmod(chmod))
+            .build()?;
+
+        let ls_al = Command::new("ls")
+            .args(["-al", path])
+            .exec(&env)?
+            .stdout()?;
+        let dot_entry = ls_al.lines().nth(1).unwrap();
+        assert!(dot_entry.ends_with(" ."));
+        assert!(dot_entry.starts_with("drwx------"));
+        assert!(dot_entry.contains(&format!("{USERNAME} {GROUPNAME}")));
+
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic = "mkdir: cannot create directory '/': File exists"]
+    fn cannot_create_directory_that_already_exists() {
+        EnvBuilder::default().directory("/").build().unwrap();
+    }
+
+    #[test]
+    #[should_panic = "mkdir: cannot create directory '/root/a/b': No such file or directory"]
+    fn cannot_create_directory_whose_parent_does_not_exist() {
+        EnvBuilder::default()
+            .directory("/root/a/b")
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    fn can_create_file_in_declared_directory() -> Result<()> {
+        let dir_path = "/root/dir";
+        let file_path = "/root/dir/file";
+        let env = EnvBuilder::default()
+            .directory(dir_path)
+            .file(file_path, "")
+            .build()?;
+
+        Command::new("sh")
+            .arg("-c")
+            .arg(format!("[ -d {dir_path} ]"))
+            .exec(&env)?
+            .assert_success()?;
+
+        Command::new("sh")
+            .arg("-c")
+            .arg(format!("[ -f {file_path} ]"))
+            .exec(&env)?
+            .assert_success()?;
 
         Ok(())
     }
