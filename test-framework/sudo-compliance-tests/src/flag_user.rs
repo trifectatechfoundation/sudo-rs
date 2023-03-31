@@ -95,22 +95,24 @@ fn invoking_user_groups_are_lost_when_becoming_another_user() -> Result<()> {
 }
 
 #[test]
-#[ignore]
-fn can_use_unassigned_user_id() -> Result<()> {
+fn unassigned_user_id_is_rejected() -> Result<()> {
     let expected_uid = 1234;
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
     for user in ["root", USERNAME] {
-        let actual = Command::new("sudo")
+        let output = Command::new("sudo")
             .arg("-u")
             .arg(format!("#{expected_uid}"))
-            .args(["id", "-u"])
+            .arg("true")
             .as_user(user)
-            .exec(&env)?
-            .stdout()?
-            .parse::<u32>()?;
+            .exec(&env)?;
 
-        assert_eq!(expected_uid, actual);
+        assert!(!output.status().success());
+        assert_eq!(Some(1), output.status().code());
+
+        if sudo_test::is_original_sudo() {
+            assert_contains!(output.stderr(), "sudo: unknown user: #1234");
+        }
     }
 
     Ok(())
