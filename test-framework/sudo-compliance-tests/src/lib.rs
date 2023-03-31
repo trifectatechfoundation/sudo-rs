@@ -6,6 +6,7 @@ mod macros;
 mod child_process;
 mod env_reset;
 mod flag_group;
+mod flag_shell;
 mod flag_user;
 mod nopasswd;
 mod pam;
