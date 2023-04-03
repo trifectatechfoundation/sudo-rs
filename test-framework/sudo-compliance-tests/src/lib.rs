@@ -10,8 +10,11 @@ mod flag_user;
 mod nopasswd;
 mod pam;
 mod pass_auth;
+mod path_search;
 mod perms;
 mod sudoers;
+
+mod helpers;
 
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;
