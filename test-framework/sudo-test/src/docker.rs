@@ -106,13 +106,11 @@ pub fn build_base_image() -> Result<()> {
     let repo_root = repo_root();
     let mut cmd = StdCommand::new("docker");
 
-    cmd.args(["build", "-t", base_image()]);
+    cmd.args(["buildx", "build", "-t", base_image(), "--load"]);
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {
             // needed for dockerfile-specific dockerignore (e.g. `Dockerfile.dockerignore`) support
-            cmd.env("DOCKER_BUILDKIT", "1");
-
             cmd.current_dir(repo_root);
             cmd.args(["-f", "test-framework/sudo-test/src/ours.Dockerfile", "."]);
         }
