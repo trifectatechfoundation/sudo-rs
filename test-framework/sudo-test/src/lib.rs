@@ -266,6 +266,7 @@ pub struct User {
     groups: HashSet<Groupname>,
     id: Option<u32>,
     password: Option<String>,
+    shell: Option<String>,
 }
 
 /// creates a new user with the specified `name` and the following defaults:
@@ -331,11 +332,20 @@ impl User {
         self
     }
 
+    /// sets the user's shell to the one at the specified `path`
+    pub fn shell(mut self, path: impl AsRef<str>) -> Self {
+        self.shell = Some(path.as_ref().to_string());
+        self
+    }
+
     fn create(&self, container: &Container) -> Result<()> {
         let mut useradd = Command::new("useradd");
         useradd.arg("--no-user-group");
         if self.create_home_directory {
             useradd.arg("--create-home");
+        }
+        if let Some(path) = &self.shell {
+            useradd.arg("--shell").arg(path);
         }
         if let Some(id) = self.id {
             useradd.arg("--uid").arg(id.to_string());
@@ -363,10 +373,11 @@ impl From<String> for User {
 
         Self {
             create_home_directory: false,
-            name,
             groups: HashSet::new(),
             id: None,
+            name,
             password: None,
+            shell: None,
         }
     }
 }
@@ -834,5 +845,27 @@ mod tests {
             .arg(format!("[ -d /home/{USERNAME} ]"))
             .exec(&env)?
             .assert_success()
+    }
+
+    #[test]
+    fn setting_shell_works() -> Result<()> {
+        let expected = "/path/to/shell";
+        let env = EnvBuilder::default()
+            .user(User(USERNAME).shell(expected))
+            .build()?;
+
+        let passwd = Command::new("getent").arg("passwd").exec(&env)?.stdout()?;
+
+        let mut found = false;
+        for line in passwd.lines() {
+            if line.starts_with(&format!("{USERNAME}:")) {
+                found = true;
+                assert!(line.ends_with(&format!(":{expected}")));
+            }
+        }
+
+        assert!(found);
+
+        Ok(())
     }
 }
