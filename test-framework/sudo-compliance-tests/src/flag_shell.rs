@@ -129,6 +129,23 @@ echo $@";
 }
 
 #[test]
+#[ignore]
+fn shell_is_not_invoked_as_a_login_shell() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+
+    let actual = Command::new("env")
+        .args(["SHELL=/bin/bash", "sudo", "-s", "echo", "$0"])
+        .exec(&env)?
+        .stdout()?;
+
+    // man bash says "A login shell is one whose first character of argument zero is a -"
+    assert_ne!("-bash", actual);
+    assert_eq!("/bin/bash", actual);
+
+    Ok(())
+}
+
+#[test]
 fn shell_does_not_exist() -> Result<()> {
     let shell_path = "/root/my-shell";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
