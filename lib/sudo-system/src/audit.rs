@@ -1,16 +1,17 @@
-use std::fs::File;
+use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+use std::os::unix::prelude::OpenOptionsExt;
 use std::path::Path;
 
 // of course we can also write "file & 0o040 != 0", but this makes the intent explicit
 enum Op {
-    _Read = 4,
+    Read = 4,
     Write = 2,
-    _Exec = 1,
+    Exec = 1,
 }
 enum Category {
-    _Owner = 2,
+    Owner = 2,
     Group = 1,
     World = 0,
 }
@@ -20,26 +21,79 @@ fn mode(who: Category, what: Op) -> u32 {
 }
 
 pub fn secure_open(path: &Path) -> io::Result<File> {
-    let file = File::open(path)?;
-    let meta = file.metadata()?;
-    let permbits = meta.permissions().mode();
+    let mut open_options = OpenOptions::new();
+    open_options.read(true);
+    secure_open_impl(path, &mut open_options, false, false)
+}
+
+pub fn secure_open_cookie_file(path: &Path) -> io::Result<File> {
+    let mut open_options = OpenOptions::new();
+    open_options
+        .read(true)
+        .write(true)
+        .create(true)
+        .mode(mode(Category::Owner, Op::Write) | mode(Category::Owner, Op::Read));
+    secure_open_impl(path, &mut open_options, true, true)
+}
+
+fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
     let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
 
+    let path_mode = meta.permissions().mode();
     if meta.uid() != 0 {
         Err(error(format!("{} must be owned by root", path.display())))
-    } else if meta.gid() != 0 && (permbits & mode(Category::Group, Op::Write) != 0) {
+    } else if meta.gid() != 0 && (path_mode & mode(Category::Group, Op::Write) != 0) {
         Err(error(format!(
             "{} cannot be group-writable",
             path.display()
         )))
-    } else if permbits & mode(Category::World, Op::Write) != 0 {
+    } else if path_mode & mode(Category::World, Op::Write) != 0 {
         Err(error(format!(
             "{} cannot be world-writable",
             path.display()
         )))
     } else {
-        Ok(file)
+        Ok(())
     }
+}
+
+fn secure_open_impl(
+    path: &Path,
+    open_options: &mut OpenOptions,
+    check_parent_dir: bool,
+    create_parent_dirs: bool,
+) -> io::Result<File> {
+    let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
+    if check_parent_dir {
+        if let Some(parent_dir) = path.parent() {
+            // if we should create parent dirs and it does not yet exist, create it
+            if create_parent_dirs && !parent_dir.exists() {
+                DirBuilder::new()
+                    .recursive(true)
+                    .mode(
+                        mode(Category::Owner, Op::Write)
+                            | mode(Category::Owner, Op::Read)
+                            | mode(Category::Owner, Op::Exec)
+                            | mode(Category::Group, Op::Exec)
+                            | mode(Category::World, Op::Exec),
+                    )
+                    .create(parent_dir)?;
+            }
+            let parent_meta = std::fs::metadata(parent_dir)?;
+            checks(parent_dir, parent_meta)?;
+        } else {
+            return Err(error(format!(
+                "{} has no valid parent directory",
+                path.display()
+            )));
+        }
+    }
+
+    let file = open_options.open(path)?;
+    let meta = file.metadata()?;
+    checks(path, meta)?;
+
+    Ok(file)
 }
 
 #[cfg(test)]

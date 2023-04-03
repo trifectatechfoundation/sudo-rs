@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use sudo_cli::SudoOptions;
-use sudo_system::{hostname, Group, User};
+use sudo_system::{hostname, Group, User, Process};
 
 use crate::{
     command::CommandAndArguments,
@@ -23,7 +23,7 @@ pub struct Context {
     pub hostname: String,
     pub path: String,
     pub current_user: User,
-    pub pid: i32,
+    pub process: Process,
 }
 
 impl Context {
@@ -46,7 +46,7 @@ impl Context {
             login: sudo_options.login,
             shell: sudo_options.shell,
             chdir: sudo_options.directory,
-            pid: sudo_system::Process::process_id(),
+            process: sudo_system::Process::new(),
         })
     }
 }

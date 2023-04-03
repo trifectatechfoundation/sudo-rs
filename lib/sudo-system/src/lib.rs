@@ -1,17 +1,27 @@
 use std::{
     ffi::{c_int, CString},
     fs::OpenOptions,
+    io,
     mem::MaybeUninit,
     os::fd::AsRawFd,
-    path::PathBuf,
+    path::PathBuf, str::FromStr,
 };
 
-use libc::pid_t;
+pub use audit::secure_open;
+use interface::{ProcessId, UserId, GroupId, DeviceId};
 pub use libc::PATH_MAX;
 use sudo_cutils::*;
+use time::SystemTime;
 
 mod audit;
-pub use audit::secure_open;
+// generalized traits for when we want to hide implementations
+pub mod interface;
+
+pub mod file;
+
+pub mod time;
+
+pub mod timestamp;
 
 pub fn hostname() -> String {
     let max_hostname_size = sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(256);
@@ -47,28 +57,28 @@ pub fn set_target_user(cmd: &mut std::process::Command, target_user: User, targe
 }
 
 /// Send a signal to a process.
-pub fn kill(pid: pid_t, signal: c_int) -> c_int {
+pub fn kill(pid: ProcessId, signal: c_int) -> c_int {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
     unsafe { libc::kill(pid, signal) }
 }
 
 /// Get a process group ID.
-pub fn getpgid(pid: pid_t) -> pid_t {
+pub fn getpgid(pid: ProcessId) -> ProcessId {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
     unsafe { libc::getpgid(pid) }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct User {
-    pub uid: libc::uid_t,
-    pub gid: libc::gid_t,
+    pub uid: UserId,
+    pub gid: GroupId,
     pub name: String,
     pub gecos: String,
     pub home: PathBuf,
     pub shell: PathBuf,
     pub passwd: String,
-    pub groups: Vec<libc::gid_t>,
+    pub groups: Vec<GroupId>,
 }
 
 impl User {
@@ -115,7 +125,7 @@ impl User {
         }
     }
 
-    pub fn from_uid(uid: libc::uid_t) -> std::io::Result<Option<User>> {
+    pub fn from_uid(uid: UserId) -> std::io::Result<Option<User>> {
         let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
         let mut buf = vec![0; max_pw_size as usize];
         let mut pwd = MaybeUninit::uninit();
@@ -137,7 +147,7 @@ impl User {
         }
     }
 
-    pub fn effective_uid() -> libc::uid_t {
+    pub fn effective_uid() -> UserId {
         unsafe { libc::geteuid() }
     }
 
@@ -145,7 +155,7 @@ impl User {
         Self::from_uid(Self::effective_uid())
     }
 
-    pub fn real_uid() -> libc::uid_t {
+    pub fn real_uid() -> UserId {
         unsafe { libc::getuid() }
     }
 
@@ -180,7 +190,7 @@ impl User {
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Group {
-    pub gid: libc::gid_t,
+    pub gid: GroupId,
     pub name: String,
     pub passwd: String,
     pub members: Vec<String>,
@@ -213,7 +223,7 @@ impl Group {
         }
     }
 
-    pub fn effective_gid() -> libc::gid_t {
+    pub fn effective_gid() -> GroupId {
         unsafe { libc::getegid() }
     }
 
@@ -221,7 +231,7 @@ impl Group {
         Self::from_gid(Self::effective_gid())
     }
 
-    pub fn real_gid() -> libc::uid_t {
+    pub fn real_gid() -> UserId {
         unsafe { libc::getgid() }
     }
 
@@ -229,7 +239,7 @@ impl Group {
         Self::from_gid(Self::real_gid())
     }
 
-    pub fn from_gid(gid: libc::gid_t) -> std::io::Result<Option<Group>> {
+    pub fn from_gid(gid: GroupId) -> std::io::Result<Option<Group>> {
         let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
         let mut buf = vec![0; max_gr_size as usize];
         let mut grp = MaybeUninit::uninit();
@@ -275,16 +285,13 @@ impl Group {
     }
 }
 
-// generalized traits for when we want to hide implementations
-pub mod interface;
-
 #[derive(Debug, Clone)]
 pub struct Process {
-    pub pid: libc::pid_t,
-    pub parent_pid: libc::pid_t,
-    pub group_id: libc::pid_t,
-    pub session_id: libc::pid_t,
-    pub term_foreground_group_id: libc::pid_t,
+    pub pid: ProcessId,
+    pub parent_pid: ProcessId,
+    pub group_id: ProcessId,
+    pub session_id: ProcessId,
+    pub term_foreground_group_id: Option<ProcessId>,
     pub name: PathBuf,
 }
 
@@ -311,40 +318,139 @@ impl Process {
     }
 
     /// Return the process identifier for the current process
-    pub fn process_id() -> libc::pid_t {
+    pub fn process_id() -> ProcessId {
         unsafe { libc::getpid() }
     }
 
     /// Return the parent process identifier for the current process
-    pub fn parent_id() -> libc::pid_t {
+    pub fn parent_id() -> ProcessId {
         unsafe { libc::getppid() }
     }
 
     /// Return the process group id for the current process
-    pub fn group_id() -> libc::pid_t {
+    pub fn group_id() -> ProcessId {
         unsafe { libc::getpgid(0) }
     }
 
     /// Get the session id for the current process
-    pub fn session_id() -> libc::pid_t {
+    pub fn session_id() -> ProcessId {
         unsafe { libc::getsid(0) }
     }
 
     /// Get the process group id of the process group that is currently in
     /// the foreground of our terminal
-    pub fn term_foreground_group_id() -> libc::pid_t {
+    pub fn term_foreground_group_id() -> Option<ProcessId> {
         match OpenOptions::new().read(true).write(true).open("/dev/tty") {
             Ok(f) => {
                 let res = unsafe { libc::tcgetpgrp(f.as_raw_fd()) };
                 if res == -1 {
-                    0
+                    None
                 } else {
-                    res
+                    Some(res)
                 }
             }
-            Err(_) => 0,
+            Err(_) => None,
         }
     }
+
+    pub fn tty_device_id(pid: Option<ProcessId>) -> std::io::Result<Option<DeviceId>> {
+        // device id of tty is displayed as a signed integer of 32 bits
+        let data: i32 = read_proc_stat(pid, 6)?;
+        if data == 0 {
+            Ok(None)
+        } else {
+            // While the integer was displayed as signed in the proc stat file,
+            // we actually need to interpret the bits of that integer as an unsigned
+            // int. We convert via u32 because a direct conversion to DeviceId
+            // would use sign extension, which would result in a different bit
+            // representation
+            Ok(Some(data as u32 as DeviceId))
+        }
+    }
+
+    /// Attempt to get the session starting time
+    pub fn session_starting_time(&self) -> io::Result<SystemTime> {
+        Self::starting_time(Some(self.session_id))
+    }
+
+    /// Attempt to get the parent process starting time
+    pub fn parent_process_starting_time(&self) -> io::Result<SystemTime> {
+        Self::starting_time(Some(self.parent_pid))
+    }
+
+    /// Get the process starting time of a specific process
+    pub fn starting_time(pid: Option<ProcessId>) -> io::Result<SystemTime> {
+        let process_start: u64 = read_proc_stat(pid, 21)?;
+
+        // the startime field is stored in ticks since the system start, so we need to know how many
+        // ticks go into a second
+        let ticks_per_second = sudo_cutils::sysconf(libc::_SC_CLK_TCK).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "Could not retrieve system config variable for ticks per second",
+            )
+        })? as u64;
+
+        // finally compute the system time at which the process was started
+        Ok(SystemTime::new(
+            (process_start / ticks_per_second) as i64,
+            ((process_start % ticks_per_second) * (1_000_000_000 / ticks_per_second)) as i64,
+        ))
+    }
+}
+
+fn read_proc_stat<T: FromStr>(pid: Option<ProcessId>, field_idx: isize) -> io::Result<T> {
+    // read from a specific pid file, or use `self` to refer to our own process
+    let pidstr = pid.map(|p| p.to_string());
+    let pidref = pidstr.as_deref().unwrap_or("self");
+
+    // read the data from the stat file for the process with the given pid
+    let path = PathBuf::from_iter(&["/proc", &pidref, "stat"]);
+    let proc_stat = std::fs::read(path)?;
+
+    // first get the part of the stat file past the second argument, we then reverse
+    // search for a ')' character and start the search for the starttime field from there on
+    let skip_past_second_arg = proc_stat.iter().rposition(|b| *b == b')').ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Could not find position of 'comm' field in process stat",
+        )
+    })?;
+    let mut stat = &proc_stat[skip_past_second_arg..];
+
+    // we've now passed the first two fields, so we are at index 1, now we skip over
+    // fields until we arrive at the field we are searching for
+    let mut curr_field = 1;
+    while curr_field < field_idx && stat.len() > 0 {
+        if stat[0] == b' ' {
+            curr_field += 1;
+        }
+        stat = &stat[1..];
+    }
+
+    // we've now arrived at the field we are looking for, we now check how
+    // long this field is by finding where the next space is
+    let mut idx = 0;
+    while stat[idx] != b' ' && idx < stat.len() {
+        idx += 1;
+    }
+    let field = &stat[0..idx];
+
+    // we first convert the data to a string slice, this should not fail with a normal /proc filesystem
+    let fielddata = std::str::from_utf8(field).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Could not interpret byte slice as string",
+        )
+    })?;
+
+    // then we convert the string slice to whatever the requested type was
+    Ok(fielddata.parse().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Could not interpret string as number",
+        )
+    })?)
 }
 
 #[cfg(test)]
