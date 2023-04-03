@@ -169,3 +169,70 @@ fn negation_is_order_sensitive() -> Result<()> {
         .exec(&env)?
         .assert_success()
 }
+
+#[test]
+fn user_alias_works() -> Result<()> {
+    let env = Env("
+User_Alias ADMINS = %users, !ghost
+ADMINS ALL=(ALL:ALL) ALL")
+    // use PAM to avoid password prompts
+    .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
+    // the primary group of all new users is `users`
+    .user("ferris")
+    .user("ghost")
+    .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .as_user("ferris")
+        .exec(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user("ghost")
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "ghost is not in the sudoers file");
+    }
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn negated_user_alias_works() -> Result<()> {
+    let env = Env("
+User_Alias ADMINS = %users, !ghost
+!ADMINS ALL=(ALL:ALL) ALL")
+    // use PAM to avoid password prompts
+    .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
+    // the primary group of all new users is `users`
+    .user("ferris")
+    .user("ghost")
+    .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .as_user("ghost")
+        .exec(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user("ferris")
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "ferris is not in the sudoers file");
+    }
+
+    Ok(())
+}
