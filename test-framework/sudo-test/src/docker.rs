@@ -130,7 +130,13 @@ pub fn build_base_image() -> Result<()> {
         }
     }
 
-    run(&mut cmd, None)?.assert_success()?;
+    if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
+        cmd.stderr(Stdio::null()).stdout(Stdio::null());
+    }
+
+    if !cmd.status()?.success() {
+        return Err("`docker build` failed".into());
+    }
 
     Ok(())
 }
