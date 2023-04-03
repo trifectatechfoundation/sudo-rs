@@ -2,7 +2,7 @@
 
 A safety oriented and memory safe implementation of sudo and su written in Rust.
 
-## !!WARNING!!
+## ⚠️ WARNING
 
 **Sudo-rs is currently under active development and is not suited for any
 production environment. Using sudo-rs is only recommended for development and
