@@ -45,7 +45,7 @@ Options:
   -v, --validate                update user's timestamp without running a command
   --                            stop processing command line arguments";
 
-#[derive(Debug, Parser, Clone, PartialEq)]
+#[derive(Debug, Parser, Clone)]
 #[clap(
     name = "sudo-rs",
     about = "sudo - execute a command as another user",
@@ -220,7 +220,7 @@ struct Cli {
     external_args: Vec<String>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct SudoOptions {
     pub askpass: bool,
     pub background: bool,

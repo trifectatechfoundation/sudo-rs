@@ -510,6 +510,7 @@ name = "sudo-exec"
 version = "0.1.0-alpha.1"
 dependencies = [
  "signal-hook",
+ "sudo-cli",
  "sudo-common",
  "sudo-system",
 ]

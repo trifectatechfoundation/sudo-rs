@@ -36,6 +36,8 @@ pub fn set_target_user(
 
     // means that we are using the default user because `-u` was not passed.
     let user_is_default = target_user.is_default;
+    // means that we are going to change users
+    let user_is_changed = current_user.uid != target_user.uid;
     // means that we are using the principal gid of the target user because `-g` was not passed or
     // was passed with the principal gid.
     let group_is_default = target_user.uid == target_group.gid;
@@ -56,16 +58,23 @@ pub fn set_target_user(
     };
 
     // add the requested group (implied or supplied via `-g`) if it was not already present
-    if !groups.contains(&target_group.gid) {
+    let group_is_changed = if !groups.contains(&target_group.gid) {
         groups.push(target_group.gid);
-    }
+        true
+    } else {
+        false
+    };
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
     // for the std implementation of the libc calls to `setgroups`, `setgid` and `setuid`
     unsafe {
         cmd.pre_exec(move || {
-            cerr(libc::setgroups(groups.len(), groups.as_ptr()))?;
+            // if group_is_default is false, no supplementary groups need to be set;
+            // this conditional enables sudo to run without needing superuser rights (when they are not otherwise needed)
+            if user_is_changed || group_is_changed {
+                cerr(libc::setgroups(groups.len(), groups.as_ptr()))?;
+            }
             cerr(libc::setgid(gid))?;
             cerr(libc::setuid(uid))?;
 

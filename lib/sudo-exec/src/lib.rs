@@ -129,3 +129,61 @@ fn is_self_terminating(process: Option<Process>, child_pid: i32, sudo_pid: i32) 
 
     false
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn default_ctx<'a>(simple_command: &str, simple_arg: Option<&'a str>) -> Context<'a> {
+        let options = sudo_cli::SudoOptions::try_parse_from(["notsudo", "/bin/true"]).unwrap();
+        let context = Context::build_from_options(&options, "").unwrap();
+        // now do the same thing again with the current user
+        let options = sudo_cli::SudoOptions::try_parse_from([
+            "sudo",
+            "-u",
+            &context.current_user.name,
+            simple_command,
+        ])
+        .unwrap();
+        let context = Context::build_from_options(&options, "").unwrap();
+        // break the lifetime-dependency
+        let command = sudo_common::CommandAndArguments {
+            arguments: simple_arg.map(|x| vec![x]).unwrap_or_default(),
+            ..context.command
+        };
+        Context { command, ..context }
+    }
+
+    #[test]
+    fn test_simple_exec() {
+        assert!(
+            !run_command(default_ctx("/bin/false", None), Environment::new())
+                .unwrap()
+                .success()
+        );
+        assert!(
+            run_command(default_ctx("/bin/true", None), Environment::new())
+                .unwrap()
+                .success()
+        );
+        assert!(
+            run_command(default_ctx("/bin/sleep", Some("0.333")), Environment::new())
+                .unwrap()
+                .success()
+        );
+        assert_eq!(
+            run_command(default_ctx("/root/something", None), Environment::new())
+                .unwrap_err()
+                .raw_os_error()
+                .unwrap(),
+            13
+        );
+        assert_eq!(
+            run_command(default_ctx("/DOES/NOT/EXIST", None), Environment::new())
+                .unwrap_err()
+                .raw_os_error()
+                .unwrap(),
+            2
+        );
+    }
+}
