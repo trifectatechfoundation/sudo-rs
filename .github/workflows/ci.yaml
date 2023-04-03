@@ -23,6 +23,13 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: cache docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-buildx-${{ github.sha }}
+          restore-keys: docker-buildx-
+
       - name: Test sudo-test itself
         working-directory: test-framework
         run: cargo test -p sudo-test
@@ -45,6 +52,11 @@ jobs:
           tmpfile="$(mktemp)"
           cargo test -p sudo-compliance-tests -- --ignored | tee "$tmpfile"
           grep 'test result: FAILED. 0 passed' "$tmpfile" || exit 1
+
+      - name: prevent the cache from growing too large
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   build-and-test:
     runs-on: ubuntu-latest

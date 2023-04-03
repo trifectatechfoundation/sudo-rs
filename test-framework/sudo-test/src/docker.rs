@@ -1,5 +1,6 @@
 use core::str;
 use std::{
+    env,
     fs::{self, File},
     io::{Seek, SeekFrom, Write},
     path::PathBuf,
@@ -107,6 +108,13 @@ pub fn build_base_image() -> Result<()> {
     let mut cmd = StdCommand::new("docker");
 
     cmd.args(["buildx", "build", "-t", base_image(), "--load"]);
+
+    if env::var_os("CI").is_some() {
+        cmd.args([
+            "--cache-from=type=local,src=/tmp/.buildx-cache",
+            "--cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max",
+        ]);
+    }
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {
