@@ -10,7 +10,7 @@ use tempfile::NamedTempFile;
 
 use crate::{base_image, Result, SudoUnderTest};
 
-pub use self::command::{Child, Command, Output};
+pub use self::command::{As, Child, Command, Output};
 
 mod command;
 
@@ -64,9 +64,9 @@ impl Container {
         if cmd.get_stdin().is_some() {
             docker_exec.arg("-i");
         }
-        if let Some(user) = cmd.get_user() {
+        if let Some(as_) = cmd.get_as() {
             docker_exec.arg("--user");
-            docker_exec.arg(user);
+            docker_exec.arg(as_.to_string());
         }
         docker_exec.arg(&self.id);
         docker_exec.args(cmd.get_args());
