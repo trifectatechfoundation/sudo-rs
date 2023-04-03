@@ -33,6 +33,9 @@ jobs:
           key: docker-buildx-${{ github.sha }}
           restore-keys: docker-buildx-
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
       - name: Test sudo-test itself
         working-directory: test-framework
         run: cargo test -p sudo-test
