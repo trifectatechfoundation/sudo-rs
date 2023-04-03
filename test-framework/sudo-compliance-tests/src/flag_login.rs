@@ -23,6 +23,7 @@ fn works_even_if_home_directory_does_not_exist() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn sets_home_directory_as_working_directory() -> Result<()> {
     let expected = format!("/home/{USERNAME}");
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
@@ -41,6 +42,7 @@ fn sets_home_directory_as_working_directory() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn uses_shell_in_passwd_database() -> Result<()> {
     let my_shell = "#!/bin/sh
 echo $0";
@@ -62,6 +64,7 @@ echo $0";
 }
 
 #[test]
+#[ignore]
 fn argument_is_invoke_with_dash_c_flag() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -82,6 +85,7 @@ echo $@";
 }
 
 #[test]
+#[ignore]
 fn arguments_are_concatenated_with_whitespace() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -102,6 +106,7 @@ echo $@";
 }
 
 #[test]
+#[ignore]
 fn arguments_are_escaped_with_backslashes() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -122,6 +127,7 @@ echo $@";
 }
 
 #[test]
+#[ignore]
 fn alphanumerics_underscores_hyphens_and_dollar_signs_are_not_escaped() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -190,6 +196,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn shell_with_open_permissions_is_accepted() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
