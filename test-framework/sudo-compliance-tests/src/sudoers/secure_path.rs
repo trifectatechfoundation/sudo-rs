@@ -26,10 +26,19 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     .file(path, TextFile("#!/bin/sh").chmod("100"))
     .build()?;
 
-    let relative_path = "unset PATH; cd /bin; /usr/bin/sudo true";
-    let absolute_path = "unset PATH; cd /; /usr/bin/sudo my-script";
+    let match_in_relative_path_when_path_is_unset = "unset PATH; cd /bin; /usr/bin/sudo true";
+    let match_in_absolute_path_when_path_is_unset = "unset PATH; cd /; /usr/bin/sudo my-script";
+    // `true` is in `/bin/true`
+    let match_in_relative_path_when_path_is_set = "export PATH=/usr/bin; cd /bin; sudo true";
+    // default PATH does not include `/root`
+    let match_in_absolute_path_when_path_is_set = "cd /; /usr/bin/sudo my-script";
 
-    let scripts = [relative_path, absolute_path];
+    let scripts = [
+        match_in_relative_path_when_path_is_unset,
+        match_in_absolute_path_when_path_is_unset,
+        match_in_relative_path_when_path_is_set,
+        match_in_absolute_path_when_path_is_set,
+    ];
 
     for script in scripts {
         println!("{script}");
