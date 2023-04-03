@@ -23,6 +23,9 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: set up docker buildx
+        run: docker buildx create --name builder --use
+
       - name: cache docker layers
         uses: actions/cache@v2
         with:
