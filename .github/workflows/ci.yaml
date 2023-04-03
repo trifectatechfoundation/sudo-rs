@@ -37,6 +37,9 @@ jobs:
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            test-framework
 
       - name: Test sudo-test itself
         working-directory: test-framework
