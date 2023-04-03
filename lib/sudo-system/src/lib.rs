@@ -393,14 +393,21 @@ impl Process {
 
 #[cfg(test)]
 mod tests {
-    use crate::User;
+    use crate::{Group, User};
 
     #[test]
-    fn test_get_user() {
-        let root = User::from_uid(0).unwrap().unwrap();
-
-        assert_eq!(root.uid, 0);
-        assert_eq!(root.name, "root");
+    fn test_get_user_and_group_by_id() {
+        let fixed_users = &[(0, "root"), (1, "daemon")];
+        for &(id, name) in fixed_users {
+            let root = User::from_uid(id).unwrap().unwrap();
+            assert_eq!(root.uid, id as libc::uid_t);
+            assert_eq!(root.name, name);
+        }
+        for &(id, name) in fixed_users {
+            let root = Group::from_gid(id).unwrap().unwrap();
+            assert_eq!(root.gid, id as libc::gid_t);
+            assert_eq!(root.name, name);
+        }
     }
 
     #[test]
