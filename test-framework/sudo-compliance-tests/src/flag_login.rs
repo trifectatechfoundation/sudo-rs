@@ -43,7 +43,7 @@ fn sets_home_directory_as_working_directory() -> Result<()> {
 
 #[test]
 #[ignore]
-fn uses_shell_in_passwd_database() -> Result<()> {
+fn uses_target_users_shell_in_passwd_database() -> Result<()> {
     let my_shell = "#!/bin/sh
 echo $0";
     let shell_path = "/tmp/my-shell";
@@ -51,6 +51,9 @@ echo $0";
         .file(shell_path, TextFile(my_shell).chown(USERNAME).chmod("500"))
         .user(User(USERNAME).shell(shell_path))
         .build()?;
+
+    // the invoking user's (root's) shell (`bash` or `sh`) is clearly not the target user's shell so
+    // we don't assert that they are different
 
     let actual = Command::new("sudo")
         .args(["-u", USERNAME, "-i"])
