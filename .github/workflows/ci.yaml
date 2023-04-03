@@ -14,6 +14,8 @@ on:
 jobs:
   compliance-tests:
     runs-on: ubuntu-latest
+    env:
+      SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
     steps:
       - uses: actions/checkout@v2
 
