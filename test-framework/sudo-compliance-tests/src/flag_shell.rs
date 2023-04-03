@@ -2,23 +2,29 @@ use std::collections::HashMap;
 
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
 #[ignore]
-fn if_shell_env_var_is_not_set_then_uses_the_shell_in_passwd_database() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_database() -> Result<()>
+{
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
     let getent_passwd = Command::new("getent").arg("passwd").exec(&env)?.stdout()?;
     let user_to_shell = parse_getent_passwd_output(&getent_passwd)?;
-    let root_shell = user_to_shell["root"];
+    let target_users_shell = user_to_shell["root"];
+    let invoking_users_shell = user_to_shell["ferris"];
+
+    // XXX a bit brittle. it would be better to set ferris' shell when creating the user
+    assert_ne!(target_users_shell, invoking_users_shell);
 
     let output = Command::new("env")
         .args(["-u", "SHELL", "sudo", "-s", "echo", "$0"])
+        .as_user(USERNAME)
         .exec(&env)?
         .stdout()?;
 
-    assert_eq!(root_shell, output);
+    assert_eq!(invoking_users_shell, output);
 
     Ok(())
 }
