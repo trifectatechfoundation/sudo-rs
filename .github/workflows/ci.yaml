@@ -52,7 +52,7 @@ jobs:
           SUDO_UNDER_TEST: ours
         run: cargo test -p sudo-compliance-tests
 
-      - name: Check that we didn't forgot to gate a passing compliance test
+      - name: Check that we didn't forget to gate a passing compliance test
         working-directory: test-framework
         env:
           SUDO_UNDER_TEST: ours
