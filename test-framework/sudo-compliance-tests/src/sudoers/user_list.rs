@@ -1,7 +1,7 @@
 //! Test the first component of the user specification: `<user_list> ALL=(ALL:ALL) ALL`
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, User};
 
 use crate::{Result, PAMD_SUDO_PAM_PERMIT, USERNAME};
 
@@ -232,6 +232,63 @@ User_Alias ADMINS = %users, !ghost
 
     if sudo_test::is_original_sudo() {
         assert_contains!(output.stderr(), "ferris is not in the sudoers file");
+    }
+
+    Ok(())
+}
+
+#[test]
+fn negated_subgroup() -> Result<()> {
+    let env = Env("%users, !%rustaceans ALL=(ALL:ALL) ALL")
+        // use PAM to avoid password prompts
+        .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
+        // the primary group of all new users is `users`
+        .group("rustaceans")
+        .user(User("ferris").secondary_group("rustaceans"))
+        .user("ghost")
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .as_user("ghost")
+        .exec(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user("ferris")
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "ferris is not in the sudoers file");
+    }
+
+    Ok(())
+}
+
+#[test]
+fn negated_supergroup() -> Result<()> {
+    let env = Env("%rustaceans, !%users ALL=(ALL:ALL) ALL")
+        // use PAM to avoid password prompts
+        .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
+        // the primary group of all new users is `users`
+        .group("rustaceans")
+        .user(User("ferris").secondary_group("rustaceans"))
+        .user("ghost")
+        .build()?;
+
+    for user in ["ferris", "ghost"] {
+        let output = Command::new("sudo").arg("true").as_user(user).exec(&env)?;
+
+        assert!(!output.status().success());
+        assert_eq!(Some(1), output.status().code());
+
+        if sudo_test::is_original_sudo() {
+            assert_contains!(output.stderr(), " is not in the sudoers file");
+        }
     }
 
     Ok(())
