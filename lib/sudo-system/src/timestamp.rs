@@ -493,9 +493,16 @@ mod tests {
         )
         .unwrap();
 
-        let bytes = tty_sample.as_bytes().unwrap();
+        let mut bytes = tty_sample.as_bytes().unwrap();
         let decoded = SessionRecord::from_bytes(&bytes).unwrap();
         assert_eq!(tty_sample, decoded);
+
+        // we provide some invalid input
+        assert!(SessionRecord::from_bytes(&bytes[1..]).is_err());
+
+        // we have remaining input after decoding
+        bytes.push(0);
+        assert!(SessionRecord::from_bytes(&bytes).is_err());
 
         let ppid_sample = SessionRecord::new(
             RecordLimit::PPID {
@@ -559,11 +566,7 @@ mod tests {
             session_pid: 1234,
             init_time: some_time,
         };
-        let sample = SessionRecord {
-            limit,
-            auth_user: 1234,
-            timestamp: some_time,
-        };
+        let sample = SessionRecord::init(limit, 1234, some_time);
 
         let dur = Duration::seconds(30);
 
