@@ -284,9 +284,11 @@ impl EnvBuilder {
 pub struct User {
     name: Username,
 
+    create_home_directory: bool,
     groups: HashSet<Groupname>,
     id: Option<u32>,
     password: Option<String>,
+    shell: Option<String>,
 }
 
 /// creates a new user with the specified `name` and the following defaults:
@@ -344,9 +346,29 @@ impl User {
         self
     }
 
+    /// creates a home directory for the user at `/home/<username>`
+    ///
+    /// by default, the directory is not created
+    pub fn create_home_directory(mut self) -> Self {
+        self.create_home_directory = true;
+        self
+    }
+
+    /// sets the user's shell to the one at the specified `path`
+    pub fn shell(mut self, path: impl AsRef<str>) -> Self {
+        self.shell = Some(path.as_ref().to_string());
+        self
+    }
+
     fn create(&self, container: &Container) -> Result<()> {
         let mut useradd = Command::new("useradd");
         useradd.arg("--no-user-group");
+        if self.create_home_directory {
+            useradd.arg("--create-home");
+        }
+        if let Some(path) = &self.shell {
+            useradd.arg("--shell").arg(path);
+        }
         if let Some(id) = self.id {
             useradd.arg("--uid").arg(id.to_string());
         }
@@ -372,10 +394,12 @@ impl From<String> for User {
         assert!(!name.is_empty(), "user name cannot be an empty string");
 
         Self {
-            name,
+            create_home_directory: false,
             groups: HashSet::new(),
             id: None,
+            name,
             password: None,
+            shell: None,
         }
     }
 }
@@ -957,6 +981,41 @@ mod tests {
 
         assert!(!output.status().success());
         assert_eq!("whoami: cannot find name for user ID 1000", output.stderr());
+
+        Ok(())
+    }
+
+    #[test]
+    fn create_home_directory_works() -> Result<()> {
+        let env = EnvBuilder::default()
+            .user(User(USERNAME).create_home_directory())
+            .build()?;
+
+        Command::new("sh")
+            .arg("-c")
+            .arg(format!("[ -d /home/{USERNAME} ]"))
+            .exec(&env)?
+            .assert_success()
+    }
+
+    #[test]
+    fn setting_shell_works() -> Result<()> {
+        let expected = "/path/to/shell";
+        let env = EnvBuilder::default()
+            .user(User(USERNAME).shell(expected))
+            .build()?;
+
+        let passwd = Command::new("getent").arg("passwd").exec(&env)?.stdout()?;
+
+        let mut found = false;
+        for line in passwd.lines() {
+            if line.starts_with(&format!("{USERNAME}:")) {
+                found = true;
+                assert!(line.ends_with(&format!(":{expected}")));
+            }
+        }
+
+        assert!(found);
 
         Ok(())
     }
