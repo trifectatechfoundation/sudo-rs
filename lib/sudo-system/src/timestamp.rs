@@ -25,16 +25,6 @@ impl SetLength for File {
     }
 }
 
-impl SetLength for Vec<u8> {
-    fn set_len(&mut self, new_len: usize) -> io::Result<()> {
-        self.truncate(new_len);
-        while self.len() < new_len {
-            self.push(0);
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug)]
 pub struct SessionRecordFile<IO> {
     io: IO,
@@ -54,9 +44,9 @@ impl SessionRecordFile<File> {
 impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     const FILE_VERSION: u16 = 1;
     const MAGIC_NUM: u16 = 0x50D0;
-    const VERSION_OFFSET: u64 = Self::MAGIC_NUM.to_ne_bytes().len() as u64;
+    const VERSION_OFFSET: u64 = Self::MAGIC_NUM.to_le_bytes().len() as u64;
     const FIRST_RECORD_OFFSET: u64 =
-        Self::VERSION_OFFSET + Self::FILE_VERSION.to_ne_bytes().len() as u64;
+        Self::VERSION_OFFSET + Self::FILE_VERSION.to_le_bytes().len() as u64;
 
     /// Create a new SessionRecordFile from the given i/o stream.
     /// Timestamps in this file are considered valid if they were created or
@@ -105,7 +95,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         match self.io.read_exact(&mut magic_bytes) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(None),
             Err(e) => Err(e),
-            Ok(()) => Ok(Some(u16::from_ne_bytes(magic_bytes))),
+            Ok(()) => Ok(Some(u16::from_le_bytes(magic_bytes))),
         }
     }
 
@@ -115,7 +105,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         match self.io.read_exact(&mut version_bytes) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(None),
             Err(e) => Err(e),
-            Ok(()) => Ok(Some(u16::from_ne_bytes(version_bytes))),
+            Ok(()) => Ok(Some(u16::from_le_bytes(version_bytes))),
         }
     }
 
@@ -128,8 +118,8 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         }
         self.io.set_len(0)?;
         self.io.seek(io::SeekFrom::Start(0))?;
-        self.io.write_all(&Self::MAGIC_NUM.to_ne_bytes())?;
-        self.io.write_all(&Self::FILE_VERSION.to_ne_bytes())?;
+        self.io.write_all(&Self::MAGIC_NUM.to_le_bytes())?;
+        self.io.write_all(&Self::FILE_VERSION.to_le_bytes())?;
         self.io.seek(io::SeekFrom::Start(offset))?;
         if must_lock {
             self.io.unlock()?;
@@ -146,7 +136,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         let record_length = match self.io.read_exact(&mut record_length_bytes) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
             Err(e) => return Err(e),
-            Ok(()) => u16::from_ne_bytes(record_length_bytes),
+            Ok(()) => u16::from_le_bytes(record_length_bytes),
         };
 
         // special case when record_length is zero
@@ -290,7 +280,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         let record_length = record_length as u16; // store as u16
 
         // write the record
-        self.io.write_all(&record_length.to_ne_bytes())?;
+        self.io.write_all(&record_length.to_le_bytes())?;
         self.io.write_all(&bytes)?;
 
         Ok(())
@@ -367,9 +357,9 @@ impl RecordLimit {
                 init_time,
             } => {
                 target.write_all(&[1u8])?;
-                let b = tty_device.to_ne_bytes();
+                let b = tty_device.to_le_bytes();
                 target.write_all(&b)?;
-                let b = session_pid.to_ne_bytes();
+                let b = session_pid.to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
@@ -378,7 +368,7 @@ impl RecordLimit {
                 init_time,
             } => {
                 target.write_all(&[2u8])?;
-                let b = group_pid.to_ne_bytes();
+                let b = group_pid.to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
@@ -394,10 +384,10 @@ impl RecordLimit {
             1 => {
                 let mut buf = [0; std::mem::size_of::<libc::dev_t>()];
                 from.read_exact(&mut buf)?;
-                let tty_device = libc::dev_t::from_ne_bytes(buf);
+                let tty_device = libc::dev_t::from_le_bytes(buf);
                 let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
                 from.read_exact(&mut buf)?;
-                let session_pid = libc::pid_t::from_ne_bytes(buf);
+                let session_pid = libc::pid_t::from_le_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
                 Ok(RecordLimit::TTY {
                     tty_device,
@@ -408,7 +398,7 @@ impl RecordLimit {
             2 => {
                 let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
                 from.read_exact(&mut buf)?;
-                let group_pid = libc::pid_t::from_ne_bytes(buf);
+                let group_pid = libc::pid_t::from_le_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
                 Ok(RecordLimit::PPID {
                     group_pid,
@@ -451,7 +441,7 @@ impl SessionRecord {
     fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         self.limit.encode(target)?;
 
-        let buf = self.auth_user.to_ne_bytes();
+        let buf = self.auth_user.to_le_bytes();
         target.write_all(&buf)?;
 
         self.timestamp.encode(target)?;
@@ -464,7 +454,7 @@ impl SessionRecord {
         let limit = RecordLimit::decode(from)?;
         let mut buf = [0; std::mem::size_of::<libc::uid_t>()];
         from.read_exact(&mut buf)?;
-        let auth_user = libc::uid_t::from_ne_bytes(buf);
+        let auth_user = libc::uid_t::from_le_bytes(buf);
         let timestamp = SystemTime::decode(from)?;
         Ok(SessionRecord::init(limit, auth_user, timestamp))
     }
@@ -508,6 +498,26 @@ impl SessionRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl SetLength for Cursor<Vec<u8>> {
+        fn set_len(&mut self, new_len: usize) -> io::Result<()> {
+            self.get_mut().truncate(new_len);
+            while self.get_mut().len() < new_len {
+                self.get_mut().push(0);
+            }
+            Ok(())
+        }
+    }
+
+    impl SetLength for Cursor<&mut Vec<u8>> {
+        fn set_len(&mut self, new_len: usize) -> io::Result<()> {
+            self.get_mut().truncate(new_len);
+            while self.get_mut().len() < new_len {
+                self.get_mut().push(0);
+            }
+            Ok(())
+        }
+    }
 
     #[test]
     fn can_encode_and_decode() {
@@ -604,5 +614,33 @@ mod tests {
         assert!(!sample.written_between(some_time + dur, some_time - dur));
         assert!(!sample.written_between(some_time + dur, some_time + dur + dur));
         assert!(!sample.written_between(some_time - dur - dur, some_time - dur));
+    }
+
+    #[test]
+    fn session_record_file_header_checks() {
+        // valid header should remain valid
+        let mut v = vec![0xD0, 0x50, 0x01, 0x00];
+        let c = Cursor::new(&mut v);
+        let timeout = Duration::seconds(30);
+        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
+
+        // invalid headers should be corrected
+        let mut v = vec![0xAB, 0xBA];
+        let c = Cursor::new(&mut v);
+        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
+
+        // empty header should be filled in
+        let mut v = vec![];
+        let c = Cursor::new(&mut v);
+        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
+
+        // invalid version should reset file
+        let mut v = vec![0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0];
+        let c = Cursor::new(&mut v);
+        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
     }
 }

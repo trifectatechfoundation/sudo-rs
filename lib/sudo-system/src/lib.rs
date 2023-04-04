@@ -512,4 +512,9 @@ mod tests {
         test("eris", "fnord", 5, &[]);
         test("abc", "password123", 42, &[""]);
     }
+
+    #[test]
+    fn get_process_tty_device() {
+        assert!(super::Process::tty_device_id(None).is_ok());
+    }
 }

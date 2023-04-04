@@ -76,7 +76,29 @@ impl Lockable for File {
 mod tests {
     use super::*;
 
-    impl Lockable for Vec<u8> {
+    impl Lockable for std::io::Cursor<Vec<u8>> {
+        fn lock_exclusive(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn try_lock_exclusive(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn lock_shared(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn try_lock_shared(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn unlock(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    impl Lockable for std::io::Cursor<&mut Vec<u8>> {
         fn lock_exclusive(&self) -> Result<()> {
             Ok(())
         }
