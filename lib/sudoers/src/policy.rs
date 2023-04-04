@@ -82,20 +82,22 @@ mod test {
     use super::*;
     use crate::Tag;
 
+    impl Judgement {
+        fn mod_flag(&mut self, mut modify: impl FnMut(&mut Tag)) {
+            let mut tag: Tag = self.flags.clone().unwrap_or_default();
+            modify(&mut tag);
+            self.flags = Some(tag);
+        }
+    }
+
     // TODO: refactor the tag-updates to be more readable
     #[test]
     fn authority_xlat_test() {
         let mut judge: Judgement = Default::default();
         assert_eq!(judge.authorization(), Authorization::Forbidden);
-        judge.flags = Some(Tag {
-            passwd: true,
-            ..judge.flags.unwrap_or_default()
-        });
+        judge.mod_flag(|tag| tag.passwd = true);
         assert_eq!(judge.authorization(), Authorization::Required);
-        judge.flags = Some(Tag {
-            passwd: false,
-            ..judge.flags.unwrap_or_default()
-        });
+        judge.mod_flag(|tag| tag.passwd = false);
         assert_eq!(judge.authorization(), Authorization::Passed);
     }
 
@@ -106,20 +108,11 @@ mod test {
             ..Default::default()
         };
         assert_eq!(judge.chdir(), DirChange::Strict(None));
-        judge.flags = Some(Tag {
-            cwd: Some(crate::ChDir::Any),
-            ..judge.flags.unwrap_or_default()
-        });
+        judge.mod_flag(|tag| tag.cwd = Some(crate::ChDir::Any));
         assert_eq!(judge.chdir(), DirChange::Any);
-        judge.flags = Some(Tag {
-            cwd: Some(crate::ChDir::Path("/usr".into())),
-            ..judge.flags.unwrap_or_default()
-        });
+        judge.mod_flag(|tag| tag.cwd = Some(crate::ChDir::Path("/usr".into())));
         assert_eq!(judge.chdir(), (DirChange::Strict(Some(Path::new("/usr")))));
-        judge.flags = Some(Tag {
-            cwd: Some(crate::ChDir::Path("/bin".into())),
-            ..judge.flags.unwrap_or_default()
-        });
+        judge.mod_flag(|tag| tag.cwd = Some(crate::ChDir::Path("/bin".into())));
         assert_eq!(judge.chdir(), (DirChange::Strict(Some(Path::new("/bin")))));
     }
 }
