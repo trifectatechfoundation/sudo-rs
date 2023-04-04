@@ -8,6 +8,7 @@ mod cli;
 mod env_reset;
 mod flag_group;
 mod flag_login;
+mod flag_shell;
 mod flag_user;
 mod misc;
 mod nopasswd;
