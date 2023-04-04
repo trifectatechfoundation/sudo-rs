@@ -289,7 +289,7 @@ impl Group {
 #[derive(Debug, Clone)]
 pub struct Process {
     pub pid: ProcessId,
-    pub parent_pid: ProcessId,
+    pub parent_pid: Option<ProcessId>,
     pub group_id: ProcessId,
     pub session_id: ProcessId,
     pub term_foreground_group_id: Option<ProcessId>,
@@ -324,8 +324,13 @@ impl Process {
     }
 
     /// Return the parent process identifier for the current process
-    pub fn parent_id() -> ProcessId {
-        unsafe { libc::getppid() }
+    pub fn parent_id() -> Option<ProcessId> {
+        let pid = unsafe { libc::getppid() };
+        if pid == 0 {
+            None
+        } else {
+            Some(pid)
+        }
     }
 
     /// Return the process group id for the current process
@@ -372,11 +377,6 @@ impl Process {
     /// Attempt to get the session starting time
     pub fn session_starting_time(&self) -> io::Result<SystemTime> {
         Self::starting_time(Some(self.session_id))
-    }
-
-    /// Attempt to get the parent process starting time
-    pub fn parent_process_starting_time(&self) -> io::Result<SystemTime> {
-        Self::starting_time(Some(self.parent_pid))
     }
 
     /// Get the process starting time of a specific process
