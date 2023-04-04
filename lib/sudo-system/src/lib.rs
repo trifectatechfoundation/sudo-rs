@@ -411,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    fn test_group_impl() {
+    fn miri_test_group_impl() {
         use super::Group;
         use std::ffi::CString;
 
