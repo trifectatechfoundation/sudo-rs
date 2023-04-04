@@ -45,6 +45,9 @@ macro_rules! diagnostic {
             eprintln!($str);
         }
     };
+    ($str:expr) => {
+        eprintln!($str);
+    };
 }
 
 pub(crate) use diagnostic;

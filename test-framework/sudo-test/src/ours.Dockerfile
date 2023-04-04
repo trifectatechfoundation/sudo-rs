@@ -5,9 +5,9 @@ RUN apt-get update && \
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
-RUN cargo build --locked -p sudo
+RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked -p sudo && mkdir -p build && cp target/debug/sudo build/sudo
 # set setuid on install
-RUN install --mode 4755 target/debug/sudo /usr/bin/sudo
+RUN install --mode 4755 build/sudo /usr/bin/sudo
 # remove build dependencies
 RUN apt-get autoremove -y clang libclang-dev
 # HACK sudo-rs is hard-coded to use /etc/sudoers.test

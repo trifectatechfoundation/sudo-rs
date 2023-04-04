@@ -58,9 +58,14 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
         environment.insert("USER".to_string(), context.target_user.name.clone());
     }
     // If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
-    if !environment.contains_key("PATH") {
+    if context.path.is_empty() {
+        // If the PATH variable is not set, it will be set to default value
         environment.insert("PATH".to_string(), PATH_DEFAULT.to_string());
+    } else {
+        // assign path by env path or secure_path configuration
+        environment.insert("PATH".to_string(), context.path.to_string());
     }
+    // If the TERM variable is not preserved from the user's environment, it will be set to default value
     if !environment.contains_key("TERM") {
         environment.insert("TERM".to_string(), "unknown".to_string());
     }

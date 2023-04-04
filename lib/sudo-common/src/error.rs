@@ -3,17 +3,17 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Invalid command")]
+    #[error("command not found")]
     InvalidCommand,
-    #[error("User '{0}' not found")]
+    #[error("user '{0}' not found")]
     UserNotFound(String),
-    #[error("Group '{0}' not found")]
+    #[error("group '{0}' not found")]
     GroupNotFound(String),
-    #[error("Exec failed")]
+    #[error("could not spawn child process")]
     Exec,
-    #[error("Authentication error: {0}")]
+    #[error("authentication error: {0}")]
     Authentication(String),
-    #[error("Configuration error: {0}")]
+    #[error("configuration error: {0}")]
     Configuration(String),
     #[error("PAM error: {0}")]
     Pam(#[from] PamError),
