@@ -45,10 +45,7 @@ impl UnixUser for super::User {
         }
     }
     fn in_group_by_gid(&self, gid: GroupId) -> bool {
-        match &self.groups {
-            Some(ids) => ids.contains(&gid),
-            _ => false,
-        }
+        self.groups.contains(&gid)
     }
 }
 
@@ -80,7 +77,7 @@ mod test {
 
     #[test]
     fn test_unix_user() {
-        let user = |name| crate::User::from_name(name).unwrap().unwrap().with_groups();
+        let user = |name| crate::User::from_name(name).unwrap().unwrap();
         test_user(user("root"), "root", 0);
         test_user(user("daemon"), "daemon", 1);
     }

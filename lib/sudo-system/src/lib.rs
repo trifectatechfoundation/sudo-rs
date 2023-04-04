@@ -26,53 +26,20 @@ pub fn hostname() -> String {
 }
 
 /// set target user and groups (uid, gid, additional groups) for a command
-pub fn set_target_user(
-    cmd: &mut std::process::Command,
-    current_user: User,
-    target_user: User,
-    target_group: Group,
-) {
+pub fn set_target_user(cmd: &mut std::process::Command, target_user: User, target_group: Group) {
     use std::os::unix::process::CommandExt;
-
-    // means that we are using the default user because `-u` was not passed.
-    let user_is_default = target_user.is_default;
-    // means that we are using the principal gid of the target user because `-g` was not passed or
-    // was passed with the principal gid.
-    let group_is_default = target_user.uid == target_group.gid;
-
-    let (uid, gid, groups) = if group_is_default {
-        // no `-g`: We just set the uid, gid and groups using the target user.
-        (
-            target_user.uid,
-            target_user.gid,
-            target_user.groups.unwrap_or_default(),
-        )
-    } else if user_is_default {
-        //  `-g` and no `-u`: The set uid must be the one of the current user and the set groups
-        //  must be the ones of the current user extended with the target group gid.
-        let mut groups = current_user.groups.unwrap_or_default();
-        if !groups.contains(&target_group.gid) {
-            groups.push(target_group.gid);
-        }
-        (current_user.uid, target_group.gid, groups)
-    } else {
-        // `-g` and `-u`: The set uid must be the one of the target user and the set groups must be
-        // the ones of the target group extended with the target group gid.
-        let mut groups = target_user.groups.unwrap_or_default();
-        if !groups.contains(&target_group.gid) {
-            groups.push(target_group.gid);
-        }
-        (target_user.uid, target_group.gid, groups)
-    };
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
     // for the std implementation of the libc calls to `setgroups`, `setgid` and `setuid`
     unsafe {
         cmd.pre_exec(move || {
-            cerr(libc::setgroups(groups.len(), groups.as_ptr()))?;
-            cerr(libc::setgid(gid))?;
-            cerr(libc::setuid(uid))?;
+            cerr(libc::setgroups(
+                target_user.groups.len(),
+                target_user.groups.as_ptr(),
+            ))?;
+            cerr(libc::setgid(target_group.gid))?;
+            cerr(libc::setuid(target_user.uid))?;
 
             Ok(())
         });
@@ -101,8 +68,7 @@ pub struct User {
     pub home: String,
     pub shell: String,
     pub passwd: String,
-    pub groups: Option<Vec<libc::gid_t>>,
-    pub is_default: bool,
+    pub groups: Vec<libc::gid_t>,
 }
 
 impl User {
@@ -110,6 +76,33 @@ impl User {
     /// This function expects `pwd` to be a result from a succesful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> User {
+        let mut buf_len: libc::c_int = 32;
+        let mut groups_buffer: Vec<libc::gid_t>;
+
+        while {
+            groups_buffer = vec![0; buf_len as usize];
+            let result = unsafe {
+                libc::getgrouplist(
+                    pwd.pw_name,
+                    pwd.pw_gid,
+                    groups_buffer.as_mut_ptr(),
+                    &mut buf_len,
+                )
+            };
+
+            result == -1
+        } {
+            if buf_len >= 65536 {
+                panic!("user has too many groups (> 65536), this should not happen");
+            }
+
+            buf_len *= 2;
+        }
+
+        groups_buffer.resize_with(buf_len as usize, || {
+            panic!("invalid groups count returned from getgrouplist, this should not happen")
+        });
+
         User {
             uid: pwd.pw_uid,
             gid: pwd.pw_gid,
@@ -118,8 +111,7 @@ impl User {
             home: string_from_ptr(pwd.pw_dir),
             shell: string_from_ptr(pwd.pw_shell),
             passwd: string_from_ptr(pwd.pw_passwd),
-            groups: None,
-            is_default: false,
+            groups: groups_buffer,
         }
     }
 
@@ -182,42 +174,6 @@ impl User {
             let pwd = unsafe { pwd.assume_init() };
             Ok(Some(unsafe { Self::from_libc(&pwd) }))
         }
-    }
-
-    pub fn with_groups(mut self) -> User {
-        let mut groups = vec![];
-        let mut buf_len: libc::c_int = 32;
-        let mut buffer: Vec<libc::gid_t>;
-
-        while {
-            let username = CString::new(self.name.as_str()).expect("String contained null bytes");
-
-            buffer = vec![0; buf_len as usize];
-            let result = unsafe {
-                libc::getgrouplist(
-                    username.as_ptr(),
-                    self.gid,
-                    buffer.as_mut_ptr(),
-                    &mut buf_len,
-                )
-            };
-
-            result == -1
-        } {
-            if buf_len >= 65536 {
-                panic!("User has too many groups, this should not happen");
-            }
-
-            buf_len *= 2;
-        }
-
-        for i in 0..buf_len {
-            groups.push(buffer[i as usize]);
-        }
-
-        self.groups = Some(groups);
-
-        self
     }
 }
 

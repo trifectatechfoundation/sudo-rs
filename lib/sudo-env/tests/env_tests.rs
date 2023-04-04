@@ -86,8 +86,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
         home: "/home/test".to_string(),
         shell: "/bin/sh".to_string(),
         passwd: String::new(),
-        groups: None,
-        is_default: false,
+        groups: vec![],
     };
 
     let current_group = Group {
@@ -105,8 +104,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
         home: "/root".to_string(),
         shell: "/bin/bash".to_string(),
         passwd: String::new(),
-        groups: None,
-        is_default: false,
+        groups: vec![],
     };
 
     let root_group = Group {
