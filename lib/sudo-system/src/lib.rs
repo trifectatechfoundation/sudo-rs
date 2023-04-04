@@ -26,53 +26,20 @@ pub fn hostname() -> String {
 }
 
 /// set target user and groups (uid, gid, additional groups) for a command
-pub fn set_target_user(
-    cmd: &mut std::process::Command,
-    current_user: User,
-    target_user: User,
-    target_group: Group,
-) {
+pub fn set_target_user(cmd: &mut std::process::Command, target_user: User, target_group: Group) {
     use std::os::unix::process::CommandExt;
-
-    // means that we are using the default user because `-u` was not passed.
-    let user_is_default = target_user.is_default;
-    // means that we are using the principal gid of the target user because `-g` was not passed or
-    // was passed with the principal gid.
-    let group_is_default = target_user.uid == target_group.gid;
-
-    let (uid, gid, groups) = if group_is_default {
-        // no `-g`: We just set the uid, gid and groups using the target user.
-        (
-            target_user.uid,
-            target_user.gid,
-            target_user.groups.unwrap_or_default(),
-        )
-    } else if user_is_default {
-        //  `-g` and no `-u`: The set uid must be the one of the current user and the set groups
-        //  must be the ones of the current user extended with the target group gid.
-        let mut groups = current_user.groups.unwrap_or_default();
-        if !groups.contains(&target_group.gid) {
-            groups.push(target_group.gid);
-        }
-        (current_user.uid, target_group.gid, groups)
-    } else {
-        // `-g` and `-u`: The set uid must be the one of the target user and the set groups must be
-        // the ones of the target group extended with the target group gid.
-        let mut groups = target_user.groups.unwrap_or_default();
-        if !groups.contains(&target_group.gid) {
-            groups.push(target_group.gid);
-        }
-        (target_user.uid, target_group.gid, groups)
-    };
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
     // for the std implementation of the libc calls to `setgroups`, `setgid` and `setuid`
     unsafe {
         cmd.pre_exec(move || {
-            cerr(libc::setgroups(groups.len(), groups.as_ptr()))?;
-            cerr(libc::setgid(gid))?;
-            cerr(libc::setuid(uid))?;
+            cerr(libc::setgroups(
+                target_user.groups.len(),
+                target_user.groups.as_ptr(),
+            ))?;
+            cerr(libc::setgid(target_group.gid))?;
+            cerr(libc::setuid(target_user.uid))?;
 
             Ok(())
         });
@@ -101,22 +68,50 @@ pub struct User {
     pub home: String,
     pub shell: String,
     pub passwd: String,
-    pub groups: Option<Vec<libc::gid_t>>,
-    pub is_default: bool,
+    pub groups: Vec<libc::gid_t>,
 }
 
 impl User {
-    pub fn from_libc(pwd: &libc::passwd) -> User {
+    /// # Safety
+    /// This function expects `pwd` to be a result from a succesful call to `getpwXXX_r`.
+    /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
+    unsafe fn from_libc(pwd: &libc::passwd) -> User {
+        let mut buf_len: libc::c_int = 32;
+        let mut groups_buffer: Vec<libc::gid_t>;
+
+        while {
+            groups_buffer = vec![0; buf_len as usize];
+            let result = unsafe {
+                libc::getgrouplist(
+                    pwd.pw_name,
+                    pwd.pw_gid,
+                    groups_buffer.as_mut_ptr(),
+                    &mut buf_len,
+                )
+            };
+
+            result == -1
+        } {
+            if buf_len >= 65536 {
+                panic!("user has too many groups (> 65536), this should not happen");
+            }
+
+            buf_len *= 2;
+        }
+
+        groups_buffer.resize_with(buf_len as usize, || {
+            panic!("invalid groups count returned from getgrouplist, this should not happen")
+        });
+
         User {
             uid: pwd.pw_uid,
             gid: pwd.pw_gid,
-            name: unsafe { string_from_ptr(pwd.pw_name) },
-            gecos: unsafe { string_from_ptr(pwd.pw_gecos) },
-            home: unsafe { string_from_ptr(pwd.pw_dir) },
-            shell: unsafe { string_from_ptr(pwd.pw_shell) },
-            passwd: unsafe { string_from_ptr(pwd.pw_passwd) },
-            groups: None,
-            is_default: false,
+            name: string_from_ptr(pwd.pw_name),
+            gecos: string_from_ptr(pwd.pw_gecos),
+            home: string_from_ptr(pwd.pw_dir),
+            shell: string_from_ptr(pwd.pw_shell),
+            passwd: string_from_ptr(pwd.pw_passwd),
+            groups: groups_buffer,
         }
     }
 
@@ -138,7 +133,7 @@ impl User {
             Ok(None)
         } else {
             let pwd = unsafe { pwd.assume_init() };
-            Ok(Some(Self::from_libc(&pwd)))
+            Ok(Some(unsafe { Self::from_libc(&pwd) }))
         }
     }
 
@@ -177,48 +172,13 @@ impl User {
             Ok(None)
         } else {
             let pwd = unsafe { pwd.assume_init() };
-            Ok(Some(Self::from_libc(&pwd)))
+            Ok(Some(unsafe { Self::from_libc(&pwd) }))
         }
-    }
-
-    pub fn with_groups(mut self) -> User {
-        let mut groups = vec![];
-        let mut buf_len: libc::c_int = 32;
-        let mut buffer: Vec<libc::gid_t>;
-
-        while {
-            let username = CString::new(self.name.as_str()).expect("String contained null bytes");
-
-            buffer = vec![0; buf_len as usize];
-            let result = unsafe {
-                libc::getgrouplist(
-                    username.as_ptr(),
-                    self.gid,
-                    buffer.as_mut_ptr(),
-                    &mut buf_len,
-                )
-            };
-
-            result == -1
-        } {
-            if buf_len >= 65536 {
-                panic!("User has too many groups, this should not happen");
-            }
-
-            buf_len *= 2;
-        }
-
-        for i in 0..buf_len {
-            groups.push(buffer[i as usize]);
-        }
-
-        self.groups = Some(groups);
-
-        self
     }
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Group {
     pub gid: libc::gid_t,
     pub name: String,
@@ -227,24 +187,28 @@ pub struct Group {
 }
 
 impl Group {
-    pub fn from_libc(grp: &libc::group) -> Group {
+    /// # Safety
+    /// This function expects `grp` to be a result from a succesful call to `getgrXXX_r`.
+    /// In particular the grp.gr_mem pointer is assumed to be non-null, and pointing to a
+    /// null-terminated list; the pointed-to strings are expected to be null-terminated.
+    unsafe fn from_libc(grp: &libc::group) -> Group {
         // find out how many members we have
         let mut mem_count = 0;
-        while unsafe { !(*grp.gr_mem.offset(mem_count)).is_null() } {
+        while !(*grp.gr_mem.offset(mem_count)).is_null() {
             mem_count += 1;
         }
 
         // convert the members to a slice and then put them into a vec of strings
         let mut members = Vec::with_capacity(mem_count as usize);
-        let mem_slice = unsafe { std::slice::from_raw_parts(grp.gr_mem, mem_count as usize) };
+        let mem_slice = std::slice::from_raw_parts(grp.gr_mem, mem_count as usize);
         for mem in mem_slice {
-            members.push(unsafe { string_from_ptr(*mem) });
+            members.push(string_from_ptr(*mem));
         }
 
         Group {
             gid: grp.gr_gid,
-            name: unsafe { string_from_ptr(grp.gr_name) },
-            passwd: unsafe { string_from_ptr(grp.gr_passwd) },
+            name: string_from_ptr(grp.gr_name),
+            passwd: string_from_ptr(grp.gr_passwd),
             members,
         }
     }
@@ -283,7 +247,7 @@ impl Group {
             Ok(None)
         } else {
             let grp = unsafe { grp.assume_init() };
-            Ok(Some(Group::from_libc(&grp)))
+            Ok(Some(unsafe { Group::from_libc(&grp) }))
         }
     }
 
@@ -306,7 +270,7 @@ impl Group {
             Ok(None)
         } else {
             let grp = unsafe { grp.assume_init() };
-            Ok(Some(Group::from_libc(&grp)))
+            Ok(Some(unsafe { Group::from_libc(&grp) }))
         }
     }
 }
@@ -385,13 +349,60 @@ impl Process {
 
 #[cfg(test)]
 mod tests {
-    use crate::User;
+    use crate::{Group, User};
 
     #[test]
-    fn test_get_user() {
-        let root = User::from_uid(0).unwrap().unwrap();
+    fn test_get_user_and_group_by_id() {
+        let fixed_users = &[(0, "root"), (1, "daemon")];
+        for &(id, name) in fixed_users {
+            let root = User::from_uid(id).unwrap().unwrap();
+            assert_eq!(root.uid, id as libc::uid_t);
+            assert_eq!(root.name, name);
+        }
+        for &(id, name) in fixed_users {
+            let root = Group::from_gid(id).unwrap().unwrap();
+            assert_eq!(root.gid, id as libc::gid_t);
+            assert_eq!(root.name, name);
+        }
+    }
 
-        assert_eq!(root.uid, 0);
-        assert_eq!(root.name, "root");
+    #[test]
+    fn miri_test_group_impl() {
+        use super::Group;
+        use std::ffi::CString;
+
+        fn test(name: &str, passwd: &str, gid: libc::gid_t, mem: &[&str]) {
+            assert_eq!(
+                {
+                    let c_mem: Vec<CString> =
+                        mem.iter().map(|&s| CString::new(s).unwrap()).collect();
+                    let c_name = CString::new(name).unwrap();
+                    let c_passwd = CString::new(passwd).unwrap();
+                    unsafe {
+                        Group::from_libc(&libc::group {
+                            gr_name: c_name.as_ptr() as *mut _,
+                            gr_passwd: c_passwd.as_ptr() as *mut _,
+                            gr_gid: gid,
+                            gr_mem: c_mem
+                                .iter()
+                                .map(|cs| cs.as_ptr() as *mut _)
+                                .chain(std::iter::once(std::ptr::null_mut()))
+                                .collect::<Vec<*mut libc::c_char>>()
+                                .as_mut_ptr(),
+                        })
+                    }
+                },
+                Group {
+                    name: name.to_string(),
+                    passwd: passwd.to_string(),
+                    gid,
+                    members: mem.iter().map(|s| s.to_string()).collect(),
+                }
+            )
+        }
+
+        test("dr. bill", "fidelio", 1999, &["eyes", "wide", "shut"]);
+        test("eris", "fnord", 5, &[]);
+        test("abc", "password123", 42, &[""]);
     }
 }

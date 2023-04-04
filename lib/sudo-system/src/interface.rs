@@ -45,10 +45,7 @@ impl UnixUser for super::User {
         }
     }
     fn in_group_by_gid(&self, gid: GroupId) -> bool {
-        match &self.groups {
-            Some(ids) => ids.contains(&gid),
-            _ => false,
-        }
+        self.groups.contains(&gid)
     }
 }
 
@@ -59,5 +56,45 @@ impl UnixGroup for super::Group {
 
     fn try_as_name(&self) -> Option<&str> {
         Some(&self.name)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn test_user(user: impl UnixUser, name: &str, uid: libc::uid_t) {
+        assert!(user.has_name(name));
+        assert!(user.has_uid(uid));
+        assert!(user.in_group_by_name(name));
+        assert_eq!(user.is_root(), name == "root");
+    }
+
+    fn test_group(group: impl UnixGroup, name: &str, gid: libc::gid_t) {
+        assert_eq!(group.as_gid(), gid);
+        assert_eq!(group.try_as_name(), Some(name));
+    }
+
+    #[test]
+    fn test_unix_user() {
+        let user = |name| crate::User::from_name(name).unwrap().unwrap();
+        test_user(user("root"), "root", 0);
+        test_user(user("daemon"), "daemon", 1);
+    }
+
+    #[test]
+    fn test_unix_group() {
+        let group = |name| crate::Group::from_name(name).unwrap().unwrap();
+        test_group(group("root"), "root", 0);
+        test_group(group("daemon"), "daemon", 1);
+    }
+
+    #[test]
+    fn test_default() {
+        impl UnixUser for () {}
+        assert!(!().has_name("root"));
+        assert!(!().has_uid(0));
+        assert!(!().is_root());
+        assert!(!().in_group_by_name("root"));
     }
 }

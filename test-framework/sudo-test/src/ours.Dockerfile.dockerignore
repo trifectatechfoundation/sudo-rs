@@ -1,4 +1,9 @@
-target/**
-.git/**
-# changes in test framework not trigger a rebuild of sudo binary
-test-framework/**
+# ignore everything
+*
+
+# but these
+!Cargo.lock
+!Cargo.toml
+!lib/**/*
+!test-binaries/**/*
+!sudo/**/*

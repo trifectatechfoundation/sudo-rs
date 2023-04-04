@@ -1,5 +1,6 @@
 use core::str;
 use std::{
+    env,
     fs::{self, File},
     io::{Seek, SeekFrom, Write},
     path::PathBuf,
@@ -10,7 +11,7 @@ use tempfile::NamedTempFile;
 
 use crate::{base_image, Result, SudoUnderTest};
 
-pub use self::command::{Child, Command, Output};
+pub use self::command::{As, Child, Command, Output};
 
 mod command;
 
@@ -64,9 +65,9 @@ impl Container {
         if cmd.get_stdin().is_some() {
             docker_exec.arg("-i");
         }
-        if let Some(user) = cmd.get_user() {
+        if let Some(as_) = cmd.get_as() {
             docker_exec.arg("--user");
-            docker_exec.arg(user);
+            docker_exec.arg(as_.to_string());
         }
         docker_exec.arg(&self.id);
         docker_exec.args(cmd.get_args());
@@ -106,13 +107,18 @@ pub fn build_base_image() -> Result<()> {
     let repo_root = repo_root();
     let mut cmd = StdCommand::new("docker");
 
-    cmd.args(["build", "-t", base_image()]);
+    cmd.args(["buildx", "build", "-t", base_image(), "--load"]);
+
+    if env::var_os("CI").is_some() {
+        cmd.args([
+            "--cache-from=type=local,src=/tmp/.buildx-cache",
+            "--cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max",
+        ]);
+    }
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {
             // needed for dockerfile-specific dockerignore (e.g. `Dockerfile.dockerignore`) support
-            cmd.env("DOCKER_BUILDKIT", "1");
-
             cmd.current_dir(repo_root);
             cmd.args(["-f", "test-framework/sudo-test/src/ours.Dockerfile", "."]);
         }
@@ -124,7 +130,13 @@ pub fn build_base_image() -> Result<()> {
         }
     }
 
-    run(&mut cmd, None)?.assert_success()?;
+    if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
+        cmd.stderr(Stdio::null()).stdout(Stdio::null());
+    }
+
+    if !cmd.status()?.success() {
+        return Err("`docker build` failed".into());
+    }
 
     Ok(())
 }

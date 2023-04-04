@@ -42,8 +42,11 @@ macro_rules! diagnostic {
         if let Some(range) = $pos {
             $crate::diagnostic::cited_error(&format!($str), range, $path);
         } else {
-            eprintln!($str);
+            eprintln!("sudo-rs: {}", format!($str));
         }
+    };
+    ($str:expr) => {
+        eprintln!("sudo-rs: {}", format!($str));
     };
 }
 

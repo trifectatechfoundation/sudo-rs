@@ -6,20 +6,21 @@ use pam::authenticate;
 use sudo_cli::SudoOptions;
 use sudo_common::{Context, Environment, Error};
 use sudo_env::environment;
-use sudoers::{Authorization, Policy, PreJudgementPolicy, Sudoers};
+use sudoers::{Authorization, DirChange, Judgement, Policy, PreJudgementPolicy, Sudoers};
 
 mod diagnostic;
+use diagnostic::diagnostic;
 mod pam;
 
 fn parse_sudoers() -> Result<Sudoers, Error> {
     // TODO: move to global configuration
     let sudoers_path = "/etc/sudoers.test";
 
-    let (sudoers, syntax_errors) = Sudoers::new(sudoers_path)
-        .map_err(|e| Error::Configuration(format!("no valid sudoers file: {e}")))?;
+    let (sudoers, syntax_errors) =
+        Sudoers::new(sudoers_path).map_err(|e| Error::Configuration(format!("{e}")))?;
 
     for sudoers::Error(pos, error) in syntax_errors {
-        diagnostic::diagnostic!("{error}", sudoers_path @ pos);
+        diagnostic!("{error}", sudoers_path @ pos);
     }
 
     Ok(sudoers)
@@ -45,9 +46,26 @@ fn build_context<'a>(
     sudoers: &impl PreJudgementPolicy,
 ) -> Result<Context<'a>, Error> {
     let env_path = env::var("PATH").unwrap_or_default();
-    let path = sudoers.secure_path().unwrap_or(&env_path);
+    let path = sudoers.secure_path().unwrap_or(env_path);
 
     Context::build_from_options(sudo_options, path)
+}
+
+/// Change context values given a policy
+fn apply_policy_to_context(context: &mut Context, policy: &Judgement) -> Result<(), Error> {
+    // see if the chdir flag is permitted
+    match policy.chdir() {
+        DirChange::Any => {}
+        DirChange::Strict(optdir) => {
+            if context.chdir.is_some() {
+                return Err(Error::auth("no permission")); // TODO better user error messages
+            } else {
+                context.chdir = optdir.map(std::path::PathBuf::from)
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
@@ -68,7 +86,7 @@ do this then this software is not suited for you at this time."
     }
 }
 
-fn main() -> Result<(), Error> {
+fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     // parse cli options
     let sudo_options = SudoOptions::parse();
 
@@ -78,10 +96,12 @@ fn main() -> Result<(), Error> {
     let sudoers = parse_sudoers()?;
 
     // build context given a path
-    let context = build_context(&sudo_options, &sudoers)?;
+    let mut context = build_context(&sudo_options, &sudoers)?;
 
     // check sudoers file for permission
     let policy = check_sudoers(&sudoers, &context);
+
+    // see if user must be authenticated
     match policy.authorization() {
         Authorization::Required => {
             // authenticate user using pam
@@ -89,16 +109,25 @@ fn main() -> Result<(), Error> {
         }
         Authorization::Passed => {}
         Authorization::Forbidden => {
-            return Err(Error::auth("no permission"));
+            return Err(Error::auth(&format!(
+                "i'm sorry {}, i'm afraid i can't do that",
+                context.current_user.name
+            )));
         }
     };
+
+    apply_policy_to_context(&mut context, &policy)?;
 
     // build environment
     let current_env = std::env::vars().collect::<Environment>();
     let target_env = environment::get_target_environment(current_env, &context, &policy);
 
     // run command and return corresponding exit code
-    match sudo_exec::run_command(context, target_env) {
+    Ok(sudo_exec::run_command(context, target_env)?)
+}
+
+fn main() {
+    match sudo_process() {
         Ok(status) => {
             if let Some(code) = status.code() {
                 std::process::exit(code);
@@ -106,8 +135,8 @@ fn main() -> Result<(), Error> {
                 std::process::exit(1);
             }
         }
-        Err(e) => {
-            eprintln!("{e}");
+        Err(error) => {
+            diagnostic!("{error}");
             std::process::exit(1);
         }
     }

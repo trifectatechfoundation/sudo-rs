@@ -74,9 +74,9 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
 }
 
 fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
-    let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
     let command =
-        CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), path).unwrap();
+        CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), &path).unwrap();
 
     let current_user = User {
         uid: 1000,
@@ -86,8 +86,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
         home: "/home/test".to_string(),
         shell: "/bin/sh".to_string(),
         passwd: String::new(),
-        groups: None,
-        is_default: false,
+        groups: vec![],
     };
 
     let current_group = Group {
@@ -105,8 +104,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
         home: "/root".to_string(),
         shell: "/bin/bash".to_string(),
         passwd: String::new(),
-        groups: None,
-        is_default: false,
+        groups: vec![],
     };
 
     let root_group = Group {
@@ -132,6 +130,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
         },
         set_home: sudo_options.set_home,
         preserve_env_list: sudo_options.preserve_env_list.clone(),
+        path,
         login: sudo_options.login,
         shell: sudo_options.shell,
         chdir: sudo_options.directory.clone(),
