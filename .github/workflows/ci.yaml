@@ -14,6 +14,8 @@ on:
 jobs:
   compliance-tests:
     runs-on: ubuntu-latest
+    env:
+      SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
     steps:
       - uses: actions/checkout@v2
 
@@ -22,6 +24,22 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      - name: set up docker buildx
+        run: docker buildx create --name builder --use
+
+      - name: cache docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-buildx-${{ github.sha }}
+          restore-keys: docker-buildx-
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            test-framework
 
       - name: Test sudo-test itself
         working-directory: test-framework
@@ -37,7 +55,7 @@ jobs:
           SUDO_UNDER_TEST: ours
         run: cargo test -p sudo-compliance-tests
 
-      - name: Check that we didn't forgot to gate a passing compliance test
+      - name: Check that we didn't forget to gate a passing compliance test
         working-directory: test-framework
         env:
           SUDO_UNDER_TEST: ours
@@ -45,6 +63,11 @@ jobs:
           tmpfile="$(mktemp)"
           cargo test -p sudo-compliance-tests -- --ignored | tee "$tmpfile"
           grep 'test result: FAILED. 0 passed' "$tmpfile" || exit 1
+
+      - name: prevent the cache from growing too large
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   build-and-test:
     runs-on: ubuntu-latest
@@ -125,7 +148,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: test --release --all-features
+          args: test --workspace --all-features miri
 
   format:
     runs-on: ubuntu-latest

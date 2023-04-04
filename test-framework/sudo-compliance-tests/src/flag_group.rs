@@ -80,22 +80,24 @@ fn group_can_be_specified_by_id() -> Result<()> {
 }
 
 #[test]
-#[ignore]
-fn can_use_unassigned_group_id() -> Result<()> {
+fn unassigned_group_id_is_rejected() -> Result<()> {
     let expected_gid = 1234;
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
     for user in ["root", USERNAME] {
-        let actual = Command::new("sudo")
+        let output = Command::new("sudo")
             .arg("-g")
             .arg(format!("#{expected_gid}"))
-            .args(["id", "-g"])
+            .arg("true")
             .as_user(user)
-            .exec(&env)?
-            .stdout()?
-            .parse::<u32>()?;
+            .exec(&env)?;
 
-        assert_eq!(expected_gid, actual);
+        assert!(!output.status().success());
+        assert_eq!(Some(1), output.status().code());
+
+        if sudo_test::is_original_sudo() {
+            assert_contains!(output.stderr(), "sudo: unknown group: #1234");
+        }
     }
 
     Ok(())

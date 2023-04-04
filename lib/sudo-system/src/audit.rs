@@ -41,3 +41,22 @@ pub fn secure_open(path: &Path) -> io::Result<File> {
         Ok(file)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::secure_open;
+    use std::path::Path;
+
+    #[test]
+    fn secure_open_is_predictable() {
+        // /etc/hosts should be readable and "secure" (if this test fails, you have been compromised)
+        assert!(std::fs::File::open("/etc/hosts").is_ok());
+        assert!(secure_open(Path::new("/etc/hosts")).is_ok());
+        // /var/log/utmp should be readable, but not secure (writeable by group other than root)
+        assert!(std::fs::File::open("/var/log/wtmp").is_ok());
+        assert!(secure_open(Path::new("/var/log/wtmp")).is_err());
+        // /etc/shadow should not be readable
+        assert!(std::fs::File::open("/etc/shadow").is_err());
+        assert!(secure_open(Path::new("/etc/shadow")).is_err());
+    }
+}

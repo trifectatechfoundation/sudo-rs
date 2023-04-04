@@ -68,12 +68,14 @@ impl Policy for Judgement {
 }
 
 pub trait PreJudgementPolicy {
-    fn secure_path(&self) -> Option<&str>;
+    fn secure_path(&self) -> Option<String>;
 }
 
 impl PreJudgementPolicy for Sudoers {
-    fn secure_path(&self) -> Option<&str> {
-        self.settings.str_value["secure_path"].as_deref()
+    fn secure_path(&self) -> Option<String> {
+        self.settings.str_value["secure_path"]
+            .as_ref()
+            .map(|s| s.to_string())
     }
 }
 

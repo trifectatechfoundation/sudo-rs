@@ -106,15 +106,18 @@ pub struct User {
 }
 
 impl User {
-    pub fn from_libc(pwd: &libc::passwd) -> User {
+    /// # Safety
+    /// This function expects `pwd` to be a result from a succesful call to `getpwXXX_r`.
+    /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
+    unsafe fn from_libc(pwd: &libc::passwd) -> User {
         User {
             uid: pwd.pw_uid,
             gid: pwd.pw_gid,
-            name: unsafe { string_from_ptr(pwd.pw_name) },
-            gecos: unsafe { string_from_ptr(pwd.pw_gecos) },
-            home: unsafe { string_from_ptr(pwd.pw_dir) },
-            shell: unsafe { string_from_ptr(pwd.pw_shell) },
-            passwd: unsafe { string_from_ptr(pwd.pw_passwd) },
+            name: string_from_ptr(pwd.pw_name),
+            gecos: string_from_ptr(pwd.pw_gecos),
+            home: string_from_ptr(pwd.pw_dir),
+            shell: string_from_ptr(pwd.pw_shell),
+            passwd: string_from_ptr(pwd.pw_passwd),
             groups: None,
             is_default: false,
         }
@@ -138,7 +141,7 @@ impl User {
             Ok(None)
         } else {
             let pwd = unsafe { pwd.assume_init() };
-            Ok(Some(Self::from_libc(&pwd)))
+            Ok(Some(unsafe { Self::from_libc(&pwd) }))
         }
     }
 
@@ -177,7 +180,7 @@ impl User {
             Ok(None)
         } else {
             let pwd = unsafe { pwd.assume_init() };
-            Ok(Some(Self::from_libc(&pwd)))
+            Ok(Some(unsafe { Self::from_libc(&pwd) }))
         }
     }
 
@@ -219,6 +222,7 @@ impl User {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Group {
     pub gid: libc::gid_t,
     pub name: String,
@@ -227,24 +231,28 @@ pub struct Group {
 }
 
 impl Group {
-    pub fn from_libc(grp: &libc::group) -> Group {
+    /// # Safety
+    /// This function expects `grp` to be a result from a succesful call to `getgrXXX_r`.
+    /// In particular the grp.gr_mem pointer is assumed to be non-null, and pointing to a
+    /// null-terminated list; the pointed-to strings are expected to be null-terminated.
+    unsafe fn from_libc(grp: &libc::group) -> Group {
         // find out how many members we have
         let mut mem_count = 0;
-        while unsafe { !(*grp.gr_mem.offset(mem_count)).is_null() } {
+        while !(*grp.gr_mem.offset(mem_count)).is_null() {
             mem_count += 1;
         }
 
         // convert the members to a slice and then put them into a vec of strings
         let mut members = Vec::with_capacity(mem_count as usize);
-        let mem_slice = unsafe { std::slice::from_raw_parts(grp.gr_mem, mem_count as usize) };
+        let mem_slice = std::slice::from_raw_parts(grp.gr_mem, mem_count as usize);
         for mem in mem_slice {
-            members.push(unsafe { string_from_ptr(*mem) });
+            members.push(string_from_ptr(*mem));
         }
 
         Group {
             gid: grp.gr_gid,
-            name: unsafe { string_from_ptr(grp.gr_name) },
-            passwd: unsafe { string_from_ptr(grp.gr_passwd) },
+            name: string_from_ptr(grp.gr_name),
+            passwd: string_from_ptr(grp.gr_passwd),
             members,
         }
     }
@@ -283,7 +291,7 @@ impl Group {
             Ok(None)
         } else {
             let grp = unsafe { grp.assume_init() };
-            Ok(Some(Group::from_libc(&grp)))
+            Ok(Some(unsafe { Group::from_libc(&grp) }))
         }
     }
 
@@ -306,7 +314,7 @@ impl Group {
             Ok(None)
         } else {
             let grp = unsafe { grp.assume_init() };
-            Ok(Some(Group::from_libc(&grp)))
+            Ok(Some(unsafe { Group::from_libc(&grp) }))
         }
     }
 }
@@ -385,13 +393,60 @@ impl Process {
 
 #[cfg(test)]
 mod tests {
-    use crate::User;
+    use crate::{Group, User};
 
     #[test]
-    fn test_get_user() {
-        let root = User::from_uid(0).unwrap().unwrap();
+    fn test_get_user_and_group_by_id() {
+        let fixed_users = &[(0, "root"), (1, "daemon")];
+        for &(id, name) in fixed_users {
+            let root = User::from_uid(id).unwrap().unwrap();
+            assert_eq!(root.uid, id as libc::uid_t);
+            assert_eq!(root.name, name);
+        }
+        for &(id, name) in fixed_users {
+            let root = Group::from_gid(id).unwrap().unwrap();
+            assert_eq!(root.gid, id as libc::gid_t);
+            assert_eq!(root.name, name);
+        }
+    }
 
-        assert_eq!(root.uid, 0);
-        assert_eq!(root.name, "root");
+    #[test]
+    fn miri_test_group_impl() {
+        use super::Group;
+        use std::ffi::CString;
+
+        fn test(name: &str, passwd: &str, gid: libc::gid_t, mem: &[&str]) {
+            assert_eq!(
+                {
+                    let c_mem: Vec<CString> =
+                        mem.iter().map(|&s| CString::new(s).unwrap()).collect();
+                    let c_name = CString::new(name).unwrap();
+                    let c_passwd = CString::new(passwd).unwrap();
+                    unsafe {
+                        Group::from_libc(&libc::group {
+                            gr_name: c_name.as_ptr() as *mut _,
+                            gr_passwd: c_passwd.as_ptr() as *mut _,
+                            gr_gid: gid,
+                            gr_mem: c_mem
+                                .iter()
+                                .map(|cs| cs.as_ptr() as *mut _)
+                                .chain(std::iter::once(std::ptr::null_mut()))
+                                .collect::<Vec<*mut libc::c_char>>()
+                                .as_mut_ptr(),
+                        })
+                    }
+                },
+                Group {
+                    name: name.to_string(),
+                    passwd: passwd.to_string(),
+                    gid,
+                    members: mem.iter().map(|s| s.to_string()).collect(),
+                }
+            )
+        }
+
+        test("dr. bill", "fidelio", 1999, &["eyes", "wide", "shut"]);
+        test("eris", "fnord", 5, &[]);
+        test("abc", "password123", 42, &[""]);
     }
 }
