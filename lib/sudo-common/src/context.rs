@@ -8,7 +8,6 @@ use crate::{
     Error,
 };
 
-/// A Context is based off of global information and is 'non-judgmental'
 #[derive(Debug)]
 pub struct Context<'a> {
     // cli options
