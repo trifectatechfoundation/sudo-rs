@@ -174,12 +174,12 @@ fn permission_test() {
     pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo" => [passwd: true]);
     pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: false]);
     pass!(["user ALL=(ALL:ALL) NOPASSWD: /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: false]);
-    pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [cwd: Some(ChDir::Path("/".to_string()))]);
-    pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, CWD=* /bin/bar"], "user" => root(), "server"; "/bin/bar" => [cwd: Some(ChDir::Asterisk)]);
-    pass!(["user ALL=(ALL:ALL) CWD=/bin CWD=* /bin/foo"], "user" => root(), "server"; "/bin/foo" => [cwd: Some(ChDir::Asterisk)]);
-    pass!(["user ALL=(ALL:ALL) CWD=/usr/bin NOPASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: false, cwd: Some(ChDir::Path("/usr/bin".to_string()))]);
+    pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [cwd: Some(ChDir::Path("/".into()))]);
+    pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, CWD=* /bin/bar"], "user" => root(), "server"; "/bin/bar" => [cwd: Some(ChDir::Any)]);
+    pass!(["user ALL=(ALL:ALL) CWD=/bin CWD=* /bin/foo"], "user" => root(), "server"; "/bin/foo" => [cwd: Some(ChDir::Any)]);
+    pass!(["user ALL=(ALL:ALL) CWD=/usr/bin NOPASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: false, cwd: Some(ChDir::Path("/usr/bin".into()))]);
     //note: original sudo does not allow the below
-    pass!(["user ALL=(ALL:ALL) NOPASSWD: CWD=/usr/bin /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: false, cwd: Some(ChDir::Path("/usr/bin".to_string()))]);
+    pass!(["user ALL=(ALL:ALL) NOPASSWD: CWD=/usr/bin /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: false, cwd: Some(ChDir::Path("/usr/bin".into()))]);
 
     pass!(["user ALL=/bin/e##o"], "user" => root(), "vm"; "/bin/e");
     SYNTAX!(["ALL ALL=(ALL) /bin/\n/echo"]);

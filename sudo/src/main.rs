@@ -6,7 +6,7 @@ use pam::authenticate;
 use sudo_cli::SudoOptions;
 use sudo_common::{Context, Environment, Error};
 use sudo_env::environment;
-use sudoers::{Authorization, Policy, PreJudgementPolicy, Sudoers};
+use sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy, Sudoers};
 
 mod diagnostic;
 mod pam;
@@ -78,10 +78,12 @@ fn main() -> Result<(), Error> {
     let sudoers = parse_sudoers()?;
 
     // build context given a path
-    let context = build_context(&sudo_options, &sudoers)?;
+    let mut context = build_context(&sudo_options, &sudoers)?;
 
     // check sudoers file for permission
     let policy = check_sudoers(&sudoers, &context);
+
+    // see if user must be authenticated
     match policy.authorization() {
         Authorization::Required => {
             // authenticate user using pam
@@ -89,9 +91,21 @@ fn main() -> Result<(), Error> {
         }
         Authorization::Passed => {}
         Authorization::Forbidden => {
-            return Err(Error::auth("no permission"));
+            return Err(Error::auth("no permission")); // TODO better user error messages
         }
     };
+
+    // see if the chdir flag is permitted
+    match policy.chdir() {
+        DirChange::Any => {}
+        DirChange::Strict(optdir) => {
+            if context.chdir.is_some() {
+                return Err(Error::auth("no permission")); // TODO better user error messages
+            } else {
+                context.chdir = optdir.map(std::path::PathBuf::from)
+            }
+        }
+    }
 
     // build environment
     let current_env = std::env::vars().collect::<Environment>();
@@ -107,7 +121,7 @@ fn main() -> Result<(), Error> {
             }
         }
         Err(e) => {
-            eprintln!("{e}");
+            eprintln!("{e}"); // TODO better user error messages
             std::process::exit(1);
         }
     }
