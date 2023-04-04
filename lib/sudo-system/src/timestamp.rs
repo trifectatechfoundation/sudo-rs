@@ -177,7 +177,8 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         self.seek_to_first_record()?;
         while let Some((_pos, record)) = self.next_record()? {
             if record.matches(&record_limit, target_user) {
-                if record.written_after(SystemTime::now()? - self.timeout) {
+                let now = SystemTime::now()?;
+                if record.written_between(now - self.timeout, now) {
                     // move back 16 bytes (size of the timestamp) and overwrite with the latest time
                     self.io.seek(io::SeekFrom::Current(-16))?;
                     let new_time = SystemTime::now()?;
@@ -213,7 +214,8 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         self.seek_to_first_record()?;
         while let Some((_pos, record)) = self.next_record()? {
             if record.matches(&record_limit, target_user) {
-                if record.written_after(SystemTime::now()? - self.timeout) {
+                let now = SystemTime::now()?;
+                if record.written_between(now - self.timeout, now) {
                     self.io.unlock()?;
                     return Ok(RecordMatch::Found {
                         time: record.timestamp,
@@ -467,9 +469,11 @@ impl SessionRecord {
         self.limit == *limit && self.auth_user == auth_user
     }
 
-    /// Returns true if this record was written at or after the specified time
-    pub fn written_after(&self, time: SystemTime) -> bool {
-        self.timestamp >= time
+    /// Returns true if this record was written somewhere in the time range
+    /// between `early_time` (inclusive) and `later_time` (inclusive), where
+    /// early timestamp may not be later than the later timestamp.
+    pub fn written_between(&self, early_time: SystemTime, later_time: SystemTime) -> bool {
+        early_time <= later_time && self.timestamp >= early_time && self.timestamp <= later_time
     }
 }
 
@@ -504,5 +508,70 @@ mod tests {
         let bytes = ppid_sample.as_bytes().unwrap();
         let decoded = SessionRecord::from_bytes(&bytes).unwrap();
         assert_eq!(ppid_sample, decoded);
+    }
+
+    #[test]
+    fn timestamp_record_matches_works() {
+        let init_time = SystemTime::now().unwrap();
+        let limit = RecordLimit::TTY {
+            tty_device: 12,
+            session_pid: 1234,
+            init_time,
+        };
+
+        let tty_sample = SessionRecord::new(limit, 675).unwrap();
+
+        assert!(tty_sample.matches(&limit, 675));
+        assert!(!tty_sample.matches(&limit, 789));
+        assert!(!tty_sample.matches(
+            &RecordLimit::TTY {
+                tty_device: 20,
+                session_pid: 1234,
+                init_time
+            },
+            675
+        ));
+        assert!(!tty_sample.matches(
+            &RecordLimit::PPID {
+                group_pid: 42,
+                init_time
+            },
+            675
+        ));
+
+        // make sure time is different
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        assert!(!tty_sample.matches(
+            &RecordLimit::TTY {
+                tty_device: 12,
+                session_pid: 1234,
+                init_time: SystemTime::now().unwrap()
+            },
+            675
+        ));
+    }
+
+    #[test]
+    fn timestamp_record_written_between_works() {
+        let some_time = SystemTime::now().unwrap() + Duration::minutes(100);
+        let limit = RecordLimit::TTY {
+            tty_device: 12,
+            session_pid: 1234,
+            init_time: some_time,
+        };
+        let sample = SessionRecord {
+            limit,
+            auth_user: 1234,
+            timestamp: some_time,
+        };
+
+        let dur = Duration::seconds(30);
+
+        assert!(sample.written_between(some_time, some_time));
+        assert!(sample.written_between(some_time, some_time + dur));
+        assert!(sample.written_between(some_time - dur, some_time));
+        assert!(!sample.written_between(some_time + dur, some_time - dur));
+        assert!(!sample.written_between(some_time + dur, some_time + dur + dur));
+        assert!(!sample.written_between(some_time - dur - dur, some_time - dur));
     }
 }
