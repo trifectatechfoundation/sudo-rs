@@ -1,4 +1,7 @@
-use std::ffi::CStr;
+use std::{
+    ffi::{CStr, OsStr, OsString},
+    os::unix::prelude::OsStrExt,
+};
 
 pub fn cerr(res: libc::c_int) -> std::io::Result<libc::c_int> {
     match res {
@@ -50,6 +53,20 @@ pub unsafe fn string_from_ptr(ptr: *const libc::c_char) -> String {
     } else {
         let cstr = unsafe { CStr::from_ptr(ptr) };
         cstr.to_string_lossy().to_string()
+    }
+}
+
+/// Create an `OsString` copy from a C string pointer.
+///
+/// # Safety
+/// This function assumes that the pointer is either a null pointer or that
+/// it points to a valid NUL-terminated C string.
+pub unsafe fn os_string_from_ptr(ptr: *const libc::c_char) -> OsString {
+    if ptr.is_null() {
+        OsString::new()
+    } else {
+        let cstr = unsafe { CStr::from_ptr(ptr) };
+        OsStr::from_bytes(cstr.to_bytes()).to_owned()
     }
 }
 

@@ -83,8 +83,8 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
         gid: 1000,
         name: "test".to_string(),
         gecos: String::new(),
-        home: "/home/test".to_string(),
-        shell: "/bin/sh".to_string(),
+        home: "/home/test".into(),
+        shell: "/bin/sh".into(),
         passwd: String::new(),
         groups: vec![],
     };
@@ -101,8 +101,8 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
         gid: 0,
         name: "root".to_string(),
         gecos: String::new(),
-        home: "/root".to_string(),
-        shell: "/bin/bash".to_string(),
+        home: "/root".into(),
+        shell: "/bin/bash".into(),
         passwd: String::new(),
         groups: vec![],
     };
