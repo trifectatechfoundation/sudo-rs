@@ -3,11 +3,14 @@ use sudo_test::{Command, Env, TextFile, User};
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
-fn works_even_if_home_directory_does_not_exist() -> Result<()> {
+fn if_home_directory_does_not_exist_executes_program_without_changing_the_working_directory(
+) -> Result<()> {
+    let expected = "/";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
-    let output = Command::new("sudo")
-        .args(["-u", USERNAME, "-i", "true"])
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("cd {expected}; sudo -u {USERNAME} -i pwd"))
         .exec(&env)?;
 
     assert!(output.status().success());
@@ -18,6 +21,9 @@ fn works_even_if_home_directory_does_not_exist() -> Result<()> {
             "sudo: unable to change directory to /home/ferris: No such file or directory"
         );
     }
+
+    let actual = output.stdout()?;
+    assert_eq!(actual, expected);
 
     Ok(())
 }
