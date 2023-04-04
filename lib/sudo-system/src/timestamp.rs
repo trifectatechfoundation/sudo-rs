@@ -69,9 +69,6 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
                 if let Some(_magic) = x {
                     // TODO: warn about invalid magic number
                     eprintln!("Session ts file is invalid, resetting");
-                } else {
-                    // TODO: warn that we will init a new file
-                    eprintln!("New session ts file initialized");
                 }
 
                 Self::init(&mut io, Self::VERSION_OFFSET)?;
