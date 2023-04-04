@@ -4,14 +4,19 @@
 mod macros;
 
 mod child_process;
+mod cli;
 mod env_reset;
 mod flag_group;
 mod flag_user;
+mod misc;
 mod nopasswd;
 mod pam;
 mod pass_auth;
+mod path_search;
 mod perms;
 mod sudoers;
+
+mod helpers;
 
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;

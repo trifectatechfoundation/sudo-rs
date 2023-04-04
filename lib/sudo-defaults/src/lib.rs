@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 // FUTURE IDEA: use a representation that allows for more Rust-type structure rather than passing
 // strings around; some settings in sudoers file are more naturally represented like that, such as
 // "verifypw" and "logfile"

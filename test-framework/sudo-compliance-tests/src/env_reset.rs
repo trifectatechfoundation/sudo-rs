@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env};
 
-use crate::{Result, SUDOERS_ROOT_ALL_NOPASSWD};
+use crate::{helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD};
 
 // NOTE if 'env_reset' is not in `/etc/sudoers` it is enabled by default
 
@@ -14,7 +14,7 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let stdout = Command::new("env").exec(&env)?.stdout()?;
-    let normal_env = parse_env_output(&stdout)?;
+    let normal_env = helpers::parse_env_output(&stdout)?;
 
     let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
     let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
@@ -29,7 +29,7 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
         ])
         .exec(&env)?
         .stdout()?;
-    let mut sudo_env = parse_env_output(&stdout)?;
+    let mut sudo_env = helpers::parse_env_output(&stdout)?;
 
     // # man sudo
     // "Set to the mail spool of the target user"
@@ -78,6 +78,26 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     Ok(())
 }
 
+// the preceding test tests the case where PATH is unset. this one tests the case where PATH is set
+#[test]
+fn user_path_remains_unchanged_when_not_unset() -> Result<()> {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+
+    let expected = "/root";
+
+    let actual = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "export PATH={expected}; /usr/bin/sudo /usr/bin/printenv PATH"
+        ))
+        .exec(&env)?
+        .stdout()?;
+
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
 #[test]
 fn env_reset_mode_clears_env_vars() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
@@ -91,7 +111,7 @@ fn env_reset_mode_clears_env_vars() -> Result<()> {
         .arg(format!("{set_env_var}; env"))
         .exec(&env)?
         .stdout()?;
-    let env_vars = parse_env_output(&stdout)?;
+    let env_vars = helpers::parse_env_output(&stdout)?;
     assert!(env_vars.contains_key(varname));
 
     let stdout = Command::new("sh")
@@ -99,21 +119,8 @@ fn env_reset_mode_clears_env_vars() -> Result<()> {
         .arg(format!("{set_env_var}; sudo env"))
         .exec(&env)?
         .stdout()?;
-    let env_vars = parse_env_output(&stdout)?;
+    let env_vars = helpers::parse_env_output(&stdout)?;
     assert!(!env_vars.contains_key(varname));
 
     Ok(())
-}
-
-fn parse_env_output(env_output: &str) -> Result<HashMap<&str, &str>> {
-    let mut env = HashMap::new();
-    for line in env_output.lines() {
-        if let Some((key, value)) = line.split_once('=') {
-            env.insert(key, value);
-        } else {
-            return Err(format!("invalid env syntax: {line}").into());
-        }
-    }
-
-    Ok(env)
 }

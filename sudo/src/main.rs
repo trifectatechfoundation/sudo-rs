@@ -9,6 +9,7 @@ use sudo_env::environment;
 use sudoers::{Authorization, Policy, PreJudgementPolicy, Sudoers};
 
 mod diagnostic;
+use diagnostic::diagnostic;
 mod pam;
 
 fn parse_sudoers() -> Result<Sudoers, Error> {
@@ -19,7 +20,7 @@ fn parse_sudoers() -> Result<Sudoers, Error> {
         .map_err(|e| Error::Configuration(format!("no valid sudoers file: {e}")))?;
 
     for sudoers::Error(pos, error) in syntax_errors {
-        diagnostic::diagnostic!("{error}", sudoers_path @ pos);
+        diagnostic!("{error}", sudoers_path @ pos);
     }
 
     Ok(sudoers)
@@ -45,7 +46,7 @@ fn build_context<'a>(
     sudoers: &impl PreJudgementPolicy,
 ) -> Result<Context<'a>, Error> {
     let env_path = env::var("PATH").unwrap_or_default();
-    let path = sudoers.secure_path().unwrap_or(&env_path);
+    let path = sudoers.secure_path().unwrap_or(env_path);
 
     Context::build_from_options(sudo_options, path)
 }
@@ -68,7 +69,7 @@ do this then this software is not suited for you at this time."
     }
 }
 
-fn main() -> Result<(), Error> {
+fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     // parse cli options
     let sudo_options = SudoOptions::parse();
 
@@ -89,7 +90,10 @@ fn main() -> Result<(), Error> {
         }
         Authorization::Passed => {}
         Authorization::Forbidden => {
-            return Err(Error::auth("no permission"));
+            return Err(Error::auth(&format!(
+                "i'm afraid i can't do that, {}",
+                context.current_user.name
+            )));
         }
     };
 
@@ -98,7 +102,11 @@ fn main() -> Result<(), Error> {
     let target_env = environment::get_target_environment(current_env, &context, &policy);
 
     // run command and return corresponding exit code
-    match sudo_exec::run_command(context, target_env) {
+    Ok(sudo_exec::run_command(context, target_env)?)
+}
+
+fn main() {
+    match sudo_process() {
         Ok(status) => {
             if let Some(code) = status.code() {
                 std::process::exit(code);
@@ -106,8 +114,8 @@ fn main() -> Result<(), Error> {
                 std::process::exit(1);
             }
         }
-        Err(e) => {
-            eprintln!("{e}");
+        Err(error) => {
+            diagnostic!("{error}");
             std::process::exit(1);
         }
     }

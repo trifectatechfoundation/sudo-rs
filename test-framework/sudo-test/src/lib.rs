@@ -10,7 +10,7 @@ use std::{
     sync::Once,
 };
 
-use docker::Container;
+use docker::{As, Container};
 
 pub use docker::{Child, Command, Output};
 
@@ -75,8 +75,13 @@ impl Command {
     /// executes the command in the specified test environment
     ///
     /// NOTE that the trailing newline from `stdout` and `stderr` will be removed
+    ///
+    /// # Panics
+    ///
+    /// this method panics if the requested `as_user` does not exist in the test environment. to
+    /// execute a command as a non-existent user use `Command::as_user_id`
     pub fn exec(&self, env: &Env) -> Result<Output> {
-        if let Some(username) = self.get_user() {
+        if let Some(As::User(username)) = self.get_as() {
             assert!(
                 env.users.contains(username),
                 "tried to exec as non-existent user: {username}"
@@ -88,7 +93,7 @@ impl Command {
 
     /// spawns the command in the specified test environment
     pub fn spawn(&self, env: &Env) -> Result<Child> {
-        if let Some(username) = self.get_user() {
+        if let Some(As::User(username)) = self.get_as() {
             assert!(
                 env.users.contains(username),
                 "tried to exec as non-existent user: {username}"
@@ -940,6 +945,15 @@ mod tests {
             .arg(format!("[ -f {file_path} ]"))
             .exec(&env)?
             .assert_success()?;
+
+    #[test]
+    fn run_as_nonexistent_user() -> Result<()> {
+        let env = EnvBuilder::default().build()?;
+
+        let output = Command::new("whoami").as_user_id(1000).exec(&env)?;
+
+        assert!(!output.status().success());
+        assert_eq!("whoami: cannot find name for user ID 1000", output.stderr());
 
         Ok(())
     }
