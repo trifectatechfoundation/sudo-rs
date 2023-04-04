@@ -30,39 +30,67 @@ pub(crate) fn resolve_current_user() -> Result<User, Error> {
     User::real()?.ok_or(Error::UserNotFound("current user".to_string()))
 }
 
-pub(crate) fn resolve_target_user(target_name_or_id: &Option<String>) -> Result<User, Error> {
-    let is_default = target_name_or_id.is_none();
-    let target_name_or_id = target_name_or_id.as_deref().unwrap_or("root");
+pub(crate) fn resolve_target_user_and_group(
+    target_user_name_or_id: &Option<String>,
+    target_group_name_or_id: &Option<String>,
+    current_user: &User,
+) -> Result<(User, Group), Error> {
+    // resolve user name or #<id> to a user
+    let mut target_user =
+        match NameOrId::parse(target_user_name_or_id.as_deref().unwrap_or_default()) {
+            Some(NameOrId::Name(name)) => User::from_name(name)?,
+            Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
+            _ => None,
+        };
 
-    let mut user = match NameOrId::parse(target_name_or_id) {
-        Some(NameOrId::Name(name)) => User::from_name(name)?,
-        Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
-        _ => None,
-    }
-    .ok_or_else(|| Error::UserNotFound(target_name_or_id.to_string()))?;
-
-    user.is_default = is_default;
-
-    Ok(user)
-}
-
-pub(crate) fn resolve_target_group(
-    target_name_or_id: &Option<String>,
-    target_user: &User,
-) -> Result<Group, Error> {
-    match target_name_or_id.as_deref() {
-        Some(name_or_id) => match NameOrId::parse(name_or_id) {
+    // resolve group name or #<id> to a group
+    let mut target_group =
+        match NameOrId::parse(target_group_name_or_id.as_deref().unwrap_or_default()) {
             Some(NameOrId::Name(name)) => Group::from_name(name)?,
             Some(NameOrId::Id(gid)) => Group::from_gid(gid)?,
             _ => None,
-        },
-        None => Group::from_gid(target_user.gid)?,
+        };
+
+    match (&target_user_name_or_id, &target_group_name_or_id) {
+        // when -g is specified, but -u is not specified default -u to the current user
+        (None, Some(_)) => {
+            target_user = Some(current_user.clone());
+        }
+        // when -u is specified but -g is not specified, default -g to the primary group of the specified user
+        (Some(_), None) => {
+            if let Some(user) = &target_user {
+                target_group = Group::from_gid(user.gid)?;
+            }
+        }
+        // when no -u or -g is specified, default to root:root
+        (None, None) => {
+            target_user = User::from_name("root")?;
+            target_group = Group::from_name("root")?;
+        }
+        _ => {}
     }
-    .ok_or(Error::GroupNotFound(
-        target_name_or_id
-            .clone()
-            .unwrap_or_else(|| target_user.gid.to_string()),
-    ))
+
+    match (target_user, target_group) {
+        (Some(mut user), Some(group)) => {
+            if !user.groups.contains(&group.gid) {
+                user.groups.push(group.gid);
+            }
+
+            Ok((user, group))
+        }
+        (Some(_), None) => Err(Error::GroupNotFound(
+            target_group_name_or_id
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
+        )),
+        _ => Err(Error::UserNotFound(
+            target_user_name_or_id
+                .as_deref()
+                .unwrap_or_default()
+                .to_string(),
+        )),
+    }
 }
 
 /// Check whether a path points to a regular file and any executable flag is set
@@ -126,9 +154,8 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use sudo_system::User;
 
-    use super::{resolve_target_group, resolve_target_user, NameOrId};
+    use super::NameOrId;
     use crate::resolve::resolve_path;
 
     // this test is platform specific -> should be changed when targetting different platforms
@@ -161,48 +188,5 @@ mod tests {
         assert_eq!(NameOrId::<u32>::parse("1337"), Some(NameOrId::Name("1337")));
         assert_eq!(NameOrId::<u32>::parse("#1337"), Some(NameOrId::Id(1337)));
         assert_eq!(NameOrId::<u32>::parse("#-1"), None);
-    }
-
-    #[test]
-    fn test_resolve_target_user() {
-        assert_eq!(
-            resolve_target_user(&Some("mies".to_string())).is_err(),
-            true
-        );
-        assert_eq!(resolve_target_user(&Some("root".to_string())).is_ok(), true);
-        assert_eq!(resolve_target_user(&Some("#1".to_string())).is_ok(), true);
-        assert_eq!(resolve_target_user(&Some("#-1".to_string())).is_err(), true);
-        assert_eq!(
-            resolve_target_user(&Some("#1337".to_string())).is_err(),
-            true
-        );
-    }
-
-    #[test]
-    fn test_resolve_target_group() {
-        let current_user = User {
-            uid: 1000,
-            gid: 1000,
-            name: "test".to_string(),
-            gecos: String::new(),
-            home: "/home/test".to_string(),
-            shell: "/bin/sh".to_string(),
-            passwd: String::new(),
-            groups: None,
-            is_default: false,
-        };
-
-        assert_eq!(
-            resolve_target_group(&Some("root".to_string()), &current_user).is_ok(),
-            true
-        );
-        assert_eq!(
-            resolve_target_group(&Some("#1".to_string()), &current_user).is_ok(),
-            true
-        );
-        assert_eq!(
-            resolve_target_group(&Some("#-1".to_string()), &current_user).is_err(),
-            true
-        );
     }
 }

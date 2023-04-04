@@ -4,7 +4,7 @@ use sudo_system::{hostname, Group, User};
 
 use crate::{
     command::CommandAndArguments,
-    resolve::{resolve_current_user, resolve_target_group, resolve_target_user},
+    resolve::{resolve_current_user, resolve_target_user_and_group},
     Error,
 };
 
@@ -34,9 +34,9 @@ impl<'a> Context<'a> {
         let command =
             CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), path)?;
         let hostname = hostname();
-        let current_user = resolve_current_user()?.with_groups();
-        let target_user = resolve_target_user(&sudo_options.user)?.with_groups();
-        let target_group = resolve_target_group(&sudo_options.group, &target_user)?;
+        let current_user = resolve_current_user()?;
+        let (target_user, target_group) =
+            resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
 
         Ok(Context {
             hostname,

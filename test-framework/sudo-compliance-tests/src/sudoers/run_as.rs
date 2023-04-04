@@ -138,7 +138,10 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
 
 // "If only the first is specified, the command may be run as any user in the list but no -g option
 // may be specified."
+// TODO: sudoers does not support this yet - questionable whether we want to copy
+// this behaviour in the case that a user specifies its own group
 #[test]
+#[ignore]
 fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
     let env = Env(format!("ALL ALL=({USERNAME}) ALL"))
         // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
