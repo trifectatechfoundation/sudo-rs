@@ -11,7 +11,10 @@ pub struct CommandAndArguments<'a> {
 impl<'a> CommandAndArguments<'a> {
     pub fn try_from_args(external_args: &'a [String], path: &str) -> Result<Self, Error> {
         let mut iter = external_args.iter();
-        let command = iter.next().ok_or(Error::InvalidCommand)?.to_string();
+        let command = iter
+            .next()
+            .ok_or(Error::InvalidCommand(String::new()))?
+            .to_string();
 
         // resolve the binary if the path is not absolute
         let command = if command.starts_with('/') {
@@ -19,7 +22,8 @@ impl<'a> CommandAndArguments<'a> {
         } else {
             // TODO: use value of secure_path setting to possible override current path
             // FIXME: propagating the error is a possible security problem since it leaks information before any permission check is done
-            resolve_path(&PathBuf::from(command), path).ok_or_else(|| Error::InvalidCommand)?
+            resolve_path(&PathBuf::from(&command), path)
+                .ok_or_else(|| Error::InvalidCommand(command))?
         };
 
         Ok(CommandAndArguments {

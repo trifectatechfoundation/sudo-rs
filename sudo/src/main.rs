@@ -16,8 +16,8 @@ fn parse_sudoers() -> Result<Sudoers, Error> {
     // TODO: move to global configuration
     let sudoers_path = "/etc/sudoers.test";
 
-    let (sudoers, syntax_errors) = Sudoers::new(sudoers_path)
-        .map_err(|e| Error::Configuration(format!("no valid sudoers file: {e}")))?;
+    let (sudoers, syntax_errors) =
+        Sudoers::new(sudoers_path).map_err(|e| Error::Configuration(format!("{e}")))?;
 
     for sudoers::Error(pos, error) in syntax_errors {
         diagnostic!("{error}", sudoers_path @ pos);
@@ -110,7 +110,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
         Authorization::Passed => {}
         Authorization::Forbidden => {
             return Err(Error::auth(&format!(
-                "i'm afraid i can't do that, {}",
+                "i'm sorry {}, i'm afraid i can't do that",
                 context.current_user.name
             )));
         }
