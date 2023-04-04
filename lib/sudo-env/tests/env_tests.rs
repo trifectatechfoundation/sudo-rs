@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use sudo_cli::SudoOptions;
 use sudo_common::{CommandAndArguments, Context, Environment};
 use sudo_env::environment::get_target_environment;
-use sudo_system::{Group, User};
+use sudo_system::{Group, Process, User};
 
 const TESTS: &str = "
 > env
@@ -134,7 +134,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
         login: sudo_options.login,
         shell: sudo_options.shell,
         chdir: sudo_options.directory.clone(),
-        pid: std::process::id() as i32,
+        process: Process::new(),
     }
 }
 
