@@ -22,6 +22,7 @@ pub struct Context<'a> {
     pub target_group: Group,
     // system
     pub hostname: String,
+    pub path: String,
     pub current_user: User,
     pub pid: i32,
 }
@@ -29,10 +30,10 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     pub fn build_from_options(
         sudo_options: &'a SudoOptions,
-        path: &str,
+        path: String,
     ) -> Result<Context<'a>, Error> {
         let command =
-            CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), path)?;
+            CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), &path)?;
         let hostname = hostname();
         let current_user = resolve_current_user()?.with_groups();
         let target_user = resolve_target_user(&sudo_options.user)?.with_groups();
@@ -40,6 +41,7 @@ impl<'a> Context<'a> {
 
         Ok(Context {
             hostname,
+            path,
             command,
             current_user,
             target_user,
@@ -65,7 +67,7 @@ mod tests {
     fn test_build_context() {
         let options = SudoOptions::try_parse_from(["sudo", "echo", "hello"]).unwrap();
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-        let context = Context::build_from_options(&options, path).unwrap();
+        let context = Context::build_from_options(&options, path.to_string()).unwrap();
 
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());

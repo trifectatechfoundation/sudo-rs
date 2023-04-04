@@ -71,7 +71,6 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn if_set_it_becomes_the_path_set_for_program_execution() -> Result<()> {
     let secure_path = ".:/root";
