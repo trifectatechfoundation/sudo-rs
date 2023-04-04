@@ -45,7 +45,7 @@ fn build_context<'a>(
     sudoers: &impl PreJudgementPolicy,
 ) -> Result<Context<'a>, Error> {
     let env_path = env::var("PATH").unwrap_or_default();
-    let path = sudoers.secure_path().unwrap_or(&env_path);
+    let path = sudoers.secure_path().unwrap_or(env_path);
 
     Context::build_from_options(sudo_options, path)
 }
