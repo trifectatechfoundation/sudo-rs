@@ -5,25 +5,27 @@ use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 #[test]
 fn if_home_directory_does_not_exist_executes_program_without_changing_the_working_directory(
 ) -> Result<()> {
-    let expected = "/";
+    let initial_working_directories = ["/", "/root"];
+
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+    for expected in initial_working_directories {
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg(format!("cd {expected}; sudo -u {USERNAME} -i pwd"))
+            .exec(&env)?;
 
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(format!("cd {expected}; sudo -u {USERNAME} -i pwd"))
-        .exec(&env)?;
+        assert!(output.status().success());
 
-    assert!(output.status().success());
+        if sudo_test::is_original_sudo() {
+            assert_contains!(
+                output.stderr(),
+                "sudo: unable to change directory to /home/ferris: No such file or directory"
+            );
+        }
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: unable to change directory to /home/ferris: No such file or directory"
-        );
+        let actual = output.stdout()?;
+        assert_eq!(actual, expected);
     }
-
-    let actual = output.stdout()?;
-    assert_eq!(actual, expected);
 
     Ok(())
 }
