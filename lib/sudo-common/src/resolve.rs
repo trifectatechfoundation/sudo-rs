@@ -72,18 +72,22 @@ pub(crate) fn resolve_target_user_and_group(
 
     match (target_user, target_group) {
         (Some(mut user), Some(group)) => {
+            // add target group to list of additional groups if not present
             if !user.groups.contains(&group.gid) {
                 user.groups.push(group.gid);
             }
 
+            // resolve success
             Ok((user, group))
         }
+        // group name or id not found
         (Some(_), None) => Err(Error::GroupNotFound(
             target_group_name_or_id
                 .as_deref()
                 .unwrap_or_default()
                 .to_string(),
         )),
+        // user (and maybe group) name or id not found
         _ => Err(Error::UserNotFound(
             target_user_name_or_id
                 .as_deref()
@@ -155,7 +159,7 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
 mod tests {
     use std::path::PathBuf;
 
-    use super::NameOrId;
+    use super::{resolve_current_user, resolve_target_user_and_group, NameOrId};
     use crate::resolve::resolve_path;
 
     // this test is platform specific -> should be changed when targetting different platforms
@@ -188,5 +192,47 @@ mod tests {
         assert_eq!(NameOrId::<u32>::parse("1337"), Some(NameOrId::Name("1337")));
         assert_eq!(NameOrId::<u32>::parse("#1337"), Some(NameOrId::Id(1337)));
         assert_eq!(NameOrId::<u32>::parse("#-1"), None);
+    }
+
+    #[test]
+    fn test_resolve_target_user_and_group() {
+        let current_user = resolve_current_user().unwrap();
+
+        // fallback to root
+        let (user, group) = resolve_target_user_and_group(&None, &None, &current_user).unwrap();
+        assert_eq!(user.name, "root");
+        assert_eq!(group.name, "root");
+
+        // unknown user
+        let result = resolve_target_user_and_group(
+            &Some("non_existing_ghost".to_string()),
+            &None,
+            &current_user,
+        );
+        assert!(result.is_err());
+
+        // unknown user
+        let result = resolve_target_user_and_group(
+            &None,
+            &Some("non_existing_ghost".to_string()),
+            &current_user,
+        );
+        assert!(result.is_err());
+
+        // fallback to current user when different group specified
+        let (user, group) =
+            resolve_target_user_and_group(&None, &Some("root".to_string()), &current_user).unwrap();
+        assert_eq!(user.name, current_user.name);
+        assert_eq!(group.name, "root");
+
+        // fallback to current users group when no group specified
+        let (user, group) = resolve_target_user_and_group(
+            &Some(current_user.name.to_string()),
+            &None,
+            &current_user,
+        )
+        .unwrap();
+        assert_eq!(user.name, current_user.name);
+        assert_eq!(group.gid, current_user.gid);
     }
 }
