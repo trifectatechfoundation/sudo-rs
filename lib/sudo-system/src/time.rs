@@ -1,4 +1,8 @@
-use std::{ops::{Add, Sub}, mem::MaybeUninit, io::{Write, Read}};
+use std::{
+    io::{Read, Write},
+    mem::MaybeUninit,
+    ops::{Add, Sub},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SystemTime {
@@ -19,15 +23,12 @@ impl SystemTime {
             nsecs -= 1_000_000_000;
         }
 
-        SystemTime {
-            secs,
-            nsecs,
-        }
+        SystemTime { secs, nsecs }
     }
 
     pub fn now() -> std::io::Result<SystemTime> {
         let mut spec = MaybeUninit::<libc::timespec>::uninit();
-        sudo_cutils::cerr(unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr() )})?;
+        sudo_cutils::cerr(unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr()) })?;
         let spec = unsafe { spec.assume_init() };
         Ok(spec.into())
     }
@@ -47,7 +48,10 @@ impl SystemTime {
         from.read_exact(&mut sec_bytes)?;
         from.read_exact(&mut nsec_bytes)?;
 
-        Ok(SystemTime::new(i64::from_ne_bytes(sec_bytes), i64::from_ne_bytes(nsec_bytes)))
+        Ok(SystemTime::new(
+            i64::from_ne_bytes(sec_bytes),
+            i64::from_ne_bytes(nsec_bytes),
+        ))
     }
 }
 
@@ -94,10 +98,7 @@ impl Duration {
             nsecs -= 1_000_000_000;
         }
 
-        Duration {
-            secs,
-            nsecs,
-        }
+        Duration { secs, nsecs }
     }
 
     pub fn seconds(secs: i64) -> Duration {
@@ -144,21 +145,48 @@ mod tests {
     #[test]
     fn test_new_durations_and_times() {
         assert_eq!(Duration::new(1, 1_000_000_000), Duration::seconds(2));
-        assert_eq!(Duration::new(-2, 500_000_000), Duration::seconds(-1) + Duration::milliseconds(-500));
+        assert_eq!(
+            Duration::new(-2, 500_000_000),
+            Duration::seconds(-1) + Duration::milliseconds(-500)
+        );
 
         assert_eq!(SystemTime::new(-1, 2_000_000_000), SystemTime::new(1, 0));
-        assert_eq!(SystemTime::new(2, -500_000_000), SystemTime::new(1, 500_000_000));
+        assert_eq!(
+            SystemTime::new(2, -500_000_000),
+            SystemTime::new(1, 500_000_000)
+        );
     }
 
     #[test]
     fn test_time_ops() {
-        assert_eq!(Duration::seconds(2) + Duration::seconds(3), Duration::seconds(5));
-        assert_eq!(Duration::seconds(3) - Duration::seconds(1), Duration::seconds(2));
-        assert_eq!(Duration::seconds(-10) + Duration::seconds(-5), Duration::seconds(-15));
-        assert_eq!(Duration::milliseconds(5555) + Duration::milliseconds(5555), Duration::seconds(11) + Duration::milliseconds(110));
-        assert_eq!(Duration::seconds(10) - Duration::seconds(-5), Duration::seconds(15));
+        assert_eq!(
+            Duration::seconds(2) + Duration::seconds(3),
+            Duration::seconds(5)
+        );
+        assert_eq!(
+            Duration::seconds(3) - Duration::seconds(1),
+            Duration::seconds(2)
+        );
+        assert_eq!(
+            Duration::seconds(-10) + Duration::seconds(-5),
+            Duration::seconds(-15)
+        );
+        assert_eq!(
+            Duration::milliseconds(5555) + Duration::milliseconds(5555),
+            Duration::seconds(11) + Duration::milliseconds(110)
+        );
+        assert_eq!(
+            Duration::seconds(10) - Duration::seconds(-5),
+            Duration::seconds(15)
+        );
 
-        assert_eq!(SystemTime::new(0, 0) + Duration::seconds(3), SystemTime::new(3, 0));
-        assert_eq!(SystemTime::new(10, 0) - Duration::seconds(4), SystemTime::new(6, 0));
+        assert_eq!(
+            SystemTime::new(0, 0) + Duration::seconds(3),
+            SystemTime::new(3, 0)
+        );
+        assert_eq!(
+            SystemTime::new(10, 0) - Duration::seconds(4),
+            SystemTime::new(6, 0)
+        );
     }
 }

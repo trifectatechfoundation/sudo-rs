@@ -1,6 +1,15 @@
-use std::{io::{Write, Read, Cursor, self, Seek}, fs::File, path::PathBuf};
+use std::{
+    fs::File,
+    io::{self, Cursor, Read, Seek, Write},
+    path::PathBuf,
+};
 
-use crate::{audit::secure_open_cookie_file, interface::UserId, time::{SystemTime, Duration}, file::Lockable};
+use crate::{
+    audit::secure_open_cookie_file,
+    file::Lockable,
+    interface::UserId,
+    time::{Duration, SystemTime},
+};
 
 /// Truncates or extends the underlying data
 pub trait SetLength {
@@ -46,7 +55,8 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     const FILE_VERSION: u16 = 1;
     const MAGIC_NUM: u16 = 0x50D0;
     const VERSION_OFFSET: u64 = Self::MAGIC_NUM.to_ne_bytes().len() as u64;
-    const FIRST_RECORD_OFFSET: u64 = Self::VERSION_OFFSET + Self::FILE_VERSION.to_ne_bytes().len() as u64;
+    const FIRST_RECORD_OFFSET: u64 =
+        Self::VERSION_OFFSET + Self::FILE_VERSION.to_ne_bytes().len() as u64;
 
     /// Create a new SessionRecordFile from the given i/o stream.
     /// Timestamps in this file are considered valid if they were created or
@@ -55,7 +65,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         // match the magic number, otherwise reset the file
         match Self::read_magic(&mut io)? {
             Some(magic) if magic == Self::MAGIC_NUM => (),
-            x @ _ => {
+            x => {
                 if let Some(_magic) = x {
                     // TODO: warn about invalid magic number
                     eprintln!("Session ts file is invalid, resetting");
@@ -71,37 +81,32 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         // match the file version
         match Self::read_version(&mut io)? {
             Some(v) if v == Self::FILE_VERSION => (),
-            x @ _ => {
+            x => {
                 if let Some(v) = x {
                     // TODO: warn about incompatible version _v
                     eprintln!("Session ts file has invalid version {v}, this sudo-rs only supports version {}, resetting", Self::FILE_VERSION)
                 } else {
                     // TODO: warn about an invalid file
-                    eprintln!("Session ts file did not contain file version information, resetting");
+                    eprintln!(
+                        "Session ts file did not contain file version information, resetting"
+                    );
                 }
 
                 Self::init(&mut io, Self::FIRST_RECORD_OFFSET)?;
-            },
+            }
         }
 
         // we are ready to read records
-        Ok(SessionRecordFile {
-            io,
-            timeout,
-        })
+        Ok(SessionRecordFile { io, timeout })
     }
 
     /// Read the magic number from the input stream
     fn read_magic(file: &mut IO) -> io::Result<Option<u16>> {
         let mut magic_bytes = [0; std::mem::size_of::<u16>()];
         match file.read_exact(&mut magic_bytes) {
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                Ok(None)
-            },
+            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(None),
             Err(e) => Err(e),
-            Ok(()) => {
-                Ok(Some(u16::from_ne_bytes(magic_bytes)))
-            }
+            Ok(()) => Ok(Some(u16::from_ne_bytes(magic_bytes))),
         }
     }
 
@@ -109,9 +114,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     fn read_version(file: &mut IO) -> io::Result<Option<u16>> {
         let mut version_bytes = [0; std::mem::size_of::<u16>()];
         match file.read_exact(&mut version_bytes) {
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                Ok(None)
-            },
+            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(None),
             Err(e) => Err(e),
             Ok(()) => Ok(Some(u16::from_ne_bytes(version_bytes))),
         }
@@ -134,7 +137,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     /// Read the next record and keep note of the start and end positions in the file of that record
     fn next_record(&mut self) -> io::Result<Option<(RecordPosition, SessionRecord)>> {
         // record the position at which this record starts (including size bytes)
-        let start = self.io.seek(io::SeekFrom::Current(0))?;
+        let start = self.io.stream_position()?;
         let mut record_length_bytes = [0; std::mem::size_of::<u16>()];
 
         // if eof occurs here we assume we reached the end of the file
@@ -146,7 +149,10 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
 
         // special case when record_length is zero
         if record_length == 0 {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Found empty record"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Found empty record",
+            ));
         }
 
         let mut buf = vec![0; record_length as usize];
@@ -155,7 +161,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         let record = SessionRecord::from_bytes(&buf)?;
 
         // record the position at which this record ends
-        let end = self.io.seek(io::SeekFrom::Current(0))?;
+        let end = self.io.stream_position()?;
 
         Ok(Some((RecordPosition { start, end }, record)))
     }
@@ -164,7 +170,11 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     /// that record time to the current time. This will not create a new record
     /// when one is not found. A record will only be updated if it is still
     /// valid at this time.
-    pub fn touch(&mut self, record_limit: RecordLimit, target_user: UserId) -> io::Result<RecordMatch> {
+    pub fn touch(
+        &mut self,
+        record_limit: RecordLimit,
+        target_user: UserId,
+    ) -> io::Result<RecordMatch> {
         // lock the file to indicate that we are currently in a writing operation
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
@@ -176,10 +186,15 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
                     let new_time = SystemTime::now()?;
                     new_time.encode(&mut self.io)?;
                     self.io.unlock()?;
-                    return Ok(RecordMatch::Updated { time: record.timestamp, new_time });
+                    return Ok(RecordMatch::Updated {
+                        time: record.timestamp,
+                        new_time,
+                    });
                 } else {
                     self.io.unlock()?;
-                    return Ok(RecordMatch::Outdated { time: record.timestamp });
+                    return Ok(RecordMatch::Outdated {
+                        time: record.timestamp,
+                    });
                 }
             }
         }
@@ -190,7 +205,11 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
 
     /// Find a record that matches the given limit and target user and return
     /// that record. This will not create a new record when one is not found.
-    pub fn find(&mut self, record_limit: RecordLimit, target_user: UserId) -> io::Result<RecordMatch> {
+    pub fn find(
+        &mut self,
+        record_limit: RecordLimit,
+        target_user: UserId,
+    ) -> io::Result<RecordMatch> {
         // lock the file to indicate that we are currently reading from it and
         // no writing operations should take place
         self.io.lock_shared()?;
@@ -199,10 +218,14 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
             if record.matches(&record_limit, target_user) {
                 if record.written_after(SystemTime::now()? - self.timeout) {
                     self.io.unlock()?;
-                    return Ok(RecordMatch::Found { time: record.timestamp });
+                    return Ok(RecordMatch::Found {
+                        time: record.timestamp,
+                    });
                 } else {
                     self.io.unlock()?;
-                    return Ok(RecordMatch::Outdated { time: record.timestamp });
+                    return Ok(RecordMatch::Outdated {
+                        time: record.timestamp,
+                    });
                 }
             }
         }
@@ -212,7 +235,11 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     }
 
     /// Create a new record for the given limit and target user.
-    pub fn create_or_update(&mut self, record_limit: RecordLimit, target_user: UserId) -> io::Result<RecordMatch> {
+    pub fn create_or_update(
+        &mut self,
+        record_limit: RecordLimit,
+        target_user: UserId,
+    ) -> io::Result<RecordMatch> {
         // lock the file to indicate that we are currently writing to it
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
@@ -222,7 +249,10 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
                 let new_time = SystemTime::now()?;
                 new_time.encode(&mut self.io)?;
                 self.io.unlock()?;
-                return Ok(RecordMatch::Updated { time: record.timestamp, new_time });
+                return Ok(RecordMatch::Updated {
+                    time: record.timestamp,
+                    new_time,
+                });
             }
         }
 
@@ -237,7 +267,10 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         let record_length = bytes.len();
         if record_length > u16::MAX as usize {
             self.io.unlock()?;
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "A record with an unexpectedly large size was created"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "A record with an unexpectedly large size was created",
+            ));
         }
         let record_length = record_length as u16; // store as u16
 
@@ -246,7 +279,9 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         self.io.write_all(&bytes)?;
         self.io.unlock()?;
 
-        Ok(RecordMatch::Found { time: record.timestamp })
+        Ok(RecordMatch::Found {
+            time: record.timestamp,
+        })
     }
 
     pub fn clear(&mut self) -> io::Result<()> {
@@ -254,7 +289,8 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     }
 
     fn seek_to_first_record(&mut self) -> io::Result<()> {
-        self.io.seek(io::SeekFrom::Start(Self::FIRST_RECORD_OFFSET))?;
+        self.io
+            .seek(io::SeekFrom::Start(Self::FIRST_RECORD_OFFSET))?;
         Ok(())
     }
 }
@@ -270,7 +306,10 @@ pub enum RecordMatch {
     /// The record was found and within the timeout, but it was not updated
     Found { time: SystemTime },
     /// The record was found and within the timeout, and it was refreshed
-    Updated { time: SystemTime, new_time: SystemTime },
+    Updated {
+        time: SystemTime,
+        new_time: SystemTime,
+    },
     /// A record was not found that matches the input
     NotFound,
     /// A record was found, but it was no longer valid
@@ -281,9 +320,18 @@ pub enum RecordMatch {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecordLimit {
-    Global { init_time: SystemTime },
-    TTY { tty_device: libc::dev_t, session_pid: libc::pid_t, init_time: SystemTime },
-    PPID { group_pid: libc::pid_t, init_time: SystemTime },
+    Global {
+        init_time: SystemTime,
+    },
+    TTY {
+        tty_device: libc::dev_t,
+        session_pid: libc::pid_t,
+        init_time: SystemTime,
+    },
+    PPID {
+        group_pid: libc::pid_t,
+        init_time: SystemTime,
+    },
 }
 
 impl RecordLimit {
@@ -292,21 +340,28 @@ impl RecordLimit {
             RecordLimit::Global { init_time } => {
                 target.write_all(&[1u8])?;
                 init_time.encode(target)?;
-            },
-            RecordLimit::TTY { tty_device, session_pid, init_time } => {
+            }
+            RecordLimit::TTY {
+                tty_device,
+                session_pid,
+                init_time,
+            } => {
                 target.write_all(&[2u8])?;
                 let b = tty_device.to_ne_bytes();
                 target.write_all(&b)?;
                 let b = session_pid.to_ne_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
-            },
-            RecordLimit::PPID { group_pid, init_time } => {
+            }
+            RecordLimit::PPID {
+                group_pid,
+                init_time,
+            } => {
                 target.write_all(&[4u8])?;
                 let b = group_pid.to_ne_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
-            },
+            }
         }
 
         Ok(())
@@ -319,7 +374,7 @@ impl RecordLimit {
             1 => {
                 let init_time = SystemTime::decode(from)?;
                 Ok(RecordLimit::Global { init_time })
-            },
+            }
             2 => {
                 let mut buf = [0; std::mem::size_of::<libc::dev_t>()];
                 from.read_exact(&mut buf)?;
@@ -328,18 +383,26 @@ impl RecordLimit {
                 from.read_exact(&mut buf)?;
                 let session_pid = libc::pid_t::from_ne_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
-                Ok(RecordLimit::TTY { tty_device, session_pid, init_time })
-            },
+                Ok(RecordLimit::TTY {
+                    tty_device,
+                    session_pid,
+                    init_time,
+                })
+            }
             4 => {
                 let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
                 from.read_exact(&mut buf)?;
                 let group_pid = libc::pid_t::from_ne_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
-                Ok(RecordLimit::PPID { group_pid, init_time })
-            },
-            x @ _ => {
-                Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Unexpected limit variant discriminator: {x}")))
+                Ok(RecordLimit::PPID {
+                    group_pid,
+                    init_time,
+                })
             }
+            x => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Unexpected limit variant discriminator: {x}"),
+            )),
         }
     }
 }
@@ -403,7 +466,10 @@ impl SessionRecord {
         let mut cursor = Cursor::new(data);
         let record = SessionRecord::decode(&mut cursor)?;
         if cursor.position() != data.len() as u64 {
-            Err(io::Error::new(io::ErrorKind::InvalidInput, "Record size and record length did not match"))
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Record size and record length did not match",
+            ))
         } else {
             Ok(record)
         }

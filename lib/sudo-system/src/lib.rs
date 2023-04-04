@@ -4,11 +4,12 @@ use std::{
     io,
     mem::MaybeUninit,
     os::fd::AsRawFd,
-    path::PathBuf, str::FromStr,
+    path::PathBuf,
+    str::FromStr,
 };
 
 pub use audit::secure_open;
-use interface::{ProcessId, UserId, GroupId, DeviceId};
+use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
 use sudo_cutils::*;
 use time::SystemTime;
@@ -405,7 +406,7 @@ fn read_proc_stat<T: FromStr>(pid: Option<ProcessId>, field_idx: isize) -> io::R
     let pidref = pidstr.as_deref().unwrap_or("self");
 
     // read the data from the stat file for the process with the given pid
-    let path = PathBuf::from_iter(&["/proc", &pidref, "stat"]);
+    let path = PathBuf::from_iter(&["/proc", pidref, "stat"]);
     let proc_stat = std::fs::read(path)?;
 
     // first get the part of the stat file past the second argument, we then reverse
@@ -421,7 +422,7 @@ fn read_proc_stat<T: FromStr>(pid: Option<ProcessId>, field_idx: isize) -> io::R
     // we've now passed the first two fields, so we are at index 1, now we skip over
     // fields until we arrive at the field we are searching for
     let mut curr_field = 1;
-    while curr_field < field_idx && stat.len() > 0 {
+    while curr_field < field_idx && !stat.is_empty() {
         if stat[0] == b' ' {
             curr_field += 1;
         }
@@ -445,12 +446,12 @@ fn read_proc_stat<T: FromStr>(pid: Option<ProcessId>, field_idx: isize) -> io::R
     })?;
 
     // then we convert the string slice to whatever the requested type was
-    Ok(fielddata.parse().map_err(|_| {
+    fielddata.parse().map_err(|_| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
             "Could not interpret string as number",
         )
-    })?)
+    })
 }
 
 #[cfg(test)]

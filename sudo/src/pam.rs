@@ -1,9 +1,14 @@
 use sudo_common::{error::Error, Context};
-use sudo_system::{timestamp::{RecordLimit, RecordMatch, SessionRecordFile}, Process, time::Duration};
+use sudo_system::{
+    time::Duration,
+    timestamp::{RecordLimit, RecordMatch, SessionRecordFile},
+    Process,
+};
 
 pub fn authenticate(context: &Context) -> Result<(), Error> {
     let authenticate_for = &context.current_user.name;
-    let mut session_records = SessionRecordFile::open_for_user(authenticate_for, Duration::minutes(15))?;
+    let mut session_records =
+        SessionRecordFile::open_for_user(authenticate_for, Duration::minutes(15))?;
     let record_for = if let Some(tty_device) = Process::tty_device_id(None)? {
         RecordLimit::TTY {
             tty_device,
@@ -30,7 +35,6 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
         .build()?;
     pam.mark_silent(true);
     pam.mark_allow_null_auth_token(false);
-
 
     if must_authenticate {
         pam.authenticate()?;

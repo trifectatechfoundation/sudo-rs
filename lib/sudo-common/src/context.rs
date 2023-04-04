@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use sudo_cli::SudoOptions;
-use sudo_system::{hostname, Group, User, Process};
+use sudo_system::{hostname, Group, Process, User};
 
 use crate::{
     command::CommandAndArguments,

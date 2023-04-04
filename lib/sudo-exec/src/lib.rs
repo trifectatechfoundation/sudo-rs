@@ -84,13 +84,17 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
                 }
                 SIGWINCH | SIGINT | SIGQUIT | SIGTSTP => {
                     // Skip the signal if it was not sent by the user or if it is self-terminating.
-                    if !user_signaled || is_self_terminating(info.process, child_pid, ctx.process.pid) {
+                    if !user_signaled
+                        || is_self_terminating(info.process, child_pid, ctx.process.pid)
+                    {
                         continue;
                     }
                 }
                 _ => {
                     // Skip the signal if it was sent by the user and it is self-terminating.
-                    if user_signaled && is_self_terminating(info.process, child_pid, ctx.process.pid) {
+                    if user_signaled
+                        && is_self_terminating(info.process, child_pid, ctx.process.pid)
+                    {
                         continue;
                     }
                 }
