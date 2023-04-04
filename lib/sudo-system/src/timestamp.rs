@@ -317,9 +317,6 @@ pub enum RecordMatch {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecordLimit {
-    Global {
-        init_time: SystemTime,
-    },
     TTY {
         tty_device: libc::dev_t,
         session_pid: libc::pid_t,
@@ -334,16 +331,12 @@ pub enum RecordLimit {
 impl RecordLimit {
     fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         match self {
-            RecordLimit::Global { init_time } => {
-                target.write_all(&[1u8])?;
-                init_time.encode(target)?;
-            }
             RecordLimit::TTY {
                 tty_device,
                 session_pid,
                 init_time,
             } => {
-                target.write_all(&[2u8])?;
+                target.write_all(&[1u8])?;
                 let b = tty_device.to_ne_bytes();
                 target.write_all(&b)?;
                 let b = session_pid.to_ne_bytes();
@@ -354,7 +347,7 @@ impl RecordLimit {
                 group_pid,
                 init_time,
             } => {
-                target.write_all(&[4u8])?;
+                target.write_all(&[2u8])?;
                 let b = group_pid.to_ne_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
@@ -369,10 +362,6 @@ impl RecordLimit {
         from.read_exact(&mut buf)?;
         match buf[0] {
             1 => {
-                let init_time = SystemTime::decode(from)?;
-                Ok(RecordLimit::Global { init_time })
-            }
-            2 => {
                 let mut buf = [0; std::mem::size_of::<libc::dev_t>()];
                 from.read_exact(&mut buf)?;
                 let tty_device = libc::dev_t::from_ne_bytes(buf);
@@ -386,7 +375,7 @@ impl RecordLimit {
                     init_time,
                 })
             }
-            4 => {
+            2 => {
                 let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
                 from.read_exact(&mut buf)?;
                 let group_pid = libc::pid_t::from_ne_bytes(buf);
@@ -405,7 +394,7 @@ impl RecordLimit {
 }
 
 /// A record in the session record file
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SessionRecord {
     limit: RecordLimit,
     auth_user: libc::uid_t,
@@ -481,5 +470,39 @@ impl SessionRecord {
     /// Returns true if this record was written at or after the specified time
     pub fn written_after(&self, time: SystemTime) -> bool {
         self.timestamp >= time
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_encode_and_decode() {
+        let tty_sample = SessionRecord::new(
+            RecordLimit::TTY {
+                tty_device: 10,
+                session_pid: 42,
+                init_time: SystemTime::now().unwrap() - Duration::seconds(150),
+            },
+            999,
+        )
+        .unwrap();
+
+        let bytes = tty_sample.as_bytes().unwrap();
+        let decoded = SessionRecord::from_bytes(&bytes).unwrap();
+        assert_eq!(tty_sample, decoded);
+
+        let ppid_sample = SessionRecord::new(
+            RecordLimit::PPID {
+                group_pid: 42,
+                init_time: SystemTime::now().unwrap(),
+            },
+            123,
+        )
+        .unwrap();
+        let bytes = ppid_sample.as_bytes().unwrap();
+        let decoded = SessionRecord::from_bytes(&bytes).unwrap();
+        assert_eq!(ppid_sample, decoded);
     }
 }
