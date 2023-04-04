@@ -25,6 +25,15 @@ To run the "gated" compliance tests against sudo-rs set the `SUDO_UNDER_TEST` va
 $ SUDO_UNDER_TEST=ours cargo test -p sudo-compliance-tests
 ```
 
+## Verbose docker build
+
+The first unit test that runs will build a docker image that the rest of unit tests will use.
+To print the output of the `docker build` command set the `SUDO_TEST_VERBOSE_DOCKER_BUILD` variable.
+
+``` console
+$ SUDO_TEST_VERBOSE_DOCKER_BUILD=1 cargo test -p sudo-compliance-tests -- --include-ignored
+```
+
 ## Gating CI on selected tests
 
 Tests (`#[test]` functions) that exercise behavior not yet implemented in sudo-rs MUST be marked as `#[ignored]`.
