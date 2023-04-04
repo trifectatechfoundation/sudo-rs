@@ -93,13 +93,15 @@ impl User {
             result == -1
         } {
             if buf_len >= 65536 {
-                panic!("User has too many groups, this should not happen");
+                panic!("user has too many groups (> 65536), this should not happen");
             }
 
             buf_len *= 2;
         }
 
-        groups_buffer.resize(buf_len as usize, 0);
+        groups_buffer.resize_with(buf_len as usize, || {
+            panic!("invalid groups count returned from getgrouplist, this should not happen")
+        });
 
         User {
             uid: pwd.pw_uid,
