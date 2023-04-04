@@ -6,7 +6,7 @@ use pam::authenticate;
 use sudo_cli::SudoOptions;
 use sudo_common::{Context, Environment, Error};
 use sudo_env::environment;
-use sudoers::{Authorization, Policy, PreJudgementPolicy, Sudoers};
+use sudoers::{Authorization, DirChange, Judgement, Policy, PreJudgementPolicy, Sudoers};
 
 mod diagnostic;
 use diagnostic::diagnostic;
@@ -51,6 +51,23 @@ fn build_context<'a>(
     Context::build_from_options(sudo_options, path)
 }
 
+/// Change context values given a policy
+fn apply_policy_to_context(context: &mut Context, policy: &Judgement) -> Result<(), Error> {
+    // see if the chdir flag is permitted
+    match policy.chdir() {
+        DirChange::Any => {}
+        DirChange::Strict(optdir) => {
+            if context.chdir.is_some() {
+                return Err(Error::auth("no permission")); // TODO better user error messages
+            } else {
+                context.chdir = optdir.map(std::path::PathBuf::from)
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
 fn unstable_warning() {
     let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
@@ -79,10 +96,12 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     let sudoers = parse_sudoers()?;
 
     // build context given a path
-    let context = build_context(&sudo_options, &sudoers)?;
+    let mut context = build_context(&sudo_options, &sudoers)?;
 
     // check sudoers file for permission
     let policy = check_sudoers(&sudoers, &context);
+
+    // see if user must be authenticated
     match policy.authorization() {
         Authorization::Required => {
             // authenticate user using pam
@@ -96,6 +115,8 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
             )));
         }
     };
+
+    apply_policy_to_context(&mut context, &policy)?;
 
     // build environment
     let current_env = std::env::vars().collect::<Environment>();
