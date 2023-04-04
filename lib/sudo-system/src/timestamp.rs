@@ -193,38 +193,6 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         Ok(RecordMatch::NotFound)
     }
 
-    /// Find a record that matches the given limit and target user and return
-    /// that record. This will not create a new record when one is not found.
-    pub fn find(
-        &mut self,
-        record_limit: RecordLimit,
-        target_user: UserId,
-    ) -> io::Result<RecordMatch> {
-        // lock the file to indicate that we are currently reading from it and
-        // no writing operations should take place
-        self.io.lock_shared()?;
-        self.seek_to_first_record()?;
-        while let Some(record) = self.next_record()? {
-            if record.matches(&record_limit, target_user) {
-                let now = SystemTime::now()?;
-                if record.written_between(now - self.timeout, now) {
-                    self.io.unlock()?;
-                    return Ok(RecordMatch::Found {
-                        time: record.timestamp,
-                    });
-                } else {
-                    self.io.unlock()?;
-                    return Ok(RecordMatch::Outdated {
-                        time: record.timestamp,
-                    });
-                }
-            }
-        }
-
-        self.io.unlock()?;
-        Ok(RecordMatch::NotFound)
-    }
-
     /// Create a new record for the given limit and target user.
     pub fn create_or_update(
         &mut self,
@@ -284,30 +252,6 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         self.io.write_all(&bytes)?;
 
         Ok(())
-    }
-
-    /// Remove any records that are no longer valid. This returns the number
-    /// of pruned records.
-    pub fn prune(&mut self) -> io::Result<usize> {
-        self.io.lock_exclusive()?;
-        self.seek_to_first_record()?;
-        let mut records = vec![];
-        let mut pruned = 0;
-        while let Some(record) = self.next_record()? {
-            let now = SystemTime::now()?;
-            if record.written_between(now - self.timeout, now) {
-                records.push(record);
-            } else {
-                pruned += 1;
-            }
-        }
-
-        self.init(Self::FIRST_RECORD_OFFSET, false)?;
-        for record in records {
-            self.write_record(&record)?;
-        }
-
-        Ok(pruned)
     }
 
     /// Move to where the first record starts.
