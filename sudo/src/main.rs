@@ -6,7 +6,7 @@ use pam::authenticate;
 use sudo_cli::SudoOptions;
 use sudo_common::{Context, Environment, Error};
 use sudo_env::environment;
-use sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy, Sudoers};
+use sudoers::{Authorization, DirChange, Judgement, Policy, PreJudgementPolicy, Sudoers};
 
 mod diagnostic;
 mod pam;
@@ -48,6 +48,23 @@ fn build_context<'a>(
     let path = sudoers.secure_path().unwrap_or(&env_path);
 
     Context::build_from_options(sudo_options, path)
+}
+
+/// Change context values given a policy
+fn apply_policy_to_context(context: &mut Context, policy: &Judgement) -> Result<(), Error> {
+    // see if the chdir flag is permitted
+    match policy.chdir() {
+        DirChange::Any => {}
+        DirChange::Strict(optdir) => {
+            if context.chdir.is_some() {
+                return Err(Error::auth("no permission")); // TODO better user error messages
+            } else {
+                context.chdir = optdir.map(std::path::PathBuf::from)
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
@@ -95,17 +112,7 @@ fn main() -> Result<(), Error> {
         }
     };
 
-    // see if the chdir flag is permitted
-    match policy.chdir() {
-        DirChange::Any => {}
-        DirChange::Strict(optdir) => {
-            if context.chdir.is_some() {
-                return Err(Error::auth("no permission")); // TODO better user error messages
-            } else {
-                context.chdir = optdir.map(std::path::PathBuf::from)
-            }
-        }
-    }
+    apply_policy_to_context(&mut context, &policy)?;
 
     // build environment
     let current_env = std::env::vars().collect::<Environment>();
