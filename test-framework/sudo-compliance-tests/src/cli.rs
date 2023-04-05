@@ -34,7 +34,7 @@ fn dash_dash_before_flag_is_an_error() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: -u: command not found");
+        insta::assert_snapshot!(output.stderr());
     }
 
     Ok(())
