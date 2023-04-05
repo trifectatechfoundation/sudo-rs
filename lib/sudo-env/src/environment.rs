@@ -44,11 +44,19 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
         format!("{PATH_MAILDIR}/{}", context.target_user.name),
     );
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
-    environment.insert("SHELL".to_string(), context.target_user.shell.clone());
+    // FIXME(pvdrz): this is lossy as not every `PathBuf` is a valid `String`.
+    environment.insert(
+        "SHELL".to_string(),
+        context.target_user.shell.display().to_string(),
+    );
     // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
     // Since we always want to do env_reset -> always set HOME
-    environment.insert("HOME".to_string(), context.target_user.home.clone());
+    // FIXME(pvdrz): this is lossy as not every `PathBuf` is a valid `String`.
+    environment.insert(
+        "HOME".to_string(),
+        context.target_user.home.display().to_string(),
+    );
     // Set to the login name of the target user when the -i option is specified,
     // when the set_logname option is enabled in sudoers, or when the env_reset option
     // is enabled in sudoers (unless LOGNAME is present in the env_keep list).

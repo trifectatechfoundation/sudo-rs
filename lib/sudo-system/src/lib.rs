@@ -65,8 +65,8 @@ pub struct User {
     pub gid: libc::gid_t,
     pub name: String,
     pub gecos: String,
-    pub home: String,
-    pub shell: String,
+    pub home: PathBuf,
+    pub shell: PathBuf,
     pub passwd: String,
     pub groups: Vec<libc::gid_t>,
 }
@@ -108,8 +108,8 @@ impl User {
             gid: pwd.pw_gid,
             name: string_from_ptr(pwd.pw_name),
             gecos: string_from_ptr(pwd.pw_gecos),
-            home: string_from_ptr(pwd.pw_dir),
-            shell: string_from_ptr(pwd.pw_shell),
+            home: os_string_from_ptr(pwd.pw_dir).into(),
+            shell: os_string_from_ptr(pwd.pw_shell).into(),
             passwd: string_from_ptr(pwd.pw_passwd),
             groups: groups_buffer,
         }

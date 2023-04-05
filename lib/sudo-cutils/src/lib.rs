@@ -1,4 +1,7 @@
-use std::ffi::CStr;
+use std::{
+    ffi::{CStr, OsStr, OsString},
+    os::unix::prelude::OsStrExt,
+};
 
 pub fn cerr(res: libc::c_int) -> std::io::Result<libc::c_int> {
     match res {
@@ -53,6 +56,20 @@ pub unsafe fn string_from_ptr(ptr: *const libc::c_char) -> String {
     }
 }
 
+/// Create an `OsString` copy from a C string pointer.
+///
+/// # Safety
+/// This function assumes that the pointer is either a null pointer or that
+/// it points to a valid NUL-terminated C string.
+pub unsafe fn os_string_from_ptr(ptr: *const libc::c_char) -> OsString {
+    if ptr.is_null() {
+        OsString::new()
+    } else {
+        let cstr = unsafe { CStr::from_ptr(ptr) };
+        OsStr::from_bytes(cstr.to_bytes()).to_owned()
+    }
+}
+
 /// Create a C string copy of a Rust string copy, allocated by libc::malloc()
 ///
 /// The returned pointer **must** be cleaned up via a call to `libc::free`.
@@ -73,11 +90,19 @@ pub fn into_leaky_cstring(s: &str) -> *const libc::c_char {
 
 #[cfg(test)]
 mod test {
-    use super::{into_leaky_cstring, string_from_ptr};
+    use super::{into_leaky_cstring, os_string_from_ptr, string_from_ptr};
 
     #[test]
     fn miri_test_str_to_ptr() {
         let strp = |ptr| unsafe { string_from_ptr(ptr) };
+        assert_eq!(strp(std::ptr::null()), "");
+        assert_eq!(strp("\0".as_ptr() as *const libc::c_char), "");
+        assert_eq!(strp("hello\0".as_ptr() as *const libc::c_char), "hello");
+    }
+
+    #[test]
+    fn miri_test_os_str_to_ptr() {
+        let strp = |ptr| unsafe { os_string_from_ptr(ptr) };
         assert_eq!(strp(std::ptr::null()), "");
         assert_eq!(strp("\0".as_ptr() as *const libc::c_char), "");
         assert_eq!(strp("hello\0".as_ptr() as *const libc::c_char), "hello");
