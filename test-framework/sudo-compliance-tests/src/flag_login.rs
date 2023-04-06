@@ -17,10 +17,7 @@ fn if_home_directory_does_not_exist_executes_program_without_changing_the_workin
         assert!(output.status().success());
 
         if sudo_test::is_original_sudo() {
-            assert_contains!(
-                output.stderr(),
-                "sudo: unable to change directory to /home/ferris: No such file or directory"
-            );
+            insta::assert_snapshot!(output.stderr());
         }
 
         let actual = output.stdout()?;
@@ -193,7 +190,7 @@ fn shell_does_not_exist() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: /tmp/my-shell: command not found");
+        insta::assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -204,7 +201,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(shell_path, TextFile("#!/bin/sh").chmod("100"))
-        .user(User(USERNAME).shell(shell_path))
+        .user(User(USERNAME).shell(shell_path).create_home_directory())
         .build()?;
 
     let output = Command::new("sudo")
@@ -215,10 +212,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: unable to execute /tmp/my-shell: Permission denied"
-        );
+        insta::assert_snapshot!(output.stderr());
     }
 
     Ok(())
