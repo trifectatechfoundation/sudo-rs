@@ -4,6 +4,16 @@ use sudo_test::{Command, Env, User};
 
 use crate::{Result, GROUPNAME, PAMD_SUDO_PAM_PERMIT, USERNAME};
 
+macro_rules! assert_snapshot_no_host {
+    ($($tt:tt)*) => {
+        insta::with_settings!({ filters => vec![
+            (r"[[:xdigit:]]{12}", "[host]")
+        ] }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 // "If both Runas_Lists are empty, the command may only be run as the invoking user."
 #[test]
 #[ignore]
@@ -48,10 +58,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as ferris"
-        );
+        assert_snapshot_no_host!(output.stderr());
     }
 
     Ok(())
@@ -107,10 +114,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as ghost"
-        );
+        assert_snapshot_no_host!(output.stderr());
     }
 
     Ok(())
@@ -126,10 +130,7 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as root"
-        );
+        assert_snapshot_no_host!(output.stderr());
     }
 
     Ok(())

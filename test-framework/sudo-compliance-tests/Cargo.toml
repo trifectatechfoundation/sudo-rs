@@ -8,5 +8,5 @@ doctest = false
 
 [dev-dependencies]
 pretty_assertions = "1.3.0"
-insta = "1.29.0"
+insta = { version = "1.29.0", features = [ "filters" ] }
 sudo-test.path = "../sudo-test"
