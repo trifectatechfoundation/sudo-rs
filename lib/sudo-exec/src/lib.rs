@@ -30,10 +30,23 @@ pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus>
     let mut command = Command::new(ctx.command.command);
     // reset env and set filtered environment
     command.args(ctx.command.arguments).env_clear().envs(env);
+    if let Some(path) = ctx.chdir {
+        // change current directory, if requested
+        command.current_dir(path);
+    } else if ctx.login {
+        // change current directory, if `-i` is being used and the home directory exists.
+        let path = &ctx.target_user.home;
+        if path.exists() {
+            command.current_dir(path);
+        } else {
+            eprintln!(
+                "sudo: unable to change directory to {}: No such file or directory",
+                path.display()
+            );
+        }
+    }
     // set target user and groups
     set_target_user(&mut command, ctx.target_user, ctx.target_group);
-    // change current directory, if requested
-    ctx.chdir.map(|path| command.current_dir(path));
     // spawn and exec to command
     let mut child = command.spawn()?;
 

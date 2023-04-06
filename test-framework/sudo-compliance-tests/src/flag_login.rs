@@ -31,7 +31,6 @@ fn if_home_directory_does_not_exist_executes_program_without_changing_the_workin
 }
 
 #[test]
-#[ignore]
 fn sets_home_directory_as_working_directory() -> Result<()> {
     let expected = format!("/home/{USERNAME}");
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
