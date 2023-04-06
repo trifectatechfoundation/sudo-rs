@@ -43,7 +43,7 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: my-script: command not found");
+        insta::assert_snapshot!(output.stderr());
     }
 
     Ok(())
