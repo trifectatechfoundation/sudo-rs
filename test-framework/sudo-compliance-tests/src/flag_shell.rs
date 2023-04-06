@@ -165,7 +165,7 @@ fn shell_does_not_exist() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: /root/my-shell: command not found");
+        insta::assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -187,7 +187,7 @@ fn shell_is_not_executable() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: /root/my-shell: command not found");
+        insta::assert_snapshot!(output.stderr());
     }
 
     Ok(())
