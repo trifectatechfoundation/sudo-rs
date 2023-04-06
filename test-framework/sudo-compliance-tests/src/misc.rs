@@ -15,10 +15,7 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: you do not exist in the passwd database"
-        );
+        insta::assert_snapshot!(output.stderr());
     }
 
     Ok(())
