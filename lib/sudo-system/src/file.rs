@@ -7,17 +7,9 @@ pub trait Lockable {
     /// on the file
     fn lock_exclusive(&self) -> Result<()>;
 
-    /// Try and get an exclusive lock on the file, only if there currently is
-    /// no lock on the file.
-    fn try_lock_exclusive(&self) -> Result<()>;
-
     /// Get a shared lock on the file, waits if there is currently an exclusive
     /// lock on the file.
     fn lock_shared(&self) -> Result<()>;
-
-    /// Get a shared lock on the file, only if there currently is no exclusive
-    /// lock on the file.
-    fn try_lock_shared(&self) -> Result<()>;
 
     /// Release the lock on the file if there is any.
     fn unlock(&self) -> Result<()>;
@@ -55,16 +47,8 @@ impl Lockable for File {
         flock(self, LockOp::LockExclusive, true)
     }
 
-    fn try_lock_exclusive(&self) -> Result<()> {
-        flock(self, LockOp::LockExclusive, false)
-    }
-
     fn lock_shared(&self) -> Result<()> {
         flock(self, LockOp::LockShared, true)
-    }
-
-    fn try_lock_shared(&self) -> Result<()> {
-        flock(self, LockOp::LockShared, false)
     }
 
     fn unlock(&self) -> Result<()> {
@@ -81,15 +65,7 @@ mod tests {
             Ok(())
         }
 
-        fn try_lock_exclusive(&self) -> Result<()> {
-            Ok(())
-        }
-
         fn lock_shared(&self) -> Result<()> {
-            Ok(())
-        }
-
-        fn try_lock_shared(&self) -> Result<()> {
             Ok(())
         }
 
@@ -103,15 +79,7 @@ mod tests {
             Ok(())
         }
 
-        fn try_lock_exclusive(&self) -> Result<()> {
-            Ok(())
-        }
-
         fn lock_shared(&self) -> Result<()> {
-            Ok(())
-        }
-
-        fn try_lock_shared(&self) -> Result<()> {
             Ok(())
         }
 
