@@ -19,11 +19,6 @@ fn starts_with_byte(haystack: &[u8], needle: u8) -> bool {
     haystack.first() == Some(&needle)
 }
 
-/// check byte slice starts with given byte slice
-fn starts_with(haystack: &[u8], needle: &[u8]) -> bool {
-    &haystack[0..needle.len()] == needle
-}
-
 /// check byte slice contains with given byte slice
 fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
@@ -116,7 +111,7 @@ fn is_safe_tz(value: &[u8]) -> bool {
 
     if starts_with_byte(check_value, b'/') {
         if !PATH_ZONEINFO.is_empty() {
-            if !starts_with(check_value, PATH_ZONEINFO.as_bytes())
+            if !check_value.starts_with(PATH_ZONEINFO.as_bytes())
                 || check_value.get(PATH_ZONEINFO.len()) != Some(&b'/')
             {
                 return false;
@@ -140,7 +135,7 @@ fn in_table(needle: &OsStr, haystack: &HashSet<String>) -> bool {
 
 /// Determine whether a specific environment variable should be kept
 fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
-    if starts_with(value.as_bytes(), "()".as_bytes()) {
+    if value.as_bytes().starts_with("()".as_bytes()) {
         return false;
     }
 
