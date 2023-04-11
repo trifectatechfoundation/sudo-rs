@@ -2,7 +2,7 @@ use std::io::{BufRead, Write};
 
 use sudo_pam_sys::*;
 
-use crate::{error::PamResult, PamErrorType};
+use crate::{error::PamResult, rpassword, PamErrorType};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
@@ -35,17 +35,20 @@ impl PamMessageStyle {
     }
 }
 
+use crate::Password;
+type RawBytes = Vec<u8>;
+
 /// A PamMessage contains the data in a single message of a pam conversation
 /// and contains the response to that message.
 pub struct PamMessage {
     pub msg: String,
     pub style: PamMessageStyle,
-    response: Option<String>,
+    response: Option<Password>,
 }
 
 impl PamMessage {
     /// Set a response value to the message.
-    pub fn set_response(&mut self, resp: String) {
+    pub fn set_response(&mut self, resp: Password) {
         self.response = Some(resp);
     }
 
@@ -88,11 +91,11 @@ pub trait Converser {
 pub trait SequentialConverser: Converser {
     /// Handle a normal prompt, i.e. present some message and ask for a value.
     /// The value is not considered a secret.
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<String>;
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<RawBytes>;
 
     /// Handle a hidden prompt, i.e. present some message and ask for a value.
     /// The value is considered secret and should not be visible.
-    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String>;
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<Password>;
 
     /// Display an error message to the user, the user does not need to input a
     /// value.
@@ -113,7 +116,7 @@ where
         for msg in conversation.messages_mut() {
             match msg.style {
                 PromptEchoOn => {
-                    msg.set_response(self.handle_normal_prompt(&msg.msg)?);
+                    msg.set_response(Password::new(self.handle_normal_prompt(&msg.msg)?));
                 }
                 PromptEchoOff => {
                     msg.set_response(self.handle_hidden_prompt(&msg.msg)?);
@@ -136,17 +139,17 @@ where
 pub struct CLIConverser;
 
 impl SequentialConverser for CLIConverser {
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<RawBytes> {
         print!("[Sudo: input needed] {msg}");
         std::io::stdout().flush().unwrap();
 
-        let mut s = String::new();
-        std::io::stdin().lock().read_line(&mut s).unwrap();
+        let mut s = Vec::new();
+        std::io::stdin().lock().read_until(0x0a, &mut s).unwrap();
 
         Ok(s)
     }
 
-    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<Password> {
         Ok(rpassword::prompt_password(format!(
             "[Sudo: authenticate] {msg}"
         ))?)
@@ -273,12 +276,14 @@ mod test {
     use PamMessageStyle::*;
 
     impl SequentialConverser for String {
-        fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
-            Ok(format!("{self} says {msg}"))
+        fn handle_normal_prompt(&self, msg: &str) -> PamResult<RawBytes> {
+            Ok(format!("{self} says {msg}").into_bytes())
         }
 
-        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
-            Ok(format!("{self}s secret is {msg}"))
+        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<Password> {
+            Ok(Password::new(
+                format!("{self}s secret is {msg}").into_bytes(),
+            ))
         }
 
         fn handle_error(&self, msg: &str) -> PamResult<()> {
@@ -295,7 +300,7 @@ mod test {
         let pam_msgs = msgs
             .iter()
             .map(|PamMessage { msg, style, .. }| pam_message {
-                msg: sudo_cutils::into_leaky_cstring(msg),
+                msg: sudo_cutils::into_leaky_cstring(msg.as_bytes()),
                 msg_style: *style as i32,
             })
             .rev()

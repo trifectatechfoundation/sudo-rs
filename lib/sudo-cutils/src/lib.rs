@@ -43,6 +43,8 @@ pub fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
 }
 
 /// Create a Rust string copy from a C string pointer
+/// WARNING: This uses `to_string_lossy` so should not be used for data where
+/// information loss is unacceptable (use `os_string_from_ptr` instead)
 ///
 /// # Safety
 /// This function assumes that the pointer is either a null pointer or that
@@ -73,7 +75,7 @@ pub unsafe fn os_string_from_ptr(ptr: *const libc::c_char) -> OsString {
 /// Create a C string copy of a Rust string copy, allocated by libc::malloc()
 ///
 /// The returned pointer **must** be cleaned up via a call to `libc::free`.
-pub fn into_leaky_cstring(s: &str) -> *const libc::c_char {
+pub fn into_leaky_cstring(s: &[u8]) -> *const libc::c_char {
     let alloc_len: isize = s.len().try_into().expect("absurd string size");
     let mem = unsafe { libc::malloc(alloc_len as usize + 1) } as *mut u8;
     if mem.is_null() {
@@ -147,8 +149,8 @@ mod test {
 
     #[test]
     fn miri_test_leaky_cstring() {
-        let test = |text| unsafe {
-            let ptr = into_leaky_cstring(text);
+        let test = |text: &str| unsafe {
+            let ptr = into_leaky_cstring(text.as_bytes());
             let result = string_from_ptr(ptr);
             libc::free(ptr as *mut libc::c_void);
             result

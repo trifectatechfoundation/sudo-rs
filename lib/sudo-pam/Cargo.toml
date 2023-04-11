@@ -12,4 +12,3 @@ sudo-pam-sys.workspace = true
 sudo-cutils.workspace = true
 thiserror.workspace = true
 libc.workspace = true
-rpassword.workspace = true

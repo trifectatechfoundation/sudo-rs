@@ -6,11 +6,14 @@ use std::{
 use converse::{Converser, ConverserData};
 use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
-use sudo_cutils::string_from_ptr;
+use sudo_cutils::{string_from_ptr, Secure};
 use sudo_pam_sys::*;
 
 mod converse;
 mod error;
+mod rpassword;
+
+pub(crate) type Password = Secure<Vec<u8>>;
 
 pub use converse::CLIConverser;
 
