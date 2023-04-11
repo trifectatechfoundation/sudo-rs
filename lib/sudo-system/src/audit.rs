@@ -20,20 +20,20 @@ fn mode(who: Category, what: Op) -> u32 {
     (what as u32) << (3 * who as u32)
 }
 
-pub fn secure_open(path: &Path) -> io::Result<File> {
+pub fn secure_open(path: impl AsRef<Path>) -> io::Result<File> {
     let mut open_options = OpenOptions::new();
     open_options.read(true);
-    secure_open_impl(path, &mut open_options, false, false)
+    secure_open_impl(path.as_ref(), &mut open_options, false, false)
 }
 
-pub fn secure_open_cookie_file(path: &Path) -> io::Result<File> {
+pub fn secure_open_cookie_file(path: impl AsRef<Path>) -> io::Result<File> {
     let mut open_options = OpenOptions::new();
     open_options
         .read(true)
         .write(true)
         .create(true)
         .mode(mode(Category::Owner, Op::Write) | mode(Category::Owner, Op::Read));
-    secure_open_impl(path, &mut open_options, true, true)
+    secure_open_impl(path.as_ref(), &mut open_options, true, true)
 }
 
 fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
@@ -64,7 +64,7 @@ fn secure_open_impl(
     create_parent_dirs: bool,
 ) -> io::Result<File> {
     let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
-    if check_parent_dir {
+    if check_parent_dir || create_parent_dirs {
         if let Some(parent_dir) = path.parent() {
             // if we should create parent dirs and it does not yet exist, create it
             if create_parent_dirs && !parent_dir.exists() {
@@ -79,8 +79,11 @@ fn secure_open_impl(
                     )
                     .create(parent_dir)?;
             }
-            let parent_meta = std::fs::metadata(parent_dir)?;
-            checks(parent_dir, parent_meta)?;
+
+            if check_parent_dir {
+                let parent_meta = std::fs::metadata(parent_dir)?;
+                checks(parent_dir, parent_meta)?;
+            }
         } else {
             return Err(error(format!(
                 "{} has no valid parent directory",
@@ -98,19 +101,18 @@ fn secure_open_impl(
 
 #[cfg(test)]
 mod test {
-    use super::secure_open;
-    use std::path::Path;
+    use super::*;
 
     #[test]
     fn secure_open_is_predictable() {
         // /etc/hosts should be readable and "secure" (if this test fails, you have been compromised)
         assert!(std::fs::File::open("/etc/hosts").is_ok());
-        assert!(secure_open(Path::new("/etc/hosts")).is_ok());
+        assert!(secure_open("/etc/hosts").is_ok());
         // /var/log/utmp should be readable, but not secure (writeable by group other than root)
         assert!(std::fs::File::open("/var/log/wtmp").is_ok());
-        assert!(secure_open(Path::new("/var/log/wtmp")).is_err());
+        assert!(secure_open("/var/log/wtmp").is_err());
         // /etc/shadow should not be readable
         assert!(std::fs::File::open("/etc/shadow").is_err());
-        assert!(secure_open(Path::new("/etc/shadow")).is_err());
+        assert!(secure_open("/etc/shadow").is_err());
     }
 }
