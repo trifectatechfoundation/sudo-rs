@@ -25,7 +25,7 @@ fn starts_with(haystack: &[u8], needle: &[u8]) -> bool {
 }
 
 /// check byte slice contains with given byte slice
-fn find_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
+fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
         .windows(needle.len())
         .any(|window| window == needle)
@@ -66,12 +66,10 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
         format!("{PATH_MAILDIR}/{}", context.target_user.name).into(),
     );
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
-    // FIXME(pvdrz): this is lossy as not every `PathBuf` is a valid `String`.
     environment.insert("SHELL".into(), context.target_user.shell.clone().into());
     // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
     // Since we always want to do env_reset -> always set HOME
-    // FIXME(pvdrz): this is lossy as not every `PathBuf` is a valid `String`.
     environment.insert("HOME".into(), context.target_user.home.clone().into());
     // Set to the login name of the target user when the -i option is specified,
     // when the set_logname option is enabled in sudoers, or when the env_reset option
@@ -128,7 +126,7 @@ fn is_safe_tz(value: &[u8]) -> bool {
         }
     }
 
-    !find_subsequence(check_value, "..".as_bytes())
+    !contains_subsequence(check_value, "..".as_bytes())
         && is_printable(check_value)
         && check_value.len() < PATH_MAX as usize
 }
