@@ -177,7 +177,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
                     new_time.encode(&mut self.io)?;
                     self.io.unlock()?;
                     return Ok(RecordMatch::Updated {
-                        time: record.timestamp,
+                        old_time: record.timestamp,
                         new_time,
                     });
                 } else {
@@ -209,7 +209,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
                 new_time.encode(&mut self.io)?;
                 self.io.unlock()?;
                 return Ok(RecordMatch::Updated {
-                    time: record.timestamp,
+                    old_time: record.timestamp,
                     new_time,
                 });
             }
@@ -224,7 +224,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         self.write_record(&record)?;
         self.io.unlock()?;
 
-        Ok(RecordMatch::Found {
+        Ok(RecordMatch::Created {
             time: record.timestamp,
         })
     }
@@ -264,19 +264,17 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum RecordMatch {
-    /// The record was found and within the timeout, but it was not updated
-    Found { time: SystemTime },
+    /// A new record was created and was set to the time returned
+    Created { time: SystemTime },
     /// The record was found and within the timeout, and it was refreshed
     Updated {
-        time: SystemTime,
+        old_time: SystemTime,
         new_time: SystemTime,
     },
     /// A record was not found that matches the input
     NotFound,
     /// A record was found, but it was no longer valid
     Outdated { time: SystemTime },
-    /// A record was found, but it was removed
-    Removed { time: SystemTime },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

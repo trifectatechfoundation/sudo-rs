@@ -10,7 +10,7 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
     let target_user = context.target_user.uid;
 
     // determine session limit
-    let record_for = if let Some(tty_device) = Process::tty_device_id(None)? {
+    let record_for = if let Ok(Some(tty_device)) = Process::tty_device_id(None) {
         Some(RecordLimit::TTY {
             tty_device,
             session_pid: context.process.session_id,
@@ -40,10 +40,8 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
 
         // try and find an entry and update it to the current timestamp
         let must_authenticate = match session_records.touch(record_for, target_user)? {
-            RecordMatch::Found { .. } | RecordMatch::Updated { .. } => false,
-            RecordMatch::NotFound | RecordMatch::Removed { .. } | RecordMatch::Outdated { .. } => {
-                true
-            }
+            RecordMatch::Created { .. } | RecordMatch::Updated { .. } => false,
+            RecordMatch::NotFound | RecordMatch::Outdated { .. } => true,
         };
         (must_authenticate, Some(session_records))
     } else {
