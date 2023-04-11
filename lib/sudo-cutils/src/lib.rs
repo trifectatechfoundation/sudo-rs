@@ -88,6 +88,43 @@ pub fn into_leaky_cstring(s: &str) -> *const libc::c_char {
     mem as *mut libc::c_char
 }
 
+/// A "secure" storage that gets wiped before dropping; inspired by Conrad Kleinespel's
+/// Rustatic rtoolbox::SafeString, https://crates.io/crates/rtoolbox/0.0.1 and std::Pin<>
+pub struct Secure<T: AsMut<[u8]>>(T);
+
+impl<T: AsMut<[u8]>> Secure<T> {
+    pub fn new(value: T) -> Self {
+        Secure(value)
+    }
+}
+
+impl<T: AsMut<[u8]>> std::ops::Deref for Secure<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T: AsMut<[u8]>> Drop for Secure<T> {
+    fn drop(&mut self) {
+        wipe_memory(self.0.as_mut())
+    }
+}
+
+/// Used to zero out memory and protect sensitive data from leaking; inspired by Conrad Kleinespel's
+/// Rustatic rtoolbox::SafeString, https://crates.io/crates/rtoolbox/0.0.1
+fn wipe_memory(memory: &mut [u8]) {
+    use std::sync::atomic;
+
+    let nonsense: u8 = 0x55;
+    for c in memory {
+        unsafe { std::ptr::write_volatile(c, nonsense) };
+    }
+
+    atomic::fence(atomic::Ordering::SeqCst);
+    atomic::compiler_fence(atomic::Ordering::SeqCst);
+}
+
 #[cfg(test)]
 mod test {
     use super::{into_leaky_cstring, os_string_from_ptr, string_from_ptr};
