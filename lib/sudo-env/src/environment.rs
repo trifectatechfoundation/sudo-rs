@@ -15,6 +15,11 @@ const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 const PATH_DEFAULT: &str = env!("PATH_DEFAULT");
 
 /// check byte slice starts with given byte slice
+fn starts_with_byte(haystack: &[u8], needle: u8) -> bool {
+    haystack.first() == Some(&needle)
+}
+
+/// check byte slice starts with given byte slice
 fn starts_with(haystack: &[u8], needle: &[u8]) -> bool {
     &haystack[0..needle.len()] == needle
 }
@@ -105,15 +110,15 @@ fn is_printable(input: &[u8]) -> bool {
 /// It contains white space or non-printable characters.
 /// It is longer than the value of PATH_MAX.
 fn is_safe_tz(value: &[u8]) -> bool {
-    let check_value = if value.get(0) == Some(&b':') {
-        value[1..].to_vec()
+    let check_value = if starts_with_byte(value, b':') {
+        &value[1..]
     } else {
-        value.to_vec()
+        value
     };
 
-    if check_value.get(0) == Some(&b'/') {
+    if starts_with_byte(check_value, b'/') {
         if !PATH_ZONEINFO.is_empty() {
-            if !starts_with(&check_value, PATH_ZONEINFO.as_bytes())
+            if !starts_with(check_value, PATH_ZONEINFO.as_bytes())
                 || check_value.get(PATH_ZONEINFO.len()) != Some(&b'/')
             {
                 return false;
@@ -123,8 +128,8 @@ fn is_safe_tz(value: &[u8]) -> bool {
         }
     }
 
-    !find_subsequence(&check_value, "..".as_bytes())
-        && is_printable(&check_value)
+    !find_subsequence(check_value, "..".as_bytes())
+        && is_printable(check_value)
         && check_value.len() < PATH_MAX as usize
 }
 
@@ -184,10 +189,7 @@ pub fn get_target_environment(
 #[cfg(test)]
 mod tests {
     use crate::environment::{is_safe_tz, should_keep, PATH_ZONEINFO};
-    use std::{
-        collections::HashSet,
-        ffi::{OsStr, OsString},
-    };
+    use std::{collections::HashSet, ffi::OsStr};
     use sudoers::Policy;
 
     struct TestConfiguration {
@@ -212,38 +214,20 @@ mod tests {
             check: HashSet::from(["MIES".to_string()]),
         };
 
-        assert_eq!(
-            should_keep(&OsStr::new("AAP"), &OsStr::new("FOO"), &config),
-            true
-        );
-        assert_eq!(
-            should_keep(&OsStr::new("MIES"), &OsStr::new("BAR"), &config),
-            true
-        );
-        assert_eq!(
-            should_keep(&OsStr::new("AAP"), &OsStr::new("()=foo"), &config),
-            false
-        );
-        assert_eq!(
-            should_keep(&OsStr::new("TZ"), &OsStr::new("Europe/Amsterdam"), &config),
-            true
-        );
-        assert_eq!(
-            should_keep(
-                &OsString::from("TZ"),
-                &OsString::from("../Europe/Berlin"),
-                &config
-            ),
-            false
-        );
-        assert_eq!(
-            should_keep(&OsString::from("MIES"), &OsString::from("FOO/BAR"), &config),
-            false
-        );
-        assert_eq!(
-            should_keep(&OsString::from("MIES"), &OsString::from("FOO%"), &config),
-            false
-        );
+        let check_should_keep = |key: &str, value: &str, expected: bool| {
+            assert_eq!(
+                should_keep(&OsStr::new(key), &OsStr::new(value), &config),
+                expected,
+            );
+        };
+
+        check_should_keep("AAP", "FOO", true);
+        check_should_keep("MIES", "BAR", true);
+        check_should_keep("AAP", "()=foo", false);
+        check_should_keep("TZ", "Europe/Amsterdam", true);
+        check_should_keep("TZ", "../Europe/Berlin", false);
+        check_should_keep("MIES", "FOO/BAR", false);
+        check_should_keep("MIES", "FOO%", false);
     }
 
     #[test]
