@@ -9,14 +9,14 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Context<'a> {
+pub struct Context {
     // cli options
     pub preserve_env_list: Vec<String>,
     pub set_home: bool,
     pub login: bool,
     pub shell: bool,
     pub chdir: Option<PathBuf>,
-    pub command: CommandAndArguments<'a>,
+    pub command: CommandAndArguments,
     pub target_user: User,
     pub target_group: Group,
     // system
@@ -26,11 +26,8 @@ pub struct Context<'a> {
     pub pid: i32,
 }
 
-impl<'a> Context<'a> {
-    pub fn build_from_options(
-        sudo_options: &'a SudoOptions,
-        path: String,
-    ) -> Result<Context<'a>, Error> {
+impl Context {
+    pub fn build_from_options(sudo_options: &SudoOptions, path: String) -> Result<Context, Error> {
         let command =
             CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), &path)?;
         let hostname = hostname();
