@@ -15,10 +15,15 @@ const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 const PATH_DEFAULT: &str = env!("PATH_DEFAULT");
 
 /// check byte slice starts with given byte slice
-fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+fn starts_with(haystack: &[u8], needle: &[u8]) -> bool {
+    &haystack[0..needle.len()] == needle
+}
+
+/// check byte slice contains with given byte slice
+fn find_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
         .windows(needle.len())
-        .position(|window| window == needle)
+        .any(|window| window == needle)
 }
 
 /// Formats the command and arguments passed for the SUDO_COMMAND
@@ -108,7 +113,7 @@ fn is_safe_tz(value: &[u8]) -> bool {
 
     if check_value.get(0) == Some(&b'/') {
         if !PATH_ZONEINFO.is_empty() {
-            if find_subsequence(&check_value, PATH_ZONEINFO.as_bytes()) != Some(0)
+            if !starts_with(&check_value, PATH_ZONEINFO.as_bytes())
                 || check_value.get(PATH_ZONEINFO.len()) != Some(&b'/')
             {
                 return false;
@@ -118,7 +123,7 @@ fn is_safe_tz(value: &[u8]) -> bool {
         }
     }
 
-    !find_subsequence(&check_value, "..".as_bytes()).is_some()
+    !find_subsequence(&check_value, "..".as_bytes())
         && is_printable(&check_value)
         && check_value.len() < PATH_MAX as usize
 }
@@ -132,7 +137,7 @@ fn in_table(needle: &OsStr, haystack: &HashSet<String>) -> bool {
 
 /// Determine whether a specific environment variable should be kept
 fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
-    if find_subsequence(value.as_bytes(), "()".as_bytes()) == Some(0) {
+    if starts_with(value.as_bytes(), "()".as_bytes()) {
         return false;
     }
 
