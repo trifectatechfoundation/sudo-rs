@@ -17,6 +17,7 @@ mod pass_auth;
 mod path_search;
 mod perms;
 mod sudoers;
+mod flag_chdir;
 
 mod helpers;
 
