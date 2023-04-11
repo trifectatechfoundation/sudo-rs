@@ -1,16 +1,16 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::{resolve::resolve_path, Error};
 
 #[derive(Debug)]
 pub struct CommandAndArguments {
     pub command: PathBuf,
-    pub arguments: Vec<OsString>,
+    pub arguments: Vec<String>,
 }
 
 impl CommandAndArguments {
-    pub fn try_from_args(external_args: &[String], path: &str) -> Result<Self, Error> {
-        let mut iter = external_args.iter();
+    pub fn try_from_args(external_args: Vec<String>, path: &str) -> Result<Self, Error> {
+        let mut iter = external_args.into_iter();
         let command = iter
             .next()
             .ok_or(Error::InvalidCommand(String::new()))?
@@ -26,7 +26,7 @@ impl CommandAndArguments {
 
         Ok(CommandAndArguments {
             command,
-            arguments: iter.map(|v| v.into()).collect(),
+            arguments: iter.collect(),
         })
     }
 }

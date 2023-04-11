@@ -1,8 +1,7 @@
 #![forbid(unsafe_code)]
 
-use std::{borrow::Cow, env};
-
 use pam::authenticate;
+use std::env;
 use sudo_cli::SudoOptions;
 use sudo_common::{Context, Error};
 use sudo_env::environment;
@@ -35,20 +34,14 @@ fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Judgement {
             user: &context.target_user,
             group: &context.target_group,
             command: &context.command.command,
-            arguments: &context
-                .command
-                .arguments
-                .iter()
-                .map(|s| s.to_string_lossy())
-                .collect::<Vec<Cow<str>>>()
-                .join(" "),
+            arguments: &context.command.arguments.join(" "),
         },
     )
 }
 
 /// Resolve the path to use and build a context object from the options
 fn build_context(
-    sudo_options: &SudoOptions,
+    sudo_options: SudoOptions,
     sudoers: &impl PreJudgementPolicy,
 ) -> Result<Context, Error> {
     let env_path = env::var("PATH").unwrap_or_default();
@@ -102,7 +95,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     let sudoers = parse_sudoers()?;
 
     // build context given a path
-    let mut context = build_context(&sudo_options, &sudoers)?;
+    let mut context = build_context(sudo_options, &sudoers)?;
 
     // check sudoers file for permission
     let policy = check_sudoers(&sudoers, &context);

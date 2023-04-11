@@ -27,9 +27,8 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn build_from_options(sudo_options: &SudoOptions, path: String) -> Result<Context, Error> {
-        let command =
-            CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), &path)?;
+    pub fn build_from_options(sudo_options: SudoOptions, path: String) -> Result<Context, Error> {
+        let command = CommandAndArguments::try_from_args(sudo_options.external_args, &path)?;
         let hostname = hostname();
         let current_user = resolve_current_user()?;
         let (target_user, target_group) =
@@ -63,7 +62,7 @@ mod tests {
     fn test_build_context() {
         let options = SudoOptions::try_parse_from(["sudo", "echo", "hello"]).unwrap();
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-        let context = Context::build_from_options(&options, path.to_string()).unwrap();
+        let context = Context::build_from_options(options, path.to_string()).unwrap();
 
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());

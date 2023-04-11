@@ -76,7 +76,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
 fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
     let command =
-        CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), &path).unwrap();
+        CommandAndArguments::try_from_args(sudo_options.external_args.clone(), &path).unwrap();
 
     let current_user = User {
         uid: 1000,
@@ -142,7 +142,7 @@ fn environment_to_set(environment: Environment) -> HashSet<String> {
     HashSet::from_iter(
         environment
             .iter()
-            .map(|(k, v)| format!("{}={}", k.to_string_lossy(), v.to_string_lossy())),
+            .map(|(k, v)| format!("{}={}", k.to_str().unwrap(), v.to_str().unwrap())),
     )
 }
 
