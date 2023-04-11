@@ -9,14 +9,14 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Context<'a> {
+pub struct Context {
     // cli options
     pub preserve_env_list: Vec<String>,
     pub set_home: bool,
     pub login: bool,
     pub shell: bool,
     pub chdir: Option<PathBuf>,
-    pub command: CommandAndArguments<'a>,
+    pub command: CommandAndArguments,
     pub target_user: User,
     pub target_group: Group,
     // system
@@ -26,13 +26,9 @@ pub struct Context<'a> {
     pub pid: i32,
 }
 
-impl<'a> Context<'a> {
-    pub fn build_from_options(
-        sudo_options: &'a SudoOptions,
-        path: String,
-    ) -> Result<Context<'a>, Error> {
-        let command =
-            CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), &path)?;
+impl Context {
+    pub fn build_from_options(sudo_options: SudoOptions, path: String) -> Result<Context, Error> {
+        let command = CommandAndArguments::try_from_args(sudo_options.external_args, &path)?;
         let hostname = hostname();
         let current_user = resolve_current_user()?;
         let (target_user, target_group) =
@@ -46,10 +42,10 @@ impl<'a> Context<'a> {
             target_user,
             target_group,
             set_home: sudo_options.set_home,
-            preserve_env_list: sudo_options.preserve_env_list.clone(),
+            preserve_env_list: sudo_options.preserve_env_list,
             login: sudo_options.login,
             shell: sudo_options.shell,
-            chdir: sudo_options.directory.clone(),
+            chdir: sudo_options.directory,
             pid: sudo_system::Process::process_id(),
         })
     }
@@ -66,7 +62,7 @@ mod tests {
     fn test_build_context() {
         let options = SudoOptions::try_parse_from(["sudo", "echo", "hello"]).unwrap();
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-        let context = Context::build_from_options(&options, path.to_string()).unwrap();
+        let context = Context::build_from_options(options, path.to_string()).unwrap();
 
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());

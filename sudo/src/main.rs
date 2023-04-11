@@ -1,10 +1,9 @@
 #![forbid(unsafe_code)]
 
-use std::env;
-
 use pam::authenticate;
+use std::env;
 use sudo_cli::SudoOptions;
-use sudo_common::{Context, Environment, Error};
+use sudo_common::{Context, Error};
 use sudo_env::environment;
 use sudoers::{Authorization, DirChange, Judgement, Policy, PreJudgementPolicy, Sudoers};
 
@@ -41,10 +40,10 @@ fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Judgement {
 }
 
 /// Resolve the path to use and build a context object from the options
-fn build_context<'a>(
-    sudo_options: &'a SudoOptions,
+fn build_context(
+    sudo_options: SudoOptions,
     sudoers: &impl PreJudgementPolicy,
-) -> Result<Context<'a>, Error> {
+) -> Result<Context, Error> {
     let env_path = env::var("PATH").unwrap_or_default();
     let path = sudoers.secure_path().unwrap_or(env_path);
 
@@ -96,7 +95,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     let sudoers = parse_sudoers()?;
 
     // build context given a path
-    let mut context = build_context(&sudo_options, &sudoers)?;
+    let mut context = build_context(sudo_options, &sudoers)?;
 
     // check sudoers file for permission
     let policy = check_sudoers(&sudoers, &context);
@@ -119,7 +118,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     apply_policy_to_context(&mut context, &policy)?;
 
     // build environment
-    let current_env = std::env::vars().collect::<Environment>();
+    let current_env = std::env::vars_os().collect();
     let target_env = environment::get_target_environment(current_env, &context, &policy);
 
     // run command and return corresponding exit code

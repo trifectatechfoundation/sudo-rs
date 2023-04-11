@@ -1,17 +1,14 @@
 /// Match a  test input with a pattern
 /// Only wildcard characters (*) in the pattern string have a special meaning: they match on zero or more characters
-pub(crate) fn wildcard_match(test: &str, pattern: &str) -> bool {
+pub(crate) fn wildcard_match(test: &[u8], pattern: &[u8]) -> bool {
     let mut test_index = 0;
     let mut pattern_index = 0;
     let mut last_star = None;
 
     loop {
-        match (
-            pattern.chars().nth(pattern_index),
-            test.chars().nth(test_index),
-        ) {
+        match (pattern.get(pattern_index), test.get(test_index)) {
             (Some(p), Some(t)) => {
-                if p == '*' {
+                if *p == b'*' {
                     pattern_index += 1;
                     last_star = Some((test_index, pattern_index));
                 } else if p == t {
@@ -34,7 +31,7 @@ pub(crate) fn wildcard_match(test: &str, pattern: &str) -> bool {
                     return false;
                 }
             }
-            (Some('*'), None) => {
+            (Some(b'*'), None) => {
                 pattern_index += 1;
             }
             (None, None) => {
@@ -77,7 +74,7 @@ mod tests {
 
         for (test, pattern, expected) in tests.into_iter() {
             assert_eq!(
-                wildcard_match(test, pattern),
+                wildcard_match(test.as_bytes(), pattern.as_bytes()),
                 expected,
                 "\"{}\" {} match {}",
                 test,

@@ -25,7 +25,7 @@ const SIGNALS: &[c_int] = &[
 ];
 
 /// Based on `ogsudo`s `exec_nopty` function.
-pub fn run_command(ctx: Context<'_>, env: Environment) -> io::Result<ExitStatus> {
+pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
     // FIXME: should we pipe the stdio streams?
     let mut command = Command::new(ctx.command.command);
     // reset env and set filtered environment

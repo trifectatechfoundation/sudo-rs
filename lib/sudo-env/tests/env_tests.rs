@@ -65,7 +65,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
             let vars: Environment = vars
                 .lines()
                 .map(|line| line.trim().split_once('=').unwrap())
-                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .map(|(k, v)| (k.into(), v.into()))
                 .collect();
 
             (cmd, vars)
@@ -73,10 +73,10 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .collect()
 }
 
-fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
+fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
     let command =
-        CommandAndArguments::try_from_args(sudo_options.external_args.as_slice(), &path).unwrap();
+        CommandAndArguments::try_from_args(sudo_options.external_args.clone(), &path).unwrap();
 
     let current_user = User {
         uid: 1000,
@@ -139,7 +139,11 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context<'a> {
 }
 
 fn environment_to_set(environment: Environment) -> HashSet<String> {
-    HashSet::from_iter(environment.iter().map(|(k, v)| format!("{}={}", k, v)))
+    HashSet::from_iter(
+        environment
+            .iter()
+            .map(|(k, v)| format!("{}={}", k.to_str().unwrap(), v.to_str().unwrap())),
+    )
 }
 
 #[test]
