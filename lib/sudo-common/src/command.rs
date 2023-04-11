@@ -11,10 +11,7 @@ pub struct CommandAndArguments {
 impl CommandAndArguments {
     pub fn try_from_args(external_args: Vec<String>, path: &str) -> Result<Self, Error> {
         let mut iter = external_args.into_iter();
-        let command = iter
-            .next()
-            .ok_or(Error::InvalidCommand(String::new()))?
-            .to_string();
+        let command = iter.next().ok_or(Error::InvalidCommand(String::new()))?;
 
         // resolve the binary if the path is not absolute
         let command = if command.starts_with('/') {

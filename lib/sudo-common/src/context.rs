@@ -42,10 +42,10 @@ impl Context {
             target_user,
             target_group,
             set_home: sudo_options.set_home,
-            preserve_env_list: sudo_options.preserve_env_list.clone(),
+            preserve_env_list: sudo_options.preserve_env_list,
             login: sudo_options.login,
             shell: sudo_options.shell,
-            chdir: sudo_options.directory.clone(),
+            chdir: sudo_options.directory,
             pid: sudo_system::Process::process_id(),
         })
     }
