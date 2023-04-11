@@ -14,11 +14,6 @@ const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 const PATH_DEFAULT: &str = env!("PATH_DEFAULT");
 
-/// check byte slice starts with given byte slice
-fn starts_with_byte(haystack: &[u8], needle: u8) -> bool {
-    haystack.first() == Some(&needle)
-}
-
 /// check byte slice contains with given byte slice
 fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
     haystack
@@ -103,13 +98,13 @@ fn is_printable(input: &[u8]) -> bool {
 /// It contains white space or non-printable characters.
 /// It is longer than the value of PATH_MAX.
 fn is_safe_tz(value: &[u8]) -> bool {
-    let check_value = if starts_with_byte(value, b':') {
+    let check_value = if value.starts_with(&[b':']) {
         &value[1..]
     } else {
         value
     };
 
-    if starts_with_byte(check_value, b'/') {
+    if check_value.starts_with(&[b'/']) {
         if !PATH_ZONEINFO.is_empty() {
             if !check_value.starts_with(PATH_ZONEINFO.as_bytes())
                 || check_value.get(PATH_ZONEINFO.len()) != Some(&b'/')
