@@ -158,4 +158,13 @@ mod test {
         assert_eq!(test(""), "");
         assert_eq!(test("hello"), "hello");
     }
+
+    #[test]
+    fn miri_test_wipe() {
+        let mut memory: [u8; 3] = [1, 2, 3];
+        let fix = crate::Secure::new(&mut memory);
+        assert_eq!(*fix, &[1, 2, 3]);
+        std::mem::drop(fix);
+        assert_eq!(memory, [0x55, 0x55, 0x55]);
+    }
 }
