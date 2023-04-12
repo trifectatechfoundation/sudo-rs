@@ -12,21 +12,23 @@
 ///   also, the original code actually allowed the string to quickly escape the security net
 /// - instead of String, password are read as [u8]
 /// - this also removes the need for 'fix_line_issues', since we know we read a \n
+/// - replaced 'io_result' with our own 'cerr' function.
+/// - replaced occurences of explicit 'i32' and 'c_int' with RawFd
 use std::io::{self, BufRead, Write};
 use std::mem;
-use std::os::unix::io::AsRawFd;
+use std::os::fd::{RawFd, AsRawFd};
 
-use libc::{c_int, tcsetattr, termios, ECHO, ECHONL, TCSANOW};
+use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
-use sudo_cutils::Secure;
+use sudo_cutils::{cerr, Secure};
 
 struct HiddenInput {
-    fd: i32,
+    fd: RawFd,
     term_orig: termios,
 }
 
 impl HiddenInput {
-    fn new(fd: i32) -> io::Result<HiddenInput> {
+    fn new(fd: RawFd) -> io::Result<HiddenInput> {
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
         // terminal back to its original state.
@@ -40,7 +42,7 @@ impl HiddenInput {
         term.c_lflag |= ECHONL;
 
         // Save the settings for now.
-        io_result(unsafe { tcsetattr(fd, TCSANOW, &term) })?;
+        cerr(unsafe { tcsetattr(fd, TCSANOW, &term) })?;
 
         Ok(HiddenInput { fd, term_orig })
     }
@@ -55,17 +57,9 @@ impl Drop for HiddenInput {
     }
 }
 
-/// Turns a C function return into an IO Result
-fn io_result(ret: c_int) -> std::io::Result<()> {
-    match ret {
-        0 => Ok(()),
-        _ => Err(std::io::Error::last_os_error()),
-    }
-}
-
-fn safe_tcgetattr(fd: c_int) -> std::io::Result<termios> {
+fn safe_tcgetattr(fd: RawFd) -> std::io::Result<termios> {
     let mut term = mem::MaybeUninit::<termios>::uninit();
-    io_result(unsafe { ::libc::tcgetattr(fd, term.as_mut_ptr()) })?;
+    cerr(unsafe { ::libc::tcgetattr(fd, term.as_mut_ptr()) })?;
     Ok(unsafe { term.assume_init() })
 }
 
@@ -81,7 +75,7 @@ pub fn read_password() -> std::io::Result<Secure<Vec<u8>>> {
 /// Reads a password from a given file descriptor
 fn read_password_from_fd_with_hidden_input(
     reader: &mut impl BufRead,
-    fd: i32,
+    fd: RawFd,
 ) -> std::io::Result<Secure<Vec<u8>>> {
     let mut password = Vec::new();
 
