@@ -128,9 +128,13 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     }
 
     /// Read the next record and keep note of the start and end positions in the file of that record
+    ///
+    /// This method assumes that the file is already exclusively locked.
     fn next_record(&mut self) -> io::Result<Option<SessionRecord>> {
         // record the position at which this record starts (including size bytes)
         let mut record_length_bytes = [0; std::mem::size_of::<u16>()];
+
+        let curr_pos = self.io.stream_position()?;
 
         // if eof occurs here we assume we reached the end of the file
         let record_length = match self.io.read_exact(&mut record_length_bytes) {
@@ -148,11 +152,29 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         }
 
         let mut buf = vec![0; record_length as usize];
-        // eof is allowed to fail here because the file will be invalid if this happens
-        self.io.read_exact(&mut buf)?;
-        let record = SessionRecord::from_bytes(&buf)?;
+        match self.io.read_exact(&mut buf) {
+            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                // there was half a record here, we clear the rest of the file
+                self.io.set_len(curr_pos as usize)?;
+                eprintln!("Found incomplete record, removing record");
+                return Ok(None);
+            }
+            Err(e) => return Err(e),
+            Ok(()) => (),
+        }
 
-        Ok(Some(record))
+        // we now try and decode the data read into a session record
+        match SessionRecord::from_bytes(&buf) {
+            Err(_) => {
+                // any error assumes that this file is nonsense from this point
+                // onwards, so we clear the file up to the start of this record
+                eprintln!("Found invalid record, clearing rest of the file");
+
+                self.io.set_len(curr_pos as usize)?;
+                Ok(None)
+            }
+            Ok(record) => Ok(Some(record)),
+        }
     }
 
     /// Try and find a record for the given limit and target user and update
@@ -163,7 +185,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         &mut self,
         record_limit: RecordLimit,
         target_user: UserId,
-    ) -> io::Result<RecordMatch> {
+    ) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
@@ -176,13 +198,13 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
                     let new_time = SystemTime::now()?;
                     new_time.encode(&mut self.io)?;
                     self.io.unlock()?;
-                    return Ok(RecordMatch::Updated {
+                    return Ok(TouchResult::Updated {
                         old_time: record.timestamp,
                         new_time,
                     });
                 } else {
                     self.io.unlock()?;
-                    return Ok(RecordMatch::Outdated {
+                    return Ok(TouchResult::Outdated {
                         time: record.timestamp,
                     });
                 }
@@ -190,7 +212,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         }
 
         self.io.unlock()?;
-        Ok(RecordMatch::NotFound)
+        Ok(TouchResult::NotFound)
     }
 
     /// Create a new record for the given limit and target user.
@@ -200,7 +222,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         &mut self,
         record_limit: RecordLimit,
         target_user: UserId,
-    ) -> io::Result<RecordMatch> {
+    ) -> io::Result<CreateResult> {
         // lock the file to indicate that we are currently writing to it
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
@@ -210,7 +232,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
                 let new_time = SystemTime::now()?;
                 new_time.encode(&mut self.io)?;
                 self.io.unlock()?;
-                return Ok(RecordMatch::Updated {
+                return Ok(CreateResult::Updated {
                     old_time: record.timestamp,
                     new_time,
                 });
@@ -226,7 +248,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         self.write_record(&record)?;
         self.io.unlock()?;
 
-        Ok(RecordMatch::Created {
+        Ok(CreateResult::Created {
             time: record.timestamp,
         })
     }
@@ -265,18 +287,26 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum RecordMatch {
-    /// A new record was created and was set to the time returned
-    Created { time: SystemTime },
+pub enum TouchResult {
     /// The record was found and within the timeout, and it was refreshed
     Updated {
         old_time: SystemTime,
         new_time: SystemTime,
     },
-    /// A record was not found that matches the input
-    NotFound,
     /// A record was found, but it was no longer valid
     Outdated { time: SystemTime },
+    /// A record was not found that matches the input
+    NotFound,
+}
+
+pub enum CreateResult {
+    /// The record was found and it was refreshed
+    Updated {
+        old_time: SystemTime,
+        new_time: SystemTime,
+    },
+    /// A new record was created and was set to the time returned
+    Created { time: SystemTime },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -601,13 +631,13 @@ mod tests {
         };
         let target_user = 2424;
         let res = srf.create(tty_limit, target_user).unwrap();
-        let RecordMatch::Created { time } = res else {
+        let CreateResult::Created { time } = res else {
             panic!("Expected record to be created");
         };
 
         std::thread::sleep(std::time::Duration::from_millis(1));
         let second = srf.touch(tty_limit, target_user).unwrap();
-        let RecordMatch::Updated { old_time, new_time } = second else {
+        let TouchResult::Updated { old_time, new_time } = second else {
             panic!("Expected record to be updated");
         };
         assert_eq!(time, old_time);
@@ -615,7 +645,7 @@ mod tests {
 
         std::thread::sleep(std::time::Duration::from_millis(1));
         let res = srf.create(tty_limit, target_user).unwrap();
-        let RecordMatch::Updated { .. } = res else {
+        let CreateResult::Updated { .. } = res else {
             panic!("Expected record to be updated");
         };
 

@@ -374,11 +374,6 @@ impl Process {
         }
     }
 
-    /// Attempt to get the session starting time
-    pub fn session_starting_time(&self) -> io::Result<SystemTime> {
-        Self::starting_time(Some(self.session_id))
-    }
-
     /// Get the process starting time of a specific process
     pub fn starting_time(pid: Option<ProcessId>) -> io::Result<SystemTime> {
         let process_start: u64 = read_proc_stat(pid, 21)?;
