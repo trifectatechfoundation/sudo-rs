@@ -14,9 +14,11 @@
 /// - this also removes the need for 'fix_line_issues', since we know we read a \n
 /// - replaced 'io_result' with our own 'cerr' function.
 /// - replaced occurences of explicit 'i32' and 'c_int' with RawFd
+/// - unified 'read_password' and 'read_password_from_fd_with_hidden_input' functions
+/// - only open /dev/tty once
 use std::io::{self, BufRead, Write};
 use std::mem;
-use std::os::fd::{RawFd, AsRawFd};
+use std::os::fd::{AsRawFd, RawFd};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
@@ -28,7 +30,9 @@ struct HiddenInput {
 }
 
 impl HiddenInput {
-    fn new(fd: RawFd) -> io::Result<HiddenInput> {
+    fn new(tty: &impl AsRawFd) -> io::Result<HiddenInput> {
+        let fd = tty.as_raw_fd();
+
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
         // terminal back to its original state.
@@ -57,29 +61,19 @@ impl Drop for HiddenInput {
     }
 }
 
-fn safe_tcgetattr(fd: RawFd) -> std::io::Result<termios> {
+fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
     let mut term = mem::MaybeUninit::<termios>::uninit();
     cerr(unsafe { ::libc::tcgetattr(fd, term.as_mut_ptr()) })?;
     Ok(unsafe { term.assume_init() })
 }
 
-/// Reads a password from the TTY
-pub fn read_password() -> std::io::Result<Secure<Vec<u8>>> {
-    let tty = std::fs::File::open("/dev/tty")?;
-    let fd = tty.as_raw_fd();
-    let mut reader = io::BufReader::new(tty);
+/// Reads a password from the given file descriptor
+fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<Secure<Vec<u8>>> {
+    let hidden_input = HiddenInput::new(source)?;
 
-    read_password_from_fd_with_hidden_input(&mut reader, fd)
-}
+    let mut reader = io::BufReader::new(source);
 
-/// Reads a password from a given file descriptor
-fn read_password_from_fd_with_hidden_input(
-    reader: &mut impl BufRead,
-    fd: RawFd,
-) -> std::io::Result<Secure<Vec<u8>>> {
     let mut password = Vec::new();
-
-    let hidden_input = HiddenInput::new(fd)?;
 
     let status = reader.read_until(0x0a, &mut password);
     let password = Secure::new(password);
@@ -90,10 +84,10 @@ fn read_password_from_fd_with_hidden_input(
 }
 
 /// Prompts on the TTY and then reads a password from TTY
-pub fn prompt_password(prompt: impl ToString) -> std::io::Result<Secure<Vec<u8>>> {
-    let mut stream = std::fs::OpenOptions::new().write(true).open("/dev/tty")?;
+pub fn prompt_password(prompt: impl ToString) -> io::Result<Secure<Vec<u8>>> {
+    let mut stream = std::fs::File::open("/dev/tty")?;
     stream
         .write_all(prompt.to_string().as_str().as_bytes())
         .and_then(|_| stream.flush())
-        .and_then(|_| read_password())
+        .and_then(|_| read_password(&mut stream))
 }
