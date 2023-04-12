@@ -585,4 +585,30 @@ mod tests {
         assert!(SessionRecordFile::new(c, timeout).is_ok());
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
     }
+
+    #[test]
+    fn can_create_and_update_valid_file() {
+        let timeout = Duration::seconds(30);
+        let mut data = vec![];
+        let c = Cursor::new(&mut data);
+        let mut srf = SessionRecordFile::new(c, timeout).unwrap();
+        let tty_limit = RecordLimit::TTY {
+            tty_device: 0,
+            session_pid: 0,
+            init_time: SystemTime::new(0, 0),
+        };
+        let target_user = 2424;
+        let res = srf.create_or_update(tty_limit, target_user).unwrap();
+        let RecordMatch::Created { time } = res else {
+            panic!("Expected record to be created");
+        };
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        let second = srf.touch(tty_limit, target_user).unwrap();
+        let RecordMatch::Updated { old_time, new_time } = second else {
+            panic!("Expected record to be updated");
+        };
+
+        assert_eq!(time, old_time);
+        assert_ne!(old_time, new_time);
+    }
 }
