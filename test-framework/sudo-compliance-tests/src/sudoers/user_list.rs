@@ -3,7 +3,7 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PAMD_SUDO_PAM_PERMIT, USERNAME, SUDOERS_NO_LECTURE};
+use crate::{Result, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -130,7 +130,7 @@ fn double_negative_is_positive() -> Result<()> {
 
 #[test]
 fn negation_excludes_group_members() -> Result<()> {
-    let env = Env(format!("%users, !ghost ALL=(ALL:ALL) ALL\n\n{SUDOERS_NO_LECTURE}"))
+    let env = Env(["%users, !ghost ALL=(ALL:ALL) ALL", SUDOERS_NO_LECTURE])
         // use PAM to avoid `ghost` getting a password prompt
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         // the primary group of all new users is `users`
@@ -183,7 +183,11 @@ fn negation_is_order_sensitive() -> Result<()> {
 
 #[test]
 fn user_alias_works() -> Result<()> {
-    let env = Env(format!("\nUser_Alias ADMINS = %users, !ghost\nADMINS ALL=(ALL:ALL) ALL\n\n{SUDOERS_NO_LECTURE}"))
+    let env = Env([
+        "User_Alias ADMINS = %users, !ghost",
+        "ADMINS ALL=(ALL:ALL) ALL",
+        SUDOERS_NO_LECTURE,
+    ])
     // use PAM to avoid password prompts
     .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
     // the primary group of all new users is `users`
@@ -248,7 +252,7 @@ User_Alias ADMINS = %users, !ghost
 
 #[test]
 fn negated_subgroup() -> Result<()> {
-    let env = Env(format!("%users, !%rustaceans ALL=(ALL:ALL) ALL\n\n{SUDOERS_NO_LECTURE}"))
+    let env = Env(["%users, !%rustaceans ALL=(ALL:ALL) ALL", SUDOERS_NO_LECTURE])
         // use PAM to avoid password prompts
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         // the primary group of all new users is `users`
@@ -280,7 +284,7 @@ fn negated_subgroup() -> Result<()> {
 
 #[test]
 fn negated_supergroup() -> Result<()> {
-    let env = Env(format!("%rustaceans, !%users ALL=(ALL:ALL) ALL\n\n{SUDOERS_NO_LECTURE}"))
+    let env = Env(["%rustaceans, !%users ALL=(ALL:ALL) ALL", SUDOERS_NO_LECTURE])
         // use PAM to avoid password prompts
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         // the primary group of all new users is `users`

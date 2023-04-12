@@ -37,9 +37,7 @@ fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(
-            output.stderr()
-        );
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())

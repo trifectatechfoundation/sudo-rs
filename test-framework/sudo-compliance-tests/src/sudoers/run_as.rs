@@ -193,15 +193,13 @@ fn when_specific_group_then_as_that_group_is_allowed() -> Result<()> {
 
 #[test]
 fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> {
-    let env = Env(format!(
-        "ALL ALL=(:{GROUPNAME})  ALL\n\n{SUDOERS_NO_LECTURE}"
-    ))
-    // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
-    .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
-    .user(USERNAME)
-    .group(GROUPNAME)
-    .group("ghosts")
-    .build()?;
+    let env = Env([&format!("ALL ALL=(:{GROUPNAME})  ALL"), SUDOERS_NO_LECTURE])
+        // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
+        .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
+        .user(USERNAME)
+        .group(GROUPNAME)
+        .group("ghosts")
+        .build()?;
 
     for user in ["root", USERNAME] {
         let output = Command::new("sudo")
@@ -222,15 +220,13 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> 
 
 #[test]
 fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()> {
-    let env = Env(format!(
-        "ALL ALL=(:{GROUPNAME}) ALL\n\n{SUDOERS_NO_LECTURE}"
-    ))
-    // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
-    .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
-    .user(USERNAME)
-    .user("ghost")
-    .group(GROUPNAME)
-    .build()?;
+    let env = Env([&format!("ALL ALL=(:{GROUPNAME})  ALL"), SUDOERS_NO_LECTURE])
+        // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
+        .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
+        .user(USERNAME)
+        .user("ghost")
+        .group(GROUPNAME)
+        .build()?;
 
     for user in ["root", USERNAME] {
         let output = Command::new("sudo")
