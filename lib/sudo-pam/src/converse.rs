@@ -36,7 +36,6 @@ impl PamMessageStyle {
 }
 
 use crate::Password;
-type RawBytes = Vec<u8>;
 
 /// A PamMessage contains the data in a single message of a pam conversation
 /// and contains the response to that message.
@@ -91,7 +90,7 @@ pub trait Converser {
 pub trait SequentialConverser: Converser {
     /// Handle a normal prompt, i.e. present some message and ask for a value.
     /// The value is not considered a secret.
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<RawBytes>;
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>>;
 
     /// Handle a hidden prompt, i.e. present some message and ask for a value.
     /// The value is considered secret and should not be visible.
@@ -139,7 +138,7 @@ where
 pub struct CLIConverser;
 
 impl SequentialConverser for CLIConverser {
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<RawBytes> {
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>> {
         print!("[Sudo: input needed] {msg}");
         std::io::stdout().flush().unwrap();
 
@@ -244,7 +243,7 @@ pub(crate) unsafe extern "C" fn converse<C: Converser>(
             // Unwrap here should be ok because we previously allocated an array of the same size
             let our_resp = &conversation.messages.get(i as usize).unwrap().response;
             if let Some(r) = our_resp {
-                let cstr = sudo_cutils::into_leaky_cstring(r);
+                let cstr = sudo_cutils::copy_as_libc_cstring(r);
                 response.resp = cstr as *mut _;
             }
         }
@@ -276,7 +275,7 @@ mod test {
     use PamMessageStyle::*;
 
     impl SequentialConverser for String {
-        fn handle_normal_prompt(&self, msg: &str) -> PamResult<RawBytes> {
+        fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>> {
             Ok(format!("{self} says {msg}").into_bytes())
         }
 
@@ -300,7 +299,7 @@ mod test {
         let pam_msgs = msgs
             .iter()
             .map(|PamMessage { msg, style, .. }| pam_message {
-                msg: sudo_cutils::into_leaky_cstring(msg.as_bytes()),
+                msg: sudo_cutils::copy_as_libc_cstring(msg.as_bytes()),
                 msg_style: *style as i32,
             })
             .rev()
