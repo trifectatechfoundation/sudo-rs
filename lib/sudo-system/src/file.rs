@@ -87,4 +87,13 @@ mod tests {
             Ok(())
         }
     }
+
+    #[test]
+    fn test_locking_of_tmp_file() {
+        let f = tempfile::tempfile().unwrap();
+        assert!(f.lock_shared().is_ok());
+        assert!(f.unlock().is_ok());
+        assert!(f.lock_exclusive().is_ok());
+        assert!(f.unlock().is_ok());
+    }
 }

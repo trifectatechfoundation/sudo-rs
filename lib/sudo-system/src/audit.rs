@@ -115,4 +115,9 @@ mod test {
         assert!(std::fs::File::open("/etc/shadow").is_err());
         assert!(secure_open("/etc/shadow").is_err());
     }
+
+    #[test]
+    fn test_secure_open_cookie_file() {
+        assert!(secure_open_cookie_file("/etc/hosts").is_err());
+    }
 }
