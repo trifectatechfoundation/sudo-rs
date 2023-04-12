@@ -51,7 +51,7 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
     if must_authenticate {
         pam.authenticate()?;
         if let (Some(mut session_records), Some(record_for)) = (records_file, record_for) {
-            session_records.create_or_update(record_for, target_user)?;
+            session_records.create(record_for, target_user)?;
         }
     }
 

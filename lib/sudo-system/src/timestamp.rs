@@ -194,7 +194,9 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     }
 
     /// Create a new record for the given limit and target user.
-    pub fn create_or_update(
+    /// If there is an existing record that matches the limit and target user,
+    /// then that record will be updated.
+    pub fn create(
         &mut self,
         record_limit: RecordLimit,
         target_user: UserId,
@@ -598,17 +600,29 @@ mod tests {
             init_time: SystemTime::new(0, 0),
         };
         let target_user = 2424;
-        let res = srf.create_or_update(tty_limit, target_user).unwrap();
+        let res = srf.create(tty_limit, target_user).unwrap();
         let RecordMatch::Created { time } = res else {
             panic!("Expected record to be created");
         };
+
         std::thread::sleep(std::time::Duration::from_millis(1));
         let second = srf.touch(tty_limit, target_user).unwrap();
         let RecordMatch::Updated { old_time, new_time } = second else {
             panic!("Expected record to be updated");
         };
-
         assert_eq!(time, old_time);
         assert_ne!(old_time, new_time);
+
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        let res = srf.create(tty_limit, target_user).unwrap();
+        let RecordMatch::Updated { .. } = res else {
+            panic!("Expected record to be updated");
+        };
+
+        // reset the file
+        assert!(srf.reset().is_ok());
+
+        // after all this the data should be just an empty header
+        assert_eq!(&data, &[0xD0, 0x50, 0x01, 0x00]);
     }
 }
