@@ -2,6 +2,17 @@ use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "snapshots/flag_login",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn if_home_directory_does_not_exist_executes_program_without_changing_the_working_directory(
 ) -> Result<()> {
@@ -17,7 +28,7 @@ fn if_home_directory_does_not_exist_executes_program_without_changing_the_workin
         assert!(output.status().success());
 
         if sudo_test::is_original_sudo() {
-            insta::assert_snapshot!(output.stderr());
+            assert_snapshot!(output.stderr());
         }
 
         let actual = output.stdout()?;
@@ -190,7 +201,7 @@ fn shell_does_not_exist() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        insta::assert_snapshot!(output.stderr());
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -212,7 +223,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        insta::assert_snapshot!(output.stderr());
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())

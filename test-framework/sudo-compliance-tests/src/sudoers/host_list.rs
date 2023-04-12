@@ -2,6 +2,17 @@ use sudo_test::{Command, Env};
 
 use crate::Result;
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "../snapshots/sudoers/host_list",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn given_specific_hostname_then_sudo_from_said_hostname_is_allowed() -> Result<()> {
     let hostname = "container";
@@ -27,7 +38,7 @@ fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() -> Re
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        insta::assert_snapshot!(output.stderr());
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -69,7 +80,7 @@ fn negation_rejects() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        insta::assert_snapshot!(output.stderr());
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())

@@ -2,6 +2,17 @@ use sudo_test::{Command, Env, TextFile};
 
 use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "snapshots/path_search",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn can_find_command_not_visible_to_regular_user() -> Result<()> {
     let path = "/root/my-script";
@@ -43,7 +54,7 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        insta::assert_snapshot!(output.stderr());
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
