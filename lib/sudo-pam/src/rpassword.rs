@@ -22,7 +22,9 @@ use std::os::fd::{AsRawFd, RawFd};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
-use sudo_cutils::{cerr, Secure};
+use sudo_cutils::cerr;
+
+use crate::securemem::SecureBuffer;
 
 struct HiddenInput {
     fd: RawFd,
@@ -68,15 +70,16 @@ fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
 }
 
 /// Reads a password from the given file descriptor
-fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<Secure<Vec<u8>>> {
+fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<SecureBuffer> {
     let hidden_input = HiddenInput::new(source)?;
 
     let mut reader = io::BufReader::new(source);
 
     let mut password = Vec::new();
 
-    let status = reader.read_until(0x0a, &mut password);
-    let password = Secure::new(password);
+    let newline = 0x0A;
+    let status = reader.read_until(newline, &mut password);
+    let password = SecureBuffer::new(password);
 
     std::mem::drop(hidden_input);
 
@@ -84,7 +87,7 @@ fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<Secure<Ve
 }
 
 /// Prompts on the TTY and then reads a password from TTY
-pub fn prompt_password(prompt: impl ToString) -> io::Result<Secure<Vec<u8>>> {
+pub fn prompt_password(prompt: impl ToString) -> io::Result<SecureBuffer> {
     let mut stream = std::fs::File::open("/dev/tty")?;
     stream
         .write_all(prompt.to_string().as_str().as_bytes())
