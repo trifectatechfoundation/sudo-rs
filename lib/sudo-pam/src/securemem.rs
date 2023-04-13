@@ -74,13 +74,13 @@ fn wipe_memory(memory: &mut [u8]) {
 
 #[cfg(test)]
 mod test {
-    use super::{wipe_memory, PamBuffer};
+    use super::PamBuffer;
 
     #[test]
     fn miri_test_leaky_cstring() {
         let test = |text: &str| unsafe {
-            let mut buf = PamBuffer::default();
-            buf[..text.len()].copy_from_slice(text.as_bytes());
+            let buf = PamBuffer::new(&mut text.to_string().as_bytes_mut());
+            assert_eq!(&buf[..text.len()], text.as_bytes());
             let ptr = buf.leak();
             let result = sudo_cutils::string_from_ptr(ptr as *mut _);
             libc::free(ptr as *mut libc::c_void);
@@ -92,9 +92,11 @@ mod test {
 
     #[test]
     fn miri_test_wipe() {
-        let mut fix = [1, 2, 3];
-        assert_eq!(fix, [1, 2, 3]);
-        wipe_memory(&mut fix);
-        assert_eq!(fix, [0x55, 0x55, 0x55]);
+        let mut memory: [u8; 3] = [1, 2, 3];
+        let fix = PamBuffer::new(&mut memory);
+        assert_eq!(memory, [0x55, 0x55, 0x55]);
+        assert_eq!(fix[0..=2], [1, 2, 3]);
+        assert!(fix[3..].iter().all(|&x| x == 0));
+        std::mem::drop(fix);
     }
 }
