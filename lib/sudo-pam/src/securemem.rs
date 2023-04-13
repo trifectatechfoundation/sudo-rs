@@ -22,6 +22,7 @@ impl PamBuffer {
         let mut buffer = PamBuffer::default();
         let src = src.as_mut();
         buffer[..src.len()].copy_from_slice(src);
+        wipe_memory(src);
 
         buffer
     }

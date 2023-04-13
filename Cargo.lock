@@ -500,7 +500,6 @@ dependencies = [
  "libc",
  "sudo-cutils",
  "sudo-pam-sys",
- "sudo-system",
  "thiserror",
 ]
 
