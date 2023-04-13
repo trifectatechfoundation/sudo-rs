@@ -237,13 +237,11 @@ pub(crate) unsafe extern "C" fn converse<C: Converser>(
         }
 
         // Store the responses
-        for i in 0..num_msg as isize {
-            let response: &mut pam_response = unsafe { &mut *(temp_resp.offset(i)) };
+        for (i, msg) in conversation.messages.into_iter().enumerate() {
+            let response: &mut pam_response = unsafe { &mut *(temp_resp.add(i)) };
 
-            // Unwrap here should be ok because we previously allocated an array of the same size
-            let our_resp = &conversation.messages.get(i as usize).unwrap().response;
-            if let Some(secbuf) = our_resp {
-                response.resp = secbuf.leak_as_ptr() as *mut _;
+            if let Some(secbuf) = msg.response {
+                response.resp = secbuf.leak() as *mut _;
             }
         }
 

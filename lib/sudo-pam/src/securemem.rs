@@ -8,7 +8,7 @@ impl<T: AsMut<[u8]> + AsRef<[u8]>> Secure<T> {
         Secure(value)
     }
 
-    pub fn leak_as_ptr(&self) -> *const u8 {
+    pub fn leak(self) -> *const u8 {
         copy_as_libc_cstring(self.0.as_ref()) as *const _
     }
 }
