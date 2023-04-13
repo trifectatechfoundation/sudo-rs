@@ -8,7 +8,7 @@
 /// CHANGES TO THE ORIGINAL CODE:
 /// - {prompt,read}_password_from_bufread deleted (we don't need them)
 /// - rtool_box::print_tty was inlined
-/// - SafeString was removed and replaced with more general Secure<> type (and moved to cutils);
+/// - SafeString was removed and replaced with more general PamBuffer type (and moved to cutils);
 ///   also, the original code actually allowed the string to quickly escape the security net
 /// - instead of String, password are read as [u8]
 /// - this also removes the need for 'fix_line_issues', since we know we read a \n
@@ -16,7 +16,7 @@
 /// - replaced occurences of explicit 'i32' and 'c_int' with RawFd
 /// - unified 'read_password' and 'read_password_from_fd_with_hidden_input' functions
 /// - only open /dev/tty once
-use std::io::{self, BufRead, Write};
+use std::io::{self, Read, Write};
 use std::mem;
 use std::os::fd::{AsRawFd, RawFd};
 
@@ -24,7 +24,7 @@ use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
 use sudo_cutils::cerr;
 
-use crate::securemem::SecureBuffer;
+use crate::securemem::PamBuffer;
 
 struct HiddenInput {
     fd: RawFd,
@@ -70,24 +70,25 @@ fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
 }
 
 /// Reads a password from the given file descriptor
-fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<SecureBuffer> {
-    let hidden_input = HiddenInput::new(source)?;
+fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<PamBuffer> {
+    let _hide_input = HiddenInput::new(source)?;
 
-    let mut reader = io::BufReader::new(source);
+    let mut password = PamBuffer::default();
 
-    let mut password = Vec::new();
+    const EOL: u8 = 0x0A;
 
-    let newline = 0x0A;
-    let status = reader.read_until(newline, &mut password);
-    let password = SecureBuffer::new(password);
+    for (read_byte, dest) in std::iter::zip(source.bytes(), password.iter_mut()) {
+        match read_byte? {
+            EOL => break,
+            ch => *dest = ch,
+        }
+    }
 
-    std::mem::drop(hidden_input);
-
-    status.map(|_| password)
+    Ok(password)
 }
 
 /// Prompts on the TTY and then reads a password from TTY
-pub fn prompt_password(prompt: impl ToString) -> io::Result<SecureBuffer> {
+pub fn prompt_password(prompt: impl ToString) -> io::Result<PamBuffer> {
     let mut stream = std::fs::File::open("/dev/tty")?;
     stream
         .write_all(prompt.to_string().as_str().as_bytes())

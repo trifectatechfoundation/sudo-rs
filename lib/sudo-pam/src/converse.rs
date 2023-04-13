@@ -2,7 +2,7 @@ use std::io::{BufRead, Write};
 
 use sudo_pam_sys::*;
 
-use crate::{error::PamResult, rpassword, securemem::SecureBuffer, PamErrorType};
+use crate::{error::PamResult, rpassword, securemem::PamBuffer, PamErrorType};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
@@ -40,12 +40,12 @@ impl PamMessageStyle {
 pub struct PamMessage {
     pub msg: String,
     pub style: PamMessageStyle,
-    response: Option<SecureBuffer>,
+    response: Option<PamBuffer>,
 }
 
 impl PamMessage {
     /// Set a response value to the message.
-    pub fn set_response(&mut self, resp: SecureBuffer) {
+    pub fn set_response(&mut self, resp: PamBuffer) {
         self.response = Some(resp);
     }
 
@@ -92,7 +92,7 @@ pub trait SequentialConverser: Converser {
 
     /// Handle a hidden prompt, i.e. present some message and ask for a value.
     /// The value is considered secret and should not be visible.
-    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<SecureBuffer>;
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer>;
 
     /// Display an error message to the user, the user does not need to input a
     /// value.
@@ -113,7 +113,7 @@ where
         for msg in conversation.messages_mut() {
             match msg.style {
                 PromptEchoOn => {
-                    msg.set_response(SecureBuffer::new(self.handle_normal_prompt(&msg.msg)?));
+                    msg.set_response(PamBuffer::new(self.handle_normal_prompt(&msg.msg)?));
                 }
                 PromptEchoOff => {
                     msg.set_response(self.handle_hidden_prompt(&msg.msg)?);
@@ -148,7 +148,7 @@ impl SequentialConverser for CLIConverser {
         Ok(s)
     }
 
-    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<SecureBuffer> {
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         Ok(rpassword::prompt_password(format!(
             "[Sudo: authenticate] {msg}"
         ))?)
@@ -276,8 +276,8 @@ mod test {
             Ok(format!("{self} says {msg}").into_bytes())
         }
 
-        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<SecureBuffer> {
-            Ok(SecureBuffer::new(
+        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
+            Ok(PamBuffer::new(
                 format!("{self}s secret is {msg}").into_bytes(),
             ))
         }
@@ -296,7 +296,7 @@ mod test {
         let pam_msgs = msgs
             .iter()
             .map(|PamMessage { msg, style, .. }| pam_message {
-                msg: copy_as_libc_cstring(msg.as_bytes()),
+                msg: std::ffi::CString::new(&msg[..]).unwrap().into_raw(),
                 msg_style: *style as i32,
             })
             .rev()
@@ -319,7 +319,9 @@ mod test {
 
         // deallocate the leaky strings
         for rec in ptrs {
-            unsafe { libc::free((*rec).msg as *mut _) }
+            unsafe {
+                drop(std::ffi::CString::from_raw((*rec).msg as *mut _));
+            }
         }
         if conv_err != 0 {
             return vec![];
