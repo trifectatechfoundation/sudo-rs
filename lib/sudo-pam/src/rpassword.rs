@@ -89,7 +89,10 @@ fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<PamBuffer
 
 /// Prompts on the TTY and then reads a password from TTY
 pub fn prompt_password(prompt: impl ToString) -> io::Result<PamBuffer> {
-    let mut stream = std::fs::File::open("/dev/tty")?;
+    let mut stream = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/tty")?;
     stream
         .write_all(prompt.to_string().as_str().as_bytes())
         .and_then(|_| stream.flush())
