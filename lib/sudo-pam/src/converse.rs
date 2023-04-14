@@ -135,17 +135,20 @@ where
 /// input from the user.
 pub struct CLIConverser;
 
+// TODO: all of these functions should communicate via the TTY; refactor
+// some code from the rpassword.rs module into here
 impl SequentialConverser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>> {
-        print!("[Sudo: input needed] {msg}");
+        print!("[Sudo: input needed] {msg} ");
         std::io::stdout().flush().unwrap();
 
-        let mut s = Vec::new();
+        let mut s = String::new();
 
-        let newline = 0x0A;
-        std::io::stdin().lock().read_until(newline, &mut s).unwrap();
+        std::io::stdin().lock().read_line(&mut s)?;
+        // temporary fix: get rid of the \n that read_line adds
+        s.pop();
 
-        Ok(s)
+        Ok(s.into_bytes())
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
