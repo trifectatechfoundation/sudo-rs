@@ -144,3 +144,31 @@ impl Terminal<'_> {
 
 trait ReadAsFd: io::Read + AsFd {}
 impl<T: io::Read + AsFd> ReadAsFd for T {}
+
+#[cfg(test)]
+mod test {
+    use super::{read_unbuffered, write_unbuffered};
+
+    #[test]
+    fn miri_test_read() {
+        let mut data = "password123\nhello world".as_bytes();
+        let buf = read_unbuffered(&mut data).unwrap();
+        // check that the \n is not part of input
+        assert_eq!(
+            buf.iter()
+                .map(|&b| b as char)
+                .take_while(|&x| x != '\0')
+                .collect::<String>(),
+            "password123"
+        );
+        // check that the \n is also consumed but the rest of the input is still there
+        assert_eq!(std::str::from_utf8(data).unwrap(), "hello world");
+    }
+
+    #[test]
+    fn miri_test_write() {
+        let mut data = Vec::new();
+        write_unbuffered(&mut data, "prompt").unwrap();
+        assert_eq!(std::str::from_utf8(&data).unwrap(), "prompt");
+    }
+}
