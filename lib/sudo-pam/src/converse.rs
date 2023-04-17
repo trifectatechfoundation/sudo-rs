@@ -1,5 +1,3 @@
-use std::io::{BufRead, Write};
-
 use sudo_pam_sys::*;
 
 use crate::{error::PamResult, rpassword, securemem::PamBuffer, PamErrorType};
@@ -88,7 +86,7 @@ pub trait Converser {
 pub trait SequentialConverser: Converser {
     /// Handle a normal prompt, i.e. present some message and ask for a value.
     /// The value is not considered a secret.
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>>;
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer>;
 
     /// Handle a hidden prompt, i.e. present some message and ask for a value.
     /// The value is considered secret and should not be visible.
@@ -113,7 +111,7 @@ where
         for msg in conversation.messages_mut() {
             match msg.style {
                 PromptEchoOn => {
-                    msg.set_response(PamBuffer::new(self.handle_normal_prompt(&msg.msg)?));
+                    msg.set_response(self.handle_normal_prompt(&msg.msg)?);
                 }
                 PromptEchoOff => {
                     msg.set_response(self.handle_hidden_prompt(&msg.msg)?);
@@ -135,36 +133,27 @@ where
 /// input from the user.
 pub struct CLIConverser;
 
-// TODO: all of these functions should communicate via the TTY; refactor
-// some code from the rpassword.rs module into here
+use rpassword::Terminal;
+
 impl SequentialConverser for CLIConverser {
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>> {
-        print!("[Sudo: input needed] {msg} ");
-        std::io::stdout().flush().unwrap();
-
-        let mut s = String::new();
-
-        std::io::stdin().lock().read_line(&mut s)?;
-        // temporary fix: get rid of the \n that read_line adds
-        s.pop();
-
-        Ok(s.into_bytes())
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
+        let mut tty = rpassword::open_tty()?;
+        tty.prompt(&format!("[Sudo: input needed] {msg} "))?;
+        Ok(tty.read_cleartext()?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        Ok(rpassword::prompt_password(format!(
-            "[Sudo: authenticate] {msg}"
-        ))?)
+        let mut tty = rpassword::open_tty()?;
+        tty.prompt(&format!("[Sudo: authenticate] {msg}"))?;
+        Ok(tty.read_password()?)
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
-        eprintln!("[Sudo error] {msg}");
-        Ok(())
+        Ok(rpassword::open_tty()?.prompt(&format!("[Sudo error] {msg}\n"))?)
     }
 
     fn handle_info(&self, msg: &str) -> PamResult<()> {
-        println!("[Sudo] {msg}");
-        Ok(())
+        Ok(rpassword::open_tty()?.prompt(&format!("[Sudo] {msg}\n"))?)
     }
 }
 
@@ -275,8 +264,8 @@ mod test {
     use PamMessageStyle::*;
 
     impl SequentialConverser for String {
-        fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>> {
-            Ok(format!("{self} says {msg}").into_bytes())
+        fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
+            Ok(PamBuffer::new(format!("{self} says {msg}").into_bytes()))
         }
 
         fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {

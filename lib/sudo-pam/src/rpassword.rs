@@ -2,23 +2,19 @@
 ///
 /// This module contains code that was originally written by Conrad Kleinespel for the rpassword
 /// crate. No copyright notices were found in the original code.
-
+///
 /// See: https://docs.rs/rpassword/latest/rpassword/
 ///
-/// CHANGES TO THE ORIGINAL CODE:
-/// - {prompt,read}_password_from_bufread deleted (we don't need them)
-/// - rtool_box::print_tty was inlined
-/// - SafeString was removed and replaced with more general PamBuffer type (and moved to cutils);
-///   also, the original code actually allowed the string to quickly escape the security net
-/// - instead of String, password are read as [u8]
-/// - this also removes the need for 'fix_line_issues', since we know we read a \n
-/// - replaced 'io_result' with our own 'cerr' function.
-/// - replaced occurences of explicit 'i32' and 'c_int' with RawFd
-/// - unified 'read_password' and 'read_password_from_fd_with_hidden_input' functions
-/// - only open /dev/tty once
-use std::io::{self, Read, Write};
-use std::mem;
+/// Most code was replaced and so is no longer a derived work; work that we kept:
+///
+/// - the "HiddenInput" struct and implementation
+///   * replaced occurences of explicit 'i32' and 'c_int' with RawFd
+/// - the general idea of a "SafeString" type that clears its memory
+///   (although much more robust than in the original code)
+///
+use std::io::{self, Read};
 use std::os::fd::{AsRawFd, RawFd};
+use std::{fs, iter, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
@@ -26,7 +22,7 @@ use sudo_cutils::cerr;
 
 use crate::securemem::PamBuffer;
 
-struct HiddenInput {
+pub struct HiddenInput {
     fd: RawFd,
     term_orig: termios,
 }
@@ -70,14 +66,12 @@ fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
 }
 
 /// Reads a password from the given file descriptor
-fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<PamBuffer> {
-    let _hide_input = HiddenInput::new(source)?;
-
+fn read_unbuffered(source: &mut impl io::Read) -> io::Result<PamBuffer> {
     let mut password = PamBuffer::default();
 
     const EOL: u8 = 0x0A;
 
-    for (read_byte, dest) in std::iter::zip(source.bytes(), password.iter_mut()) {
+    for (read_byte, dest) in iter::zip(source.bytes(), password.iter_mut()) {
         match read_byte? {
             EOL => break,
             ch => *dest = ch,
@@ -87,14 +81,59 @@ fn read_password(source: &mut (impl io::Read + AsRawFd)) -> io::Result<PamBuffer
     Ok(password)
 }
 
-/// Prompts on the TTY and then reads a password from TTY
-pub fn prompt_password(prompt: impl ToString) -> io::Result<PamBuffer> {
-    let mut stream = std::fs::OpenOptions::new()
+/// Write something and immediately flush
+fn write_unbuffered(sink: &mut impl io::Write, text: &str) -> io::Result<()> {
+    sink.write_all(text.as_bytes())?;
+    sink.flush()
+}
+
+/// Open the TTY
+pub fn open_tty() -> io::Result<fs::File> {
+    fs::OpenOptions::new()
         .read(true)
         .write(true)
-        .open("/dev/tty")?;
-    stream
-        .write_all(prompt.to_string().as_str().as_bytes())
-        .and_then(|_| stream.flush())
-        .and_then(|_| read_password(&mut stream))
+        .open("/dev/tty")
+}
+
+pub trait Terminal {
+    fn read_password(&mut self) -> io::Result<PamBuffer>;
+    fn read_cleartext(&mut self) -> io::Result<PamBuffer>;
+    fn prompt(&mut self, prompt: &str) -> io::Result<()>;
+}
+
+impl<TTY: io::Write + io::Read + AsRawFd> Terminal for TTY {
+    /// Prompts on the given device and then reads input with TTY echo disabled
+    fn read_password(&mut self) -> io::Result<PamBuffer> {
+        let _hide_input = HiddenInput::new(self)?;
+        read_unbuffered(self)
+    }
+
+    /// Prompts and reads from the given device
+    fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
+        read_unbuffered(self)
+    }
+
+    /// Only display information
+    fn prompt(&mut self, prompt: &str) -> io::Result<()> {
+        write_unbuffered(self, &prompt)
+    }
+}
+
+pub struct StdIO;
+
+// For the case where "sudo -S" is used, use "stdin" and "stderr" instead.
+impl Terminal for StdIO {
+    fn read_password(&mut self) -> io::Result<PamBuffer> {
+        let mut source = io::stdin().lock();
+        let _hide_input = HiddenInput::new(&source)?;
+        read_unbuffered(&mut source)
+    }
+
+    fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
+        read_unbuffered(&mut io::stdin().lock())
+    }
+
+    fn prompt(&mut self, prompt: &str) -> io::Result<()> {
+        write_unbuffered(&mut io::stderr().lock(), &prompt)
+    }
 }
