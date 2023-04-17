@@ -34,7 +34,8 @@ pub enum LaunchType {
 
 impl Context {
     pub fn build_from_options(sudo_options: SudoOptions, path: String) -> Result<Context, Error> {
-        let command = CommandAndArguments::try_from_args(sudo_options.external_args, &path)?;
+        let command = CommandAndArguments::try_from_args(None, sudo_options.external_args, &path)?;
+
         let hostname = hostname();
         let current_user = resolve_current_user()?;
         let (target_user, target_group) =
