@@ -972,7 +972,7 @@ mod tests {
 
         Ok(())
     }
-    
+
     #[test]
     fn run_as_nonexistent_user() -> Result<()> {
         let env = EnvBuilder::default().build()?;

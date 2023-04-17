@@ -6,6 +6,7 @@ mod macros;
 mod child_process;
 mod cli;
 mod env_reset;
+mod flag_chdir;
 mod flag_group;
 mod flag_login;
 mod flag_shell;
@@ -17,7 +18,6 @@ mod pass_auth;
 mod path_search;
 mod perms;
 mod sudoers;
-mod flag_chdir;
 
 mod helpers;
 
