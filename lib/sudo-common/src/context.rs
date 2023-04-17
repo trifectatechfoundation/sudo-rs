@@ -13,8 +13,7 @@ pub struct Context {
     // cli options
     pub preserve_env_list: Vec<String>,
     pub set_home: bool,
-    pub login: bool,
-    pub shell: bool,
+    pub launch: LaunchType,
     pub chdir: Option<PathBuf>,
     pub command: CommandAndArguments,
     pub target_user: User,
@@ -24,6 +23,13 @@ pub struct Context {
     pub path: String,
     pub current_user: User,
     pub pid: i32,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum LaunchType {
+    Direct,
+    Shell,
+    Login,
 }
 
 impl Context {
@@ -43,8 +49,11 @@ impl Context {
             target_group,
             set_home: sudo_options.set_home,
             preserve_env_list: sudo_options.preserve_env_list,
-            login: sudo_options.login,
-            shell: sudo_options.shell,
+            launch: if sudo_options.login {
+                LaunchType::Login
+            } else {
+                LaunchType::Direct
+            },
             chdir: sudo_options.directory,
             pid: sudo_system::Process::process_id(),
         })

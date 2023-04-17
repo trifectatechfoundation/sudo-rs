@@ -15,7 +15,7 @@ use signal_hook::{
         siginfo::{Cause, Process, Sent},
     },
 };
-use sudo_common::{Context, Environment};
+use sudo_common::{context::LaunchType::Login, Context, Environment};
 use sudo_system::{getpgid, kill, set_target_user};
 
 /// We only handle the signals that ogsudo handles.
@@ -33,7 +33,7 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
     if let Some(path) = ctx.chdir {
         // change current directory, if requested
         command.current_dir(path);
-    } else if ctx.login {
+    } else if ctx.launch == Login {
         // change current directory, if `-i` is being used and the home directory exists.
         let path = &ctx.target_user.home;
         if path.exists() {
