@@ -134,6 +134,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
         login: sudo_options.login,
         shell: sudo_options.shell,
         chdir: sudo_options.directory.clone(),
+        stdin: sudo_options.stdin,
         pid: std::process::id() as i32,
     }
 }

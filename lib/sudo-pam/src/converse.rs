@@ -132,17 +132,17 @@ where
 /// A converser that uses stdin/stdout/stderr to display messages and to request
 /// input from the user.
 pub struct CLIConverser {
-    pub(crate) use_tty: bool,
+    pub(crate) use_stdin: bool,
 }
 
 use rpassword::Terminal;
 
 impl CLIConverser {
     fn open(&self) -> std::io::Result<Terminal> {
-        if self.use_tty {
-            Terminal::open_tty()
-        } else {
+        if self.use_stdin {
             Terminal::open_stdie()
+        } else {
+            Terminal::open_tty()
         }
     }
 }

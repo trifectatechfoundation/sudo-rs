@@ -1,8 +1,8 @@
-use sudo_common::error::Error;
+use sudo_common::{error::Error, Context};
 
-pub fn authenticate(username: &str) -> Result<(), Error> {
-    let mut pam = sudo_pam::PamContext::builder_cli(true)
-        .target_user(username)
+pub fn authenticate(ctx: &Context) -> Result<(), Error> {
+    let mut pam = sudo_pam::PamContext::builder_cli(ctx.stdin)
+        .target_user(&ctx.current_user.name)
         .service_name("sudo")
         .build()?;
 

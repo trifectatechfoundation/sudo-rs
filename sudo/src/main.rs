@@ -104,7 +104,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     match policy.authorization() {
         Authorization::Required => {
             // authenticate user using pam
-            authenticate(&context.current_user.name)?;
+            authenticate(&context)?;
         }
         Authorization::Passed => {}
         Authorization::Forbidden => {

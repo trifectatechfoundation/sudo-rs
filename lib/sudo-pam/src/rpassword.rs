@@ -9,6 +9,7 @@
 ///
 /// - the "HiddenInput" struct and implementation
 ///   * replaced occurences of explicit 'i32' and 'c_int' with RawFd
+///   * make it return an Option ("None" if the given fd is not a terminal)
 /// - the general idea of a "SafeString" type that clears its memory
 ///   (although much more robust than in the original code)
 ///
@@ -16,7 +17,7 @@ use std::io::{self, Read};
 use std::os::fd::{AsFd, AsRawFd, RawFd};
 use std::{fs, iter, mem};
 
-use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
+use libc::{isatty, tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
 use sudo_cutils::cerr;
 
@@ -28,8 +29,13 @@ pub struct HiddenInput {
 }
 
 impl HiddenInput {
-    fn new(tty: &impl AsRawFd) -> io::Result<HiddenInput> {
+    fn new(tty: &impl AsRawFd) -> io::Result<Option<HiddenInput>> {
         let fd = tty.as_raw_fd();
+
+        // If the file descriptor is not a terminal, there is nothing to hide
+        if unsafe { isatty(fd) } == 0 {
+            return Ok(None);
+        }
 
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
@@ -46,7 +52,7 @@ impl HiddenInput {
         // Save the settings for now.
         cerr(unsafe { tcsetattr(fd, TCSANOW, &term) })?;
 
-        Ok(HiddenInput { fd, term_orig })
+        Ok(Some(HiddenInput { fd, term_orig }))
     }
 }
 
