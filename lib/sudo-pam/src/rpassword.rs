@@ -13,7 +13,7 @@
 ///   (although much more robust than in the original code)
 ///
 use std::io::{self, Read};
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, RawFd};
 use std::{fs, iter, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
@@ -87,53 +87,60 @@ fn write_unbuffered(sink: &mut impl io::Write, text: &str) -> io::Result<()> {
     sink.flush()
 }
 
-/// Open the TTY
-pub fn open_tty() -> io::Result<fs::File> {
-    fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open("/dev/tty")
+/// A data structure representing either /dev/tty or /dev/stdin+stderr
+pub enum Terminal<'a> {
+    Tty(fs::File),
+    StdIE(io::StdinLock<'a>, io::StderrLock<'a>),
 }
 
-pub trait Terminal {
-    fn read_password(&mut self) -> io::Result<PamBuffer>;
-    fn read_cleartext(&mut self) -> io::Result<PamBuffer>;
-    fn prompt(&mut self, prompt: &str) -> io::Result<()>;
+impl Terminal<'_> {
+    /// Open the current TTY for user communication
+    pub fn open_tty() -> io::Result<Self> {
+        Ok(Terminal::Tty(
+            fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open("/dev/tty")?,
+        ))
+    }
+
+    /// Open standard input and standard error for user communication
+    pub fn open_stdie() -> io::Result<Self> {
+        Ok(Terminal::StdIE(io::stdin().lock(), io::stderr().lock()))
+    }
+
+    /// Reads input with TTY echo disabled
+    pub fn read_password(&mut self) -> io::Result<PamBuffer> {
+        let mut input = self.source();
+        let _hide_input = HiddenInput::new(&input.as_fd())?;
+        read_unbuffered(&mut input)
+    }
+
+    /// Reads input with TTY echo enabled
+    pub fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
+        read_unbuffered(&mut self.source())
+    }
+
+    /// Display information
+    pub fn prompt(&mut self, text: &str) -> io::Result<()> {
+        write_unbuffered(&mut self.sink(), text)
+    }
+
+    // boilerplate reduction functions
+    fn source(&mut self) -> &mut dyn ReadAsFd {
+        match self {
+            Terminal::StdIE(x, _) => x,
+            Terminal::Tty(x) => x,
+        }
+    }
+
+    fn sink(&mut self) -> &mut dyn io::Write {
+        match self {
+            Terminal::StdIE(_, x) => x,
+            Terminal::Tty(x) => x,
+        }
+    }
 }
 
-impl<TTY: io::Write + io::Read + AsRawFd> Terminal for TTY {
-    /// Prompts on the given device and then reads input with TTY echo disabled
-    fn read_password(&mut self) -> io::Result<PamBuffer> {
-        let _hide_input = HiddenInput::new(self)?;
-        read_unbuffered(self)
-    }
-
-    /// Prompts and reads from the given device
-    fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        read_unbuffered(self)
-    }
-
-    /// Only display information
-    fn prompt(&mut self, prompt: &str) -> io::Result<()> {
-        write_unbuffered(self, &prompt)
-    }
-}
-
-pub struct StdIO;
-
-// For the case where "sudo -S" is used, use "stdin" and "stderr" instead.
-impl Terminal for StdIO {
-    fn read_password(&mut self) -> io::Result<PamBuffer> {
-        let mut source = io::stdin().lock();
-        let _hide_input = HiddenInput::new(&source)?;
-        read_unbuffered(&mut source)
-    }
-
-    fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        read_unbuffered(&mut io::stdin().lock())
-    }
-
-    fn prompt(&mut self, prompt: &str) -> io::Result<()> {
-        write_unbuffered(&mut io::stderr().lock(), &prompt)
-    }
-}
+trait ReadAsFd: io::Read + AsFd {}
+impl<T: io::Read + AsFd> ReadAsFd for T {}

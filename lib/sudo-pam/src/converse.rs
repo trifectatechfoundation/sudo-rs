@@ -131,29 +131,43 @@ where
 
 /// A converser that uses stdin/stdout/stderr to display messages and to request
 /// input from the user.
-pub struct CLIConverser;
+pub struct CLIConverser {
+    pub(crate) use_tty: bool,
+}
 
 use rpassword::Terminal;
 
+impl CLIConverser {
+    fn open(&self) -> std::io::Result<Terminal> {
+        if self.use_tty {
+            Terminal::open_tty()
+        } else {
+            Terminal::open_stdie()
+        }
+    }
+}
+
 impl SequentialConverser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        let mut tty = rpassword::open_tty()?;
+        let mut tty = self.open()?;
         tty.prompt(&format!("[Sudo: input needed] {msg} "))?;
         Ok(tty.read_cleartext()?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        let mut tty = rpassword::open_tty()?;
+        let mut tty = self.open()?;
         tty.prompt(&format!("[Sudo: authenticate] {msg}"))?;
         Ok(tty.read_password()?)
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
-        Ok(rpassword::open_tty()?.prompt(&format!("[Sudo error] {msg}\n"))?)
+        let mut tty = self.open()?;
+        Ok(tty.prompt(&format!("[Sudo error] {msg}\n"))?)
     }
 
     fn handle_info(&self, msg: &str) -> PamResult<()> {
-        Ok(rpassword::open_tty()?.prompt(&format!("[Sudo] {msg}\n"))?)
+        let mut tty = self.open()?;
+        Ok(tty.prompt(&format!("[Sudo] {msg}\n"))?)
     }
 }
 
