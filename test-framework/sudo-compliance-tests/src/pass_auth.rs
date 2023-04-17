@@ -7,7 +7,6 @@ use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, USERNAME};
 
-#[ignore]
 #[test]
 fn correct_password() -> Result<()> {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
