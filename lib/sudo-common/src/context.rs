@@ -34,12 +34,27 @@ pub enum LaunchType {
 
 impl Context {
     pub fn build_from_options(sudo_options: SudoOptions, path: String) -> Result<Context, Error> {
-        let command = CommandAndArguments::try_from_args(None, sudo_options.external_args, &path)?;
-
         let hostname = hostname();
         let current_user = resolve_current_user()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
+
+        let (launch, shell);
+        if sudo_options.login {
+            launch = LaunchType::Login;
+            shell = Some(target_user.shell.clone());
+        } else if sudo_options.shell {
+            launch = LaunchType::Shell;
+            shell = Some(
+                std::env::var("SHELL")
+                    .map(|s| s.into())
+                    .unwrap_or_else(|_| current_user.shell.clone()),
+            );
+        } else {
+            launch = LaunchType::Direct;
+            shell = None;
+        }
+        let command = CommandAndArguments::try_from_args(shell, sudo_options.external_args, &path)?;
 
         Ok(Context {
             hostname,
@@ -50,11 +65,7 @@ impl Context {
             target_group,
             set_home: sudo_options.set_home,
             preserve_env_list: sudo_options.preserve_env_list,
-            launch: if sudo_options.login {
-                LaunchType::Login
-            } else {
-                LaunchType::Direct
-            },
+            launch,
             chdir: sudo_options.directory,
             pid: sudo_system::Process::process_id(),
         })
