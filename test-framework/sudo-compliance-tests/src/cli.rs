@@ -2,6 +2,17 @@ use sudo_test::{Command, Env};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "snapshots/secure_path",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn just_dash_dash_works() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
@@ -34,7 +45,7 @@ fn dash_dash_before_flag_is_an_error() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: -u: command not found");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())

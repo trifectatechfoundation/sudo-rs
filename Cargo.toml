@@ -23,6 +23,12 @@ repository = "https://github.com/memorysafety/sudo-rs"
 homepage = "https://github.com/memorysafety/sudo-rs"
 publish = true
 
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3
+
 [workspace.dependencies]
 clap = "4.0.32"
 libc = "0.2.139"

@@ -1,0 +1,8 @@
+---
+source: sudo-compliance-tests/src/sudoers/cmnd.rs
+expression: output.stderr()
+---
+/etc/sudoers:1:19: syntax error
+ALL ALL=(ALL:ALL) true
+                  ^~~~
+root is not in the sudoers file.  This incident will be reported.
