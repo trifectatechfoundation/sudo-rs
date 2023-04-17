@@ -113,7 +113,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn arguments_are_escaped_with_backslashes() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -134,7 +133,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn alphanumerics_underscores_hyphens_and_dollar_signs_are_not_escaped() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -157,7 +155,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn shell_is_invoked_as_a_login_shell() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(User(USERNAME).shell("/bin/bash"))
