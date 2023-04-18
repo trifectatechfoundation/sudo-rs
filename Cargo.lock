@@ -497,6 +497,7 @@ dependencies = [
  "sudo-common",
  "sudo-env",
  "sudo-exec",
+ "sudo-mail",
  "sudo-pam",
  "sudo-system",
  "sudoers",

@@ -41,12 +41,13 @@ tempfile = "3.5.0"
 bindgen = "0.63.0"
 
 sudo-cli = { version = "0.1.0-alpha.1", path = "./lib/sudo-cli" }
-sudo-env = { version = "0.1.0-alpha.1", path = "./lib/sudo-env" }
-sudo-pam = { version = "0.1.0-alpha.1", path = "./lib/sudo-pam" }
-sudo-system = { version = "0.1.0-alpha.1", path = "./lib/sudo-system" }
-sudo-pam-sys = { version = "0.1.0-alpha.1", path = "./lib/sudo-pam-sys" }
-sudo-cutils = { version = "0.1.0-alpha.1", path = "./lib/sudo-cutils" }
 sudo-common = { version = "0.1.0-alpha.1", path = "./lib/sudo-common" }
+sudo-cutils = { version = "0.1.0-alpha.1", path = "./lib/sudo-cutils" }
 sudo-defaults = { version = "0.1.0-alpha.1", path = "./lib/sudo-defaults" }
+sudo-env = { version = "0.1.0-alpha.1", path = "./lib/sudo-env" }
 sudo-exec = { version = "0.1.0-alpha.1", path = "./lib/sudo-exec" }
+sudo-mail = { version = "0.1.0-alpha.1", path = "./lib/sudo-mail" }
+sudo-pam = { version = "0.1.0-alpha.1", path = "./lib/sudo-pam" }
+sudo-pam-sys = { version = "0.1.0-alpha.1", path = "./lib/sudo-pam-sys" }
+sudo-system = { version = "0.1.0-alpha.1", path = "./lib/sudo-system" }
 sudoers = { version = "0.1.0-alpha.1", path = "./lib/sudoers" }

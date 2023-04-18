@@ -6,7 +6,7 @@ use std::{
 use sudo_system::{hostname, User};
 
 /// Mailer configuration, uses defaults as configuration for now
-struct Mailer {
+pub struct Mailer {
     from: String,
     subject: String,
     to: &'static str,

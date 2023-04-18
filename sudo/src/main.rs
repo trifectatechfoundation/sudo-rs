@@ -5,8 +5,9 @@ use std::env;
 use sudo_cli::SudoOptions;
 use sudo_common::{Context, Error};
 use sudo_env::environment;
+use sudo_mail::Mailer;
+use sudo_pam::{PamError, PamErrorType};
 use sudoers::{Authorization, DirChange, Judgement, Policy, PreJudgementPolicy, Sudoers};
-
 mod diagnostic;
 use diagnostic::diagnostic;
 mod pam;
@@ -104,7 +105,13 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     match policy.authorization() {
         Authorization::Required => {
             // authenticate user using pam
-            authenticate(&context)?;
+            authenticate(&context).map_err(|e| {
+                if let Error::Pam(PamError::Pam(PamErrorType::MaxTries, _)) = e {
+                    let _ = Mailer::new().send("too many incorrect password attempts");
+                }
+
+                e
+            })?;
         }
         Authorization::Passed => {}
         Authorization::Forbidden => {
