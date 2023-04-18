@@ -403,7 +403,7 @@ impl Parse for PermissionSpec {
 /// ```text
 /// sudo = permissionspec
 ///      | Keyword_Alias identifier = identifier_list
-///      | Defaults name [+-]?= ...
+///      | Defaults (name [+-]?= ...)+
 /// ```
 /// There is a syntactical ambiguity in the sudoer Directive and Permission specifications, so we
 /// have to parse them 'together' and do a delayed decision on which category we are in.
@@ -522,45 +522,66 @@ fn get_directive(
         make(ctor(Def(name, expect_nonterminal(stream)?)))
     }
 
-    /// Parse multiple entries enclosed in quotes (for list-like Defaults-settings)
-    fn parse_vars(stream: &mut impl CharStream) -> Parsed<Vec<String>> {
-        if accept_if(|c| c == '"', stream).is_ok() {
-            let mut result = Vec::new();
-            while let Some(EnvVar(name)) = try_nonterminal(stream)? {
-                result.push(name);
-                if is_syntax('=', stream)? {
-                    let QuotedText(_) = expect_nonterminal(stream)?;
-                    expect_syntax('"', stream)?;
-                    unrecoverable!(stream, "values in environment variables not yet supported")
-                }
-            }
-            expect_syntax('"', stream)?;
-            if result.is_empty() {
-                unrecoverable!(stream, "empty string not allowed");
-            }
-
-            make(result)
-        } else {
-            let EnvVar(name) = expect_nonterminal(stream)?;
-
-            make(vec![name])
-        }
-    }
-
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
+        let (string, cfg) = <(String, ConfigValue)>::parse(stream)?;
+        make(Defaults(string, cfg))
+    }
+
+    match keyword.as_str() {
+        "User_Alias" => parse_alias(UserAlias, stream),
+        "Host_Alias" => parse_alias(HostAlias, stream),
+        "Cmnd_Alias" | "Cmd_Alias" => parse_alias(CmndAlias, stream),
+        "Runas_Alias" => parse_alias(RunasAlias, stream),
+        "Defaults" => parse_default(stream),
+        _ => reject(),
+    }
+}
+
+/// grammar:
+/// ```text
+/// parameter = name [+-]?= ...
+/// ```
+impl Parse for (String, ConfigValue) {
+    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let id_pos = stream.get_pos();
 
-        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut T| {
+        // Parse multiple entries enclosed in quotes (for list-like Defaults-settings)
+        let parse_vars = |stream: &mut _| -> Parsed<Vec<String>> {
+            if accept_if(|c| c == '"', stream).is_ok() {
+                let mut result = Vec::new();
+                while let Some(EnvVar(name)) = try_nonterminal(stream)? {
+                    result.push(name);
+                    if is_syntax('=', stream)? {
+                        let QuotedText(_) = expect_nonterminal(stream)?;
+                        expect_syntax('"', stream)?;
+                        unrecoverable!(stream, "values in environment variables not yet supported")
+                    }
+                }
+                expect_syntax('"', stream)?;
+                if result.is_empty() {
+                    unrecoverable!(stream, "empty string not allowed");
+                }
+
+                make(result)
+            } else {
+                let EnvVar(name) = expect_nonterminal(stream)?;
+
+                make(vec![name])
+            }
+        };
+
+        // Parse the remainder of a list variable
+        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut _| {
             expect_syntax('=', stream)?;
             if !matches!(cfg, Setting::List(_)) {
                 unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
             }
-            let items = parse_vars(stream)?;
 
-            make(Defaults(name, ConfigValue::List(mode, items)))
+            make((name, ConfigValue::List(mode, parse_vars(stream)?)))
         };
 
+        // Parse a text parameter
         let text_item = |stream: &mut _| {
             if accept_if(|c| c == '"', stream).is_ok() {
                 let QuotedText(text) = expect_nonterminal(stream)?;
@@ -598,7 +619,7 @@ fn get_directive(
                     "`{name}' cannot be used in a boolean context"
                 ),
             };
-            make(Defaults(name, value))
+            make((name, value))
         } else {
             let EnvVar(name) = try_nonterminal(stream)?;
             let Some(cfg) = sudo_default(&name) else {
@@ -618,7 +639,7 @@ fn get_directive(
                     Setting::Integer(_, checker) => {
                         let Numeric(denotation) = expect_nonterminal(stream)?;
                         if let Some(value) = checker(&denotation) {
-                            make(Defaults(name, ConfigValue::Num(value)))
+                            make((name, ConfigValue::Num(value)))
                         } else {
                             unrecoverable!(
                                 pos = value_pos,
@@ -629,14 +650,11 @@ fn get_directive(
                     }
                     Setting::List(_) => {
                         let items = parse_vars(stream)?;
-                        make(Defaults(name, ConfigValue::List(Mode::Set, items)))
+                        make((name, ConfigValue::List(Mode::Set, items)))
                     }
                     Setting::Text(_) => {
                         let text = text_item(stream)?;
-                        make(Defaults(
-                            name,
-                            ConfigValue::Text(Some(text.into_boxed_str())),
-                        ))
+                        make((name, ConfigValue::Text(Some(text.into_boxed_str()))))
                     }
                     Setting::Enum(sudo_defaults::OptTuple { default: key, .. }) => {
                         let text = text_item(stream)?;
@@ -647,25 +665,16 @@ fn get_directive(
                                 "`{text}' is not a valid value for {name}"
                             );
                         };
-                        make(Defaults(name, ConfigValue::Enum(value)))
+                        make((name, ConfigValue::Enum(value)))
                     }
                 }
             } else {
                 if !matches!(cfg, Setting::Flag(_)) {
                     unrecoverable!(pos = id_pos, stream, "`{name}' is not a boolean setting");
                 }
-                make(Defaults(name, ConfigValue::Flag(true)))
+                make((name, ConfigValue::Flag(true)))
             }
         }
-    }
-
-    match keyword.as_str() {
-        "User_Alias" => parse_alias(UserAlias, stream),
-        "Host_Alias" => parse_alias(HostAlias, stream),
-        "Cmnd_Alias" | "Cmd_Alias" => parse_alias(CmndAlias, stream),
-        "Runas_Alias" => parse_alias(RunasAlias, stream),
-        "Defaults" => parse_default(stream),
-        _ => reject(),
     }
 }
 
