@@ -4,9 +4,10 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
+use sudo_cli::SudoOptions;
 use sudo_system::{Group, User};
 
-use crate::Error;
+use crate::{context::LaunchType, Error};
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
@@ -28,6 +29,26 @@ impl<'a, T: FromStr> NameOrId<'a, T> {
 
 pub(crate) fn resolve_current_user() -> Result<User, Error> {
     User::real()?.ok_or(Error::UserNotFound("current user".to_string()))
+}
+
+type Shell = Option<PathBuf>;
+
+pub(crate) fn resolve_launch_and_shell(
+    sudo_options: &SudoOptions,
+    current_user: &User,
+    target_user: &User,
+) -> (LaunchType, Shell) {
+    if sudo_options.login {
+        (LaunchType::Login, Some(target_user.shell.clone()))
+    } else if sudo_options.shell {
+        let shell = env::var("SHELL")
+            .map(|s| s.into())
+            .unwrap_or_else(|_| current_user.shell.clone());
+
+        (LaunchType::Shell, Some(shell))
+    } else {
+        (LaunchType::Direct, None)
+    }
 }
 
 pub(crate) fn resolve_target_user_and_group(

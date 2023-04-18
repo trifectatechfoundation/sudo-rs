@@ -4,7 +4,7 @@ use sudo_system::{hostname, Group, User};
 
 use crate::{
     command::CommandAndArguments,
-    resolve::{resolve_current_user, resolve_target_user_and_group},
+    resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
     Error,
 };
 
@@ -38,22 +38,7 @@ impl Context {
         let current_user = resolve_current_user()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
-
-        let (launch, shell);
-        if sudo_options.login {
-            launch = LaunchType::Login;
-            shell = Some(target_user.shell.clone());
-        } else if sudo_options.shell {
-            launch = LaunchType::Shell;
-            shell = Some(
-                std::env::var("SHELL")
-                    .map(|s| s.into())
-                    .unwrap_or_else(|_| current_user.shell.clone()),
-            );
-        } else {
-            launch = LaunchType::Direct;
-            shell = None;
-        }
+        let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
         let command = CommandAndArguments::try_from_args(shell, sudo_options.external_args, &path)?;
 
         Ok(Context {
