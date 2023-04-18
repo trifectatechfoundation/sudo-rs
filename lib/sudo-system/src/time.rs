@@ -12,18 +12,10 @@ pub struct SystemTime {
 
 impl SystemTime {
     pub(crate) fn new(secs: i64, nsecs: i64) -> SystemTime {
-        let mut secs = secs + nsecs / 1_000_000_000;
-        let mut nsecs = nsecs % 1_000_000_000;
-
-        if secs > 0 && nsecs < 0 {
-            secs -= 1;
-            nsecs += 1_000_000_000;
-        } else if secs < 0 && nsecs > 0 {
-            secs += 1;
-            nsecs -= 1_000_000_000;
+        SystemTime {
+            secs: secs + nsecs.div_euclid(1_000_000_000),
+            nsecs: nsecs.rem_euclid(1_000_000_000),
         }
-
-        SystemTime { secs, nsecs }
     }
 
     pub fn now() -> std::io::Result<SystemTime> {
@@ -87,18 +79,10 @@ pub struct Duration {
 
 impl Duration {
     pub fn new(secs: i64, nsecs: i64) -> Duration {
-        let mut secs = secs + nsecs / 1_000_000_000;
-        let mut nsecs = nsecs % 1_000_000_000;
-
-        if secs > 0 && nsecs < 0 {
-            secs -= 1;
-            nsecs += 1_000_000_000;
-        } else if secs < 0 && nsecs > 0 {
-            secs += 1;
-            nsecs -= 1_000_000_000;
+        Duration {
+            secs: secs + nsecs.div_euclid(1_000_000_000),
+            nsecs: nsecs.rem_euclid(1_000_000_000),
         }
-
-        Duration { secs, nsecs }
     }
 
     pub fn seconds(secs: i64) -> Duration {
@@ -174,6 +158,10 @@ mod tests {
         assert_eq!(
             Duration::milliseconds(5555) + Duration::milliseconds(5555),
             Duration::seconds(11) + Duration::milliseconds(110)
+        );
+        assert_eq!(
+            Duration::milliseconds(-5555) + Duration::milliseconds(-1111),
+            Duration::milliseconds(-6666)
         );
         assert_eq!(
             Duration::seconds(10) - Duration::seconds(-5),
