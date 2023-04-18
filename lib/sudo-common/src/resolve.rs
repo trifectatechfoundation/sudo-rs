@@ -92,12 +92,7 @@ pub(crate) fn resolve_target_user_and_group(
     }
 
     match (target_user, target_group) {
-        (Some(mut user), Some(group)) => {
-            // add target group to list of additional groups if not present
-            if !user.groups.contains(&group.gid) {
-                user.groups.push(group.gid);
-            }
-
+        (Some(user), Some(group)) => {
             // resolve success
             Ok((user, group))
         }

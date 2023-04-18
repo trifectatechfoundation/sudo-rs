@@ -134,3 +134,25 @@ fn group_does_not_exist() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn group_does_not_add_groups_without_authorization() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:rustaceans) NOPASSWD: ALL")
+        .user(USERNAME)
+        .group("rustaceans")
+        .group("elite")
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-u", USERNAME, "-g", "elite", "true"])
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "a password is required");
+    }
+
+    Ok(())
+}

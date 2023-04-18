@@ -37,8 +37,17 @@ pub fn hostname() -> String {
 }
 
 /// set target user and groups (uid, gid, additional groups) for a command
-pub fn set_target_user(cmd: &mut std::process::Command, target_user: User, target_group: Group) {
+pub fn set_target_user(
+    cmd: &mut std::process::Command,
+    mut target_user: User,
+    target_group: Group,
+) {
     use std::os::unix::process::CommandExt;
+
+    // add target group to list of additional groups if not present
+    if !target_user.groups.contains(&target_group.gid) {
+        target_user.groups.push(target_group.gid);
+    }
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
