@@ -1,8 +1,9 @@
 #![forbid(unsafe_code)]
 use std::{
-    ffi::c_int,
+    ffi::{c_int, OsStr},
     io,
-    os::unix::process::ExitStatusExt,
+    os::unix::ffi::OsStrExt,
+    os::unix::process::{CommandExt, ExitStatusExt},
     process::{Command, ExitStatus},
     time::Duration,
 };
@@ -15,7 +16,7 @@ use signal_hook::{
         siginfo::{Cause, Process, Sent},
     },
 };
-use sudo_common::{Context, Environment};
+use sudo_common::{context::LaunchType::Login, Context, Environment};
 use sudo_system::{getpgid, kill, set_target_user};
 
 /// We only handle the signals that ogsudo handles.
@@ -27,13 +28,13 @@ const SIGNALS: &[c_int] = &[
 /// Based on `ogsudo`s `exec_nopty` function.
 pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
     // FIXME: should we pipe the stdio streams?
-    let mut command = Command::new(ctx.command.command);
+    let mut command = Command::new(&ctx.command.command);
     // reset env and set filtered environment
     command.args(ctx.command.arguments).env_clear().envs(env);
     if let Some(path) = ctx.chdir {
         // change current directory, if requested
         command.current_dir(path);
-    } else if ctx.login {
+    } else if ctx.launch == Login {
         // change current directory, if `-i` is being used and the home directory exists.
         let path = &ctx.target_user.home;
         if path.exists() {
@@ -44,6 +45,15 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
                 path.display()
             );
         }
+        // signal to the operating system that the command is a login shell by prefixing "-"
+        let mut process_name = ctx
+            .command
+            .command
+            .file_name()
+            .map(|osstr| osstr.as_bytes().to_vec())
+            .unwrap_or_else(Vec::new);
+        process_name.insert(0, b'-');
+        command.arg0(OsStr::from_bytes(&process_name));
     }
     // set target user and groups
     set_target_user(&mut command, ctx.target_user, ctx.target_group);

@@ -4,7 +4,7 @@ use sudo_system::{hostname, Group, User};
 
 use crate::{
     command::CommandAndArguments,
-    resolve::{resolve_current_user, resolve_target_user_and_group},
+    resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
     Error,
 };
 
@@ -13,8 +13,7 @@ pub struct Context {
     // cli options
     pub preserve_env_list: Vec<String>,
     pub set_home: bool,
-    pub login: bool,
-    pub shell: bool,
+    pub launch: LaunchType,
     pub chdir: Option<PathBuf>,
     pub command: CommandAndArguments,
     pub target_user: User,
@@ -26,13 +25,21 @@ pub struct Context {
     pub pid: i32,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum LaunchType {
+    Direct,
+    Shell,
+    Login,
+}
+
 impl Context {
     pub fn build_from_options(sudo_options: SudoOptions, path: String) -> Result<Context, Error> {
-        let command = CommandAndArguments::try_from_args(sudo_options.external_args, &path)?;
         let hostname = hostname();
         let current_user = resolve_current_user()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
+        let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
+        let command = CommandAndArguments::try_from_args(shell, sudo_options.external_args, &path)?;
 
         Ok(Context {
             hostname,
@@ -43,8 +50,7 @@ impl Context {
             target_group,
             set_home: sudo_options.set_home,
             preserve_env_list: sudo_options.preserve_env_list,
-            login: sudo_options.login,
-            shell: sudo_options.shell,
+            launch,
             chdir: sudo_options.directory,
             pid: sudo_system::Process::process_id(),
         })

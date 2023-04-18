@@ -1,10 +1,11 @@
+use std::path::PathBuf;
 use sudo_pam::PamError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("`{0}': command not found")]
-    InvalidCommand(String),
+    InvalidCommand(PathBuf),
     #[error("user `{0}' not found")]
     UserNotFound(String),
     #[error("group `{0}' not found")]
