@@ -524,7 +524,7 @@ fn get_directive(
 
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
-        let parameters = try_nonterminal(stream)?;
+        let parameters = expect_nonterminal(stream)?;
         make(Defaults(parameters))
     }
 
