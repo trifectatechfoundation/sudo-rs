@@ -4,7 +4,7 @@ use sudo_common::{error::Error, Context};
 use sudo_system::{
     time::Duration,
     timestamp::{RecordLimit, SessionRecordFile, TouchResult},
-    Process,
+    Process, WithProcess,
 };
 
 /// Tries to determine a record match limit for the current context.
@@ -13,10 +13,10 @@ use sudo_system::{
 fn determine_record_limit(context: &Context) -> Option<RecordLimit> {
     let tty = (
         context.process.term_foreground_group_id,
-        Process::tty_device_id(None),
+        Process::tty_device_id(WithProcess::Current),
     );
     if let (Some(foreground_pid), Ok(Some(tty_device))) = tty {
-        if let Ok(init_time) = Process::starting_time(Some(foreground_pid)) {
+        if let Ok(init_time) = Process::starting_time(WithProcess::Other(foreground_pid)) {
             Some(RecordLimit::TTY {
                 tty_device,
                 session_pid: context.process.session_id,
@@ -28,7 +28,7 @@ fn determine_record_limit(context: &Context) -> Option<RecordLimit> {
             None
         }
     } else if let Some(parent_pid) = context.process.parent_pid {
-        if let Ok(init_time) = Process::starting_time(Some(parent_pid)) {
+        if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
             Some(RecordLimit::PPID {
                 group_pid: parent_pid,
                 init_time,

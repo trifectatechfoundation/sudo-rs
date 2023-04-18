@@ -286,6 +286,20 @@ impl Group {
     }
 }
 
+pub enum WithProcess {
+    Current,
+    Other(ProcessId),
+}
+
+impl WithProcess {
+    fn to_proc_string(&self) -> String {
+        match self {
+            WithProcess::Current => "self".into(),
+            WithProcess::Other(pid) => pid.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Process {
     pub pid: ProcessId,
@@ -359,7 +373,9 @@ impl Process {
         }
     }
 
-    pub fn tty_device_id(pid: Option<ProcessId>) -> std::io::Result<Option<DeviceId>> {
+    /// Returns the device identifier of the TTY device that is currently
+    /// attached to the given process
+    pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         // device id of tty is displayed as a signed integer of 32 bits
         let data: i32 = read_proc_stat(pid, 6)?;
         if data == 0 {
@@ -375,7 +391,7 @@ impl Process {
     }
 
     /// Get the process starting time of a specific process
-    pub fn starting_time(pid: Option<ProcessId>) -> io::Result<SystemTime> {
+    pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
         let process_start: u64 = read_proc_stat(pid, 21)?;
 
         // the startime field is stored in ticks since the system start, so we need to know how many
@@ -395,13 +411,12 @@ impl Process {
     }
 }
 
-fn read_proc_stat<T: FromStr>(pid: Option<ProcessId>, field_idx: isize) -> io::Result<T> {
+fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<T> {
     // read from a specific pid file, or use `self` to refer to our own process
-    let pidstr = pid.map(|p| p.to_string());
-    let pidref = pidstr.as_deref().unwrap_or("self");
+    let pidref = pid.to_proc_string();
 
     // read the data from the stat file for the process with the given pid
-    let path = PathBuf::from_iter(&["/proc", pidref, "stat"]);
+    let path = PathBuf::from_iter(&["/proc", &pidref, "stat"]);
     let proc_stat = std::fs::read(path)?;
 
     // first get the part of the stat file past the second argument, we then reverse
@@ -451,7 +466,7 @@ fn read_proc_stat<T: FromStr>(pid: Option<ProcessId>, field_idx: isize) -> io::R
 
 #[cfg(test)]
 mod tests {
-    use crate::{Group, User};
+    use crate::{Group, User, WithProcess};
 
     #[test]
     fn test_get_user_and_group_by_id() {
@@ -510,6 +525,6 @@ mod tests {
 
     #[test]
     fn get_process_tty_device() {
-        assert!(super::Process::tty_device_id(None).is_ok());
+        assert!(super::Process::tty_device_id(WithProcess::Current).is_ok());
     }
 }
