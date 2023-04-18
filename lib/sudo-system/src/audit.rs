@@ -58,7 +58,7 @@ fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
 }
 
 // Open `path` with options `open_options`, provided that it is "secure".
-// "Secure" means that it passes the `checks` function above. 
+// "Secure" means that it passes the `checks` function above.
 // If `check_parent_dir` is set, also check that the parent directory is "secure" also.
 // If `create_parent_dirs` is set, create the path to the file if it does not already exist.
 fn secure_open_impl(

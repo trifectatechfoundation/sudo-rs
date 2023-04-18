@@ -117,7 +117,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
             self.io.lock_exclusive()?;
         }
         self.io.set_len(0)?;
-        self.io.seek(io::SeekFrom::Start(0))?;
+        self.io.rewind()?;
         self.io.write_all(&Self::MAGIC_NUM.to_le_bytes())?;
         self.io.write_all(&Self::FILE_VERSION.to_le_bytes())?;
         self.io.seek(io::SeekFrom::Start(offset))?;
