@@ -6,6 +6,7 @@ members = [
   "lib/sudo-common",
   "lib/sudo-cutils",
   "lib/sudo-env",
+  "lib/sudo-mail",
   "lib/sudo-system",
   "lib/sudoers",
   "lib/sudo-defaults",

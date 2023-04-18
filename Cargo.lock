@@ -552,6 +552,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sudo-mail"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "sudo-system",
+]
+
+[[package]]
 name = "sudo-pam"
 version = "0.1.0-alpha.1"
 dependencies = [

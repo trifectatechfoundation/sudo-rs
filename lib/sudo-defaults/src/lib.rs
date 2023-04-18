@@ -26,7 +26,12 @@ defaults! {
     always_query_group_plugin = false
     always_set_home           = false
     env_reset                 = true
+    mail_all_cmnds            = false
+    mail_always               = false
     mail_badpass              = true
+    mail_no_host              = false
+    mail_no_perms             = false
+    mail_no_user              = false
     match_group_by_gid        = false
     use_pty                   = false
     visiblepw                 = false
