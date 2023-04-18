@@ -11,6 +11,8 @@ use sudo_pam_sys::*;
 
 mod converse;
 mod error;
+mod rpassword;
+mod securemem;
 
 pub use converse::CLIConverser;
 

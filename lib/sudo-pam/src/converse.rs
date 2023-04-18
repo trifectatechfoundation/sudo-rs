@@ -2,7 +2,7 @@ use std::io::{BufRead, Write};
 
 use sudo_pam_sys::*;
 
-use crate::{error::PamResult, PamErrorType};
+use crate::{error::PamResult, rpassword, securemem::PamBuffer, PamErrorType};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
@@ -40,12 +40,12 @@ impl PamMessageStyle {
 pub struct PamMessage {
     pub msg: String,
     pub style: PamMessageStyle,
-    response: Option<String>,
+    response: Option<PamBuffer>,
 }
 
 impl PamMessage {
     /// Set a response value to the message.
-    pub fn set_response(&mut self, resp: String) {
+    pub fn set_response(&mut self, resp: PamBuffer) {
         self.response = Some(resp);
     }
 
@@ -88,11 +88,11 @@ pub trait Converser {
 pub trait SequentialConverser: Converser {
     /// Handle a normal prompt, i.e. present some message and ask for a value.
     /// The value is not considered a secret.
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<String>;
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>>;
 
     /// Handle a hidden prompt, i.e. present some message and ask for a value.
     /// The value is considered secret and should not be visible.
-    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String>;
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer>;
 
     /// Display an error message to the user, the user does not need to input a
     /// value.
@@ -113,7 +113,7 @@ where
         for msg in conversation.messages_mut() {
             match msg.style {
                 PromptEchoOn => {
-                    msg.set_response(self.handle_normal_prompt(&msg.msg)?);
+                    msg.set_response(PamBuffer::new(self.handle_normal_prompt(&msg.msg)?));
                 }
                 PromptEchoOff => {
                     msg.set_response(self.handle_hidden_prompt(&msg.msg)?);
@@ -135,18 +135,23 @@ where
 /// input from the user.
 pub struct CLIConverser;
 
+// TODO: all of these functions should communicate via the TTY; refactor
+// some code from the rpassword.rs module into here
 impl SequentialConverser for CLIConverser {
-    fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
-        print!("[Sudo: input needed] {msg}");
+    fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>> {
+        print!("[Sudo: input needed] {msg} ");
         std::io::stdout().flush().unwrap();
 
         let mut s = String::new();
-        std::io::stdin().lock().read_line(&mut s).unwrap();
 
-        Ok(s)
+        std::io::stdin().lock().read_line(&mut s)?;
+        // temporary fix: get rid of the \n that read_line adds
+        s.pop();
+
+        Ok(s.into_bytes())
     }
 
-    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
+    fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         Ok(rpassword::prompt_password(format!(
             "[Sudo: authenticate] {msg}"
         ))?)
@@ -235,14 +240,11 @@ pub(crate) unsafe extern "C" fn converse<C: Converser>(
         }
 
         // Store the responses
-        for i in 0..num_msg as isize {
-            let response: &mut pam_response = unsafe { &mut *(temp_resp.offset(i)) };
+        for (i, msg) in conversation.messages.into_iter().enumerate() {
+            let response: &mut pam_response = unsafe { &mut *(temp_resp.add(i)) };
 
-            // Unwrap here should be ok because we previously allocated an array of the same size
-            let our_resp = &conversation.messages.get(i as usize).unwrap().response;
-            if let Some(r) = our_resp {
-                let cstr = sudo_cutils::into_leaky_cstring(r);
-                response.resp = cstr as *mut _;
+            if let Some(secbuf) = msg.response {
+                response.resp = secbuf.leak() as *mut _;
             }
         }
 
@@ -273,12 +275,14 @@ mod test {
     use PamMessageStyle::*;
 
     impl SequentialConverser for String {
-        fn handle_normal_prompt(&self, msg: &str) -> PamResult<String> {
-            Ok(format!("{self} says {msg}"))
+        fn handle_normal_prompt(&self, msg: &str) -> PamResult<Vec<u8>> {
+            Ok(format!("{self} says {msg}").into_bytes())
         }
 
-        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<String> {
-            Ok(format!("{self}s secret is {msg}"))
+        fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
+            Ok(PamBuffer::new(
+                format!("{self}s secret is {msg}").into_bytes(),
+            ))
         }
 
         fn handle_error(&self, msg: &str) -> PamResult<()> {
@@ -295,7 +299,7 @@ mod test {
         let pam_msgs = msgs
             .iter()
             .map(|PamMessage { msg, style, .. }| pam_message {
-                msg: sudo_cutils::into_leaky_cstring(msg),
+                msg: std::ffi::CString::new(&msg[..]).unwrap().into_raw(),
                 msg_style: *style as i32,
             })
             .rev()
@@ -318,7 +322,9 @@ mod test {
 
         // deallocate the leaky strings
         for rec in ptrs {
-            unsafe { libc::free((*rec).msg as *mut _) }
+            unsafe {
+                drop(std::ffi::CString::from_raw((*rec).msg as *mut _));
+            }
         }
         if conv_err != 0 {
             return vec![];
