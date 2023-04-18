@@ -333,6 +333,20 @@ fn default_set_test() {
 }
 
 #[test]
+fn default_multi_test() {
+    let (Sudoers { settings, .. }, _) = analyze(sudoer![
+        "Defaults env_reset, umask = 0123, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR",
+    ]);
+    assert!(settings.flags.contains("env_reset"));
+    assert_eq!(settings.int_value["umask"], 0o123);
+    assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));
+    assert_eq!(
+        settings.list["env_keep"],
+        ["FOO".to_string()].into_iter().collect()
+    );
+}
+
+#[test]
 #[should_panic]
 fn invalid_directive() {
     parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");

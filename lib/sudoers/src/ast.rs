@@ -524,8 +524,8 @@ fn get_directive(
 
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
-        let (string, cfg) = try_nonterminal(stream)?;
-        make(Defaults(vec![(string, cfg)]))
+        let pair = try_nonterminal(stream)?;
+        make(Defaults(vec![pair]))
     }
 
     match keyword.as_str() {
