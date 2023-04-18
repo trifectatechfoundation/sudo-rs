@@ -181,11 +181,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     /// that record time to the current time. This will not create a new record
     /// when one is not found. A record will only be updated if it is still
     /// valid at this time.
-    pub fn touch(
-        &mut self,
-        scope: RecordScope,
-        target_user: UserId,
-    ) -> io::Result<TouchResult> {
+    pub fn touch(&mut self, scope: RecordScope, target_user: UserId) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
@@ -218,11 +214,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     /// Create a new record for the given scope and target user.
     /// If there is an existing record that matches the scope and target user,
     /// then that record will be updated.
-    pub fn create(
-        &mut self,
-        scope: RecordScope,
-        target_user: UserId,
-    ) -> io::Result<CreateResult> {
+    pub fn create(&mut self, scope: RecordScope, target_user: UserId) -> io::Result<CreateResult> {
         // lock the file to indicate that we are currently writing to it
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
