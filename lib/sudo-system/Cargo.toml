@@ -10,3 +10,6 @@ publish.workspace = true
 [dependencies]
 libc.workspace = true
 sudo-cutils.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

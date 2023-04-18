@@ -1,5 +1,7 @@
 pub type GroupId = libc::gid_t;
 pub type UserId = libc::uid_t;
+pub type ProcessId = libc::pid_t;
+pub type DeviceId = libc::dev_t;
 
 /// This trait/module is here to not make this crate independent (at the present time) in the idiosyncracies of user representation details
 /// (which we may decide over time), as well as to make explicit what functionality a user-representation must have; this

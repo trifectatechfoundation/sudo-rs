@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use sudo_cli::SudoOptions;
-use sudo_system::{hostname, Group, User};
+use sudo_system::{hostname, Group, Process, User};
 
 use crate::{
     command::CommandAndArguments,
@@ -22,7 +22,7 @@ pub struct Context {
     pub hostname: String,
     pub path: String,
     pub current_user: User,
-    pub pid: i32,
+    pub process: Process,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -52,7 +52,7 @@ impl Context {
             preserve_env_list: sudo_options.preserve_env_list,
             launch,
             chdir: sudo_options.directory,
-            pid: sudo_system::Process::process_id(),
+            process: sudo_system::Process::new(),
         })
     }
 }
