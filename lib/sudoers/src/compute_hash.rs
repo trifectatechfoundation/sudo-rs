@@ -44,16 +44,16 @@ mod test {
         use std::process::Command;
         for bits in [224, 256, 384, 512] {
             let Sha2(valid) = parse_eval(
-                (&std::str::from_utf8(
+                std::str::from_utf8(
                     &Command::new(format!("/bin/sha{bits}sum"))
                         .arg(file_to_check)
                         .output()
                         .unwrap()
                         .stdout,
                 )
-                .unwrap())
-                    .split_whitespace()
-                    .collect::<Vec<_>>()[0],
+                .unwrap()
+                .split_whitespace()
+                .collect::<Vec<_>>()[0],
             );
             assert_eq!(super::sha2(bits, file_to_check), valid);
         }

@@ -48,10 +48,10 @@ impl UnixUser for Named {
 
 impl UnixGroup for Named {
     fn as_gid(&self) -> sudo_system::interface::GroupId {
-        dummy_cksum(&self.0)
+        dummy_cksum(self.0)
     }
     fn try_as_name(&self) -> Option<&str> {
-        Some(&self.0)
+        Some(self.0)
     }
 }
 
@@ -366,10 +366,7 @@ impl<T> Neg for Qualified<T> {
 
 #[test]
 fn directive_test() {
-    let _everybody = parse_eval::<Spec<UserSpecifier>>("ALL");
-    let _nobody = parse_eval::<Spec<UserSpecifier>>("!ALL");
-    let y = |name| parse_eval::<Spec<UserSpecifier>>(name);
-    let _not = |name| -parse_eval::<Spec<UserSpecifier>>(name);
+    let y = parse_eval::<Spec<UserSpecifier>>;
     match parse_eval::<ast::Sudo>("User_Alias HENK = user1, user2") {
         Sudo::Decl(Directive::UserAlias(Def(name, list))) => {
             assert_eq!(name, "HENK");
@@ -487,9 +484,8 @@ fn fuzz_topo_sort(siz: usize) {
         data.push(stop());
 
         for i in (1..=siz).rev() {
-            let pos = n % i;
-            n = n / i;
-            data.swap(i - 1, pos);
+            data.swap(i - 1, n % i);
+            n /= i;
         }
 
         let table = data
