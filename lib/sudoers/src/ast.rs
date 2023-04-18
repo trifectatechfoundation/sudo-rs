@@ -76,7 +76,7 @@ pub enum Directive {
     HostAlias(Def<Hostname>),
     CmndAlias(Def<Command>),
     RunasAlias(Def<UserSpecifier>),
-    Defaults(String, ConfigValue),
+    Defaults(Vec<(String, ConfigValue)>),
 }
 
 pub type TextEnum = sudo_defaults::StrEnum<'static>;
@@ -524,8 +524,8 @@ fn get_directive(
 
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
-        let (string, cfg) = <(String, ConfigValue)>::parse(stream)?;
-        make(Defaults(string, cfg))
+        let (string, cfg) = try_nonterminal(stream)?;
+        make(Defaults(vec![(string, cfg)]))
     }
 
     match keyword.as_str() {
