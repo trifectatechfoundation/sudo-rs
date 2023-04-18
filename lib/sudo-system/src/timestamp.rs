@@ -177,20 +177,20 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         }
     }
 
-    /// Try and find a record for the given limit and target user and update
+    /// Try and find a record for the given scope and target user and update
     /// that record time to the current time. This will not create a new record
     /// when one is not found. A record will only be updated if it is still
     /// valid at this time.
     pub fn touch(
         &mut self,
-        record_limit: RecordLimit,
+        scope: RecordScope,
         target_user: UserId,
     ) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
-            if record.matches(&record_limit, target_user) {
+            if record.matches(&scope, target_user) {
                 let now = SystemTime::now()?;
                 if record.written_between(now - self.timeout, now) {
                     // move back 16 bytes (size of the timestamp) and overwrite with the latest time
@@ -215,19 +215,19 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         Ok(TouchResult::NotFound)
     }
 
-    /// Create a new record for the given limit and target user.
-    /// If there is an existing record that matches the limit and target user,
+    /// Create a new record for the given scope and target user.
+    /// If there is an existing record that matches the scope and target user,
     /// then that record will be updated.
     pub fn create(
         &mut self,
-        record_limit: RecordLimit,
+        scope: RecordScope,
         target_user: UserId,
     ) -> io::Result<CreateResult> {
         // lock the file to indicate that we are currently writing to it
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
-            if record.matches(&record_limit, target_user) {
+            if record.matches(&scope, target_user) {
                 self.io.seek(io::SeekFrom::Current(-16))?;
                 let new_time = SystemTime::now()?;
                 new_time.encode(&mut self.io)?;
@@ -240,7 +240,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         }
 
         // record was not found in the list so far, create a new one
-        let record = SessionRecord::new(record_limit, target_user)?;
+        let record = SessionRecord::new(scope, target_user)?;
 
         // make sure we really are at the end of the file
         self.io.seek(io::SeekFrom::End(0))?;
@@ -310,7 +310,7 @@ pub enum CreateResult {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RecordLimit {
+pub enum RecordScope {
     TTY {
         tty_device: libc::dev_t,
         session_pid: libc::pid_t,
@@ -322,10 +322,10 @@ pub enum RecordLimit {
     },
 }
 
-impl RecordLimit {
+impl RecordScope {
     fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         match self {
-            RecordLimit::TTY {
+            RecordScope::TTY {
                 tty_device,
                 session_pid,
                 init_time,
@@ -337,7 +337,7 @@ impl RecordLimit {
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
-            RecordLimit::PPID {
+            RecordScope::PPID {
                 group_pid,
                 init_time,
             } => {
@@ -351,7 +351,7 @@ impl RecordLimit {
         Ok(())
     }
 
-    fn decode(from: &mut impl Read) -> std::io::Result<RecordLimit> {
+    fn decode(from: &mut impl Read) -> std::io::Result<RecordScope> {
         let mut buf = [0; 1];
         from.read_exact(&mut buf)?;
         match buf[0] {
@@ -363,7 +363,7 @@ impl RecordLimit {
                 from.read_exact(&mut buf)?;
                 let session_pid = libc::pid_t::from_le_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
-                Ok(RecordLimit::TTY {
+                Ok(RecordScope::TTY {
                     tty_device,
                     session_pid,
                     init_time,
@@ -374,14 +374,14 @@ impl RecordLimit {
                 from.read_exact(&mut buf)?;
                 let group_pid = libc::pid_t::from_le_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
-                Ok(RecordLimit::PPID {
+                Ok(RecordScope::PPID {
                     group_pid,
                     init_time,
                 })
             }
             x => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("Unexpected limit variant discriminator: {x}"),
+                format!("Unexpected scope variant discriminator: {x}"),
             )),
         }
     }
@@ -390,22 +390,22 @@ impl RecordLimit {
 /// A record in the session record file
 #[derive(Debug, PartialEq, Eq)]
 pub struct SessionRecord {
-    limit: RecordLimit,
+    scope: RecordScope,
     auth_user: libc::uid_t,
     timestamp: SystemTime,
 }
 
 impl SessionRecord {
-    /// Create a new record that is limited to the specified limit and has `auth_user` as
+    /// Create a new record that is scoped to the specified scope and has `auth_user` as
     /// the target for the session.
-    fn new(limit: RecordLimit, auth_user: UserId) -> io::Result<SessionRecord> {
-        Ok(Self::init(limit, auth_user, SystemTime::now()?))
+    fn new(scope: RecordScope, auth_user: UserId) -> io::Result<SessionRecord> {
+        Ok(Self::init(scope, auth_user, SystemTime::now()?))
     }
 
     /// Initialize a new record with the given parameters
-    fn init(limit: RecordLimit, auth_user: UserId, timestamp: SystemTime) -> SessionRecord {
+    fn init(scope: RecordScope, auth_user: UserId, timestamp: SystemTime) -> SessionRecord {
         SessionRecord {
-            limit,
+            scope,
             auth_user,
             timestamp,
         }
@@ -413,7 +413,7 @@ impl SessionRecord {
 
     /// Encode a record into the given stream
     fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
-        self.limit.encode(target)?;
+        self.scope.encode(target)?;
 
         let buf = self.auth_user.to_le_bytes();
         target.write_all(&buf)?;
@@ -425,12 +425,12 @@ impl SessionRecord {
 
     /// Decode a record from the given stream
     fn decode(from: &mut impl Read) -> std::io::Result<SessionRecord> {
-        let limit = RecordLimit::decode(from)?;
+        let scope = RecordScope::decode(from)?;
         let mut buf = [0; std::mem::size_of::<libc::uid_t>()];
         from.read_exact(&mut buf)?;
         let auth_user = libc::uid_t::from_le_bytes(buf);
         let timestamp = SystemTime::decode(from)?;
-        Ok(SessionRecord::init(limit, auth_user, timestamp))
+        Ok(SessionRecord::init(scope, auth_user, timestamp))
     }
 
     /// Convert the record to a vector of bytes for storage.
@@ -455,10 +455,10 @@ impl SessionRecord {
         }
     }
 
-    /// Returns true if this record matches the specified limit and is for the
+    /// Returns true if this record matches the specified scope and is for the
     /// specified target auth user.
-    pub fn matches(&self, limit: &RecordLimit, auth_user: UserId) -> bool {
-        self.limit == *limit && self.auth_user == auth_user
+    pub fn matches(&self, scope: &RecordScope, auth_user: UserId) -> bool {
+        self.scope == *scope && self.auth_user == auth_user
     }
 
     /// Returns true if this record was written somewhere in the time range
@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn can_encode_and_decode() {
         let tty_sample = SessionRecord::new(
-            RecordLimit::TTY {
+            RecordScope::TTY {
                 tty_device: 10,
                 session_pid: 42,
                 init_time: SystemTime::now().unwrap() - Duration::seconds(150),
@@ -517,7 +517,7 @@ mod tests {
         assert!(SessionRecord::from_bytes(&bytes).is_err());
 
         let ppid_sample = SessionRecord::new(
-            RecordLimit::PPID {
+            RecordScope::PPID {
                 group_pid: 42,
                 init_time: SystemTime::now().unwrap(),
             },
@@ -532,18 +532,18 @@ mod tests {
     #[test]
     fn timestamp_record_matches_works() {
         let init_time = SystemTime::now().unwrap();
-        let limit = RecordLimit::TTY {
+        let scope = RecordScope::TTY {
             tty_device: 12,
             session_pid: 1234,
             init_time,
         };
 
-        let tty_sample = SessionRecord::new(limit, 675).unwrap();
+        let tty_sample = SessionRecord::new(scope, 675).unwrap();
 
-        assert!(tty_sample.matches(&limit, 675));
-        assert!(!tty_sample.matches(&limit, 789));
+        assert!(tty_sample.matches(&scope, 675));
+        assert!(!tty_sample.matches(&scope, 789));
         assert!(!tty_sample.matches(
-            &RecordLimit::TTY {
+            &RecordScope::TTY {
                 tty_device: 20,
                 session_pid: 1234,
                 init_time
@@ -551,7 +551,7 @@ mod tests {
             675
         ));
         assert!(!tty_sample.matches(
-            &RecordLimit::PPID {
+            &RecordScope::PPID {
                 group_pid: 42,
                 init_time
             },
@@ -561,7 +561,7 @@ mod tests {
         // make sure time is different
         std::thread::sleep(std::time::Duration::from_millis(1));
         assert!(!tty_sample.matches(
-            &RecordLimit::TTY {
+            &RecordScope::TTY {
                 tty_device: 12,
                 session_pid: 1234,
                 init_time: SystemTime::now().unwrap()
@@ -573,12 +573,12 @@ mod tests {
     #[test]
     fn timestamp_record_written_between_works() {
         let some_time = SystemTime::now().unwrap() + Duration::minutes(100);
-        let limit = RecordLimit::TTY {
+        let scope = RecordScope::TTY {
             tty_device: 12,
             session_pid: 1234,
             init_time: some_time,
         };
-        let sample = SessionRecord::init(limit, 1234, some_time);
+        let sample = SessionRecord::init(scope, 1234, some_time);
 
         let dur = Duration::seconds(30);
 
@@ -624,19 +624,19 @@ mod tests {
         let mut data = vec![];
         let c = Cursor::new(&mut data);
         let mut srf = SessionRecordFile::new(c, timeout).unwrap();
-        let tty_limit = RecordLimit::TTY {
+        let tty_scope = RecordScope::TTY {
             tty_device: 0,
             session_pid: 0,
             init_time: SystemTime::new(0, 0),
         };
         let target_user = 2424;
-        let res = srf.create(tty_limit, target_user).unwrap();
+        let res = srf.create(tty_scope, target_user).unwrap();
         let CreateResult::Created { time } = res else {
             panic!("Expected record to be created");
         };
 
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let second = srf.touch(tty_limit, target_user).unwrap();
+        let second = srf.touch(tty_scope, target_user).unwrap();
         let TouchResult::Updated { old_time, new_time } = second else {
             panic!("Expected record to be updated");
         };
@@ -644,7 +644,7 @@ mod tests {
         assert_ne!(old_time, new_time);
 
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let res = srf.create(tty_limit, target_user).unwrap();
+        let res = srf.create(tty_scope, target_user).unwrap();
         let CreateResult::Updated { .. } = res else {
             panic!("Expected record to be updated");
         };

@@ -3,21 +3,21 @@ use std::fs::File;
 use sudo_common::{error::Error, Context};
 use sudo_system::{
     time::Duration,
-    timestamp::{RecordLimit, SessionRecordFile, TouchResult},
+    timestamp::{RecordScope, SessionRecordFile, TouchResult},
     Process, WithProcess,
 };
 
-/// Tries to determine a record match limit for the current context.
+/// Tries to determine a record match scope for the current context.
 /// This should never produce an error since any actual error should just be
 /// ignored and no session record file should be used in that case.
-fn determine_record_limit(context: &Context) -> Option<RecordLimit> {
+fn determine_record_scope(context: &Context) -> Option<RecordScope> {
     let tty = (
         context.process.term_foreground_group_id,
         Process::tty_device_id(WithProcess::Current),
     );
     if let (Some(foreground_pid), Ok(Some(tty_device))) = tty {
         if let Ok(init_time) = Process::starting_time(WithProcess::Other(foreground_pid)) {
-            Some(RecordLimit::TTY {
+            Some(RecordScope::TTY {
                 tty_device,
                 session_pid: context.process.session_id,
                 init_time,
@@ -29,7 +29,7 @@ fn determine_record_limit(context: &Context) -> Option<RecordLimit> {
         }
     } else if let Some(parent_pid) = context.process.parent_pid {
         if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
-            Some(RecordLimit::PPID {
+            Some(RecordScope::PPID {
                 group_pid: parent_pid,
                 init_time,
             })
@@ -46,7 +46,7 @@ fn determine_record_limit(context: &Context) -> Option<RecordLimit> {
 /// This should determine what the authentication status for the given record
 /// match limit and origin/target user from the context is.
 fn determine_auth_status(
-    record_for: Option<RecordLimit>,
+    record_for: Option<RecordScope>,
     context: &Context,
 ) -> (bool, Option<SessionRecordFile<File>>) {
     if let Some(record_for) = record_for {
@@ -88,15 +88,15 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
     pam.mark_allow_null_auth_token(false);
 
     // determine session limit
-    let record_for = determine_record_limit(context);
+    let scope = determine_record_scope(context);
 
     // only if there is an interactive terminal or parent process we can store session information
-    let (must_authenticate, records_file) = determine_auth_status(record_for, context);
+    let (must_authenticate, records_file) = determine_auth_status(scope, context);
 
     if must_authenticate {
         pam.authenticate()?;
-        if let (Some(mut session_records), Some(record_for)) = (records_file, record_for) {
-            match session_records.create(record_for, target_user) {
+        if let (Some(mut session_records), Some(scope)) = (records_file, scope) {
+            match session_records.create(scope, target_user) {
                 Ok(_) => (),
                 Err(e) => {
                     // TODO: replace with logging infra
