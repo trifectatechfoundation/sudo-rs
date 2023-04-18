@@ -540,6 +540,18 @@ impl From<&'_ str> for TextFile {
     }
 }
 
+impl<S: AsRef<str>, const N: usize> From<[S; N]> for TextFile {
+    fn from(contents: [S; N]) -> Self {
+        let mut buf = String::new();
+        for s in contents {
+            buf += s.as_ref();
+            buf += "\n";
+        }
+
+        buf.into()
+    }
+}
+
 /// creates a directory at the specified `path`
 #[allow(non_snake_case)]
 pub fn Directory(path: impl AsRef<str>) -> Directory {
@@ -972,7 +984,7 @@ mod tests {
 
         Ok(())
     }
-    
+
     #[test]
     fn run_as_nonexistent_user() -> Result<()> {
         let env = EnvBuilder::default().build()?;

@@ -4,8 +4,18 @@ use sudo_test::{Command, Env, TextFile};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "snapshots/flag_shell",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
-#[ignore]
 fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_database() -> Result<()>
 {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
@@ -30,7 +40,6 @@ fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_data
 }
 
 #[test]
-#[ignore]
 fn if_shell_env_var_is_set_then_uses_it() -> Result<()> {
     let shell_path = "/root/my-shell";
     let my_shell = "#!/bin/sh
@@ -51,7 +60,6 @@ echo $0";
 }
 
 #[test]
-#[ignore]
 fn argument_is_invoked_with_dash_c_flag() -> Result<()> {
     let shell_path = "/root/my-shell";
     let my_shell = "#!/bin/sh
@@ -72,7 +80,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn arguments_are_concatenated_with_whitespace() -> Result<()> {
     let shell_path = "/root/my-shell";
     let my_shell = "#!/bin/sh
@@ -93,7 +100,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn arguments_are_escaped_with_backslashes() -> Result<()> {
     let shell_path = "/root/my-shell";
     let my_shell = "#!/bin/sh
@@ -114,7 +120,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn alphanumerics_underscores_hyphens_and_dollar_signs_are_not_escaped() -> Result<()> {
     let shell_path = "/root/my-shell";
     let my_shell = "#!/bin/sh
@@ -135,7 +140,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn shell_is_not_invoked_as_a_login_shell() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
 
@@ -165,7 +169,7 @@ fn shell_does_not_exist() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: /root/my-shell: command not found");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -187,14 +191,13 @@ fn shell_is_not_executable() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: /root/my-shell: command not found");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
 }
 
 #[test]
-#[ignore]
 fn shell_with_open_permissions_is_accepted() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)

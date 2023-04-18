@@ -2,7 +2,19 @@
 
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, GROUPNAME, PAMD_SUDO_PAM_PERMIT, USERNAME};
+use crate::{Result, GROUPNAME, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
+
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            filters => vec![(r"[[:xdigit:]]{12}", "[host]")],
+            prepend_module_to_snapshot => false,
+            snapshot_path => "../snapshots/sudoers/run_as",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
 
 // "If both Runas_Lists are empty, the command may only be run as the invoking user."
 #[test]
@@ -48,10 +60,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as ferris"
-        );
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -107,10 +116,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as ghost"
-        );
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -126,10 +132,7 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as root"
-        );
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -190,7 +193,7 @@ fn when_specific_group_then_as_that_group_is_allowed() -> Result<()> {
 
 #[test]
 fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> {
-    let env = Env(format!("ALL ALL=(:{GROUPNAME})  ALL"))
+    let env = Env([&format!("ALL ALL=(:{GROUPNAME})  ALL"), SUDOERS_NO_LECTURE])
         // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         .user(USERNAME)
@@ -208,7 +211,7 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> 
         assert_eq!(Some(1), output.status().code());
 
         if sudo_test::is_original_sudo() {
-            assert_contains!(output.stderr(), "is not allowed to execute '/bin/true' as ");
+            assert_snapshot!(output.stderr());
         }
     }
 
@@ -217,7 +220,7 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> 
 
 #[test]
 fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()> {
-    let env = Env(format!("ALL ALL=(:{GROUPNAME}) ALL"))
+    let env = Env([&format!("ALL ALL=(:{GROUPNAME})  ALL"), SUDOERS_NO_LECTURE])
         // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         .user(USERNAME)
@@ -235,10 +238,7 @@ fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()>
         assert_eq!(Some(1), output.status().code());
 
         if sudo_test::is_original_sudo() {
-            assert_contains!(
-                output.stderr(),
-                " is not allowed to execute '/bin/true' as "
-            );
+            assert_snapshot!(output.stderr());
         }
     }
 

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use sudo_cli::SudoOptions;
 use sudo_common::{CommandAndArguments, Context, Environment};
 use sudo_env::environment::get_target_environment;
-use sudo_system::{Group, User};
+use sudo_system::{Group, Process, User};
 
 const TESTS: &str = "
 > env
@@ -76,7 +76,8 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
 fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
     let command =
-        CommandAndArguments::try_from_args(sudo_options.external_args.clone(), &path).unwrap();
+        CommandAndArguments::try_from_args(None, sudo_options.external_args.clone(), &path)
+            .unwrap();
 
     let current_user = User {
         uid: 1000,
@@ -131,11 +132,10 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
         set_home: sudo_options.set_home,
         preserve_env_list: sudo_options.preserve_env_list.clone(),
         path,
-        login: sudo_options.login,
-        shell: sudo_options.shell,
+        launch: sudo_common::context::LaunchType::Direct,
         chdir: sudo_options.directory.clone(),
         stdin: sudo_options.stdin,
-        pid: std::process::id() as i32,
+        process: Process::new(),
     }
 }
 

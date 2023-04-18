@@ -2,6 +2,17 @@ use sudo_test::{Command, Env, TextFile};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "../snapshots/sudoers/secure_path",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn if_unset_searches_program_in_invoking_users_path() -> Result<()> {
     let path = "/root/my-script";
@@ -65,7 +76,7 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: true: command not found");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())

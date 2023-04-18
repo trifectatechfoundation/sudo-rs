@@ -3,7 +3,18 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PAMD_SUDO_PAM_PERMIT, USERNAME};
+use crate::{Result, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
+
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "../snapshots/sudoers/user_list",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
 
 #[test]
 fn no_match() -> Result<()> {
@@ -13,7 +24,7 @@ fn no_match() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "root is not in the sudoers file");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -119,7 +130,7 @@ fn double_negative_is_positive() -> Result<()> {
 
 #[test]
 fn negation_excludes_group_members() -> Result<()> {
-    let env = Env("%users, !ghost ALL=(ALL:ALL) ALL")
+    let env = Env(["%users, !ghost ALL=(ALL:ALL) ALL", SUDOERS_NO_LECTURE])
         // use PAM to avoid `ghost` getting a password prompt
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         // the primary group of all new users is `users`
@@ -142,7 +153,7 @@ fn negation_excludes_group_members() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "ghost is not in the sudoers file");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -172,9 +183,11 @@ fn negation_is_order_sensitive() -> Result<()> {
 
 #[test]
 fn user_alias_works() -> Result<()> {
-    let env = Env("
-User_Alias ADMINS = %users, !ghost
-ADMINS ALL=(ALL:ALL) ALL")
+    let env = Env([
+        "User_Alias ADMINS = %users, !ghost",
+        "ADMINS ALL=(ALL:ALL) ALL",
+        SUDOERS_NO_LECTURE,
+    ])
     // use PAM to avoid password prompts
     .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
     // the primary group of all new users is `users`
@@ -197,7 +210,7 @@ ADMINS ALL=(ALL:ALL) ALL")
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "ghost is not in the sudoers file");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -239,7 +252,7 @@ User_Alias ADMINS = %users, !ghost
 
 #[test]
 fn negated_subgroup() -> Result<()> {
-    let env = Env("%users, !%rustaceans ALL=(ALL:ALL) ALL")
+    let env = Env(["%users, !%rustaceans ALL=(ALL:ALL) ALL", SUDOERS_NO_LECTURE])
         // use PAM to avoid password prompts
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         // the primary group of all new users is `users`
@@ -263,7 +276,7 @@ fn negated_subgroup() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "ferris is not in the sudoers file");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -271,7 +284,7 @@ fn negated_subgroup() -> Result<()> {
 
 #[test]
 fn negated_supergroup() -> Result<()> {
-    let env = Env("%rustaceans, !%users ALL=(ALL:ALL) ALL")
+    let env = Env(["%rustaceans, !%users ALL=(ALL:ALL) ALL", SUDOERS_NO_LECTURE])
         // use PAM to avoid password prompts
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         // the primary group of all new users is `users`
@@ -287,7 +300,7 @@ fn negated_supergroup() -> Result<()> {
         assert_eq!(Some(1), output.status().code());
 
         if sudo_test::is_original_sudo() {
-            assert_contains!(output.stderr(), " is not in the sudoers file");
+            assert_snapshot!(output.stderr());
         }
     }
 

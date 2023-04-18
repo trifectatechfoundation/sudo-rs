@@ -1,0 +1,5 @@
+---
+source: sudo-compliance-tests/src/flag_login.rs
+expression: output.stderr()
+---
+sudo: /tmp/my-shell: command not found

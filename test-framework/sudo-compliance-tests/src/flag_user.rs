@@ -6,6 +6,17 @@ use crate::{
     SUDOERS_USER_ALL_NOPASSWD, USERNAME,
 };
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "snapshots/flag_user",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn root_can_become_another_user_by_name() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(USERNAME).build()?;
@@ -111,7 +122,7 @@ fn unassigned_user_id_is_rejected() -> Result<()> {
         assert_eq!(Some(1), output.status().code());
 
         if sudo_test::is_original_sudo() {
-            assert_contains!(output.stderr(), "sudo: unknown user: #1234");
+            assert_snapshot!(output.stderr());
         }
     }
 

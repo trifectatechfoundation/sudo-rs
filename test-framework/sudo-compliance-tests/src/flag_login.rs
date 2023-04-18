@@ -2,6 +2,17 @@ use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            prepend_module_to_snapshot => false,
+            snapshot_path => "snapshots/flag_login",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn if_home_directory_does_not_exist_executes_program_without_changing_the_working_directory(
 ) -> Result<()> {
@@ -17,10 +28,7 @@ fn if_home_directory_does_not_exist_executes_program_without_changing_the_workin
         assert!(output.status().success());
 
         if sudo_test::is_original_sudo() {
-            assert_contains!(
-                output.stderr(),
-                "sudo: unable to change directory to /home/ferris: No such file or directory"
-            );
+            assert_snapshot!(output.stderr());
         }
 
         let actual = output.stdout()?;
@@ -49,7 +57,6 @@ fn sets_home_directory_as_working_directory() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn uses_target_users_shell_in_passwd_database() -> Result<()> {
     let my_shell = "#!/bin/sh
 echo $0";
@@ -74,7 +81,6 @@ echo $0";
 }
 
 #[test]
-#[ignore]
 fn argument_is_invoke_with_dash_c_flag() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -95,7 +101,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn arguments_are_concatenated_with_whitespace() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -116,7 +121,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn arguments_are_escaped_with_backslashes() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -137,7 +141,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn alphanumerics_underscores_hyphens_and_dollar_signs_are_not_escaped() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
@@ -160,7 +163,6 @@ echo $@";
 }
 
 #[test]
-#[ignore]
 fn shell_is_invoked_as_a_login_shell() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(User(USERNAME).shell("/bin/bash"))
@@ -193,7 +195,7 @@ fn shell_does_not_exist() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: /tmp/my-shell: command not found");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -204,7 +206,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(shell_path, TextFile("#!/bin/sh").chmod("100"))
-        .user(User(USERNAME).shell(shell_path))
+        .user(User(USERNAME).shell(shell_path).create_home_directory())
         .build()?;
 
     let output = Command::new("sudo")
@@ -215,17 +217,13 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: unable to execute /tmp/my-shell: Permission denied"
-        );
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
 }
 
 #[test]
-#[ignore]
 fn shell_with_open_permissions_is_accepted() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)

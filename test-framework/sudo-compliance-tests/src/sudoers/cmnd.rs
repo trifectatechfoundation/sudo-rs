@@ -5,6 +5,18 @@ use sudo_test::{Command, Env};
 
 use crate::{Result, USERNAME};
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            filters => vec![(r"[[:xdigit:]]{12}", "[host]")],
+            prepend_module_to_snapshot => false,
+            snapshot_path => "../snapshots/sudoers/cmnd",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn given_specific_command_then_that_command_is_allowed() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) /bin/true").build()?;
@@ -25,10 +37,7 @@ fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as root"
-        );
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
@@ -57,7 +66,7 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "syntax error");
+        assert_snapshot!(output.stderr());
     }
 
     Ok(())
