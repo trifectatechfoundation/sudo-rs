@@ -134,6 +134,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
         path,
         launch: sudo_common::context::LaunchType::Direct,
         chdir: sudo_options.directory.clone(),
+        stdin: sudo_options.stdin,
         process: Process::new(),
     }
 }

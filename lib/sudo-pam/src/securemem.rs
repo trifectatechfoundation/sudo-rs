@@ -16,8 +16,9 @@ impl PamBuffer {
         result
     }
 
-    // initialized the buffer with already existing data (otherwise populating it is a bit hairy)
+    // initialize the buffer with already existing data (otherwise populating it is a bit hairy)
     // this is inferior than placing the data into the securebuffer directly
+    #[cfg(test)]
     pub fn new(mut src: impl AsMut<[u8]>) -> Self {
         let mut buffer = PamBuffer::default();
         let src = src.as_mut();
@@ -79,7 +80,7 @@ mod test {
     #[test]
     fn miri_test_leaky_cstring() {
         let test = |text: &str| unsafe {
-            let buf = PamBuffer::new(&mut text.to_string().as_bytes_mut());
+            let buf = PamBuffer::new(text.to_string().as_bytes_mut());
             assert_eq!(&buf[..text.len()], text.as_bytes());
             let ptr = buf.leak();
             let result = sudo_cutils::string_from_ptr(ptr as *mut _);

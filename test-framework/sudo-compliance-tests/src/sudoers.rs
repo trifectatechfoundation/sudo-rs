@@ -72,7 +72,6 @@ fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
 #[test]
 fn user_specifications_evaluated_bottom_to_top() -> Result<()> {
     let env = Env(format!(

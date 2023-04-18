@@ -80,7 +80,7 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
     let target_user = context.target_user.uid;
 
     // init pam
-    let mut pam = sudo_pam::PamContext::builder_cli()
+    let mut pam = sudo_pam::PamContext::builder_cli(context.stdin)
         .target_user(authenticate_for)
         .service_name("sudo")
         .build()?;

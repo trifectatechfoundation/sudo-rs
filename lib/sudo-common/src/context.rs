@@ -18,6 +18,7 @@ pub struct Context {
     pub command: CommandAndArguments,
     pub target_user: User,
     pub target_group: Group,
+    pub stdin: bool,
     // system
     pub hostname: String,
     pub path: String,
@@ -52,6 +53,7 @@ impl Context {
             preserve_env_list: sudo_options.preserve_env_list,
             launch,
             chdir: sudo_options.directory,
+            stdin: sudo_options.stdin,
             process: sudo_system::Process::new(),
         })
     }
