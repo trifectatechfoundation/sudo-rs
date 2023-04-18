@@ -439,6 +439,14 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
         stat = &stat[1..];
     }
 
+    // The expected field cannot be in the file anymore when we are at EOF
+    if stat.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Stat file was not of the expected format",
+        ));
+    }
+
     // we've now arrived at the field we are looking for, we now check how
     // long this field is by finding where the next space is
     let mut idx = 0;
