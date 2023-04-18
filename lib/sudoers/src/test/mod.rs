@@ -335,7 +335,7 @@ fn default_set_test() {
 #[test]
 fn default_multi_test() {
     let (Sudoers { settings, .. }, _) = analyze(sudoer![
-        "Defaults env_reset, umask = 0123, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR",
+        "Defaults env_reset, umask = 0123, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
     ]);
     assert!(settings.flags.contains("env_reset"));
     assert_eq!(settings.int_value["umask"], 0o123);

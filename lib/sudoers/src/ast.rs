@@ -524,8 +524,8 @@ fn get_directive(
 
     /// Parse "Defaults" entries
     fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
-        let pair = try_nonterminal(stream)?;
-        make(Defaults(vec![pair]))
+        let parameters = try_nonterminal(stream)?;
+        make(Defaults(parameters))
     }
 
     match keyword.as_str() {
@@ -677,6 +677,8 @@ impl Parse for (String, ConfigValue) {
         }
     }
 }
+
+impl Many for (String, ConfigValue) {}
 
 /// A bit of the hack to make semantic analysis easier: a CommandSpec has attributes, but most
 /// other elements that occur in a [crate::ast::Qualified] wrapper do not.
