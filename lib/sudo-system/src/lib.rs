@@ -5,6 +5,7 @@ use std::{
     mem::MaybeUninit,
     os::fd::AsRawFd,
     path::PathBuf,
+    ptr::null,
     str::FromStr,
 };
 
@@ -23,6 +24,48 @@ pub mod file;
 pub mod time;
 
 pub mod timestamp;
+
+pub fn write(fd: libc::c_int, buf: &[u8]) -> io::Result<libc::ssize_t> {
+    cerr(unsafe { libc::write(fd, buf.as_ptr().cast(), buf.len()) })
+}
+
+pub fn read(fd: libc::c_int, buf: &mut [u8]) -> io::Result<libc::ssize_t> {
+    cerr(unsafe { libc::read(fd, buf.as_mut_ptr().cast(), buf.len()) })
+}
+
+pub fn pipe() -> io::Result<(libc::c_int, libc::c_int)> {
+    let mut fds = [0; 2];
+    cerr(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
+    Ok((fds[0], fds[1]))
+}
+
+pub fn fork() -> io::Result<ProcessId> {
+    cerr(unsafe { libc::fork() })
+}
+
+pub fn setsid() -> io::Result<ProcessId> {
+    cerr(unsafe { libc::setsid() })
+}
+
+pub fn openpty() -> io::Result<(libc::c_int, libc::c_int)> {
+    let (mut master, mut slave) = (0, 0);
+    cerr(unsafe {
+        libc::openpty(
+            &mut master,
+            &mut slave,
+            null::<libc::c_char>() as *mut _,
+            null::<libc::termios>() as *mut _,
+            null::<libc::winsize>() as *mut _,
+        )
+    })?;
+
+    Ok((master, slave))
+}
+
+pub fn set_controlling_terminal(fd: libc::c_int) -> io::Result<()> {
+    cerr(unsafe { libc::ioctl(fd, libc::TIOCSCTTY, 0) })?;
+    Ok(())
+}
 
 pub fn hostname() -> String {
     let max_hostname_size = sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(256);
@@ -77,6 +120,11 @@ pub fn kill(pid: ProcessId, signal: c_int) -> c_int {
 pub fn getpgid(pid: ProcessId) -> ProcessId {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
     unsafe { libc::getpgid(pid) }
+}
+
+/// Set a process group ID.
+pub fn setpgid(pid: ProcessId, pgid: ProcessId) {
+    unsafe { libc::setpgid(pid, pgid) };
 }
 
 pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
