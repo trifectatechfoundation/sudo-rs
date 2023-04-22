@@ -33,6 +33,11 @@ pub fn read(fd: libc::c_int, buf: &mut [u8]) -> io::Result<libc::ssize_t> {
     cerr(unsafe { libc::read(fd, buf.as_mut_ptr().cast(), buf.len()) })
 }
 
+pub fn close(fd: libc::c_int) -> io::Result<()> {
+    cerr(unsafe { libc::close(fd) })?;
+    Ok(())
+}
+
 pub fn pipe() -> io::Result<(libc::c_int, libc::c_int)> {
     let mut fds = [0; 2];
     cerr(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
