@@ -56,16 +56,23 @@ impl Default for Tag {
 }
 
 /// Commands with attached attributes.
-#[derive(Debug)]
-pub struct CommandSpec(pub Tag, pub Spec<Command>, pub Sha2);
+pub struct CommandSpec(pub Vec<Modifier>, pub Spec<Command>, pub Sha2);
 
-pub type PairVec<A, B> = Vec<(A, Vec<B>)>;
+impl std::fmt::Debug for CommandSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("CommandSpec")
+            .field(&format!("<{} modifiers>", self.0.len()))
+            .field(&self.1)
+            .field(&self.2)
+            .finish()
+    }
+}
 
 /// The main AST object for one sudoer-permission line
 #[derive(Debug)]
 pub struct PermissionSpec {
     pub users: SpecList<UserSpecifier>,
-    pub permissions: PairVec<SpecList<Hostname>, (Option<RunAs>, Vec<CommandSpec>)>,
+    pub permissions: Vec<(SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>)>,
 }
 
 #[derive(Debug)]
@@ -287,9 +294,7 @@ impl Parse for MetaOrTag {
 /// commandspec = [tag modifiers]*, command
 /// ```
 
-pub struct ProtoCommandSpec(Vec<Modifier>, Spec<Command>, Sha2);
-
-impl Parse for ProtoCommandSpec {
+impl Parse for CommandSpec {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let no_hash = Sha2(Box::default());
         let mut tags = vec![];
@@ -297,9 +302,9 @@ impl Parse for ProtoCommandSpec {
             use Qualified::Allow;
             match keyword {
                 Meta::Only(modifier) => tags.push(modifier),
-                Meta::All => return make(ProtoCommandSpec(tags, Allow(Meta::All), no_hash)),
+                Meta::All => return make(CommandSpec(tags, Allow(Meta::All), no_hash)),
                 Meta::Alias(name) => {
-                    return make(ProtoCommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
+                    return make(CommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
                 }
             }
             if tags.len() > Identifier::LIMIT {
@@ -337,54 +342,56 @@ impl Parse for ProtoCommandSpec {
 
         let cmd: Spec<Command> = expect_nonterminal(stream)?;
 
-        make(ProtoCommandSpec(tags, cmd, digest))
-    }
-}
-
-/// A manual implementation (instead of using Many) to chain Tag's together.
-impl Parse for Vec<CommandSpec> {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        impl Many for ProtoCommandSpec {}
-        let cmdspecs = try_nonterminal::<Vec<ProtoCommandSpec>>(stream)?;
-
-        let mut tag = Default::default();
-        let chained_specs = cmdspecs
-            .into_iter()
-            .map(|ProtoCommandSpec(modifiers, cmd, digest)| {
-                for f in modifiers {
-                    f(&mut tag);
-                }
-                CommandSpec(tag.clone(), cmd, digest)
-            })
-            .collect();
-
-        make(chained_specs)
+        make(CommandSpec(tags, cmd, digest))
     }
 }
 
 /// Parsing for a tuple of hostname, runas specifier and commandspec.
 /// grammar:
 /// ```text
-/// (host,runas,commandspec) = hostlist, "=", runas?, commandspec
+/// (host,runas,commandspec) = hostlist, "=", [runas?, commandspec]+
 /// ```
 
-impl Parse for (SpecList<Hostname>, PairVec<Option<RunAs>, CommandSpec>) {
+impl Parse for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let hosts = try_nonterminal(stream)?;
         expect_syntax('=', stream)?;
-        let runas = maybe(try_nonterminal(stream))?;
-        let cmds = expect_nonterminal(stream)?;
+        let runas_cmds = expect_nonterminal(stream)?;
 
-        make((hosts, vec![(runas, cmds)]))
+        make((hosts, runas_cmds))
     }
 }
 
 /// A hostname, runas specifier, commandspec combination can occur multiple times in a single
 /// sudoer line (seperated by ":")
-
-impl Many for (SpecList<Hostname>, PairVec<Option<RunAs>, CommandSpec>) {
+impl Many for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
     const SEP: char = ':';
 }
+
+/// Parsing for a tuple of hostname, runas specifier and commandspec.
+/// grammar:
+/// ```text
+/// (runas,commandspec) = runas?, commandspec
+/// ```
+impl Parse for (Option<RunAs>, CommandSpec) {
+    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+        let runas: Option<RunAs> = try_nonterminal(stream)?;
+        let cmd;
+        if runas.is_some() {
+            cmd = expect_nonterminal(stream)?
+        } else {
+            cmd = try_nonterminal(stream)?
+        };
+
+        make((runas, cmd))
+    }
+}
+
+/// A runas specifier, commandspec combination can occur multiple times in a single
+/// sudoer line (seperated by ","); there is some ambiguity in the original grammar:
+/// commands can also occur multiple times; we parse that here as if they have an omitted
+/// "runas" specifier (which has to be placed correctly during the AST analysis phase)
+impl Many for (Option<RunAs>, CommandSpec) {}
 
 /// grammar:
 /// ```text

@@ -140,10 +140,10 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         .flatten()
         .filter_map(|(hosts, runas_cmds)| {
             find_item(hosts, &match_token(on_host), &host_aliases)?;
-            Some(runas_cmds)
+            Some(distribute_tags(runas_cmds))
         })
         .flatten()
-        .filter_map(|(runas, cmds)| {
+        .filter_map(|(runas, cmdspec)| {
             if let Some(RunAs { users, groups }) = runas {
                 if !users.is_empty() || request.user != am_user {
                     find_item(users, &match_user(request.user), &runas_user_aliases)?
@@ -155,12 +155,32 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
                 None?;
             }
 
-            Some(cmds)
+            Some(cmdspec)
         })
-        .flatten()
-        .filter(|CommandSpec(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
+        .filter(|(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
 
     find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases)
+}
+
+/// Process a raw parsed AST bit of RunAs + Command specifications:
+/// - RunAs specifications distribute over the commands that follow (until overridden)
+/// - Tags accumulate over the entire line
+
+fn distribute_tags<'a>(
+    runas_cmds: &'a Vec<(Option<RunAs>, CommandSpec)>,
+) -> impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>, &'a Sha2))> + DoubleEndedIterator
+{
+    let mut last_runas = None;
+    let mut tag = Default::default();
+    runas_cmds
+        .iter()
+        .map(move |(runas, CommandSpec(mods, cmd, digest))| {
+            last_runas = runas.as_ref().or(last_runas);
+            for f in mods {
+                f(&mut tag);
+            }
+            (last_runas, (tag.clone(), cmd, digest))
+        })
 }
 
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
@@ -179,7 +199,7 @@ where
     Iter::IntoIter: DoubleEndedIterator,
 {
     for item in items.into_iter().rev() {
-        let (judgement, who) = match item.as_item() {
+        let (judgement, who) = match item.clone().as_item() {
             Qualified::Forbid(x) => (None, x),
             Qualified::Allow(x) => (Some(item.as_info()), x),
         };
@@ -195,7 +215,7 @@ where
 }
 
 /// A interface to access optional "satellite data"
-trait WithInfo: Copy {
+trait WithInfo: Clone {
     type Item;
     type Info;
     fn as_item(self) -> Self::Item;
@@ -214,7 +234,7 @@ impl<'a, T> WithInfo for &'a Spec<T> {
 }
 
 /// A commandspec can be "tagged"
-impl<'a> WithInfo for &'a CommandSpec {
+impl<'a, T> WithInfo for (Tag, &'a Spec<Command>, &'a T) {
     type Item = &'a Spec<Command>;
     type Info = Tag;
     fn as_item(self) -> &'a Spec<Command> {
@@ -225,6 +245,7 @@ impl<'a> WithInfo for &'a CommandSpec {
     }
 }
 
+/// Now follow a collection of functions used as closures for `find_item`
 fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(id) => match_identifier(user, id),

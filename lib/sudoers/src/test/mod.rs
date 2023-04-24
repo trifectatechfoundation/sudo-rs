@@ -3,16 +3,6 @@ use crate::ast;
 use basic_parser::{parse_eval, parse_lines, parse_string};
 use std::iter;
 
-// parsing a single CommandSpec is useful in some tests
-impl basic_parser::Parse for CommandSpec {
-    fn parse(stream: &mut impl basic_parser::CharStream) -> basic_parser::Parsed<Self> {
-        let vec: Vec<_> = basic_parser::try_nonterminal(stream)?;
-        assert_eq!(vec.len(), 1);
-        let result = vec.into_iter().next().unwrap();
-        Ok(result)
-    }
-}
-
 #[derive(PartialEq)]
 struct Named(&'static str);
 
