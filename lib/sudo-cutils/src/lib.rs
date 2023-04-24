@@ -3,9 +3,9 @@ use std::{
     os::unix::prelude::OsStrExt,
 };
 
-pub fn cerr<Int: Copy + Into<libc::c_long>>(res: Int) -> std::io::Result<Int> {
-    match res.into() {
-        -1 => Err(std::io::Error::last_os_error()),
+pub fn cerr<Int: Copy + TryInto<libc::c_long>>(res: Int) -> std::io::Result<Int> {
+    match res.try_into() {
+        Ok(-1) => Err(std::io::Error::last_os_error()),
         _ => Ok(res),
     }
 }
