@@ -43,7 +43,12 @@ mod names {
         const DESCRIPTION: &'static str = tokens::Command::DESCRIPTION;
     }
 
-    impl UserFriendly for (SpecList<tokens::Hostname>, Option<RunAs>, Vec<CommandSpec>) {
+    impl UserFriendly
+        for (
+            SpecList<tokens::Hostname>,
+            PairVec<Option<RunAs>, CommandSpec>,
+        )
+    {
         const DESCRIPTION: &'static str = tokens::Hostname::DESCRIPTION;
     }
 

@@ -138,8 +138,12 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
             Some(&sudo.permissions)
         })
         .flatten()
-        .filter_map(|(hosts, runas, cmds)| {
+        .filter_map(|(hosts, runas_cmds)| {
             find_item(hosts, &match_token(on_host), &host_aliases)?;
+            Some(runas_cmds)
+        })
+        .flatten()
+        .filter_map(|(runas, cmds)| {
             if let Some(RunAs { users, groups }) = runas {
                 if !users.is_empty() || request.user != am_user {
                     find_item(users, &match_user(request.user), &runas_user_aliases)?

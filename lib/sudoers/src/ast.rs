@@ -59,11 +59,13 @@ impl Default for Tag {
 #[derive(Debug)]
 pub struct CommandSpec(pub Tag, pub Spec<Command>, pub Sha2);
 
+pub type PairVec<A, B> = Vec<(A, Vec<B>)>;
+
 /// The main AST object for one sudoer-permission line
 #[derive(Debug)]
 pub struct PermissionSpec {
     pub users: SpecList<UserSpecifier>,
-    pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
+    pub permissions: PairVec<SpecList<Hostname>, (Option<RunAs>, Vec<CommandSpec>)>,
 }
 
 #[derive(Debug)]
@@ -366,21 +368,21 @@ impl Parse for Vec<CommandSpec> {
 /// (host,runas,commandspec) = hostlist, "=", runas?, commandspec
 /// ```
 
-impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
+impl Parse for (SpecList<Hostname>, PairVec<Option<RunAs>, CommandSpec>) {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let hosts = try_nonterminal(stream)?;
         expect_syntax('=', stream)?;
         let runas = maybe(try_nonterminal(stream))?;
         let cmds = expect_nonterminal(stream)?;
 
-        make((hosts, runas, cmds))
+        make((hosts, vec![(runas, cmds)]))
     }
 }
 
 /// A hostname, runas specifier, commandspec combination can occur multiple times in a single
 /// sudoer line (seperated by ":")
 
-impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
+impl Many for (SpecList<Hostname>, PairVec<Option<RunAs>, CommandSpec>) {
     const SEP: char = ':';
 }
 
