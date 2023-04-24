@@ -1,10 +1,3 @@
-// audit!("Bla bla {e}");
-// user!("Bla bla bla");
-// system!("Bla bla");
-
-// system_error!("Bla bla")
-// system_warn!("Bla bla")
-
 use std::io::Write;
 use std::ops::Deref;
 
@@ -115,5 +108,17 @@ impl log::Log for SudoLogger {
         for (_, l) in self.0.iter() {
             l.flush();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::SudoLogger;
+
+    #[test]
+    fn can_construct_logger() {
+        let logger = SudoLogger::new();
+
+        assert_eq!(logger.0.len(), 2);
     }
 }
