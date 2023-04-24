@@ -17,6 +17,7 @@ use signal_hook::{
     },
 };
 use sudo_common::{context::LaunchType::Login, Context, Environment};
+use sudo_log::{auth_warn, user_error, user_warn};
 use sudo_system::{getpgid, kill, set_target_user};
 
 /// We only handle the signals that ogsudo handles.
@@ -40,8 +41,8 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
         if path.exists() {
             command.current_dir(path);
         } else {
-            eprintln!(
-                "sudo: unable to change directory to {}: No such file or directory",
+            user_warn!(
+                "unable to change directory to {}: No such file or directory",
                 path.display()
             );
         }
@@ -122,7 +123,7 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
             };
 
             if status != 0 {
-                eprintln!("kill failed");
+                user_error!("kill failed");
             }
         }
     }
@@ -146,7 +147,7 @@ fn is_self_terminating(process: Option<Process>, child_pid: i32, sudo_pid: i32) 
                     return true;
                 }
             } else {
-                eprintln!("Could not fetch process group ID");
+                auth_warn!("Could not fetch process group ID");
             }
         }
     }

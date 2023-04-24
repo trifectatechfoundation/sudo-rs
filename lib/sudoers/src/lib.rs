@@ -12,6 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
+use sudo_log::auth_warn;
 use sudo_system::interface::{UnixGroup, UnixUser};
 use tokens::*;
 
@@ -220,7 +221,7 @@ fn match_group_alias(group: &impl UnixGroup) -> impl Fn(&UserSpecifier) -> bool 
         /* the parser does not allow this, but can happen due to Runas_Alias,
          * see https://github.com/memorysafety/sudo-rs/issues/13 */
         _ => {
-            eprintln!("warning: ignoring %group syntax in runas_alias for checking sudo -g");
+            auth_warn!("warning: ignoring %group syntax in runas_alias for checking sudo -g");
             false
         }
     }
