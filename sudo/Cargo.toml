@@ -16,3 +16,4 @@ sudo-cli.workspace = true
 sudoers.workspace = true
 sudo-pam.workspace = true
 sudo-exec.workspace = true
+sudo-log.workspace = true
