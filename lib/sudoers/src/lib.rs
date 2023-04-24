@@ -135,29 +135,23 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         .iter()
         .filter_map(|sudo| {
             find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
+            Some(&sudo.permissions)
+        })
+        .flatten()
+        .filter_map(|(hosts, runas, cmds)| {
+            find_item(hosts, &match_token(on_host), &host_aliases)?;
+            if let Some(RunAs { users, groups }) = runas {
+                if !users.is_empty() || request.user != am_user {
+                    *find_item(users, &match_user(request.user), &runas_user_aliases)?
+                }
+                if !in_group(request.user, request.group) {
+                    *find_item(groups, &match_group(request.group), &runas_group_aliases)?
+                }
+            } else if !(request.user.is_root() && in_group(request.user, request.group)) {
+                None?;
+            }
 
-            let matching_rules = sudo
-                .permissions
-                .iter()
-                .filter_map(|(hosts, runas, cmds)| {
-                    find_item(hosts, &match_token(on_host), &host_aliases)?;
-
-                    if let Some(RunAs { users, groups }) = runas {
-                        if !users.is_empty() || request.user != am_user {
-                            *find_item(users, &match_user(request.user), &runas_user_aliases)?
-                        }
-                        if !in_group(request.user, request.group) {
-                            *find_item(groups, &match_group(request.group), &runas_group_aliases)?
-                        }
-                    } else if !(request.user.is_root() && in_group(request.user, request.group)) {
-                        None?;
-                    }
-
-                    Some(cmds)
-                })
-                .flatten();
-
-            Some(matching_rules.collect::<Vec<_>>())
+            Some(cmds)
         })
         .flatten()
         .filter(|CommandSpec(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
