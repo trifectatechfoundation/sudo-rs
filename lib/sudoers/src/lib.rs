@@ -355,33 +355,9 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                         Sudo::Decl(CmndAlias(def)) => self.aliases.cmnd.1.push(def),
                         Sudo::Decl(RunasAlias(def)) => self.aliases.runas.1.push(def),
 
-                        Sudo::Decl(Defaults(name, Flag(value))) => {
-                            if value {
-                                self.settings.flags.insert(name);
-                            } else {
-                                self.settings.flags.remove(&name);
-                            }
-                        }
-                        Sudo::Decl(Defaults(name, Text(value))) => {
-                            self.settings.str_value.insert(name, value);
-                        }
-                        Sudo::Decl(Defaults(name, Enum(value))) => {
-                            self.settings.enum_value.insert(name, value);
-                        }
-                        Sudo::Decl(Defaults(name, Num(value))) => {
-                            self.settings.int_value.insert(name, value);
-                        }
-
-                        Sudo::Decl(Defaults(name, List(mode, values))) => {
-                            let slot: &mut _ = self.settings.list.entry(name).or_default();
-                            match mode {
-                                Mode::Set => *slot = values.into_iter().collect(),
-                                Mode::Add => slot.extend(values),
-                                Mode::Del => {
-                                    for key in values {
-                                        slot.remove(&key);
-                                    }
-                                }
+                        Sudo::Decl(Defaults(params)) => {
+                            for (name, value) in params {
+                                self.set_default(name, value)
                             }
                         }
 
@@ -416,6 +392,39 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                         diagnostics.push(Error(Some(pos), error))
                     }
                     Err(_) => panic!("internal parser error"),
+                }
+            }
+        }
+
+        fn set_default(&mut self, name: String, value: ConfigValue) {
+            match value {
+                Flag(value) => {
+                    if value {
+                        self.settings.flags.insert(name);
+                    } else {
+                        self.settings.flags.remove(&name);
+                    }
+                }
+                List(mode, values) => {
+                    let slot: &mut _ = self.settings.list.entry(name).or_default();
+                    match mode {
+                        Mode::Set => *slot = values.into_iter().collect(),
+                        Mode::Add => slot.extend(values),
+                        Mode::Del => {
+                            for key in values {
+                                slot.remove(&key);
+                            }
+                        }
+                    }
+                }
+                Text(value) => {
+                    self.settings.str_value.insert(name, value);
+                }
+                Enum(value) => {
+                    self.settings.enum_value.insert(name, value);
+                }
+                Num(value) => {
+                    self.settings.int_value.insert(name, value);
                 }
             }
         }

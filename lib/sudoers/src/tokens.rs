@@ -245,7 +245,7 @@ impl Token for StringParameter {
 
     const ESCAPE: char = '\\';
     fn escaped(c: char) -> bool {
-        "\\\" #".contains(c)
+        "\\\" #,".contains(c)
     }
 }
 

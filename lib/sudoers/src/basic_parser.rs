@@ -47,11 +47,11 @@ pub fn reject<T>() -> Parsed<T> {
 
 macro_rules! unrecoverable {
     (pos=$pos:expr, $stream:ident, $($str:expr),*) => {
-        return Err(crate::basic_parser::Status::Fatal($pos .. $stream.get_pos(), format![$($str),*]))
+        return Err(crate::basic_parser::Status::Fatal($pos .. CharStream::get_pos($stream), format![$($str),*]))
     };
     ($stream:ident, $($str:expr),*) => {
         {
-            let pos = $stream.get_pos();
+            let pos = CharStream::get_pos($stream);
             return Err(crate::basic_parser::Status::Fatal(pos .. pos, format![$($str),*]))
         }
     };

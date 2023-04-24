@@ -48,10 +48,10 @@ impl UnixUser for Named {
 
 impl UnixGroup for Named {
     fn as_gid(&self) -> sudo_system::interface::GroupId {
-        dummy_cksum(&self.0)
+        dummy_cksum(self.0)
     }
     fn try_as_name(&self) -> Option<&str> {
-        Some(&self.0)
+        Some(self.0)
     }
 }
 
@@ -333,6 +333,20 @@ fn default_set_test() {
 }
 
 #[test]
+fn default_multi_test() {
+    let (Sudoers { settings, .. }, _) = analyze(sudoer![
+        "Defaults env_reset, umask = 0123, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
+    ]);
+    assert!(settings.flags.contains("env_reset"));
+    assert_eq!(settings.int_value["umask"], 0o123);
+    assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));
+    assert_eq!(
+        settings.list["env_keep"],
+        ["FOO".to_string()].into_iter().collect()
+    );
+}
+
+#[test]
 #[should_panic]
 fn invalid_directive() {
     parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");
@@ -352,10 +366,7 @@ impl<T> Neg for Qualified<T> {
 
 #[test]
 fn directive_test() {
-    let _everybody = parse_eval::<Spec<UserSpecifier>>("ALL");
-    let _nobody = parse_eval::<Spec<UserSpecifier>>("!ALL");
-    let y = |name| parse_eval::<Spec<UserSpecifier>>(name);
-    let _not = |name| -parse_eval::<Spec<UserSpecifier>>(name);
+    let y = parse_eval::<Spec<UserSpecifier>>;
     match parse_eval::<ast::Sudo>("User_Alias HENK = user1, user2") {
         Sudo::Decl(Directive::UserAlias(Def(name, list))) => {
             assert_eq!(name, "HENK");
@@ -397,6 +408,12 @@ fn hashsign_error() {
 #[should_panic]
 fn include_regression() {
     let Sudo::Include(_) = parse_line("#4,#include foo") else { todo!() };
+}
+
+#[test]
+#[should_panic]
+fn defaults_regression() {
+    parse_line("Defaults .mymachine=ALL");
 }
 
 fn test_topo_sort(n: usize) {
@@ -473,9 +490,8 @@ fn fuzz_topo_sort(siz: usize) {
         data.push(stop());
 
         for i in (1..=siz).rev() {
-            let pos = n % i;
-            n = n / i;
-            data.swap(i - 1, pos);
+            data.swap(i - 1, n % i);
+            n /= i;
         }
 
         let table = data
