@@ -1,5 +1,5 @@
 use std::{
-    ffi::{c_int, CString},
+    ffi::{c_int, CStr, CString},
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
@@ -79,8 +79,8 @@ pub fn getpgid(pid: ProcessId) -> ProcessId {
     unsafe { libc::getpgid(pid) }
 }
 
-pub fn chdir(path: *const libc::c_char) -> io::Result<()> {
-    cerr(unsafe { libc::chdir(path) }).map(|_| ())
+pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
+    cerr(unsafe { libc::chdir(path.as_ref().as_ptr()) }).map(|_| ())
 }
 
 #[derive(Debug, Clone, PartialEq)]

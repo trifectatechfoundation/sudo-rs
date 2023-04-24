@@ -1,7 +1,7 @@
 #![deny(unsafe_code)]
 
 use std::{
-    ffi::{c_int, OsStr},
+    ffi::{c_int, CString, OsStr},
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::{CommandExt, ExitStatusExt},
@@ -55,7 +55,12 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
         #[allow(unsafe_code)]
         unsafe {
             command.pre_exec(move || {
-                if let Err(err) = sudo_system::chdir(path.as_os_str().as_bytes().as_ptr().cast()) {
+                let bytes = path.as_os_str().as_bytes();
+
+                let c_path = CString::new(bytes)
+                    .unwrap_or_else(|err| CString::new(&bytes[..err.nul_position()]).unwrap());
+
+                if let Err(err) = sudo_system::chdir(&c_path) {
                     user_warn!("unable to change directory to {}: {}", path.display(), err);
                 }
 
