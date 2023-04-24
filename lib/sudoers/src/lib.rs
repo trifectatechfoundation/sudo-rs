@@ -168,28 +168,30 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
 
-fn find_item<'a, Predicate, T, Permit: Tagged<T> + 'a>(
-    items: impl IntoIterator<Item = &'a Permit>,
+fn find_item<'a, Predicate, Iter, T, Permit: Tagged<T> + 'a>(
+    items: Iter,
     matches: &Predicate,
     aliases: &HashSet<String>,
 ) -> Option<&'a Permit::Flags>
 where
     Predicate: Fn(&T) -> bool,
+    Iter: IntoIterator<Item = &'a Permit>,
+    Iter::IntoIter: DoubleEndedIterator,
 {
-    let mut result = None;
-    for item in items {
+    for item in items.into_iter().rev() {
         let (judgement, who) = match item.into() {
             Qualified::Forbid(x) => (None, x),
             Qualified::Allow(x) => (Some(item.to_info()), x),
         };
         match who {
-            Meta::All => result = judgement,
-            Meta::Only(ident) if matches(ident) => result = judgement,
-            Meta::Alias(id) if aliases.contains(id) => result = judgement,
+            Meta::All => return judgement,
+            Meta::Only(ident) if matches(ident) => return judgement,
+            Meta::Alias(id) if aliases.contains(id) => return judgement,
             _ => {}
         };
     }
-    result
+
+    None
 }
 
 fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
