@@ -12,6 +12,7 @@ use std::{
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
+use libc::{O_CLOEXEC, O_NONBLOCK};
 use sudo_cutils::*;
 use time::SystemTime;
 
@@ -40,7 +41,7 @@ pub fn close(fd: libc::c_int) -> io::Result<()> {
 
 pub fn pipe() -> io::Result<(libc::c_int, libc::c_int)> {
     let mut fds = [0; 2];
-    cerr(unsafe { libc::pipe(fds.as_mut_ptr()) })?;
+    cerr(unsafe { libc::pipe2(fds.as_mut_ptr(), O_CLOEXEC | O_NONBLOCK) })?;
     Ok((fds[0], fds[1]))
 }
 

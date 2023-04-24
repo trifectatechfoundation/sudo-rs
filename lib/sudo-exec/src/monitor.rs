@@ -1,7 +1,6 @@
 use std::{
     ffi::c_int,
     io,
-    os::unix::process::ExitStatusExt,
     process::{exit, Child, Command},
     time::Duration,
 };
@@ -16,8 +15,10 @@ use signal_hook::{
 };
 use sudo_log::user_error;
 use sudo_system::{
-    close, getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid, write,
+    close, getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid,
 };
+
+use crate::ExitReason;
 
 pub(super) struct MonitorRelay {
     signals: SignalsInfo<WithOrigin>,
@@ -30,29 +31,37 @@ pub(super) struct MonitorRelay {
 
 impl MonitorRelay {
     pub(super) fn new(mut command: Command, pty_follower: c_int, tx: c_int) -> io::Result<Self> {
-        // Create new terminal session.
-        setsid()?;
+        let result = Ok(()).and_then(|()| {
+            // Create new terminal session.
+            setsid()?;
 
-        // Set the pty as the controlling terminal.
-        set_controlling_terminal(pty_follower)?;
+            // Set the pty as the controlling terminal.
+            set_controlling_terminal(pty_follower)?;
 
-        // spawn and exec to command
-        let command = command.spawn()?;
+            // spawn and exec to command
+            let command = command.spawn()?;
 
-        let command_pid = command.id() as ProcessId;
+            let command_pid = command.id() as ProcessId;
 
-        // set the process group ID of the command to the command PID.
-        let command_pgrp = command_pid;
-        setpgid(command_pid, command_pgrp);
+            // set the process group ID of the command to the command PID.
+            let command_pgrp = command_pid;
+            setpgid(command_pid, command_pgrp);
 
-        Ok(Self {
-            signals: SignalsInfo::<WithOrigin>::new(super::SIGNALS)?,
-            command_pid,
-            command_pgrp,
-            command,
-            pty_follower,
-            tx,
-        })
+            Ok(Self {
+                signals: SignalsInfo::<WithOrigin>::new(super::SIGNALS)?,
+                command_pid,
+                command_pgrp,
+                command,
+                pty_follower,
+                tx,
+            })
+        });
+
+        if result.is_err() {
+            ExitReason::Code(1).send(tx)?;
+        }
+
+        result
     }
 
     /// FIXME: this should return `!` but it is not stable yet.
@@ -70,8 +79,7 @@ impl MonitorRelay {
 
     fn wait_command(&mut self) -> io::Result<()> {
         if let Some(status) = self.command.try_wait()? {
-            write(self.tx, &status.into_raw().to_ne_bytes())?;
-            close(self.tx)?;
+            ExitReason::from_status(status).send(self.tx)?;
 
             // Given that we overwrote the default handlers for all the signals, we musti
             // emulate them to handle the signal we just sent correctly.
