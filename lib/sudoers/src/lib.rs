@@ -142,10 +142,10 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
             find_item(hosts, &match_token(on_host), &host_aliases)?;
             if let Some(RunAs { users, groups }) = runas {
                 if !users.is_empty() || request.user != am_user {
-                    *find_item(users, &match_user(request.user), &runas_user_aliases)?
+                    find_item(users, &match_user(request.user), &runas_user_aliases)?
                 }
                 if !in_group(request.user, request.group) {
-                    *find_item(groups, &match_group(request.group), &runas_group_aliases)?
+                    find_item(groups, &match_group(request.group), &runas_group_aliases)?
                 }
             } else if !(request.user.is_root() && in_group(request.user, request.group)) {
                 None?;
@@ -156,27 +156,28 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         .flatten()
         .filter(|CommandSpec(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
 
-    find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases).cloned()
+    find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases)
 }
 
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
 
-fn find_item<'a, Predicate, Iter, T, Permit: Tagged<T> + 'a>(
+fn find_item<'a, Predicate, Iter, T: 'a>(
     items: Iter,
     matches: &Predicate,
     aliases: &HashSet<String>,
-) -> Option<&'a Permit::Flags>
+) -> Option<<Iter::Item as WithInfo>::Info>
 where
     Predicate: Fn(&T) -> bool,
-    Iter: IntoIterator<Item = &'a Permit>,
+    Iter: IntoIterator,
+    Iter::Item: WithInfo<Item = &'a Spec<T>>,
     Iter::IntoIter: DoubleEndedIterator,
 {
     for item in items.into_iter().rev() {
-        let (judgement, who) = match item.into() {
+        let (judgement, who) = match item.as_item() {
             Qualified::Forbid(x) => (None, x),
-            Qualified::Allow(x) => (Some(item.to_info()), x),
+            Qualified::Allow(x) => (Some(item.as_info()), x),
         };
         match who {
             Meta::All => return judgement,
@@ -189,38 +190,34 @@ where
     None
 }
 
-/// A bit of the hack to make semantic analysis easier: a CommandSpec has attributes, but most
-/// other elements that occur in a [crate::ast::Qualified] wrapper do not.
-/// The [Tagged] trait allows getting these tags (defaulting to `()`, i.e. no attributes)
-
-pub trait Tagged<U> {
-    type Flags;
-    fn into(&self) -> &Spec<U>;
-    fn to_info(&self) -> &Self::Flags;
+/// A interface to access optional "satellite data"
+trait WithInfo: Copy {
+    type Item;
+    type Info;
+    fn as_item(self) -> Self::Item;
+    fn as_info(self) -> Self::Info;
 }
 
-pub const NO_TAG: &() = &();
-
-/// Default implementation
-
-impl<T> Tagged<T> for Spec<T> {
-    type Flags = ();
-    fn into(&self) -> &Spec<T> {
+/// A specific interface for `Spec<T>` --- we can't make a generic one;
+/// A Spec<T> does not contain any additional information.
+impl<'a, T> WithInfo for &'a Spec<T> {
+    type Item = &'a Spec<T>;
+    type Info = ();
+    fn as_item(self) -> &'a Spec<T> {
         self
     }
-    fn to_info(&self) -> &() {
-        NO_TAG
-    }
+    fn as_info(self) {}
 }
-/// Special implementation for [CommandSpec]
 
-impl Tagged<Command> for CommandSpec {
-    type Flags = Tag;
-    fn into(&self) -> &Spec<Command> {
+/// A commandspec can be "tagged"
+impl<'a> WithInfo for &'a CommandSpec {
+    type Item = &'a Spec<Command>;
+    type Info = Tag;
+    fn as_item(self) -> &'a Spec<Command> {
         &self.1
     }
-    fn to_info(&self) -> &Self::Flags {
-        &self.0
+    fn as_info(self) -> Tag {
+        self.0.clone()
     }
 }
 
