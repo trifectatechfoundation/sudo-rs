@@ -189,6 +189,41 @@ where
     None
 }
 
+/// A bit of the hack to make semantic analysis easier: a CommandSpec has attributes, but most
+/// other elements that occur in a [crate::ast::Qualified] wrapper do not.
+/// The [Tagged] trait allows getting these tags (defaulting to `()`, i.e. no attributes)
+
+pub trait Tagged<U> {
+    type Flags;
+    fn into(&self) -> &Spec<U>;
+    fn to_info(&self) -> &Self::Flags;
+}
+
+pub const NO_TAG: &() = &();
+
+/// Default implementation
+
+impl<T> Tagged<T> for Spec<T> {
+    type Flags = ();
+    fn into(&self) -> &Spec<T> {
+        self
+    }
+    fn to_info(&self) -> &() {
+        NO_TAG
+    }
+}
+/// Special implementation for [CommandSpec]
+
+impl Tagged<Command> for CommandSpec {
+    type Flags = Tag;
+    fn into(&self) -> &Spec<Command> {
+        &self.1
+    }
+    fn to_info(&self) -> &Self::Flags {
+        &self.0
+    }
+}
+
 fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(id) => match_identifier(user, id),
