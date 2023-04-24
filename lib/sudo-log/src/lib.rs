@@ -58,7 +58,7 @@ impl SudoLogger {
         logger
     }
 
-    pub fn init(self) {
+    pub fn into_global_logger(self) {
         log::set_boxed_logger(Box::new(self))
             .map(|()| log::set_max_level(log::LevelFilter::Trace))
             .expect("Could not set previously set logger");
