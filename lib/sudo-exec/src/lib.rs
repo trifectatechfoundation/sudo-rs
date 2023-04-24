@@ -1,4 +1,5 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
+
 use std::{
     ffi::{c_int, OsStr},
     io,
@@ -32,30 +33,37 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
     let mut command = Command::new(&ctx.command.command);
     // reset env and set filtered environment
     command.args(ctx.command.arguments).env_clear().envs(env);
-    if let Some(path) = ctx.chdir {
-        // change current directory, if requested
-        command.current_dir(path);
-    } else if ctx.launch == Login {
-        // change current directory, if `-i` is being used and the home directory exists.
-        let path = &ctx.target_user.home;
-        if path.exists() {
-            command.current_dir(path);
-        } else {
-            user_warn!(
-                "unable to change directory to {}: No such file or directory",
-                path.display()
-            );
+    // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
+    let path = ctx.chdir.as_ref().or_else(|| {
+        (ctx.launch == Login).then(|| {
+            // signal to the operating system that the command is a login shell by prefixing "-"
+            let mut process_name = ctx
+                .command
+                .command
+                .file_name()
+                .map(|osstr| osstr.as_bytes().to_vec())
+                .unwrap_or_else(Vec::new);
+            process_name.insert(0, b'-');
+            command.arg0(OsStr::from_bytes(&process_name));
+
+            &ctx.target_user.home
+        })
+    });
+
+    // change current directory if necessary.
+    if let Some(path) = path.cloned() {
+        #[allow(unsafe_code)]
+        unsafe {
+            command.pre_exec(move || {
+                if let Err(err) = sudo_system::chdir(path.as_os_str().as_bytes().as_ptr().cast()) {
+                    user_warn!("unable to change directory to {}: {}", path.display(), err);
+                }
+
+                Ok(())
+            });
         }
-        // signal to the operating system that the command is a login shell by prefixing "-"
-        let mut process_name = ctx
-            .command
-            .command
-            .file_name()
-            .map(|osstr| osstr.as_bytes().to_vec())
-            .unwrap_or_else(Vec::new);
-        process_name.insert(0, b'-');
-        command.arg0(OsStr::from_bytes(&process_name));
     }
+
     // set target user and groups
     set_target_user(&mut command, ctx.target_user, ctx.target_group);
     // spawn and exec to command

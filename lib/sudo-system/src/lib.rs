@@ -79,6 +79,10 @@ pub fn getpgid(pid: ProcessId) -> ProcessId {
     unsafe { libc::getpgid(pid) }
 }
 
+pub fn chdir(path: *const libc::c_char) -> io::Result<()> {
+    cerr(unsafe { libc::chdir(path) }).map(|_| ())
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct User {
     pub uid: UserId,
