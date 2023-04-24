@@ -11,12 +11,11 @@ use sudo_system::{
 /// This should never produce an error since any actual error should just be
 /// ignored and no session record file should be used in that case.
 fn determine_record_scope(context: &Context) -> Option<RecordScope> {
-    let tty = (
-        context.process.term_foreground_group_id,
-        Process::tty_device_id(WithProcess::Current),
-    );
-    if let (Some(foreground_pid), Ok(Some(tty_device))) = tty {
-        if let Ok(init_time) = Process::starting_time(WithProcess::Other(foreground_pid)) {
+    let tty = Process::tty_device_id(WithProcess::Current);
+    if let Ok(Some(tty_device)) = tty {
+        if let Ok(init_time) =
+            Process::starting_time(WithProcess::Other(context.process.session_id))
+        {
             Some(RecordScope::TTY {
                 tty_device,
                 session_pid: context.process.session_id,
