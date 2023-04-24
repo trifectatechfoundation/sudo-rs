@@ -88,9 +88,6 @@ do this then this software is not suited for you at this time."
 fn sudo_process() -> Result<std::process::ExitStatus, Error> {
     sudo_log::SudoLogger::new().init();
 
-    sudo_log::auth_info!("Whoopsydaisy");
-    sudo_log::user_error!("Nope!");
-
     // parse cli options
     let sudo_options = SudoOptions::parse();
 
