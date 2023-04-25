@@ -61,7 +61,12 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
                     CString::new(bytes).expect("nul byte found in provided directory path");
 
                 if let Err(err) = sudo_system::chdir(&c_path) {
-                    user_warn!("unable to change directory to {}: {}", path.display(), err);
+                    if ctx.chdir.is_some() {
+                        user_error!("unable to change directory to {}: {}", path.display(), err);
+                        return Err(err);
+                    } else {
+                        user_warn!("unable to change directory to {}: {}", path.display(), err);
+                    }
                 }
 
                 Ok(())
