@@ -30,8 +30,7 @@ pub type Parsed<T> = Result<T, Status>;
 
 pub type Position = std::ops::Range<(usize, usize)>;
 
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum Status {
     Fatal(Position, String), // not recoverable; stream in inconsistent state
     Reject,                  // parsing failed by no input consumed
@@ -101,16 +100,13 @@ pub fn accept_if(predicate: impl Fn(char) -> bool, stream: &mut impl CharStream)
 }
 
 /// Structures representing whitespace (trailing whitespace can contain comments)
-#[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 struct LeadingWhitespace;
 
-#[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 struct TrailingWhitespace;
 
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 struct Comment;
 
 /// Accept zero or more whitespace characters; fails if the whitespace is not "leading" to something
