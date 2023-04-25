@@ -57,8 +57,8 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<ExitStatus> {
             command.pre_exec(move || {
                 let bytes = path.as_os_str().as_bytes();
 
-                let c_path = CString::new(bytes)
-                    .unwrap_or_else(|err| CString::new(&bytes[..err.nul_position()]).unwrap());
+                let c_path =
+                    CString::new(bytes).expect("nul byte found in provided directory path");
 
                 if let Err(err) = sudo_system::chdir(&c_path) {
                     user_warn!("unable to change directory to {}: {}", path.display(), err);
