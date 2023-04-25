@@ -32,3 +32,19 @@ fn cwd_set_to_glob_change_dir() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore]
+fn cwd_fails_for_non_existant_dirs() -> Result<()> {
+    let env = Env(TextFile("ALL ALL=(ALL:ALL) CWD=* NOPASSWD: ALL")).build()?;
+    let output = Command::new("sudo")
+        .args(["--chdir", "/path/no/nowhere", "ls"])
+        .exec(&env)?;
+    assert_eq!(Some(1), output.status().code());
+    assert_eq!(false, output.status().success());
+    let stderr = output.stderr();
+    assert_contains!(stderr, "unable to change directory to /path/no/nowhere: No such file or directory");
+    assert_contains!(stderr, "unable to execute /bin/ls");
+
+    Ok(())
+}
