@@ -548,4 +548,19 @@ mod tests {
     fn get_process_tty_device() {
         assert!(super::Process::tty_device_id(WithProcess::Current).is_ok());
     }
+
+    #[test]
+    fn pgid_test() {
+        use super::getpgid;
+        assert_eq!(getpgid(std::process::id() as i32), getpgid(0));
+    }
+    #[test]
+    fn kill_test() {
+        let mut child = std::process::Command::new("/bin/sleep")
+            .arg("1")
+            .spawn()
+            .unwrap();
+        super::kill(child.id() as i32, 9);
+        assert!(!child.wait().unwrap().success());
+    }
 }
