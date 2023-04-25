@@ -9,5 +9,6 @@ publish.workspace = true
 
 [dependencies]
 signal-hook = { workspace = true, features = [ "extended-siginfo" ] }
-sudo-common.workspace = true 
-sudo-system.workspace = true 
+sudo-common.workspace = true
+sudo-system.workspace = true
+sudo-log.workspace = true

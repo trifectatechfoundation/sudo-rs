@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use sudo_log::auth_info;
+
 use crate::{
     audit::secure_open_cookie_file,
     file::Lockable,
@@ -26,22 +28,23 @@ impl SetLength for File {
 }
 
 #[derive(Debug)]
-pub struct SessionRecordFile<IO> {
+pub struct SessionRecordFile<'u, IO> {
     io: IO,
     timeout: Duration,
+    for_user: &'u str,
 }
 
-impl SessionRecordFile<File> {
+impl<'u> SessionRecordFile<'u, File> {
     const BASE_PATH: &str = "/var/run/sudo-rs/ts";
 
-    pub fn open_for_user(user: &str, timeout: Duration) -> io::Result<SessionRecordFile<File>> {
+    pub fn open_for_user(user: &'u str, timeout: Duration) -> io::Result<SessionRecordFile<File>> {
         let mut path = PathBuf::from(Self::BASE_PATH);
         path.push(user);
-        SessionRecordFile::new(secure_open_cookie_file(&path)?, timeout)
+        SessionRecordFile::new(user, secure_open_cookie_file(&path)?, timeout)
     }
 }
 
-impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
+impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, IO> {
     const FILE_VERSION: u16 = 1;
     const MAGIC_NUM: u16 = 0x50D0;
     const VERSION_OFFSET: u64 = Self::MAGIC_NUM.to_le_bytes().len() as u64;
@@ -51,16 +54,19 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
     /// Create a new SessionRecordFile from the given i/o stream.
     /// Timestamps in this file are considered valid if they were created or
     /// updated at most `timeout` time ago.
-    pub fn new(io: IO, timeout: Duration) -> io::Result<SessionRecordFile<IO>> {
-        let mut session_records = SessionRecordFile { io, timeout };
+    pub fn new(for_user: &'u str, io: IO, timeout: Duration) -> io::Result<SessionRecordFile<IO>> {
+        let mut session_records = SessionRecordFile {
+            io,
+            timeout,
+            for_user,
+        };
 
         // match the magic number, otherwise reset the file
         match session_records.read_magic()? {
             Some(magic) if magic == Self::MAGIC_NUM => (),
             x => {
                 if let Some(_magic) = x {
-                    // TODO: warn about invalid magic number
-                    eprintln!("Session ts file is invalid, resetting");
+                    auth_info!("Session records file for user '{for_user}' is invalid, resetting");
                 }
 
                 session_records.init(Self::VERSION_OFFSET, true)?;
@@ -72,12 +78,10 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
             Some(v) if v == Self::FILE_VERSION => (),
             x => {
                 if let Some(v) = x {
-                    // TODO: warn about incompatible version _v
-                    eprintln!("Session ts file has invalid version {v}, this sudo-rs only supports version {}, resetting", Self::FILE_VERSION)
+                    auth_info!("Session records file for user '{for_user}' has invalid version {v}, only file version {} is supported, resetting", Self::FILE_VERSION);
                 } else {
-                    // TODO: warn about an invalid file
-                    eprintln!(
-                        "Session ts file did not contain file version information, resetting"
+                    auth_info!(
+                        "Session records file did not contain file version information, resetting"
                     );
                 }
 
@@ -155,8 +159,8 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
         match self.io.read_exact(&mut buf) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
                 // there was half a record here, we clear the rest of the file
+                auth_info!("Found incomplete record in session records file for {}, clearing rest of the file", self.for_user);
                 self.io.set_len(curr_pos as usize)?;
-                eprintln!("Found incomplete record, removing record");
                 return Ok(None);
             }
             Err(e) => return Err(e),
@@ -168,7 +172,7 @@ impl<IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<IO> {
             Err(_) => {
                 // any error assumes that this file is nonsense from this point
                 // onwards, so we clear the file up to the start of this record
-                eprintln!("Found invalid record, clearing rest of the file");
+                auth_info!("Found invalid record in session records file for {}, clearing rest of the file", self.for_user);
 
                 self.io.set_len(curr_pos as usize)?;
                 Ok(None)
@@ -588,25 +592,25 @@ mod tests {
         let mut v = vec![0xD0, 0x50, 0x01, 0x00];
         let c = Cursor::new(&mut v);
         let timeout = Duration::seconds(30);
-        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid headers should be corrected
         let mut v = vec![0xAB, 0xBA];
         let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // empty header should be filled in
         let mut v = vec![];
         let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid version should reset file
         let mut v = vec![0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0];
         let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new(c, timeout).is_ok());
+        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
     }
 
@@ -615,7 +619,7 @@ mod tests {
         let timeout = Duration::seconds(30);
         let mut data = vec![];
         let c = Cursor::new(&mut data);
-        let mut srf = SessionRecordFile::new(c, timeout).unwrap();
+        let mut srf = SessionRecordFile::new("test", c, timeout).unwrap();
         let tty_scope = RecordScope::TTY {
             tty_device: 0,
             session_pid: 0,

@@ -1,6 +1,7 @@
 use std::fs::File;
 
 use sudo_common::{error::Error, Context};
+use sudo_log::auth_warn;
 use sudo_system::{
     time::Duration,
     timestamp::{RecordScope, SessionRecordFile, TouchResult},
@@ -11,20 +12,18 @@ use sudo_system::{
 /// This should never produce an error since any actual error should just be
 /// ignored and no session record file should be used in that case.
 fn determine_record_scope(context: &Context) -> Option<RecordScope> {
-    let tty = (
-        context.process.term_foreground_group_id,
-        Process::tty_device_id(WithProcess::Current),
-    );
-    if let (Some(foreground_pid), Ok(Some(tty_device))) = tty {
-        if let Ok(init_time) = Process::starting_time(WithProcess::Other(foreground_pid)) {
+    let tty = Process::tty_device_id(WithProcess::Current);
+    if let Ok(Some(tty_device)) = tty {
+        if let Ok(init_time) =
+            Process::starting_time(WithProcess::Other(context.process.session_id))
+        {
             Some(RecordScope::TTY {
                 tty_device,
                 session_pid: context.process.session_id,
                 init_time,
             })
         } else {
-            // TODO: replace with logging infra
-            eprintln!("Could not get terminal foreground process starting time");
+            auth_warn!("Could not get terminal foreground process starting time");
             None
         }
     } else if let Some(parent_pid) = context.process.parent_pid {
@@ -34,8 +33,7 @@ fn determine_record_scope(context: &Context) -> Option<RecordScope> {
                 init_time,
             })
         } else {
-            // TODO: replace with logging infra
-            eprintln!("Could not get parent process starting time");
+            auth_warn!("Could not get parent process starting time");
             None
         }
     } else {
@@ -57,16 +55,14 @@ fn determine_auth_status(
                     Ok(TouchResult::Updated { .. }) => (false, Some(sr)),
                     Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => (true, Some(sr)),
                     Err(e) => {
-                        // TODO: replace with logging infra
-                        eprintln!("Unexpected error while reading session information: {e}");
+                        auth_warn!("Unexpected error while reading session information: {e}");
                         (true, None)
                     }
                 }
             }
             // if we cannot open the session record file we just assume there is none and continue as normal
             Err(e) => {
-                // TODO: replace with logging infra
-                eprintln!("Could not use session information: {e}");
+                auth_warn!("Could not use session information: {e}");
                 (true, None)
             }
         }
@@ -99,8 +95,7 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
             match session_records.create(scope, target_user) {
                 Ok(_) => (),
                 Err(e) => {
-                    // TODO: replace with logging infra
-                    eprintln!("Could not update session record file with new record: {e}");
+                    auth_warn!("Could not update session record file with new record: {e}");
                 }
             }
         }

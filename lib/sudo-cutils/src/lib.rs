@@ -3,16 +3,9 @@ use std::{
     os::unix::prelude::OsStrExt,
 };
 
-pub fn cerr(res: libc::c_int) -> std::io::Result<libc::c_int> {
-    match res {
-        -1 => Err(std::io::Error::last_os_error()),
-        _ => Ok(res),
-    }
-}
-
-pub fn cerr_long(res: libc::c_long) -> std::io::Result<libc::c_long> {
-    match res {
-        -1 => Err(std::io::Error::last_os_error()),
+pub fn cerr<Int: Copy + TryInto<libc::c_long>>(res: Int) -> std::io::Result<Int> {
+    match res.try_into() {
+        Ok(-1) => Err(std::io::Error::last_os_error()),
         _ => Ok(res),
     }
 }
@@ -36,7 +29,7 @@ pub fn set_errno(no: libc::c_int) {
 
 pub fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
     set_errno(0);
-    match cerr_long(unsafe { libc::sysconf(name) }) {
+    match cerr(unsafe { libc::sysconf(name) }) {
         Ok(res) => Some(res),
         Err(_) => None,
     }

@@ -14,8 +14,8 @@ pub struct Mailer {
     mailer_path: &'static str,
 }
 
-impl Mailer {
-    pub fn new() -> Mailer {
+impl Default for Mailer {
+    fn default() -> Self {
         let hostname = hostname();
         let user: String = match User::real() {
             Ok(Some(u)) => u.name,
@@ -30,7 +30,9 @@ impl Mailer {
             mailer_path: "/usr/sbin/sendmail",
         }
     }
+}
 
+impl Mailer {
     pub fn send(&self, notification: &str) -> io::Result<ExitStatus> {
         let mut message = String::new();
         message.push_str(&format!("To: {}\n", self.to));
@@ -45,7 +47,7 @@ impl Mailer {
             .spawn()?;
 
         if let Some(input) = mail_command.stdin.as_mut() {
-            input.write_all(&message.as_bytes())?;
+            input.write_all(message.as_bytes())?;
         }
 
         mail_command.wait()

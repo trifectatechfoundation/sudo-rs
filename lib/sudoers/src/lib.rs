@@ -12,6 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use ast::*;
+use sudo_log::auth_warn;
 use sudo_system::interface::{UnixGroup, UnixUser};
 use tokens::*;
 
@@ -168,28 +169,30 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
 
-fn find_item<'a, Predicate, T, Permit: Tagged<T> + 'a>(
-    items: impl IntoIterator<Item = &'a Permit>,
+fn find_item<'a, Predicate, Iter, T, Permit: Tagged<T> + 'a>(
+    items: Iter,
     matches: &Predicate,
     aliases: &HashSet<String>,
 ) -> Option<&'a Permit::Flags>
 where
     Predicate: Fn(&T) -> bool,
+    Iter: IntoIterator<Item = &'a Permit>,
+    Iter::IntoIter: DoubleEndedIterator,
 {
-    let mut result = None;
-    for item in items {
+    for item in items.into_iter().rev() {
         let (judgement, who) = match item.into() {
             Qualified::Forbid(x) => (None, x),
             Qualified::Allow(x) => (Some(item.to_info()), x),
         };
         match who {
-            Meta::All => result = judgement,
-            Meta::Only(ident) if matches(ident) => result = judgement,
-            Meta::Alias(id) if aliases.contains(id) => result = judgement,
+            Meta::All => return judgement,
+            Meta::Only(ident) if matches(ident) => return judgement,
+            Meta::Alias(id) if aliases.contains(id) => return judgement,
             _ => {}
         };
     }
-    result
+
+    None
 }
 
 fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
@@ -218,7 +221,7 @@ fn match_group_alias(group: &impl UnixGroup) -> impl Fn(&UserSpecifier) -> bool 
         /* the parser does not allow this, but can happen due to Runas_Alias,
          * see https://github.com/memorysafety/sudo-rs/issues/13 */
         _ => {
-            eprintln!("warning: ignoring %group syntax in runas_alias for checking sudo -g");
+            auth_warn!("warning: ignoring %group syntax in runas_alias for checking sudo -g");
             false
         }
     }
@@ -353,33 +356,9 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                         Sudo::Decl(CmndAlias(def)) => self.aliases.cmnd.1.push(def),
                         Sudo::Decl(RunasAlias(def)) => self.aliases.runas.1.push(def),
 
-                        Sudo::Decl(Defaults(name, Flag(value))) => {
-                            if value {
-                                self.settings.flags.insert(name);
-                            } else {
-                                self.settings.flags.remove(&name);
-                            }
-                        }
-                        Sudo::Decl(Defaults(name, Text(value))) => {
-                            self.settings.str_value.insert(name, value);
-                        }
-                        Sudo::Decl(Defaults(name, Enum(value))) => {
-                            self.settings.enum_value.insert(name, value);
-                        }
-                        Sudo::Decl(Defaults(name, Num(value))) => {
-                            self.settings.int_value.insert(name, value);
-                        }
-
-                        Sudo::Decl(Defaults(name, List(mode, values))) => {
-                            let slot: &mut _ = self.settings.list.entry(name).or_default();
-                            match mode {
-                                Mode::Set => *slot = values.into_iter().collect(),
-                                Mode::Add => slot.extend(values),
-                                Mode::Del => {
-                                    for key in values {
-                                        slot.remove(&key);
-                                    }
-                                }
+                        Sudo::Decl(Defaults(params)) => {
+                            for (name, value) in params {
+                                self.set_default(name, value)
                             }
                         }
 
@@ -414,6 +393,39 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                         diagnostics.push(Error(Some(pos), error))
                     }
                     Err(_) => panic!("internal parser error"),
+                }
+            }
+        }
+
+        fn set_default(&mut self, name: String, value: ConfigValue) {
+            match value {
+                Flag(value) => {
+                    if value {
+                        self.settings.flags.insert(name);
+                    } else {
+                        self.settings.flags.remove(&name);
+                    }
+                }
+                List(mode, values) => {
+                    let slot: &mut _ = self.settings.list.entry(name).or_default();
+                    match mode {
+                        Mode::Set => *slot = values.into_iter().collect(),
+                        Mode::Add => slot.extend(values),
+                        Mode::Del => {
+                            for key in values {
+                                slot.remove(&key);
+                            }
+                        }
+                    }
+                }
+                Text(value) => {
+                    self.settings.str_value.insert(name, value);
+                }
+                Enum(value) => {
+                    self.settings.enum_value.insert(name, value);
+                }
+                Num(value) => {
+                    self.settings.int_value.insert(name, value);
                 }
             }
         }

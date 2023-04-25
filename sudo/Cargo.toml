@@ -13,6 +13,7 @@ sudo-cli.workspace = true
 sudo-common.workspace = true
 sudo-env.workspace = true
 sudo-exec.workspace = true
+sudo-log.workspace = true
 sudo-mail.workspace = true
 sudo-pam.workspace = true
 sudo-system.workspace = true

@@ -87,6 +87,8 @@ do this then this software is not suited for you at this time."
 }
 
 fn sudo_process() -> Result<std::process::ExitStatus, Error> {
+    sudo_log::SudoLogger::new().into_global_logger();
+
     // parse cli options
     let sudo_options = SudoOptions::parse();
 
@@ -107,7 +109,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
             // authenticate user using pam
             authenticate(&context).map_err(|e| {
                 if let Error::Pam(PamError::Pam(PamErrorType::MaxTries, _)) = e {
-                    let _ = Mailer::new().send("too many incorrect password attempts");
+                    let _ = Mailer::default().send("too many incorrect password attempts");
                 }
 
                 e

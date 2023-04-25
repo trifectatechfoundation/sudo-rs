@@ -91,6 +91,10 @@ mod names {
     impl UserFriendly for tokens::ChDir {
         const DESCRIPTION: &'static str = "directory or `*'";
     }
+
+    impl UserFriendly for (String, ConfigValue) {
+        const DESCRIPTION: &'static str = "parameter";
+    }
 }
 
 #[cfg(test)]
