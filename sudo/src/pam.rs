@@ -8,6 +8,8 @@ use sudo_system::{
     Process, WithProcess,
 };
 
+use crate::pipeline::AuthPlugin;
+
 /// Tries to determine a record match scope for the current context.
 /// This should never produce an error since any actual error should just be
 /// ignored and no session record file should be used in that case.
@@ -104,4 +106,27 @@ pub fn authenticate(context: &Context) -> Result<(), Error> {
     pam.validate_account()?;
 
     Ok(())
+}
+
+#[derive(Default)]
+pub struct PamAuthenticator;
+
+impl AuthPlugin for PamAuthenticator {
+    fn init(&mut self, _context: &Context) -> Result<(), Error> {
+        // TODO todo!()
+        Ok(())
+    }
+
+    fn authenticate(&mut self, context: &Context) -> Result<(), Error> {
+        authenticate(context)
+    }
+
+    fn pre_exec(&mut self, _context: &Context) -> Result<(), Error> {
+        // TODO todo!()
+        Ok(())
+    }
+
+    fn cleanup(&mut self) {
+        // TODO
+    }
 }
