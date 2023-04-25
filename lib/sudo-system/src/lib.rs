@@ -550,6 +550,14 @@ mod tests {
     }
 
     #[test]
+    fn get_process_start_time() {
+        let time = super::Process::starting_time(WithProcess::Current).unwrap();
+        let now = super::SystemTime::now().unwrap();
+        assert!(time > now - super::time::Duration::minutes(24 * 60));
+        assert!(time < now);
+    }
+
+    #[test]
     fn pgid_test() {
         use super::getpgid;
         assert_eq!(getpgid(std::process::id() as i32), getpgid(0));
