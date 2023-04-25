@@ -135,9 +135,8 @@ impl MonitorRelay {
                 if signaler.pid == self.command_pid {
                     return true;
                 }
-                let grp_leader = getpgid(signaler.pid);
 
-                if grp_leader != -1 {
+                if let Ok(grp_leader) = getpgid(signaler.pid) {
                     if grp_leader == self.command_pgrp {
                         return true;
                     }

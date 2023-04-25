@@ -108,8 +108,7 @@ impl PtyRelay {
                     return true;
                 }
 
-                let signaler_pgrp = getpgid(signaler.pid);
-                if signaler_pgrp != -1 {
+                if let Ok(signaler_pgrp) = getpgid(signaler.pid) {
                     if signaler_pgrp == self.command_pid || signaler_pgrp == self.sudo_pid {
                         return true;
                     }

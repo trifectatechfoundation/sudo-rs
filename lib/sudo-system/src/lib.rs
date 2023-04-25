@@ -118,9 +118,9 @@ pub fn kill(pid: ProcessId, signal: c_int) -> c_int {
 }
 
 /// Get a process group ID.
-pub fn getpgid(pid: ProcessId) -> ProcessId {
+pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
-    unsafe { libc::getpgid(pid) }
+    cerr(unsafe { libc::getpgid(pid) })
 }
 
 /// Set a process group ID.
