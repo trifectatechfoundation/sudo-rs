@@ -111,10 +111,10 @@ pub fn set_target_user(
 }
 
 /// Send a signal to a process.
-pub fn kill(pid: ProcessId, signal: c_int) -> c_int {
+pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    unsafe { libc::kill(pid, signal) }
+    cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
 }
 
 /// Get a process group ID.

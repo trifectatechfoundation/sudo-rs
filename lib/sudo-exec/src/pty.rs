@@ -63,7 +63,7 @@ impl PtyRelay {
                     // If the command terminated because of a signal, we send this signal to sudo
                     // itself to match the original sudo behavior. If we fail we exit with code 1
                     // to be safe.
-                    if kill(self.sudo_pid, signal) == -1 {
+                    if kill(self.sudo_pid, signal).is_err() {
                         exit(1);
                     }
                     // Given that we overwrote the default handlers for all the signals, we musti
@@ -91,7 +91,7 @@ impl PtyRelay {
             _ if user_signaled && self.is_self_terminating(info.process) => {}
             // FIXME: check `send_command_status`
             signal => {
-                kill(self.monitor_pid, signal);
+                kill(self.monitor_pid, signal).ok();
             }
         }
     }

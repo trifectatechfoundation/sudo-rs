@@ -113,13 +113,13 @@ impl MonitorRelay {
             // Kill the command with increasing urgency.
             SIGALRM => {
                 // Based on `terminate_command`.
-                kill(self.command_pid, SIGHUP);
-                kill(self.command_pid, SIGTERM);
+                kill(self.command_pid, SIGHUP).ok();
+                kill(self.command_pid, SIGTERM).ok();
                 std::thread::sleep(Duration::from_secs(2));
-                kill(self.command_pid, SIGKILL);
+                kill(self.command_pid, SIGKILL).ok();
             }
             signal => {
-                kill(self.command_pid, signal);
+                kill(self.command_pid, signal).ok();
             }
         }
     }
