@@ -1,5 +1,5 @@
 use std::{
-    ffi::{c_int, CString},
+    ffi::{c_int, CStr, CString},
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
@@ -77,6 +77,10 @@ pub fn kill(pid: ProcessId, signal: c_int) -> c_int {
 pub fn getpgid(pid: ProcessId) -> ProcessId {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
     unsafe { libc::getpgid(pid) }
+}
+
+pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
+    cerr(unsafe { libc::chdir(path.as_ref().as_ptr()) }).map(|_| ())
 }
 
 #[derive(Debug, Clone, PartialEq)]
