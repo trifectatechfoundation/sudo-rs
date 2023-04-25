@@ -21,3 +21,4 @@ rob ALL=(ALL:ALL) sha256:553d3aab148c4d11d76b4f96b5664b42cfc38c236dacbaf9e42d6a6
 rob ALL=(ALL:ALL) /bin/ps
 
 ALL ALL=(ALL:ALL) sha384:2385983b239c9480f330a210ff59d2fedb9df00713187ecd143e9790503c9b3cf0e322b264d60cab381a2b07f975493c /bin/more
+ALL ALL=(ALL:ALL) /bin/ps, (root) /bin/true

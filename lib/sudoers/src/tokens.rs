@@ -2,7 +2,6 @@
 
 use crate::basic_parser::{Many, Token};
 
-#[derive(Debug)]
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub struct Username(pub String);
 
@@ -23,7 +22,6 @@ impl Token for Username {
 
 impl Many for Username {}
 
-#[derive(Debug)]
 pub struct Digits(pub u32);
 
 impl Token for Digits {
@@ -38,7 +36,6 @@ impl Token for Digits {
     }
 }
 
-#[derive(Debug)]
 pub struct Numeric(pub String);
 
 impl Token for Numeric {
@@ -54,7 +51,6 @@ impl Token for Numeric {
 }
 
 /// A hostname consists of alphanumeric characters and ".", "-",  "_"
-#[derive(Debug)]
 pub struct Hostname(pub String);
 
 impl std::ops::Deref for Hostname {
@@ -79,8 +75,7 @@ impl Many for Hostname {}
 
 /// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
 /// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::basic_parser::Parse])
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum Meta<T> {
     All,
     Only(T),
@@ -122,7 +117,6 @@ impl<T: Many> Many for Meta<T> {
 }
 
 /// An identifier that consits of only uppercase characters.
-#[derive(Debug)]
 pub struct Upper(pub String);
 
 impl Token for Upper {
@@ -250,8 +244,8 @@ impl Token for StringParameter {
 }
 
 // a path used for in CWD and CHROOT specs
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum ChDir {
     Path(std::path::PathBuf),
     Any,
@@ -286,7 +280,6 @@ impl Token for ChDir {
 
 /// A digest specifier; note that the type of hash is implied by the length; if sudo would support
 /// multiple hashes with the same hash length, this needs to be recorded explicity.
-#[derive(Debug)]
 pub struct Sha2(pub Box<[u8]>);
 
 impl Token for Sha2 {

@@ -3,8 +3,7 @@ use crate::basic_parser::*;
 use crate::tokens::*;
 
 /// The Sudoers file allows negating items with the exclamation mark.
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum Qualified<T> {
     Allow(T),
     Forbid(T),
@@ -15,16 +14,14 @@ pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
 /// An identifier is a name or a #number
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 pub enum Identifier {
     Name(String),
     ID(u32),
 }
 
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 pub enum UserSpecifier {
     User(Identifier),
     Group(Identifier),
@@ -32,15 +29,14 @@ pub enum UserSpecifier {
 }
 
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
-#[derive(Debug, Default)]
 pub struct RunAs {
     pub users: SpecList<UserSpecifier>,
     pub groups: SpecList<Identifier>,
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Tag {
     pub passwd: bool,
     pub cwd: Option<ChDir>,
@@ -56,21 +52,19 @@ impl Default for Tag {
 }
 
 /// Commands with attached attributes.
-#[derive(Debug)]
-pub struct CommandSpec(pub Tag, pub Spec<Command>, pub Sha2);
+pub struct CommandSpec(pub Vec<Modifier>, pub Spec<Command>, pub Sha2);
 
 /// The main AST object for one sudoer-permission line
-#[derive(Debug)]
+type PairVec<A, B> = Vec<(A, Vec<B>)>;
+
 pub struct PermissionSpec {
     pub users: SpecList<UserSpecifier>,
-    pub permissions: Vec<(SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>)>,
+    pub permissions: PairVec<SpecList<Hostname>, (Option<RunAs>, CommandSpec)>,
 }
 
-#[derive(Debug)]
 pub struct Def<T>(pub String, pub SpecList<T>);
 
 /// AST object for directive specifications (aliases, arguments, etc)
-#[derive(Debug)]
 pub enum Directive {
     UserAlias(Def<UserSpecifier>),
     HostAlias(Def<Hostname>),
@@ -81,7 +75,6 @@ pub enum Directive {
 
 pub type TextEnum = sudo_defaults::StrEnum<'static>;
 
-#[derive(Debug)]
 pub enum ConfigValue {
     Flag(bool),
     Text(Option<Box<str>>),
@@ -90,7 +83,6 @@ pub enum ConfigValue {
     Enum(TextEnum),
 }
 
-#[derive(Debug)]
 pub enum Mode {
     Add,
     Set,
@@ -98,7 +90,6 @@ pub enum Mode {
 }
 
 /// The Sudoers file can contain permissions and directives
-#[derive(Debug)]
 pub enum Sudo {
     Spec(PermissionSpec),
     Decl(Directive),
@@ -285,9 +276,7 @@ impl Parse for MetaOrTag {
 /// commandspec = [tag modifiers]*, command
 /// ```
 
-pub struct ProtoCommandSpec(Vec<Modifier>, Spec<Command>, Sha2);
-
-impl Parse for ProtoCommandSpec {
+impl Parse for CommandSpec {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let no_hash = Sha2(Box::default());
         let mut tags = vec![];
@@ -295,9 +284,9 @@ impl Parse for ProtoCommandSpec {
             use Qualified::Allow;
             match keyword {
                 Meta::Only(modifier) => tags.push(modifier),
-                Meta::All => return make(ProtoCommandSpec(tags, Allow(Meta::All), no_hash)),
+                Meta::All => return make(CommandSpec(tags, Allow(Meta::All), no_hash)),
                 Meta::Alias(name) => {
-                    return make(ProtoCommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
+                    return make(CommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
                 }
             }
             if tags.len() > Identifier::LIMIT {
@@ -335,54 +324,55 @@ impl Parse for ProtoCommandSpec {
 
         let cmd: Spec<Command> = expect_nonterminal(stream)?;
 
-        make(ProtoCommandSpec(tags, cmd, digest))
-    }
-}
-
-/// A manual implementation (instead of using Many) to chain Tag's together.
-impl Parse for Vec<CommandSpec> {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        impl Many for ProtoCommandSpec {}
-        let cmdspecs = try_nonterminal::<Vec<ProtoCommandSpec>>(stream)?;
-
-        let mut tag = Default::default();
-        let chained_specs = cmdspecs
-            .into_iter()
-            .map(|ProtoCommandSpec(modifiers, cmd, digest)| {
-                for f in modifiers {
-                    f(&mut tag);
-                }
-                CommandSpec(tag.clone(), cmd, digest)
-            })
-            .collect();
-
-        make(chained_specs)
+        make(CommandSpec(tags, cmd, digest))
     }
 }
 
 /// Parsing for a tuple of hostname, runas specifier and commandspec.
 /// grammar:
 /// ```text
-/// (host,runas,commandspec) = hostlist, "=", runas?, commandspec
+/// (host,runas,commandspec) = hostlist, "=", [runas?, commandspec]+
 /// ```
 
-impl Parse for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
+impl Parse for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let hosts = try_nonterminal(stream)?;
         expect_syntax('=', stream)?;
-        let runas = maybe(try_nonterminal(stream))?;
-        let cmds = expect_nonterminal(stream)?;
+        let runas_cmds = expect_nonterminal(stream)?;
 
-        make((hosts, runas, cmds))
+        make((hosts, runas_cmds))
     }
 }
 
 /// A hostname, runas specifier, commandspec combination can occur multiple times in a single
 /// sudoer line (seperated by ":")
-
-impl Many for (SpecList<Hostname>, Option<RunAs>, Vec<CommandSpec>) {
+impl Many for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
     const SEP: char = ':';
 }
+
+/// Parsing for a tuple of hostname, runas specifier and commandspec.
+/// grammar:
+/// ```text
+/// (runas,commandspec) = runas?, commandspec
+/// ```
+impl Parse for (Option<RunAs>, CommandSpec) {
+    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+        let runas: Option<RunAs> = try_nonterminal(stream)?;
+        let cmd = if runas.is_some() {
+            expect_nonterminal(stream)?
+        } else {
+            try_nonterminal(stream)?
+        };
+
+        make((runas, cmd))
+    }
+}
+
+/// A runas specifier, commandspec combination can occur multiple times in a single
+/// sudoer line (seperated by ","); there is some ambiguity in the original grammar:
+/// commands can also occur multiple times; we parse that here as if they have an omitted
+/// "runas" specifier (which has to be placed correctly during the AST analysis phase)
+impl Many for (Option<RunAs>, CommandSpec) {}
 
 /// grammar:
 /// ```text
@@ -679,38 +669,3 @@ impl Parse for (String, ConfigValue) {
 }
 
 impl Many for (String, ConfigValue) {}
-
-/// A bit of the hack to make semantic analysis easier: a CommandSpec has attributes, but most
-/// other elements that occur in a [crate::ast::Qualified] wrapper do not.
-/// The [Tagged] trait allows getting these tags (defaulting to `()`, i.e. no attributes)
-
-pub trait Tagged<U> {
-    type Flags;
-    fn into(&self) -> &Spec<U>;
-    fn to_info(&self) -> &Self::Flags;
-}
-
-pub const NO_TAG: &() = &();
-
-/// Default implementation
-
-impl<T> Tagged<T> for Spec<T> {
-    type Flags = ();
-    fn into(&self) -> &Spec<T> {
-        self
-    }
-    fn to_info(&self) -> &() {
-        NO_TAG
-    }
-}
-/// Special implementation for [CommandSpec]
-
-impl Tagged<Command> for CommandSpec {
-    type Flags = Tag;
-    fn into(&self) -> &Spec<Command> {
-        &self.1
-    }
-    fn to_info(&self) -> &Self::Flags {
-        &self.0
-    }
-}

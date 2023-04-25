@@ -129,7 +129,6 @@ fn nopasswd_override() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn runas_override() -> Result<()> {
     let env = Env(format!("ALL ALL = (root) /bin/ls, ({USERNAME}) /bin/true"))
         .user(USERNAME)
@@ -177,7 +176,6 @@ fn runas_override() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
     let env = Env(format!(
         "ALL ALL = (root) /bin/true, ({USERNAME}) /bin/true"

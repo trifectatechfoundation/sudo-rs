@@ -38,7 +38,7 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub arguments: &'a str,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Judgement {
     flags: Option<Tag>,
     settings: Settings,
@@ -135,52 +135,71 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         .iter()
         .filter_map(|sudo| {
             find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
-
-            let matching_rules = sudo
-                .permissions
-                .iter()
-                .filter_map(|(hosts, runas, cmds)| {
-                    find_item(hosts, &match_token(on_host), &host_aliases)?;
-
-                    if let Some(RunAs { users, groups }) = runas {
-                        if !users.is_empty() || request.user != am_user {
-                            *find_item(users, &match_user(request.user), &runas_user_aliases)?
-                        }
-                        if !in_group(request.user, request.group) {
-                            *find_item(groups, &match_group(request.group), &runas_group_aliases)?
-                        }
-                    } else if !(request.user.is_root() && in_group(request.user, request.group)) {
-                        None?;
-                    }
-
-                    Some(cmds)
-                })
-                .flatten();
-
-            Some(matching_rules.collect::<Vec<_>>())
+            Some(&sudo.permissions)
         })
         .flatten()
-        .filter(|CommandSpec(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
+        .filter_map(|(hosts, runas_cmds)| {
+            find_item(hosts, &match_token(on_host), &host_aliases)?;
+            // TODO: calling collect() here is not necessary if find_item is a forward loop
+            Some(distribute_tags(runas_cmds).collect::<Vec<_>>())
+        })
+        .flatten()
+        .filter_map(|(runas, cmdspec)| {
+            if let Some(RunAs { users, groups }) = runas {
+                if !users.is_empty() || request.user != am_user {
+                    find_item(users, &match_user(request.user), &runas_user_aliases)?
+                }
+                if !in_group(request.user, request.group) {
+                    find_item(groups, &match_group(request.group), &runas_group_aliases)?
+                }
+            } else if !(request.user.is_root() && in_group(request.user, request.group)) {
+                None?;
+            }
 
-    find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases).cloned()
+            Some(cmdspec)
+        })
+        .filter(|(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
+
+    find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases)
+}
+
+/// Process a raw parsed AST bit of RunAs + Command specifications:
+/// - RunAs specifications distribute over the commands that follow (until overridden)
+/// - Tags accumulate over the entire line
+
+fn distribute_tags(
+    runas_cmds: &[(Option<RunAs>, CommandSpec)],
+) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>, &Sha2))> {
+    runas_cmds.iter().scan(
+        (None, Default::default()),
+        |(mut last_runas, tag), (runas, CommandSpec(mods, cmd, digest))| {
+            last_runas = runas.as_ref().or(last_runas);
+            for f in mods {
+                f(tag);
+            }
+
+            Some((last_runas, (tag.clone(), cmd, digest)))
+        },
+    )
 }
 
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
 
-fn find_item<'a, Predicate, Iter, T, Permit: Tagged<T> + 'a>(
+fn find_item<'a, Predicate, Iter, T: 'a>(
     items: Iter,
     matches: &Predicate,
     aliases: &HashSet<String>,
-) -> Option<&'a Permit::Flags>
+) -> Option<<Iter::Item as WithInfo>::Info>
 where
     Predicate: Fn(&T) -> bool,
-    Iter: IntoIterator<Item = &'a Permit>,
+    Iter: IntoIterator,
+    Iter::Item: WithInfo<Item = &'a Spec<T>>,
     Iter::IntoIter: DoubleEndedIterator,
 {
     for item in items.into_iter().rev() {
-        let (judgement, who) = match item.into() {
+        let (judgement, who) = match item.clone().to_inner() {
             Qualified::Forbid(x) => (None, x),
             Qualified::Allow(x) => (Some(item.to_info()), x),
         };
@@ -195,6 +214,38 @@ where
     None
 }
 
+/// A interface to access optional "satellite data"
+trait WithInfo: Clone {
+    type Item;
+    type Info;
+    fn to_inner(self) -> Self::Item;
+    fn to_info(self) -> Self::Info;
+}
+
+/// A specific interface for `Spec<T>` --- we can't make a generic one;
+/// A Spec<T> does not contain any additional information.
+impl<'a, T> WithInfo for &'a Spec<T> {
+    type Item = &'a Spec<T>;
+    type Info = ();
+    fn to_inner(self) -> &'a Spec<T> {
+        self
+    }
+    fn to_info(self) {}
+}
+
+/// A commandspec can be "tagged"
+impl<'a, T> WithInfo for (Tag, &'a Spec<Command>, &'a T) {
+    type Item = &'a Spec<Command>;
+    type Info = Tag;
+    fn to_inner(self) -> &'a Spec<Command> {
+        self.1
+    }
+    fn to_info(self) -> Tag {
+        self.0
+    }
+}
+
+/// Now follow a collection of functions used as closures for `find_item`
 fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(id) => match_identifier(user, id),
@@ -263,7 +314,7 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Settings {
     pub flags: HashSet<String>,
     pub str_value: HashMap<String, Option<Box<str>>>,

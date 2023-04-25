@@ -1,6 +1,6 @@
 use std::env;
 use sudo_system::interface::{UnixGroup, UnixUser};
-use sudoers::Sudoers;
+use sudoers::{Authorization, Policy, Sudoers};
 
 fn chatty_check_permission(
     sudoers: sudoers::Sudoers,
@@ -28,7 +28,14 @@ fn chatty_check_permission(
             arguments: &arguments,
         },
     );
-    println!("OUTCOME: {result:?}");
+    println!(
+        "OUTCOME: {}",
+        match result.authorization() {
+            Authorization::Passed => "NOPASSWD",
+            Authorization::Forbidden => "<not allowed>",
+            Authorization::Required => "PASSWD",
+        }
+    );
 }
 
 /// This is the "canonical" info that we need

@@ -3,16 +3,6 @@ use crate::ast;
 use basic_parser::{parse_eval, parse_lines, parse_string};
 use std::iter;
 
-// parsing a single CommandSpec is useful in some tests
-impl basic_parser::Parse for CommandSpec {
-    fn parse(stream: &mut impl basic_parser::CharStream) -> basic_parser::Parsed<Self> {
-        let vec: Vec<_> = basic_parser::try_nonterminal(stream)?;
-        assert_eq!(vec.len(), 1);
-        let result = vec.into_iter().next().unwrap();
-        Ok(result)
-    }
-}
-
 #[derive(PartialEq)]
 struct Named(&'static str);
 
@@ -56,6 +46,9 @@ impl UnixGroup for Named {
 }
 
 macro_rules! request {
+    ($user:ident) => {
+        (&Named(stringify!($user)), &Named(stringify!($user)))
+    };
     ($user:ident, $group:ident) => {
         (&Named(stringify!($user)), &Named(stringify!($group)))
     };
@@ -250,6 +243,12 @@ fn permission_test() {
     FAIL!(["user ALL=/bin/foo"], "user" => request! { sudo, root }, "server"; "/bin/foo");
     FAIL!(["user ALL=/bin/foo"], "user" => request! { root, sudo }, "server"; "/bin/foo");
     pass!(["user ALL=/bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
+
+    // tests with multiple runas specs
+    pass!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/ls");
+    pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/true" => [passwd: false]);
+    FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/ls");
+    FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/true");
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
