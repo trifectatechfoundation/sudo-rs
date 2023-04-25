@@ -3,8 +3,7 @@ use crate::basic_parser::*;
 use crate::tokens::*;
 
 /// The Sudoers file allows negating items with the exclamation mark.
-#[derive(Debug)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum Qualified<T> {
     Allow(T),
     Forbid(T),
@@ -15,16 +14,14 @@ pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
 /// An identifier is a name or a #number
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 pub enum Identifier {
     Name(String),
     ID(u32),
 }
 
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 pub enum UserSpecifier {
     User(Identifier),
     Group(Identifier),
@@ -32,15 +29,14 @@ pub enum UserSpecifier {
 }
 
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
-#[derive(Debug, Default)]
 pub struct RunAs {
     pub users: SpecList<UserSpecifier>,
     pub groups: SpecList<Identifier>,
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
-#[derive(Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Tag {
     pub passwd: bool,
     pub cwd: Option<ChDir>,
@@ -58,30 +54,17 @@ impl Default for Tag {
 /// Commands with attached attributes.
 pub struct CommandSpec(pub Vec<Modifier>, pub Spec<Command>, pub Sha2);
 
-impl std::fmt::Debug for CommandSpec {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("CommandSpec")
-            .field(&format!("<{} modifiers>", self.0.len()))
-            .field(&self.1)
-            .field(&self.2)
-            .finish()
-    }
-}
-
 /// The main AST object for one sudoer-permission line
 type PairVec<A, B> = Vec<(A, Vec<B>)>;
 
-#[derive(Debug)]
 pub struct PermissionSpec {
     pub users: SpecList<UserSpecifier>,
     pub permissions: PairVec<SpecList<Hostname>, (Option<RunAs>, CommandSpec)>,
 }
 
-#[derive(Debug)]
 pub struct Def<T>(pub String, pub SpecList<T>);
 
 /// AST object for directive specifications (aliases, arguments, etc)
-#[derive(Debug)]
 pub enum Directive {
     UserAlias(Def<UserSpecifier>),
     HostAlias(Def<Hostname>),
@@ -92,7 +75,6 @@ pub enum Directive {
 
 pub type TextEnum = sudo_defaults::StrEnum<'static>;
 
-#[derive(Debug)]
 pub enum ConfigValue {
     Flag(bool),
     Text(Option<Box<str>>),
@@ -101,7 +83,6 @@ pub enum ConfigValue {
     Enum(TextEnum),
 }
 
-#[derive(Debug)]
 pub enum Mode {
     Add,
     Set,
@@ -109,7 +90,6 @@ pub enum Mode {
 }
 
 /// The Sudoers file can contain permissions and directives
-#[derive(Debug)]
 pub enum Sudo {
     Spec(PermissionSpec),
     Decl(Directive),

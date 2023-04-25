@@ -38,7 +38,7 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub arguments: &'a str,
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Judgement {
     flags: Option<Tag>,
     settings: Settings,
@@ -314,7 +314,7 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Settings {
     pub flags: HashSet<String>,
     pub str_value: HashMap<String, Option<Box<str>>>,
