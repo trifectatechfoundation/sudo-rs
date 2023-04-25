@@ -167,9 +167,9 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 /// - RunAs specifications distribute over the commands that follow (until overridden)
 /// - Tags accumulate over the entire line
 
-fn distribute_tags<'a>(
-    runas_cmds: &'a Vec<(Option<RunAs>, CommandSpec)>,
-) -> impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>, &'a Sha2))> {
+fn distribute_tags(
+    runas_cmds: &[(Option<RunAs>, CommandSpec)],
+) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>, &Sha2))> {
     runas_cmds.iter().scan(
         (None, Default::default()),
         |(mut last_runas, tag), (runas, CommandSpec(mods, cmd, digest))| {
@@ -199,9 +199,9 @@ where
     Iter::IntoIter: DoubleEndedIterator,
 {
     for item in items.into_iter().rev() {
-        let (judgement, who) = match item.clone().as_item() {
+        let (judgement, who) = match item.clone().to_inner() {
             Qualified::Forbid(x) => (None, x),
-            Qualified::Allow(x) => (Some(item.as_info()), x),
+            Qualified::Allow(x) => (Some(item.to_info()), x),
         };
         match who {
             Meta::All => return judgement,
@@ -218,8 +218,8 @@ where
 trait WithInfo: Clone {
     type Item;
     type Info;
-    fn as_item(self) -> Self::Item;
-    fn as_info(self) -> Self::Info;
+    fn to_inner(self) -> Self::Item;
+    fn to_info(self) -> Self::Info;
 }
 
 /// A specific interface for `Spec<T>` --- we can't make a generic one;
@@ -227,21 +227,21 @@ trait WithInfo: Clone {
 impl<'a, T> WithInfo for &'a Spec<T> {
     type Item = &'a Spec<T>;
     type Info = ();
-    fn as_item(self) -> &'a Spec<T> {
+    fn to_inner(self) -> &'a Spec<T> {
         self
     }
-    fn as_info(self) {}
+    fn to_info(self) {}
 }
 
 /// A commandspec can be "tagged"
 impl<'a, T> WithInfo for (Tag, &'a Spec<Command>, &'a T) {
     type Item = &'a Spec<Command>;
     type Info = Tag;
-    fn as_item(self) -> &'a Spec<Command> {
-        &self.1
+    fn to_inner(self) -> &'a Spec<Command> {
+        self.1
     }
-    fn as_info(self) -> Tag {
-        self.0.clone()
+    fn to_info(self) -> Tag {
+        self.0
     }
 }
 

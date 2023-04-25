@@ -69,10 +69,12 @@ impl std::fmt::Debug for CommandSpec {
 }
 
 /// The main AST object for one sudoer-permission line
+type PairVec<A, B> = Vec<(A, Vec<B>)>;
+
 #[derive(Debug)]
 pub struct PermissionSpec {
     pub users: SpecList<UserSpecifier>,
-    pub permissions: Vec<(SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>)>,
+    pub permissions: PairVec<SpecList<Hostname>, (Option<RunAs>, CommandSpec)>,
 }
 
 #[derive(Debug)]
@@ -376,11 +378,10 @@ impl Many for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
 impl Parse for (Option<RunAs>, CommandSpec) {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let runas: Option<RunAs> = try_nonterminal(stream)?;
-        let cmd;
-        if runas.is_some() {
-            cmd = expect_nonterminal(stream)?
+        let cmd = if runas.is_some() {
+            expect_nonterminal(stream)?
         } else {
-            cmd = try_nonterminal(stream)?
+            try_nonterminal(stream)?
         };
 
         make((runas, cmd))
