@@ -68,6 +68,11 @@ fn apply_policy_to_context(context: &mut Context, policy: &Judgement) -> Result<
     Ok(())
 }
 
+fn send_mail(message: &str, context: &Context) {
+    let _ = Mailer::new(&context.hostname, &context.current_user.name)
+        .send(context.get_summary(Some(message)).as_str());
+}
+
 /// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
 fn unstable_warning() {
     let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
@@ -110,11 +115,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
             authenticate(&context).map_err(|e| {
                 if let Error::Pam(PamError::Pam(PamErrorType::MaxTries, _)) = e {
                     if policy.mail_badpass() {
-                        let _ = Mailer::default().send(
-                            context
-                                .get_summary(Some("too many incorrect password attempts"))
-                                .as_str(),
-                        );
+                        send_mail("too many incorrect password attempts", &context)
                     }
                 }
 

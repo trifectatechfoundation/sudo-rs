@@ -13,16 +13,10 @@ pub struct Mailer {
     mailer_path: &'static str,
 }
 
-impl Default for Mailer {
-    fn default() -> Self {
-        let hostname = hostname();
-        let user: String = match User::real() {
-            Ok(Some(u)) => u.name,
-            _ => String::from("root"),
-        };
-
+impl Mailer {
+    pub fn new(hostname: &str, username: &str) -> Self {
         Mailer {
-            from: user,
+            from: username.to_string(),
             subject: format!("*** SECURITY information for {hostname} ***"),
             to: "root",
             mailer_flags: "-t",
@@ -31,8 +25,20 @@ impl Default for Mailer {
     }
 }
 
+impl Default for Mailer {
+    fn default() -> Self {
+        let hostname = hostname();
+        let username: String = match User::real() {
+            Ok(Some(u)) => u.name,
+            _ => String::from("root"),
+        };
+
+        Mailer::new(&hostname, &username)
+    }
+}
+
 impl Mailer {
-    pub fn send(&self, notification: &str) -> io::Result<ExitStatus> {
+    fn create_message(&self, notification: &str) -> String {
         let mut message = String::new();
         message.push_str(&format!("To: {}\n", self.to));
         message.push_str(&format!("From: {}\n", self.from));
@@ -40,13 +46,17 @@ impl Mailer {
         message.push_str(&format!("Subject: {}\n", self.subject));
         message.push_str(&format!("{}\n", notification));
 
+        message
+    }
+
+    pub fn send(&self, notification: &str) -> io::Result<ExitStatus> {
         let mut mail_command = Command::new(self.mailer_path)
             .arg(self.mailer_flags)
             .stdin(Stdio::piped())
             .spawn()?;
 
         if let Some(input) = mail_command.stdin.as_mut() {
-            input.write_all(message.as_bytes())?;
+            input.write_all(self.create_message(notification).as_bytes())?;
         }
 
         mail_command.wait()
@@ -59,9 +69,17 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn test_mail() {
+    fn test_message() {
         let mailer = Mailer::default();
+        let result = mailer.send("3 incorrect password attempts");
 
-        mailer.send("3 incorrect password attempts").unwrap();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_mail() {
+        let mailer = Mailer::new("test-host", "test-user");
+
+        assert_eq!(mailer.create_message("test message"), "To: root\nFrom: test-user\nAuto-Submitted: auto-generated\nSubject: *** SECURITY information for test-host ***\ntest message\n");
     }
 }
