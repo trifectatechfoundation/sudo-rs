@@ -2,7 +2,6 @@ use std::{
     io::{self, Write},
     process::{Command, ExitStatus, Stdio},
 };
-
 use sudo_system::{hostname, User};
 
 /// Mailer configuration, uses defaults as configuration for now
@@ -61,7 +60,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_mail() {
-        let mailer = Mailer::new();
+        let mailer = Mailer::default();
 
         mailer.send("3 incorrect password attempts").unwrap();
     }

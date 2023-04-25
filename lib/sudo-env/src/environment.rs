@@ -193,6 +193,10 @@ mod tests {
         fn env_check(&self) -> &HashSet<String> {
             &self.check
         }
+
+        fn mail_badpass(&self) -> bool {
+            true
+        }
     }
 
     #[test]

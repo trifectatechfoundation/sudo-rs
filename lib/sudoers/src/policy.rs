@@ -18,6 +18,8 @@ pub trait Policy {
         DirChange::Strict(None)
     }
 
+    fn mail_badpass(&self) -> bool;
+
     fn env_keep(&self) -> &HashSet<String>;
     fn env_check(&self) -> &HashSet<String>;
 }
@@ -56,6 +58,10 @@ impl Policy for Judgement {
 
     fn env_check(&self) -> &HashSet<String> {
         &self.settings.list["env_check"]
+    }
+
+    fn mail_badpass(&self) -> bool {
+        self.settings.flags.contains("mail_badpass")
     }
 
     fn chdir(&self) -> DirChange {

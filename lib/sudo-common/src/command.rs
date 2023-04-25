@@ -56,6 +56,17 @@ impl CommandAndArguments {
     }
 }
 
+impl ToString for CommandAndArguments {
+    fn to_string(&self) -> String {
+        format!(
+            "{}{}{}",
+            self.command.display(),
+            if self.arguments.is_empty() { "" } else { " " },
+            self.arguments.join(" ")
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::{escaped, CommandAndArguments};

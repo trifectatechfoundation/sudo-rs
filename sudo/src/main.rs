@@ -109,7 +109,13 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
             // authenticate user using pam
             authenticate(&context).map_err(|e| {
                 if let Error::Pam(PamError::Pam(PamErrorType::MaxTries, _)) = e {
-                    let _ = Mailer::default().send("too many incorrect password attempts");
+                    if policy.mail_badpass() {
+                        let _ = Mailer::default().send(
+                            context
+                                .get_summary(Some("too many incorrect password attempts"))
+                                .as_str(),
+                        );
+                    }
                 }
 
                 e
