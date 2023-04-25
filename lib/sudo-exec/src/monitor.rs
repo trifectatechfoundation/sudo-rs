@@ -49,13 +49,9 @@ impl MonitorRelay {
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp);
 
-            Ok((
-                SignalsInfo::<WithOrigin>::new(super::SIGNALS)?,
-                command_pid,
-                command_pgrp,
-                command,
-                pty_follower,
-            ))
+            let signals = SignalsInfo::<WithOrigin>::new(super::SIGNALS)?;
+
+            Ok((signals, command_pid, command_pgrp, command, pty_follower))
         });
 
         if result.is_err() {
