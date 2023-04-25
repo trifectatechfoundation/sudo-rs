@@ -3,7 +3,7 @@ use std::{
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
-    os::fd::AsRawFd,
+    os::fd::{AsRawFd, FromRawFd, OwnedFd},
     path::PathBuf,
     ptr::null,
     str::FromStr,
@@ -26,23 +26,18 @@ pub mod time;
 
 pub mod timestamp;
 
-pub fn write(fd: libc::c_int, buf: &[u8]) -> io::Result<libc::ssize_t> {
-    cerr(unsafe { libc::write(fd, buf.as_ptr().cast(), buf.len()) })
+pub fn write<F: AsRawFd>(fd: &F, buf: &[u8]) -> io::Result<libc::ssize_t> {
+    cerr(unsafe { libc::write(fd.as_raw_fd(), buf.as_ptr().cast(), buf.len()) })
 }
 
-pub fn read(fd: libc::c_int, buf: &mut [u8]) -> io::Result<libc::ssize_t> {
-    cerr(unsafe { libc::read(fd, buf.as_mut_ptr().cast(), buf.len()) })
+pub fn read<F: AsRawFd>(fd: &F, buf: &mut [u8]) -> io::Result<libc::ssize_t> {
+    cerr(unsafe { libc::read(fd.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) })
 }
 
-pub fn close(fd: libc::c_int) -> io::Result<()> {
-    cerr(unsafe { libc::close(fd) })?;
-    Ok(())
-}
-
-pub fn pipe() -> io::Result<(libc::c_int, libc::c_int)> {
+pub fn pipe() -> io::Result<(OwnedFd, OwnedFd)> {
     let mut fds = [0; 2];
     cerr(unsafe { libc::pipe2(fds.as_mut_ptr(), O_CLOEXEC | O_NONBLOCK) })?;
-    Ok((fds[0], fds[1]))
+    Ok(unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) })
 }
 
 pub fn fork() -> io::Result<ProcessId> {
@@ -53,23 +48,23 @@ pub fn setsid() -> io::Result<ProcessId> {
     cerr(unsafe { libc::setsid() })
 }
 
-pub fn openpty() -> io::Result<(libc::c_int, libc::c_int)> {
-    let (mut master, mut slave) = (0, 0);
+pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
+    let (mut leader, mut follower) = (0, 0);
     cerr(unsafe {
         libc::openpty(
-            &mut master,
-            &mut slave,
+            &mut leader,
+            &mut follower,
             null::<libc::c_char>() as *mut _,
             null::<libc::termios>() as *mut _,
             null::<libc::winsize>() as *mut _,
         )
     })?;
 
-    Ok((master, slave))
+    Ok(unsafe { (OwnedFd::from_raw_fd(leader), OwnedFd::from_raw_fd(follower)) })
 }
 
-pub fn set_controlling_terminal(fd: libc::c_int) -> io::Result<()> {
-    cerr(unsafe { libc::ioctl(fd, libc::TIOCSCTTY, 0) })?;
+pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
+    cerr(unsafe { libc::ioctl(fd.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
     Ok(())
 }
 

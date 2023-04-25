@@ -1,4 +1,4 @@
-use std::{ffi::c_int, io, process::exit};
+use std::{io, os::fd::OwnedFd, process::exit};
 
 use signal_hook::{
     consts::*,
@@ -9,7 +9,7 @@ use signal_hook::{
     },
 };
 use sudo_log::user_error;
-use sudo_system::{close, getpgid, interface::ProcessId, kill};
+use sudo_system::{getpgid, interface::ProcessId, kill};
 
 use crate::ExitReason;
 
@@ -20,16 +20,16 @@ pub(super) struct PtyRelay {
     command_pid: ProcessId,
     // FIXME: Look for `SFD_LEADER` occurences in `exec_pty` to decide what to do with the leader
     // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
-    pty_leader: c_int,
-    rx: c_int,
+    _pty_leader: OwnedFd,
+    rx: OwnedFd,
 }
 
 impl PtyRelay {
     pub(super) fn new(
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
-        pty_leader: c_int,
-        rx: c_int,
+        pty_leader: OwnedFd,
+        rx: OwnedFd,
     ) -> io::Result<Self> {
         Ok(Self {
             signals: SignalsInfo::<WithOrigin>::new(super::SIGNALS)?,
@@ -37,7 +37,7 @@ impl PtyRelay {
             sudo_pid,
             // FIXME: is this ok? Check ogsudo's code.
             command_pid: -1,
-            pty_leader,
+            _pty_leader: pty_leader,
             rx,
         })
     }
@@ -56,11 +56,7 @@ impl PtyRelay {
     }
 
     fn wait_monitor(&mut self) -> io::Result<()> {
-        if let Ok(reason) = ExitReason::recv(self.rx) {
-            close(self.rx)?;
-
-            close(self.pty_leader)?;
-
+        if let Ok(reason) = ExitReason::recv(&self.rx) {
             match reason {
                 ExitReason::Code(code) => exit(code),
                 ExitReason::Signal(signal) => {

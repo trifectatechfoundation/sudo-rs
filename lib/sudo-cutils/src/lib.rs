@@ -10,13 +10,6 @@ pub fn cerr<Int: Copy + TryInto<libc::c_long>>(res: Int) -> std::io::Result<Int>
     }
 }
 
-pub fn cerr_ssize_t(res: libc::ssize_t) -> std::io::Result<libc::ssize_t> {
-    match res {
-        -1 => Err(std::io::Error::last_os_error()),
-        _ => Ok(res),
-    }
-}
-
 extern "C" {
     #[cfg_attr(
         any(target_os = "macos", target_os = "ios", target_os = "freebsd"),

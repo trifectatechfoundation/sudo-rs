@@ -7,8 +7,8 @@ use std::{
     ffi::{c_int, CString, OsStr},
     io,
     mem::size_of,
-    os::unix::process::CommandExt,
     os::unix::{ffi::OsStrExt, process::ExitStatusExt},
+    os::{fd::OwnedFd, unix::process::CommandExt},
     process::{Command, ExitStatus},
 };
 
@@ -91,7 +91,7 @@ enum ExitReason {
 }
 
 impl ExitReason {
-    fn send(self, tx: c_int) -> io::Result<()> {
+    fn send(self, tx: &OwnedFd) -> io::Result<()> {
         let mut bytes = [0u8; size_of::<u8>() + size_of::<i32>()];
         let (prefix_bytes, int_bytes) = bytes.split_at_mut(size_of::<u8>());
         match self {
@@ -109,7 +109,7 @@ impl ExitReason {
         Ok(())
     }
 
-    fn recv(rx: c_int) -> io::Result<Self> {
+    fn recv(rx: &OwnedFd) -> io::Result<Self> {
         let mut bytes = [0u8; size_of::<u8>() + size_of::<i32>()];
 
         read(rx, &mut bytes)?;

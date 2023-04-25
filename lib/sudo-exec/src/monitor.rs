@@ -1,6 +1,6 @@
 use std::{
-    ffi::c_int,
     io,
+    os::fd::OwnedFd,
     process::{exit, Child, Command},
     time::Duration,
 };
@@ -14,9 +14,7 @@ use signal_hook::{
     },
 };
 use sudo_log::user_error;
-use sudo_system::{
-    close, getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid,
-};
+use sudo_system::{getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid};
 
 use crate::ExitReason;
 
@@ -25,18 +23,22 @@ pub(super) struct MonitorRelay {
     command_pid: ProcessId,
     command_pgrp: ProcessId,
     command: Child,
-    pty_follower: c_int,
-    tx: c_int,
+    _pty_follower: OwnedFd,
+    tx: OwnedFd,
 }
 
 impl MonitorRelay {
-    pub(super) fn new(mut command: Command, pty_follower: c_int, tx: c_int) -> io::Result<Self> {
+    pub(super) fn new(
+        mut command: Command,
+        pty_follower: OwnedFd,
+        tx: OwnedFd,
+    ) -> io::Result<Self> {
         let result = Ok(()).and_then(|()| {
             // Create new terminal session.
             setsid()?;
 
             // Set the pty as the controlling terminal.
-            set_controlling_terminal(pty_follower)?;
+            set_controlling_terminal(&pty_follower)?;
 
             // spawn and exec to command
             let command = command.spawn()?;
@@ -47,21 +49,29 @@ impl MonitorRelay {
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp);
 
-            Ok(Self {
-                signals: SignalsInfo::<WithOrigin>::new(super::SIGNALS)?,
+            Ok((
+                SignalsInfo::<WithOrigin>::new(super::SIGNALS)?,
                 command_pid,
                 command_pgrp,
                 command,
                 pty_follower,
-                tx,
-            })
+            ))
         });
 
         if result.is_err() {
-            ExitReason::Code(1).send(tx)?;
+            ExitReason::Code(1).send(&tx)?;
         }
 
-        result
+        result.map(
+            |(signals, command_pid, command_pgrp, command, pty_follower)| Self {
+                signals,
+                command_pid,
+                command_pgrp,
+                command,
+                _pty_follower: pty_follower,
+                tx,
+            },
+        )
     }
 
     /// FIXME: this should return `!` but it is not stable yet.
@@ -79,7 +89,7 @@ impl MonitorRelay {
 
     fn wait_command(&mut self) -> io::Result<()> {
         if let Some(status) = self.command.try_wait()? {
-            ExitReason::from_status(status).send(self.tx)?;
+            ExitReason::from_status(status).send(&self.tx)?;
 
             // Given that we overwrote the default handlers for all the signals, we musti
             // emulate them to handle the signal we just sent correctly.
@@ -87,7 +97,6 @@ impl MonitorRelay {
                 emulate_default_handler(info.signal)?;
             }
 
-            close(self.pty_follower)?;
             exit(0);
         }
 
