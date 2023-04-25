@@ -140,7 +140,8 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         .flatten()
         .filter_map(|(hosts, runas_cmds)| {
             find_item(hosts, &match_token(on_host), &host_aliases)?;
-            Some(distribute_tags(runas_cmds))
+            // TODO: calling collect() here is not necessary if find_item is a forward loop
+            Some(distribute_tags(runas_cmds).collect::<Vec<_>>())
         })
         .flatten()
         .filter_map(|(runas, cmdspec)| {
@@ -168,19 +169,18 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 
 fn distribute_tags<'a>(
     runas_cmds: &'a Vec<(Option<RunAs>, CommandSpec)>,
-) -> impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>, &'a Sha2))> + DoubleEndedIterator
-{
-    let mut last_runas = None;
-    let mut tag = Default::default();
-    runas_cmds
-        .iter()
-        .map(move |(runas, CommandSpec(mods, cmd, digest))| {
+) -> impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>, &'a Sha2))> {
+    runas_cmds.iter().scan(
+        (None, Default::default()),
+        |(mut last_runas, tag), (runas, CommandSpec(mods, cmd, digest))| {
             last_runas = runas.as_ref().or(last_runas);
             for f in mods {
-                f(&mut tag);
+                f(tag);
             }
-            (last_runas, (tag.clone(), cmd, digest))
-        })
+
+            Some((last_runas, (tag.clone(), cmd, digest)))
+        },
+    )
 }
 
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
