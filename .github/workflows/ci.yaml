@@ -97,13 +97,18 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "stable"
+          shared-key: 'stable'
 
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --workspace --all-targets --all-features --release
+
+      - name: Run cargo bloat
+        uses: orf/cargo-bloat-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -143,7 +148,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "miri"
+          shared-key: 'miri'
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -169,7 +174,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "nightly"
+          shared-key: 'nightly'
 
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
@@ -202,7 +207,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "nightly"
+          shared-key: 'nightly'
 
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
@@ -235,7 +240,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "nightly"
+          shared-key: 'nightly'
 
       - name: Build docs
         uses: actions-rs/cargo@v1
@@ -266,7 +271,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "udeps"
+          shared-key: 'udeps'
       - name: Check udeps
         uses: actions-rs/cargo@v1
         with:
@@ -291,7 +296,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "audit"
+          shared-key: 'audit'
       - name: Run audit
         uses: actions-rs/cargo@v1
         with:
