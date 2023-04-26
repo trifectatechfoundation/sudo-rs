@@ -52,7 +52,7 @@ fn cwd_fails_for_non_existent_dirs() -> Result<()> {
         stderr,
         "unable to change directory to /path/to/nowhere: No such file or directory"
     );
-    assert!(!stderr.contains("avocado"));
+    assert_not_contains!(stderr, "avocado");
 
     Ok(())
 }
@@ -81,7 +81,7 @@ fn cwd_with_login_fails_for_non_existent_dirs() -> Result<()> {
         stderr,
         "unable to change directory to /path/to/nowhere: No such file or directory"
     );
-    assert!(!stderr.contains("avocado"));
+    assert_not_contains!(stderr, "avocado");
 
     Ok(())
 }
