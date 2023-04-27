@@ -39,4 +39,5 @@ const SUDOERS_ROOT_ALL_NOPASSWD: &str = "root ALL=(ALL:ALL) NOPASSWD: ALL";
 const SUDOERS_USER_ALL_NOPASSWD: &str = "ferris ALL=(ALL:ALL) NOPASSWD: ALL";
 const SUDOERS_NO_LECTURE: &str = "Defaults	lecture=\"never\"";
 const SUDOERS_NEW_LECTURE: &str = "Defaults     lecture_file = \"/etc/sudo_lecture\"";
+const SUDOERS_NEW_LECTURE_USER: &str = "Defaults:ferris     lecture_file = \"/etc/sudo_lecture\"";
 const PAMD_SUDO_PAM_PERMIT: &str = "auth sufficient pam_permit.so";
