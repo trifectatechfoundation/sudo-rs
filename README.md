@@ -17,16 +17,23 @@ supported or maintained.
 
 Sudo-rs is written in Rust. We currently only support the latest stable compiler
 toolchain. To get a recent compiler toolchain we recommend using [rustup]. To
-build sudo-rs run
+build sudo-rs, install the dependencies (listed below with their names in
+Debian repositories):
+
++ clang (clang)
++ libclang development libraries (libclang-dev)
++ PAM library (libpam0g-dev)
+
+With dependencies installed, building sudo-rs is a simple matter of:
 
 ```
 cargo build --release
 ```
 
-This produces a binary `target/release/sudo`. However this binary must have the
-setuid flag set and must be owned by the root user in order to provide any
-useful functionality. Because we are in such an early stage we also require
-an environment variable `SUDO_RS_IS_UNSTABLE` to be set, and it must have the
+This produces a binary `target/release/sudo`. However, this binary must have
+the setuid flag set and must be owned by the root user in order to provide any
+useful functionality. Because we are in such an early stage we also require an
+environment variable `SUDO_RS_IS_UNSTABLE` to be set, and it must have the
 value `I accept that my system may break unexpectedly`. If you are unsure about
 how to set this up, then the current version of sudo is not intended for you.
 
