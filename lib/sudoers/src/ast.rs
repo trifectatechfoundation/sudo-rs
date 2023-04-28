@@ -376,21 +376,6 @@ impl Many for (Option<RunAs>, CommandSpec) {}
 
 /// grammar:
 /// ```text
-/// permissionspec = userlist, (host, runas, commandspec), [ ":", (host, runas, commandspec) ]*
-/// ```
-
-#[cfg(test)]
-impl Parse for PermissionSpec {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        let users = try_nonterminal(stream)?;
-        let permissions = expect_nonterminal(stream)?;
-
-        make(PermissionSpec { users, permissions })
-    }
-}
-
-/// grammar:
-/// ```text
 /// sudo = permissionspec
 ///      | Keyword_Alias identifier = identifier_list
 ///      | Defaults (name [+-]?= ...)+

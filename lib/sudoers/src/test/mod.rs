@@ -351,18 +351,6 @@ fn invalid_directive() {
     parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");
 }
 
-use std::ops::Neg;
-use Qualified::*;
-impl<T> Neg for Qualified<T> {
-    type Output = Qualified<T>;
-    fn neg(self) -> Qualified<T> {
-        match self {
-            Allow(x) => Forbid(x),
-            Forbid(x) => Allow(x),
-        }
-    }
-}
-
 #[test]
 fn directive_test() {
     let y = parse_eval::<Spec<UserSpecifier>>;
