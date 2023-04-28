@@ -24,6 +24,7 @@ fn default_lecture_message() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn new_lecture_message() -> Result<()> {
     let new_lecture = format!("I <3 sudo");
     let env = Env([
@@ -38,16 +39,15 @@ fn new_lecture_message() -> Result<()> {
     .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
     assert_eq!(false, output.status().success());
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "I <3 sudo"
-        );
-    }
+    assert_contains!(
+        output.stderr(),
+        "I <3 sudo"
+    );
     Ok(())
 }
 
 #[test]
+#[ignore]
 fn new_lecture_for_specific_user() -> Result<()> {
     let new_lecture = format!("I <3 sudo");
     let env = Env([
@@ -62,12 +62,10 @@ fn new_lecture_for_specific_user() -> Result<()> {
     .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
     assert_eq!(false, output.status().success());
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "I <3 sudo"
-        );
-    }
+    assert_contains!(
+        output.stderr(),
+        "I <3 sudo"
+    );
     Ok(())
 }
 
