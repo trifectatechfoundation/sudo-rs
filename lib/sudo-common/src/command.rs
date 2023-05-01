@@ -46,6 +46,7 @@ impl CommandAndArguments {
             arguments.remove(0);
 
             // resolve the binary if the path is not absolute
+            // FIXME: we leak information here since we throw an error if a file does not exists
             if command.is_relative() {
                 command =
                     resolve_path(&command, path).ok_or_else(|| Error::InvalidCommand(command))?
