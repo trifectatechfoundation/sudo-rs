@@ -548,7 +548,7 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
     let mut dupe = HashSet::new();
     for (i, Def(name, _)) in table.iter().enumerate() {
         if !dupe.insert(name) {
-            visitor.complain(format!("multiple occurences of `{name}'"));
+            visitor.complain(format!("multiple occurrences of `{name}'"));
         } else {
             visitor.visit(i);
         }
