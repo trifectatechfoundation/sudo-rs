@@ -40,7 +40,7 @@ implemented. Sudo-rs currently may not always warn about this, so your sudoers
 file may have a different meaning compared to the original sudo implementation.
 
 Sudo-rs always uses PAM for authentication at this time, your system must be
-setup for PAM. Sudo-rs will use the `sudo` service configuration.
+set up for PAM. Sudo-rs will use the `sudo` service configuration.
 
 [rustup]: https://rustup.rs/
 
@@ -51,14 +51,14 @@ sudo. For the sudoers config syntax this means that we aim to at least support
 the default configuration files of some common Linux distributions (we currently
 aim to support both the Fedora and Debian default sudoers configs). Our
 implementation should eventually at least support all commonly used CLI flags
-from the original sudo implementation (e.g. flags like `-u`, `-g` and `-s`).
+from the original sudo implementation (e.g., flags like `-u`, `-g` and `-s`).
 
 Some parts of the original sudo are explicitly not in scope. Sudo has a large
 and rich history and some of the features available in the original sudo
 implementation are largely unused or only available for legacy platforms. In
 order to determine which features make it we both consider whether the feature
 is relevant for modern systems, and whether it will receive at very least
-decent usage. Finally of course a feature should not compromise the safety of
+decent usage. Finally, of course, a feature should not compromise the safety of
 the whole program.
 
 The `su` program is a much simpler program and will only include basic
