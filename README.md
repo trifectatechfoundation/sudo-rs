@@ -49,7 +49,7 @@ setup for PAM. Sudo-rs will use the `sudo` service configuration.
 Our current target is to build a drop-in replacement for most basic use cases of
 sudo. For the sudoers config syntax this means that we aim to at least support
 the default configuration files of some common Linux distributions (we currently
-aim to suppor both the Fedora and Debian default sudoers configs). Our
+aim to support both the Fedora and Debian default sudoers configs). Our
 implementation should eventually at least support all commonly used CLI flags
 from the original sudo implementation (e.g. flags like `-u`, `-g` and `-s`).
 
