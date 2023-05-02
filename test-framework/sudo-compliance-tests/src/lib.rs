@@ -11,6 +11,7 @@ mod flag_group;
 mod flag_login;
 mod flag_shell;
 mod flag_user;
+mod lecture;
 mod lecture_file;
 mod misc;
 mod nopasswd;
@@ -41,3 +42,5 @@ const SUDOERS_NO_LECTURE: &str = "Defaults	lecture=\"never\"";
 const SUDOERS_NEW_LECTURE: &str = "Defaults     lecture_file = \"/etc/sudo_lecture\"";
 const SUDOERS_NEW_LECTURE_USER: &str = "Defaults:ferris     lecture_file = \"/etc/sudo_lecture\"";
 const PAMD_SUDO_PAM_PERMIT: &str = "auth sufficient pam_permit.so";
+
+const USER_ALL_ALL: &str = "ferris   ALL=(ALL:ALL) ALL ";

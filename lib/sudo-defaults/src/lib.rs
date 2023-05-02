@@ -35,7 +35,7 @@ defaults! {
     umask                     = 0o22 (!= 0o777)    [0..=0o777; radix: 8]
 
     editor                    = "/usr/bin/editor"
-    lecture_file              = None
+    lecture_file              = "Once"
     secure_path               = None (!= None)
     verifypw                  = "all" (!= "never") [all, always, any, never]
 
