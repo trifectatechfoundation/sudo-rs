@@ -49,7 +49,7 @@ impl PtyRelay {
             self.wait_monitor()?;
 
             // Then we check any pending signals that we received. Based on `signal_cb_pty`
-            for info in self.signals.pending() {
+            for info in self.signals.wait() {
                 self.relay_signal(info);
             }
         }

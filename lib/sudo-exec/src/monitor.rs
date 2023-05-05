@@ -77,7 +77,7 @@ impl MonitorRelay {
             self.wait_command()?;
 
             // Then we check any pending signals that we received. Based on `mon_signal_cb`
-            for info in self.signals.pending() {
+            for info in self.signals.wait() {
                 self.relay_signal(info);
             }
         }
