@@ -609,7 +609,7 @@ mod tests {
     #[test]
     fn pgid_test() {
         use super::getpgid;
-        assert_eq!(getpgid(std::process::id() as i32), getpgid(0));
+        assert_eq!(getpgid(std::process::id() as i32).unwrap(), getpgid(0).unwrap());
     }
     #[test]
     fn kill_test() {
