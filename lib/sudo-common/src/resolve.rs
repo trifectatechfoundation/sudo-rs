@@ -83,10 +83,10 @@ pub(crate) fn resolve_target_user_and_group(
                 target_group = Group::from_gid(user.gid)?;
             }
         }
-        // when no -u or -g is specified, default to root:root
+        // when no -u or -g is specified, default to root:wheel
         (None, None) => {
             target_user = User::from_name("root")?;
-            target_group = Group::from_name("root")?;
+            target_group = Group::from_name("wheel")?;
         }
         _ => {}
     }
