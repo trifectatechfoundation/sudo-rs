@@ -465,8 +465,8 @@ impl<'a, C: Converser> Drop for PamContext<'a, C> {
         unsafe {
             pam_end(
                 self.pamh,
-                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int),
-            ) | PAM_DATA_SILENT as i32
+                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int) | PAM_DATA_SILENT as i32,
+            )
         };
     }
 }
