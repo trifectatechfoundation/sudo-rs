@@ -413,6 +413,9 @@ impl<'a, C: Converser> PamContext<'a, C> {
     pub fn env(&mut self) -> PamResult<Vec<(String, String)>> {
         let mut res = vec![];
         let envs = unsafe { pam_getenvlist(self.pamh) };
+        if envs.is_null() {
+            return Err(PamError::EnvListFailure);
+        }
         let mut curr_env = envs;
         while unsafe { !(*curr_env).is_null() } {
             let curr_str = unsafe { *curr_env };

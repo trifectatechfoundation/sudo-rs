@@ -160,6 +160,8 @@ pub enum PamError {
     SessionAlreadyOpen,
     #[error("Cannot close session while none is open")]
     SessionNotOpen,
+    #[error("It was not possible to get a list of environment variables")]
+    EnvListFailure,
 }
 
 impl PamError {
