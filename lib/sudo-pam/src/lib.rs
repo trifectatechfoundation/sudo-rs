@@ -242,11 +242,17 @@ impl<'a, C: Converser> PamContext<'a, C> {
     }
 
     /// Request a delay when an authentication failure occured in the PAM stack.
+    #[cfg(target_os = "linux")]
     pub fn request_failure_delay(&mut self, delay: Duration) -> PamResult<()> {
         let delay = delay.as_micros();
         let delay = delay.min(libc::c_uint::MAX as u128) as libc::c_uint;
         let res = unsafe { pam_fail_delay(self.handle()?, delay) };
         self.pam_err(res)?;
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub fn request_failure_delay(&mut self, _: Duration) -> PamResult<()> {
         Ok(())
     }
 
@@ -481,11 +487,15 @@ impl<'a, C: Converser> Drop for PamContext<'a, C> {
             // it is unclear what it really does and does not do, other than the vague
             // documentation description to 'not take the call to seriously'
             // Also see https://github.com/systemd/systemd/issues/22318
+            #[cfg(target_os = "linux")]
+            let extra_flags = PAM_DATA_SILENT as i32;
+            #[cfg(not(target_os = "linux"))]
+            let extra_flags = 0i32;
             unsafe {
                 pam_end(
                     self.handle().unwrap(),
-                    self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int),
-                ) | PAM_DATA_SILENT as i32
+                    self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int) | extra_flags,
+                )
             };
         }
     }
