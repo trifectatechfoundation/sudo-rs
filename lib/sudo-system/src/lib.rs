@@ -55,7 +55,7 @@ pub fn set_target_user(
     unsafe {
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
-                target_user.groups.len(),
+                target_user.groups.len() as _,
                 target_user.groups.as_ptr(),
             ))?;
             cerr(libc::setgid(target_group.gid))?;
