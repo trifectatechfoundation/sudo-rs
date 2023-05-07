@@ -1,4 +1,4 @@
-/// Derived work from rpassword and rtoolbox, Copyright (c) 2023, Conrad Kleinespel et al
+/// Parts of the code below are Copyright (c) 2023, Conrad Kleinespel et al
 ///
 /// This module contains code that was originally written by Conrad Kleinespel for the rpassword
 /// crate. No copyright notices were found in the original code.
@@ -7,35 +7,36 @@
 ///
 /// Most code was replaced and so is no longer a derived work; work that we kept:
 ///
-/// - the "HiddenInput" struct and implementation
+/// - the "HiddenInput" struct and implementation, with changes:
 ///   * replaced occurences of explicit 'i32' and 'c_int' with RawFd
-///   * make it return an Option ("None" if the given fd is not a terminal)
+///   * open the TTY ourselves to mitigate Linux CVE-2023-2002
 /// - the general idea of a "SafeString" type that clears its memory
 ///   (although much more robust than in the original code)
 ///
 use std::io::{self, Read};
-use std::os::fd::{AsFd, AsRawFd, RawFd};
+use std::os::fd::{AsRawFd, RawFd};
 use std::{fs, iter, mem};
 
-use libc::{isatty, tcsetattr, termios, ECHO, ECHONL, TCSANOW};
+use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
 use sudo_cutils::cerr;
 
 use crate::securemem::PamBuffer;
 
 pub struct HiddenInput {
-    fd: RawFd,
+    tty: fs::File,
     term_orig: termios,
 }
 
 impl HiddenInput {
-    fn new(tty: &impl AsRawFd) -> io::Result<Option<HiddenInput>> {
-        let fd = tty.as_raw_fd();
-
-        // If the file descriptor is not a terminal, there is nothing to hide
-        if unsafe { isatty(fd) } == 0 {
+    fn new() -> io::Result<Option<HiddenInput>> {
+        // control ourselves that we are really talking to a TTY
+        // mitigates: https://marc.info/?l=oss-security&m=168164424404224
+        let Ok(tty) = fs::File::open("/dev/tty") else {
+            // if we have nothing to show, we have nothing to hide
             return Ok(None);
-        }
+        };
+        let fd = tty.as_raw_fd();
 
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
@@ -52,7 +53,7 @@ impl HiddenInput {
         // Save the settings for now.
         cerr(unsafe { tcsetattr(fd, TCSANOW, &term) })?;
 
-        Ok(Some(HiddenInput { fd, term_orig }))
+        Ok(Some(HiddenInput { tty, term_orig }))
     }
 }
 
@@ -60,7 +61,7 @@ impl Drop for HiddenInput {
     fn drop(&mut self) {
         // Set the the mode back to normal
         unsafe {
-            tcsetattr(self.fd, TCSANOW, &self.term_orig);
+            tcsetattr(self.tty.as_raw_fd(), TCSANOW, &self.term_orig);
         }
     }
 }
@@ -118,7 +119,7 @@ impl Terminal<'_> {
     /// Reads input with TTY echo disabled
     pub fn read_password(&mut self) -> io::Result<PamBuffer> {
         let mut input = self.source();
-        let _hide_input = HiddenInput::new(&input.as_fd())?;
+        let _hide_input = HiddenInput::new()?;
         read_unbuffered(&mut input)
     }
 
@@ -133,7 +134,7 @@ impl Terminal<'_> {
     }
 
     // boilerplate reduction functions
-    fn source(&mut self) -> &mut dyn ReadAsFd {
+    fn source(&mut self) -> &mut dyn io::Read {
         match self {
             Terminal::StdIE(x, _) => x,
             Terminal::Tty(x) => x,
@@ -147,9 +148,6 @@ impl Terminal<'_> {
         }
     }
 }
-
-trait ReadAsFd: io::Read + AsFd {}
-impl<T: io::Read + AsFd> ReadAsFd for T {}
 
 #[cfg(test)]
 mod test {

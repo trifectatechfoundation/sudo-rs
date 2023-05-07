@@ -25,7 +25,7 @@ fn parse_sudoers() -> Result<Sudoers, Error> {
     Ok(sudoers)
 }
 
-/// parse suoers file and check permission to run the provided command given the context
+/// parse sudoers file and check permission to run the provided command given the context
 fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Judgement {
     sudoers.check(
         &context.current_user,
