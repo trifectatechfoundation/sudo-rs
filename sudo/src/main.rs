@@ -129,13 +129,11 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
 
 fn main() {
     match sudo_process() {
-        Ok(status) => {
-            if let Some(code) = status.code() {
-                std::process::exit(code);
-            } else {
-                std::process::exit(1);
-            }
-        }
+        Ok(status) if status.code().is_some() =>
+            std::process::exit(status.code().unwrap()),
+
+        Ok(_) => std::process::exit(1),
+
         Err(error) => {
             diagnostic!("{error}");
             std::process::exit(1);
