@@ -389,6 +389,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "su"
+version = "0.1.0-alpha.1"
+
+[[package]]
 name = "sudo"
 version = "0.1.0-alpha.1"
 dependencies = [
@@ -531,15 +535,6 @@ dependencies = [
  "redox_syscall",
  "rustix",
  "windows-sys 0.45.0",
-]
-
-[[package]]
-name = "test-binaries"
-version = "0.1.0-alpha.1"
-dependencies = [
- "libc",
- "sudo-system",
- "sudoers",
 ]
 
 [[package]]
