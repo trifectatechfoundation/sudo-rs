@@ -29,10 +29,7 @@ pub fn set_errno(no: libc::c_int) {
 
 pub fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
     set_errno(0);
-    match cerr(unsafe { libc::sysconf(name) }) {
-        Ok(res) => Some(res),
-        Err(_) => None,
-    }
+    cerr(unsafe { libc::sysconf(name) }).ok()
 }
 
 /// Create a Rust string copy from a C string pointer
