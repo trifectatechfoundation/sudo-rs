@@ -86,49 +86,104 @@ pub struct SudoOptions {
     pub env_var_list: Vec<(String, String)>,
 }
 
+enum SudoArg {
+    Flag(String),
+    Argument(String, String),
+    Environment(String, String),
+    Rest(Vec<String>),
+}
+
 impl SudoOptions {
-    const TAKES_ARGUMENT: &[char] = &['C', 'D', 'E', 'g', 'h', 'p', 'R', 'T', 'U', 'u'];
+    const TAKES_ARGUMENT_SHORT: &[char] = &['C', 'D', 'E', 'g', 'h', 'p', 'R', 'T', 'U', 'u'];
+    const TAKES_ARGUMENT: &[&'static str] = &[
+        "close-from",
+        "chdir",
+        "preserve-env",
+        "group",
+        "host",
+        "chroot",
+        "command-timeout",
+        "other-user",
+        "user",
+    ];
 
-    pub fn normalize_arguments<I, T>(iter: I) -> impl Iterator<Item = String>
+    /// argument assignments and shorthand options preprocessing
+    fn normalize_arguments<I>(iter: I) -> Result<Vec<SudoArg>, &'static str>
     where
-        I: IntoIterator<Item = T>,
-        T: Into<String> + Clone,
+        I: IntoIterator<Item = String>,
     {
-        iter.into_iter().flat_map(|item| {
-            let segment = item.into();
-            if segment.starts_with("--") && segment.contains('=') {
-                // convert argument assignment to seperate segment
-                segment.splitn(2, '=').map(str::to_string).collect()
-            } else if segment.starts_with('-') && !segment.starts_with("--") && segment.len() > 2 {
-                // split combined shorthand options
-                let mut flags: Vec<String> = vec![];
+        // the first argument is the sudo command - so we can sklip it
+        let mut arg_iter = iter.into_iter().skip(1).peekable();
+        let mut processed: Vec<SudoArg> = vec![];
 
-                for (n, char) in segment.trim_start_matches('-').chars().enumerate() {
-                    flags.push(format!("-{char}"));
-
-                    // convert option argument to seperate segment
-                    if Self::TAKES_ARGUMENT.contains(&char) {
-                        let rest = segment[(n + 2)..].trim().to_string();
-
-                        if rest.starts_with('=') {
-                            flags.push("=".to_string());
-                            break;
+        while let Some(arg) = arg_iter.next() {
+            match arg.as_str() {
+                "--" => {
+                    processed.push(SudoArg::Rest(arg_iter.collect()));
+                    break;
+                }
+                long_arg if long_arg.starts_with("--") => {
+                    if long_arg.contains('=') {
+                        // convert assignment to normal tokens
+                        let (key, value) = long_arg.split_once('=').unwrap();
+                        processed.push(SudoArg::Argument(key.to_string(), value.to_string()));
+                    } else if Self::TAKES_ARGUMENT.contains(&&long_arg[2..]) {
+                        if let Some(next) = arg_iter.next() {
+                            processed.push(SudoArg::Argument(arg, next));
+                        } else if long_arg == "--preserve-env" {
+                            processed.push(SudoArg::Flag(arg));
+                        } else {
+                            Err("invalid argument provided ")?;
                         }
-
-                        if !rest.is_empty() {
-                            flags.push(rest);
-                        }
-                        break;
+                    } else {
+                        processed.push(SudoArg::Flag(arg));
                     }
                 }
+                short_arg if short_arg.starts_with('-') => {
+                    // split combined shorthand options
+                    for (n, char) in short_arg.trim_start_matches('-').chars().enumerate() {
+                        let flag = format!("-{char}");
+                        // convert option argument to seperate segment
+                        if Self::TAKES_ARGUMENT_SHORT.contains(&char) {
+                            let rest = short_arg[(n + 2)..].trim().to_string();
 
-                flags
-            } else {
-                vec![segment]
+                            if rest.starts_with('=') {
+                                Err("invalid option '='")?;
+                            }
+
+                            if !rest.is_empty() {
+                                processed.push(SudoArg::Argument(flag, rest));
+                            } else if let Some(next) = arg_iter.next() {
+                                processed.push(SudoArg::Argument(flag, next));
+                            } else if char == 'E' || char == 'h' {
+                                // preserve env and the short version of --help have optional arguments
+                                processed.push(SudoArg::Flag(flag));
+                            } else {
+                                Err("invalid argument provided")?;
+                            }
+                            break;
+                        } else {
+                            processed.push(SudoArg::Flag(flag));
+                        }
+                    }
+                }
+                env_var if SudoOptions::try_to_env_var(env_var).is_some() => {
+                    let (key, value) = SudoOptions::try_to_env_var(env_var).unwrap();
+                    processed.push(SudoArg::Environment(key, value));
+                }
+                _argument => {
+                    let mut rest = vec![arg];
+                    rest.extend(arg_iter);
+                    processed.push(SudoArg::Rest(rest));
+                    break;
+                }
             }
-        })
+        }
+
+        Ok(processed)
     }
 
+    /// try to parse and environment variable assignment
     fn try_to_env_var(arg: &str) -> Option<(String, String)> {
         if let Some((name, value)) = arg.split_once('=').and_then(|(name, value)| {
             name.chars()
@@ -141,6 +196,7 @@ impl SudoOptions {
         }
     }
 
+    /// parse command line arguments from the environment and handle errors
     pub fn parse() -> SudoOptions {
         match Self::try_parse_from(std::env::args()) {
             Ok(options) => {
@@ -158,154 +214,125 @@ impl SudoOptions {
         }
     }
 
+    /// parse an iterator over command line arguments
     pub fn try_parse_from<I, T>(iter: I) -> Result<Self, &'static str>
     where
         I: IntoIterator<Item = T>,
         T: Into<String> + Clone,
     {
         let mut options: SudoOptions = SudoOptions::default();
-        let normalized_args = Self::normalize_arguments(iter).collect::<Vec<_>>();
+        let arg_iter = Self::normalize_arguments(iter.into_iter().map(Into::into))?
+            .into_iter()
+            .peekable();
 
-        let mut arg_iter = normalized_args.into_iter().peekable();
-        let _command = arg_iter.next();
-
-        while let Some(arg) = arg_iter.next() {
-            match arg.as_str() {
-                "-A" | "--askpass" => {
-                    options.askpass = true;
-                }
-                "-b" | "--background" => {
-                    options.background = true;
-                }
-                "-B" | "--bell" => {
-                    options.bell = true;
-                }
-                "-C" | "--close-from" => {
-                    // pass
-                }
-                "-D" | "--chdir" => {
-                    let arg: String = arg_iter.next().ok_or("no working directory provided")?;
-                    let path_arg = PathBuf::from(arg);
-                    options.directory = Some(path_arg);
-                }
-                "-E" | "--preserve-env" => {
-                    if let Some(next) = arg_iter.peek() {
-                        if next.starts_with('-') || next.starts_with('=') {
-                            options.preserve_env = true;
-                        } else {
-                            options.preserve_env_list = arg_iter
-                                .next()
-                                .unwrap()
-                                .split(',')
-                                .map(str::to_string)
-                                .collect()
-                        }
-                    } else {
+        for arg in arg_iter {
+            match arg {
+                SudoArg::Flag(flag) => match flag.as_str() {
+                    "-A" | "--askpass" => {
+                        options.askpass = true;
+                    }
+                    "-b" | "--background" => {
+                        options.background = true;
+                    }
+                    "-B" | "--bell" => {
+                        options.bell = true;
+                    }
+                    "-C" | "--close-from" => {
+                        // pass
+                    }
+                    "-e" | "--edit" => {
+                        options.edit = true;
+                    }
+                    "-E" | "--preserve-env" => {
                         options.preserve_env = true;
                     }
-                }
-                "-e" | "--edit" => {
-                    options.edit = true;
-                }
-                "-g" | "--group" => {
-                    options.group = Some(arg_iter.next().ok_or("no group provided")?);
-                }
-                "-H" | "--set-home" => {
-                    options.set_home = true;
-                }
-                "--help" => {
-                    options.help = true;
-                }
-                "-h" | "--host=host" => {
-                    // -h is both host and help
-                    if let Some(next) = arg_iter.peek() {
-                        if next.starts_with('-') {
-                            options.help = true;
-                        } else {
-                            options.host = Some(arg_iter.next().unwrap());
-                        }
-                    } else {
+                    "-H" | "--set-home" => {
+                        options.set_home = true;
+                    }
+                    "-h" | "--help" => {
                         options.help = true;
                     }
-                }
-                "-i" | "--login" => {
-                    options.login = true;
-                }
-                "-K" | "--remove-timestamp" => {
-                    if options.reset_timestamp {
-                        Err("conflicting arguments")?;
+                    "-i" | "--login" => {
+                        options.login = true;
                     }
-                    options.remove_timestamp = true;
-                }
-                "-k" | "--reset-timestamp" => {
-                    if options.remove_timestamp {
-                        Err("conflicting arguments")?;
+                    "-K" | "--remove-timestamp" => {
+                        if options.reset_timestamp {
+                            Err("conflicting arguments")?;
+                        }
+                        options.remove_timestamp = true;
                     }
-                    options.reset_timestamp = true;
+                    "-k" | "--reset-timestamp" => {
+                        if options.remove_timestamp {
+                            Err("conflicting arguments")?;
+                        }
+                        options.reset_timestamp = true;
+                    }
+                    "-l" | "--list" => {
+                        options.list = true;
+                    }
+                    "-n" | "--non-interactive" => {
+                        options.non_interactive = true;
+                    }
+                    "-P" | "--preserve-groups" => {
+                        options.preserve_groups = true;
+                    }
+                    "-S" | "--stdin" => {
+                        options.stdin = true;
+                    }
+                    "-s" | "--shell" => {
+                        options.shell = true;
+                    }
+                    "-V" | "--version" => {
+                        options.version = true;
+                    }
+                    "-v" | "--validate" => {
+                        options.validate = true;
+                    }
+                    _option => {
+                        Err("invalid option provided")?;
+                    }
+                },
+                SudoArg::Argument(option, value) => match option.as_str() {
+                    "-D" | "--chdir" => {
+                        options.directory = Some(PathBuf::from(value));
+                    }
+                    "-E" | "--preserve-env" => {
+                        options.preserve_env_list = value.split(',').map(str::to_string).collect()
+                    }
+                    "-g" | "--group" => {
+                        options.group = Some(value);
+                    }
+                    "-h" | "--host=host" => {
+                        options.host = Some(value);
+                    }
+                    "-p" | "--prompt" => {
+                        options.prompt = Some(value);
+                    }
+                    "-R" | "--chroot" => {
+                        options.chroot = Some(PathBuf::from(value));
+                    }
+                    "-T" | "--command-timeout" => {
+                        options.command_timeout = Some(
+                            value
+                                .parse()
+                                .map_err(|_| "invalid command timeout provided")?,
+                        )
+                    }
+                    "-U" | "--other-user" => {
+                        options.other_user = Some(value);
+                    }
+                    "-u" | "--user" => {
+                        options.user = Some(value);
+                    }
+                    _option => {
+                        Err("invalid option provided")?;
+                    }
+                },
+                SudoArg::Environment(key, value) => {
+                    options.env_var_list.push((key, value));
                 }
-                "-l" | "--list" => {
-                    options.list = true;
-                }
-                "-n" | "--non-interactive" => {
-                    options.non_interactive = true;
-                }
-                "-P" | "--preserve-groups" => {
-                    options.preserve_groups = true;
-                }
-                "-p" | "--prompt" => {
-                    options.prompt = Some(arg_iter.next().ok_or("no password prompt provided")?);
-                }
-                "-R" | "--chroot" => {
-                    let arg: String = arg_iter.next().ok_or("no chroot directory provided")?;
-                    let path_arg = PathBuf::from(arg);
-                    options.chroot = Some(path_arg);
-                }
-                "-S" | "--stdin" => {
-                    options.stdin = true;
-                }
-                "-s" | "--shell" => {
-                    options.shell = true;
-                }
-                "-T" | "--command-timeout" => {
-                    options.command_timeout = Some(
-                        arg_iter
-                            .next()
-                            .ok_or("no command timeout provided")?
-                            .parse()
-                            .map_err(|_| "invalid command timeout provided")?,
-                    )
-                }
-                "-U" | "--other-user" => {
-                    options.other_user = Some(arg_iter.next().ok_or("no other user provided")?);
-                }
-                "-u" | "--user" => {
-                    options.user = Some(arg_iter.next().ok_or("no user provided")?);
-                }
-                "-V" | "--version" => {
-                    options.version = true;
-                }
-                "-v" | "--validate" => {
-                    options.validate = true;
-                }
-                "=" => {
-                    Err("invalid option '='")?;
-                }
-                "--" => {
-                    options.external_args.extend(arg_iter);
-                    break;
-                }
-                option if option.starts_with('-') => {
-                    Err("invalid option provided")?;
-                }
-                env_var if SudoOptions::try_to_env_var(env_var).is_some() => {
-                    options
-                        .env_var_list
-                        .push(SudoOptions::try_to_env_var(env_var).unwrap());
-                }
-                _argument => {
-                    options.external_args.push(arg);
-                    options.external_args.extend(arg_iter);
-                    break;
+                SudoArg::Rest(rest) => {
+                    options.external_args = rest;
                 }
             }
         }
