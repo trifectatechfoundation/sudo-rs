@@ -53,7 +53,7 @@ impl SuOptions {
 
     fn parse_arguments(arguments: Vec<String>) -> Result<SuOptions, String> {
         let mut options: SuOptions = SuOptions::default();
-        let mut arg_iter = Self::normalize_arguments(arguments).peekable();
+        let mut arg_iter = Self::normalize_arguments(arguments);
 
         while let Some(arg) = arg_iter.next() {
             match arg.as_str() {
