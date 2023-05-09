@@ -3,14 +3,16 @@ use std::{
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
-    os::fd::AsRawFd,
+    os::fd::{AsRawFd, FromRawFd, OwnedFd},
     path::PathBuf,
+    ptr::null,
     str::FromStr,
 };
 
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
+use libc::{O_CLOEXEC, O_NONBLOCK};
 use sudo_cutils::*;
 use time::SystemTime;
 
@@ -23,6 +25,48 @@ pub mod file;
 pub mod time;
 
 pub mod timestamp;
+
+pub fn write<F: AsRawFd>(fd: &F, buf: &[u8]) -> io::Result<libc::ssize_t> {
+    cerr(unsafe { libc::write(fd.as_raw_fd(), buf.as_ptr().cast(), buf.len()) })
+}
+
+pub fn read<F: AsRawFd>(fd: &F, buf: &mut [u8]) -> io::Result<libc::ssize_t> {
+    cerr(unsafe { libc::read(fd.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) })
+}
+
+pub fn pipe() -> io::Result<(OwnedFd, OwnedFd)> {
+    let mut fds = [0; 2];
+    cerr(unsafe { libc::pipe2(fds.as_mut_ptr(), O_CLOEXEC | O_NONBLOCK) })?;
+    Ok(unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) })
+}
+
+pub fn fork() -> io::Result<ProcessId> {
+    cerr(unsafe { libc::fork() })
+}
+
+pub fn setsid() -> io::Result<ProcessId> {
+    cerr(unsafe { libc::setsid() })
+}
+
+pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
+    let (mut leader, mut follower) = (0, 0);
+    cerr(unsafe {
+        libc::openpty(
+            &mut leader,
+            &mut follower,
+            null::<libc::c_char>() as *mut _,
+            null::<libc::termios>() as *mut _,
+            null::<libc::winsize>() as *mut _,
+        )
+    })?;
+
+    Ok(unsafe { (OwnedFd::from_raw_fd(leader), OwnedFd::from_raw_fd(follower)) })
+}
+
+pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
+    cerr(unsafe { libc::ioctl(fd.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
+    Ok(())
+}
 
 pub fn hostname() -> String {
     let max_hostname_size = sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(256);
@@ -67,16 +111,21 @@ pub fn set_target_user(
 }
 
 /// Send a signal to a process.
-pub fn kill(pid: ProcessId, signal: c_int) -> c_int {
+pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    unsafe { libc::kill(pid, signal) }
+    cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
 }
 
 /// Get a process group ID.
-pub fn getpgid(pid: ProcessId) -> ProcessId {
+pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
-    unsafe { libc::getpgid(pid) }
+    cerr(unsafe { libc::getpgid(pid) })
+}
+
+/// Set a process group ID.
+pub fn setpgid(pid: ProcessId, pgid: ProcessId) {
+    unsafe { libc::setpgid(pid, pgid) };
 }
 
 pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
@@ -560,7 +609,10 @@ mod tests {
     #[test]
     fn pgid_test() {
         use super::getpgid;
-        assert_eq!(getpgid(std::process::id() as i32), getpgid(0));
+        assert_eq!(
+            getpgid(std::process::id() as i32).unwrap(),
+            getpgid(0).unwrap()
+        );
     }
     #[test]
     fn kill_test() {

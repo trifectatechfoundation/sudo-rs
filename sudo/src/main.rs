@@ -85,7 +85,7 @@ do this then this software is not suited for you at this time."
     }
 }
 
-fn sudo_process() -> Result<std::process::ExitStatus, Error> {
+fn sudo_process() -> Result<std::convert::Infallible, Error> {
     sudo_log::SudoLogger::new().into_global_logger();
 
     // parse cli options
@@ -129,13 +129,7 @@ fn sudo_process() -> Result<std::process::ExitStatus, Error> {
 
 fn main() {
     match sudo_process() {
-        Ok(status) => {
-            if let Some(code) = status.code() {
-                std::process::exit(code);
-            } else {
-                std::process::exit(1);
-            }
-        }
+        Ok(inf) => match inf {},
         Err(error) => {
             diagnostic!("{error}");
             std::process::exit(1);
