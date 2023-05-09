@@ -1,25 +1,43 @@
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf};
 use sudo_pam::PamError;
-use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("`{0}': command not found")]
     InvalidCommand(PathBuf),
-    #[error("user `{0}' not found")]
     UserNotFound(String),
-    #[error("group `{0}' not found")]
     GroupNotFound(String),
-    #[error("could not spawn child process")]
     Exec,
-    #[error("authenticated failed, {0}")]
     Authentication(String),
-    #[error("invalid configuration, {0}")]
     Configuration(String),
-    #[error("PAM error: {0}")]
-    Pam(#[from] PamError),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    Pam(PamError),
+    IoError(std::io::Error),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::InvalidCommand(p) => write!(f, "`{p:?}': command not found"),
+            Error::UserNotFound(u) => write!(f, "user `{u}' not found"),
+            Error::GroupNotFound(g) => write!(f, "group `{g}' not found"),
+            Error::Exec => write!(f, "could not spawn child process"),
+            Error::Authentication(e) => write!(f, "authenticated failed, {e}"),
+            Error::Configuration(e) => write!(f, "invalid configuration, {e}"),
+            Error::Pam(e) => write!(f, "PAM error: {e}"),
+            Error::IoError(e) => write!(f, "IO error: {e}"),
+        }
+    }
+}
+
+impl From<PamError> for Error {
+    fn from(err: PamError) -> Self {
+        Error::Pam(err)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Error::IoError(err)
+    }
 }
 
 impl Error {

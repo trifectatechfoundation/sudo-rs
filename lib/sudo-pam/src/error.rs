@@ -1,7 +1,6 @@
-use std::ffi::NulError;
+use std::{ffi::NulError, fmt};
 
 use sudo_pam_sys::*;
-use thiserror::Error;
 
 pub type PamResult<T, E = PamError> = Result<T, E>;
 
@@ -146,22 +145,53 @@ impl PamErrorType {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum PamError {
-    #[error("Unexpected nul byte in input")]
-    UnexpectedNulByte(#[from] NulError),
-    #[error("Could not initiate pam because the state is not complete")]
+    UnexpectedNulByte(NulError),
     InvalidState,
-    #[error("PAM returned an error ({0:?}): {1}")]
     Pam(PamErrorType, String),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-    #[error("Cannot open session while one is already open")]
+    IoError(std::io::Error),
     SessionAlreadyOpen,
-    #[error("Cannot close session while none is open")]
     SessionNotOpen,
-    #[error("It was not possible to get a list of environment variables")]
     EnvListFailure,
+}
+
+impl From<std::io::Error> for PamError {
+    fn from(err: std::io::Error) -> Self {
+        PamError::IoError(err)
+    }
+}
+
+impl From<NulError> for PamError {
+    fn from(err: NulError) -> Self {
+        PamError::UnexpectedNulByte(err)
+    }
+}
+
+impl fmt::Display for PamError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PamError::UnexpectedNulByte(_) => write!(f, "Unexpected nul byte in input"),
+            PamError::InvalidState => {
+                write!(
+                    f,
+                    "Could not initiate pam because the state is not complete"
+                )
+            }
+            PamError::Pam(tp, msg) => write!(f, "PAM returned an error ({tp:?}): {msg}"),
+            PamError::IoError(e) => write!(f, "IO error: {e}"),
+            PamError::SessionAlreadyOpen => {
+                write!(f, "Cannot open session while one is already open")
+            }
+            PamError::SessionNotOpen => write!(f, "Cannot close session while none is open"),
+            PamError::EnvListFailure => {
+                write!(
+                    f,
+                    "It was not possible to get a list of environment variables"
+                )
+            }
+        }
+    }
 }
 
 impl PamError {

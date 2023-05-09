@@ -10,5 +10,4 @@ publish.workspace = true
 [dependencies]
 sudo-pam-sys.workspace = true
 sudo-cutils.workspace = true
-thiserror.workspace = true
 libc.workspace = true

@@ -12,4 +12,3 @@ libc.workspace = true
 sudo-cli.workspace = true
 sudo-pam.workspace = true
 sudo-system.workspace = true
-thiserror.workspace = true
