@@ -16,9 +16,9 @@ mod securemem;
 
 pub use converse::CLIConverser;
 
-pub struct PamContext<'a, C: Converser> {
+pub struct PamContext<C: Converser> {
     data_ptr: *mut ConverserData<C>,
-    pamh: &'a mut pam_handle_t,
+    pamh: *mut pam_handle_t,
     silent: bool,
     allow_null_auth_token: bool,
     last_pam_status: Option<libc::c_int>,
@@ -57,7 +57,7 @@ impl<C: Converser> PamContextBuilder<C> {
     ///
     /// This function will error when the required settings have not yet been
     /// set, or when initialization of the PAM session somehow failed.
-    pub fn build<'a>(self) -> PamResult<PamContext<'a, C>> {
+    pub fn build(self) -> PamResult<PamContext<C>> {
         if let (Some(converser), Some(service_name)) = (self.converser, self.service_name) {
             let c_service_name = CString::new(service_name)?;
             let c_user = self.target_user.map(CString::new).transpose()?;
@@ -92,7 +92,7 @@ impl<C: Converser> PamContextBuilder<C> {
             } else {
                 Ok(PamContext {
                     data_ptr,
-                    pamh: unsafe { &mut *pamh },
+                    pamh,
                     silent: false,
                     allow_null_auth_token: true,
                     last_pam_status: None,
@@ -146,7 +146,7 @@ impl<C> Default for PamContextBuilder<C> {
     }
 }
 
-impl<'a, C: Converser> PamContext<'a, C> {
+impl<C: Converser> PamContext<C> {
     /// Create a new builder that can be used to create a new context.
     pub fn builder() -> PamContextBuilder<C> {
         PamContextBuilder::default()
@@ -448,14 +448,14 @@ impl<'a, C: Converser> PamContext<'a, C> {
     }
 }
 
-impl<'a> PamContext<'a, CLIConverser> {
+impl PamContext<CLIConverser> {
     /// Create a builder that uses the CLI conversation function.
     pub fn builder_cli(use_stdin: bool) -> PamContextBuilder<CLIConverser> {
         PamContextBuilder::default().converser(CLIConverser { use_stdin })
     }
 }
 
-impl<'a, C: Converser> Drop for PamContext<'a, C> {
+impl<C: Converser> Drop for PamContext<C> {
     fn drop(&mut self) {
         // data_ptr's pointee is de-allocated in this scope
         let _data = unsafe { Box::from_raw(self.data_ptr) };
