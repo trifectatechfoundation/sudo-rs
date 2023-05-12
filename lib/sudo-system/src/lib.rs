@@ -69,12 +69,23 @@ pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
 }
 
 pub fn hostname() -> String {
-    let max_hostname_size = sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(256);
-    let mut buf = vec![0; max_hostname_size as usize];
-    match cerr(unsafe { libc::gethostname(buf.as_mut_ptr(), buf.len() - 1) }) {
+    // see `man 2 gethostname`
+    const MAX_HOST_NAME_SIZE_ACCORDING_TO_SUSV2: libc::c_long = 255;
+
+    // POSIX.1 systems limit hostnames to `HOST_NAME_MAX` bytes
+    // not including null-byte in the count
+    let max_hostname_size =
+        sysconf(libc::_SC_HOST_NAME_MAX).unwrap_or(MAX_HOST_NAME_SIZE_ACCORDING_TO_SUSV2) as usize;
+
+    let buffer_size = max_hostname_size + 1 /* null byte delimiter */ ;
+    let mut buf = vec![0; buffer_size];
+
+    match cerr(unsafe { libc::gethostname(buf.as_mut_ptr(), buffer_size) }) {
         Ok(_) => unsafe { string_from_ptr(buf.as_ptr()) },
+
+        // ENAMETOOLONG is returned when hostname is greater than `buffer_size`
         Err(_) => {
-            // there aren't any known conditions under which the gethostname call should fail
+            // but we have chosen a `buffer_size` larger than `max_hostname_size` so no truncation error is possible
             panic!("Unexpected error while retrieving hostname, this should not happen");
         }
     }

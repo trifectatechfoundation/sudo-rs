@@ -99,7 +99,6 @@ fn double_negative_is_positive() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn longest_hostname() -> Result<()> {
     let env = Env(format!("ALL {LONGEST_HOSTNAME} = (ALL:ALL) ALL"))
         .hostname(LONGEST_HOSTNAME)
