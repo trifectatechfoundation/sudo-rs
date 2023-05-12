@@ -40,7 +40,7 @@ pub fn pipe() -> io::Result<(OwnedFd, OwnedFd)> {
     Ok(unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) })
 }
 
-pub fn fork() -> io::Result<ProcessId> {
+pub unsafe fn fork() -> io::Result<ProcessId> {
     cerr(unsafe { libc::fork() })
 }
 
