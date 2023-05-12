@@ -27,6 +27,8 @@ type Result<T> = core::result::Result<T, Error>;
 const USERNAME: &str = "ferris";
 const GROUPNAME: &str = "rustaceans";
 const PASSWORD: &str = "strong-password";
+// 64 characters
+const LONGEST_HOSTNAME: &str = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
 
 const SUDOERS_ROOT_ALL: &str = "root    ALL=(ALL:ALL) ALL";
 const SUDOERS_ALL_ALL_NOPASSWD: &str = "ALL ALL=(ALL:ALL) NOPASSWD: ALL";
