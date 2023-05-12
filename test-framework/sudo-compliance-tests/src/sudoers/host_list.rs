@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::Result;
+use crate::{Result, LONGEST_HOSTNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -90,6 +90,19 @@ fn negation_rejects() -> Result<()> {
 fn double_negative_is_positive() -> Result<()> {
     let env = Env("ALL !!container = (ALL:ALL) ALL")
         .hostname("container")
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
+}
+
+#[test]
+#[ignore]
+fn longest_hostname() -> Result<()> {
+    let env = Env(format!("ALL {LONGEST_HOSTNAME} = (ALL:ALL) ALL"))
+        .hostname(LONGEST_HOSTNAME)
         .build()?;
 
     Command::new("sudo")
