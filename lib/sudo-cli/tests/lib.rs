@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use pretty_assertions::assert_eq;
 use sudo_cli::SudoOptions;
 
@@ -182,4 +184,217 @@ fn single_env_var_declaration() {
     let cmd = SudoOptions::try_parse_from(["sudo", "FOO=1", "command"]).unwrap();
     assert_eq!(cmd.env_var_list, vec![("FOO".to_owned(), "1".to_owned())]);
     assert_eq!(cmd.external_args, vec!["command"]);
+}
+
+#[test]
+fn shorthand_with_argument() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-u", "ferris"]).unwrap();
+    assert_eq!(cmd.user.as_deref(), Some("ferris"));
+}
+
+#[test]
+fn shorthand_with_direct_argument() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-uferris"]).unwrap();
+    assert_eq!(cmd.user.as_deref(), Some("ferris"));
+}
+
+#[test]
+fn shorthand_without_argument() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-u"]);
+    assert!(cmd.is_err())
+}
+
+#[test]
+fn ask_pass() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-A"]).unwrap();
+    assert!(cmd.askpass);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--askpass"]).unwrap();
+    assert!(cmd.askpass);
+}
+
+#[test]
+fn edit() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-e"]).unwrap();
+    assert!(cmd.edit);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--edit"]).unwrap();
+    assert!(cmd.edit);
+}
+
+#[test]
+fn set_home() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-H"]).unwrap();
+    assert!(cmd.set_home);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--set-home"]).unwrap();
+    assert!(cmd.set_home);
+}
+
+#[test]
+fn help() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-h"]).unwrap();
+    assert!(cmd.help);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "-Abh"]).unwrap();
+    assert!(cmd.help);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--help"]).unwrap();
+    assert!(cmd.help);
+}
+
+#[test]
+fn login() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-i"]).unwrap();
+    assert!(cmd.login);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--login"]).unwrap();
+    assert!(cmd.login);
+}
+
+#[test]
+fn conflicting_arguments() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-K", "-k"]);
+    assert!(cmd.is_err());
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--remove-timestamp", "--reset-timestamp"]);
+    assert!(cmd.is_err());
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "-K"]).unwrap();
+    assert!(cmd.remove_timestamp);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "-k"]).unwrap();
+    assert!(cmd.reset_timestamp);
+}
+
+#[test]
+fn list() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-l"]).unwrap();
+    assert!(cmd.list);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--list"]).unwrap();
+    assert!(cmd.list);
+}
+
+#[test]
+fn non_interactive() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-n"]).unwrap();
+    assert!(cmd.non_interactive);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--non-interactive"]).unwrap();
+    assert!(cmd.non_interactive);
+}
+
+#[test]
+fn preserve_groups() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-P"]).unwrap();
+    assert!(cmd.preserve_groups);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-groups"]).unwrap();
+    assert!(cmd.preserve_groups);
+}
+
+#[test]
+fn stdin() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-S"]).unwrap();
+    assert!(cmd.stdin);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--stdin"]).unwrap();
+    assert!(cmd.stdin);
+}
+
+#[test]
+fn shell() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-s"]).unwrap();
+    assert!(cmd.shell);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--shell"]).unwrap();
+    assert!(cmd.shell);
+}
+
+#[test]
+fn validate() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-v"]).unwrap();
+    assert!(cmd.validate);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--validate"]).unwrap();
+    assert!(cmd.validate);
+}
+
+#[test]
+fn directory() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-D/some/path"]).unwrap();
+    assert_eq!(cmd.directory, Some(PathBuf::from("/some/path")));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--chdir", "/some/path"]).unwrap();
+    assert_eq!(cmd.directory, Some(PathBuf::from("/some/path")));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--chdir=/some/path"]).unwrap();
+    assert_eq!(cmd.directory, Some(PathBuf::from("/some/path")));
+}
+
+#[test]
+fn group() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-grustaceans"]).unwrap();
+    assert_eq!(cmd.group.as_deref(), Some("rustaceans"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--group", "rustaceans"]).unwrap();
+    assert_eq!(cmd.group.as_deref(), Some("rustaceans"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--group=rustaceans"]).unwrap();
+    assert_eq!(cmd.group.as_deref(), Some("rustaceans"));
+}
+
+#[test]
+fn host() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-hlilo"]).unwrap();
+    assert_eq!(cmd.host.as_deref(), Some("lilo"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--host", "lilo"]).unwrap();
+    assert_eq!(cmd.host.as_deref(), Some("lilo"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--host=lilo"]).unwrap();
+    assert_eq!(cmd.host.as_deref(), Some("lilo"));
+}
+
+#[test]
+fn prompt() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-phi"]).unwrap();
+    assert_eq!(cmd.prompt.as_deref(), Some("hi"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--prompt", "hi"]).unwrap();
+    assert_eq!(cmd.prompt.as_deref(), Some("hi"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--prompt=hi"]).unwrap();
+    assert_eq!(cmd.prompt.as_deref(), Some("hi"));
+}
+
+#[test]
+fn chroot() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-R/some/path"]).unwrap();
+    assert_eq!(cmd.chroot, Some(PathBuf::from("/some/path")));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--chroot", "/some/path"]).unwrap();
+    assert_eq!(cmd.chroot, Some(PathBuf::from("/some/path")));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--chroot=/some/path"]).unwrap();
+    assert_eq!(cmd.chroot, Some(PathBuf::from("/some/path")));
+}
+
+#[test]
+fn other_user() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-Uferris"]).unwrap();
+    assert_eq!(cmd.other_user.as_deref(), Some("ferris"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--other-user", "ferris"]).unwrap();
+    assert_eq!(cmd.other_user.as_deref(), Some("ferris"));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--other-user=ferris"]).unwrap();
+    assert_eq!(cmd.other_user.as_deref(), Some("ferris"));
+}
+
+#[test]
+fn invalid_option() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "--wololo"]);
+    assert!(cmd.is_err())
 }

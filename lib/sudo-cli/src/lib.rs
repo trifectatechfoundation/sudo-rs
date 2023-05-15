@@ -5,18 +5,16 @@ use std::path::PathBuf;
 const HELP_MSG: &str = "sudo - execute a command as another user
 
 usage: sudo -h | -K | -k | -V
-usage: sudo -v [-ABkNnS] [-g group] [-h host] [-p prompt] [-u user]
-usage: sudo -l [-ABkNnS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command]
-usage: sudo [-ABbEHkNnPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R
-            directory] [-T timeout] [-u user] [VAR=value] [-i|-s] [<command>]
-usage: sudo -e [-ABkNnS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R
-            directory] [-T timeout] [-u user] file ...
+usage: sudo -v [-AkNnS] [-g group] [-h host] [-p prompt] [-u user]
+usage: sudo -l [-AkNnS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command]
+usage: sudo [-AbEHkNnPS] [-D directory] [-g group] [-h host] [-p prompt] [-R
+            directory] [-u user] [VAR=value] [-i|-s] [<command>]
+usage: sudo -e [-AkNnS] [-D directory] [-g group] [-h host] [-p prompt] [-R
+            directory] [-u user] file ...
 
 Options:
   -A, --askpass                 use a helper program for password prompting
   -b, --background              run command in the background
-  -B, --bell                    ring bell when prompting
-  -C, --close-from=num          close all file descriptors >= num
   -D, --chdir=directory         change the working directory before running command
   -E, --preserve-env            preserve user environment when running command
       --preserve-env=list       preserve specific environment variables
@@ -37,7 +35,6 @@ Options:
   -R, --chroot=directory        change the root directory before running command
   -S, --stdin                   read password from standard input
   -s, --shell                   run shell as the target user; a command may also be specified
-  -T, --command-timeout=timeout terminate command after the specified time limit
   -U, --other-user=user         in list mode, display privileges for user
   -u, --user=user               run command (or edit file) as specified user name or ID
   -V, --version                 display version information and exit
@@ -47,8 +44,8 @@ Options:
 const USAGE_MSG: &str = "usage: sudo -h | -K | -k | -V
 usage: sudo -v [-AknS] [-g group] [-h host] [-p prompt] [-u user]
 usage: sudo -l [-AknS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command]
-usage: sudo [-AbEHknPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i|-s] [<command>]
-usage: sudo -e [-AknS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...";
+usage: sudo [-AbEHknPS] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-u user] [VAR=value] [-i|-s] [<command>]
+usage: sudo -e [-AknS] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-u user] file ...";
 
 #[derive(Debug, Default, PartialEq)]
 pub struct SudoOptions {
@@ -75,7 +72,6 @@ pub struct SudoOptions {
     pub chroot: Option<PathBuf>,
     pub stdin: bool,
     pub shell: bool,
-    pub command_timeout: Option<u64>,
     pub other_user: Option<String>,
     pub user: Option<String>,
     pub version: bool,
@@ -102,13 +98,13 @@ impl SudoOptions {
         "group",
         "host",
         "chroot",
-        "command-timeout",
+        "prompt",
         "other-user",
         "user",
     ];
 
     /// argument assignments and shorthand options preprocessing
-    fn normalize_arguments<I>(iter: I) -> Result<Vec<SudoArg>, &'static str>
+    fn normalize_arguments<I>(iter: I) -> Result<Vec<SudoArg>, String>
     where
         I: IntoIterator<Item = String>,
     {
@@ -126,6 +122,10 @@ impl SudoOptions {
                     if long_arg.contains('=') {
                         // convert assignment to normal tokens
                         let (key, value) = long_arg.split_once('=').unwrap();
+                        // only accept arguments when one is expected
+                        if !Self::TAKES_ARGUMENT.contains(&&key[2..]) {
+                            Err(format!("'{}' does not take any arguments", key))?;
+                        }
                         processed.push(SudoArg::Argument(key.to_string(), value.to_string()));
                     } else if Self::TAKES_ARGUMENT.contains(&&long_arg[2..]) {
                         if let Some(next) = arg_iter.next() {
@@ -133,7 +133,7 @@ impl SudoOptions {
                         } else if long_arg == "--preserve-env" {
                             processed.push(SudoArg::Flag(arg));
                         } else {
-                            Err("invalid argument provided ")?;
+                            Err(format!("invalid argument provided to '{}'", &long_arg))?;
                         }
                     } else {
                         processed.push(SudoArg::Flag(arg));
@@ -146,11 +146,10 @@ impl SudoOptions {
                         // convert option argument to seperate segment
                         if Self::TAKES_ARGUMENT_SHORT.contains(&char) {
                             let rest = short_arg[(n + 2)..].trim().to_string();
-
+                            // assignment syntax is not accepted for shorthand arguments
                             if rest.starts_with('=') {
                                 Err("invalid option '='")?;
                             }
-
                             if !rest.is_empty() {
                                 processed.push(SudoArg::Argument(flag, rest));
                             } else if let Some(next) = arg_iter.next() {
@@ -159,7 +158,7 @@ impl SudoOptions {
                                 // preserve env and the short version of --help have optional arguments
                                 processed.push(SudoArg::Flag(flag));
                             } else {
-                                Err("invalid argument provided")?;
+                                Err(format!("invalid argument provided to '-{}'", char))?;
                             }
                             break;
                         } else {
@@ -202,7 +201,7 @@ impl SudoOptions {
             Ok(options) => {
                 if options.help {
                     eprintln!("{HELP_MSG}");
-                    std::process::exit(1);
+                    std::process::exit(0);
                 }
 
                 options
@@ -215,7 +214,7 @@ impl SudoOptions {
     }
 
     /// parse an iterator over command line arguments
-    pub fn try_parse_from<I, T>(iter: I) -> Result<Self, &'static str>
+    pub fn try_parse_from<I, T>(iter: I) -> Result<Self, String>
     where
         I: IntoIterator<Item = T>,
         T: Into<String> + Clone,
@@ -233,12 +232,6 @@ impl SudoOptions {
                     }
                     "-b" | "--background" => {
                         options.background = true;
-                    }
-                    "-B" | "--bell" => {
-                        options.bell = true;
-                    }
-                    "-C" | "--close-from" => {
-                        // pass
                     }
                     "-e" | "--edit" => {
                         options.edit = true;
@@ -302,7 +295,7 @@ impl SudoOptions {
                     "-g" | "--group" => {
                         options.group = Some(value);
                     }
-                    "-h" | "--host=host" => {
+                    "-h" | "--host" => {
                         options.host = Some(value);
                     }
                     "-p" | "--prompt" => {
@@ -310,13 +303,6 @@ impl SudoOptions {
                     }
                     "-R" | "--chroot" => {
                         options.chroot = Some(PathBuf::from(value));
-                    }
-                    "-T" | "--command-timeout" => {
-                        options.command_timeout = Some(
-                            value
-                                .parse()
-                                .map_err(|_| "invalid command timeout provided")?,
-                        )
                     }
                     "-U" | "--other-user" => {
                         options.other_user = Some(value);
