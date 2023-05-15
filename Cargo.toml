@@ -59,5 +59,4 @@ sudoers = { version = "0.1.0-alpha.1", path = "./lib/sudoers" }
 [profile.release]
 strip = "debuginfo"
 lto = true
-codegen-units = 1
 opt-level = "s"
