@@ -143,6 +143,8 @@ fn flag_validate_prompts_for_password() -> Result<()> {
 
     if sudo_test::is_original_sudo() {
         assert_contains!(output.stderr(), "a password is required");
+    } else {
+        assert_contains!(output.stderr(), "Authentication failure");
     }
 
     Ok(())
