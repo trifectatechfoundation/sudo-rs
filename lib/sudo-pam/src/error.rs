@@ -134,9 +134,11 @@ impl PamErrorType {
         }
     }
 
-    fn get_err_msg(&self, handle: *const pam_handle_t) -> String {
-        // TODO: check if handle is fine being a const ptr and the cast here is for the typechecker only
-        let data = unsafe { pam_strerror(handle as *mut _, self.as_int()) };
+    fn get_err_msg(&self) -> String {
+        // pam_strerror technically takes a pam handle as the first argument,
+        // but we do not know of any implementation that actually uses the pamh
+        // argument. See also the netbsd man page for `pam_strerror`.
+        let data = unsafe { pam_strerror(std::ptr::null_mut(), self.as_int()) };
         if data.is_null() {
             String::from("Error unresolved by PAM")
         } else {
@@ -197,19 +199,19 @@ impl fmt::Display for PamError {
 impl PamError {
     /// Create a new PamError based on the error number from pam and a handle to a pam session
     /// The handle to the pam session is allowed to be null
-    pub(crate) fn from_pam(errno: libc::c_int, handle: *const pam_handle_t) -> PamError {
+    pub(crate) fn from_pam(errno: libc::c_int) -> PamError {
         let tp = PamErrorType::from_int(errno);
-        let str = tp.get_err_msg(handle);
-        PamError::Pam(tp, str)
+        let msg = tp.get_err_msg();
+        PamError::Pam(tp, msg)
     }
 }
 
 /// Returns `Ok(())` if the error code is `PAM_SUCCESS` or a `PamError` in other cases
-pub(crate) fn pam_err(err: libc::c_int, handle: *const pam_handle_t) -> Result<(), PamError> {
+pub(crate) fn pam_err(err: libc::c_int) -> Result<(), PamError> {
     if err == PAM_SUCCESS as libc::c_int {
         Ok(())
     } else {
-        Err(PamError::from_pam(err, handle))
+        Err(PamError::from_pam(err))
     }
 }
 
