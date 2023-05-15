@@ -631,7 +631,7 @@ mod tests {
             .arg("1")
             .spawn()
             .unwrap();
-        super::kill(child.id() as i32, 9);
+        super::kill(child.id() as i32, 9).unwrap();
         assert!(!child.wait().unwrap().success());
     }
 }
