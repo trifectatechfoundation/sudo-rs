@@ -40,7 +40,6 @@ impl PtyRelay {
         })
     }
 
-    /// FIXME: this should return `!` but it is not stable yet.
     pub(super) fn run(mut self) -> io::Result<(ExitReason, EmulateDefaultHandler)> {
         let emulate_default_handler = EmulateDefaultHandler::default();
 
