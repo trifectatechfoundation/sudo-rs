@@ -277,28 +277,3 @@ impl Token for ChDir {
         "\\\" ".contains(c)
     }
 }
-
-/// A digest specifier; note that the type of hash is implied by the length; if sudo would support
-/// multiple hashes with the same hash length, this needs to be recorded explicity.
-pub struct Sha2(pub Box<[u8]>);
-
-impl Token for Sha2 {
-    const MAX_LEN: usize = 512 / 4;
-
-    fn construct(s: String) -> Result<Self, String> {
-        if s.len() % 2 != 0 {
-            return Err("odd hexadecimal hash length".to_string());
-        }
-        let bytes: Vec<u8> = (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect::<Result<_, _>>()
-            .map_err(|_| "should not happen: hexadecimal decoding failed")?;
-
-        Ok(Sha2(bytes.into_boxed_slice()))
-    }
-
-    fn accept(c: char) -> bool {
-        ('A'..='F').contains(&c) || ('a'..='f').contains(&c) || c.is_ascii_digit()
-    }
-}

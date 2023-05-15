@@ -166,16 +166,16 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 
 fn distribute_tags(
     runas_cmds: &[(Option<RunAs>, CommandSpec)],
-) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>, &Sha2))> {
+) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>))> {
     runas_cmds.iter().scan(
         (None, Default::default()),
-        |(mut last_runas, tag), (runas, CommandSpec(mods, cmd, digest))| {
+        |(mut last_runas, tag), (runas, CommandSpec(mods, cmd))| {
             last_runas = runas.as_ref().or(last_runas);
             for f in mods {
                 f(tag);
             }
 
-            Some((last_runas, (tag.clone(), cmd, digest)))
+            Some((last_runas, (tag.clone(), cmd)))
         },
     )
 }
@@ -231,7 +231,7 @@ impl<'a, T> WithInfo for &'a Spec<T> {
 }
 
 /// A commandspec can be "tagged"
-impl<'a, T> WithInfo for (Tag, &'a Spec<Command>, &'a T) {
+impl<'a> WithInfo for (Tag, &'a Spec<Command>) {
     type Item = &'a Spec<Command>;
     type Info = Tag;
     fn to_inner(self) -> &'a Spec<Command> {
