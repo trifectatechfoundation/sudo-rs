@@ -38,6 +38,7 @@ Defaults timestamp_timeout=0.1"
         .exec(&env)?;
 
     assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
         assert_contains!(output.stderr(), "a password is required");
@@ -65,6 +66,7 @@ Defaults timestamp_timeout=0"
         .exec(&env)?;
 
     assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
         assert_contains!(output.stderr(), "a password is required");
@@ -92,6 +94,7 @@ fn flag_reset_timsetamp() -> Result<()> {
         .exec(&env)?;
 
     assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
 
     if sudo_test::is_original_sudo() {
         assert_contains!(output.stderr(), "a password is required");
@@ -102,7 +105,7 @@ fn flag_reset_timsetamp() -> Result<()> {
 
 #[test]
 #[ignore]
-fn flag_validate() -> Result<()> {
+fn flag_validate_revalidation() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
 Defaults timestamp_timeout=0.1"
@@ -121,4 +124,26 @@ Defaults timestamp_timeout=0.1"
         .as_user(USERNAME)
         .exec(&env)?
         .assert_success()
+}
+
+#[test]
+#[ignore]
+fn flag_validate_prompts_for_password() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    let output = Command::new("sudo")
+        .arg("-v")
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "a password is required");
+    }
+
+    Ok(())
 }
