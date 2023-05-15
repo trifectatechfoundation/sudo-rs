@@ -10,6 +10,7 @@ use std::{
     os::unix::{ffi::OsStrExt, process::ExitStatusExt},
     os::{fd::OwnedFd, unix::process::CommandExt},
     process::{Command, ExitStatus},
+    sync::{atomic::AtomicBool, Arc},
 };
 
 use signal_hook::consts::*;
@@ -24,7 +25,10 @@ const SIGNALS: &[c_int] = &[
 ];
 
 /// Based on `ogsudo`s `exec_pty` function.
-pub fn run_command(ctx: Context, env: Environment) -> io::Result<std::convert::Infallible> {
+pub fn run_command(
+    ctx: Context,
+    env: Environment,
+) -> io::Result<(ExitReason, EmulateDefaultHandler)> {
     // FIXME: should we pipe the stdio streams?
     let mut command = Command::new(&ctx.command.command);
     // reset env and set filtered environment
@@ -83,11 +87,15 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<std::convert::I
     if monitor_pid == 0 {
         match monitor::MonitorRelay::new(command, pty_follower, tx)?.run()? {}
     } else {
-        match pty::PtyRelay::new(monitor_pid, ctx.process.pid, pty_leader, rx)?.run()? {}
+        pty::PtyRelay::new(monitor_pid, ctx.process.pid, pty_leader, rx)?.run()
     }
 }
 
-enum ExitReason {
+/// Atomic type used to decide when to run the default signal handlers
+pub type EmulateDefaultHandler = Arc<AtomicBool>;
+
+/// Exit reason for the command executed by sudo.
+pub enum ExitReason {
     Code(i32),
     Signal(i32),
 }

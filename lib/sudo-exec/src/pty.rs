@@ -1,17 +1,15 @@
-use std::{io, os::fd::OwnedFd, process::exit};
+use std::{io, os::fd::OwnedFd};
 
 use signal_hook::{
     consts::*,
+    flag::register_conditional_default,
     iterator::{exfiltrator::WithOrigin, SignalsInfo},
-    low_level::{
-        emulate_default_handler,
-        siginfo::{Cause, Origin, Process, Sent},
-    },
+    low_level::siginfo::{Cause, Origin, Process, Sent},
 };
 use sudo_log::user_error;
 use sudo_system::{getpgid, interface::ProcessId, kill};
 
-use crate::ExitReason;
+use crate::{EmulateDefaultHandler, ExitReason};
 
 pub(super) struct PtyRelay {
     signals: SignalsInfo<WithOrigin>,
@@ -43,10 +41,21 @@ impl PtyRelay {
     }
 
     /// FIXME: this should return `!` but it is not stable yet.
-    pub(super) fn run(mut self) -> io::Result<std::convert::Infallible> {
+    pub(super) fn run(mut self) -> io::Result<(ExitReason, EmulateDefaultHandler)> {
+        let emulate_default_handler = EmulateDefaultHandler::default();
+
+        for &signal in super::SIGNALS {
+            register_conditional_default(
+                signal,
+                EmulateDefaultHandler::clone(&emulate_default_handler),
+            )?;
+        }
+
         loop {
             // First we check if the monitor sent us the exit status of the command.
-            self.wait_monitor()?;
+            if let Ok(reason) = self.wait_monitor() {
+                return Ok((reason, emulate_default_handler));
+            }
 
             // Then we check any pending signals that we received. Based on `signal_cb_pty`
             for info in self.signals.wait() {
@@ -55,27 +64,8 @@ impl PtyRelay {
         }
     }
 
-    fn wait_monitor(&mut self) -> io::Result<()> {
-        if let Ok(reason) = ExitReason::recv(&self.rx) {
-            match reason {
-                ExitReason::Code(code) => exit(code),
-                ExitReason::Signal(signal) => {
-                    // If the command terminated because of a signal, we send this signal to sudo
-                    // itself to match the original sudo behavior. If we fail we exit with code 1
-                    // to be safe.
-                    if kill(self.sudo_pid, signal).is_err() {
-                        exit(1);
-                    }
-                    // Given that we overwrote the default handlers for all the signals, we musti
-                    // emulate them to handle the signal we just sent correctly.
-                    for info in self.signals.pending() {
-                        emulate_default_handler(info.signal)?;
-                    }
-                }
-            }
-        }
-
-        Ok(())
+    fn wait_monitor(&mut self) -> io::Result<ExitReason> {
+        ExitReason::recv(&self.rx)
     }
 
     fn relay_signal(&self, info: Origin) {

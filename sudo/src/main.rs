@@ -1,10 +1,11 @@
 #![forbid(unsafe_code)]
 
 use pam::authenticate;
-use std::env;
 use sudo_cli::{help, SudoAction, SudoOptions};
+use std::{env, process::exit, sync::atomic::Ordering};
 use sudo_common::{Context, Error};
 use sudo_env::environment;
+use sudo_exec::ExitReason;
 use sudoers::{Authorization, DirChange, Judgement, Policy, PreJudgementPolicy, Sudoers};
 
 mod diagnostic;
@@ -87,7 +88,7 @@ do this then this software is not suited for you at this time."
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn sudo_process() -> Result<std::convert::Infallible, Error> {
+fn sudo_process() -> Result<(), Error> {
     sudo_log::SudoLogger::new().into_global_logger();
 
     // parse cli options
@@ -156,13 +157,27 @@ fn sudo_process() -> Result<std::convert::Infallible, Error> {
     let current_env = std::env::vars_os().collect();
     let target_env = environment::get_target_environment(current_env, &context, &policy);
 
+    let pid = context.process.pid;
+
     // run command and return corresponding exit code
-    Ok(sudo_exec::run_command(context, target_env)?)
+    let (reason, emulate_default_handler) = sudo_exec::run_command(context, target_env)?;
+
+    // Run any clean-up code before this line.
+    emulate_default_handler.store(true, Ordering::Relaxed);
+
+    match reason {
+        ExitReason::Code(code) => exit(code),
+        ExitReason::Signal(signal) => {
+            sudo_system::kill(pid, signal)?;
+        }
+    }
+
+    Ok(())
 }
 
 fn main() {
     match sudo_process() {
-        Ok(inf) => match inf {},
+        Ok(()) => (),
         Err(error) => {
             diagnostic!("{error}");
             std::process::exit(1);
