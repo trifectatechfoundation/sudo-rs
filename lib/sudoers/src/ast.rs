@@ -52,7 +52,7 @@ impl Default for Tag {
 }
 
 /// Commands with attached attributes.
-pub struct CommandSpec(pub Vec<Modifier>, pub Spec<Command>, pub Sha2);
+pub struct CommandSpec(pub Vec<Modifier>, pub Spec<Command>);
 
 /// The main AST object for one sudoer-permission line
 type PairVec<A, B> = Vec<(A, Vec<B>)>;
@@ -278,16 +278,13 @@ impl Parse for MetaOrTag {
 
 impl Parse for CommandSpec {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        let no_hash = Sha2(Box::default());
         let mut tags = vec![];
         while let Some(MetaOrTag(keyword)) = try_nonterminal(stream)? {
             use Qualified::Allow;
             match keyword {
                 Meta::Only(modifier) => tags.push(modifier),
-                Meta::All => return make(CommandSpec(tags, Allow(Meta::All), no_hash)),
-                Meta::Alias(name) => {
-                    return make(CommandSpec(tags, Allow(Meta::Alias(name)), no_hash))
-                }
+                Meta::All => return make(CommandSpec(tags, Allow(Meta::All))),
+                Meta::Alias(name) => return make(CommandSpec(tags, Allow(Meta::Alias(name)))),
             }
             if tags.len() > Identifier::LIMIT {
                 unrecoverable!(stream, "too many tags for command specifier")
@@ -295,36 +292,28 @@ impl Parse for CommandSpec {
         }
 
         let start_pos = stream.get_pos();
-        let digest = if let Some(Username(keyword)) = try_nonterminal(stream)? {
-            let hash_type = match keyword.as_str() {
-                "sha224" => 224,
-                "sha256" => 256,
-                "sha384" => 384,
-                "sha512" => 512,
-                "sudoedit" => {
-                    // note: special behaviour of forward slashes in wildcards, tread carefully
-                    unrecoverable!(stream, "sudoedit is not yet supported");
-                }
-                _ => unrecoverable!(
+        if let Some(Username(keyword)) = try_nonterminal(stream)? {
+            if keyword == "sudoedit" {
+                // note: special behaviour of forward slashes in wildcards, tread carefully
+                unrecoverable!(pos = start_pos, stream, "sudoedit is not yet supported");
+            } else if keyword.starts_with("sha") {
+                unrecoverable!(
+                    pos = start_pos,
+                    stream,
+                    "digest specifications are not supported"
+                )
+            } else {
+                unrecoverable!(
                     pos = start_pos,
                     stream,
                     "expected command but found {keyword}"
-                ),
+                )
             };
-            expect_syntax(':', stream)?;
-            let hex = expect_nonterminal::<Sha2>(stream)?;
-            if 8 * hex.0.len() != hash_type {
-                unrecoverable!(stream, "digest length incorrect for sha{hash_type}")
-            };
-
-            hex
-        } else {
-            no_hash
-        };
+        }
 
         let cmd: Spec<Command> = expect_nonterminal(stream)?;
 
-        make(CommandSpec(tags, cmd, digest))
+        make(CommandSpec(tags, cmd))
     }
 }
 

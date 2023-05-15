@@ -129,8 +129,6 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
     let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
-    let mut sha2_eq = check_all_sha2(request.command);
-
     let allowed_commands = rules
         .iter()
         .filter_map(|sudo| {
@@ -157,8 +155,7 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
             }
 
             Some(cmdspec)
-        })
-        .filter(|(_, _, Sha2(hex))| hex.is_empty() || sha2_eq(hex));
+        });
 
     find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases)
 }
@@ -169,16 +166,16 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 
 fn distribute_tags(
     runas_cmds: &[(Option<RunAs>, CommandSpec)],
-) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>, &Sha2))> {
+) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>))> {
     runas_cmds.iter().scan(
         (None, Default::default()),
-        |(mut last_runas, tag), (runas, CommandSpec(mods, cmd, digest))| {
+        |(mut last_runas, tag), (runas, CommandSpec(mods, cmd))| {
             last_runas = runas.as_ref().or(last_runas);
             for f in mods {
                 f(tag);
             }
 
-            Some((last_runas, (tag.clone(), cmd, digest)))
+            Some((last_runas, (tag.clone(), cmd)))
         },
     )
 }
@@ -234,7 +231,7 @@ impl<'a, T> WithInfo for &'a Spec<T> {
 }
 
 /// A commandspec can be "tagged"
-impl<'a, T> WithInfo for (Tag, &'a Spec<Command>, &'a T) {
+impl<'a> WithInfo for (Tag, &'a Spec<Command>) {
     type Item = &'a Spec<Command>;
     type Info = Tag;
     fn to_inner(self) -> &'a Spec<Command> {
@@ -555,19 +552,6 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
     }
 
     visitor.order
-}
-
-mod compute_hash;
-
-fn check_all_sha2(binary: &Path) -> impl FnMut(&Box<[u8]>) -> bool + '_ {
-    use compute_hash::sha2;
-
-    let mut memo = std::collections::HashMap::new(); // pun not intended
-
-    move |bytes| {
-        let bits = 8 * bytes.len() as u16;
-        memo.entry(bits).or_insert_with(|| sha2(bits, binary)) == bytes
-    }
 }
 
 #[cfg(test)]

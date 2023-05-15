@@ -12,5 +12,3 @@ sudo-defaults.workspace = true
 sudo-system.workspace = true
 sudo-log.workspace = true
 glob.workspace = true
-sha2.workspace = true
-digest.workspace = true
