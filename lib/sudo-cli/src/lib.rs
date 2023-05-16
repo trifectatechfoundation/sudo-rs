@@ -19,7 +19,6 @@ pub enum SudoAction {
 
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct SudoOptions {
-    pub askpass: bool,
     pub background: bool,
     pub chroot: Option<PathBuf>,
     pub directory: Option<PathBuf>,
@@ -253,9 +252,6 @@ impl SudoOptions {
         for arg in arg_iter {
             match arg {
                 SudoArg::Flag(flag) => match flag.as_str() {
-                    "-A" | "--askpass" => {
-                        options.askpass = true;
-                    }
                     "-b" | "--background" => {
                         options.background = true;
                     }

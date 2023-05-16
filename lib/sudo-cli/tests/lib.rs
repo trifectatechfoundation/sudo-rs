@@ -178,15 +178,6 @@ fn shorthand_without_argument() {
 }
 
 #[test]
-fn ask_pass() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-A"]).unwrap();
-    assert!(cmd.askpass);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--askpass"]).unwrap();
-    assert!(cmd.askpass);
-}
-
-#[test]
 fn set_home() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-H"]).unwrap();
     assert!(cmd.set_home);

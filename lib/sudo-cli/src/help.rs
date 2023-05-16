@@ -1,15 +1,14 @@
 pub const HELP_MSG: &str = "sudo - execute a command as another user
 
 usage: sudo -h | -K | -k | -V
-usage: sudo -v [-AknS] [-g group] [-h host] [-u user]
-usage: sudo -l [-AknS] [-g group] [-h host] [-U user] [-u user] [command]
-usage: sudo [-AbEHknPS] [-D directory] [-g group] [-h host] [-R
+usage: sudo -v [-knS] [-g group] [-h host] [-u user]
+usage: sudo -l [-knS] [-g group] [-h host] [-U user] [-u user] [command]
+usage: sudo [-bEHknPS] [-D directory] [-g group] [-h host] [-R
             directory] [-u user] [VAR=value] [-i|-s] [<command>]
-usage: sudo -e [-AknS] [-D directory] [-g group] [-h host] [-R
+usage: sudo -e [-knS] [-D directory] [-g group] [-h host] [-R
             directory] [-u user] file ...
 
 Options:
-  -A, --askpass                 use a helper program for password prompting
   -b, --background              run command in the background
   -D, --chdir=directory         change the working directory before running command
   -E, --preserve-env=list       preserve specific environment variables
@@ -36,7 +35,7 @@ Options:
   --                            stop processing command line arguments";
 
 pub const USAGE_MSG: &str = "usage: sudo -h | -K | -k | -V
-usage: sudo -v [-AknS] [-g group] [-h host] [-u user]
-usage: sudo -l [-AknS] [-g group] [-h host] [-U user] [-u user] [command]
-usage: sudo [-AbEHknPS] [-D directory] [-g group] [-h host] [-R directory] [-u user] [VAR=value] [-i|-s] [<command>]
-usage: sudo -e [-AknS] [-D directory] [-g group] [-h host] [-R directory] [-u user] file ...";
+usage: sudo -v [-knS] [-g group] [-h host] [-u user]
+usage: sudo -l [-knS] [-g group] [-h host] [-U user] [-u user] [command]
+usage: sudo [-bEHknPS] [-D directory] [-g group] [-h host] [-R directory] [-u user] [VAR=value] [-i|-s] [<command>]
+usage: sudo -e [-knS] [-D directory] [-g group] [-h host] [-R directory] [-u user] file ...";
