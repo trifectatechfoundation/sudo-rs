@@ -43,6 +43,33 @@ fn three_retries_allowed_by_default() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn defaults_passwd_tries() -> Result<()> {
+    let env = Env(format!(
+        "{USERNAME} ALL=(ALL:ALL) ALL
+Defaults passwd_tries=2"
+    ))
+    .user(User(USERNAME).password(PASSWORD))
+    .build()?;
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "(for i in $(seq 1 2); do echo wrong-password; done; echo {PASSWORD}) | sudo -S true"
+        ))
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "2 incorrect password attempts");
+    }
+
+    Ok(())
+}
+
 // this is a PAM security feature
 #[test]
 #[ignore]
