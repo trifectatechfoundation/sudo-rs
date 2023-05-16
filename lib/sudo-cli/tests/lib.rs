@@ -1,41 +1,23 @@
 use std::path::PathBuf;
 
 use pretty_assertions::assert_eq;
-use sudo_cli::SudoOptions;
-
-/// --preserve-env
-/// Passing '-E' sets 'short_preserve_env' to true, 'preserve_env_list' stays empty
-#[test]
-fn short_preserve_env() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-E"]).unwrap();
-    assert!(cmd.preserve_env);
-    assert!(cmd.preserve_env_list.is_empty());
-}
-
-/// Passing '--preserve-env' sets 'short_preserve_env' to true, 'preserve_env_list' stays empty
-#[test]
-fn preserve_env_witout_var() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env"]).unwrap();
-    assert!(cmd.preserve_env);
-    assert!(cmd.preserve_env_list.is_empty());
-}
+use sudo_cli::{SudoAction, SudoOptions};
 
 /// Passing '-E' with a variable fails
 #[test]
-#[should_panic]
 fn short_preserve_env_with_var_fails() {
-    SudoOptions::try_parse_from(["sudo", "-E=variable"]).unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "-E=variable"]);
+    assert!(cmd.is_err())
 }
 
-/// Passing '--preserve-env' with an argument fills 'preserve_env_list', 'short_preserve_env' stays 'false'
+/// Passing '--preserve-env' with an argument fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_var() {
     let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=some_argument"]).unwrap();
-    assert_eq!(cmd.preserve_env_list, vec!["some_argument"]);
-    assert!(!cmd.preserve_env);
+    assert_eq!(cmd.preserve_env, vec!["some_argument"]);
 }
 
-/// Passing '--preserve-env' with several arguments fills 'preserve_env_list', 'short_preserve_env' stays 'false'
+/// Passing '--preserve-env' with several arguments fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_several_vars() {
     let cmd = SudoOptions::try_parse_from([
@@ -44,10 +26,9 @@ fn preserve_env_with_several_vars() {
     ])
     .unwrap();
     assert_eq!(
-        cmd.preserve_env_list,
+        cmd.preserve_env,
         vec!["some_argument", "another_argument", "a_third_one"]
     );
-    assert!(!cmd.preserve_env);
 }
 
 /// Catch env variable that is given without hyphens in 'VAR=value' form in env_var_list.
@@ -59,7 +40,7 @@ fn env_variable() {
         cmd.env_var_list,
         vec![("ENV".to_owned(), "with_a_value".to_owned())]
     );
-    assert!(cmd.external_args.is_empty());
+    assert!(cmd.args().is_empty());
 }
 
 /// Catch several env variablse that are given without hyphens in 'VAR=value' form in env_var_list.
@@ -81,7 +62,7 @@ fn several_env_variables() {
             ("more".to_owned(), "this_is_a_val".to_owned())
         ]
     );
-    assert!(cmd.external_args.is_empty());
+    assert!(cmd.args().is_empty());
 }
 
 /// Mix env variables and trailing arguments that just pass through sudo
@@ -91,12 +72,11 @@ fn mix_env_variables_with_trailing_args_divided_by_hyphens() {
     let cmd = SudoOptions::try_parse_from(["sudo", "env=var", "--", "external=args", "something"])
         .unwrap();
     assert_eq!(cmd.env_var_list, vec![("env".to_owned(), "var".to_owned())]);
-    assert_eq!(cmd.external_args, vec!["external=args", "something"]);
+    assert_eq!(cmd.args(), vec!["external=args", "something"]);
 }
 
 /// Mix env variables and trailing arguments that just pass through sudo
 /// Divided by known flag.
-// Currently panics.
 #[test]
 fn mix_env_variables_with_trailing_args_divided_by_known_flag() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-b", "external=args", "something"]).unwrap();
@@ -104,8 +84,8 @@ fn mix_env_variables_with_trailing_args_divided_by_known_flag() {
         cmd.env_var_list,
         vec![("external".to_owned(), "args".to_owned())]
     );
-    assert_eq!(cmd.external_args, vec!["something"]);
     assert!(cmd.background);
+    assert_eq!(cmd.args(), vec!["something"]);
 }
 
 /// Catch trailing arguments that just pass through sudo
@@ -115,10 +95,7 @@ fn trailing_args_followed_by_known_flag() {
     let cmd =
         SudoOptions::try_parse_from(["sudo", "args", "followed_by", "known_flag", "-b"]).unwrap();
     assert!(!cmd.background);
-    assert_eq!(
-        cmd.external_args,
-        vec!["args", "followed_by", "known_flag", "-b"]
-    );
+    assert_eq!(cmd.args(), vec!["args", "followed_by", "known_flag", "-b"]);
 }
 
 /// Catch trailing arguments that just pass through sudo
@@ -137,16 +114,9 @@ fn trailing_args_hyphens_known_flag() {
     .unwrap();
     assert!(!cmd.background);
     assert_eq!(
-        cmd.external_args,
+        cmd.args(),
         vec!["trailing", "args", "followed_by", "known_flag", "-b"]
     );
-}
-
-/// Flags that exclude each other
-#[test]
-#[should_panic]
-fn remove_and_reset_timestamp_exclusion() {
-    SudoOptions::try_parse_from(["sudo", "--reset-timestamp", "--reboot-timestamp"]).unwrap();
 }
 
 /// Check that the first environment variable declaration before any command is not treated as part
@@ -155,7 +125,10 @@ fn remove_and_reset_timestamp_exclusion() {
 fn first_trailing_env_var_is_not_an_external_arg() {
     let cmd = SudoOptions::try_parse_from(["sudo", "FOO=1", "command", "BAR=2"]).unwrap();
     assert_eq!(cmd.env_var_list, vec![("FOO".to_owned(), "1".to_owned()),]);
-    assert_eq!(cmd.external_args, vec!["command", "BAR=2"]);
+    assert_eq!(
+        cmd.action,
+        SudoAction::Run(["command", "BAR=2"].map(String::from).to_vec())
+    );
 }
 
 #[test]
@@ -174,7 +147,7 @@ fn trailing_env_vars_are_external_args() {
         ]
     );
     assert_eq!(
-        cmd.external_args,
+        cmd.args(),
         vec!["command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg", "BARBAZ=5"]
     );
 }
@@ -183,7 +156,7 @@ fn trailing_env_vars_are_external_args() {
 fn single_env_var_declaration() {
     let cmd = SudoOptions::try_parse_from(["sudo", "FOO=1", "command"]).unwrap();
     assert_eq!(cmd.env_var_list, vec![("FOO".to_owned(), "1".to_owned())]);
-    assert_eq!(cmd.external_args, vec!["command"]);
+    assert_eq!(cmd.args(), vec!["command"]);
 }
 
 #[test]
@@ -214,66 +187,12 @@ fn ask_pass() {
 }
 
 #[test]
-fn edit() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-e"]).unwrap();
-    assert!(cmd.edit);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--edit"]).unwrap();
-    assert!(cmd.edit);
-}
-
-#[test]
 fn set_home() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-H"]).unwrap();
     assert!(cmd.set_home);
 
     let cmd = SudoOptions::try_parse_from(["sudo", "--set-home"]).unwrap();
     assert!(cmd.set_home);
-}
-
-#[test]
-fn help() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-h"]).unwrap();
-    assert!(cmd.help);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "-Abh"]).unwrap();
-    assert!(cmd.help);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--help"]).unwrap();
-    assert!(cmd.help);
-}
-
-#[test]
-fn login() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-i"]).unwrap();
-    assert!(cmd.login);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--login"]).unwrap();
-    assert!(cmd.login);
-}
-
-#[test]
-fn conflicting_arguments() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-K", "-k"]);
-    assert!(cmd.is_err());
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--remove-timestamp", "--reset-timestamp"]);
-    assert!(cmd.is_err());
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "-K"]).unwrap();
-    assert!(cmd.remove_timestamp);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "-k"]).unwrap();
-    assert!(cmd.reset_timestamp);
-}
-
-#[test]
-fn list() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-l"]).unwrap();
-    assert!(cmd.list);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--list"]).unwrap();
-    assert!(cmd.list);
 }
 
 #[test]
@@ -313,15 +232,6 @@ fn shell() {
 }
 
 #[test]
-fn validate() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-v"]).unwrap();
-    assert!(cmd.validate);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--validate"]).unwrap();
-    assert!(cmd.validate);
-}
-
-#[test]
 fn directory() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-D/some/path"]).unwrap();
     assert_eq!(cmd.directory, Some(PathBuf::from("/some/path")));
@@ -358,18 +268,6 @@ fn host() {
 }
 
 #[test]
-fn prompt() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-phi"]).unwrap();
-    assert_eq!(cmd.prompt.as_deref(), Some("hi"));
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--prompt", "hi"]).unwrap();
-    assert_eq!(cmd.prompt.as_deref(), Some("hi"));
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--prompt=hi"]).unwrap();
-    assert_eq!(cmd.prompt.as_deref(), Some("hi"));
-}
-
-#[test]
 fn chroot() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-R/some/path"]).unwrap();
     assert_eq!(cmd.chroot, Some(PathBuf::from("/some/path")));
@@ -397,4 +295,88 @@ fn other_user() {
 fn invalid_option() {
     let cmd = SudoOptions::try_parse_from(["sudo", "--wololo"]);
     assert!(cmd.is_err())
+}
+
+#[test]
+fn invalid_option_with_argument() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "--background=yes"]);
+    assert!(cmd.is_err())
+}
+
+#[test]
+fn no_argument_provided() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "--user"]);
+    assert!(cmd.is_err())
+}
+
+#[test]
+fn login() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-i"]).unwrap();
+    assert!(cmd.login);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--login"]).unwrap();
+    assert!(cmd.login);
+}
+
+#[test]
+fn edit() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-e"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Edit(vec![]));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--edit"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Edit(vec![]));
+}
+
+#[test]
+fn help() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-h"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Help);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "-Abh"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Help);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--help"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Help);
+}
+
+#[test]
+fn conflicting_arguments() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-K", "-k"]);
+    assert!(cmd.is_err());
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--remove-timestamp", "--reset-timestamp"]);
+    assert!(cmd.is_err());
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "-K"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::RemoveTimestamp);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "-k"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::ResetTimestamp);
+}
+
+#[test]
+fn list() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-l"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::List(vec![]));
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--list"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::List(vec![]));
+}
+
+#[test]
+fn validate() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-v"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Validate);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--validate"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Validate);
+}
+
+#[test]
+fn version() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "-V"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Version);
+
+    let cmd = SudoOptions::try_parse_from(["sudo", "--version"]).unwrap();
+    assert_eq!(cmd.action, SudoAction::Version);
 }

@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use sudo_cli::SudoOptions;
+use sudo_cli::{SudoAction, SudoOptions};
 use sudo_system::{hostname, Group, Process, User};
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Context {
     // cli options
-    pub preserve_env_list: Vec<String>,
+    pub preserve_env: Vec<String>,
     pub set_home: bool,
     pub launch: LaunchType,
     pub chdir: Option<PathBuf>,
@@ -40,7 +40,12 @@ impl Context {
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
-        let command = CommandAndArguments::try_from_args(shell, sudo_options.external_args, &path)?;
+        let command = match sudo_options.action {
+            SudoAction::Run(args) | SudoAction::List(args) => {
+                CommandAndArguments::try_from_args(shell, args, &path)?
+            }
+            _ => Default::default(),
+        };
 
         Ok(Context {
             hostname,
@@ -50,7 +55,7 @@ impl Context {
             target_user,
             target_group,
             set_home: sudo_options.set_home,
-            preserve_env_list: sudo_options.preserve_env_list,
+            preserve_env: sudo_options.preserve_env,
             launch,
             chdir: sudo_options.directory,
             stdin: sudo_options.stdin,

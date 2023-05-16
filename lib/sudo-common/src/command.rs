@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::{resolve::resolve_path, Error};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct CommandAndArguments {
     pub command: PathBuf,

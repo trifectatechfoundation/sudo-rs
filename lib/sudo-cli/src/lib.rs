@@ -2,84 +2,52 @@
 
 use std::path::PathBuf;
 
-const HELP_MSG: &str = "sudo - execute a command as another user
+pub mod help;
 
-usage: sudo -h | -K | -k | -V
-usage: sudo -v [-AkNnS] [-g group] [-h host] [-p prompt] [-u user]
-usage: sudo -l [-AkNnS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command]
-usage: sudo [-AbEHkNnPS] [-D directory] [-g group] [-h host] [-p prompt] [-R
-            directory] [-u user] [VAR=value] [-i|-s] [<command>]
-usage: sudo -e [-AkNnS] [-D directory] [-g group] [-h host] [-p prompt] [-R
-            directory] [-u user] file ...
+#[derive(Debug, Default, PartialEq, Clone)]
+pub enum SudoAction {
+    #[default]
+    Help,
+    Version,
+    Validate,
+    RemoveTimestamp,
+    ResetTimestamp,
+    Run(Vec<String>),
+    List(Vec<String>),
+    Edit(Vec<PathBuf>),
+}
 
-Options:
-  -A, --askpass                 use a helper program for password prompting
-  -b, --background              run command in the background
-  -D, --chdir=directory         change the working directory before running command
-  -E, --preserve-env            preserve user environment when running command
-      --preserve-env=list       preserve specific environment variables
-  -e, --edit                    edit files instead of running a command
-  -g, --group=group             run command as the specified group name or ID
-  -H, --set-home                set HOME variable to target user's home dir
-  -h, --help                    display help message and exit
-  -h, --host=host               run command on host (if supported by plugin)
-  -i, --login                   run login shell as the target user; a command may also be
-                                specified
-  -K, --remove-timestamp        remove timestamp file completely
-  -k, --reset-timestamp         invalidate timestamp file
-  -l, --list                    list user's privileges or check a specific command; use twice
-                                for longer format
-  -n, --non-interactive         non-interactive mode, no prompts are used
-  -P, --preserve-groups         preserve group vector instead of setting to target's
-  -p, --prompt=prompt           use the specified password prompt
-  -R, --chroot=directory        change the root directory before running command
-  -S, --stdin                   read password from standard input
-  -s, --shell                   run shell as the target user; a command may also be specified
-  -U, --other-user=user         in list mode, display privileges for user
-  -u, --user=user               run command (or edit file) as specified user name or ID
-  -V, --version                 display version information and exit
-  -v, --validate                update user's timestamp without running a command
-  --                            stop processing command line arguments";
-
-const USAGE_MSG: &str = "usage: sudo -h | -K | -k | -V
-usage: sudo -v [-AknS] [-g group] [-h host] [-p prompt] [-u user]
-usage: sudo -l [-AknS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command]
-usage: sudo [-AbEHknPS] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-u user] [VAR=value] [-i|-s] [<command>]
-usage: sudo -e [-AknS] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-u user] file ...";
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct SudoOptions {
     pub askpass: bool,
     pub background: bool,
-    pub bell: bool,
-    pub num: Option<i16>,
-    pub directory: Option<PathBuf>,
-    // This is what OGsudo calls `--preserve-env=list`
-    pub preserve_env_list: Vec<String>,
-    // This is what OGsudo calls `-E, --preserve-env`
-    pub preserve_env: bool,
-    pub edit: bool,
-    pub group: Option<String>,
-    pub set_home: bool,
-    pub help: bool,
-    pub login: bool,
-    pub remove_timestamp: bool,
-    pub reset_timestamp: bool,
-    pub list: bool,
-    pub non_interactive: bool,
-    pub preserve_groups: bool,
-    pub prompt: Option<String>,
     pub chroot: Option<PathBuf>,
-    pub stdin: bool,
-    pub shell: bool,
-    pub other_user: Option<String>,
-    pub user: Option<String>,
-    pub version: bool,
-    pub validate: bool,
+    pub directory: Option<PathBuf>,
+    pub group: Option<String>,
     pub host: Option<String>,
-    // Arguments passed straight through, either seperated by -- or just trailing.
-    pub external_args: Vec<String>,
+    pub login: bool,
+    pub non_interactive: bool,
+    pub other_user: Option<String>,
+    pub preserve_env: Vec<String>,
+    pub preserve_groups: bool,
+    pub set_home: bool,
+    pub shell: bool,
+    pub stdin: bool,
+    pub user: Option<String>,
+    // additional environment
     pub env_var_list: Vec<(String, String)>,
+    // resulting action enum
+    pub action: SudoAction,
+    // actions
+    edit: bool,
+    help: bool,
+    list: bool,
+    remove_timestamp: bool,
+    reset_timestamp: bool,
+    validate: bool,
+    version: bool,
+    // arguments passed straight through, either seperated by -- or just trailing.
+    external_args: Vec<String>,
 }
 
 enum SudoArg {
@@ -90,15 +58,13 @@ enum SudoArg {
 }
 
 impl SudoOptions {
-    const TAKES_ARGUMENT_SHORT: &[char] = &['C', 'D', 'E', 'g', 'h', 'p', 'R', 'T', 'U', 'u'];
+    const TAKES_ARGUMENT_SHORT: &[char] = &['D', 'E', 'g', 'h', 'R', 'U', 'u'];
     const TAKES_ARGUMENT: &[&'static str] = &[
-        "close-from",
         "chdir",
         "preserve-env",
         "group",
         "host",
         "chroot",
-        "prompt",
         "other-user",
         "user",
     ];
@@ -108,8 +74,8 @@ impl SudoOptions {
     where
         I: IntoIterator<Item = String>,
     {
-        // the first argument is the sudo command - so we can sklip it
-        let mut arg_iter = iter.into_iter().skip(1).peekable();
+        // the first argument is the sudo command - so we can skip it
+        let mut arg_iter = iter.into_iter().skip(1);
         let mut processed: Vec<SudoArg> = vec![];
 
         while let Some(arg) = arg_iter.next() {
@@ -130,8 +96,6 @@ impl SudoOptions {
                     } else if Self::TAKES_ARGUMENT.contains(&&long_arg[2..]) {
                         if let Some(next) = arg_iter.next() {
                             processed.push(SudoArg::Argument(arg, next));
-                        } else if long_arg == "--preserve-env" {
-                            processed.push(SudoArg::Flag(arg));
                         } else {
                             Err(format!("invalid argument provided to '{}'", &long_arg))?;
                         }
@@ -154,8 +118,8 @@ impl SudoOptions {
                                 processed.push(SudoArg::Argument(flag, rest));
                             } else if let Some(next) = arg_iter.next() {
                                 processed.push(SudoArg::Argument(flag, next));
-                            } else if char == 'E' || char == 'h' {
-                                // preserve env and the short version of --help have optional arguments
+                            } else if char == 'h' {
+                                // short version of --help has no arguments
                                 processed.push(SudoArg::Flag(flag));
                             } else {
                                 Err(format!("invalid argument provided to '-{}'", char))?;
@@ -196,21 +160,83 @@ impl SudoOptions {
     }
 
     /// parse command line arguments from the environment and handle errors
-    pub fn parse() -> SudoOptions {
-        match Self::try_parse_from(std::env::args()) {
-            Ok(options) => {
-                if options.help {
-                    eprintln!("{HELP_MSG}");
-                    std::process::exit(0);
-                }
+    pub fn from_env() -> Result<SudoOptions, String> {
+        Self::try_parse_from(std::env::args())
+    }
 
-                options
-            }
-            Err(e) => {
-                eprintln!("{e}\n{USAGE_MSG}");
-                std::process::exit(1);
-            }
+    /// from the arguments resolve which action should be performed
+    fn resolve_action(&mut self) {
+        if self.help {
+            self.action = SudoAction::Help;
+        } else if self.version {
+            self.action = SudoAction::Version;
+        } else if self.remove_timestamp {
+            self.action = SudoAction::RemoveTimestamp;
+        } else if self.reset_timestamp {
+            self.action = SudoAction::ResetTimestamp;
+        } else if self.validate {
+            self.action = SudoAction::Validate;
+        } else if self.list {
+            self.action = SudoAction::List(std::mem::take(self.external_args.as_mut()));
+        } else if self.edit {
+            let args: Vec<String> = std::mem::take(self.external_args.as_mut());
+            let args = args.into_iter().map(PathBuf::from).collect();
+            self.action = SudoAction::Edit(args);
+        } else {
+            self.action = SudoAction::Run(std::mem::take(self.external_args.as_mut()));
         }
+    }
+
+    /// verify that tha passed arguments are valid given the action and there are no conflicts
+    fn validate(&self) -> Result<(), String> {
+        // conflicting arguments
+        if self.remove_timestamp && self.reset_timestamp {
+            Err("conflicting arguments '--remove-timestamp' and '--reset-timestamp'")?;
+        }
+
+        // check arguments for validate action
+        if matches!(self.action, SudoAction::Validate)
+            && (self.background
+                || self.set_home
+                || self.preserve_groups
+                || self.login
+                || self.shell
+                || !self.preserve_env.is_empty()
+                || self.other_user.is_some()
+                || self.directory.is_some()
+                || self.chroot.is_some())
+        {
+            Err("invalid argument found for '--validate'")?;
+        }
+
+        // check arguments for list action
+        if matches!(self.action, SudoAction::List(_))
+            && (self.background
+                || self.set_home
+                || self.preserve_groups
+                || self.login
+                || self.shell
+                || !self.preserve_env.is_empty()
+                || self.directory.is_some()
+                || self.chroot.is_some())
+        {
+            Err("invalid argument found for '--list'")?;
+        }
+
+        // check arguments for edit action
+        if matches!(self.action, SudoAction::Edit(_))
+            && (self.background
+                || self.set_home
+                || self.preserve_groups
+                || self.login
+                || self.shell
+                || self.other_user.is_some()
+                || !self.preserve_env.is_empty())
+        {
+            Err("invalid argument found for '--edit'")?;
+        }
+
+        Ok(())
     }
 
     /// parse an iterator over command line arguments
@@ -236,9 +262,6 @@ impl SudoOptions {
                     "-e" | "--edit" => {
                         options.edit = true;
                     }
-                    "-E" | "--preserve-env" => {
-                        options.preserve_env = true;
-                    }
                     "-H" | "--set-home" => {
                         options.set_home = true;
                     }
@@ -249,15 +272,9 @@ impl SudoOptions {
                         options.login = true;
                     }
                     "-K" | "--remove-timestamp" => {
-                        if options.reset_timestamp {
-                            Err("conflicting arguments")?;
-                        }
                         options.remove_timestamp = true;
                     }
                     "-k" | "--reset-timestamp" => {
-                        if options.remove_timestamp {
-                            Err("conflicting arguments")?;
-                        }
                         options.reset_timestamp = true;
                     }
                     "-l" | "--list" => {
@@ -290,16 +307,13 @@ impl SudoOptions {
                         options.directory = Some(PathBuf::from(value));
                     }
                     "-E" | "--preserve-env" => {
-                        options.preserve_env_list = value.split(',').map(str::to_string).collect()
+                        options.preserve_env = value.split(',').map(str::to_string).collect()
                     }
                     "-g" | "--group" => {
                         options.group = Some(value);
                     }
                     "-h" | "--host" => {
                         options.host = Some(value);
-                    }
-                    "-p" | "--prompt" => {
-                        options.prompt = Some(value);
                     }
                     "-R" | "--chroot" => {
                         options.chroot = Some(PathBuf::from(value));
@@ -323,6 +337,17 @@ impl SudoOptions {
             }
         }
 
+        options.resolve_action();
+        options.validate()?;
+
         Ok(options)
+    }
+
+    pub fn args(self) -> Vec<String> {
+        match self.action {
+            SudoAction::Run(args) => args,
+            SudoAction::List(args) => args,
+            _ => vec![],
+        }
     }
 }
