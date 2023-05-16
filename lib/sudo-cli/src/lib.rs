@@ -96,7 +96,7 @@ impl SudoOptions {
                         if let Some(next) = arg_iter.next() {
                             processed.push(SudoArg::Argument(arg, next));
                         } else {
-                            Err(format!("invalid argument provided to '{}'", &long_arg))?;
+                            Err(format!("'{}' expects an argument", &long_arg))?;
                         }
                     } else {
                         processed.push(SudoArg::Flag(arg));
@@ -121,7 +121,7 @@ impl SudoOptions {
                                 // short version of --help has no arguments
                                 processed.push(SudoArg::Flag(flag));
                             } else {
-                                Err(format!("invalid argument provided to '-{}'", char))?;
+                                Err(format!("'-{}' expects an argument", char))?;
                             }
                             break;
                         } else {
@@ -186,7 +186,7 @@ impl SudoOptions {
         }
     }
 
-    /// verify that tha passed arguments are valid given the action and there are no conflicts
+    /// verify that the passed arguments are valid given the action and there are no conflicts
     fn validate(&self) -> Result<(), String> {
         // conflicting arguments
         if self.remove_timestamp && self.reset_timestamp {
