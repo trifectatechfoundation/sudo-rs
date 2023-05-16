@@ -15,6 +15,7 @@ mod misc;
 mod nopasswd;
 mod pam;
 mod pass_auth;
+mod password_retry;
 mod path_search;
 mod perms;
 mod sudoers;
