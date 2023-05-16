@@ -119,7 +119,7 @@ Defaults timestamp_timeout=0.1"
     Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "set -e; echo {PASSWORD} | sudo -S true; for i in {{1..5}}; do sleep 3; sudo -v; done; sudo true"
+            "set -e; echo {PASSWORD} | sudo -S true; for i in $(seq 1 5); do sleep 3; sudo -v; done; sudo true"
         ))
         .as_user(USERNAME)
         .exec(&env)?
