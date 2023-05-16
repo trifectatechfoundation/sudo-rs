@@ -2,7 +2,7 @@
 
 use pam::authenticate;
 use std::env;
-use sudo_cli::SudoOptions;
+use sudo_cli::{help, SudoAction, SudoOptions};
 use sudo_common::{Context, Error};
 use sudo_env::environment;
 use sudoers::{Authorization, DirChange, Judgement, Policy, PreJudgementPolicy, Sudoers};
@@ -85,11 +85,44 @@ do this then this software is not suited for you at this time."
     }
 }
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn sudo_process() -> Result<std::convert::Infallible, Error> {
     sudo_log::SudoLogger::new().into_global_logger();
 
     // parse cli options
-    let sudo_options = SudoOptions::parse();
+    let sudo_options = match SudoOptions::from_env() {
+        Ok(options) => match options.action {
+            SudoAction::Help => {
+                eprintln!("{}", help::HELP_MSG);
+                std::process::exit(0);
+            }
+            SudoAction::Version => {
+                eprintln!("sudo-rs {VERSION}");
+                std::process::exit(0);
+            }
+            SudoAction::Validate => {
+                unimplemented!();
+            }
+            SudoAction::RemoveTimestamp => {
+                unimplemented!();
+            }
+            SudoAction::ResetTimestamp => {
+                unimplemented!();
+            }
+            SudoAction::Run(_) => options,
+            SudoAction::List(_) => {
+                unimplemented!();
+            }
+            SudoAction::Edit(_) => {
+                unimplemented!();
+            }
+        },
+        Err(e) => {
+            eprintln!("{e}\n{}", help::USAGE_MSG);
+            std::process::exit(1);
+        }
+    };
 
     unstable_warning();
 

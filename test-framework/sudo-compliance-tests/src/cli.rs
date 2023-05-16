@@ -84,7 +84,6 @@ fn dash_flag_no_space_value_syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn dash_flag_equal_value_invalid_syntax() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
 
