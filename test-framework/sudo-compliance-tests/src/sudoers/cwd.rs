@@ -18,13 +18,13 @@ fn sets_the_working_directory_of_the_executed_command() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn glob_has_no_effect_on_its_own() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=* ALL").build()?;
 
     let expected_path = "/";
     let stdout = Command::new("sh")
-        .args(["-c", "cd {expected_path}; sudo pwd"])
+        .arg("-c")
+        .arg(format!("cd {expected_path}; sudo pwd"))
         .exec(&env)?
         .stdout()?;
 
