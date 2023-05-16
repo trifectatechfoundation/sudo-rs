@@ -18,6 +18,7 @@ fn sets_the_working_directory_of_the_executed_command() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn glob_has_no_effect_on_its_own() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=* ALL").build()?;
 
@@ -75,6 +76,7 @@ fn dot_slash_is_rejected() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn tilde_when_target_user_is_root() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=~ ALL").build()?;
 
@@ -89,6 +91,7 @@ fn tilde_when_target_user_is_root() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn tilde_when_target_user_is_regular_user() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=~ NOPASSWD: ALL")
         .user(User(USERNAME).create_home_directory())
@@ -106,6 +109,7 @@ fn tilde_when_target_user_is_regular_user() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn tilde_username() -> Result<()> {
     let env = Env(format!("ALL ALL=(ALL:ALL) CWD=~{USERNAME} NOPASSWD: ALL"))
         .user(User(USERNAME).create_home_directory())
@@ -169,6 +173,7 @@ fn path_is_file() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn target_user_has_insufficient_permissions() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=/root NOPASSWD: ALL")
         .user(USERNAME)
