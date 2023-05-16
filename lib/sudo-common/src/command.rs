@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::{resolve::resolve_path, Error};
 
@@ -26,6 +26,12 @@ fn escaped(arguments: Vec<String>) -> String {
         .join(" ")
 }
 
+//checks whether the Path is actually describing a qualified path (i.e. contains "/")
+//or just specifying the name of a file (in which case we are going to resolve it via PATH)
+fn is_qualified(path: impl AsRef<Path>) -> bool {
+    path.as_ref().parent() != Some(Path::new(""))
+}
+
 impl CommandAndArguments {
     pub fn try_from_args(
         shell: Option<PathBuf>,
@@ -45,9 +51,8 @@ impl CommandAndArguments {
                 .into();
             arguments.remove(0);
 
-            // resolve the binary if the path is not absolute
             // FIXME: we leak information here since we throw an error if a file does not exists
-            if command.is_relative() {
+            if !is_qualified(&command) {
                 command =
                     resolve_path(&command, path).ok_or_else(|| Error::InvalidCommand(command))?
             };
@@ -112,5 +117,19 @@ mod test {
                 arguments: vec!["-c".into(), "ls hello".into()]
             }
         );
+    }
+
+    #[test]
+    fn qualified_paths() {
+        use super::is_qualified;
+        assert!(is_qualified("foo/bar"));
+        assert!(is_qualified("a/b/bar"));
+        assert!(is_qualified("a/b//bar"));
+        assert!(is_qualified("/bar"));
+        assert!(is_qualified("/bar/"));
+        assert!(is_qualified("/bar/foo/"));
+        assert!(is_qualified("/"));
+        assert!(is_qualified("")); // don't try to resolve ""
+        assert!(!is_qualified("bar"));
     }
 }

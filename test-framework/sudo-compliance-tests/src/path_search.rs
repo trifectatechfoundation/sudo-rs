@@ -59,3 +59,21 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
 
     Ok(())
 }
+
+#[test]
+fn ignores_path_for_qualified_commands() -> Result<()> {
+    let path = "/root/my-script";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .file(path, TextFile("#!/bin/sh").chmod("100"))
+        .build()?;
+
+    for param in ["/root/my-script", "./my-script"] {
+        Command::new("sh")
+            .args(["-c", &format!("cd /root; sudo {param}")])
+            .as_user("root")
+            .exec(&env)?
+            .assert_success()?;
+    }
+
+    Ok(())
+}
