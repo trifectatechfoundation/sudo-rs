@@ -323,7 +323,7 @@ fn help() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-h"]).unwrap();
     assert_eq!(cmd.action, SudoAction::Help);
 
-    let cmd = SudoOptions::try_parse_from(["sudo", "-Abh"]).unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "-bh"]).unwrap();
     assert_eq!(cmd.action, SudoAction::Help);
 
     let cmd = SudoOptions::try_parse_from(["sudo", "--help"]).unwrap();
