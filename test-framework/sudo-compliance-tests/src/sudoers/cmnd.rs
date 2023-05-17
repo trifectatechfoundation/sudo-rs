@@ -36,8 +36,14 @@ fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -65,8 +71,14 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -148,12 +160,12 @@ fn runas_override() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/ls' as ferris"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/bin/ls' as ferris"
+    } else {
+        "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Command::new("sudo")
         .args(["-u", "ferris", "/bin/true"])
@@ -165,12 +177,12 @@ fn runas_override() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "user root is not allowed to execute '/bin/true' as root"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/bin/true' as root"
+    } else {
+        "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

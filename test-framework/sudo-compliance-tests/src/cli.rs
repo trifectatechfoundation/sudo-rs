@@ -44,8 +44,11 @@ fn dash_dash_before_flag_is_an_error() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "`\"-u\"': command not found");
     }
 
     Ok(())
@@ -94,9 +97,12 @@ fn dash_flag_equal_value_invalid_syntax() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "sudo: unknown user: =root");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: unknown user: =root"
+    } else {
+        "invalid option"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

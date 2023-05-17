@@ -23,8 +23,14 @@ fn no_match() -> Result<()> {
     let output = Command::new("sudo").arg("true").exec(&env)?;
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -152,8 +158,14 @@ fn negation_excludes_group_members() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry ghost, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -209,8 +221,14 @@ fn user_alias_works() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry ghost, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -243,9 +261,12 @@ User_Alias ADMINS = %users, !ghost
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "ferris is not in the sudoers file");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "ferris is not in the sudoers file"
+    } else {
+        "authenticated failed, i'm sorry ferris, i'm afraid i can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -299,8 +320,14 @@ fn negated_supergroup() -> Result<()> {
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
 
+        let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
-            assert_snapshot!(output.stderr());
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(
+                stderr,
+                format!("authenticated failed, i'm sorry {user}, i'm afraid i can't do that")
+            );
         }
     }
 

@@ -59,8 +59,14 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -115,8 +121,14 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -131,8 +143,14 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -161,12 +179,12 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
 
-        if sudo_test::is_original_sudo() {
-            assert_contains!(
-                output.stderr(),
-                " is not allowed to execute '/bin/true' as "
-            );
-        }
+        let diagnostic = if sudo_test::is_original_sudo() {
+            " is not allowed to execute '/bin/true' as ".to_string()
+        } else {
+            format!("authenticated failed, i'm sorry {user}, i'm afraid i can't do that")
+        };
+        assert_contains!(output.stderr(), diagnostic);
     }
 
     Ok(())
@@ -209,8 +227,14 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
 
+        let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
-            assert_snapshot!(output.stderr());
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(
+                stderr,
+                format!("authenticated failed, i'm sorry {user}, i'm afraid i can't do that")
+            );
         }
     }
 
@@ -236,8 +260,14 @@ fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()>
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
 
+        let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
-            assert_snapshot!(output.stderr());
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(
+                stderr,
+                format!("authenticated failed, i'm sorry {user}, i'm afraid i can't do that")
+            );
         }
     }
 

@@ -10,12 +10,12 @@ fn cwd_not_set_cannot_change_dir() -> Result<()> {
         .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
     assert_eq!(false, output.status().success());
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "you are not permitted to use the -D option with /bin/pwd"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "you are not permitted to use the -D option with /bin/pwd"
+    } else {
+        "authenticated failed, no permission"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -96,12 +96,12 @@ fn cwd_set_to_non_glob_value_then_cannot_use_chdir_flag() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "you are not permitted to use the -D option with /bin/pwd"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "you are not permitted to use the -D option with /bin/pwd"
+    } else {
+        "authenticated failed, no permission"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -118,12 +118,12 @@ fn cwd_set_to_non_glob_value_then_cannot_use_that_path_with_chdir_flag() -> Resu
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "you are not permitted to use the -D option with /bin/pwd"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "you are not permitted to use the -D option with /bin/pwd"
+    } else {
+        "authenticated failed, no permission"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -180,12 +180,12 @@ fn target_user_has_insufficient_perms() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: unable to change directory to /root: Permission denied"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: unable to change directory to /root: Permission denied"
+    } else {
+        "FIXME"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

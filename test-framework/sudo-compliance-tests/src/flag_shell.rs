@@ -168,8 +168,11 @@ fn shell_does_not_exist() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "IO error: No such file or directory");
     }
 
     Ok(())
@@ -190,8 +193,11 @@ fn shell_is_not_executable() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "IO error: Permission denied");
     }
 
     Ok(())

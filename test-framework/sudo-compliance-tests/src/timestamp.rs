@@ -40,9 +40,12 @@ Defaults timestamp_timeout=0.1"
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "a password is required");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -68,9 +71,12 @@ Defaults timestamp_timeout=0"
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "a password is required");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -96,9 +102,12 @@ fn flag_reset_timsetamp() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "a password is required");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "Authentication failed"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -141,11 +150,12 @@ fn flag_validate_prompts_for_password() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "a password is required");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
     } else {
-        assert_contains!(output.stderr(), "Authentication failure");
-    }
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

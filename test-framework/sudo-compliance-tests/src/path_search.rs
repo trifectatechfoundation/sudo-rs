@@ -53,8 +53,11 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "`\"my-script\"': command not found");
     }
 
     Ok(())

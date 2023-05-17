@@ -121,8 +121,11 @@ fn unassigned_user_id_is_rejected() -> Result<()> {
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
 
+        let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
-            assert_snapshot!(output.stderr());
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(stderr, "user `#1234' not found");
         }
     }
 
@@ -139,9 +142,13 @@ fn user_does_not_exist() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "unknown user: ghost");
-    }
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "unknown user: ghost"
+    } else {
+        "user `ghost' not found"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

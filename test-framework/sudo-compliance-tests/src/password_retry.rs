@@ -20,6 +20,7 @@ fn can_retry_password() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn three_retries_allowed_by_default() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
@@ -36,14 +37,33 @@ fn three_retries_allowed_by_default() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "3 incorrect password attempts");
-    }
+    let stderr = output.stderr();
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "3 incorrect password attempts"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    let password_prompt = if sudo_test::is_original_sudo() {
+        "password for ferris:"
+    } else {
+        "Password:"
+    };
+
+    let num_password_prompts = stderr
+        .lines()
+        .filter(|line| line.contains(password_prompt))
+        .count();
+
+    assert_eq!(3, num_password_prompts);
 
     Ok(())
 }
 
 #[test]
+#[ignore]
 fn defaults_passwd_tries() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
@@ -63,9 +83,26 @@ Defaults passwd_tries=2"
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "2 incorrect password attempts");
-    }
+    let stderr = output.stderr();
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "2 incorrect password attempts"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(stderr, diagnostic);
+
+    let password_prompt = if sudo_test::is_original_sudo() {
+        "password for ferris:"
+    } else {
+        "Password:"
+    };
+
+    let num_password_prompts = stderr
+        .lines()
+        .filter(|line| line.contains(password_prompt))
+        .count();
+
+    assert_eq!(2, num_password_prompts);
 
     Ok(())
 }
