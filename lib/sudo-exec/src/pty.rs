@@ -7,7 +7,7 @@ use signal_hook::{
     low_level::siginfo::{Cause, Origin, Process, Sent},
 };
 use sudo_log::user_error;
-use sudo_system::{getpgid, interface::ProcessId, kill};
+use sudo_system::{getpgid, interface::ProcessId, kill, waitpid, ChildPid, WaitOptions};
 
 use crate::{EmulateDefaultHandler, ExitReason};
 
@@ -67,11 +67,10 @@ impl PtyRelay {
         ExitReason::recv(&self.rx)
     }
 
-    fn relay_signal(&self, info: Origin) {
+    fn relay_signal(&mut self, info: Origin) {
         let user_signaled = info.cause == Cause::Sent(Sent::User);
         match info.signal {
-            // FIXME: check `handle_sigchld_pty`
-            SIGCHLD => {}
+            SIGCHLD => self.handle_sigchld(),
             // FIXME: check `resume_terminal`
             SIGCONT => {}
             // FIXME: check `sync_ttysize`
@@ -108,5 +107,43 @@ impl PtyRelay {
         }
 
         false
+    }
+
+    // FIXME: test this!!
+    /// Handle changes to the monitors's status (SIGCHLD). Based on `handle_sigchld_pty`.
+    fn handle_sigchld(&mut self) {
+        // There may be multiple children in intercept mode.
+        loop {
+            while {
+                match waitpid(
+                    ChildPid::Any,
+                    WaitOptions::default().all().no_hang().untraced(),
+                ) {
+                    Ok(status) => {
+                        let pid = status.pid();
+                        if pid == 0 {
+                            // Nothing left to wait for.
+                            return;
+                        }
+                        if status.exited() || status.signaled() {
+                            if pid == self.monitor_pid {
+                                self.monitor_pid = -1;
+                            }
+                        } else if status.stopped() {
+                            // FIXME: we should suspend the pty, check `suspend_sudo_pty`.
+                            kill(pid, SIGCONT).ok();
+                        }
+                        false
+                    }
+                    Err(err) => {
+                        // FIXME: there should be a better way to check if `err` was `ECHILD`.
+                        if err.raw_os_error() == Some(10) {
+                            return;
+                        }
+                        err.kind() == io::ErrorKind::Interrupted
+                    }
+                }
+            } {}
+        }
     }
 }

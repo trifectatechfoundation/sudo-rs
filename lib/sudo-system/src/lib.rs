@@ -545,6 +545,78 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
     })
 }
 
+pub enum ChildPid {
+    Any,
+    One(ProcessId),
+}
+
+pub struct ChildStatus {
+    pid: ProcessId,
+    status: c_int,
+}
+
+impl ChildStatus {
+    /// Returns the process ID of the child whose state has changed. if the `no_hang` option was
+    /// specified and one or more child(ren) specified by PID exist, but have not yet changed
+    /// state, then 0 is returned.
+    pub fn pid(&self) -> ProcessId {
+        self.pid
+    }
+
+    /// Returns true if the child terminated normally
+    pub fn exited(&self) -> bool {
+        libc::WIFEXITED(self.status)
+    }
+
+    /// Returns true if the child process was terminated by a signal.
+    pub fn signaled(&self) -> bool {
+        libc::WIFSIGNALED(self.status)
+    }
+
+    /// Returns true if the child process was stopped by delivery of a signal.
+    pub fn stopped(&self) -> bool {
+        libc::WIFSTOPPED(self.status)
+    }
+}
+/// Control if `waitpid` only waits for terminated children or not.
+#[derive(Default)]
+pub struct WaitOptions {
+    options: c_int,
+}
+
+impl WaitOptions {
+    /// Wait for all children regardless of their type.
+    pub fn all(mut self) -> Self {
+        self.options |= libc::__WALL;
+        self
+    }
+
+    /// Return immediately if no child has exited.  
+    pub fn no_hang(mut self) -> Self {
+        self.options |= libc::WNOHANG;
+        self
+    }
+
+    /// Return if a child has stopped.
+    pub fn untraced(mut self) -> Self {
+        self.options |= libc::WUNTRACED;
+        self
+    }
+}
+
+pub fn waitpid(pid: ChildPid, options: WaitOptions) -> io::Result<ChildStatus> {
+    let pid = match pid {
+        ChildPid::Any => 0,
+        ChildPid::One(pid) => pid,
+    };
+
+    let mut status = c_int::default();
+
+    let pid = cerr(unsafe { libc::waitpid(pid, &mut status, options.options) })?;
+
+    Ok(ChildStatus { pid, status })
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{Group, User, WithProcess};
