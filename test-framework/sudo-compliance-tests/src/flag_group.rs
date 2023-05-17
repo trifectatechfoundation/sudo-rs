@@ -106,8 +106,11 @@ fn unassigned_group_id_is_rejected() -> Result<()> {
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
 
+        let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
-            assert_snapshot!(output.stderr());
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(stderr, "group `#1234' not found");
         }
     }
 
@@ -127,9 +130,12 @@ fn group_does_not_exist() -> Result<()> {
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
 
-        if sudo_test::is_original_sudo() {
-            assert_contains!(output.stderr(), "unknown group: ghosts");
-        }
+        let diagnostic = if sudo_test::is_original_sudo() {
+            "unknown group: ghosts"
+        } else {
+            "group `ghosts' not found"
+        };
+        assert_contains!(output.stderr(), diagnostic);
     }
 
     Ok(())
@@ -150,9 +156,13 @@ fn group_does_not_add_groups_without_authorization() -> Result<()> {
 
     assert!(!output.status().success());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "a password is required");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "authenticated failed, i'm sorry ferris, i'm afraid i can't do that"
+    };
+
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

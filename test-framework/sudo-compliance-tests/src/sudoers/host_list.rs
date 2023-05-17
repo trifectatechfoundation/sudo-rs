@@ -37,8 +37,14 @@ fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() -> Re
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())
@@ -79,8 +85,14 @@ fn negation_rejects() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        );
     }
 
     Ok(())

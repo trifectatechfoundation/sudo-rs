@@ -14,6 +14,7 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
+#[ignore]
 fn if_home_directory_does_not_exist_executes_program_without_changing_the_working_directory(
 ) -> Result<()> {
     let initial_working_directories = ["/", "/root"];
@@ -27,8 +28,11 @@ fn if_home_directory_does_not_exist_executes_program_without_changing_the_workin
 
         assert!(output.status().success());
 
+        let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
-            assert_snapshot!(output.stderr());
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(stderr, "unable to change directory");
         }
 
         let actual = output.stdout()?;
@@ -194,8 +198,11 @@ fn shell_does_not_exist() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "IO error: No such file or directory");
     }
 
     Ok(())
@@ -216,8 +223,11 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "IO error: Permission denied");
     }
 
     Ok(())

@@ -44,12 +44,12 @@ fn non_absolute_path_is_rejected() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "values for \"CWD\" must start with a '/', '~', or '*'"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "values for \"CWD\" must start with a '/', '~', or '*'"
+    } else {
+        "expected directory or `*'"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -65,12 +65,12 @@ fn dot_slash_is_rejected() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "values for \"CWD\" must start with a '/', '~', or '*'"
-        );
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "values for \"CWD\" must start with a '/', '~', or '*'"
+    } else {
+        "expected directory or `*'"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -140,12 +140,10 @@ fn path_does_not_exist() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: unable to change directory to /path/to/nowhere: No such file or directory"
-        );
-    }
+    assert_contains!(
+        output.stderr(),
+        "sudo: unable to change directory to /path/to/nowhere: No such file or directory"
+    );
 
     Ok(())
 }
@@ -162,12 +160,10 @@ fn path_is_file() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: unable to change directory to /dev/null: Not a directory"
-        );
-    }
+    assert_contains!(
+        output.stderr(),
+        "sudo: unable to change directory to /dev/null: Not a directory"
+    );
 
     Ok(())
 }
@@ -187,12 +183,10 @@ fn target_user_has_insufficient_permissions() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            output.stderr(),
-            "sudo: unable to change directory to /root: Permission denied"
-        );
-    }
+    assert_contains!(
+        output.stderr(),
+        "sudo: unable to change directory to /root: Permission denied"
+    );
 
     Ok(())
 }

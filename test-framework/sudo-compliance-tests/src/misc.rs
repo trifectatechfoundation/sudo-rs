@@ -25,8 +25,11 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "user `current user' not found");
     }
 
     Ok(())

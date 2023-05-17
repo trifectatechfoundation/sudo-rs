@@ -75,8 +75,11 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
+    let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_snapshot!(output.stderr());
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(stderr, "`\"true\"': command not found");
     }
 
     Ok(())

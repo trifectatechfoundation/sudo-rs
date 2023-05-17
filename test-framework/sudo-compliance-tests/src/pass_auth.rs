@@ -35,9 +35,12 @@ fn incorrect_password() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "incorrect password attempt");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "incorrect password attempt"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -54,9 +57,12 @@ fn no_password() -> Result<()> {
         .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(output.stderr(), "no password was provided");
-    }
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "no password was provided"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
