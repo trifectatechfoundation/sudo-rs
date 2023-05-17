@@ -43,7 +43,7 @@ fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() -> Re
     } else {
         assert_contains!(
             stderr,
-            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+            "authentication failed: I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -91,7 +91,7 @@ fn negation_rejects() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+            "authentication failed: I'm sorry root. I'm afraid I can't do that"
         );
     }
 

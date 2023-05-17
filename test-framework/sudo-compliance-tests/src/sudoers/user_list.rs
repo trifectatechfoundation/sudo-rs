@@ -29,7 +29,7 @@ fn no_match() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+            "authentication failed: I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -164,7 +164,7 @@ fn negation_excludes_group_members() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authenticated failed, i'm sorry ghost, i'm afraid i can't do that"
+            "authentication failed: I'm sorry ghost. I'm afraid I can't do that"
         );
     }
 
@@ -227,7 +227,7 @@ fn user_alias_works() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authenticated failed, i'm sorry ghost, i'm afraid i can't do that"
+            "authentication failed: I'm sorry ghost. I'm afraid I can't do that"
         );
     }
 
@@ -264,7 +264,7 @@ User_Alias ADMINS = %users, !ghost
     let diagnostic = if sudo_test::is_original_sudo() {
         "ferris is not in the sudoers file"
     } else {
-        "authenticated failed, i'm sorry ferris, i'm afraid i can't do that"
+        "authentication failed: I'm sorry ferris. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -326,7 +326,7 @@ fn negated_supergroup() -> Result<()> {
         } else {
             assert_contains!(
                 stderr,
-                format!("authenticated failed, i'm sorry {user}, i'm afraid i can't do that")
+                format!("authentication failed: I'm sorry {user}. I'm afraid I can't do that")
             );
         }
     }
