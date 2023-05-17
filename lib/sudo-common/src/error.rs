@@ -20,8 +20,8 @@ impl fmt::Display for Error {
             Error::UserNotFound(u) => write!(f, "user `{u}' not found"),
             Error::GroupNotFound(g) => write!(f, "group `{g}' not found"),
             Error::Exec => write!(f, "could not spawn child process"),
-            Error::Authentication(e) => write!(f, "authentication failed, {e}"),
-            Error::Configuration(e) => write!(f, "invalid configuration, {e}"),
+            Error::Authentication(e) => write!(f, "authentication failed: {e}"),
+            Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
             Error::Pam(e) => write!(f, "PAM error: {e}"),
             Error::IoError(e) => write!(f, "IO error: {e}"),
         }
