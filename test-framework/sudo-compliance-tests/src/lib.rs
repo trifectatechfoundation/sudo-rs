@@ -19,6 +19,7 @@ mod password_retry;
 mod path_search;
 mod perms;
 mod sudoers;
+mod timestamp;
 
 mod helpers;
 
