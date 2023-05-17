@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
 use pam::authenticate;
-use sudo_cli::{help, SudoAction, SudoOptions};
 use std::{env, process::exit, sync::atomic::Ordering};
+use sudo_cli::{help, SudoAction, SudoOptions};
 use sudo_common::{Context, Error};
 use sudo_env::environment;
 use sudo_exec::ExitReason;
@@ -163,7 +163,7 @@ fn sudo_process() -> Result<(), Error> {
     let (reason, emulate_default_handler) = sudo_exec::run_command(context, target_env)?;
 
     // Run any clean-up code before this line.
-    emulate_default_handler.store(true, Ordering::Relaxed);
+    emulate_default_handler.store(true, Ordering::SeqCst);
 
     match reason {
         ExitReason::Code(code) => exit(code),
