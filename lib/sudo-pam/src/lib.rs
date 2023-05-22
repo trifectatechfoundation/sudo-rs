@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use converse::{Converser, ConverserData};
+use converse::ConverserData;
 use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
 use sudo_cutils::string_from_ptr;
@@ -14,7 +14,7 @@ mod error;
 mod rpassword;
 mod securemem;
 
-pub use converse::CLIConverser;
+pub use converse::{CLIConverser, Converser};
 
 pub struct PamContext<C: Converser> {
     data_ptr: *mut ConverserData<C>,

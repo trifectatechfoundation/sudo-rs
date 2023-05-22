@@ -6,35 +6,68 @@ pub type PamResult<T, E = PamError> = Result<T, E>;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum PamErrorType {
+    /// There was no error running the PAM command
     Success,
+    ///
     OpenError,
+    ///
     SymbolError,
+    ///
     ServiceError,
+    ///
     SystemError,
+    ///
     BufferError,
+    ///
     ConversationError,
+    ///
     PermissionDenied,
+    /// The maximum number of authentication attempts was reached and no more
+    /// attempts should be made.
     MaxTries,
+    /// The user failed to authenticate correctly.
     AuthError,
     NewAuthTokenRequired,
+    /// The application does not have enough credentials to authenticate the
+    /// user. This can for example happen if we wanted to update the user
+    /// password from a non-root process, which we cannot do.
     CredentialsInsufficient,
+    /// PAM modules were unable to access the authentication information (for
+    /// example due to a network error).
     AuthInfoUnavailable,
+    /// The specified user is unknown to an authentication service.
     UserUnknown,
+    /// Failed to retrieve the credentials (i.e. password) for a user.
     CredentialsUnavailable,
+    /// The credentials (i.e. password) for this user were expired.
     CredentialsExpired,
+    /// There was an error setting the user credentials.
     CredentialsError,
+    /// The user account is expired and can no longer be used.
     AccountExpired,
+    ///
     AuthTokenExpired,
+    ///
     SessionError,
+    ///
     AuthTokenError,
+    ///
     AuthTokenRecoveryError,
+    ///
     AuthTokenLockBusy,
+    ///
     AuthTokenDisableAging,
+    ///
     NoModuleData,
+    ///
     Ignore,
+    /// The application should exit immediately.
     Abort,
+    ///
     TryAgain,
+    ///
     ModuleUnknown,
+    /// The application tried to set/delete an undefined or inaccessible item.
     BadItem, // Extension in OpenPAM and LinuxPAM
     // DomainUnknown, // OpenPAM only
     // BadHandle // OpenPAM only

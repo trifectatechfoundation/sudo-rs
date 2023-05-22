@@ -111,7 +111,7 @@ fn sudo_process() -> Result<(), Error> {
 
     let mut pipeline = Pipeline {
         policy: SudoersPolicy::default(),
-        authenticator: PamAuthenticator::default(),
+        authenticator: PamAuthenticator::new_cli(),
     };
     pipeline.run(sudo_options)
 }
