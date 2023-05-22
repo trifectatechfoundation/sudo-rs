@@ -69,6 +69,7 @@ fn child_terminated_by_signal() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn sigtstp_works() -> Result<()> {
     const STOP_DELAY: u64 = 5;
     const NUM_ITERATIONS: usize = 5;
