@@ -34,3 +34,24 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore]
+fn closes_open_file_descriptors() -> Result<()> {
+    let script_path = "/tmp/script.bash";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .file(
+            script_path,
+            include_str!("misc/read-parents-open-file-descriptor.bash"),
+        )
+        .build()?;
+
+    let output = Command::new("bash").arg(script_path).exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    assert_contains!(output.stderr(), "42: Bad file descriptor");
+
+    Ok(())
+}
