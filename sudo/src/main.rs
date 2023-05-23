@@ -145,7 +145,7 @@ fn sudo_process() -> Result<(), Error> {
         Authorization::Passed => {}
         Authorization::Forbidden => {
             return Err(Error::auth(&format!(
-                "i'm sorry {}, i'm afraid i can't do that",
+                "I'm sorry {}. I'm afraid I can't do that",
                 context.current_user.name
             )));
         }

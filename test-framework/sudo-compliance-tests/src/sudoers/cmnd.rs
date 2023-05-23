@@ -42,7 +42,7 @@ fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+            "authentication failed: I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -77,7 +77,7 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+            "authentication failed: I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -163,7 +163,7 @@ fn runas_override() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "user root is not allowed to execute '/bin/ls' as ferris"
     } else {
-        "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        "authentication failed: I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -180,7 +180,7 @@ fn runas_override() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "user root is not allowed to execute '/bin/true' as root"
     } else {
-        "authenticated failed, i'm sorry root, i'm afraid i can't do that"
+        "authentication failed: I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
