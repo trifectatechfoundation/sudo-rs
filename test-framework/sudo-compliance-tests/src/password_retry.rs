@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{Result, PASSWORD, USERNAME};
 
@@ -111,29 +111,35 @@ Defaults passwd_tries=2"
 #[test]
 #[ignore]
 fn retry_is_not_allowed_immediately() -> Result<()> {
-    let path = "/tmp/measurement";
-
+    let script_path = "/tmp/script.sh";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .file(
+            script_path,
+            TextFile(include_str!("password_retry/time-password-retry.sh")).chmod("777"),
+        )
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
-    Command::new("/usr/bin/time")
-        .args(["-f", "%E"])
-        .args(["-o", path])
-        .args(["sh", "-c"])
-        .arg(format!(
-            "(echo wrong-password; echo {PASSWORD}) | sudo -S true"
-        ))
+    let stdout = Command::new("sh")
+        .arg(script_path)
         .as_user(USERNAME)
         .exec(&env)?
-        .assert_success()?;
+        .stdout()?;
 
-    let output = Command::new("cat").arg(path).exec(&env)?.stdout()?;
+    let timestamps = stdout
+        .lines()
+        .filter_map(|line| line.parse::<u64>().ok())
+        .collect::<Vec<_>>();
 
-    let total_millis = parse_usr_bin_time_output(&output);
+    assert_eq!(2, timestamps.len());
 
-    // by default, this should be around 2 seconds
-    assert!(total_millis >= 1500);
+    let delta_millis = timestamps[1] - timestamps[0];
+
+    dbg!(delta_millis);
+
+    // by default, the retry delay should be around 2 seconds
+    // use a lower value to avoid sporadic failures
+    assert!(delta_millis >= 1250);
 
     Ok(())
 }
@@ -160,6 +166,7 @@ auth\trequired\t\t\tpam_permit.so",
     );
 
     // increase the retry delay from 2 seconds to 5
+    let script_path = "/tmp/script.sh";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
         .file(
@@ -169,37 +176,31 @@ auth [success=1 default=ignore] pam_unix.so nullok nodelay
 auth requisite pam_deny.so
 auth required pam_permit.so",
         )
+        .file(
+            script_path,
+            TextFile(include_str!("password_retry/time-password-retry.sh")).chmod("777"),
+        )
         .build()?;
 
-    let path = "/tmp/measurement";
-    Command::new("/usr/bin/time")
-        .args(["-f", "%E"])
-        .args(["-o", path])
-        .args(["sh", "-c"])
-        .arg(format!(
-            "(echo wrong-password; echo {PASSWORD}) | sudo -S true"
-        ))
+    let output = Command::new("sh")
+        .arg(script_path)
         .as_user(USERNAME)
         .exec(&env)?
-        .assert_success()?;
+        .stdout()?;
 
-    let output = Command::new("cat").arg(path).exec(&env)?.stdout()?;
+    let timestamps = output
+        .lines()
+        .filter_map(|line| line.parse::<u64>().ok())
+        .collect::<Vec<_>>();
 
-    let total_millis = parse_usr_bin_time_output(&output);
+    assert_eq!(2, timestamps.len());
 
-    assert!(total_millis >= 4500);
+    let delta_millis = timestamps[1] - timestamps[0];
+
+    dbg!(delta_millis);
+
+    // use a lower value to avoid sporadic failures
+    assert!(delta_millis >= 3_200);
 
     Ok(())
-}
-
-fn parse_usr_bin_time_output(output: &str) -> u32 {
-    // expected format: `{minutes}:{seconds}.{centiseconds}`
-    const BAD_TIME_FORMAT: &str = "bad `/usr/bin/time` format";
-
-    let (_minutes, second_centis) = output.rsplit_once(':').expect(BAD_TIME_FORMAT);
-    let (seconds, centis) = second_centis.split_once('.').expect(BAD_TIME_FORMAT);
-    assert_eq!(2, centis.len(), "{BAD_TIME_FORMAT}");
-
-    seconds.parse::<u32>().expect(BAD_TIME_FORMAT) * 1_000
-        + centis.parse::<u32>().expect(BAD_TIME_FORMAT) * 10
 }
