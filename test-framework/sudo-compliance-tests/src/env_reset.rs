@@ -13,7 +13,7 @@ const DEFAULT_TERM: &str = "unknown";
 // see 'environment' section in`man sudo`
 // see 'command environment' section in`man sudoers`
 #[test]
-fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
+fn some_vars_are_set() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let stdout = Command::new("env").exec(&env)?.stdout()?;
@@ -80,7 +80,7 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
 }
 
 #[test]
-fn env_reset_mode_clears_env_vars() -> Result<()> {
+fn most_vars_are_removed() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let varname = "SHOULD_BE_REMOVED";
@@ -106,10 +106,10 @@ fn env_reset_mode_clears_env_vars() -> Result<()> {
     Ok(())
 }
 
-// this complements the `vars_set_by_sudo_in_env_reset_mode` test where the target user is the
+// this complements the `some_vars_are_set` test where the target user is the
 // invoking user
 #[test]
-fn flag_user_dependent_vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
+fn user_dependent_vars() -> Result<()> {
     let shell_path = "/tmp/shell";
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD)
         .user(User(USERNAME).shell(shell_path))
@@ -160,7 +160,7 @@ fn flag_user_dependent_vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
 }
 
 #[test]
-fn vars_preserved_by_sudo_in_env_reset_mode() -> Result<()> {
+fn some_vars_are_preserved() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
