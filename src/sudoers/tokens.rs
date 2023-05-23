@@ -23,6 +23,11 @@ impl Token for Username {
     fn accept_1st(c: char) -> bool {
         c != '_' && Self::accept(c)
     }
+
+    const ALLOW_ESCAPE: bool = true;
+    fn escaped(c: char) -> bool {
+        matches!(c, '\\' | '"' | ',' | ':' | '=' | '!' | '(' | ')')
+    }
 }
 
 impl Many for Username {}
