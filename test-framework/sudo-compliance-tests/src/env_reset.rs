@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, User};
 
-use crate::{helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD};
+use crate::{helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
+
+const DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
+const DEFAULT_TERM: &str = "unknown";
 
 // NOTE if 'env_reset' is not in `/etc/sudoers` it is enabled by default
 
@@ -66,11 +69,9 @@ fn vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
     let normal_path = normal_env["PATH"];
     assert_ne!(normal_path, sudo_path);
 
-    let default_path = "/usr/bin:/bin:/usr/sbin:/sbin";
-    assert_eq!(default_path, sudo_path);
+    assert_eq!(DEFAULT_PATH, sudo_path);
 
-    let default_term = "unknown";
-    assert_eq!(Some(default_term), sudo_env.remove("TERM"));
+    assert_eq!(Some(DEFAULT_TERM), sudo_env.remove("TERM"));
 
     let empty = HashMap::new();
     assert_eq!(empty, sudo_env);
@@ -121,6 +122,157 @@ fn env_reset_mode_clears_env_vars() -> Result<()> {
         .stdout()?;
     let env_vars = helpers::parse_env_output(&stdout)?;
     assert!(!env_vars.contains_key(varname));
+
+    Ok(())
+}
+
+// this complements the `vars_set_by_sudo_in_env_reset_mode` test where the target user is the
+// invoking user
+#[test]
+fn flag_user_dependent_vars_set_by_sudo_in_env_reset_mode() -> Result<()> {
+    let shell_path = "/tmp/shell";
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD)
+        .user(User(USERNAME).shell(shell_path))
+        .build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    // run sudo in an empty environment
+    let stdout = Command::new("env")
+        .args([
+            "-i",
+            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
+            &sudo_abs_path,
+            "-u",
+            USERNAME,
+            &env_abs_path,
+        ])
+        .exec(&env)?
+        .stdout()?;
+    let mut sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // "The HOME, MAIL, SHELL, LOGNAME and USER environment variables are initialized based on the target user"
+    assert_eq!(
+        Some(format!("/home/{USERNAME}")).as_deref(),
+        sudo_env.remove("HOME")
+    );
+    assert_eq!(
+        Some(format!("/var/mail/{USERNAME}")).as_deref(),
+        sudo_env.remove("MAIL")
+    );
+    assert_eq!(Some(shell_path), sudo_env.remove("SHELL"));
+    assert_eq!(Some(USERNAME), sudo_env.remove("LOGNAME"));
+    assert_eq!(Some(USERNAME), sudo_env.remove("USER"));
+
+    // "the SUDO_* variables are set based on the invoking user."
+    assert_eq!(Some("/usr/bin/env"), sudo_env.remove("SUDO_COMMAND"));
+    assert_eq!(Some("0"), sudo_env.remove("SUDO_GID"));
+    assert_eq!(Some("0"), sudo_env.remove("SUDO_UID"));
+    assert_eq!(Some("root"), sudo_env.remove("SUDO_USER"));
+
+    assert_eq!(Some(DEFAULT_PATH), sudo_env.remove("PATH"));
+    assert_eq!(Some(DEFAULT_TERM), sudo_env.remove("TERM"));
+
+    assert_eq!(HashMap::new(), sudo_env);
+
+    Ok(())
+}
+
+#[test]
+fn vars_preserved_by_sudo_in_env_reset_mode() -> Result<()> {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let home = "some-home";
+    let mail = "some-mail";
+    let shell = "some-shell";
+    let logname = "some-logname";
+    let user = "some-user";
+    let display = "some-display";
+    let path = "some-path";
+    let term = "some-term";
+    let sudo_command = "some-sudo-command";
+    let sudo_user = "some-sudo-user";
+    let sudo_uid = "some-sudo-uid";
+    let sudo_gid = "some-sudo-gid";
+    let stdout = Command::new("env")
+        .args([
+            "-i",
+            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
+            &format!("HOME={home}"),
+            &format!("MAIL={mail}"),
+            &format!("SHELL={shell}"),
+            &format!("LOGNAME={logname}"),
+            &format!("USER={user}"),
+            &format!("DISPLAY={display}"),
+            &format!("PATH={path}"),
+            &format!("TERM={term}"),
+            &format!("SUDO_COMMAND={sudo_command}"),
+            &format!("SUDO_USER={sudo_user}"),
+            &format!("SUDO_UID={sudo_uid}"),
+            &format!("SUDO_GID={sudo_gid}"),
+            &sudo_abs_path,
+            &env_abs_path,
+        ])
+        .exec(&env)?
+        .stdout()?;
+    let mut sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // not preserved
+    assert_eq!(Some("/root"), sudo_env.remove("HOME"));
+    assert_eq!(Some("/var/mail/root"), sudo_env.remove("MAIL"));
+    assert_eq!(Some("/bin/bash"), sudo_env.remove("SHELL"));
+    assert_eq!(Some("root"), sudo_env.remove("LOGNAME"));
+    assert_eq!(Some("root"), sudo_env.remove("USER"));
+    assert_eq!(
+        Some(env_abs_path).as_deref(),
+        sudo_env.remove("SUDO_COMMAND")
+    );
+    assert_eq!(Some("root"), sudo_env.remove("SUDO_USER"));
+    assert_eq!(Some("0"), sudo_env.remove("SUDO_UID"));
+    assert_eq!(Some("0"), sudo_env.remove("SUDO_GID"));
+
+    // preserved
+    assert_eq!(Some(display), sudo_env.remove("DISPLAY"));
+    assert_eq!(Some(path), sudo_env.remove("PATH"));
+    assert_eq!(Some(term), sudo_env.remove("TERM"));
+
+    assert_eq!(HashMap::new(), sudo_env);
+
+    Ok(())
+}
+
+// only relevant to preserved env vars
+#[test]
+fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let display = "() display";
+    let path = "() path";
+    let term = "() term";
+    let stdout = Command::new("env")
+        .args([
+            "-i",
+            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
+            &format!("DISPLAY={display}"),
+            &format!("PATH={path}"),
+            &format!("TERM={term}"),
+            &sudo_abs_path,
+            &env_abs_path,
+        ])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert!(!sudo_env.contains_key("DISPLAY"));
+    assert_eq!(Some(DEFAULT_PATH), sudo_env.get("PATH").copied());
+    assert_eq!(Some(DEFAULT_TERM), sudo_env.get("TERM").copied());
 
     Ok(())
 }
