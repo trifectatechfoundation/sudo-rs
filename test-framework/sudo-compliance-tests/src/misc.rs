@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -52,6 +52,58 @@ fn closes_open_file_descriptors() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     assert_contains!(output.stderr(), "42: Bad file descriptor");
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn sudo_binary_lacks_setuid_flag() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+
+    Command::new("chmod")
+        .args(["0755", "/usr/bin/sudo"])
+        .exec(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    assert_contains!(
+        output.stderr(),
+        "sudo must be owned by uid 0 and have the setuid bit set"
+    );
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn sudo_binary_is_not_owned_by_root() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+
+    Command::new("chown")
+        .args([USERNAME, "/usr/bin/sudo"])
+        .exec(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    assert_contains!(
+        output.stderr(),
+        "sudo must be owned by uid 0 and have the setuid bit set"
+    );
 
     Ok(())
 }
