@@ -38,7 +38,7 @@ fn incorrect_password() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "incorrect password attempt"
     } else {
-        "Authentication failure"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -60,7 +60,7 @@ fn no_password() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "no password was provided"
     } else {
-        "Authentication failure"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 

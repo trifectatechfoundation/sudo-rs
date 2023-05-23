@@ -37,7 +37,7 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "3 incorrect password attempts"
     } else {
-        "Authentication failure"
+        "3 incorrect authentication attempts"
     };
     assert_contains!(output.stderr(), diagnostic);
 

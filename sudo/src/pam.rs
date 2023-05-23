@@ -1,8 +1,8 @@
 use std::fs::File;
 
 use sudo_common::{error::Error, Context};
-use sudo_log::auth_warn;
-use sudo_pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType};
+use sudo_log::{auth_warn, user_warn};
+use sudo_pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
 use sudo_system::{
     time::Duration,
     timestamp::{RecordScope, SessionRecordFile, TouchResult},
@@ -74,14 +74,16 @@ fn determine_auth_status(
     }
 }
 
+type PamBuilder<C> = dyn Fn(&Context) -> PamResult<PamContext<C>>;
+
 pub struct PamAuthenticator<C: Converser> {
-    builder: Box<dyn Fn(&Context) -> Result<PamContext<C>, PamError>>,
+    builder: Box<PamBuilder<C>>,
     pam: Option<PamContext<C>>,
 }
 
 impl<C: Converser> PamAuthenticator<C> {
     fn new(
-        initializer: impl Fn(&Context) -> Result<PamContext<C>, PamError> + 'static,
+        initializer: impl Fn(&Context) -> PamResult<PamContext<C>> + 'static,
     ) -> PamAuthenticator<C> {
         PamAuthenticator {
             builder: Box::new(initializer),
@@ -125,21 +127,25 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
 
         if must_authenticate {
             let mut max_tries = 3;
+            let mut current_try = 0;
             loop {
+                current_try += 1;
                 match pam.authenticate() {
                     // there was no error, so authentication succeeded
                     Ok(_) => break,
 
                     // maxtries was reached, pam does not allow any more tries
                     Err(PamError::Pam(PamErrorType::MaxTries, _)) => {
-                        return Err(Error::MaxAuthAttempts);
+                        return Err(Error::MaxAuthAttempts(current_try));
                     }
 
                     // there was an authentication error, we can retry
                     Err(PamError::Pam(PamErrorType::AuthError, _)) => {
                         max_tries -= 1;
                         if max_tries == 0 {
-                            return Err(Error::MaxAuthAttempts);
+                            return Err(Error::MaxAuthAttempts(current_try));
+                        } else {
+                            user_warn!("Authentication failed, try again.");
                         }
                     }
 

@@ -11,7 +11,7 @@ pub enum Error {
     Configuration(String),
     Pam(PamError),
     IoError(std::io::Error),
-    MaxAuthAttempts,
+    MaxAuthAttempts(usize),
 }
 
 impl fmt::Display for Error {
@@ -25,7 +25,9 @@ impl fmt::Display for Error {
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
             Error::Pam(e) => write!(f, "PAM error: {e}"),
             Error::IoError(e) => write!(f, "IO error: {e}"),
-            Error::MaxAuthAttempts => write!(f, "Maximum authentication attempts reached"),
+            Error::MaxAuthAttempts(num) => {
+                write!(f, "Maximum {num} incorrect authentication attempts")
+            }
         }
     }
 }
