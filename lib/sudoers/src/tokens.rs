@@ -131,7 +131,7 @@ impl Token for Upper {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
-pub type Command = (glob::Pattern, Option<Vec<String>>);
+pub type Command = (glob::Pattern, Option<Box<[String]>>);
 
 impl Token for Command {
     const MAX_LEN: usize = 1024;
@@ -154,7 +154,7 @@ impl Token for Command {
                 // if the magic "" appears, no (further) arguments are allowed
                 args.pop();
             }
-            Some(args)
+            Some(args.into_boxed_slice())
         };
 
         Ok((cvt_err(glob::Pattern::new(cmd))?, argpat))

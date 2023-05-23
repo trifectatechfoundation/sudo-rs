@@ -283,7 +283,11 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
 
 fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command) -> bool + 'a) {
     move |(cmdpat, argpat)| {
-        cmdpat.matches_path(cmd) && argpat.as_ref().map(|vec| vec == args).unwrap_or(true)
+        cmdpat.matches_path(cmd)
+            && argpat
+                .as_ref()
+                .map(|vec| args == vec.as_ref())
+                .unwrap_or(true)
     }
 }
 
