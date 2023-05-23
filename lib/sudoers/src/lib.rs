@@ -35,7 +35,7 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub user: &'a User,
     pub group: &'a Group,
     pub command: &'a Path,
-    pub arguments: &'a str,
+    pub arguments: &'a [String],
 }
 
 #[derive(Default)]
@@ -281,8 +281,8 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-fn match_command<'a>((cmd, args): (&'a Path, &'a str)) -> (impl Fn(&Command) -> bool + 'a) {
-    move |(cmdpat, argpat)| cmdpat.matches_path(cmd) && argpat.matches(args)
+fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command) -> bool + 'a) {
+    move |(cmdpat, argpat)| cmdpat.matches_path(cmd) && argpat.matches(&args.join(" "))
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;

@@ -89,8 +89,8 @@ fn permission_test() {
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-            let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
-            let req = Request { user: $req.0, group: $req.1, command: cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
+            let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
+            let req = Request { user: $req.0, group: $req.1, command: cmdvec[0].as_ref(), arguments: &cmdvec[1..].to_vec() };
             assert_eq!(Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags, None);
         }
     }
@@ -98,8 +98,8 @@ fn permission_test() {
     macro_rules! pass {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-            let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
-            let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
+            let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
+            let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].to_vec() };
             let result = Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags;
             assert!(!result.is_none());
             $(
