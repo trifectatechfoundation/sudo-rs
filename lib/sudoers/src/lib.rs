@@ -282,7 +282,9 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
 }
 
 fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command) -> bool + 'a) {
-    move |(cmdpat, argpat)| cmdpat.matches_path(cmd) && argpat.matches(&args.join(" "))
+    move |(cmdpat, argpat)| {
+        cmdpat.matches_path(cmd) && argpat.as_ref().map(|vec| vec == args).unwrap_or(true)
+    }
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;

@@ -153,15 +153,16 @@ fn permission_test() {
     pass!(["user ALL=/bin/hello  arg"], "user" => root(), "server"; "/bin/hello arg");
     pass!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello  arg");
     FAIL!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello boo");
-    pass!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello  aaaarg");
-    FAIL!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello boo");
+    // several test cases with globbing in the arguments are explicitly not supported by sudo-rs
+    //pass!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello  aaaarg");
+    //FAIL!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello boo");
     pass!(["user ALL=/bin/hello"], "user" => root(), "server"; "/bin/hello boo");
     FAIL!(["user ALL=/bin/hello \"\""], "user" => root(), "server"; "/bin/hello boo");
     pass!(["user ALL=/bin/hello \"\""], "user" => root(), "server"; "/bin/hello");
     pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/hello");
     pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help");
     pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help me");
-    pass!(["user ALL=/bin/hel* *"], "user" => root(), "server"; "/bin/help");
+    //pass!(["user ALL=/bin/hel* *"], "user" => root(), "server"; "/bin/help");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help");
     pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");

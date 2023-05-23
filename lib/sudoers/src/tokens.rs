@@ -131,7 +131,7 @@ impl Token for Upper {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
-pub type Command = (glob::Pattern, glob::Pattern);
+pub type Command = (glob::Pattern, Option<Vec<String>>);
 
 impl Token for Command {
     const MAX_LEN: usize = 1024;
@@ -140,18 +140,24 @@ impl Token for Command {
         let cvt_err = |pat: Result<_, glob::PatternError>| {
             pat.map_err(|err| format!("wildcard pattern error {err}"))
         };
-        let mut cmdvec = s.split_whitespace().collect::<Vec<_>>();
-        if cmdvec.len() == 1 {
-            // if no arguments are mentioned, anything is allowed
-            cmdvec.push("*");
-        } else if cmdvec.len() >= 2 && cmdvec.last() == Some(&"\"\"") {
-            // if the magic "" appears, no (further) arguments are allowed
-            cmdvec.pop();
-        }
-        let cmd = cvt_err(glob::Pattern::new(cmdvec[0]))?;
-        let args = cvt_err(glob::Pattern::new(&cmdvec[1..].join(" ")))?;
 
-        Ok((cmd, args))
+        // the tokenizer should not give us a token that consists of only whitespace
+        let mut cmd_iter = s.split_whitespace();
+        let cmd = cmd_iter.next().unwrap();
+        let mut args = cmd_iter.map(String::from).collect::<Vec<String>>();
+
+        let argpat = if args.is_empty() {
+            // if no arguments are mentioned, anything is allowed
+            None
+        } else {
+            if args.last().map(|x| -> &str { x }) == Some("\"\"") {
+                // if the magic "" appears, no (further) arguments are allowed
+                args.pop();
+            }
+            Some(args)
+        };
+
+        Ok((cvt_err(glob::Pattern::new(cmd))?, argpat))
     }
 
     // all commands start with "/" except "sudoedit"
