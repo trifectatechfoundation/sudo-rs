@@ -125,6 +125,26 @@ echo $@";
 }
 
 #[test]
+fn arguments_are_properly_distinguished() -> Result<()> {
+    let shell_path = "/tmp/my-shell";
+    let my_shell = "#!/bin/sh
+for arg in \"$@\"; do echo -n \"{$arg}\"; done";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(User(USERNAME).shell(shell_path))
+        .file(shell_path, TextFile(my_shell).chown(USERNAME).chmod("500"))
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-u", USERNAME, "-i", "a b", "c d"])
+        .exec(&env)?
+        .stdout()?;
+
+    assert_eq!("{-c}{a\\ b c\\ d}", output);
+
+    Ok(())
+}
+
+#[test]
 fn arguments_are_escaped_with_backslashes() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let my_shell = "#!/bin/sh
