@@ -234,16 +234,13 @@ fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
     let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
     let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
 
-    let display = "() display";
-    let path = "() path";
-    let term = "() term";
     let stdout = Command::new("env")
         .args([
             "-i",
             "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
-            &format!("DISPLAY={display}"),
-            &format!("PATH={path}"),
-            &format!("TERM={term}"),
+            "DISPLAY=() display",
+            "PATH=() path",
+            "TERM=() term",
             &sudo_abs_path,
             &env_abs_path,
         ])
