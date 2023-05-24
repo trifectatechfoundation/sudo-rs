@@ -272,3 +272,25 @@ fn logname_set_to_preserved_user_value() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn if_value_starts_with_parentheses_variable_is_removed() -> Result<()> {
+    let env_name = "SHOULD_BE_REMOVED";
+    let env_val = "() 42";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = {env_name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name}={env_val}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert!(sudo_env.get(env_name).is_none());
+
+    Ok(())
+}
