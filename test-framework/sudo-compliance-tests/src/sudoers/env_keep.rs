@@ -12,12 +12,9 @@ fn equal_single() -> Result<()> {
     ])
     .build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
-
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
-        .args([&sudo_abs_path, &env_abs_path])
+        .args(["sudo", "env"])
         .exec(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
