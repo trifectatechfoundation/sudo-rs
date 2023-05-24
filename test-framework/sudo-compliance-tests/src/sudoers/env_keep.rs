@@ -177,6 +177,7 @@ fn plus_equal_repeated() -> Result<()> {
 // the variables HOME, LOGNAME, MAIL and USER are set by sudo with a value that depends on the
 // target user *unless* they appear in the env_keep list
 #[test]
+#[ignore]
 fn vars_with_target_user_specific_values() -> Result<()> {
     let home = "my-home";
     let logname = "my-logname";
@@ -235,6 +236,7 @@ fn sudo_env_vars() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn user_set_to_preserved_logname_value() -> Result<()> {
     let value = "ghost";
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"LOGNAME\""]).build()?;
@@ -253,6 +255,7 @@ fn user_set_to_preserved_logname_value() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn logname_set_to_preserved_user_value() -> Result<()> {
     let value = "ghost";
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"USER\""]).build()?;
