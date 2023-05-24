@@ -111,7 +111,6 @@ fn input_longer_than_max_pam_response_size_is_handled_gracefully() -> Result<()>
 }
 
 #[test]
-#[ignore]
 fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Result<()> {
     let password = "a".repeat(MAX_PAM_RESPONSE_SIZE - 1 /* null byte */);
     let env = Env("ALL ALL=(ALL:ALL) ALL")

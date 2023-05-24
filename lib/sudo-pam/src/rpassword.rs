@@ -13,9 +13,9 @@
 /// - the general idea of a "SafeString" type that clears its memory
 ///   (although much more robust than in the original code)
 ///
-use std::io::{self, Read};
+use std::io::{self, Error, ErrorKind, Read};
 use std::os::fd::{AsRawFd, RawFd};
-use std::{fs, iter, mem};
+use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
@@ -75,13 +75,19 @@ fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
 /// Reads a password from the given file descriptor
 fn read_unbuffered(source: &mut impl io::Read) -> io::Result<PamBuffer> {
     let mut password = PamBuffer::default();
+    let mut pwd_iter = password.iter_mut();
 
     const EOL: u8 = 0x0A;
+    let input = source.bytes().take_while(|x| x.as_ref().ok() != Some(&EOL));
 
-    for (read_byte, dest) in iter::zip(source.bytes(), password.iter_mut()) {
-        match read_byte? {
-            EOL => break,
-            ch => *dest = ch,
+    for read_byte in input {
+        if let Some(dest) = pwd_iter.next() {
+            *dest = read_byte?
+        } else {
+            return Err(Error::new(
+                ErrorKind::OutOfMemory,
+                "incorrect password attempt",
+            ));
         }
     }
 
@@ -167,6 +173,12 @@ mod test {
         );
         // check that the \n is also consumed but the rest of the input is still there
         assert_eq!(std::str::from_utf8(data).unwrap(), "hello world");
+    }
+
+    #[test]
+    fn miri_test_longpwd() {
+        assert!(read_unbuffered(&mut "a".repeat(511).as_bytes()).is_ok());
+        assert!(read_unbuffered(&mut "a".repeat(512).as_bytes()).is_err());
     }
 
     #[test]
