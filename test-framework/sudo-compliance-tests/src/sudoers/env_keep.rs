@@ -291,3 +291,97 @@ fn if_value_starts_with_parentheses_variable_is_removed() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore]
+fn key_value_matches() -> Result<()> {
+    let env_name = "KEY";
+    let env_val = "value";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = \"{env_name}={env_val}\""),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name}={env_val}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(env_val), sudo_env.get(env_name).copied());
+
+    Ok(())
+}
+
+#[test]
+fn key_value_no_match() -> Result<()> {
+    let env_name = "KEY";
+    let env_val = "value";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = \"{env_name}={env_val}\""),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name}=different-value"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(env_name));
+
+    Ok(())
+}
+
+// without the double quotes the RHS is not interpreted as a key value pair
+// also see the `key_value_matches` test
+#[test]
+#[ignore]
+fn key_value_syntax_needs_double_quotes() -> Result<()> {
+    let env_name = "KEY";
+    let env_val = "value";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = {env_name}={env_val}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name}={env_val}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(env_name));
+
+    Ok(())
+}
+
+// also see the `if_value_starts_with_parentheses_variable_is_removed` test
+#[test]
+#[ignore]
+fn key_value_where_value_is_parentheses_glob() -> Result<()> {
+    let env_name = "SHOULD_BE_PRESERVED";
+    let env_val = "() 42";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = \"{env_name}=()*\""),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name}={env_val}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(env_val), sudo_env.get(env_name).copied());
+
+    Ok(())
+}
