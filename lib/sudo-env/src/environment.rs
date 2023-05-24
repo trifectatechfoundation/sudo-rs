@@ -61,16 +61,30 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
     // Since we always want to do env_reset -> always set HOME
     environment.insert("HOME".into(), context.target_user.home.clone().into());
-    // Set to the login name of the target user when the -i option is specified,
-    // when the set_logname option is enabled in sudoers, or when the env_reset option
-    // is enabled in sudoers (unless LOGNAME is present in the env_keep list).
-    // Since we always want to do env_reset -> always set these except when present in env
-    if !environment.contains_key(OsStr::new("LOGNAME"))
-        && !environment.contains_key(OsStr::new("USER"))
-    {
-        environment.insert("LOGNAME".into(), context.target_user.name.clone().into());
-        environment.insert("USER".into(), context.target_user.name.clone().into());
+
+    match (
+        environment.get(OsStr::new("LOGNAME")),
+        environment.get(OsStr::new("USER")),
+    ) {
+        // Set to the login name of the target user when the -i option is specified,
+        // when the set_logname option is enabled in sudoers, or when the env_reset option
+        // is enabled in sudoers (unless LOGNAME is present in the env_keep list).
+        // Since we always want to do env_reset -> always set these except when present in env
+        (None, None) => {
+            environment.insert("LOGNAME".into(), context.target_user.name.clone().into());
+            environment.insert("USER".into(), context.target_user.name.clone().into());
+        }
+        // LOGNAME should be set to the same value as USER if the latter is preserved.
+        (None, Some(user)) => {
+            environment.insert("LOGNAME".into(), user.clone());
+        }
+        // USER should be set to the same value as LOGNAME if the latter is preserved.
+        (Some(logname), None) => {
+            environment.insert("USER".into(), logname.clone());
+        }
+        (Some(_), Some(_)) => {}
     }
+
     // If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
     if context.path.is_empty() {
         // If the PATH variable is not set, it will be set to default value
