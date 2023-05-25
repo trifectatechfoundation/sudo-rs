@@ -4,6 +4,7 @@ use crate::{Result, PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
 
 mod cmnd;
 mod cwd;
+mod env_keep;
 mod host_list;
 mod run_as;
 mod secure_path;
