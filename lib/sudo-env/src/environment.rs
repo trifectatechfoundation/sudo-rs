@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{hash_map::Entry, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
 };
@@ -51,16 +51,17 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
     );
     environment.insert("SUDO_USER".into(), context.current_user.name.clone().into());
     // target user
-    environment.insert(
-        "MAIL".into(),
-        format!("{PATH_MAILDIR}/{}", context.target_user.name).into(),
-    );
+    if let Entry::Vacant(entry) = environment.entry("MAIL".into()) {
+        entry.insert(format!("{PATH_MAILDIR}/{}", context.target_user.name).into());
+    }
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
     environment.insert("SHELL".into(), context.target_user.shell.clone().into());
     // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
     // Since we always want to do env_reset -> always set HOME
-    environment.insert("HOME".into(), context.target_user.home.clone().into());
+    if let Entry::Vacant(entry) = environment.entry("HOME".into()) {
+        entry.insert(context.target_user.home.clone().into());
+    }
 
     match (
         environment.get(OsStr::new("LOGNAME")),
