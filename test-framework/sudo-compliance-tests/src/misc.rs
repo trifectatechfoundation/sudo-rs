@@ -111,7 +111,6 @@ fn sudo_binary_is_not_owned_by_root() -> Result<()> {
 // see 'environment' section in `man sudo`
 // "SUDO_PS1: If set, PS1 will be set to its value for the program being run."
 #[test]
-#[ignore]
 fn ps1_env_var_is_set_when_sudo_ps1_is_set() -> Result<()> {
     let ps1 = "abc";
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;

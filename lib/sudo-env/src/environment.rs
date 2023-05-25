@@ -83,6 +83,11 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
     if !environment.contains_key(OsStr::new("TERM")) {
         environment.insert("TERM".into(), "unknown".into());
     }
+
+    // If the SUDO_PS1 variable is set, PS1 will be set to its value."
+    if let Some(ps1) = environment.remove(OsStr::new("SUDO_PS1")) {
+        environment.insert("PS1".into(), ps1);
+    }
 }
 
 /// Check a string only contains printable (non-space) characters
