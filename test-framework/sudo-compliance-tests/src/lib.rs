@@ -43,3 +43,6 @@ const PAMD_SUDO_PAM_PERMIT: &str = "auth sufficient pam_permit.so";
 
 const SUDO_RS_IS_UNSTABLE: &str =
     "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly";
+
+const SUDO_ENV_DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
+const SUDO_ENV_DEFAULT_TERM: &str = "unknown";

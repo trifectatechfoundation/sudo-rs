@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH};
 
 #[test]
 fn equal_single() -> Result<()> {
@@ -380,6 +380,238 @@ fn key_value_where_value_is_parentheses_glob() -> Result<()> {
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(env_val), sudo_env.get(env_name).copied());
+
+    Ok(())
+}
+
+#[test]
+fn minus_equal_removes() -> Result<()> {
+    let env_name1 = "SHOULD_BE_PRESERVED";
+    let env_val1 = "42";
+    let env_name2 = "DISPLAY";
+    let env_val2 = "24";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = \"{env_name1} {env_name2}\""),
+        &*format!("Defaults env_keep -= {env_name2}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name1}={env_val1}"))
+        .arg(format!("{env_name2}={env_val2}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(env_val1), sudo_env.get(env_name1).copied());
+    assert!(sudo_env.get(env_name2).is_none());
+
+    Ok(())
+}
+
+#[test]
+fn minus_equal_an_element_not_in_the_list_is_not_an_error() -> Result<()> {
+    let env_name = "SHOULD_BE_REMOVED";
+    let env_val = "42";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep -= {env_name}"),
+    ])
+    .build()?;
+
+    let output = Command::new("env")
+        .arg(format!("{env_name}={env_val}"))
+        .args(["sudo", "env"])
+        .exec(&env)?;
+
+    // no diagnostics in this case
+    assert!(output.stderr().is_empty());
+
+    let stdout = output.stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert!(sudo_env.get(env_name).is_none());
+
+    Ok(())
+}
+
+#[test]
+fn bang_clears_the_whole_list() -> Result<()> {
+    let env_name1 = "SHOULD_BE_REMOVED";
+    let env_name2 = "ALSO_SHOULD_BE_REMOVED";
+    let env_val1 = "42";
+    let env_val2 = "24";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = \"{env_name1} {env_name2}\""),
+        "Defaults !env_keep",
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name1}={env_val1}"))
+        .arg(format!("{env_name2}={env_val2}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert!(sudo_env.get(env_name1).is_none());
+    assert!(sudo_env.get(env_name1).is_none());
+
+    Ok(())
+}
+
+#[test]
+fn can_append_after_bang() -> Result<()> {
+    let env_name1 = "SHOULD_BE_REMOVED";
+    let env_name2 = "SHOULD_BE_PRESERVED";
+    let env_val1 = "42";
+    let env_val2 = "24";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = {env_name1}"),
+        "Defaults !env_keep",
+        &*format!("Defaults env_keep += {env_name2}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name1}={env_val1}"))
+        .arg(format!("{env_name2}={env_val2}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert!(sudo_env.get(env_name1).is_none());
+    assert_eq!(Some(env_val2), sudo_env.get(env_name2).copied());
+
+    Ok(())
+}
+
+#[test]
+fn can_override_after_bang() -> Result<()> {
+    let env_name1 = "SHOULD_BE_REMOVED";
+    let env_name2 = "SHOULD_BE_PRESERVED";
+    let env_val1 = "42";
+    let env_val2 = "24";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &*format!("Defaults env_keep = {env_name1}"),
+        "Defaults !env_keep",
+        &*format!("Defaults env_keep = {env_name2}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name1}={env_val1}"))
+        .arg(format!("{env_name2}={env_val2}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert!(sudo_env.get(env_name1).is_none());
+    assert_eq!(Some(env_val2), sudo_env.get(env_name2).copied());
+
+    Ok(())
+}
+
+// DISPLAY, PATH and TERM are env vars preserved by sudo by default
+// they appear to be part of the default `env_keep` list
+#[test]
+#[ignore]
+fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = WHATEVER"]).build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let term = "some-term";
+    let stdout = Command::new("env")
+        .arg("PATH=some-path")
+        .arg("DISPLAY=some-display")
+        .arg(format!("TERM={term}"))
+        .args([sudo_abs_path, env_abs_path])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // can be disabled
+    assert!(sudo_env.get("DISPLAY").is_none());
+    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
+
+    // cannot be disabled
+    assert_eq!(Some(term), sudo_env.get("TERM").copied());
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn equal_minus_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        "Defaults env_keep -= \"DISPLAY PATH TERM\"",
+    ])
+    .build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let term = "some-term";
+    let stdout = Command::new("env")
+        .arg("PATH=some-path")
+        .arg("DISPLAY=some-display")
+        .arg(format!("TERM={term}"))
+        .args([sudo_abs_path, env_abs_path])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // can be disabled
+    assert!(sudo_env.get("DISPLAY").is_none());
+    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
+
+    // cannot be disabled
+    assert_eq!(Some(term), sudo_env.get("TERM").copied());
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults !env_keep"]).build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let term = "some-term";
+    let stdout = Command::new("env")
+        .arg("PATH=some-path")
+        .arg("DISPLAY=some-display")
+        .arg(format!("TERM={term}"))
+        .args([sudo_abs_path, env_abs_path])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // can be disabled
+    assert!(sudo_env.get("DISPLAY").is_none());
+    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
+
+    // cannot be disabled
+    assert_eq!(Some(term), sudo_env.get("TERM").copied());
 
     Ok(())
 }
