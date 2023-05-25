@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
-use crate::{helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
+use crate::{helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_RS_IS_UNSTABLE, USERNAME};
 
 const DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 const DEFAULT_TERM: &str = "unknown";
@@ -24,12 +24,7 @@ fn some_vars_are_set() -> Result<()> {
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
-        .args([
-            "-i",
-            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
-            &sudo_abs_path,
-            &env_abs_path,
-        ])
+        .args(["-i", SUDO_RS_IS_UNSTABLE, &sudo_abs_path, &env_abs_path])
         .exec(&env)?
         .stdout()?;
     let mut sudo_env = helpers::parse_env_output(&stdout)?;
@@ -122,7 +117,7 @@ fn user_dependent_vars() -> Result<()> {
     let stdout = Command::new("env")
         .args([
             "-i",
-            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
+            SUDO_RS_IS_UNSTABLE,
             &sudo_abs_path,
             "-u",
             USERNAME,
@@ -181,7 +176,7 @@ fn some_vars_are_preserved() -> Result<()> {
     let stdout = Command::new("env")
         .args([
             "-i",
-            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
+            SUDO_RS_IS_UNSTABLE,
             &format!("HOME={home}"),
             &format!("MAIL={mail}"),
             &format!("SHELL={shell}"),
@@ -237,7 +232,7 @@ fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
     let stdout = Command::new("env")
         .args([
             "-i",
-            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
+            SUDO_RS_IS_UNSTABLE,
             "DISPLAY=() display",
             "PATH=() path",
             "TERM=() term",
