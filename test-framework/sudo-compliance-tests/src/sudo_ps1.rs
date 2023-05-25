@@ -51,7 +51,6 @@ fn ps1_env_var_is_not_set_when_sudo_ps1_is_set_and_flag_login_is_used() -> Resul
 
 // sudo removes env vars whose values start with `()` but that does not affect the SUDO_PS1 feature
 #[test]
-#[ignore]
 fn can_start_with_parentheses() -> Result<()> {
     let ps1 = "() abc";
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
@@ -75,7 +74,6 @@ fn can_start_with_parentheses() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn preserved_when_in_env_keep_list() -> Result<()> {
     let ps1 = "abc";
     let env = Env([SUDOERS_ROOT_ALL_NOPASSWD, "Defaults env_keep = SUDO_PS1"]).build()?;

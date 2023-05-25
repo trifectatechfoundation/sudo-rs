@@ -40,7 +40,7 @@ defaults! {
     verifypw                  = "all" (!= "never") [all, always, any, never]
 
     env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",
-                                 "PS1", "PS2", "SUDO_PS1", "XAUTHORITY", "XAUTHORIZATION", "XDG_CURRENT_DESKTOP"]
+                                 "PS1", "PS2", "XAUTHORITY", "XAUTHORIZATION", "XDG_CURRENT_DESKTOP"]
 
     env_check                 = ["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]
 
