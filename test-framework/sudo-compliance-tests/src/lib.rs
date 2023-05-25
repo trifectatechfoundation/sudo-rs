@@ -18,6 +18,7 @@ mod pass_auth;
 mod password_retry;
 mod path_search;
 mod perms;
+mod sudo_ps1;
 mod sudoers;
 mod timestamp;
 
@@ -39,3 +40,6 @@ const SUDOERS_USER_ALL_NOPASSWD: &str = "ferris ALL=(ALL:ALL) NOPASSWD: ALL";
 const SUDOERS_NO_LECTURE: &str = "Defaults	lecture=\"never\"";
 
 const PAMD_SUDO_PAM_PERMIT: &str = "auth sufficient pam_permit.so";
+
+const SUDO_RS_IS_UNSTABLE: &str =
+    "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly";
