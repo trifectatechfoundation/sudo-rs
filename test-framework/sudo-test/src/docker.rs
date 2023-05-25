@@ -65,6 +65,9 @@ impl Container {
         if cmd.get_stdin().is_some() {
             docker_exec.arg("-i");
         }
+        if cmd.get_tty() {
+            docker_exec.arg("--tty");
+        }
         if let Some(as_) = cmd.get_as() {
             docker_exec.arg("--user");
             docker_exec.arg(as_.to_string());
