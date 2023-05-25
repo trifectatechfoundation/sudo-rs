@@ -94,6 +94,7 @@ fn equal_overrides() -> Result<()> {
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert!(sudo_env.get(env_name2).is_none());
+    assert_eq!(Some(env_val1), sudo_env.get(env_name1).copied());
 
     Ok(())
 }
