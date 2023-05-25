@@ -234,7 +234,6 @@ fn sudo_env_vars() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn user_set_to_preserved_logname_value() -> Result<()> {
     let value = "ghost";
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"LOGNAME\""]).build()?;
@@ -253,7 +252,6 @@ fn user_set_to_preserved_logname_value() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn logname_set_to_preserved_user_value() -> Result<()> {
     let value = "ghost";
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"USER\""]).build()?;
