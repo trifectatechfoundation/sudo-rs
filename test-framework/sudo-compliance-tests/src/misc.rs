@@ -1,6 +1,9 @@
 use sudo_test::{Command, Env};
 
-use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
+use crate::{
+    helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_RS_IS_UNSTABLE,
+    USERNAME,
+};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -120,10 +123,7 @@ fn ps1_env_var_is_set_when_sudo_ps1_is_set() -> Result<()> {
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
-        .args([
-            "-i",
-            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
-        ])
+        .args(["-i", SUDO_RS_IS_UNSTABLE])
         .arg(format!("SUDO_PS1={ps1}"))
         .args([&sudo_abs_path, &env_abs_path])
         .exec(&env)?
@@ -145,10 +145,7 @@ fn ps1_env_var_is_not_set_when_sudo_ps1_is_set_and_flag_login_is_used() -> Resul
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
-        .args([
-            "-i",
-            "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly",
-        ])
+        .args(["-i", SUDO_RS_IS_UNSTABLE])
         .arg("SUDO_PS1=abc")
         .args([&sudo_abs_path, "-i", &env_abs_path])
         .exec(&env)?
