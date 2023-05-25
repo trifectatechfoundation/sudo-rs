@@ -135,8 +135,13 @@ pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
 }
 
 /// Set a process group ID.
-pub fn setpgid(pid: ProcessId, pgid: ProcessId) {
-    unsafe { libc::setpgid(pid, pgid) };
+pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
+    cerr(unsafe { libc::setpgid(pid, pgid) }).map(|_| ())
+}
+
+/// Sets `pgid` as the foreground process group for the terminal associated with `fd`.
+pub fn tcsetpgrp<F: AsRawFd>(fd: &F, pgid: ProcessId) -> io::Result<()> {
+    cerr(unsafe { libc::tcsetpgrp(fd.as_raw_fd(), pgid) }).map(|out| debug_assert_eq!(out, 0))
 }
 
 pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {

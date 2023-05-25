@@ -1,6 +1,6 @@
 use std::{
     io,
-    os::fd::OwnedFd,
+    os::{fd::OwnedFd, unix::process::CommandExt},
     process::{exit, Child, Command},
     time::Duration,
 };
@@ -14,7 +14,9 @@ use signal_hook::{
     },
 };
 use sudo_log::user_error;
-use sudo_system::{getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid};
+use sudo_system::{
+    getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid, tcsetpgrp,
+};
 
 use crate::ExitReason;
 
@@ -40,6 +42,18 @@ impl MonitorRelay {
             // Set the pty as the controlling terminal.
             set_controlling_terminal(&pty_follower)?;
 
+            // set the process group ID of the command to the command PID. This is done here too to
+            // avoid any potential races where either the monitor or the command observe a
+            // different process group ID for the command.
+            #[allow(unsafe_code)]
+            unsafe {
+                command.pre_exec(|| {
+                    let pid = std::process::id() as ProcessId;
+                    setpgid(0, pid).ok();
+                    Ok(())
+                });
+            }
+
             // spawn and exec to command
             let command = command.spawn()?;
 
@@ -47,7 +61,10 @@ impl MonitorRelay {
 
             // set the process group ID of the command to the command PID.
             let command_pgrp = command_pid;
-            setpgid(command_pid, command_pgrp);
+            setpgid(command_pid, command_pgrp).ok();
+
+            // set the command process group as the foreground process group for the pty follower.
+            tcsetpgrp(&pty_follower, command_pgrp).ok();
 
             let signals = SignalsInfo::<WithOrigin>::new(super::SIGNALS)?;
 
