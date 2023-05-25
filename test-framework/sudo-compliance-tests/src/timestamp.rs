@@ -159,3 +159,174 @@ fn flag_validate_prompts_for_password() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn by_default_credential_caching_is_local() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!("set -e; echo {PASSWORD} | sudo -S true"))
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+fn flag_reset_timestamp_has_a_local_effect() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    let child = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "set -e; echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo true"
+        ))
+        .as_user(USERNAME)
+        .spawn(&env)?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -k; touch /tmp/barrier2")
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()?;
+
+    child.wait()?.assert_success()
+}
+
+#[test]
+#[ignore]
+fn flag_remove_timestamp_has_a_user_global_effect() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    let child = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; echo | sudo -S true"
+        ))
+        .as_user(USERNAME)
+        .spawn(&env)?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -K && touch /tmp/barrier2")
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()?;
+
+    let output = child.wait()?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "1 incorrect password attempt"
+    } else {
+        "Authentication failure"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn effect_flag_remove_timestamp_is_limited_to_a_single_user() -> Result<()> {
+    let second_user = "ghost";
+    let env = Env("ALL ALL=(ALL:ALL) ALL")
+        .user(User(USERNAME).password(PASSWORD))
+        .user(User(second_user).password(PASSWORD))
+        .build()?;
+
+    let child = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo -S true"
+        ))
+        .as_user(USERNAME)
+        .spawn(&env)?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -K && touch /tmp/barrier2")
+        .as_user(second_user)
+        .exec(&env)?
+        .assert_success()?;
+
+    child.wait()?.assert_success()
+}
+
+#[test]
+fn credential_cache_is_shared_with_child_shell() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "set -e; echo {PASSWORD} | sudo -S true; sh -c 'sudo true'"
+        ))
+        .as_user(USERNAME)
+        // XXX unclear why this and the tests that follow need a pseudo-TTY allocation to pass
+        .tty(true)
+        .exec(&env)?
+        .assert_success()
+}
+
+#[test]
+fn credential_cache_is_shared_with_parent_shell() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "set -e; sh -c 'echo {PASSWORD} | sudo -S true'; sudo true"
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .exec(&env)?
+        .assert_success()
+}
+
+#[test]
+fn credential_cache_is_shared_between_sibling_shells() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "set -e; sh -c 'echo {PASSWORD} | sudo -S true'; sh -c 'sudo true'"
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .exec(&env)?
+        .assert_success()
+}
