@@ -18,7 +18,6 @@ fn default_lecture_message() -> Result<()> {
         output.stderr(),
         OG_SUDO_STANDARD_LECTURE
     );
-
     Ok(())
 }
 

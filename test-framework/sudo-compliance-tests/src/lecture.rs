@@ -38,7 +38,7 @@ fn lecture_always_shown() -> Result<()> {
         SUDOERS_ROOT_ALL,
         SUDOERS_ALWAYS_LECTURE
         ])
-        .user(USERNAME).build()?;
+        .user(User(USERNAME).password(PASSWORD)).build()?;
 
     let output = Command::new("sudo")
     .as_user(USERNAME)
@@ -63,13 +63,29 @@ fn lecture_always_shown() -> Result<()> {
         second_sudo.stderr(),
         OG_SUDO_STANDARD_LECTURE
     );
-    // to do, add sudo-rs lecture
     Ok(())
 }
 
 #[test]
 fn lecture_never_shown() -> Result<()> {
     let env = Env([SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL, SUDOERS_NO_LECTURE])
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    let output = Command::new("sudo")
+    .as_user(USERNAME)
+    .stdin(PASSWORD)
+    .args(["-S", "echo", "Yeah!"])
+    .exec(&env)?;
+
+    assert_eq!(true, output.status().success());
+    assert_ne!(output.stdout().unwrap(), OG_SUDO_STANDARD_LECTURE);
+    Ok(())
+}
+
+#[test]
+fn negation_equals_never() -> Result<()> {
+    let env = Env([SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL, "Defaults  !lecture"])
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
