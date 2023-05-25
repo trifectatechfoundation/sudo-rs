@@ -83,7 +83,7 @@ Defaults timestamp_timeout=0"
 
 #[test]
 #[ignore]
-fn flag_reset_timsetamp() -> Result<()> {
+fn flag_reset_timestamp() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
