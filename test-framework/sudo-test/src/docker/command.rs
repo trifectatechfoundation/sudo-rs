@@ -8,6 +8,7 @@ pub struct Command {
     args: Vec<String>,
     as_: Option<As>,
     stdin: Option<String>,
+    tty: bool,
 }
 
 pub enum As {
@@ -31,6 +32,7 @@ impl Command {
             args: vec![program.as_ref().to_string()],
             as_: None,
             stdin: None,
+            tty: false,
         }
     }
 
@@ -78,6 +80,14 @@ impl Command {
         self
     }
 
+    /// whether to allocate a pseudo-TTY for the execution of this command
+    ///
+    /// equivalent to docker's `--tty` flag
+    pub fn tty(&mut self, tty: bool) -> &mut Self {
+        self.tty = tty;
+        self
+    }
+
     pub(super) fn get_args(&self) -> &[String] {
         &self.args
     }
@@ -88,6 +98,10 @@ impl Command {
 
     pub(crate) fn get_as(&self) -> Option<&As> {
         self.as_.as_ref()
+    }
+
+    pub(crate) fn get_tty(&self) -> bool {
+        self.tty
     }
 }
 
