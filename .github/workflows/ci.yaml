@@ -39,6 +39,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: 'compliance-tests'
           workspaces: |
             test-framework
 
@@ -69,6 +70,33 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  clippy-compliance-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: 'compliance-tests'
+          workspaces: |
+            test-framework
+
+      - name: clippy sudo-test
+        working-directory: test-framework
+        run: cargo clippy -p sudo-test --no-deps
+
+      - name: clippy compliance-tests
+        working-directory: test-framework
+        run: cargo clippy -p sudo-compliance-tests --tests --no-deps
 
   build-and-test:
     runs-on: ubuntu-latest
