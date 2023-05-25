@@ -280,6 +280,36 @@ fn effect_flag_remove_timestamp_is_limited_to_a_single_user() -> Result<()> {
 }
 
 #[test]
+#[ignore]
+fn flag_reset_timestamp_also_works_locally() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    // input valid credentials
+    // invalidate them
+    // try to sudo without a password
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; sudo -K; sudo true"
+        ))
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "Authentication failed"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+#[test]
 fn credential_cache_is_shared_with_child_shell() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
