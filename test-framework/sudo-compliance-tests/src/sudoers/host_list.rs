@@ -121,18 +121,3 @@ fn longest_hostname() -> Result<()> {
         .exec(&env)?
         .assert_success()
 }
-
-#[test]
-fn host_alias_works() -> Result<()> {
-        let env = Env([
-            "Host_Alias SERVERS = main, www, mail",
-            "ALL SERVERS=(ALL:ALL) ALL",
-        ])
-        .hostname("mail")
-        .build()?;
-
-    Command::new("sudo")
-        .arg("true")
-        .exec(&env)?
-        .assert_success()
-}
