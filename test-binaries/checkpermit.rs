@@ -15,7 +15,10 @@ fn chatty_check_permission(
     );
     let (command, arguments) = {
         let mut items = chosen_poison.split_whitespace();
-        (items.next().unwrap(), items.collect::<Vec<_>>().join(" "))
+        (
+            items.next().unwrap(),
+            items.map(|x| x.to_string()).collect::<Vec<_>>(),
+        )
     };
 
     let result = sudoers.check(
