@@ -14,7 +14,6 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-#[ignore]
 fn if_home_directory_does_not_exist_executes_program_without_changing_the_working_directory(
 ) -> Result<()> {
     let initial_working_directories = ["/", "/root"];

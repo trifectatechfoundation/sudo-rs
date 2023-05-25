@@ -94,6 +94,7 @@ fn equal_overrides() -> Result<()> {
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert!(sudo_env.get(env_name2).is_none());
+    assert_eq!(Some(env_val1), sudo_env.get(env_name1).copied());
 
     Ok(())
 }
@@ -232,7 +233,6 @@ fn sudo_env_vars() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn user_set_to_preserved_logname_value() -> Result<()> {
     let value = "ghost";
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"LOGNAME\""]).build()?;
@@ -251,7 +251,6 @@ fn user_set_to_preserved_logname_value() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn logname_set_to_preserved_user_value() -> Result<()> {
     let value = "ghost";
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"USER\""]).build()?;
