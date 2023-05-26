@@ -40,7 +40,7 @@ fn host_alias_negation() -> Result<()> {
         .build()?;
 
     let output = Command::new("sudo")
-        .arg("true")
+        .args(["-h", "mail", "true"])
         .exec(&env)?;
 
         assert!(!output.status().success());
@@ -55,6 +55,22 @@ fn host_alias_negation() -> Result<()> {
             );
         }
         Ok(())
+}
+
+#[test]
+fn host_alias_double_negation() -> Result<()> {
+    let env = Env([
+            "Host_Alias SERVERS = main, www, mail",
+            "ALL !!SERVERS=(ALL:ALL) ALL",
+        ])
+        .hostname("mail")
+        .build()?;
+
+    Command::new("sudo")
+        .args(["-h", "mail", "true"])
+        .exec(&env)?
+        .assert_success()
+
 }
 
 #[ignore]
