@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
-use crate::{helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_RS_IS_UNSTABLE, USERNAME};
-
-const DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
-const DEFAULT_TERM: &str = "unknown";
+use crate::{
+    helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH, SUDO_ENV_DEFAULT_TERM,
+    SUDO_RS_IS_UNSTABLE, USERNAME,
+};
 
 // NOTE if 'env_reset' is not in `/etc/sudoers` it is enabled by default
 
@@ -64,9 +64,9 @@ fn some_vars_are_set() -> Result<()> {
     let normal_path = normal_env["PATH"];
     assert_ne!(normal_path, sudo_path);
 
-    assert_eq!(DEFAULT_PATH, sudo_path);
+    assert_eq!(SUDO_ENV_DEFAULT_PATH, sudo_path);
 
-    assert_eq!(Some(DEFAULT_TERM), sudo_env.remove("TERM"));
+    assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.remove("TERM"));
 
     let empty = HashMap::new();
     assert_eq!(empty, sudo_env);
@@ -146,8 +146,8 @@ fn user_dependent_vars() -> Result<()> {
     assert_eq!(Some("0"), sudo_env.remove("SUDO_UID"));
     assert_eq!(Some("root"), sudo_env.remove("SUDO_USER"));
 
-    assert_eq!(Some(DEFAULT_PATH), sudo_env.remove("PATH"));
-    assert_eq!(Some(DEFAULT_TERM), sudo_env.remove("TERM"));
+    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.remove("PATH"));
+    assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.remove("TERM"));
 
     assert_eq!(HashMap::new(), sudo_env);
 
@@ -244,8 +244,8 @@ fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert!(!sudo_env.contains_key("DISPLAY"));
-    assert_eq!(Some(DEFAULT_PATH), sudo_env.get("PATH").copied());
-    assert_eq!(Some(DEFAULT_TERM), sudo_env.get("TERM").copied());
+    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
+    assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.get("TERM").copied());
 
     Ok(())
 }
