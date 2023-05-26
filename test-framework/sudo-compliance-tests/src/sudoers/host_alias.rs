@@ -13,7 +13,6 @@ macro_rules! assert_snapshot {
     };
 }
 
-
 #[test]
 fn host_alias_works() -> Result<()> {
     let env = Env([
@@ -24,10 +23,9 @@ fn host_alias_works() -> Result<()> {
         .build()?;
 
     Command::new("sudo")
-        .args(["-h", "mail", "true"])
+        .arg("true")
         .exec(&env)?
         .assert_success()
-
 }
 
 #[test]
@@ -40,7 +38,7 @@ fn host_alias_negation() -> Result<()> {
         .build()?;
 
     let output = Command::new("sudo")
-        .args(["-h", "mail", "true"])
+        .arg("true")
         .exec(&env)?;
 
         assert!(!output.status().success());
@@ -54,6 +52,7 @@ fn host_alias_negation() -> Result<()> {
                 "authentication failed: I'm sorry root. I'm afraid I can't do that"
             );
         }
+
         Ok(())
 }
 
@@ -67,10 +66,9 @@ fn host_alias_double_negation() -> Result<()> {
         .build()?;
 
     Command::new("sudo")
-        .args(["-h", "mail", "true"])
+        .arg("true")
         .exec(&env)?
         .assert_success()
-
 }
 
 #[ignore]
@@ -83,18 +81,56 @@ fn combined_host_aliases() -> Result<()> {
         "ALL WORKSTATIONS=(ALL:ALL) ALL",
         ])
         .hostname("foo")
+        .build()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .exec(&env)?;
+        assert!(output.status().success());
+
+    let second_env = Env([
+        "Host_Alias SERVERS = main, www, mail",
+        "Host_Alias OTHERHOSTS = foo, bar, baz",
+        "Host_Alias WORKSTATIONS = OTHERHOSTS, !SERVERS",
+        "ALL WORKSTATIONS=(ALL:ALL) ALL",
+        ])
         .hostname("mail")
         .build()?;
 
     let second_output = Command::new("sudo")
-        .args(["-h", "foo", "true"])
-        .exec(&env)?;
-        assert!(second_output.status().success());
+        .arg("true")
+        .exec(&second_env)?;
+        assert!(!second_output.status().success());
+        let stderr = second_output.stderr();
+        if sudo_test::is_original_sudo() {
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(
+                stderr,
+                "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            );
+        }
+
+        Ok(())
+}
+
+#[test]
+fn unlisted_host_fails() -> Result<()> {
+    let env = Env([
+        "Host_Alias SERVERS = main, www, mail",
+        "Host_Alias OTHERHOSTS = foo, bar, baz",
+        "Host_Alias WORKSTATIONS = OTHERHOSTS, !SERVERS",
+        "ALL WORKSTATIONS=(ALL:ALL) ALL",
+        ])
+        .hostname("not_listed")
+        .build()?;
 
     let output = Command::new("sudo")
-        .args(["-h", "mail", "true"])
+        .arg("true")
         .exec(&env)?;
+
         assert!(!output.status().success());
+
         let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
             assert_snapshot!(stderr);
@@ -104,5 +140,91 @@ fn combined_host_aliases() -> Result<()> {
                 "authentication failed: I'm sorry root. I'm afraid I can't do that"
             );
         }
+
+        Ok(())
+}
+
+#[test]
+fn negation_not_order_sensitive() -> Result<()> {
+    let env = Env([
+        "Host_Alias SERVERS = main, www, mail",
+        "Host_Alias OTHERHOSTS = foo, bar, baz",
+        "Host_Alias WORKSTATIONS = !SERVERS, OTHERHOSTS",
+        "ALL WORKSTATIONS=(ALL:ALL) ALL",
+        ])
+        .hostname("mail")
+        .build()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .exec(&env)?;
+
+        assert!(!output.status().success());
+
+        let stderr = output.stderr();
+        if sudo_test::is_original_sudo() {
+            assert_snapshot!(stderr);
+        } else {
+            assert_contains!(
+                stderr,
+                "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            );
+        }
+
+        Ok(())
+}
+
+#[ignore]
+#[test]
+fn negation_combination() -> Result<()> {
+    let env = Env([
+        "Host_Alias SERVERS = main, www, mail",
+        "Host_Alias OTHERHOSTS = foo, bar, baz",
+        "Host_Alias WORKSTATIONS = !SERVERS, OTHERHOSTS",
+        "ALL !WORKSTATIONS=(ALL:ALL) ALL",
+        ])
+        .hostname("mail")
+        .build()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .exec(&env)?;
+
+        assert!(output.status().success());
+
+        Ok(())
+}
+
+#[test]
+fn comma_listing_works() -> Result<()> {
+    let env = Env([
+        "Host_Alias SERVERS = main, www, mail",
+        "Host_Alias OTHERHOSTS = foo, bar, baz",
+        "Host_Alias WORKSTATIONS = OTHERHOSTS",
+        "ALL SERVERS, WORKSTATIONS=(ALL:ALL) ALL",
+        ])
+        .hostname("foo")
+        .build()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .exec(&env)?;
+
+        assert!(output.status().success());
+        let second_env = Env([
+            "Host_Alias SERVERS = main, www, mail",
+            "Host_Alias OTHERHOSTS = foo, bar, baz",
+            "Host_Alias WORKSTATIONS = OTHERHOSTS",
+            "ALL SERVERS, WORKSTATIONS=(ALL:ALL) ALL",
+            ])
+            .hostname("mail")
+            .build()?;
+
+        let second_output = Command::new("sudo")
+            .arg("true")
+            .exec(&second_env)?;
+
+            assert!(second_output.status().success());
+
         Ok(())
 }
