@@ -46,3 +46,5 @@ const SUDO_RS_IS_UNSTABLE: &str =
 
 const SUDO_ENV_DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 const SUDO_ENV_DEFAULT_TERM: &str = "unknown";
+
+const SUDOERS_USE_PTY: &str = "Defaults use_pty";
