@@ -128,6 +128,19 @@ pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
     cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
 }
 
+/// Send a signal to a process group.
+pub fn killpg(pgid: ProcessId, signal: c_int) -> io::Result<()> {
+    // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
+    // `signal` is not a valid signal code.
+    cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
+}
+
+
+/// Get the process group ID of the current process.
+pub fn getpgrp() -> io::Result<ProcessId> {
+    cerr(unsafe { libc::getpgrp() })
+}
+
 /// Get a process group ID.
 pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
@@ -144,8 +157,95 @@ pub fn tcsetpgrp<F: AsRawFd>(fd: &F, pgid: ProcessId) -> io::Result<()> {
     cerr(unsafe { libc::tcsetpgrp(fd.as_raw_fd(), pgid) }).map(|out| debug_assert_eq!(out, 0))
 }
 
+/// Gets the foreground process group ID for the terminal associated with `fd`.
+pub fn tcgetpgrp<F: AsRawFd>(fd: &F) -> io::Result<ProcessId> {
+    cerr(unsafe { libc::tcgetpgrp(fd.as_raw_fd()) })
+}
+
 pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
     cerr(unsafe { libc::chdir(path.as_ref().as_ptr()) }).map(|_| ())
+}
+
+#[derive(Default)]
+pub struct WaitOptions {
+    options: c_int,
+}
+
+impl WaitOptions {
+    pub fn no_hang(mut self) -> Self {
+        self.options |= libc::WNOHANG;
+        self
+    }
+
+    pub fn untraced(mut self) -> Self {
+        self.options |= libc::WUNTRACED;
+        self
+    }
+
+    pub fn all(mut self) -> Self {
+        self.options |= libc::__WALL;
+        self
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct WaitStatus {
+    pid: ProcessId,
+    status: c_int,
+}
+
+impl WaitStatus {
+    pub fn from_raw(raw: c_int) -> Self {
+        Self {
+            pid: -1,
+            status: raw,
+        }
+    }
+
+    pub fn as_raw(&self) -> c_int {
+        self.status
+    }
+
+    pub fn pid(&self) -> ProcessId {
+        self.pid
+    }
+
+    /// Returns the signal that terminated the process, if any.
+    pub fn signaled(&self) -> Option<c_int> {
+        libc::WIFSIGNALED(self.status).then(|| libc::WTERMSIG(self.status))
+    }
+
+    /// Returns the signal that stopped the process, if any.
+    pub fn stopped(&self) -> Option<c_int> {
+        libc::WIFSTOPPED(self.status).then(|| libc::WSTOPSIG(self.status))
+    }
+
+    /// Returns the exit status of the process, if any.
+    pub fn exit_status(&self) -> Option<c_int> {
+        libc::WIFEXITED(self.status).then(|| libc::WEXITSTATUS(self.status))
+    }
+
+    pub fn has_continued(&self) -> bool {
+        libc::WIFCONTINUED(self.status)
+    }
+}
+
+pub enum WaitError {
+    Signal,
+    Unavailable,
+    Io(io::Error),
+}
+
+pub fn waitpid(pid: Option<ProcessId>, options: WaitOptions) -> Result<WaitStatus, WaitError> {
+    let mut status: c_int = 0;
+    let options = options.options;
+    let pid = unsafe { libc::waitpid(pid.unwrap_or(-1), &mut status, options) };
+    match cerr(pid) {
+        Err(err) if pid == -1 && err.kind() == io::ErrorKind::Interrupted => Err(WaitError::Signal),
+        Err(err) => Err(WaitError::Io(err)),
+        Ok(0) if options & libc::WNOHANG != 0 => Err(WaitError::Unavailable),
+        Ok(pid) => Ok(WaitStatus { pid, status }),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
