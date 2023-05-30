@@ -92,11 +92,11 @@ jobs:
 
       - name: clippy sudo-test
         working-directory: test-framework
-        run: cargo clippy -p sudo-test --no-deps
+        run: cargo clippy -p sudo-test --no-deps -- --deny clippy::all
 
       - name: clippy compliance-tests
         working-directory: test-framework
-        run: cargo clippy -p sudo-compliance-tests --tests --no-deps
+        run: cargo clippy -p sudo-compliance-tests --tests --no-deps -- --deny clippy::all
 
   build-and-test:
     runs-on: ubuntu-latest
