@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{hash_map::Entry, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
 };
@@ -38,7 +38,7 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> OsString {
 }
 
 /// Construct sudo-specific environment variables
-fn add_extra_env(context: &Context, environment: &mut Environment) {
+fn add_extra_env(context: &Context, cfg: &impl Policy, environment: &mut Environment) {
     // current user
     environment.insert("SUDO_COMMAND".into(), format_command(&context.command));
     environment.insert(
@@ -51,33 +51,50 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
     );
     environment.insert("SUDO_USER".into(), context.current_user.name.clone().into());
     // target user
-    environment.insert(
-        "MAIL".into(),
-        format!("{PATH_MAILDIR}/{}", context.target_user.name).into(),
-    );
+    if let Entry::Vacant(entry) = environment.entry("MAIL".into()) {
+        entry.insert(format!("{PATH_MAILDIR}/{}", context.target_user.name).into());
+    }
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
     environment.insert("SHELL".into(), context.target_user.shell.clone().into());
     // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
     // Since we always want to do env_reset -> always set HOME
-    environment.insert("HOME".into(), context.target_user.home.clone().into());
-    // Set to the login name of the target user when the -i option is specified,
-    // when the set_logname option is enabled in sudoers, or when the env_reset option
-    // is enabled in sudoers (unless LOGNAME is present in the env_keep list).
-    // Since we always want to do env_reset -> always set these except when present in env
-    if !environment.contains_key(OsStr::new("LOGNAME"))
-        && !environment.contains_key(OsStr::new("USER"))
-    {
-        environment.insert("LOGNAME".into(), context.target_user.name.clone().into());
-        environment.insert("USER".into(), context.target_user.name.clone().into());
+    if let Entry::Vacant(entry) = environment.entry("HOME".into()) {
+        entry.insert(context.target_user.home.clone().into());
+    }
+
+    match (
+        environment.get(OsStr::new("LOGNAME")),
+        environment.get(OsStr::new("USER")),
+    ) {
+        // Set to the login name of the target user when the -i option is specified,
+        // when the set_logname option is enabled in sudoers, or when the env_reset option
+        // is enabled in sudoers (unless LOGNAME is present in the env_keep list).
+        // Since we always want to do env_reset -> always set these except when present in env
+        (None, None) => {
+            environment.insert("LOGNAME".into(), context.target_user.name.clone().into());
+            environment.insert("USER".into(), context.target_user.name.clone().into());
+        }
+        // LOGNAME should be set to the same value as USER if the latter is preserved.
+        (None, Some(user)) => {
+            environment.insert("LOGNAME".into(), user.clone());
+        }
+        // USER should be set to the same value as LOGNAME if the latter is preserved.
+        (Some(logname), None) => {
+            environment.insert("USER".into(), logname.clone());
+        }
+        (Some(_), Some(_)) => {}
+    }
+
+    // Overwrite PATH when secure_path is set
+    if let Some(secure_path) = cfg.secure_path() {
+        // assign path by env path or secure_path configuration
+        environment.insert("PATH".into(), secure_path.into());
     }
     // If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
-    if context.path.is_empty() {
+    if !environment.contains_key(OsStr::new("PATH")) {
         // If the PATH variable is not set, it will be set to default value
         environment.insert("PATH".into(), PATH_DEFAULT.into());
-    } else {
-        // assign path by env path or secure_path configuration
-        environment.insert("PATH".into(), context.path.clone().into());
     }
     // If the TERM variable is not preserved from the user's environment, it will be set to default value
     if !environment.contains_key(OsStr::new("TERM")) {
@@ -160,16 +177,33 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
 ///
 /// Environment variables with a value beginning with ‘()’ are removed
 pub fn get_target_environment(
-    current_env: Environment,
+    mut current_env: Environment,
     context: &Context,
     settings: &impl Policy,
 ) -> Environment {
-    let mut environment = current_env
-        .into_iter()
-        .filter(|(key, value)| should_keep(key, value, settings))
-        .collect();
+    let mut environment = Environment::default();
 
-    add_extra_env(context, &mut environment);
+    // The SUDO_PS1 variable requires special treatment as the PS1 variable must be set in the
+    // target enviromnet to the same value of  SUDO_PS1 if the latter is set. At the same time
+    // SUDO_PS1 should be preserved if it is in `keep_env`.
+    let sudo_ps1_key = OsStr::new("SUDO_PS1");
+    // Remove SUDO_PS1 from the current environment if it is set.
+    if let Some(sudo_ps1_value) = current_env.remove(sudo_ps1_key) {
+        // set PS1 to the SUDO_PS1 value in the target environment
+        environment.insert("PS1".into(), sudo_ps1_value.clone());
+        // Keep SUDO_PS1 if it should be kept.
+        if should_keep(sudo_ps1_key, &sudo_ps1_value, settings) {
+            environment.insert(sudo_ps1_key.to_os_string(), sudo_ps1_value);
+        }
+    }
+
+    environment.extend(
+        current_env
+            .into_iter()
+            .filter(|(key, value)| should_keep(key, value, settings)),
+    );
+
+    add_extra_env(context, settings, &mut environment);
 
     environment
 }
@@ -192,6 +226,10 @@ mod tests {
 
         fn env_check(&self) -> &HashSet<String> {
             &self.check
+        }
+
+        fn secure_path(&self) -> Option<String> {
+            None
         }
     }
 

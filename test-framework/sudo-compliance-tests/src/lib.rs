@@ -20,8 +20,10 @@ mod pass_auth;
 mod password_retry;
 mod path_search;
 mod perms;
+mod sudo_ps1;
 mod sudoers;
 mod timestamp;
+mod use_pty;
 
 mod helpers;
 
@@ -46,3 +48,11 @@ const SUDOERS_NEW_LECTURE_USER: &str = "Defaults:ferris lecture_file = \"/etc/su
 const PAMD_SUDO_PAM_PERMIT: &str = "auth sufficient pam_permit.so";
 
 const OG_SUDO_STANDARD_LECTURE: &str= "\nWe trust you have received the usual lecture from the local System\nAdministrator. It usually boils down to these three things:\n\n    #1) Respect the privacy of others.\n    #2) Think before you type.\n    #3) With great power comes great responsibility.";
+
+const SUDO_RS_IS_UNSTABLE: &str =
+    "SUDO_RS_IS_UNSTABLE=I accept that my system may break unexpectedly";
+
+const SUDO_ENV_DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
+const SUDO_ENV_DEFAULT_TERM: &str = "unknown";
+
+const SUDOERS_USE_PTY: &str = "Defaults use_pty";

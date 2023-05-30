@@ -9,7 +9,7 @@ fn cwd_not_set_cannot_change_dir() -> Result<()> {
         .args(["--chdir", "/root", "pwd"])
         .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(false, output.status().success());
+    assert!(!output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
         "you are not permitted to use the -D option with /bin/pwd"
     } else {
@@ -27,7 +27,7 @@ fn cwd_set_to_glob_change_dir() -> Result<()> {
         .args(["-c", "cd /; sudo --chdir /root pwd"])
         .exec(&env)?;
     assert_eq!(Some(0), output.status().code());
-    assert_eq!(true, output.status().success());
+    assert!(output.status().success());
     assert_contains!(output.stdout()?, "/root");
 
     Ok(())
@@ -46,7 +46,7 @@ fn cwd_fails_for_non_existent_dirs() -> Result<()> {
         ])
         .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(false, output.status().success());
+    assert!(!output.status().success());
     let stderr = output.stderr();
     assert_contains!(
         stderr,
@@ -75,7 +75,7 @@ fn cwd_with_login_fails_for_non_existent_dirs() -> Result<()> {
         ])
         .exec(&env)?;
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(false, output.status().success());
+    assert!(!output.status().success());
     let stderr = output.stderr();
     assert_contains!(
         stderr,

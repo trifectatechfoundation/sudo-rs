@@ -89,8 +89,8 @@ fn permission_test() {
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-            let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
-            let req = Request { user: $req.0, group: $req.1, command: cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
+            let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
+            let req = Request { user: $req.0, group: $req.1, command: cmdvec[0].as_ref(), arguments: &cmdvec[1..].to_vec() };
             assert_eq!(Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags, None);
         }
     }
@@ -98,8 +98,8 @@ fn permission_test() {
     macro_rules! pass {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
-            let cmdvec = $command.split_whitespace().collect::<Vec<_>>();
-            let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].join(" ") };
+            let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
+            let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].to_vec() };
             let result = Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags;
             assert!(!result.is_none());
             $(
@@ -153,15 +153,16 @@ fn permission_test() {
     pass!(["user ALL=/bin/hello  arg"], "user" => root(), "server"; "/bin/hello arg");
     pass!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello  arg");
     FAIL!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello boo");
-    pass!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello  aaaarg");
-    FAIL!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello boo");
+    // several test cases with globbing in the arguments are explicitly not supported by sudo-rs
+    //pass!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello  aaaarg");
+    //FAIL!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello boo");
     pass!(["user ALL=/bin/hello"], "user" => root(), "server"; "/bin/hello boo");
     FAIL!(["user ALL=/bin/hello \"\""], "user" => root(), "server"; "/bin/hello boo");
     pass!(["user ALL=/bin/hello \"\""], "user" => root(), "server"; "/bin/hello");
     pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/hello");
     pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help");
     pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help me");
-    pass!(["user ALL=/bin/hel* *"], "user" => root(), "server"; "/bin/help");
+    //pass!(["user ALL=/bin/hel* *"], "user" => root(), "server"; "/bin/help");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help");
     pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");

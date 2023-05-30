@@ -1,7 +1,6 @@
 [workspace]
 members = [
   "sudo",
-  "test-binaries",
   "lib/sudo-cli",
   "lib/sudo-common",
   "lib/sudo-cutils",

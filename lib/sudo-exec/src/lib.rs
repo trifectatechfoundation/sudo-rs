@@ -15,7 +15,7 @@ use std::{
 
 use signal_hook::consts::*;
 use sudo_common::{context::LaunchType::Login, Context, Environment};
-use sudo_log::{user_error, user_warn};
+use sudo_log::user_error;
 use sudo_system::{fork, openpty, pipe, read, set_target_user, write};
 
 /// We only handle the signals that ogsudo handles.
@@ -61,11 +61,9 @@ pub fn run_command(
                     CString::new(bytes).expect("nul byte found in provided directory path");
 
                 if let Err(err) = sudo_system::chdir(&c_path) {
+                    user_error!("unable to change directory to {}: {}", path.display(), err);
                     if ctx.chdir.is_some() {
-                        user_error!("unable to change directory to {}: {}", path.display(), err);
                         return Err(err);
-                    } else {
-                        user_warn!("unable to change directory to {}: {}", path.display(), err);
                     }
                 }
 

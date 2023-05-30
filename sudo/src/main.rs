@@ -35,7 +35,7 @@ fn check_sudoers(sudoers: &Sudoers, context: &Context) -> sudoers::Judgement {
             user: &context.target_user,
             group: &context.target_group,
             command: &context.command.command,
-            arguments: &context.command.arguments.join(" "),
+            arguments: &context.command.arguments,
         },
     )
 }
