@@ -151,13 +151,13 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
         return false;
     }
 
-    if key == "TZ" && !is_safe_tz(value.as_bytes()) {
-        return false;
+    if key == "TZ" {
+        return in_table(key, cfg.env_keep())
+            || (in_table(key, cfg.env_check()) && is_safe_tz(value.as_bytes()));
     }
 
-    if in_table(key, cfg.env_check()) && !value.as_bytes().iter().any(|c| *c == b'%' || *c == b'/')
-    {
-        return true;
+    if in_table(key, cfg.env_check()) {
+        return !value.as_bytes().iter().any(|c| *c == b'%' || *c == b'/');
     }
 
     in_table(key, cfg.env_keep())

@@ -238,7 +238,6 @@ const TZ: &str = "TZ";
 // the TZ is variable a different set of checks
 // see the 'SUDOERS OPTIONS' section in `man sudoers`
 #[test]
-#[ignore]
 fn good_tz() -> Result<()> {
     let values = [
         // https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
