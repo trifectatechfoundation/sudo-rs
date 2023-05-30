@@ -109,18 +109,3 @@ fn can_append_after_bang() -> Result<()> {
 fn can_override_after_bang() -> Result<()> {
     super::can_override_after_bang(ENV_LIST)
 }
-
-// #[test]
-// fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
-//     super::equal_can_disable_preservation_of_vars_display_path_but_not_term(ENV_LIST)
-// }
-
-// #[test]
-// fn equal_minus_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
-//     super::equal_minus_can_disable_preservation_of_vars_display_path_but_not_term(ENV_LIST)
-// }
-
-// #[test]
-// fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
-//     super::bang_can_disable_preservation_of_vars_display_path_but_not_term(ENV_LIST)
-// }
