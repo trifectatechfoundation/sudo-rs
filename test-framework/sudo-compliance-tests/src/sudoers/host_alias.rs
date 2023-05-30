@@ -71,7 +71,6 @@ fn host_alias_double_negation() -> Result<()> {
         .assert_success()
 }
 
-#[ignore]
 #[test]
 fn combined_host_aliases() -> Result<()> {
     let env = Env([
