@@ -526,7 +526,6 @@ fn can_override_after_bang() -> Result<()> {
 // DISPLAY, PATH and TERM are env vars preserved by sudo by default
 // they appear to be part of the default `env_keep` list
 #[test]
-#[ignore]
 fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = WHATEVER"]).build()?;
 
@@ -555,7 +554,6 @@ fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<
 }
 
 #[test]
-#[ignore]
 fn equal_minus_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
@@ -588,7 +586,6 @@ fn equal_minus_can_disable_preservation_of_vars_display_path_but_not_term() -> R
 }
 
 #[test]
-#[ignore]
 fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults !env_keep"]).build()?;
 
