@@ -1,14 +1,164 @@
+mod check;
+mod keep;
+
+use core::fmt;
+
 use sudo_test::{Command, Env};
 
-use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH};
+use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD};
+
+const BAD_TZ_VALUES: &[&str] = &[
+    // "It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that
+    // does not match the location of the zoneinfo directory."
+    ":/usr/share/zoneinfo",
+    "/usr/share/zoneinfo",
+    "/etc/localtime",
+    "/does/not/exist",
+    // "It contains a .. path element."
+    "../localtime",
+    "/usr/share/zoneinfo/..",
+    "/usr/../share/zoneinfo/Europe/Berlin",
+    // "It contains white space or non-printable characters."
+    "/usr/share/zoneinfo/ ",
+    "/usr/share/zoneinfo/\u{7}",
+    "/usr/share/zoneinfo/\t",
+];
 
 #[test]
-fn equal_single() -> Result<()> {
+fn var_in_both_lists_is_preserved() -> Result<()> {
+    let name = "SHOULD_BE_PRESERVED";
+    let value = "42";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_keep = {name}"),
+        &format!("Defaults env_check = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(value), sudo_env.get(name).copied());
+
+    drop(env);
+
+    // test sudoers statements in reverse order
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check = {name}"),
+        &format!("Defaults env_keep = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(value), sudo_env.get(name).copied());
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn checks_applied_if_in_both_lists() -> Result<()> {
+    let name = "SHOULD_BE_REMOVED";
+    let value = "4%2";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_keep = {name}"),
+        &format!("Defaults env_check = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(name).copied());
+
+    drop(env);
+
+    // test sudoers statements in reverse order
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check = {name}"),
+        &format!("Defaults env_keep = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(name).copied());
+
+    Ok(())
+}
+
+// adding TZ to env_keep is insufficient to avoid checks (see previous test)
+// it's necessary to remove TZ from env_check first
+// this applies to all env vars that are in the default env_check list
+#[test]
+#[ignore]
+fn unchecked_tz() -> Result<()> {
+    const TZ: &str = "TZ";
+
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check -= {TZ}"),
+        &format!("Defaults env_keep = {TZ}"),
+    ])
+    .build()?;
+
+    for &value in BAD_TZ_VALUES {
+        let stdout = Command::new("env")
+            .arg(format!("{TZ}={value}"))
+            .args(["sudo", "env"])
+            .exec(&env)?
+            .stdout()?;
+        let sudo_env = helpers::parse_env_output(&stdout)?;
+
+        assert_eq!(Some(value), sudo_env.get(TZ).copied());
+    }
+    Ok(())
+}
+
+enum EnvList {
+    #[allow(dead_code)]
+    Check,
+    Keep,
+}
+
+impl fmt::Display for EnvList {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            EnvList::Check => "env_check",
+            EnvList::Keep => "env_keep",
+        };
+        f.write_str(s)
+    }
+}
+
+fn equal_single(env_list: EnvList) -> Result<()> {
     let env_name = "SHOULD_BE_PRESERVED";
     let env_val = "42";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = {env_name}"),
+        &format!("Defaults {env_list} = {env_name}"),
     ])
     .build()?;
 
@@ -24,15 +174,14 @@ fn equal_single() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn equal_multiple() -> Result<()> {
+fn equal_multiple(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_PRESERVED";
     let env_name2 = "ALSO_SHOULD_BE_PRESERVED";
     let env_val1 = "42";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name1} {env_name2}\""),
+        &format!("Defaults {env_list} = \"{env_name1} {env_name2}\""),
     ])
     .build()?;
 
@@ -50,13 +199,12 @@ fn equal_multiple() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn equal_repeated() -> Result<()> {
+fn equal_repeated(env_list: EnvList) -> Result<()> {
     let env_name = "SHOULD_BE_PRESERVED";
     let env_val = "42";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name} {env_name}\""),
+        &format!("Defaults {env_list} = \"{env_name} {env_name}\""),
     ])
     .build()?;
 
@@ -72,16 +220,15 @@ fn equal_repeated() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn equal_overrides() -> Result<()> {
+fn equal_overrides(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_PRESERVED";
     let env_val1 = "42";
     let env_name2 = "SHOULD_BE_REMOVED";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name1} {env_name2}\""),
-        &*format!("Defaults env_keep = {env_name1}"),
+        &format!("Defaults {env_list} = \"{env_name1} {env_name2}\""),
+        &format!("Defaults {env_list} = {env_name1}"),
     ])
     .build()?;
 
@@ -99,13 +246,12 @@ fn equal_overrides() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn plus_equal_on_empty_set() -> Result<()> {
+fn plus_equal_on_empty_set(env_list: EnvList) -> Result<()> {
     let env_name = "SHOULD_BE_PRESERVED";
     let env_value = "42";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep += {env_name}"),
+        &format!("Defaults {env_list} += {env_name}"),
     ])
     .build()?;
 
@@ -121,16 +267,15 @@ fn plus_equal_on_empty_set() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn plus_equal_appends() -> Result<()> {
+fn plus_equal_appends(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_PRESERVED";
     let env_name2 = "ALSO_SHOULD_BE_PRESERVED";
     let env_val1 = "42";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = {env_name1}"),
-        &*format!("Defaults env_keep += {env_name2}"),
+        &format!("Defaults {env_list} = {env_name1}"),
+        &format!("Defaults {env_list} += {env_name2}"),
     ])
     .build()?;
 
@@ -148,14 +293,13 @@ fn plus_equal_appends() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn plus_equal_repeated() -> Result<()> {
+fn plus_equal_repeated(env_list: EnvList) -> Result<()> {
     let env_name = "SHOULD_BE_PRESERVED";
     let env_val = "42";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = {env_name}"),
-        &*format!("Defaults env_keep += {env_name}"),
+        &format!("Defaults {env_list} = {env_name}"),
+        &format!("Defaults {env_list} += {env_name}"),
     ])
     .build()?;
 
@@ -174,8 +318,7 @@ fn plus_equal_repeated() -> Result<()> {
 // see 'environment' section in `man sudo`
 // the variables HOME, LOGNAME, MAIL and USER are set by sudo with a value that depends on the
 // target user *unless* they appear in the env_keep list
-#[test]
-fn vars_with_target_user_specific_values() -> Result<()> {
+fn vars_with_target_user_specific_values(env_list: EnvList) -> Result<()> {
     let home = "my-home";
     let logname = "my-logname";
     let mail = "my-mail";
@@ -183,7 +326,7 @@ fn vars_with_target_user_specific_values() -> Result<()> {
 
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        "Defaults env_keep = \"HOME LOGNAME MAIL USER\"",
+        &format!("Defaults {env_list} = \"HOME LOGNAME MAIL USER\""),
     ])
     .build()?;
 
@@ -206,11 +349,10 @@ fn vars_with_target_user_specific_values() -> Result<()> {
 }
 
 // these variables cannot be preserved as they'll be set by sudo
-#[test]
-fn sudo_env_vars() -> Result<()> {
+fn sudo_env_vars(env_list: EnvList) -> Result<()> {
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        "Defaults env_keep = \"SUDO_COMMAND SUDO_GID SUDO_UID SUDO_USER\"",
+        &format!("Defaults {env_list} = \"SUDO_COMMAND SUDO_GID SUDO_UID SUDO_USER\""),
     ])
     .build()?;
 
@@ -232,10 +374,13 @@ fn sudo_env_vars() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn user_set_to_preserved_logname_value() -> Result<()> {
+fn user_set_to_preserved_logname_value(env_list: EnvList) -> Result<()> {
     let value = "ghost";
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"LOGNAME\""]).build()?;
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults {env_list} = \"LOGNAME\""),
+    ])
+    .build()?;
 
     let stdout = Command::new("env")
         .arg(format!("LOGNAME={value}"))
@@ -250,10 +395,13 @@ fn user_set_to_preserved_logname_value() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn logname_set_to_preserved_user_value() -> Result<()> {
+fn logname_set_to_preserved_user_value(env_list: EnvList) -> Result<()> {
     let value = "ghost";
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = \"USER\""]).build()?;
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults {env_list} = \"USER\""),
+    ])
+    .build()?;
 
     let stdout = Command::new("env")
         .arg(format!("USER={value}"))
@@ -268,13 +416,12 @@ fn logname_set_to_preserved_user_value() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn if_value_starts_with_parentheses_variable_is_removed() -> Result<()> {
+fn if_value_starts_with_parentheses_variable_is_removed(env_list: EnvList) -> Result<()> {
     let env_name = "SHOULD_BE_REMOVED";
     let env_val = "() 42";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = {env_name}"),
+        &format!("Defaults {env_list} = {env_name}"),
     ])
     .build()?;
 
@@ -290,14 +437,12 @@ fn if_value_starts_with_parentheses_variable_is_removed() -> Result<()> {
     Ok(())
 }
 
-#[test]
-#[ignore]
-fn key_value_matches() -> Result<()> {
+fn key_value_matches(env_list: EnvList) -> Result<()> {
     let env_name = "KEY";
     let env_val = "value";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name}={env_val}\""),
+        &format!("Defaults {env_list} = \"{env_name}={env_val}\""),
     ])
     .build()?;
 
@@ -313,13 +458,12 @@ fn key_value_matches() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn key_value_no_match() -> Result<()> {
+fn key_value_no_match(env_list: EnvList) -> Result<()> {
     let env_name = "KEY";
     let env_val = "value";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name}={env_val}\""),
+        &format!("Defaults {env_list} = \"{env_name}={env_val}\""),
     ])
     .build()?;
 
@@ -337,14 +481,12 @@ fn key_value_no_match() -> Result<()> {
 
 // without the double quotes the RHS is not interpreted as a key value pair
 // also see the `key_value_matches` test
-#[test]
-#[ignore]
-fn key_value_syntax_needs_double_quotes() -> Result<()> {
+fn key_value_syntax_needs_double_quotes(env_list: EnvList) -> Result<()> {
     let env_name = "KEY";
     let env_val = "value";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = {env_name}={env_val}"),
+        &format!("Defaults {env_list} = {env_name}={env_val}"),
     ])
     .build()?;
 
@@ -361,14 +503,12 @@ fn key_value_syntax_needs_double_quotes() -> Result<()> {
 }
 
 // also see the `if_value_starts_with_parentheses_variable_is_removed` test
-#[test]
-#[ignore]
-fn key_value_where_value_is_parentheses_glob() -> Result<()> {
+fn key_value_where_value_is_parentheses_glob(env_list: EnvList) -> Result<()> {
     let env_name = "SHOULD_BE_PRESERVED";
     let env_val = "() 42";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name}=()*\""),
+        &format!("Defaults {env_list} = \"{env_name}=()*\""),
     ])
     .build()?;
 
@@ -384,16 +524,15 @@ fn key_value_where_value_is_parentheses_glob() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn minus_equal_removes() -> Result<()> {
+fn minus_equal_removes(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_PRESERVED";
     let env_val1 = "42";
-    let env_name2 = "DISPLAY";
+    let env_name2 = "SHOULD_BE_REMOVED";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name1} {env_name2}\""),
-        &*format!("Defaults env_keep -= {env_name2}"),
+        &format!("Defaults {env_list} = \"{env_name1} {env_name2}\""),
+        &format!("Defaults {env_list} -= {env_name2}"),
     ])
     .build()?;
 
@@ -411,13 +550,12 @@ fn minus_equal_removes() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn minus_equal_an_element_not_in_the_list_is_not_an_error() -> Result<()> {
+fn minus_equal_an_element_not_in_the_list_is_not_an_error(env_list: EnvList) -> Result<()> {
     let env_name = "SHOULD_BE_REMOVED";
     let env_val = "42";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep -= {env_name}"),
+        &format!("Defaults {env_list} -= {env_name}"),
     ])
     .build()?;
 
@@ -437,16 +575,15 @@ fn minus_equal_an_element_not_in_the_list_is_not_an_error() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn bang_clears_the_whole_list() -> Result<()> {
+fn bang_clears_the_whole_list(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_REMOVED";
     let env_name2 = "ALSO_SHOULD_BE_REMOVED";
     let env_val1 = "42";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = \"{env_name1} {env_name2}\""),
-        "Defaults !env_keep",
+        &format!("Defaults {env_list} = \"{env_name1} {env_name2}\""),
+        &format!("Defaults !{env_list}"),
     ])
     .build()?;
 
@@ -465,17 +602,16 @@ fn bang_clears_the_whole_list() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn can_append_after_bang() -> Result<()> {
+fn can_append_after_bang(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_REMOVED";
     let env_name2 = "SHOULD_BE_PRESERVED";
     let env_val1 = "42";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = {env_name1}"),
-        "Defaults !env_keep",
-        &*format!("Defaults env_keep += {env_name2}"),
+        &format!("Defaults {env_list} = {env_name1}"),
+        &format!("Defaults !{env_list}"),
+        &format!("Defaults {env_list} += {env_name2}"),
     ])
     .build()?;
 
@@ -494,17 +630,16 @@ fn can_append_after_bang() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn can_override_after_bang() -> Result<()> {
+fn can_override_after_bang(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_REMOVED";
     let env_name2 = "SHOULD_BE_PRESERVED";
     let env_val1 = "42";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &*format!("Defaults env_keep = {env_name1}"),
-        "Defaults !env_keep",
-        &*format!("Defaults env_keep = {env_name2}"),
+        &format!("Defaults {env_list} = {env_name1}"),
+        &format!("Defaults !{env_list}"),
+        &format!("Defaults {env_list} = {env_name2}"),
     ])
     .build()?;
 
@@ -519,96 +654,6 @@ fn can_override_after_bang() -> Result<()> {
 
     assert!(sudo_env.get(env_name1).is_none());
     assert_eq!(Some(env_val2), sudo_env.get(env_name2).copied());
-
-    Ok(())
-}
-
-// DISPLAY, PATH and TERM are env vars preserved by sudo by default
-// they appear to be part of the default `env_keep` list
-#[test]
-fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = WHATEVER"]).build()?;
-
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
-
-    let term = "some-term";
-    let stdout = Command::new("env")
-        .arg("PATH=some-path")
-        .arg("DISPLAY=some-display")
-        .arg(format!("TERM={term}"))
-        .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
-        .stdout()?;
-
-    let sudo_env = helpers::parse_env_output(&stdout)?;
-
-    // can be disabled
-    assert!(sudo_env.get("DISPLAY").is_none());
-    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
-
-    // cannot be disabled
-    assert_eq!(Some(term), sudo_env.get("TERM").copied());
-
-    Ok(())
-}
-
-#[test]
-fn equal_minus_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
-    let env = Env([
-        SUDOERS_ALL_ALL_NOPASSWD,
-        "Defaults env_keep -= \"DISPLAY PATH TERM\"",
-    ])
-    .build()?;
-
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
-
-    let term = "some-term";
-    let stdout = Command::new("env")
-        .arg("PATH=some-path")
-        .arg("DISPLAY=some-display")
-        .arg(format!("TERM={term}"))
-        .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
-        .stdout()?;
-
-    let sudo_env = helpers::parse_env_output(&stdout)?;
-
-    // can be disabled
-    assert!(sudo_env.get("DISPLAY").is_none());
-    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
-
-    // cannot be disabled
-    assert_eq!(Some(term), sudo_env.get("TERM").copied());
-
-    Ok(())
-}
-
-#[test]
-fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults !env_keep"]).build()?;
-
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
-
-    let term = "some-term";
-    let stdout = Command::new("env")
-        .arg("PATH=some-path")
-        .arg("DISPLAY=some-display")
-        .arg(format!("TERM={term}"))
-        .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
-        .stdout()?;
-
-    let sudo_env = helpers::parse_env_output(&stdout)?;
-
-    // can be disabled
-    assert!(sudo_env.get("DISPLAY").is_none());
-    assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
-
-    // cannot be disabled
-    assert_eq!(Some(term), sudo_env.get("TERM").copied());
 
     Ok(())
 }
