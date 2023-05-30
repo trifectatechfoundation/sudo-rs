@@ -109,7 +109,7 @@ fn checks_applied_if_in_both_lists() -> Result<()> {
     Ok(())
 }
 
-// adding TZ to env_keep is insufficient to avoid checks (see previous teste)
+// adding TZ to env_keep is insufficient to avoid checks (see previous test)
 // it's necessary to remove TZ from env_check first
 // this applies to all env vars that are in the default env_check list
 #[test]
