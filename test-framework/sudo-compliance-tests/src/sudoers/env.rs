@@ -397,7 +397,7 @@ fn key_value_where_value_is_parentheses_glob(env_list: EnvList) -> Result<()> {
 fn minus_equal_removes(env_list: EnvList) -> Result<()> {
     let env_name1 = "SHOULD_BE_PRESERVED";
     let env_val1 = "42";
-    let env_name2 = "DISPLAY";
+    let env_name2 = "SHOULD_BE_REMOVED";
     let env_val2 = "24";
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
