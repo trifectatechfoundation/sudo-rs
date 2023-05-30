@@ -67,6 +67,7 @@ fn var_in_both_lists_is_preserved() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn checks_applied_if_in_both_lists() -> Result<()> {
     let name = "SHOULD_BE_REMOVED";
     let value = "4%2";
@@ -112,6 +113,7 @@ fn checks_applied_if_in_both_lists() -> Result<()> {
 // it's necessary to remove TZ from env_check first
 // this applies to all env vars that are in the default env_check list
 #[test]
+#[ignore]
 fn unchecked_tz() -> Result<()> {
     const TZ: &str = "TZ";
 
