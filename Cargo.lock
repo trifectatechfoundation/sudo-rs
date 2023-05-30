@@ -534,15 +534,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-binaries"
-version = "0.1.0-alpha.1"
-dependencies = [
- "libc",
- "sudo-system",
- "sudoers",
-]
-
-[[package]]
 name = "time"
 version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"

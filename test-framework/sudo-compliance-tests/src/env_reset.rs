@@ -222,7 +222,6 @@ fn some_vars_are_preserved() -> Result<()> {
 
 // only relevant to preserved env vars
 #[test]
-#[ignore]
 fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 

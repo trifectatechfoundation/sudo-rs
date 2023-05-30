@@ -38,7 +38,7 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> OsString {
 }
 
 /// Construct sudo-specific environment variables
-fn add_extra_env(context: &Context, environment: &mut Environment) {
+fn add_extra_env(context: &Context, cfg: &impl Policy, environment: &mut Environment) {
     // current user
     environment.insert("SUDO_COMMAND".into(), format_command(&context.command));
     environment.insert(
@@ -86,13 +86,15 @@ fn add_extra_env(context: &Context, environment: &mut Environment) {
         (Some(_), Some(_)) => {}
     }
 
+    // Overwrite PATH when secure_path is set
+    if let Some(secure_path) = cfg.secure_path() {
+        // assign path by env path or secure_path configuration
+        environment.insert("PATH".into(), secure_path.into());
+    }
     // If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
-    if context.path.is_empty() {
+    if !environment.contains_key(OsStr::new("PATH")) {
         // If the PATH variable is not set, it will be set to default value
         environment.insert("PATH".into(), PATH_DEFAULT.into());
-    } else {
-        // assign path by env path or secure_path configuration
-        environment.insert("PATH".into(), context.path.clone().into());
     }
     // If the TERM variable is not preserved from the user's environment, it will be set to default value
     if !environment.contains_key(OsStr::new("TERM")) {
@@ -201,7 +203,7 @@ pub fn get_target_environment(
             .filter(|(key, value)| should_keep(key, value, settings)),
     );
 
-    add_extra_env(context, &mut environment);
+    add_extra_env(context, settings, &mut environment);
 
     environment
 }
@@ -224,6 +226,10 @@ mod tests {
 
         fn env_check(&self) -> &HashSet<String> {
             &self.check
+        }
+
+        fn secure_path(&self) -> Option<String> {
+            None
         }
     }
 

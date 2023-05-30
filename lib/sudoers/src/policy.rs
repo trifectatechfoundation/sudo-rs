@@ -20,6 +20,8 @@ pub trait Policy {
 
     fn env_keep(&self) -> &HashSet<String>;
     fn env_check(&self) -> &HashSet<String>;
+
+    fn secure_path(&self) -> Option<String>;
 }
 
 #[must_use]
@@ -64,6 +66,12 @@ impl Policy for Judgement {
             Some(super::ChDir::Any) => DirChange::Any,
             Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
         }
+    }
+
+    fn secure_path(&self) -> Option<String> {
+        self.settings.str_value["secure_path"]
+            .as_ref()
+            .map(|s| s.to_string())
     }
 }
 
