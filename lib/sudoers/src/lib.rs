@@ -375,7 +375,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
             if *count >= INCLUDE_LIMIT {
                 diagnostics.push(Error(
                     None,
-                    format!("include file limit reached opening `{}'", path.display()),
+                    format!("include file limit reached opening '{}'", path.display()),
                 ))
             } else if let Ok(subsudoer) = read_sudoers(path) {
                 *count += 1;
@@ -383,7 +383,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
             } else {
                 diagnostics.push(Error(
                     None,
-                    format!("cannot open sudoers file `{}'", path.display()),
+                    format!("cannot open sudoers file '{}'", path.display()),
                 ))
             }
         }
@@ -524,7 +524,7 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
                 for elem in members {
                     let Meta::Alias(name) = remqualify(elem) else { break };
                     let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
-                        self.complain(format!("undefined alias: `{name}'"));
+                        self.complain(format!("undefined alias: '{name}'"));
                         continue;
                     };
                     self.visit(dependency);
@@ -532,7 +532,7 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
                 self.order.push(pos);
             } else if !self.order.contains(&pos) {
                 let Def(id, _) = &self.table[pos];
-                self.complain(format!("recursive alias: `{id}'"));
+                self.complain(format!("recursive alias: '{id}'"));
             }
         }
     }
@@ -547,7 +547,7 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
     let mut dupe = HashSet::new();
     for (i, Def(name, _)) in table.iter().enumerate() {
         if !dupe.insert(name) {
-            visitor.complain(format!("multiple occurrences of `{name}'"));
+            visitor.complain(format!("multiple occurrences of '{name}'"));
         } else {
             visitor.visit(i);
         }
