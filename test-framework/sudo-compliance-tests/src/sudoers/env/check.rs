@@ -1,4 +1,8 @@
-use crate::Result;
+use std::iter;
+
+use sudo_test::{Command, Env};
+
+use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_TERM};
 
 const ENV_LIST: super::EnvList = super::EnvList::Check;
 
@@ -108,4 +112,217 @@ fn can_append_after_bang() -> Result<()> {
 #[test]
 fn can_override_after_bang() -> Result<()> {
     super::can_override_after_bang(ENV_LIST)
+}
+
+#[test]
+fn equal_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_check = WHATEVER"]).build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let display = "some-display";
+    let path = "some-path";
+    let stdout = Command::new("env")
+        .arg(format!("PATH={path}"))
+        .arg(format!("DISPLAY={display}"))
+        .arg("TERM=some-term")
+        .args([sudo_abs_path, env_abs_path])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // can be disabled
+    assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.get("TERM").copied());
+
+    // cannot be disabled
+    assert_eq!(Some(display), sudo_env.get("DISPLAY").copied());
+    assert_eq!(Some(path), sudo_env.get("PATH").copied());
+
+    Ok(())
+}
+
+#[test]
+fn minus_equal_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<()> {
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        "Defaults env_check -= \"DISPLAY PATH TERM\"",
+    ])
+    .build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let display = "some-display";
+    let path = "some-path";
+    let stdout = Command::new("env")
+        .arg(format!("PATH={path}"))
+        .arg(format!("DISPLAY={display}"))
+        .arg("TERM=some-term")
+        .args([sudo_abs_path, env_abs_path])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // can be disabled
+    assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.get("TERM").copied());
+
+    // cannot be disabled
+    assert_eq!(Some(display), sudo_env.get("DISPLAY").copied());
+    assert_eq!(Some(path), sudo_env.get("PATH").copied());
+
+    Ok(())
+}
+
+#[test]
+fn bang_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults !env_check"]).build()?;
+
+    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+
+    let display = "some-display";
+    let path = "some-path";
+    let stdout = Command::new("env")
+        .arg(format!("PATH={path}"))
+        .arg(format!("DISPLAY={display}"))
+        .arg("TERM=some-term")
+        .args([sudo_abs_path, env_abs_path])
+        .exec(&env)?
+        .stdout()?;
+
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    // can be disabled
+    assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.get("TERM").copied());
+
+    // cannot be disabled
+    assert_eq!(Some(display), sudo_env.get("DISPLAY").copied());
+    assert_eq!(Some(path), sudo_env.get("PATH").copied());
+
+    Ok(())
+}
+
+#[test]
+fn vars_not_preserved_if_they_fail_checks() -> Result<()> {
+    let env_name1 = "SHOULD_NOT_BE_PRESERVED";
+    let env_name2 = "ALSO_SHOULD_NOT_BE_PRESERVED";
+    let env_val1 = "4/2";
+    let env_val2 = "2%4";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check = \"{env_name1} {env_name2}\""),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{env_name1}={env_val1}"))
+        .arg(format!("{env_name2}={env_val2}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(env_name1).copied());
+    assert_eq!(None, sudo_env.get(env_name2).copied());
+
+    Ok(())
+}
+
+const TZ: &str = "TZ";
+
+// the TZ is variable a different set of checks
+// see the 'SUDOERS OPTIONS' section in `man sudoers`
+#[test]
+fn good_tz() -> Result<()> {
+    let values = [
+        // https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
+        // ^ documents valid TZ variable formats
+
+        // first format
+        "EST+5",
+        "ABC+9",
+        "XYZ-9",
+        "ZER+0",
+        "ZER-0",
+        "ONE",
+        // second format
+        "EST+5EDT,M3.2.0/2,M11.1.0/2",
+        // third format
+        "/usr/share/zoneinfo/Europe/Berlin",
+        ":/usr/share/zoneinfo/Europe/Berlin",
+        "/usr/share/zoneinfo/",
+        "/usr/share/zoneinfo/does/not/exist",
+        "/usr/share/zoneinfo/%",
+    ];
+
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check = {TZ}"),
+    ])
+    .build()?;
+
+    for value in values {
+        let stdout = Command::new("env")
+            .arg(format!("{TZ}={value}"))
+            .args(["sudo", "env"])
+            .exec(&env)?
+            .stdout()?;
+        let sudo_env = helpers::parse_env_output(&stdout)?;
+
+        assert_eq!(Some(value), sudo_env.get(TZ).copied());
+    }
+
+    Ok(())
+}
+
+#[test]
+fn bad_tz() -> Result<()> {
+    // according to "linux/include/uapi/linux/limits.h" as of Linux 6.3.4
+    const PATH_MAX: usize = 4096;
+
+    let long_path = "/usr/share/zoneinfo/"
+        .chars()
+        .chain(iter::repeat('a').take(PATH_MAX))
+        .collect::<String>();
+
+    let values = [
+        // "It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that
+        // does not match the location of the zoneinfo directory."
+        ":/usr/share/zoneinfo",
+        "/usr/share/zoneinfo",
+        "/etc/localtime",
+        "/does/not/exist",
+        // "It contains a .. path element."
+        "../localtime",
+        "/usr/share/zoneinfo/..",
+        "/usr/../share/zoneinfo/Europe/Berlin",
+        // "It contains white space or non-printable characters."
+        "/usr/share/zoneinfo/ ",
+        "/usr/share/zoneinfo/\u{7}",
+        "/usr/share/zoneinfo/\n",
+        // "It is longer than the value of PATH_MAX."
+        &long_path,
+    ];
+
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check = {TZ}"),
+    ])
+    .build()?;
+
+    for value in values {
+        let stdout = Command::new("env")
+            .arg(format!("{TZ}={value}"))
+            .args(["sudo", "env"])
+            .exec(&env)?
+            .stdout()?;
+        let sudo_env = helpers::parse_env_output(&stdout)?;
+
+        assert_eq!(None, sudo_env.get(TZ).copied());
+    }
+
+    Ok(())
 }
