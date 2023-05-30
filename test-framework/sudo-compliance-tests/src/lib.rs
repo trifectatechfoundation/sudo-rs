@@ -21,6 +21,7 @@ mod perms;
 mod sudo_ps1;
 mod sudoers;
 mod timestamp;
+mod use_pty;
 
 mod helpers;
 
