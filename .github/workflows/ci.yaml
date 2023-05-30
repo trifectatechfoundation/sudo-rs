@@ -64,7 +64,7 @@ jobs:
         run: |
           tmpfile="$(mktemp)"
           cargo test -p sudo-compliance-tests -- --ignored | tee "$tmpfile"
-          grep 'test result: FAILED. 0 passed' "$tmpfile" || exit 1
+          grep 'test result: FAILED. 0 passed' "$tmpfile" || ( echo "expected ALL tests to fail but at least one passed; the passing tests must be un-#[ignore]-d" && exit 1 )
 
       - name: prevent the cache from growing too large
         run: |
