@@ -327,3 +327,30 @@ fn bad_tz() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn tz_is_in_default_list() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+
+    let value = "EST+5";
+    let stdout = Command::new("env")
+        .arg(format!("{TZ}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(value), sudo_env.get(TZ).copied());
+
+    let value = "../invalid";
+    let stdout = Command::new("env")
+        .arg(format!("{TZ}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(TZ).copied());
+
+    Ok(())
+}
