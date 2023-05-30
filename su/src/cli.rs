@@ -102,7 +102,8 @@ impl SuOptions {
             takes_argument: true,
             set: &|sudo_options, argument| {
                 if let Some(list) = argument {
-                    sudo_options.whitelist_environment = list.split(',').map(str::to_string).collect();
+                    sudo_options.whitelist_environment =
+                        list.split(',').map(str::to_string).collect();
                 } else {
                     Err("no enivronment whitelist provided")?
                 }
@@ -141,12 +142,13 @@ impl SuOptions {
         let mut options: SuOptions = SuOptions::default();
         let mut arg_iter = arguments.into_iter();
 
-        while let Some(arg) = arg_iter.next() { 
+        while let Some(arg) = arg_iter.next() {
             // - or -l or --login indicates a login shell should be started
             if arg == "-" {
                 options.login = true;
-            // if the arghumeht starts with -- it must be a full length option name
-            } if arg.starts_with("--") {
+                // if the arghumeht starts with -- it must be a full length option name
+            }
+            if arg.starts_with("--") {
                 // parse assignments like '--group=ferris'
                 if arg.contains('=') {
                     // convert assignment to normal tokens
@@ -183,7 +185,7 @@ impl SuOptions {
                         if option.takes_argument {
                             let rest = arg[(n + 2)..].trim().to_string();
                             let next_arg = if rest.is_empty() {
-                                 arg_iter.next()
+                                arg_iter.next()
                             } else {
                                 Some(rest)
                             };
@@ -294,17 +296,23 @@ mod tests {
 
     #[test]
     fn it_parses_an_user() {
-        assert_eq!(SuOptions {
-            user: Some("ferris".to_string()),
-            pty: true,
-            ..Default::default()
-        }, parse(&["-P", "ferris"]));
+        assert_eq!(
+            SuOptions {
+                user: Some("ferris".to_string()),
+                pty: true,
+                ..Default::default()
+            },
+            parse(&["-P", "ferris"])
+        );
 
-        assert_eq!(SuOptions {
-            user: Some("ferris".to_string()),
-            arguments: vec!["-P".to_string()],
-            ..Default::default()
-        }, parse(&["ferris", "-P"]));
+        assert_eq!(
+            SuOptions {
+                user: Some("ferris".to_string()),
+                arguments: vec!["-P".to_string()],
+                ..Default::default()
+            },
+            parse(&["ferris", "-P"])
+        );
     }
 
     #[test]
@@ -388,7 +396,7 @@ mod tests {
     #[test]
     fn it_parses_whitelist_environment() {
         let expected = SuOptions {
-            whitelist_environment: vec!("FOO".to_string(), "BAR".to_string()),
+            whitelist_environment: vec!["FOO".to_string(), "BAR".to_string()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-w", "FOO,BAR"]));
