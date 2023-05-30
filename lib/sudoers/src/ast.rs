@@ -577,6 +577,7 @@ impl Parse for (String, ConfigValue) {
                     },
                     _checker,
                 )) => ConfigValue::Num(val),
+                None => unrecoverable!(pos = value_pos, stream, "unknown setting: `{name}'"),
                 _ => unrecoverable!(
                     pos = value_pos,
                     stream,
