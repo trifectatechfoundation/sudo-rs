@@ -146,9 +146,8 @@ impl SuOptions {
             // - or -l or --login indicates a login shell should be started
             if arg == "-" {
                 options.login = true;
-                // if the arghumeht starts with -- it must be a full length option name
-            }
-            if arg.starts_with("--") {
+            // if the argument starts with -- it must be a full length option name
+            } else if arg.starts_with("--") {
                 // parse assignments like '--group=ferris'
                 if arg.contains('=') {
                     // convert assignment to normal tokens
