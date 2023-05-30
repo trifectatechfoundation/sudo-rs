@@ -7,6 +7,134 @@ use sudo_test::{Command, Env};
 
 use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD};
 
+const BAD_TZ_VALUES: &[&str] = &[
+    // "It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that
+    // does not match the location of the zoneinfo directory."
+    ":/usr/share/zoneinfo",
+    "/usr/share/zoneinfo",
+    "/etc/localtime",
+    "/does/not/exist",
+    // "It contains a .. path element."
+    "../localtime",
+    "/usr/share/zoneinfo/..",
+    "/usr/../share/zoneinfo/Europe/Berlin",
+    // "It contains white space or non-printable characters."
+    "/usr/share/zoneinfo/ ",
+    "/usr/share/zoneinfo/\u{7}",
+    "/usr/share/zoneinfo/\t",
+];
+
+#[test]
+fn var_in_both_lists_is_preserved() -> Result<()> {
+    let name = "SHOULD_BE_PRESERVED";
+    let value = "42";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_keep = {name}"),
+        &format!("Defaults env_check = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(value), sudo_env.get(name).copied());
+
+    drop(env);
+
+    // test sudoers statements in reverse order
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check = {name}"),
+        &format!("Defaults env_keep = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(value), sudo_env.get(name).copied());
+
+    Ok(())
+}
+
+#[test]
+fn checks_applied_if_in_both_lists() -> Result<()> {
+    let name = "SHOULD_BE_REMOVED";
+    let value = "4%2";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_keep = {name}"),
+        &format!("Defaults env_check = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(name).copied());
+
+    drop(env);
+
+    // test sudoers statements in reverse order
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check = {name}"),
+        &format!("Defaults env_keep = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, sudo_env.get(name).copied());
+
+    Ok(())
+}
+
+// adding TZ to env_keep is insufficient to avoid checks (see previous teste)
+// it's necessary to remove TZ from env_check first
+// this applies to all env vars that are in the default env_check list
+#[test]
+fn unchecked_tz() -> Result<()> {
+    const TZ: &str = "TZ";
+
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_check -= {TZ}"),
+        &format!("Defaults env_keep = {TZ}"),
+    ])
+    .build()?;
+
+    for &value in BAD_TZ_VALUES {
+        let stdout = Command::new("env")
+            .arg(format!("{TZ}={value}"))
+            .args(["sudo", "env"])
+            .exec(&env)?
+            .stdout()?;
+        let sudo_env = helpers::parse_env_output(&stdout)?;
+
+        assert_eq!(Some(value), sudo_env.get(TZ).copied());
+    }
+    Ok(())
+}
+
 enum EnvList {
     #[allow(dead_code)]
     Check,

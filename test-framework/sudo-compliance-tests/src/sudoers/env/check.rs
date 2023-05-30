@@ -4,6 +4,8 @@ use sudo_test::{Command, Env};
 
 use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_TERM};
 
+use super::BAD_TZ_VALUES;
+
 const ENV_LIST: super::EnvList = super::EnvList::Check;
 
 #[test]
@@ -284,29 +286,11 @@ fn bad_tz() -> Result<()> {
     // according to "linux/include/uapi/linux/limits.h" as of Linux 6.3.4
     const PATH_MAX: usize = 4096;
 
+    // "It is longer than the value of PATH_MAX."
     let long_path = "/usr/share/zoneinfo/"
         .chars()
         .chain(iter::repeat('a').take(PATH_MAX))
         .collect::<String>();
-
-    let values = [
-        // "It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that
-        // does not match the location of the zoneinfo directory."
-        ":/usr/share/zoneinfo",
-        "/usr/share/zoneinfo",
-        "/etc/localtime",
-        "/does/not/exist",
-        // "It contains a .. path element."
-        "../localtime",
-        "/usr/share/zoneinfo/..",
-        "/usr/../share/zoneinfo/Europe/Berlin",
-        // "It contains white space or non-printable characters."
-        "/usr/share/zoneinfo/ ",
-        "/usr/share/zoneinfo/\u{7}",
-        "/usr/share/zoneinfo/\n",
-        // "It is longer than the value of PATH_MAX."
-        &long_path,
-    ];
 
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
@@ -314,7 +298,11 @@ fn bad_tz() -> Result<()> {
     ])
     .build()?;
 
-    for value in values {
+    for value in BAD_TZ_VALUES
+        .iter()
+        .copied()
+        .chain(iter::once(long_path.as_str()))
+    {
         let stdout = Command::new("env")
             .arg(format!("{TZ}={value}"))
             .args(["sudo", "env"])

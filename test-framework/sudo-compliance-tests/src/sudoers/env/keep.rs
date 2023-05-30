@@ -201,3 +201,25 @@ fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<(
 
     Ok(())
 }
+
+#[test]
+fn checks_not_applied() -> Result<()> {
+    let name = "SHOULD_BE_PRESERVED";
+    let value = "4%2";
+    let env = Env([
+        SUDOERS_ALL_ALL_NOPASSWD,
+        &format!("Defaults env_keep = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{name}={value}"))
+        .args(["sudo", "env"])
+        .exec(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(value), sudo_env.get(name).copied());
+
+    Ok(())
+}
