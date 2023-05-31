@@ -3,7 +3,6 @@ use sudo_test::{Command, Env, TextFile, User};
 use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
-#[ignore]
 fn can_retry_password() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
@@ -20,7 +19,6 @@ fn can_retry_password() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn three_retries_allowed_by_default() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
@@ -42,7 +40,7 @@ fn three_retries_allowed_by_default() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "3 incorrect password attempts"
     } else {
-        "Authentication failure"
+        "3 incorrect authentication attempts"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -87,7 +85,7 @@ Defaults passwd_tries=2"
     let diagnostic = if sudo_test::is_original_sudo() {
         "2 incorrect password attempts"
     } else {
-        "Authentication failure"
+        "2 incorrect authentication attempts"
     };
     assert_contains!(stderr, diagnostic);
 
@@ -109,7 +107,6 @@ Defaults passwd_tries=2"
 
 // this is a PAM security feature
 #[test]
-#[ignore]
 fn retry_is_not_allowed_immediately() -> Result<()> {
     let script_path = "/tmp/script.sh";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))

@@ -43,7 +43,7 @@ Defaults timestamp_timeout=0.1"
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Authentication failure"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -74,7 +74,7 @@ Defaults timestamp_timeout=0"
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Authentication failure"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -105,7 +105,7 @@ fn flag_reset_timestamp() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Authentication failed"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -153,7 +153,7 @@ fn flag_validate_prompts_for_password() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Authentication failure"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -184,7 +184,7 @@ fn by_default_credential_caching_is_local() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Authentication failure"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -245,7 +245,7 @@ fn flag_remove_timestamp_has_a_user_global_effect() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "1 incorrect password attempt"
     } else {
-        "Authentication failure"
+        "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
 

@@ -50,7 +50,8 @@ impl SudoLogger {
             }
         }
 
-        let stderr_logger = env_logger::builder()
+        let stderr_logger = env_logger::Builder::new()
+            .filter_level(log::LevelFilter::Trace)
             .format(|buf, record| writeln!(buf, "sudo: {}", record.args()))
             .build();
         logger.add_logger("sudo::user", stderr_logger);
