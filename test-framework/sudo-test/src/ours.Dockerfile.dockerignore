@@ -7,3 +7,4 @@
 !lib/**/*
 !test-binaries/**/*
 !sudo/**/*
+!su/**/*
