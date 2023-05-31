@@ -82,7 +82,6 @@ Defaults timestamp_timeout=0"
 }
 
 #[test]
-#[ignore]
 fn flag_reset_timestamp() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
@@ -216,7 +215,6 @@ fn flag_reset_timestamp_has_a_local_effect() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn flag_remove_timestamp_has_a_user_global_effect() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
@@ -253,7 +251,6 @@ fn flag_remove_timestamp_has_a_user_global_effect() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn effect_flag_remove_timestamp_is_limited_to_a_single_user() -> Result<()> {
     let second_user = "ghost";
     let env = Env("ALL ALL=(ALL:ALL) ALL")
@@ -280,7 +277,6 @@ fn effect_flag_remove_timestamp_is_limited_to_a_single_user() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn flag_reset_timestamp_also_works_locally() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
