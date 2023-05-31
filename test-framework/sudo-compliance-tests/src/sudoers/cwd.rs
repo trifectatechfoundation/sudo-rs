@@ -47,7 +47,7 @@ fn non_absolute_path_is_rejected() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "values for \"CWD\" must start with a '/', '~', or '*'"
     } else {
-        "expected directory or `*'"
+        "expected directory or '*'"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -68,7 +68,7 @@ fn dot_slash_is_rejected() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "values for \"CWD\" must start with a '/', '~', or '*'"
     } else {
-        "expected directory or `*'"
+        "expected directory or '*'"
     };
     assert_contains!(output.stderr(), diagnostic);
 
