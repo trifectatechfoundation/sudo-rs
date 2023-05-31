@@ -264,7 +264,7 @@ impl Token for ChDir {
         if s == "*" {
             Ok(ChDir::Any)
         } else if s.contains('*') {
-            Err("path cannot contain `*'".to_string())
+            Err("path cannot contain '*'".to_string())
         } else {
             Ok(ChDir::Path(s.into()))
         }

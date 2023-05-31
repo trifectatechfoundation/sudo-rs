@@ -176,7 +176,7 @@ pub fn expect_syntax(syntax: char, stream: &mut impl CharStream) -> Parsed<()> {
         } else {
             "EOF".to_string()
         };
-        unrecoverable!(stream, "expecting `{syntax}' but found `{str}'")
+        unrecoverable!(stream, "expecting '{syntax}' but found '{str}'")
     }
     make(())
 }

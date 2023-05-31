@@ -577,17 +577,18 @@ impl Parse for (String, ConfigValue) {
                     },
                     _checker,
                 )) => ConfigValue::Num(val),
+                None => unrecoverable!(pos = value_pos, stream, "unknown setting: '{name}'"),
                 _ => unrecoverable!(
                     pos = value_pos,
                     stream,
-                    "`{name}' cannot be used in a boolean context"
+                    "'{name}' cannot be used in a boolean context"
                 ),
             };
             make((name, value))
         } else {
             let EnvVar(name) = try_nonterminal(stream)?;
             let Some(cfg) = sudo_default(&name) else {
-                unrecoverable!(pos = id_pos, stream, "unknown setting: `{name}'");
+                unrecoverable!(pos = id_pos, stream, "unknown setting: '{name}'");
             };
 
             if is_syntax('+', stream)? {
@@ -598,7 +599,7 @@ impl Parse for (String, ConfigValue) {
                 let value_pos = stream.get_pos();
                 match cfg {
                     Setting::Flag(_) => {
-                        unrecoverable!(stream, "can't assign to boolean setting `{name}'")
+                        unrecoverable!(stream, "can't assign to boolean setting '{name}'")
                     }
                     Setting::Integer(_, checker) => {
                         let Numeric(denotation) = expect_nonterminal(stream)?;
@@ -608,7 +609,7 @@ impl Parse for (String, ConfigValue) {
                             unrecoverable!(
                                 pos = value_pos,
                                 stream,
-                                "`{denotation}' is not a valid value for {name}"
+                                "'{denotation}' is not a valid value for {name}"
                             );
                         }
                     }
@@ -626,7 +627,7 @@ impl Parse for (String, ConfigValue) {
                             unrecoverable!(
                                 pos = value_pos,
                                 stream,
-                                "`{text}' is not a valid value for {name}"
+                                "'{text}' is not a valid value for {name}"
                             );
                         };
                         make((name, ConfigValue::Enum(value)))
@@ -634,7 +635,7 @@ impl Parse for (String, ConfigValue) {
                 }
             } else {
                 if !matches!(cfg, Setting::Flag(_)) {
-                    unrecoverable!(pos = id_pos, stream, "`{name}' is not a boolean setting");
+                    unrecoverable!(pos = id_pos, stream, "'{name}' is not a boolean setting");
                 }
                 make((name, ConfigValue::Flag(true)))
             }
