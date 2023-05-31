@@ -1,0 +1,5 @@
+---
+source: sudo-compliance-tests/src/sudoers/host_alias.rs
+expression: stderr
+---
+root is not allowed to run sudo on mail.  This incident will be reported.

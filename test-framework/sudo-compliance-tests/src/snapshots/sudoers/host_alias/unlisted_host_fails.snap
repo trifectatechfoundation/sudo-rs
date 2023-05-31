@@ -1,0 +1,5 @@
+---
+source: sudo-compliance-tests/src/sudoers/host_alias.rs
+expression: stderr
+---
+root is not allowed to run sudo on not_listed.  This incident will be reported.
