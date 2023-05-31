@@ -14,22 +14,20 @@ use crate::pipeline::AuthPlugin;
 /// Tries to determine a record match scope for the current context.
 /// This should never produce an error since any actual error should just be
 /// ignored and no session record file should be used in that case.
-fn determine_record_scope(context: &Context) -> Option<RecordScope> {
+pub fn determine_record_scope(process: &Process) -> Option<RecordScope> {
     let tty = Process::tty_device_id(WithProcess::Current);
     if let Ok(Some(tty_device)) = tty {
-        if let Ok(init_time) =
-            Process::starting_time(WithProcess::Other(context.process.session_id))
-        {
+        if let Ok(init_time) = Process::starting_time(WithProcess::Other(process.session_id)) {
             Some(RecordScope::TTY {
                 tty_device,
-                session_pid: context.process.session_id,
+                session_pid: process.session_id,
                 init_time,
             })
         } else {
             auth_warn!("Could not get terminal foreground process starting time");
             None
         }
-    } else if let Some(parent_pid) = context.process.parent_pid {
+    } else if let Some(parent_pid) = process.parent_pid {
         if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
             Some(RecordScope::PPID {
                 group_pid: parent_pid,
@@ -120,7 +118,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         pam.set_user(&context.current_user.name)?;
 
         // determine session limit
-        let scope = determine_record_scope(context);
+        let scope = determine_record_scope(&context.process);
 
         // only if there is an interactive terminal or parent process we can store session information
         let (must_authenticate, records_file) = determine_auth_status(scope, context);

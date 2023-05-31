@@ -1,10 +1,11 @@
 #![forbid(unsafe_code)]
 
-use pam::PamAuthenticator;
+use pam::{determine_record_scope, PamAuthenticator};
 use pipeline::{Pipeline, PolicyPlugin};
 use std::env;
 use sudo_cli::{help, SudoAction, SudoOptions};
-use sudo_common::{Context, Error};
+use sudo_common::{resolve::resolve_current_user, Context, Error};
+use sudo_system::{time::Duration, timestamp::SessionRecordFile, Process};
 
 mod diagnostic;
 use diagnostic::diagnostic;
@@ -84,13 +85,23 @@ fn sudo_process() -> Result<(), Error> {
                 eprintln!("sudo-rs {VERSION}");
                 std::process::exit(0);
             }
-            SudoAction::Validate => {
-                unimplemented!();
-            }
             SudoAction::RemoveTimestamp => {
-                unimplemented!();
+                let user = resolve_current_user()?;
+                let mut record_file =
+                    SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
+                record_file.reset()?;
+                return Ok(());
             }
             SudoAction::ResetTimestamp => {
+                if let Some(scope) = determine_record_scope(&Process::new()) {
+                    let user = resolve_current_user()?;
+                    let mut record_file =
+                        SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
+                    record_file.disable(scope, None)?;
+                }
+                return Ok(());
+            }
+            SudoAction::Validate => {
                 unimplemented!();
             }
             SudoAction::Run(_) => options,
