@@ -112,6 +112,31 @@ fn can_override_after_bang() -> Result<()> {
     super::can_override_after_bang(ENV_LIST)
 }
 
+#[test]
+fn wildcard_works() -> Result<()> {
+    super::wildcard_works(ENV_LIST)
+}
+
+#[test]
+fn double_wildcard_is_ok() -> Result<()> {
+    super::double_wildcard_is_ok(ENV_LIST)
+}
+
+#[test]
+fn minus_equal_can_remove_wildcard() -> Result<()> {
+    super::minus_equal_can_remove_wildcard(ENV_LIST)
+}
+
+#[test]
+fn accepts_vars_that_start_with_a_digit() -> Result<()> {
+    super::accepts_vars_that_start_with_a_digit(ENV_LIST)
+}
+
+#[test]
+fn skips_invalid_variable_names() -> Result<()> {
+    super::skips_invalid_variable_names(ENV_LIST)
+}
+
 // DISPLAY, PATH and TERM are env vars preserved by sudo by default
 // they appear to be part of the default `env_keep` list
 #[test]
