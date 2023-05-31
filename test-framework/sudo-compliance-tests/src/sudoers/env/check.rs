@@ -132,8 +132,8 @@ fn minus_equal_can_remove_wildcard() -> Result<()> {
 }
 
 #[test]
-fn accepts_vars_that_start_with_a_digit() -> Result<()> {
-    super::accepts_vars_that_start_with_a_digit(ENV_LIST)
+fn accepts_uncommon_var_names() -> Result<()> {
+    super::accepts_uncommon_var_names(ENV_LIST)
 }
 
 #[test]

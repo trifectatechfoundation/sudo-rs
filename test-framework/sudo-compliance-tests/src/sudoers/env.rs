@@ -747,21 +747,24 @@ fn minus_equal_can_remove_wildcard(env_list: EnvList) -> Result<()> {
     Ok(())
 }
 
-fn accepts_vars_that_start_with_a_digit(env_list: EnvList) -> Result<()> {
+fn accepts_uncommon_var_names(env_list: EnvList) -> Result<()> {
     let name1 = "00";
     let value1 = "42";
     let name2 = "0A";
     let value2 = "42";
+    let name3 = "ferris";
+    let value3 = "FERRIS";
 
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &format!("Defaults {env_list} = \"{name1} {name2}\""),
+        &format!("Defaults {env_list} = \"{name1} {name2} {name3}\""),
     ])
     .build()?;
 
     let stdout = Command::new("env")
         .arg(format!("{name1}={value1}"))
         .arg(format!("{name2}={value2}"))
+        .arg(format!("{name3}={value3}"))
         .args(["sudo", "env"])
         .exec(&env)?
         .stdout()?;
@@ -770,6 +773,7 @@ fn accepts_vars_that_start_with_a_digit(env_list: EnvList) -> Result<()> {
 
     assert_eq!(Some(value1), sudo_env.get(name1).copied());
     assert_eq!(Some(value2), sudo_env.get(name2).copied());
+    assert_eq!(Some(value3), sudo_env.get(name3).copied());
 
     Ok(())
 }
