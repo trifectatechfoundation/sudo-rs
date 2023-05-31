@@ -151,13 +151,13 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
         return false;
     }
 
-    if key == "TZ" && !is_safe_tz(value.as_bytes()) {
-        return false;
+    if key == "TZ" {
+        return in_table(key, cfg.env_keep())
+            || (in_table(key, cfg.env_check()) && is_safe_tz(value.as_bytes()));
     }
 
-    if in_table(key, cfg.env_check()) && !value.as_bytes().iter().any(|c| *c == b'%' || *c == b'/')
-    {
-        return true;
+    if in_table(key, cfg.env_check()) {
+        return !value.as_bytes().iter().any(|c| *c == b'%' || *c == b'/');
     }
 
     in_table(key, cfg.env_keep())
@@ -236,14 +236,17 @@ mod tests {
     #[test]
     fn test_filtering() {
         let config = TestConfiguration {
-            keep: HashSet::from(["AAP".to_string(), "NOOT".to_string(), "TZ".to_string()]),
-            check: HashSet::from(["MIES".to_string()]),
+            keep: HashSet::from(["AAP".to_string(), "NOOT".to_string()]),
+            check: HashSet::from(["MIES".to_string(), "TZ".to_string()]),
         };
 
         let check_should_keep = |key: &str, value: &str, expected: bool| {
             assert_eq!(
                 should_keep(&OsStr::new(key), &OsStr::new(value), &config),
                 expected,
+                "{} should {}",
+                key,
+                if expected { "be kept" } else { "not be kept" }
             );
         };
 
