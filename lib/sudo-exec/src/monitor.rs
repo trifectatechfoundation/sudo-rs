@@ -70,7 +70,6 @@ pub(crate) fn exec_monitor(
 
     // FIXME: ogsudo does some extra config if selinux is available here.
 
-    // FIXME: we should call `exec_cmnd_pty` here.
     #[allow(unsafe_code)]
     let cmnd_pid = unsafe { fork() }.map_err(|err| {
         user_warn!("unable to fork: {err}");
@@ -113,6 +112,9 @@ pub(crate) fn exec_monitor(
         backchannel,
         &errpipe_0,
     );
+
+    // Put command in its own process group.
+    setpgid(cmnd_pid, mc.cmnd_pgrp).ok();
 
     // Set the command as the foreground process for the pty follower.
     if foreground {
@@ -221,10 +223,6 @@ impl<'a> ExecClosure<'a> {
         user_debug!("monitor::ExecClosure::new");
         let mon_pgrp = getpgrp().unwrap_or(-1);
 
-        // FIXME: ogsudo does this outside `fill_exec_closure_monitor`.
-        let cmnd_pgrp = cmnd_pid;
-        setpgid(cmnd_pid, cmnd_pgrp).ok();
-
         let mc = Self {
             cstat,
             sigint_recv: SignalStream::new().unwrap(),
@@ -239,7 +237,7 @@ impl<'a> ExecClosure<'a> {
             sigcont_recv: SignalStream::new().unwrap(),
             sigwinch_recv: SignalStream::new().unwrap(),
             cmnd_pid: Some(cmnd_pid),
-            cmnd_pgrp,
+            cmnd_pgrp: cmnd_pid,
             mon_pgrp,
             fd_follower,
             backchannel,

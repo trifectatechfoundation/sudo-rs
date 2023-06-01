@@ -6,9 +6,14 @@ use std::{
         fd::{AsRawFd, RawFd},
         unix::net::UnixStream,
     },
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
 };
 
 use libc::{c_void, siginfo_t, MSG_DONTWAIT};
+use signal_hook::low_level::emulate_default_handler;
 use signal_hook_registry::{register_sigaction, unregister, SigId};
 use sudo_cutils::cerr;
 
@@ -35,20 +40,55 @@ impl SignalInfo {
     }
 }
 
+#[repr(u8)]
+pub enum SignalHandler {
+    Send = 0,
+    Default = 1,
+    Ignore = 2,
+}
+
 pub struct SignalStream<const SIGNO: c_int> {
     sig_id: SigId,
     rx: UnixStream,
+    handler: Arc<AtomicU8>,
 }
 
 impl<const SIGNO: c_int> SignalStream<SIGNO> {
     pub fn new() -> io::Result<Self> {
         let (rx, tx) = UnixStream::pair()?;
+        let handler = Arc::<AtomicU8>::default();
 
-        let tx = SignalSender { tx };
+        let sig_id = {
+            let handler = Arc::clone(&handler);
+            let tx = SignalSender { tx };
+            unsafe {
+                register_sigaction(SIGNO, move |info| {
+                    let handler = handler.load(Ordering::SeqCst);
+                    if handler == SignalHandler::Default as u8 {
+                        emulate_default_handler(SIGNO).ok();
+                    } else if handler == SignalHandler::Send as u8 {
+                        tx.send(info)
+                    }
+                })
+            }?
+        };
 
-        let sig_id = unsafe { register_sigaction(SIGNO, move |info| tx.send(info)) }?;
+        Ok(Self {
+            sig_id,
+            rx,
+            handler,
+        })
+    }
 
-        Ok(Self { sig_id, rx })
+    pub fn set_handler(&self, handler: SignalHandler) -> SignalHandler {
+        let prev_handler = self.handler.swap(handler as u8, Ordering::SeqCst);
+        if prev_handler == SignalHandler::Default as u8 {
+            SignalHandler::Default
+        } else if prev_handler == SignalHandler::Send as u8 {
+            SignalHandler::Send
+        } else {
+            SignalHandler::Ignore
+        }
     }
 
     pub fn recv(&mut self) -> io::Result<SignalInfo> {
