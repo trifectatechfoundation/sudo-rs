@@ -78,7 +78,7 @@ pub(crate) fn exec_monitor(
 
     if cmnd_pid == 0 {
         // child
-        drop(backchannel);
+        // FIXME: ogsudo closes the backchannel here.
         drop(errpipe_0);
 
         // setup tty and exec command
@@ -99,7 +99,7 @@ pub(crate) fn exec_monitor(
     {
         let mut cstat = cstat.borrow_mut();
         *cstat = CommandStatus::from_pid(cmnd_pid);
-        send_status(backchannel, &mut *cstat).ok();
+        send_status(backchannel, &mut cstat).ok();
     }
 
     let mut events = EventQueue::<ExecClosure>::new();
@@ -150,7 +150,7 @@ pub(crate) fn exec_monitor(
         );
     }
 
-    send_status(backchannel, &mut *cstat.borrow_mut()).ok();
+    send_status(backchannel, &mut cstat.borrow_mut()).ok();
 
     // FIXME: ogsudo does some extra config if selinux is available here.
 
@@ -405,7 +405,7 @@ impl<'a> ExecClosure<'a> {
 
         user_debug!(
             "monitor received {}{}",
-            signal_name(signal).unwrap_or_else(|| match signal {
+            signal_name(signal).unwrap_or(match signal {
                 SIGCONT_FG => "SIGCONT_FG",
                 SIGCONT_BG => "SIGCONT_BG",
                 _ => "unknown signal",
@@ -474,7 +474,7 @@ impl<'a> ExecClosure<'a> {
             self.cmnd_pid = None;
         }
 
-        let wstatus = CommandStatus::from(status.clone());
+        let wstatus = CommandStatus::from(status);
         let mut cstat = self.cstat.borrow_mut();
         // Be sure we don't overwrite the `spawn` error with the child exit status
         if cstat.is_invalid() {
@@ -487,7 +487,7 @@ impl<'a> ExecClosure<'a> {
                 if pid != self.mon_pgrp {
                     self.cmnd_pgrp = pid;
                 }
-                send_status(self.backchannel, &mut *cstat).ok();
+                send_status(self.backchannel, &mut cstat).ok();
             }
         } else {
             user_debug!(

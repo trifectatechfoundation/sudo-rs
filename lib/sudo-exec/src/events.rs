@@ -19,11 +19,6 @@ impl<T> EventQueue<T> {
         }
     }
 
-    pub(crate) fn add_write_event<F: AsRawFd>(&mut self, fd: &F, cb: fn(&mut T, &mut Self)) {
-        let idx = self.poll_set.add_fd_write(fd);
-        self.callbacks.insert(idx, cb);
-    }
-
     pub(crate) fn add_read_event<F: AsRawFd>(&mut self, fd: &F, cb: fn(&mut T, &mut Self)) {
         let idx = self.poll_set.add_fd_read(fd);
         self.callbacks.insert(idx, cb);

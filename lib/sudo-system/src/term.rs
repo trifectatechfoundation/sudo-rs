@@ -108,7 +108,7 @@ impl TermContext {
             return false;
         }
 
-        let mut term = unsafe { self.oterm.clone().assume_init() };
+        let mut term = unsafe { self.oterm.assume_init() };
         //
         // Set terminal to raw mode but optionally enable terminal signals.
         unsafe { cfmakeraw(&mut term) };
@@ -146,7 +146,7 @@ impl TermContext {
         flags: c_int,
         tp: Option<*mut termios>,
     ) -> c_int {
-        let tp = tp.unwrap_or_else(|| self.oterm.as_mut_ptr());
+        let tp = tp.unwrap_or(self.oterm.as_mut_ptr());
         let mut sa = unsafe { MaybeUninit::<sigaction>::zeroed().assume_init() };
         let mut osa = MaybeUninit::<sigaction>::uninit();
         let mut rc: c_int = 0;

@@ -101,7 +101,7 @@ impl CommandStatus {
     }
 
     pub(crate) fn take(&mut self) -> Self {
-        std::mem::replace(self, Default::default())
+        std::mem::take(self)
     }
 
     pub(crate) fn from_pid(pid: ProcessId) -> Self {
@@ -126,19 +126,19 @@ impl CommandStatus {
     }
 
     pub(crate) fn command_pid(&self) -> Option<ProcessId> {
-        (self.kind == CommandStatusKind::Pid).then(|| self.data)
+        (self.kind == CommandStatusKind::Pid).then_some(self.data)
     }
 
     pub(crate) fn monitor_err(&self) -> Option<c_int> {
-        (self.kind == CommandStatusKind::Errno).then(|| self.data)
+        (self.kind == CommandStatusKind::Errno).then_some(self.data)
     }
 
     pub(crate) fn wait(&self) -> Option<c_int> {
-        (self.kind == CommandStatusKind::WStatus).then(|| self.data)
+        (self.kind == CommandStatusKind::WStatus).then_some(self.data)
     }
 
     pub(crate) fn signal(&self) -> Option<c_int> {
-        (self.kind == CommandStatusKind::Signo).then(|| self.data)
+        (self.kind == CommandStatusKind::Signo).then_some(self.data)
     }
 }
 

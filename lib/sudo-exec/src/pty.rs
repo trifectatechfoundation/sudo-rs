@@ -123,11 +123,9 @@ pub(crate) fn exec_pty(
     // Start in raw mode unless part of a pipeline.
     if foreground {
         // FIXME: ogsudo does not start in raw mode if it's running in the background.
-        if !pipeline {
-            if term_ctx.raw(&fd_usertty, 0) {
-                user_debug!("/dev/tty set to raw mode");
-                term_raw = true;
-            }
+        if !pipeline && term_ctx.raw(&fd_usertty, 0) {
+            user_debug!("/dev/tty set to raw mode");
+            term_raw = true;
         }
     }
 
@@ -159,7 +157,7 @@ pub(crate) fn exec_pty(
                 {
                     let mut cstat = cstat.borrow_mut();
                     *cstat = CommandStatus::from_io_error(&err);
-                    if let Err(err) = sv_1.send_status(&*cstat) {
+                    if let Err(err) = sv_1.send_status(&cstat) {
                         user_debug!("unable to send status to parent: {}", err);
                     }
                 }
@@ -176,7 +174,7 @@ pub(crate) fn exec_pty(
 
     // Tell the monitor to continue now that the follower is closed.
     *cstat.borrow_mut() = CommandStatus::from_signal(0);
-    while let Err(err) = sv_0.send_status(&*cstat.borrow()) {
+    while let Err(err) = sv_0.send_status(&cstat.borrow()) {
         // FIXME: instead of checking against `11` we should try and check if any `ErrorKind`
         // matches `EAGAIN`
         if err.kind() != io::ErrorKind::Interrupted && err.raw_os_error() != Some(11) {
@@ -406,7 +404,7 @@ impl<'a> ExecClosure<'a> {
         }
     }
 
-    /// Based on `backchannel_cb`
+    /// Based on `backchannel_cb`send
     fn check_backchannel(&mut self, events: &mut EventQueue<ExecClosure>) {
         user_debug!("pty::ExecClosure::check_backchannel");
         match self.backchannel.receive_status() {
@@ -483,7 +481,8 @@ impl<'a> ExecClosure<'a> {
                     }
                 }
             }
-            SIGSTOP | SIGTSTP | _ => {
+            // This also covers SIGSTOP and SIGTSTP
+            _ => {
                 // FIXME: ogsudo deschedules the IO events here.
 
                 // Restore original tty mode before suspending
@@ -532,7 +531,8 @@ impl<'a> ExecClosure<'a> {
                     SIGWINCH => {
                         self.sigwinch_stream.set_handler(SignalHandler::Default);
                     }
-                    SIGSTOP | _ => {}
+                    // This also covers SIGSTOP
+                    _ => {}
                 }
 
                 // We stop sudo's process group, even if sudo is not the process group leader. If
@@ -588,7 +588,8 @@ impl<'a> ExecClosure<'a> {
                     SIGWINCH => {
                         self.sigwinch_stream.set_handler(SignalHandler::Send);
                     }
-                    SIGSTOP | _ => {}
+                    // This also covers SIGSTOP
+                    _ => {}
                 }
 
                 // If we failed to suspend, the command is no longer running
@@ -766,7 +767,7 @@ impl<'a> ExecClosure<'a> {
                 if info.is_user_signaled() && self.is_self_terminating(info.get_pid()) {
                     return;
                 }
-                return self.schedule_signal(signal, events);
+                self.schedule_signal(signal, events);
             }
         }
     }
