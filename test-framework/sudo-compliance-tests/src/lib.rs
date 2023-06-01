@@ -23,6 +23,7 @@ mod path_search;
 mod perms;
 mod sudo_ps1;
 mod sudoers;
+mod syslog;
 mod timestamp;
 mod use_pty;
 
