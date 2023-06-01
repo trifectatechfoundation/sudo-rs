@@ -10,6 +10,7 @@ mod run_as;
 mod secure_path;
 mod user_list;
 mod host_alias;
+mod cmnd_alias;
 
 #[test]
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {

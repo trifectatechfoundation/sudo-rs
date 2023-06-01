@@ -1,0 +1,8 @@
+---
+source: sudo-compliance-tests/src/sudoers/cmnd_alias.rs
+expression: stderr
+---
+/etc/sudoers:1:24: syntax error
+Cmnd_Alias CMDSGROUP = true, /bin/ls
+                       ^~~~
+Sorry, user root is not allowed to execute '/bin/true' as root on [host].
