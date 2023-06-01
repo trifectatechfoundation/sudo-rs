@@ -120,6 +120,11 @@ impl Child {
         let output = self.inner.wait_with_output()?;
         output.try_into()
     }
+
+    /// attempts to collect the exit status of the child if it has already exited.
+    pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
+        Ok(self.inner.try_wait()?)
+    }
 }
 
 /// the output of a finished `Command`
