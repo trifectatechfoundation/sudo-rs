@@ -418,7 +418,7 @@ fn cached_credential_shared_with_target_user_that_is_self() -> Result<()> {
     Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env {SUDO_RS_IS_UNSTABLE} sudo true"
+            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo true"
         ))
         .as_user(USERNAME)
         .tty(true)
