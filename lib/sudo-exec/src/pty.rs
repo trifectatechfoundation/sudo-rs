@@ -283,6 +283,7 @@ struct ExecClosure<'a> {
     sigchld_recv: SignalReceiver<SIGCHLD>,
     sigcont_recv: SignalReceiver<SIGCONT>,
     sigwinch_recv: SignalReceiver<SIGWINCH>,
+    sigcont_ignore: bool,
     cstat: &'a RefCell<CommandStatus>,
     sudo_pid: ProcessId,
     monitor_pid: Option<ProcessId>,
@@ -325,6 +326,7 @@ impl<'a> ExecClosure<'a> {
             sigchld_recv: SignalReceiver::new().unwrap(),
             sigcont_recv: SignalReceiver::new().unwrap(),
             sigwinch_recv: SignalReceiver::new().unwrap(),
+            sigcont_ignore: false,
             cstat,
             sudo_pid,
             monitor_pid: Some(monitor_pid),
@@ -372,7 +374,9 @@ impl<'a> ExecClosure<'a> {
             ec.handle_recv_signal(SIGCHLD, events)
         });
         events.add_read_event(&ec.sigcont_recv.as_raw_fd(), |ec, events| {
-            ec.handle_recv_signal(SIGCONT, events)
+            if !ec.sigcont_ignore {
+                ec.handle_recv_signal(SIGCONT, events)
+            }
         });
         events.add_read_event(&ec.sigwinch_recv.as_raw_fd(), |ec, events| {
             ec.handle_recv_signal(SIGWINCH, events)
@@ -429,7 +433,9 @@ impl<'a> ExecClosure<'a> {
     fn suspend(&mut self, signal: c_int) -> c_int {
         user_debug!("pty::ExecClosure::suspend");
         let mut ret = 0;
-        // FIXME: ogsudo ignores SIGCONT here to avoid calling resume_terminal multiple times.
+        // Ignore SIGCONT here to avoid calling resume_terminal multiple times.
+        // FIXME: ogsudo does this by calling `sudo_sigaction`. 
+        self.sigcont_ignore = true;
 
         match signal {
             SIGTTIN | SIGTTOU => {
@@ -521,7 +527,7 @@ impl<'a> ExecClosure<'a> {
             }
         }
 
-        // FIXME: ogsudo restores the handler for SIGCONT here.
+        self.sigcont_ignore = false;
 
         ret
     }
