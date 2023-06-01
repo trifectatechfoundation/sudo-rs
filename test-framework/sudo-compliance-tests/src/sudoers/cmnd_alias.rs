@@ -144,9 +144,9 @@ fn command_alias_negation() -> Result<()> {
 #[test]
 fn combined_cmnd_aliases() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias FOO = /usr/bin/sh, /bin/true",
-        "Cmnd_Alias BAR = /bin/ls, /usr/sbin/dump",
-        "Cmnd_Alias BAZ = !FOO, BAR",
+        "Cmnd_Alias TRUEGROUP = /usr/bin/sh, /bin/true",
+        "Cmnd_Alias LSGROUP = /bin/ls, /usr/sbin/dump",
+        "Cmnd_Alias BAZ = !TRUEGROUP, LSGROUP",
         "ALL ALL=(ALL:ALL) BAZ",
     ])
     .build()?;
@@ -190,21 +190,24 @@ fn double_negation() -> Result<()> {
 
 }
 
-#[ignore]
 #[test]
 fn negation_not_order_sensitive() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias FOO = /bin/true",
-        "Cmnd_Alias BAR = /bin/ls",
-        "Cmnd_Alias BAZ = FOO, !BAR",
+        "Cmnd_Alias TRUECMND = /bin/true",
+        "Cmnd_Alias LSCMND = /bin/ls",
+        "Cmnd_Alias BAZ = TRUECMND, !LSCMND",
         "ALL ALL=(ALL:ALL) BAZ",
         ])
         .build()?;
 
-    let output = Command::new("sudo")
+    Command::new("sudo")
         .arg("true")
-        .exec(&env)?;
+        .exec(&env)?
+        .assert_success()?;
 
+    let output = Command::new("sudo")
+        .arg("ls")
+        .exec(&env)?;
         assert!(!output.status().success());
 
         let stderr = output.stderr();
@@ -224,9 +227,9 @@ fn negation_not_order_sensitive() -> Result<()> {
 #[test]
 fn negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias FOO = !/bin/true",
-        "Cmnd_Alias BAR = /bin/ls",
-        "Cmnd_Alias BAZ = !FOO, BAR",
+        "Cmnd_Alias TRUECMND = !/bin/true",
+        "Cmnd_Alias LSCMND = /bin/ls",
+        "Cmnd_Alias BAZ = !TRUECMND, LSCMND",
         "ALL ALL=(ALL:ALL) BAZ",
         ])
         .build()?;
@@ -250,9 +253,9 @@ fn negation_combination() -> Result<()> {
 #[test]
 fn another_negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias FOO = /bin/true",
-        "Cmnd_Alias BAR = /bin/ls",
-        "Cmnd_Alias BAZ = FOO, !BAR",
+        "Cmnd_Alias TRUECMND = /bin/true",
+        "Cmnd_Alias LSCMND = /bin/ls",
+        "Cmnd_Alias BAZ = TRUECMND, !LSCMND",
         "ALL ALL=(ALL:ALL) !BAZ",
         ])
         .build()?;
@@ -286,9 +289,9 @@ fn another_negation_combination() -> Result<()> {
 #[test]
 fn one_more_negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias FOO = /bin/true",
-        "Cmnd_Alias BAR = !/bin/ls",
-        "Cmnd_Alias BAZ = FOO, BAR",
+        "Cmnd_Alias TRUECMND = /bin/true",
+        "Cmnd_Alias LSCMND = !/bin/ls",
+        "Cmnd_Alias BAZ = TRUECMND, LSCMND",
         "ALL ALL=(ALL:ALL) !BAZ",
         ])
         .build()?;
@@ -321,9 +324,9 @@ fn one_more_negation_combination() -> Result<()> {
 #[test]
 fn tripple_negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias FOO = /bin/true",
-        "Cmnd_Alias BAR = !/bin/ls",
-        "Cmnd_Alias BAZ = FOO, !BAR",
+        "Cmnd_Alias TRUECMND = /bin/true",
+        "Cmnd_Alias LSCMND = !/bin/ls",
+        "Cmnd_Alias BAZ = TRUECMND, !LSCMND",
         "ALL ALL=(ALL:ALL) !BAZ",
         ])
         .build()?;
@@ -366,9 +369,9 @@ fn tripple_negation_combination() -> Result<()> {
 #[test]
 fn comma_listing_works() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias FOO = /usr/bin/sh, /bin/true",
-        "Cmnd_Alias BAR = /bin/ls, /usr/sbin/dump",
-        "ALL ALL=(ALL:ALL) FOO, BAR",
+        "Cmnd_Alias TRUEGROUP = /usr/bin/sh, /bin/true",
+        "Cmnd_Alias LSGROUP = /bin/ls, /usr/sbin/dump",
+        "ALL ALL=(ALL:ALL) TRUEGROUP, LSGROUP",
     ])
     .build()?;
 
@@ -383,6 +386,86 @@ fn comma_listing_works() -> Result<()> {
     .exec(&env)?;
 
     assert!(second_output.status().success());
+
+    Ok(())
+
+}
+
+#[test]
+fn runas_override() -> Result<()> {
+    let env = Env([
+        "Cmnd_Alias TRUECMND = /bin/true",
+        "Cmnd_Alias LSCMND = /bin/ls",
+        "ALL ALL = (root) LSCMND, (ferris) TRUECMND",
+    ])
+    .user("ferris")
+    .build()?;
+
+    let stdout = Command::new("sudo")
+        .args(["/bin/ls", "/root"])
+        .exec(&env)?
+        .stdout()?;
+    assert_eq!("", stdout);
+
+    let output = Command::new("sudo")
+        .args(["-u", "ferris", "/bin/ls"])
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let stderr = output.stderr();
+    if sudo_test::is_original_sudo() {
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        );
+    }
+
+    Command::new("sudo")
+        .args(["-u", "ferris", "/bin/true"])
+        .exec(&env)?
+        .assert_success()?;
+
+    let second_output = Command::new("sudo").args(["/bin/true"]).exec(&env)?;
+
+    assert!(!second_output.status().success());
+    assert_eq!(Some(1), second_output.status().code());
+
+    let stderr = second_output.stderr();
+    if sudo_test::is_original_sudo() {
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
+    let env = Env([
+        "Cmnd_Alias TRUECMND = /bin/true",
+        "Cmnd_Alias LSCMND = /bin/ls",
+        "ALL ALL = (root) TRUECMND, (ferris) TRUECMND",
+    ])
+    .user("ferris")
+    .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()?;
+
+    Command::new("sudo")
+        .args(["-u", "ferris", "true"])
+        .exec(&env)?
+        .assert_success()?;
 
     Ok(())
 }
