@@ -3,8 +3,11 @@ use std::{
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
-    os::fd::{AsRawFd, FromRawFd, OwnedFd},
-    path::PathBuf,
+    os::{
+        fd::{AsRawFd, FromRawFd, OwnedFd},
+        unix::prelude::OsStrExt,
+    },
+    path::{Path, PathBuf},
     ptr::null,
     str::FromStr,
 };
@@ -25,6 +28,30 @@ pub mod file;
 pub mod time;
 
 pub mod timestamp;
+
+pub mod term;
+
+pub mod signal;
+
+pub mod poll;
+
+pub fn open<P: AsRef<Path>>(path: P, flags: OpenFlags) -> io::Result<OwnedFd> {
+    let path = CString::new(path.as_ref().as_os_str().as_bytes()).unwrap();
+    cerr(unsafe { libc::open(path.as_ptr(), flags.flags) })
+        .map(|raw| unsafe { OwnedFd::from_raw_fd(raw) })
+}
+
+#[derive(Default)]
+pub struct OpenFlags {
+    flags: c_int,
+}
+
+impl OpenFlags {
+    pub fn read_write(mut self) -> Self {
+        self.flags |= libc::O_RDWR;
+        self
+    }
+}
 
 pub fn write<F: AsRawFd>(fd: &F, buf: &[u8]) -> io::Result<libc::ssize_t> {
     cerr(unsafe { libc::write(fd.as_raw_fd(), buf.as_ptr().cast(), buf.len()) })
@@ -135,7 +162,6 @@ pub fn killpg(pgid: ProcessId, signal: c_int) -> io::Result<()> {
     cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
 }
 
-
 /// Get the process group ID of the current process.
 pub fn getpgrp() -> io::Result<ProcessId> {
     cerr(unsafe { libc::getpgrp() })
@@ -231,7 +257,6 @@ impl WaitStatus {
 }
 
 pub enum WaitError {
-    Signal,
     Unavailable,
     Io(io::Error),
 }
@@ -241,7 +266,6 @@ pub fn waitpid(pid: Option<ProcessId>, options: WaitOptions) -> Result<WaitStatu
     let options = options.options;
     let pid = unsafe { libc::waitpid(pid.unwrap_or(-1), &mut status, options) };
     match cerr(pid) {
-        Err(err) if pid == -1 && err.kind() == io::ErrorKind::Interrupted => Err(WaitError::Signal),
         Err(err) => Err(WaitError::Io(err)),
         Ok(0) if options & libc::WNOHANG != 0 => Err(WaitError::Unavailable),
         Ok(pid) => Ok(WaitStatus { pid, status }),

@@ -485,6 +485,7 @@ name = "sudo-system"
 version = "0.1.0-alpha.1"
 dependencies = [
  "libc",
+ "signal-hook-registry",
  "sudo-cutils",
  "sudo-log",
  "tempfile",

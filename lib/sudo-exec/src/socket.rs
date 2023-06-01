@@ -1,24 +1,32 @@
 use std::{
     ffi::c_int,
     io::{self, Read, Write},
-    os::unix::net::UnixStream,
+    os::{
+        fd::{AsRawFd, RawFd},
+        unix::net::UnixStream,
+    },
 };
 
 use sudo_system::{interface::ProcessId, WaitStatus};
 
-pub(crate) fn socketpair() -> io::Result<(PtySocket, MonitorSocket)> {
+pub(crate) fn socketpair() -> io::Result<(Backchannel, Backchannel)> {
     let (pty, mon) = UnixStream::pair()?;
 
-    Ok((PtySocket { socket: pty }, MonitorSocket { socket: mon }))
+    Ok((Backchannel { socket: pty }, Backchannel { socket: mon }))
 }
 
-pub(crate) struct PtySocket {
+pub(crate) struct Backchannel {
     socket: UnixStream,
 }
 
-impl PtySocket {
-    pub(crate) fn send_signal(&mut self, signal: c_int) -> io::Result<()> {
-        self.socket.write_all(&signal.to_ne_bytes())
+impl Backchannel {
+    pub(crate) fn send_status(&mut self, status: &CommandStatus) -> io::Result<()> {
+        let mut buf = [0; std::mem::size_of::<CommandStatusKind>() + std::mem::size_of::<c_int>()];
+        buf[0] = status.kind as u8;
+        buf[1..].copy_from_slice(&status.data.to_ne_bytes());
+
+        self.socket.write_all(&buf)?;
+        Ok(())
     }
 
     pub(crate) fn receive_status(&mut self) -> io::Result<CommandStatus> {
@@ -45,45 +53,16 @@ impl PtySocket {
     }
 }
 
-pub(crate) struct MonitorSocket {
-    socket: UnixStream,
-}
-
-impl MonitorSocket {
-    pub(crate) fn send_status(&mut self, status: CommandStatus) -> io::Result<()> {
-        let mut buf = [0; std::mem::size_of::<CommandStatusKind>() + std::mem::size_of::<c_int>()];
-        buf[0] = status.kind as u8;
-        buf[1..].copy_from_slice(&status.data.to_ne_bytes());
-
-        self.socket.write_all(&buf)?;
-        Ok(())
-    }
-
-    pub(crate) fn receive_signal(&mut self) -> io::Result<c_int> {
-        let mut buf = [0; std::mem::size_of::<c_int>()];
-
-        self.socket.read_exact(&mut buf)?;
-
-        Ok(c_int::from_ne_bytes(buf))
+impl AsRawFd for Backchannel {
+    fn as_raw_fd(&self) -> RawFd {
+        self.socket.as_raw_fd()
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct CommandStatus {
     kind: CommandStatusKind,
     data: c_int,
-}
-
-impl std::fmt::Debug for CommandStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.kind {
-            CommandStatusKind::Invalid => write!(f, "Invalid"), 
-            CommandStatusKind::Errno => write!(f, "Errno({})", self.data),
-            CommandStatusKind::WStatus => write!(f, "WStatus({})", self.data),
-            CommandStatusKind::Signo => write!(f, "Signo({})", self.data),
-            CommandStatusKind::Pid => write!(f, "Pid({})", self.data),
-        }
-    }
 }
 
 impl Default for CommandStatus {
@@ -91,6 +70,18 @@ impl Default for CommandStatus {
         Self {
             kind: CommandStatusKind::Invalid,
             data: 0,
+        }
+    }
+}
+
+impl std::fmt::Debug for CommandStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            CommandStatusKind::Invalid => write!(f, "Invalid"),
+            CommandStatusKind::Errno => write!(f, "Errno({})", self.data),
+            CommandStatusKind::WStatus => write!(f, "WStatus({})", self.data),
+            CommandStatusKind::Signo => write!(f, "Signo({})", self.data),
+            CommandStatusKind::Pid => write!(f, "Pid({})", self.data),
         }
     }
 }
@@ -105,26 +96,49 @@ impl From<WaitStatus> for CommandStatus {
 }
 
 impl CommandStatus {
+    pub(crate) fn is_invalid(&self) -> bool {
+        self.kind == CommandStatusKind::Invalid
+    }
+
+    pub(crate) fn take(&mut self) -> Self {
+        std::mem::replace(self, Default::default())
+    }
+
     pub(crate) fn from_pid(pid: ProcessId) -> Self {
         Self {
             kind: CommandStatusKind::Pid,
             data: pid,
         }
     }
-    pub(crate) fn is_invalid(&self) -> bool {
-        self.kind == CommandStatusKind::Invalid
+
+    pub(crate) fn from_signal(signal: c_int) -> Self {
+        Self {
+            kind: CommandStatusKind::Signo,
+            data: signal,
+        }
+    }
+
+    pub(crate) fn from_io_error(err: &io::Error) -> Self {
+        Self {
+            kind: CommandStatusKind::Errno,
+            data: err.raw_os_error().unwrap_or(-1),
+        }
     }
 
     pub(crate) fn command_pid(&self) -> Option<ProcessId> {
         (self.kind == CommandStatusKind::Pid).then(|| self.data)
     }
 
-    pub(crate) fn monitor_err(&self) -> Option<i32> {
+    pub(crate) fn monitor_err(&self) -> Option<c_int> {
         (self.kind == CommandStatusKind::Errno).then(|| self.data)
     }
 
     pub(crate) fn wait(&self) -> Option<c_int> {
         (self.kind == CommandStatusKind::WStatus).then(|| self.data)
+    }
+
+    pub(crate) fn signal(&self) -> Option<c_int> {
+        (self.kind == CommandStatusKind::Signo).then(|| self.data)
     }
 }
 

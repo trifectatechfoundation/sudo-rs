@@ -53,6 +53,9 @@ impl SudoLogger {
         let stderr_logger = env_logger::Builder::new()
             .filter_level(log::LevelFilter::Trace)
             .format(|buf, record| writeln!(buf, "sudo: {}", record.args()))
+            .target(env_logger::Target::Pipe(Box::new(
+                std::fs::File::create("/tmp/sudo.log").unwrap(),
+            )))
             .build();
         logger.add_logger("sudo::user", stderr_logger);
 

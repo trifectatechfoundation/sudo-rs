@@ -30,6 +30,7 @@ publish = true
 libc = "0.2.139"
 glob = "0.3.1"
 signal-hook = "0.3.15"
+signal-hook-registry = "1.4.1"
 log = "0.4.17"
 syslog = "6.0.1"
 env_logger = { version = "0.9.3", default-features = false }

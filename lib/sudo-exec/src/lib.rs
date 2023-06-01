@@ -1,10 +1,12 @@
 #![deny(unsafe_code)]
 
+mod events;
 mod monitor;
 mod pty;
 mod socket;
 
 use std::{
+    cell::RefCell,
     ffi::{c_int, CString, OsStr},
     io,
     os::unix::ffi::OsStrExt,
@@ -14,16 +16,11 @@ use std::{
     time::Duration,
 };
 
-use signal_hook::{
-    consts::*,
-    low_level::{siginfo::Origin, signal_name},
-};
-use socket::socketpair;
+use pty::exec_pty;
+use signal_hook::{consts::*, low_level::signal_name};
 use sudo_common::{context::LaunchType::Login, Context, Environment};
 use sudo_log::{user_debug, user_error};
-use sudo_system::{
-    fork, getpgrp, interface::ProcessId, kill, killpg, openpty, set_target_user, WaitStatus,
-};
+use sudo_system::{interface::ProcessId, kill, killpg, set_target_user, WaitStatus};
 
 /// We only handle the signals that ogsudo handles.
 const SIGNALS: &[c_int] = &[
@@ -33,6 +30,8 @@ const SIGNALS: &[c_int] = &[
 
 const SIGCONT_FG: c_int = -2;
 const SIGCONT_BG: c_int = -3;
+
+enum Never {}
 
 /// Based on `ogsudo`s `exec_pty` function.
 pub fn run_command(
@@ -85,29 +84,8 @@ pub fn run_command(
     // set target user and groups
     set_target_user(&mut command, ctx.target_user, ctx.target_group);
 
-    let (pty_leader, pty_follower) = openpty()?;
-    let (pty_sock, mon_sock) = socketpair()?;
-
-    let parent_grp = getpgrp()?;
-
-    // SAFETY: we don't call any function that is not `async-signal-safe` inside this `fork` as all
-    // the signal handling is done by `signal_hook` which protects us from it.
-    #[allow(unsafe_code)]
-    let monitor_pid = unsafe { fork() }?;
-    // Monitor logic. Based on `exec_monitor`.
-    if monitor_pid == 0 {
-        match monitor::MonitorRelay::new(command, pty_follower, mon_sock)?.run()? {}
-    } else {
-        pty::PtyRelay::new(
-            monitor_pid,
-            ctx.process.pid,
-            parent_grp,
-            pty_leader,
-            pty_follower,
-            pty_sock,
-        )?
-        .run()
-    }
+    let cstat = RefCell::default();
+    exec_pty(command, ctx.process.pid as ProcessId, &cstat)
 }
 
 /// Atomic type used to decide when to run the default signal handlers
@@ -117,11 +95,6 @@ pub type EmulateDefaultHandler = Arc<AtomicBool>;
 pub enum ExitReason {
     Code(i32),
     Signal(i32),
-}
-
-fn log_signal(info: &Origin, name: &str) {
-    let signal = signal_name(info.signal).unwrap_or("unknown signal");
-    user_debug!("{name} received {signal} from {:?}", info.process)
 }
 
 fn log_wait_status(status: &WaitStatus, process_name: &str) {
