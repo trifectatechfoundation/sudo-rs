@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, SUDO_RS_IS_UNSTABLE, USERNAME};
@@ -415,15 +417,27 @@ fn cached_credential_shared_with_target_user_that_is_self() -> Result<()> {
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
-    Command::new("sh")
+    // FIXME switch back to `exec.assert_success`. this operation makes sudo-rs hang so we use
+    // `spawn` + `try_wait` polling here to avoid blocking forever
+    let mut child = Command::new("sh")
         .arg("-c")
         .arg(format!(
             "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo true"
         ))
         .as_user(USERNAME)
         .tty(true)
-        .exec(&env)?
-        .assert_success()
+        .spawn(&env)?;
+
+    for _ in 0..5 {
+        if let Some(status) = child.try_wait()? {
+            assert!(status.success());
+            return Ok(());
+        }
+
+        thread::sleep(Duration::from_secs(1));
+    }
+
+    panic!("timed out")
 }
 
 #[test]
