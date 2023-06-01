@@ -154,6 +154,7 @@ pub(crate) fn exec_monitor(
 
     // FIXME: ogsudo does some extra config if selinux is available here.
 
+    user_debug!("monitor is done");
     exit(1)
 }
 
@@ -468,6 +469,10 @@ impl<'a> ExecClosure<'a> {
         };
 
         log_wait_status(&status, "command");
+
+        if status.signaled().is_some() || status.exit_status().is_some() {
+            self.cmnd_pid = None;
+        }
 
         let wstatus = CommandStatus::from(status.clone());
         let mut cstat = self.cstat.borrow_mut();

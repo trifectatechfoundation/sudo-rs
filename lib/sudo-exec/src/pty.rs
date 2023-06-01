@@ -79,16 +79,18 @@ pub(crate) fn exec_pty(
     let mut events = EventQueue::<ExecClosure>::new();
 
     if !background {
-        // FIXME: ogsudo reads from `fd_usertty` and writes to `fd_leader` using `io_buf_new`.
-        events.add_read_event(&fd_usertty, |ec, events| {
+        // Read from `fd_usertty` and write to `fd_leader`
+        // FIXME: ogsudo does this using `io_buf_new`.
+        events.add_read_event(&fd_usertty, |ec, _| {
             let mut buf = [0; 6 * 1024];
             let Ok(n) = read(ec.fd_usertty, &mut buf) else { return };
             write(ec.fd_leader, &buf[..n as usize]).ok();
         });
     }
 
-    // FIXME: ogsudo reads from `fd_leader` and writes to `fd_usertty` using `io_buf_new`.
-    events.add_read_event(&fd_leader, |ec, events| {
+    // Read from `fd_leader` and write to `fd_usertty`
+    // FIXME: ogsudo does this using `io_buf_new`.
+    events.add_read_event(&fd_leader, |ec, _| {
         let mut buf = [0; 6 * 1024];
         let Ok(n) = read(ec.fd_leader, &mut buf) else { return };
         write(ec.fd_usertty, &buf[..n as usize]).ok();
