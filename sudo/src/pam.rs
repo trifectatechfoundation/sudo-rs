@@ -48,7 +48,7 @@ fn determine_auth_status(
     record_for: Option<RecordScope>,
     context: &Context,
 ) -> (bool, Option<SessionRecordFile<File>>) {
-    if let Some(record_for) = record_for {
+    if let (true, Some(record_for)) = (context.use_session_records, record_for) {
         match SessionRecordFile::open_for_user(&context.current_user.name, Duration::minutes(15)) {
             Ok(mut sr) => {
                 match sr.touch(record_for, context.target_user.uid) {

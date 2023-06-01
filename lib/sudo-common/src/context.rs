@@ -19,6 +19,7 @@ pub struct Context {
     pub target_user: User,
     pub target_group: Group,
     pub stdin: bool,
+    pub use_session_records: bool,
     // system
     pub hostname: String,
     pub path: String,
@@ -56,6 +57,7 @@ impl Context {
             target_group,
             set_home: sudo_options.set_home,
             preserve_env: sudo_options.preserve_env,
+            use_session_records: !sudo_options.reset_timestamp,
             launch,
             chdir: sudo_options.directory,
             stdin: sudo_options.stdin,

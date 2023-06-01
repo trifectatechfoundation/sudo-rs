@@ -42,7 +42,7 @@ pub struct SudoOptions {
     help: bool,
     list: bool,
     remove_timestamp: bool,
-    reset_timestamp: bool,
+    pub reset_timestamp: bool,
     validate: bool,
     version: bool,
     // arguments passed straight through, either seperated by -- or just trailing.
@@ -171,7 +171,7 @@ impl SudoOptions {
             self.action = SudoAction::Version;
         } else if self.remove_timestamp {
             self.action = SudoAction::RemoveTimestamp;
-        } else if self.reset_timestamp {
+        } else if self.reset_timestamp && self.external_args.is_empty() {
             self.action = SudoAction::ResetTimestamp;
         } else if self.validate {
             self.action = SudoAction::Validate;
