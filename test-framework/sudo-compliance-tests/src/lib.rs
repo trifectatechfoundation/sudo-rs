@@ -9,6 +9,7 @@ mod env_reset;
 mod flag_chdir;
 mod flag_group;
 mod flag_login;
+mod flag_non_interactive;
 mod flag_shell;
 mod flag_user;
 mod lecture;
