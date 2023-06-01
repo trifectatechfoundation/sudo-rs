@@ -35,12 +35,12 @@ impl SignalInfo {
     }
 }
 
-pub struct SignalReceiver<const SIGNO: c_int> {
+pub struct SignalStream<const SIGNO: c_int> {
     sig_id: SigId,
     rx: UnixStream,
 }
 
-impl<const SIGNO: c_int> SignalReceiver<SIGNO> {
+impl<const SIGNO: c_int> SignalStream<SIGNO> {
     pub fn new() -> io::Result<Self> {
         let (rx, tx) = UnixStream::pair()?;
 
@@ -66,13 +66,13 @@ impl<const SIGNO: c_int> SignalReceiver<SIGNO> {
     }
 }
 
-impl<const SIGNO: c_int> Drop for SignalReceiver<SIGNO> {
+impl<const SIGNO: c_int> Drop for SignalStream<SIGNO> {
     fn drop(&mut self) {
         unregister(self.sig_id);
     }
 }
 
-impl<const SIGNO: c_int> AsRawFd for SignalReceiver<SIGNO> {
+impl<const SIGNO: c_int> AsRawFd for SignalStream<SIGNO> {
     fn as_raw_fd(&self) -> RawFd {
         self.rx.as_raw_fd()
     }

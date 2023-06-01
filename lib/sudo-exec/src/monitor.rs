@@ -10,7 +10,7 @@ use signal_hook::consts::*;
 use signal_hook::low_level::signal_name;
 use sudo_log::{user_debug, user_warn};
 use sudo_system::interface::ProcessId;
-use sudo_system::signal::SignalReceiver;
+use sudo_system::signal::SignalStream;
 use sudo_system::{
     fork, getpgid, getpgrp, killpg, pipe, read, set_controlling_terminal, setpgid, setsid,
     tcgetpgrp, tcsetpgrp, waitpid, write, WaitError, WaitOptions,
@@ -189,17 +189,17 @@ fn exec_cmnd(mut command: Command, foreground: bool, fd_follower: OwnedFd) -> io
 }
 
 struct ExecClosure<'a> {
-    sigint_recv: SignalReceiver<SIGINT>,
-    sigquit_recv: SignalReceiver<SIGQUIT>,
-    sigtstp_recv: SignalReceiver<SIGTSTP>,
-    sigterm_recv: SignalReceiver<SIGTERM>,
-    sighup_recv: SignalReceiver<SIGHUP>,
-    sigalrm_recv: SignalReceiver<SIGALRM>,
-    sigusr1_recv: SignalReceiver<SIGUSR1>,
-    sigusr2_recv: SignalReceiver<SIGUSR2>,
-    sigchld_recv: SignalReceiver<SIGCHLD>,
-    sigcont_recv: SignalReceiver<SIGCONT>,
-    sigwinch_recv: SignalReceiver<SIGWINCH>,
+    sigint_recv: SignalStream<SIGINT>,
+    sigquit_recv: SignalStream<SIGQUIT>,
+    sigtstp_recv: SignalStream<SIGTSTP>,
+    sigterm_recv: SignalStream<SIGTERM>,
+    sighup_recv: SignalStream<SIGHUP>,
+    sigalrm_recv: SignalStream<SIGALRM>,
+    sigusr1_recv: SignalStream<SIGUSR1>,
+    sigusr2_recv: SignalStream<SIGUSR2>,
+    sigchld_recv: SignalStream<SIGCHLD>,
+    sigcont_recv: SignalStream<SIGCONT>,
+    sigwinch_recv: SignalStream<SIGWINCH>,
     cstat: &'a RefCell<CommandStatus>,
     cmnd_pid: Option<ProcessId>,
     cmnd_pgrp: ProcessId,
@@ -227,17 +227,17 @@ impl<'a> ExecClosure<'a> {
 
         let mc = Self {
             cstat,
-            sigint_recv: SignalReceiver::new().unwrap(),
-            sigquit_recv: SignalReceiver::new().unwrap(),
-            sigtstp_recv: SignalReceiver::new().unwrap(),
-            sigterm_recv: SignalReceiver::new().unwrap(),
-            sighup_recv: SignalReceiver::new().unwrap(),
-            sigalrm_recv: SignalReceiver::new().unwrap(),
-            sigusr1_recv: SignalReceiver::new().unwrap(),
-            sigusr2_recv: SignalReceiver::new().unwrap(),
-            sigchld_recv: SignalReceiver::new().unwrap(),
-            sigcont_recv: SignalReceiver::new().unwrap(),
-            sigwinch_recv: SignalReceiver::new().unwrap(),
+            sigint_recv: SignalStream::new().unwrap(),
+            sigquit_recv: SignalStream::new().unwrap(),
+            sigtstp_recv: SignalStream::new().unwrap(),
+            sigterm_recv: SignalStream::new().unwrap(),
+            sighup_recv: SignalStream::new().unwrap(),
+            sigalrm_recv: SignalStream::new().unwrap(),
+            sigusr1_recv: SignalStream::new().unwrap(),
+            sigusr2_recv: SignalStream::new().unwrap(),
+            sigchld_recv: SignalStream::new().unwrap(),
+            sigcont_recv: SignalStream::new().unwrap(),
+            sigwinch_recv: SignalStream::new().unwrap(),
             cmnd_pid: Some(cmnd_pid),
             cmnd_pgrp,
             mon_pgrp,

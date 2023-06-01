@@ -4,6 +4,8 @@ mod events;
 mod monitor;
 mod pty;
 mod socket;
+#[macro_use]
+mod signal;
 
 use std::{
     cell::RefCell,

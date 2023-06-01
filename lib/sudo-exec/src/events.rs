@@ -2,14 +2,14 @@ use std::{collections::HashMap, os::fd::AsRawFd};
 
 use sudo_system::poll::{PollIdx, PollSet};
 
-pub(crate) struct EventQueue<C> {
+pub(crate) struct EventQueue<T> {
     poll_set: PollSet,
-    callbacks: HashMap<PollIdx, fn(&mut C, &mut Self)>,
+    callbacks: HashMap<PollIdx, fn(&mut T, &mut Self)>,
     exit: bool,
     brk: bool,
 }
 
-impl<C> EventQueue<C> {
+impl<T> EventQueue<T> {
     pub(crate) fn new() -> Self {
         Self {
             poll_set: PollSet::new(),
@@ -19,12 +19,12 @@ impl<C> EventQueue<C> {
         }
     }
 
-    pub(crate) fn add_write_event<F: AsRawFd>(&mut self, fd: &F, cb: fn(&mut C, &mut Self)) {
+    pub(crate) fn add_write_event<F: AsRawFd>(&mut self, fd: &F, cb: fn(&mut T, &mut Self)) {
         let idx = self.poll_set.add_fd_write(fd);
         self.callbacks.insert(idx, cb);
     }
 
-    pub(crate) fn add_read_event<F: AsRawFd>(&mut self, fd: &F, cb: fn(&mut C, &mut Self)) {
+    pub(crate) fn add_read_event<F: AsRawFd>(&mut self, fd: &F, cb: fn(&mut T, &mut Self)) {
         let idx = self.poll_set.add_fd_read(fd);
         self.callbacks.insert(idx, cb);
     }
@@ -46,7 +46,7 @@ impl<C> EventQueue<C> {
         }
     }
 
-    pub(crate) fn start_loop(&mut self, closure: &mut C) {
+    pub(crate) fn start_loop(&mut self, closure: &mut T) {
         loop {
             if let Ok(idxs) = self.poll_set.poll() {
                 for idx in idxs {
