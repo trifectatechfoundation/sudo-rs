@@ -425,3 +425,46 @@ fn cached_credential_shared_with_target_user_that_is_self() -> Result<()> {
         .exec(&env)?
         .assert_success()
 }
+
+#[test]
+#[ignore]
+fn flag_reset_timestamp_plus_command_prompts_for_password() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD} | sudo -S true; sudo -k true"))
+        .as_user(USERNAME)
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "incorrect authentication attempt"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+#[ignore]
+fn flag_reset_timestamp_plus_command_does_not_invalidate_credential_cache() -> Result<()> {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; sudo -k true; [ $? -eq 1 ] || exit 2; sudo true"
+        ))
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()
+}
