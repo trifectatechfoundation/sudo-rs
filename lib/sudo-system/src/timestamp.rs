@@ -27,6 +27,12 @@ impl SetLength for File {
     }
 }
 
+type BoolStorage = u8;
+
+const SIZE_OF_TS: i64 = std::mem::size_of::<SystemTime>() as i64;
+const SIZE_OF_BOOL: i64 = std::mem::size_of::<BoolStorage>() as i64;
+const MOD_OFFSET: i64 = SIZE_OF_TS + SIZE_OF_BOOL;
+
 #[derive(Debug)]
 pub struct SessionRecordFile<'u, IO> {
     io: IO,
@@ -190,13 +196,19 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
-            if record.matches(&scope, target_user) {
+            // only touch if record is enabled
+            if record.enabled && record.matches(&scope, target_user) {
                 let now = SystemTime::now()?;
                 if record.written_between(now - self.timeout, now) {
-                    // move back 16 bytes (size of the timestamp) and overwrite with the latest time
-                    self.io.seek(io::SeekFrom::Current(-16))?;
+                    // move back to where the timestamp is and overwrite with the latest time
+                    self.io.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
                     let new_time = SystemTime::now()?;
                     new_time.encode(&mut self.io)?;
+
+                    // make sure we can still go to the end of the record
+                    self.io.seek(io::SeekFrom::Current(SIZE_OF_BOOL))?;
+
+                    // writing is done, unlock and return
                     self.io.unlock()?;
                     return Ok(TouchResult::Updated {
                         old_time: record.timestamp,
@@ -215,6 +227,25 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         Ok(TouchResult::NotFound)
     }
 
+    /// Disable all records that match the given scope. If a target user is
+    /// given then only records with the given scope that are targetting that
+    /// specific user will be disabled.
+    pub fn disable(&mut self, scope: RecordScope, target_user: Option<UserId>) -> io::Result<()> {
+        self.io.lock_exclusive()?;
+        self.seek_to_first_record()?;
+        while let Some(record) = self.next_record()? {
+            let must_disable = target_user
+                .map(|tu| record.matches(&scope, tu))
+                .unwrap_or_else(|| record.scope == scope);
+            if must_disable {
+                self.io.seek(io::SeekFrom::Current(-SIZE_OF_BOOL))?;
+                write_bool(false, &mut self.io)?;
+            }
+        }
+        self.io.unlock()?;
+        Ok(())
+    }
+
     /// Create a new record for the given scope and target user.
     /// If there is an existing record that matches the scope and target user,
     /// then that record will be updated.
@@ -224,9 +255,10 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             if record.matches(&scope, target_user) {
-                self.io.seek(io::SeekFrom::Current(-16))?;
+                self.io.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
                 let new_time = SystemTime::now()?;
                 new_time.encode(&mut self.io)?;
+                write_bool(true, &mut self.io)?;
                 self.io.unlock()?;
                 return Ok(CreateResult::Updated {
                     old_time: record.timestamp,
@@ -383,27 +415,50 @@ impl RecordScope {
     }
 }
 
+fn write_bool(b: bool, target: &mut impl Write) -> io::Result<()> {
+    let s: BoolStorage = if b { 0xFF } else { 0x00 };
+    let bytes = s.to_le_bytes();
+    target.write_all(&bytes)?;
+    Ok(())
+}
+
 /// A record in the session record file
 #[derive(Debug, PartialEq, Eq)]
 pub struct SessionRecord {
+    /// The scope for which the current record applies, i.e. what process group
+    /// or which TTY for interactive sessions
     scope: RecordScope,
+    /// The user that the current user wants to become, i.e. the target user
+    /// of the sudo session
     auth_user: libc::uid_t,
+    /// The timestamp at which the time was created. This must always be a time
+    /// originating from a monotonic clock that continues counting during system
+    /// sleep.
     timestamp: SystemTime,
+    /// Disabled records act as if they do not exist, but their storage can
+    /// be re-used when recreating for the same scope and target user
+    enabled: bool,
 }
 
 impl SessionRecord {
     /// Create a new record that is scoped to the specified scope and has `auth_user` as
     /// the target for the session.
     fn new(scope: RecordScope, auth_user: UserId) -> io::Result<SessionRecord> {
-        Ok(Self::init(scope, auth_user, SystemTime::now()?))
+        Ok(Self::init(scope, auth_user, true, SystemTime::now()?))
     }
 
     /// Initialize a new record with the given parameters
-    fn init(scope: RecordScope, auth_user: UserId, timestamp: SystemTime) -> SessionRecord {
+    fn init(
+        scope: RecordScope,
+        auth_user: UserId,
+        enabled: bool,
+        timestamp: SystemTime,
+    ) -> SessionRecord {
         SessionRecord {
             scope,
             auth_user,
             timestamp,
+            enabled,
         }
     }
 
@@ -411,10 +466,15 @@ impl SessionRecord {
     fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         self.scope.encode(target)?;
 
+        // write user id
         let buf = self.auth_user.to_le_bytes();
         target.write_all(&buf)?;
 
+        // write timestamp
         self.timestamp.encode(target)?;
+
+        // write enabled boolean
+        write_bool(self.enabled, target)?;
 
         Ok(())
     }
@@ -422,11 +482,30 @@ impl SessionRecord {
     /// Decode a record from the given stream
     fn decode(from: &mut impl Read) -> std::io::Result<SessionRecord> {
         let scope = RecordScope::decode(from)?;
+
+        // user id
         let mut buf = [0; std::mem::size_of::<libc::uid_t>()];
         from.read_exact(&mut buf)?;
         let auth_user = libc::uid_t::from_le_bytes(buf);
+
+        // timestamp
         let timestamp = SystemTime::decode(from)?;
-        Ok(SessionRecord::init(scope, auth_user, timestamp))
+
+        // enabled boolean
+        let mut buf = [0; std::mem::size_of::<BoolStorage>()];
+        from.read_exact(&mut buf)?;
+        let enabled = match BoolStorage::from_le_bytes(buf) {
+            0xFF => true,
+            0x00 => false,
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "Invalid boolean value detected in input stream",
+                ))
+            }
+        };
+
+        Ok(SessionRecord::init(scope, auth_user, enabled, timestamp))
     }
 
     /// Convert the record to a vector of bytes for storage.
@@ -574,7 +653,7 @@ mod tests {
             session_pid: 1234,
             init_time: some_time,
         };
-        let sample = SessionRecord::init(scope, 1234, some_time);
+        let sample = SessionRecord::init(scope, 1234, true, some_time);
 
         let dur = Duration::seconds(30);
 

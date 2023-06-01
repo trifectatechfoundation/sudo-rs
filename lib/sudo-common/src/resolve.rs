@@ -27,7 +27,7 @@ impl<'a, T: FromStr> NameOrId<'a, T> {
     }
 }
 
-pub(crate) fn resolve_current_user() -> Result<User, Error> {
+pub fn resolve_current_user() -> Result<User, Error> {
     User::real()?.ok_or(Error::UserNotFound("current user".to_string()))
 }
 
