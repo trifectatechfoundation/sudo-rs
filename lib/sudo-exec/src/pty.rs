@@ -15,11 +15,11 @@ use sudo_log::{user_debug, user_warn};
 use sudo_system::{
     fork, getpgid, getpgrp,
     interface::ProcessId,
-    kill, killpg, open, openpty,
+    kill, killpg, open, openpty, read,
     signal::{SignalHandler, SignalStream},
     tcgetpgrp,
     term::{self, TermContext},
-    waitpid, OpenFlags, WaitError, WaitOptions, WaitStatus,
+    waitpid, write, OpenFlags, WaitError, WaitOptions, WaitStatus,
 };
 
 use crate::{
@@ -76,11 +76,23 @@ pub(crate) fn exec_pty(
         command.stderr(clone_follower());
     }
 
+    let mut events = EventQueue::<ExecClosure>::new();
+
     if !background {
         // FIXME: ogsudo reads from `fd_usertty` and writes to `fd_leader` using `io_buf_new`.
+        events.add_read_event(&fd_usertty, |ec, events| {
+            let mut buf = [0; 6 * 1024];
+            let Ok(n) = read(ec.fd_usertty, &mut buf) else { return };
+            write(ec.fd_leader, &buf[..n as usize]).ok();
+        });
     }
 
     // FIXME: ogsudo reads from `fd_leader` and writes to `fd_usertty` using `io_buf_new`.
+    events.add_read_event(&fd_leader, |ec, events| {
+        let mut buf = [0; 6 * 1024];
+        let Ok(n) = read(ec.fd_leader, &mut buf) else { return };
+        write(ec.fd_usertty, &buf[..n as usize]).ok();
+    });
 
     // Are we the foreground process?
     let mut foreground = tcgetpgrp(&fd_usertty)
@@ -176,8 +188,6 @@ pub(crate) fn exec_pty(
     drop(sv_1);
 
     // FIXME: ogsudo sets the command timeout here.
-
-    let mut events = EventQueue::<ExecClosure>::new();
 
     // Fill in the exec closure.
     let mut ec = ExecClosure::new(
