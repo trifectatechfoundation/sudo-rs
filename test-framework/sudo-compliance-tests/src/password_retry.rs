@@ -61,7 +61,7 @@ fn three_retries_allowed_by_default() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh396"]
 fn defaults_passwd_tries() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
@@ -142,7 +142,7 @@ fn retry_is_not_allowed_immediately() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh397"]
 fn can_control_retry_delay_using_pam() -> Result<()> {
     let check_env = Env("").build()?;
     let common_auth = Command::new("cat")

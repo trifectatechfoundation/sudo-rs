@@ -65,7 +65,7 @@ fn if_value_starts_with_parentheses_variable_is_removed() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh344"]
 fn key_value_matches() -> Result<()> {
     super::key_value_matches(ENV_LIST)
 }
@@ -76,13 +76,13 @@ fn key_value_no_match() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh345"]
 fn key_value_syntax_needs_double_quotes() -> Result<()> {
     super::key_value_syntax_needs_double_quotes(ENV_LIST)
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh346"]
 fn key_value_where_value_is_parentheses_glob() -> Result<()> {
     super::key_value_where_value_is_parentheses_glob(ENV_LIST)
 }

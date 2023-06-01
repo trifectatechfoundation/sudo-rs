@@ -36,7 +36,7 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh308"]
 fn closes_open_file_descriptors() -> Result<()> {
     let script_path = "/tmp/script.bash";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
@@ -57,7 +57,7 @@ fn closes_open_file_descriptors() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh331"]
 fn sudo_binary_lacks_setuid_flag() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
@@ -83,7 +83,7 @@ fn sudo_binary_lacks_setuid_flag() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh331"]
 fn sudo_binary_is_not_owned_by_root() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 

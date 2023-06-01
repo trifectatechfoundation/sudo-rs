@@ -17,7 +17,7 @@ fn credential_caching_works() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh394"]
 fn sudoers_defaults_timestamp_timeout_nonzero() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
@@ -51,7 +51,7 @@ Defaults timestamp_timeout=0.1"
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh394"]
 fn sudoers_defaults_timestamp_timeout_zero_always_prompts_for_password() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
@@ -112,7 +112,7 @@ fn flag_reset_timestamp() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh395"]
 fn flag_validate_revalidation() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
@@ -135,7 +135,7 @@ Defaults timestamp_timeout=0.1"
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh395"]
 fn flag_validate_prompts_for_password() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
