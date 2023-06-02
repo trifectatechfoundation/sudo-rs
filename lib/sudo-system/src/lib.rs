@@ -26,6 +26,8 @@ pub mod time;
 
 pub mod timestamp;
 
+pub mod signal;
+
 pub fn write<F: AsRawFd>(fd: &F, buf: &[u8]) -> io::Result<libc::ssize_t> {
     cerr(unsafe { libc::write(fd.as_raw_fd(), buf.as_ptr().cast(), buf.len()) })
 }
