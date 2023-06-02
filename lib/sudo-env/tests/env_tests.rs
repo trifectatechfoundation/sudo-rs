@@ -135,6 +135,7 @@ fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
         chdir: sudo_options.directory.clone(),
         stdin: sudo_options.stdin,
         process: Process::new(),
+        use_session_records: false,
     }
 }
 

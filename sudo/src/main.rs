@@ -104,7 +104,14 @@ fn sudo_process() -> Result<(), Error> {
             SudoAction::Validate => {
                 unimplemented!();
             }
-            SudoAction::Run(_) => options,
+            SudoAction::Run(ref cmd) => {
+                if cmd.is_empty() && !options.shell && !options.login {
+                    eprintln!("{}", help::USAGE_MSG);
+                    std::process::exit(1);
+                } else {
+                    options
+                }
+            }
             SudoAction::List(_) => {
                 unimplemented!();
             }
