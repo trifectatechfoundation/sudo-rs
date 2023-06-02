@@ -34,7 +34,7 @@ fn fails_if_password_needed() -> Result<()> {
 }
 
 #[test]
-#[ignore = "405"]
+#[ignore = "gh405"]
 fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
     let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
 
