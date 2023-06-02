@@ -45,7 +45,6 @@ fn cmnd_alias_nopasswd() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn cmnd_alias_underscore() -> Result<()> {
     let env = Env([
         "Cmnd_Alias UNDER_SCORE = /bin/true, /bin/ls",

@@ -125,7 +125,7 @@ impl Token for Upper {
     }
 
     fn accept(c: char) -> bool {
-        c.is_uppercase()
+        c.is_uppercase() || c == '_'
     }
 }
 
