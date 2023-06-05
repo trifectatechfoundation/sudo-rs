@@ -3,7 +3,7 @@ use std::{
     env,
     fs::{self, File},
     io::{Seek, SeekFrom, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{self, Command as StdCommand, Stdio},
 };
 
@@ -92,10 +92,35 @@ impl Container {
 
         Ok(())
     }
+
+    fn copy_profraw_data(&mut self, profraw_dir: impl AsRef<Path>) -> Result<()> {
+        let profraw_dir = profraw_dir.as_ref();
+        fs::create_dir_all(profraw_dir)?;
+
+        self.exec(Command::new("sh").args([
+            "-c",
+            "mkdir /tmp/profraw; find / -name '*.profraw' -exec cp {} /tmp/profraw/ \\; || true",
+        ]))?
+        .assert_success()?;
+
+        let src_path = format!("{}:/tmp/profraw", self.id);
+        let dst_path = profraw_dir.join(&self.id).display().to_string();
+        run(
+            StdCommand::new("docker").args(["cp", &src_path, &dst_path]),
+            None,
+        )?
+        .assert_success()?;
+
+        Ok(())
+    }
 }
 
 impl Drop for Container {
     fn drop(&mut self) {
+        if let Ok(dir) = env::var("SUDO_TEST_PROFRAW_DIR") {
+            let _ = self.copy_profraw_data(dir);
+        }
+
         // running this to completion would block the current thread for several seconds so just
         // fire and forget
         let _ = StdCommand::new("docker")
