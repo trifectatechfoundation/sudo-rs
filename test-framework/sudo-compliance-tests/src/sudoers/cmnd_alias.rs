@@ -45,10 +45,25 @@ fn cmnd_alias_nopasswd() -> Result<()> {
 }
 
 #[test]
-fn cmnd_alias_underscore() -> Result<()> {
+fn cmnd_alias_can_contain_underscore_and_digits() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias UNDER_SCORE = /bin/true, /bin/ls",
-        "ALL ALL=(ALL:ALL) UNDER_SCORE",
+        "Cmnd_Alias UNDER_SCORE123 = /bin/true, /bin/ls",
+        "ALL ALL=(ALL:ALL) UNDER_SCORE123",
+    ])
+    .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()
+}
+
+#[test]
+fn cmnd_alias_cannot_start_with_underscore() -> Result<()> {
+    let env = Env([
+        "Cmnd_Alias _INVALID = /bin/true",
+        "ALL ALL=(ALL:ALL) NOPASSWD: ALL",
+        "ALL ALL=(ALL:ALL) !_INVALID",
     ])
     .build()?;
 
