@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      SUDO_TEST_PROFRAW_DIR: /tmp/profraw
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
@@ -93,6 +94,14 @@ jobs:
         env:
           SUDO_UNDER_TEST: ours
         run: cargo test -p sudo-compliance-tests
+
+      - name: Prepare code coverage data
+        run: ./make-lcov-info.bash
+
+      - name: Upload code coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
 
       - name: Check that we didn't forget to gate a passing compliance test
         working-directory: test-framework
