@@ -29,6 +29,39 @@ fn host_alias_works() -> Result<()> {
 }
 
 #[test]
+fn host_alias_can_contain_underscore_and_digits() -> Result<()> {
+    let env = Env([
+        format!("Host_Alias UNDER_SCORE123 = ALL"),
+        format!("ALL UNDER_SCORE123 = (ALL:ALL) NOPASSWD: /bin/true"),
+    ])
+    .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
+fn host_alias_cannot_start_with_underscore() -> Result<()> {
+    let env = Env([
+        "Host_Alias _FOO = ALL",
+        "ALL ALL = (ALL:ALL) NOPASSWD: /bin/true",
+        "ALL _FOO = (ALL:ALL) PASSWD: ALL"
+    ])
+    .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .exec(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
 fn host_alias_negation() -> Result<()> {
     let env = Env([
             "Host_Alias SERVERS = main, www, mail",
