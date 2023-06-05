@@ -31,8 +31,8 @@ fn host_alias_works() -> Result<()> {
 #[test]
 fn host_alias_can_contain_underscore_and_digits() -> Result<()> {
     let env = Env([
-        format!("Host_Alias UNDER_SCORE123 = ALL"),
-        format!("ALL UNDER_SCORE123 = (ALL:ALL) NOPASSWD: /bin/true"),
+        "Host_Alias UNDER_SCORE123 = ALL",
+        "ALL UNDER_SCORE123 = (ALL:ALL) NOPASSWD: /bin/true",
     ])
     .build()?;
 
