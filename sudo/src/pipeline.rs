@@ -1,4 +1,4 @@
-use std::{process::exit, sync::atomic::Ordering};
+use std::process::exit;
 
 use sudo_cli::SudoOptions;
 use sudo_common::{Context, Error};
@@ -71,7 +71,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         self.authenticator.cleanup();
 
         // Run any clean-up code before this line.
-        emulate_default_handler.store(true, Ordering::SeqCst);
+        emulate_default_handler();
 
         match reason {
             ExitReason::Code(code) => exit(code),

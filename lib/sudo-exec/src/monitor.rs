@@ -1,25 +1,23 @@
 use std::{
     io,
     os::fd::OwnedFd,
-    process::{exit, Child, Command},
+    process::{exit, Child, Command, ExitStatus},
     time::Duration,
 };
 
-use signal_hook::{
-    consts::*,
-    iterator::{exfiltrator::WithOrigin, SignalsInfo},
-    low_level::{
-        emulate_default_handler,
-        siginfo::{Cause, Origin, Process, Sent},
-    },
-};
+use signal_hook::consts::*;
 use sudo_log::user_error;
-use sudo_system::{getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid};
+use sudo_system::{
+    getpgid,
+    interface::ProcessId,
+    kill, set_controlling_terminal, setpgid, setsid,
+    signal::{SignalAction, SignalInfo},
+};
 
-use crate::ExitReason;
+use crate::{signal::SignalHandlers, ExitReason};
 
 pub(super) struct MonitorRelay {
-    signals: SignalsInfo<WithOrigin>,
+    signal_handlers: SignalHandlers,
     command_pid: ProcessId,
     command_pgrp: ProcessId,
     command: Child,
@@ -49,9 +47,15 @@ impl MonitorRelay {
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp);
 
-            let signals = SignalsInfo::<WithOrigin>::new(super::SIGNALS)?;
+            let signal_handlers = SignalHandlers::new()?;
 
-            Ok((signals, command_pid, command_pgrp, command, pty_follower))
+            Ok((
+                signal_handlers,
+                command_pid,
+                command_pgrp,
+                command,
+                pty_follower,
+            ))
         });
 
         if result.is_err() {
@@ -60,7 +64,7 @@ impl MonitorRelay {
 
         result.map(
             |(signals, command_pid, command_pgrp, command, pty_follower)| Self {
-                signals,
+                signal_handlers: signals,
                 command_pid,
                 command_pgrp,
                 command,
@@ -74,38 +78,35 @@ impl MonitorRelay {
     pub(super) fn run(mut self) -> io::Result<std::convert::Infallible> {
         loop {
             // First we check if the command is finished
-            self.wait_command()?;
+            if let Some(status) = self.wait_command()? {
+                ExitReason::from_status(status).send(&self.tx)?;
+
+                // Given that we overwrote the default handlers for all the signals, we must
+                // emulate them to handle the signal we just sent correctly.
+                drop(self.signal_handlers);
+
+                exit(0);
+            }
 
             // Then we check any pending signals that we received. Based on `mon_signal_cb`
-            for info in self.signals.wait() {
-                self.relay_signal(info);
+            if let Ok(infos) = self.signal_handlers.poll() {
+                for info in infos {
+                    self.relay_signal(info);
+                }
             }
         }
     }
 
-    fn wait_command(&mut self) -> io::Result<()> {
-        if let Some(status) = self.command.try_wait()? {
-            ExitReason::from_status(status).send(&self.tx)?;
-
-            // Given that we overwrote the default handlers for all the signals, we musti
-            // emulate them to handle the signal we just sent correctly.
-            for info in self.signals.pending() {
-                emulate_default_handler(info.signal)?;
-            }
-
-            exit(0);
-        }
-
-        Ok(())
+    fn wait_command(&mut self) -> io::Result<Option<ExitStatus>> {
+        self.command.try_wait()
     }
 
-    fn relay_signal(&self, info: Origin) {
-        let user_signaled = info.cause == Cause::Sent(Sent::User);
-        match info.signal {
+    fn relay_signal(&self, info: SignalInfo) {
+        match info.signal() {
             // FIXME: check `mon_handle_sigchld`
             SIGCHLD => {}
             // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if user_signaled && self.is_self_terminating(info.process) => {}
+            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
             // Kill the command with increasing urgency.
             SIGALRM => {
                 // Based on `terminate_command`.
@@ -120,25 +121,23 @@ impl MonitorRelay {
         }
     }
 
-    /// Decides if the signal sent by the `signaler` process is self-terminating.
+    /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
     ///
-    /// A signal is self-terminating if the PID of the `process`:
+    /// A signal is self-terminating if `signaler_pid`:
     /// - is the same PID of the command, or
     /// - is in the process group of the command and the command is the leader.
-    fn is_self_terminating(&self, signaler: Option<Process>) -> bool {
-        if let Some(signaler) = signaler {
-            if signaler.pid != 0 {
-                if signaler.pid == self.command_pid {
+    fn is_self_terminating(&self, signaler_pid: ProcessId) -> bool {
+        if signaler_pid != 0 {
+            if signaler_pid == self.command_pid {
+                return true;
+            }
+
+            if let Ok(grp_leader) = getpgid(signaler_pid) {
+                if grp_leader == self.command_pgrp {
                     return true;
                 }
-
-                if let Ok(grp_leader) = getpgid(signaler.pid) {
-                    if grp_leader == self.command_pgrp {
-                        return true;
-                    }
-                } else {
-                    user_error!("Could not fetch process group ID");
-                }
+            } else {
+                user_error!("Could not fetch process group ID");
             }
         }
 

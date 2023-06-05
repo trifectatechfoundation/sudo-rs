@@ -2,33 +2,26 @@
 
 mod monitor;
 mod pty;
+mod signal;
 
 use std::{
-    ffi::{c_int, CString, OsStr},
+    ffi::{CString, OsStr},
     io,
     mem::size_of,
     os::unix::{ffi::OsStrExt, process::ExitStatusExt},
     os::{fd::OwnedFd, unix::process::CommandExt},
     process::{Command, ExitStatus},
-    sync::{atomic::AtomicBool, Arc},
 };
 
-use signal_hook::consts::*;
 use sudo_common::{context::LaunchType::Login, Context, Environment};
 use sudo_log::user_error;
 use sudo_system::{fork, openpty, pipe, read, set_target_user, write};
 
-/// We only handle the signals that ogsudo handles.
-const SIGNALS: &[c_int] = &[
-    SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGPIPE, SIGUSR1, SIGUSR2, SIGCHLD,
-    SIGCONT, SIGWINCH,
-];
-
 /// Based on `ogsudo`s `exec_pty` function.
-pub fn run_command(
-    ctx: Context,
-    env: Environment,
-) -> io::Result<(ExitReason, EmulateDefaultHandler)> {
+///
+/// Returns the [`ExitReason`] of the command and a function that restores the default handler for
+/// signals once its called.
+pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, impl FnOnce())> {
     // FIXME: should we pipe the stdio streams?
     let mut command = Command::new(&ctx.command.command);
     // reset env and set filtered environment
@@ -88,9 +81,6 @@ pub fn run_command(
         pty::PtyRelay::new(monitor_pid, ctx.process.pid, pty_leader, rx)?.run()
     }
 }
-
-/// Atomic type used to decide when to run the default signal handlers
-pub type EmulateDefaultHandler = Arc<AtomicBool>;
 
 /// Exit reason for the command executed by sudo.
 pub enum ExitReason {
