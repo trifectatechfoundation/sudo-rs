@@ -84,12 +84,10 @@ pub enum Meta<T> {
 
 impl<T: Token> Token for Meta<T> {
     fn construct(s: String) -> Result<Self, String> {
-        Ok(if s.chars().all(char::is_uppercase) {
-            if s == "ALL" {
-                Meta::All
-            } else {
-                Meta::Alias(s)
-            }
+        Ok(if s == "ALL" {
+            Meta::All
+        } else if s.starts_with(AliasName::accept_1st) && s.chars().skip(1).all(AliasName::accept) {
+            Meta::Alias(s)
         } else {
             Meta::Only(T::construct(s)?)
         })
