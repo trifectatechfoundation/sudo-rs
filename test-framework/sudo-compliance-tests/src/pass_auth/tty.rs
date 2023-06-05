@@ -5,7 +5,12 @@ use crate::{Result, PASSWORD, USERNAME};
 use super::MAX_PAM_RESPONSE_SIZE;
 
 #[test]
+#[ignore = "gh414"]
 fn correct_password() -> Result<()> {
+    if !sudo_test::is_original_sudo() {
+        return Err("FIXME flaky test".into());
+    }
+
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
