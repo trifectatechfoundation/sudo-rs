@@ -5,6 +5,7 @@ mod io_util;
 mod monitor;
 mod pty;
 mod signal;
+mod event;
 
 use std::{
     ffi::{CString, OsStr},
