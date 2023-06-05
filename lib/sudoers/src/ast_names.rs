@@ -77,7 +77,7 @@ mod names {
         const DESCRIPTION: &'static str = "path to file";
     }
 
-    impl UserFriendly for tokens::Upper {
+    impl UserFriendly for tokens::AliasName {
         const DESCRIPTION: &'static str = "alias name";
     }
 

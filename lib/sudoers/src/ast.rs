@@ -248,7 +248,7 @@ pub type Modifier = Box<dyn Fn(&mut Tag)>;
 impl Parse for MetaOrTag {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         use Meta::*;
-        let Upper(keyword) = try_nonterminal(stream)?;
+        let AliasName(keyword) = try_nonterminal(stream)?;
 
         let mut switch = |modifier: fn(&mut Tag)| {
             expect_syntax(':', stream)?;
@@ -480,7 +480,7 @@ fn get_directive(
     where
         Meta<T>: Parse + Many,
     {
-        let Upper(name) = expect_nonterminal(stream)?;
+        let AliasName(name) = expect_nonterminal(stream)?;
         expect_syntax('=', stream)?;
 
         make(ctor(Def(name, expect_nonterminal(stream)?)))
