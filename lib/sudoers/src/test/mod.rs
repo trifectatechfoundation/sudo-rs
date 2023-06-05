@@ -362,6 +362,12 @@ fn defaults_regression() {
     parse_line("Defaults .mymachine=ALL");
 }
 
+#[test]
+fn useralias_underscore_regression() {
+    let Sudo::Spec(x) = parse_line("FOO_BAR ALL=ALL") else { todo!() };
+    let Qualified::Allow(Meta::Alias(_)) = x.users[0] else { panic!() };
+}
+
 fn test_topo_sort(n: usize) {
     let alias = |s: &str| Qualified::Allow(Meta::<UserSpecifier>::Alias(s.to_string()));
     let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);

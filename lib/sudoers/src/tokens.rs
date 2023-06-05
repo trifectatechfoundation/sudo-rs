@@ -84,12 +84,10 @@ pub enum Meta<T> {
 
 impl<T: Token> Token for Meta<T> {
     fn construct(s: String) -> Result<Self, String> {
-        Ok(if s.chars().all(char::is_uppercase) {
-            if s == "ALL" {
-                Meta::All
-            } else {
-                Meta::Alias(s)
-            }
+        Ok(if s == "ALL" {
+            Meta::All
+        } else if s.starts_with(AliasName::accept_1st) && s.chars().skip(1).all(AliasName::accept) {
+            Meta::Alias(s)
         } else {
             Meta::Only(T::construct(s)?)
         })
@@ -117,15 +115,19 @@ impl<T: Many> Many for Meta<T> {
 }
 
 /// An identifier that consits of only uppercase characters.
-pub struct Upper(pub String);
+pub struct AliasName(pub String);
 
-impl Token for Upper {
+impl Token for AliasName {
     fn construct(s: String) -> Result<Self, String> {
-        Ok(Upper(s))
+        Ok(AliasName(s))
+    }
+
+    fn accept_1st(c: char) -> bool {
+        c.is_ascii_uppercase() || c.is_ascii_digit()
     }
 
     fn accept(c: char) -> bool {
-        c.is_uppercase() || c == '_'
+        Self::accept_1st(c) || c == '_'
     }
 }
 
