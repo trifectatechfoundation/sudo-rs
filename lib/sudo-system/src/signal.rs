@@ -96,11 +96,10 @@ pub struct SignalHandler {
     action: Arc<AtomicU8>,
 }
 
+/// Set the action to [`SignalAction::Default`] when dropping.
 impl Drop for SignalHandler {
     fn drop(&mut self) {
-        // We need to be sure that we unregister this action when the handler is dropped. If it was
-        // already unregistered for whatever reason this should be a no-op.
-        unregister(self.sig_id);
+        self.set_action(SignalAction::Default);
     }
 }
 
@@ -213,6 +212,16 @@ impl SignalHandler {
     /// Returns the number of the signal that is being handled.
     pub fn signal(&self) -> c_int {
         self.signal
+    }
+
+    /// Unregister the handler.
+    ///
+    /// This leaves the current process without a handler for the signal handled by this handler.
+    /// Meaning that the process will ignore the signal when receiving it.
+    pub fn unregister(&self) {
+        // We need to be sure that we unregister this action when the handler is dropped. If it was
+        // already unregistered for whatever reason this should be a no-op.
+        unregister(self.sig_id);
     }
 }
 
