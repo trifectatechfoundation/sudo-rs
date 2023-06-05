@@ -1,18 +1,17 @@
-use std::{io, ops::ControlFlow, os::fd::OwnedFd};
+use std::{io, os::fd::OwnedFd};
 
 use signal_hook::consts::*;
 use sudo_log::user_error;
 use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
 
+use crate::event::EventHandler;
 use crate::{
     backchannel::{MonitorEvent, ParentBackchannel, ParentEvent},
     io_util::{retry_while_interrupted, was_interrupted},
-    signal::SignalHandlers,
     ExitReason,
 };
 
 pub(super) struct PtyRelay {
-    signal_handlers: SignalHandlers,
     monitor_pid: ProcessId,
     sudo_pid: ProcessId,
     command_pid: Option<ProcessId>,
@@ -20,6 +19,7 @@ pub(super) struct PtyRelay {
     // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
     _pty_leader: OwnedFd,
     backchannel: ParentBackchannel,
+    last_event: Option<ParentEvent>,
 }
 
 impl PtyRelay {
@@ -28,55 +28,69 @@ impl PtyRelay {
         sudo_pid: ProcessId,
         pty_leader: OwnedFd,
         mut backchannel: ParentBackchannel,
-    ) -> io::Result<Self> {
-        let signal_handlers = SignalHandlers::new()?;
+    ) -> io::Result<(Self, EventHandler<Self>)> {
+        let mut event_handler = EventHandler::<Self>::new()?;
+
+        macro_rules! set_signal_handler {
+            ($($signo:ident,)*) => {
+                $({
+                    event_handler.set_signal_callback::<$signo>(|ec, ev| {
+                        if let Ok(info) = ev.recv_signal_info::<$signo>().unwrap() {
+                            ec.relay_signal(info, ev);
+                        }
+                    })
+                })*
+            };
+        }
+
+        set_signal_handler! {
+            SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGPIPE, SIGUSR1, SIGUSR2,
+            SIGCHLD, SIGCONT, SIGWINCH,
+        }
+
+        event_handler.set_read_callback(&backchannel, |ec, ev| ec.check_backchannel(ev));
 
         retry_while_interrupted(|| backchannel.send(MonitorEvent::ExecCommand))?;
 
-        Ok(Self {
-            signal_handlers,
-            monitor_pid,
-            sudo_pid,
-            command_pid: None,
-            _pty_leader: pty_leader,
-            backchannel,
-        })
+        Ok((
+            Self {
+                monitor_pid,
+                sudo_pid,
+                command_pid: None,
+                _pty_leader: pty_leader,
+                backchannel,
+                last_event: None,
+            },
+            event_handler,
+        ))
     }
 
-    pub(super) fn run(mut self) -> io::Result<(ExitReason, impl FnOnce())> {
-        loop {
-            // First we check the backchannel for any status updates from the command or the
-            // monitor.
-            if let ControlFlow::Break(event) = self.check_backchannel() {
-                let exit_reason = match event {
-                    ParentEvent::CommandExit(code) => ExitReason::Code(code),
-                    ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
-                    ParentEvent::IoError(raw) => return Err(io::Error::from_raw_os_error(raw)),
-                    // We never break the event loop because of this event.
-                    ParentEvent::CommandPid(_) => unreachable!(),
-                };
+    pub(super) fn run(mut self, event_handler: &mut EventHandler<Self>) -> io::Result<ExitReason> {
+        event_handler.event_loop(&mut self);
+        // The event loop is only broken if `last_event` is set.
+        let exit_reason = match self.last_event.unwrap() {
+            ParentEvent::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
+            ParentEvent::CommandExit(code) => ExitReason::Code(code),
+            ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
+            // We never set this event as the last event
+            ParentEvent::CommandPid(_) => unreachable!(),
+        };
 
-                return Ok((exit_reason, move || drop(self.signal_handlers)));
-            }
-
-            // Then we check any pending signals that we received. Based on `signal_cb_pty`
-            if let Ok(infos) = self.signal_handlers.poll() {
-                for info in infos {
-                    self.relay_signal(info);
-                }
-            }
-        }
+        Ok(exit_reason)
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
-    fn check_backchannel(&mut self) -> ControlFlow<ParentEvent> {
+    fn check_backchannel(&mut self, ev: &mut EventHandler<Self>) {
         match self.backchannel.recv() {
             // Not an actual error, we can retry later.
             Err(err) if was_interrupted(&err) => {}
             // Failed to read command status. This means that something is wrong with the socket
             // and we should stop.
             Err(err) => {
-                return ControlFlow::Break((&err).into());
+                if self.last_event.is_none() {
+                    self.last_event = Some((&err).into());
+                    ev.set_break();
+                }
             }
             Ok(event) => match event {
                 // Received the PID of the command. This means that the command is already
@@ -87,17 +101,17 @@ impl PtyRelay {
                 ParentEvent::CommandExit(_)
                 | ParentEvent::CommandSignal(_)
                 | ParentEvent::IoError(_) => {
-                    return ControlFlow::Break(event);
+                    self.last_event = event.into();
+                    ev.set_break();
                 }
             },
         }
-        ControlFlow::Continue(())
     }
 
-    fn relay_signal(&self, info: SignalInfo) {
+    fn relay_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
         match info.signal() {
             // FIXME: check `handle_sigchld_pty`
-            SIGCHLD => {}
+            SIGCHLD => self.check_backchannel(event_handler),
             // FIXME: check `resume_terminal`
             SIGCONT => {}
             // FIXME: check `sync_ttysize`

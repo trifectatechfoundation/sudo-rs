@@ -1,11 +1,10 @@
 #![deny(unsafe_code)]
 
 mod backchannel;
+mod event;
 mod io_util;
 mod monitor;
 mod pty;
-mod signal;
-mod event;
 
 use std::{
     ffi::{CString, OsStr},
@@ -80,15 +79,16 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
     let monitor_pid = fork()?;
     // Monitor logic. Based on `exec_monitor`.
     if monitor_pid == 0 {
-        match monitor::MonitorRelay::new(command, pty_follower, backchannels.monitor)?.run() {}
+        let (mc, mut ev) = monitor::MonitorRelay::new(command, pty_follower, backchannels.monitor);
+        match mc.run(&mut ev) {}
     } else {
-        pty::PtyRelay::new(
+        let (ec, mut ev) = pty::PtyRelay::new(
             monitor_pid,
             ctx.process.pid,
             pty_leader,
             backchannels.parent,
-        )?
-        .run()
+        )?;
+        ec.run(&mut ev).map(|er| (er, move || drop(ev)))
     }
 }
 

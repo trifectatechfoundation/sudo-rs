@@ -2,7 +2,10 @@ use std::{
     ffi::c_int,
     io::{self, Read, Write},
     mem::size_of,
-    os::unix::{net::UnixStream, process::ExitStatusExt},
+    os::{
+        fd::{AsRawFd, RawFd},
+        unix::{net::UnixStream, process::ExitStatusExt},
+    },
     process::ExitStatus,
 };
 
@@ -123,6 +126,12 @@ impl ParentBackchannel {
     }
 }
 
+impl AsRawFd for ParentBackchannel {
+    fn as_raw_fd(&self) -> RawFd {
+        self.socket.as_raw_fd()
+    }
+}
+
 /// Different messages exchanged between the monitor and the parent process using a [`Backchannel`].
 pub(crate) enum MonitorEvent {
     ExecCommand,
@@ -177,5 +186,11 @@ impl MonitorBackchannel {
         let prefix = Prefix::from_ne_bytes(buf);
 
         Ok(MonitorEvent::from_prefix(prefix))
+    }
+}
+
+impl AsRawFd for MonitorBackchannel {
+    fn as_raw_fd(&self) -> RawFd {
+        self.socket.as_raw_fd()
     }
 }
