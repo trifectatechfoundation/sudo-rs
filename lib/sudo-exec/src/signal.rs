@@ -29,20 +29,8 @@ impl SignalHandlers {
         Ok(Self { handlers, poll_set })
     }
 
-    pub(crate) fn get(&self, signal: c_int) -> Option<&SignalHandler> {
-        self.handlers.get(&signal)
-    }
-
     pub(crate) fn get_mut(&mut self, signal: c_int) -> Option<&mut SignalHandler> {
         self.handlers.get_mut(&signal)
-    }
-
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &SignalHandler> {
-        self.handlers.values()
-    }
-
-    pub(crate) fn iter_mut(&mut self) -> impl Iterator<Item = &mut SignalHandler> {
-        self.handlers.values_mut()
     }
 
     pub(crate) fn poll(&mut self) -> io::Result<Vec<SignalInfo>> {

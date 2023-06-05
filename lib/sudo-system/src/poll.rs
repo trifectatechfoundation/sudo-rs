@@ -13,6 +13,12 @@ pub struct PollSet<K> {
     fds: HashMap<K, (RawFd, c_short)>,
 }
 
+impl<K: Eq + PartialEq + Hash + Clone> Default for PollSet<K> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K: Eq + PartialEq + Hash + Clone> PollSet<K> {
     /// Create an empty set of file descriptors.
     pub fn new() -> Self {
@@ -25,7 +31,7 @@ impl<K: Eq + PartialEq + Hash + Clone> PollSet<K> {
     /// for the descriptor inside the set.
     ///
     /// If the provided key is already in the set, calling this function will overwrite the file
-    /// descriptor for that key. 
+    /// descriptor for that key.
     pub fn add_fd_read<F: AsRawFd>(&mut self, key: K, fd: &F) {
         self.add_fd(key, fd, POLLIN)
     }
@@ -34,7 +40,7 @@ impl<K: Eq + PartialEq + Hash + Clone> PollSet<K> {
     /// for the descriptor inside the set.
     ///
     /// If the provided key is already in the set, calling this function will overwrite the file
-    /// descriptor for that key. 
+    /// descriptor for that key.
     pub fn add_fd_write<F: AsRawFd>(&mut self, key: K, fd: &F) {
         self.add_fd(key, fd, POLLOUT)
     }

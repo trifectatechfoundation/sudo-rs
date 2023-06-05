@@ -2,12 +2,7 @@ use std::{io, os::fd::OwnedFd};
 
 use signal_hook::consts::*;
 use sudo_log::user_error;
-use sudo_system::{
-    getpgid,
-    interface::ProcessId,
-    kill,
-    signal::{SignalAction, SignalInfo},
-};
+use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
 
 use crate::{signal::SignalHandlers, ExitReason};
 
