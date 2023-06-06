@@ -1,10 +1,15 @@
-use std::{io, os::fd::OwnedFd};
+use std::{io, ops::ControlFlow, os::fd::OwnedFd};
 
 use signal_hook::consts::*;
 use sudo_log::user_error;
 use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
 
-use crate::{signal::SignalHandlers, ExitReason};
+use crate::{
+    backchannel::{MonitorEvent, ParentBackchannel, ParentEvent},
+    io_util::{retry_while_interrupted, was_interrupted},
+    signal::SignalHandlers,
+    ExitReason,
+};
 
 pub(super) struct PtyRelay {
     signal_handlers: SignalHandlers,
@@ -14,7 +19,7 @@ pub(super) struct PtyRelay {
     // FIXME: Look for `SFD_LEADER` occurences in `exec_pty` to decide what to do with the leader
     // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
     _pty_leader: OwnedFd,
-    rx: OwnedFd,
+    backchannel: ParentBackchannel,
 }
 
 impl PtyRelay {
@@ -22,24 +27,34 @@ impl PtyRelay {
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
         pty_leader: OwnedFd,
-        rx: OwnedFd,
+        mut backchannel: ParentBackchannel,
     ) -> io::Result<Self> {
+        retry_while_interrupted(|| backchannel.send(&MonitorEvent::ExecCommand))?;
+
         Ok(Self {
             signal_handlers: SignalHandlers::new()?,
             monitor_pid,
             sudo_pid,
-            // FIXME: is this ok? Check ogsudo's code.
             command_pid: -1,
             _pty_leader: pty_leader,
-            rx,
+            backchannel,
         })
     }
 
     pub(super) fn run(mut self) -> io::Result<(ExitReason, impl FnOnce())> {
         loop {
-            // First we check if the monitor sent us the exit status of the command.
-            if let Ok(reason) = self.wait_monitor() {
-                return Ok((reason, move || drop(self.signal_handlers)));
+            // First we check the backchannel for any status updates from the command or the
+            // monitor.
+            if let ControlFlow::Break(event) = self.check_backchannel() {
+                let exit_reason = match event {
+                    ParentEvent::CommandExit(code) => ExitReason::Code(code),
+                    ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
+                    ParentEvent::IoError(raw) => return Err(io::Error::from_raw_os_error(raw)),
+                    // We never break the event loop because of this event.
+                    ParentEvent::CommandPid(_) => unreachable!(),
+                };
+
+                return Ok((exit_reason, move || drop(self.signal_handlers)));
             }
 
             // Then we check any pending signals that we received. Based on `signal_cb_pty`
@@ -51,11 +66,33 @@ impl PtyRelay {
         }
     }
 
-    fn wait_monitor(&mut self) -> io::Result<ExitReason> {
-        ExitReason::recv(&self.rx)
+    /// Read an event from the backchannel and return the event if it should break the event loop.
+    fn check_backchannel(&mut self) -> ControlFlow<ParentEvent> {
+        match self.backchannel.recv() {
+            // Not an actual error, we can retry later.
+            Err(err) if was_interrupted(&err) => {}
+            // Failed to read command status. This means that something is wrong with the socket
+            // and we should stop.
+            Err(err) => {
+                return ControlFlow::Break((&err).into());
+            }
+            Ok(event) => match event {
+                // Received the PID of the command. This means that the command is already
+                // executing.
+                ParentEvent::CommandPid(pid) => self.command_pid = pid,
+                // The command terminated or the monitor was not able to spawn it. We should stop
+                // either way.
+                ParentEvent::CommandExit(_)
+                | ParentEvent::CommandSignal(_)
+                | ParentEvent::IoError(_) => {
+                    return ControlFlow::Break(event);
+                }
+            },
+        }
+        ControlFlow::Continue(())
     }
 
-    fn relay_signal(&self, info: SignalInfo) {
+    fn relay_signal(&mut self, info: SignalInfo) {
         match info.signal() {
             // FIXME: check `handle_sigchld_pty`
             SIGCHLD => {}
