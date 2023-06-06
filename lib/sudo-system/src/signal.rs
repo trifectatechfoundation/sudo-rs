@@ -192,6 +192,9 @@ impl SignalHandler {
     ///
     /// Calling this function will block until a signal arrives if the action for this handler is
     /// set to [`SignalAction::Stream`]. Otherwise it will block indefinitely.
+    ///
+    /// Note that calling this function will only retrieve the information related to a single
+    /// signal arrival even if the same signal has been sent to the process more than once. 
     pub fn recv(&mut self) -> io::Result<SignalInfo> {
         let mut info = MaybeUninit::<siginfo_t>::uninit();
         let fd = self.rx.as_raw_fd();
