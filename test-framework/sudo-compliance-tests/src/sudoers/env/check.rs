@@ -117,6 +117,32 @@ fn can_override_after_bang() -> Result<()> {
 }
 
 #[test]
+fn wildcard_works() -> Result<()> {
+    super::wildcard_works(ENV_LIST)
+}
+
+#[test]
+fn double_wildcard_is_ok() -> Result<()> {
+    super::double_wildcard_is_ok(ENV_LIST)
+}
+
+#[test]
+fn minus_equal_can_remove_wildcard() -> Result<()> {
+    super::minus_equal_can_remove_wildcard(ENV_LIST)
+}
+
+#[test]
+fn accepts_uncommon_var_names() -> Result<()> {
+    super::accepts_uncommon_var_names(ENV_LIST)
+}
+
+#[test]
+#[ignore]
+fn skips_invalid_variable_names() -> Result<()> {
+    super::skips_invalid_variable_names(ENV_LIST)
+}
+
+#[test]
 fn equal_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_check = WHATEVER"]).build()?;
 
