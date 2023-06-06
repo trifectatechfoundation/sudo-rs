@@ -76,6 +76,7 @@ impl MonitorRelay {
     pub(super) fn run(mut self) -> io::Result<std::convert::Infallible> {
         loop {
             // First we check if the command is finished
+            // FIXME: This should be polled alongside the signal handlers instead.
             if let Some(status) = self.wait_command()? {
                 ExitReason::from_status(status).send(&self.tx)?;
 
@@ -86,7 +87,13 @@ impl MonitorRelay {
                 exit(0);
             }
 
-            // Then we check any pending signals that we received. Based on `mon_signal_cb`
+            // Then we check any pending signals that we received. Based on `mon_signal_cb`.
+            //
+            // Right now, we rely on the fact that `poll` can be interrupted by a signal so this
+            // call doesn't block forever. We are guaranteed to receive `SIGCHLD` when the
+            // command terminates meaning that the `wait_command` call above will succeed on the
+            // next iteration of this loop. We won't have to rely on this behavior once we
+            // integrate `wait_command` into the `poll` itself.
             if let Ok(infos) = self.signal_handlers.poll() {
                 for info in infos {
                     self.relay_signal(info);
