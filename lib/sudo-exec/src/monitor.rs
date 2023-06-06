@@ -80,10 +80,6 @@ impl MonitorRelay {
             if let Some(status) = self.wait_command()? {
                 ExitReason::from_status(status).send(&self.tx)?;
 
-                // Given that we overwrote the default handlers for all the signals, we must
-                // emulate them to handle the signal we just sent correctly.
-                drop(self.signal_handlers);
-
                 exit(0);
             }
 
