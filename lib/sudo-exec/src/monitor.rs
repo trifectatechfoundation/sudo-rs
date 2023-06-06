@@ -74,7 +74,7 @@ impl MonitorRelay {
             }
             Ok((signals, command_pid, command_pgrp, command, pty_follower)) => Ok(Self {
                 signal_handlers: signals,
-                command_pid, 
+                command_pid,
                 command_pgrp,
                 command,
                 _pty_follower: pty_follower,
