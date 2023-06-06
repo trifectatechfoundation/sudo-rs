@@ -15,7 +15,7 @@ pub(super) struct PtyRelay {
     signal_handlers: SignalHandlers,
     monitor_pid: ProcessId,
     sudo_pid: ProcessId,
-    command_pid: ProcessId,
+    command_pid: Option<ProcessId>,
     // FIXME: Look for `SFD_LEADER` occurences in `exec_pty` to decide what to do with the leader
     // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
     _pty_leader: OwnedFd,
@@ -35,7 +35,7 @@ impl PtyRelay {
             signal_handlers: SignalHandlers::new()?,
             monitor_pid,
             sudo_pid,
-            command_pid: -1,
+            command_pid: None,
             _pty_leader: pty_leader,
             backchannel,
         })
@@ -79,7 +79,7 @@ impl PtyRelay {
             Ok(event) => match event {
                 // Received the PID of the command. This means that the command is already
                 // executing.
-                ParentEvent::CommandPid(pid) => self.command_pid = pid,
+                ParentEvent::CommandPid(pid) => self.command_pid = pid.into(),
                 // The command terminated or the monitor was not able to spawn it. We should stop
                 // either way.
                 ParentEvent::CommandExit(_)
@@ -116,12 +116,12 @@ impl PtyRelay {
     /// - is in the process group of the command and either sudo or the command is the leader.
     fn is_self_terminating(&self, signaler_pid: ProcessId) -> bool {
         if signaler_pid != 0 {
-            if signaler_pid == self.command_pid {
+            if Some(signaler_pid) == self.command_pid {
                 return true;
             }
 
             if let Ok(signaler_pgrp) = getpgid(signaler_pid) {
-                if signaler_pgrp == self.command_pid || signaler_pgrp == self.sudo_pid {
+                if Some(signaler_pgrp) == self.command_pid || signaler_pgrp == self.sudo_pid {
                     return true;
                 }
             } else {
