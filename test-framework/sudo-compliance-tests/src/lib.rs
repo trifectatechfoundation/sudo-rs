@@ -1,5 +1,7 @@
 #![cfg(test)]
 
+use core::fmt;
+
 #[macro_use]
 mod macros;
 
@@ -57,3 +59,19 @@ const SUDO_ENV_DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 const SUDO_ENV_DEFAULT_TERM: &str = "unknown";
 
 const SUDOERS_USE_PTY: &str = "Defaults use_pty";
+
+enum EnvList {
+    #[allow(dead_code)]
+    Check,
+    Keep,
+}
+
+impl fmt::Display for EnvList {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            EnvList::Check => "env_check",
+            EnvList::Keep => "env_keep",
+        };
+        f.write_str(s)
+    }
+}

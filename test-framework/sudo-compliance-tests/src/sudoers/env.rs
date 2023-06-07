@@ -1,11 +1,9 @@
 mod check;
 mod keep;
 
-use core::fmt;
-
 use sudo_test::{Command, Env};
 
-use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{helpers, EnvList, Result, SUDOERS_ALL_ALL_NOPASSWD};
 
 const BAD_TZ_VALUES: &[&str] = &[
     // "It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that
@@ -133,22 +131,6 @@ fn unchecked_tz() -> Result<()> {
         assert_eq!(Some(value), sudo_env.get(TZ).copied());
     }
     Ok(())
-}
-
-enum EnvList {
-    #[allow(dead_code)]
-    Check,
-    Keep,
-}
-
-impl fmt::Display for EnvList {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            EnvList::Check => "env_check",
-            EnvList::Keep => "env_keep",
-        };
-        f.write_str(s)
-    }
 }
 
 fn equal_single(env_list: EnvList) -> Result<()> {
