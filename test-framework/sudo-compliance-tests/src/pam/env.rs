@@ -70,7 +70,7 @@ fn stock_pam_d_sudo() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh420"]
 fn preserves_pam_env() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -102,7 +102,7 @@ fn preserves_pam_env() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh420"]
 fn pam_env_has_precedence_over_callers_env() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -192,7 +192,7 @@ fn env_check_has_precedence_over_pam_env() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh420"]
 fn var_rejected_by_env_check_falls_back_to_pam_env_value() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -236,7 +236,7 @@ fn var_rejected_by_env_check_falls_back_to_pam_env_value() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh420"]
 fn default_and_override_pam_env_vars_are_parentheses_checked_but_set_vars_are_not() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "() set";
@@ -268,7 +268,7 @@ fn default_and_override_pam_env_vars_are_parentheses_checked_but_set_vars_are_no
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh420"]
 fn pam_env_vars_are_not_env_checked() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "%set";
