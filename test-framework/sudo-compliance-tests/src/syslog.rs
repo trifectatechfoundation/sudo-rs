@@ -53,7 +53,7 @@ fn rsyslogd_works() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh421"]
 fn sudo_logs_every_executed_command() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
     let rsyslog = Rsyslogd::start(&env)?;
