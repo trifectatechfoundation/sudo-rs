@@ -34,6 +34,8 @@ impl MonitorRelay {
         mut backchannel: MonitorBackchannel,
     ) -> io::Result<Self> {
         let result = io::Result::Ok(()).and_then(|()| {
+            let signal_handlers = SignalHandlers::new()?;
+
             // Create new terminal session.
             setsid()?;
 
@@ -55,8 +57,6 @@ impl MonitorRelay {
             // set the process group ID of the command to the command PID.
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp);
-
-            let signal_handlers = SignalHandlers::new()?;
 
             Ok((
                 signal_handlers,

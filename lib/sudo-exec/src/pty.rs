@@ -29,10 +29,12 @@ impl PtyRelay {
         pty_leader: OwnedFd,
         mut backchannel: ParentBackchannel,
     ) -> io::Result<Self> {
+        let signal_handlers = SignalHandlers::new()?;
+
         retry_while_interrupted(|| backchannel.send(&MonitorEvent::ExecCommand))?;
 
         Ok(Self {
-            signal_handlers: SignalHandlers::new()?,
+            signal_handlers,
             monitor_pid,
             sudo_pid,
             command_pid: None,

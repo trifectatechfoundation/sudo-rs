@@ -74,12 +74,20 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
 
     let backchannels = backchannel_pair()?;
 
+    // FIXME: We should block all the incoming signals before forking and unblock them just after
+    // initializing the signal hadnlers.
     let monitor_pid = fork()?;
     // Monitor logic. Based on `exec_monitor`.
     if monitor_pid == 0 {
         match monitor::MonitorRelay::new(command, pty_follower, backchannels.1)?.run() {}
     } else {
-        pty::PtyRelay::new(monitor_pid, ctx.process.pid, pty_leader, backchannels.0)?.run()
+        pty::PtyRelay::new(
+            monitor_pid,
+            ctx.process.pid,
+            pty_leader,
+            backchannels.0,
+        )?
+        .run()
     }
 }
 
