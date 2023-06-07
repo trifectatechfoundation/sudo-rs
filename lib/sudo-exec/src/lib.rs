@@ -70,10 +70,7 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
 
     let (pty_leader, pty_follower) = openpty()?;
     let (rx, tx) = pipe()?;
-    // SAFETY: we don't call any function that is not `async-signal-safe` inside this `fork` as all
-    // the signal handling is done by `signal_hook` which protects us from it.
-    #[allow(unsafe_code)]
-    let monitor_pid = unsafe { fork() }?;
+    let monitor_pid = fork()?;
     // Monitor logic. Based on `exec_monitor`.
     if monitor_pid == 0 {
         match monitor::MonitorRelay::new(command, pty_follower, tx)?.run()? {}
