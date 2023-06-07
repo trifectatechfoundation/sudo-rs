@@ -94,7 +94,7 @@ impl PtyRelay {
         ControlFlow::Continue(())
     }
 
-    fn relay_signal(&mut self, info: SignalInfo) {
+    fn relay_signal(&self, info: SignalInfo) {
         match info.signal() {
             // FIXME: check `handle_sigchld_pty`
             SIGCHLD => {}
