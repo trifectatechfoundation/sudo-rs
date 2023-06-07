@@ -361,7 +361,7 @@ fn credential_cache_is_shared_between_sibling_shells() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh387"]
 fn cached_credential_applies_to_all_target_users() -> Result<()> {
     let second_target_user = "ghost";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
@@ -411,7 +411,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<(
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh388"]
 fn cached_credential_shared_with_target_user_that_is_self() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
