@@ -13,14 +13,22 @@ type ParentData = c_int;
 const PREFIX_LEN: usize = size_of::<Prefix>();
 const PARENT_DATA_LEN: usize = size_of::<ParentData>();
 
-pub(crate) fn backchannel_pair() -> io::Result<(ParentBackchannel, MonitorBackchannel)> {
-    let (sock1, sock2) = UnixStream::pair()?;
-    sock1.set_nonblocking(true)?;
-    sock2.set_nonblocking(true)?;
-    Ok((
-        ParentBackchannel { socket: sock1 },
-        MonitorBackchannel { socket: sock2 },
-    ))
+pub(crate) struct BackchannelPair {
+    pub(crate) parent: ParentBackchannel,
+    pub(crate) monitor: MonitorBackchannel,
+}
+
+impl BackchannelPair {
+    pub(crate) fn new() -> io::Result<Self> {
+        let (sock1, sock2) = UnixStream::pair()?;
+        sock1.set_nonblocking(true)?;
+        sock2.set_nonblocking(true)?;
+
+        Ok(Self {
+            parent: ParentBackchannel { socket: sock1 },
+            monitor: MonitorBackchannel { socket: sock2 },
+        })
+    }
 }
 
 pub(crate) enum ParentEvent {

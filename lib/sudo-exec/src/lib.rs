@@ -14,7 +14,7 @@ use std::{
     process::Command,
 };
 
-use backchannel::backchannel_pair;
+use backchannel::BackchannelPair;
 use sudo_common::{context::LaunchType::Login, Context, Environment};
 use sudo_log::user_error;
 use sudo_system::{fork, openpty, set_target_user};
@@ -72,20 +72,20 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
 
     let (pty_leader, pty_follower) = openpty()?;
 
-    let backchannels = backchannel_pair()?;
+    let backchannels = BackchannelPair::new()?;
 
     // FIXME: We should block all the incoming signals before forking and unblock them just after
     // initializing the signal hadnlers.
     let monitor_pid = fork()?;
     // Monitor logic. Based on `exec_monitor`.
     if monitor_pid == 0 {
-        match monitor::MonitorRelay::new(command, pty_follower, backchannels.1)?.run() {}
+        match monitor::MonitorRelay::new(command, pty_follower, backchannels.monitor)?.run() {}
     } else {
         pty::PtyRelay::new(
             monitor_pid,
             ctx.process.pid,
             pty_leader,
-            backchannels.0,
+            backchannels.parent,
         )?
         .run()
     }
