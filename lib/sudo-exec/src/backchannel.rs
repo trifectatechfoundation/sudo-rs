@@ -55,7 +55,7 @@ impl ParentEvent {
         }
     }
 
-    fn to_parts(self) -> (Prefix, ParentData) {
+    fn into_parts(self) -> (Prefix, ParentData) {
         let prefix = match self {
             ParentEvent::IoError(_) => Self::IO_ERROR,
             ParentEvent::CommandExit(_) => Self::CMD_EXIT,
@@ -103,7 +103,7 @@ impl ParentBackchannel {
     ///
     /// Calling this method will block until the socket is ready for writing.
     pub(crate) fn send(&mut self, event: MonitorEvent) -> io::Result<()> {
-        let buf: [u8; MonitorEvent::LEN] = event.to_prefix().to_ne_bytes();
+        let buf: [u8; MonitorEvent::LEN] = event.into_prefix().to_ne_bytes();
         self.socket.write_all(&buf)
     }
 
@@ -139,7 +139,7 @@ impl MonitorEvent {
         }
     }
 
-    fn to_prefix(self) -> Prefix {
+    fn into_prefix(self) -> Prefix {
         match self {
             MonitorEvent::ExecCommand => Self::EXEC_CMD,
         }
@@ -159,7 +159,7 @@ impl MonitorBackchannel {
         let mut buf = [0; ParentEvent::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
-        let (prefix, data) = event.to_parts();
+        let (prefix, data) = event.into_parts();
 
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());
