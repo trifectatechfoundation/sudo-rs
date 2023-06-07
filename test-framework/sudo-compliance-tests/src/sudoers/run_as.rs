@@ -350,6 +350,7 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()>
 
 // NOTE opposed to what the `man sudoers` says?
 #[test]
+#[ignore = "gh427"]
 fn when_no_run_as_spec_then_a_target_group_may_be_specified() -> Result<()> {
     let env = Env("ALL ALL = NOPASSWD: ALL")
         .user(User(USERNAME))
