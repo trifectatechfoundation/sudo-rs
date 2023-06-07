@@ -166,3 +166,24 @@ fn group_does_not_add_groups_without_authorization() -> Result<()> {
 
     Ok(())
 }
+
+// " If no `-u` option is specified, the command will be run as the invoking user."
+#[test]
+fn if_no_flag_user_then_target_user_is_the_invoking_user() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .group(Group(GROUPNAME))
+        .build()?;
+
+    for invoking_user in ["root", USERNAME] {
+        let target_user = Command::new("sudo")
+            .args(["-g", GROUPNAME, "whoami"])
+            .as_user(invoking_user)
+            .exec(&env)?
+            .stdout()?;
+
+        assert_eq!(invoking_user, target_user);
+    }
+
+    Ok(())
+}
