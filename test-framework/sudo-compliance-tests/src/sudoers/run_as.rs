@@ -1,5 +1,7 @@
 //! Test the run_as component of the user specification: <user> ALL=(<run_as>) ALL`
 
+use std::collections::HashSet;
+
 use sudo_test::{Command, Env, User};
 
 use crate::{Result, GROUPNAME, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
@@ -308,6 +310,63 @@ fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Res
             .exec(&env)?
             .assert_success()?;
     }
+
+    Ok(())
+}
+
+// `man sudoers` says in the 'Runas_Spec' section
+// "If no Runas_Spec is specified the command may be run as root and no group may be specified."
+#[test]
+fn when_no_run_as_spec_then_target_user_can_be_root() -> Result<()> {
+    let env = Env("ALL ALL=NOPASSWD: ALL").user(USERNAME).build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()
+}
+
+#[test]
+fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()> {
+    let env = Env("ALL ALL=NOPASSWD: ALL").user(USERNAME).build()?;
+
+    let output = Command::new("sudo")
+        .args(["-u", USERNAME, "true"])
+        .exec(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/bin/true' as ferris"
+    } else {
+        "I'm sorry root. I'm afraid I can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+// NOTE opposed to what the `man sudoers` says?
+#[test]
+fn when_no_run_as_spec_then_a_target_group_may_be_specified() -> Result<()> {
+    let env = Env("ALL ALL = NOPASSWD: ALL")
+        .user(User(USERNAME))
+        .group(GROUPNAME)
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-u", "root", "-g", GROUPNAME, "groups"])
+        .as_user(USERNAME)
+        .exec(&env)?
+        .stdout()?;
+
+    let mut actual = output.split_ascii_whitespace().collect::<HashSet<_>>();
+
+    assert!(actual.remove("root"));
+    assert!(actual.remove("rustaceans"));
+    assert!(actual.is_empty());
 
     Ok(())
 }
