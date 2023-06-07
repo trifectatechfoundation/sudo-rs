@@ -6,7 +6,7 @@ use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_TERM};
 
 use super::BAD_TZ_VALUES;
 
-const ENV_LIST: super::EnvList = super::EnvList::Check;
+const ENV_LIST: crate::EnvList = crate::EnvList::Check;
 
 #[test]
 fn equal_single() -> Result<()> {

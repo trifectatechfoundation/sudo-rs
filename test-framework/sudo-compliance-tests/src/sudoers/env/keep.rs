@@ -2,7 +2,7 @@ use sudo_test::{Command, Env};
 
 use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH};
 
-const ENV_LIST: super::EnvList = super::EnvList::Keep;
+const ENV_LIST: crate::EnvList = crate::EnvList::Keep;
 
 #[test]
 fn equal_single() -> Result<()> {
