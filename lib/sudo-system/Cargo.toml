@@ -11,6 +11,8 @@ publish.workspace = true
 libc.workspace = true
 sudo-cutils.workspace = true
 sudo-log.workspace = true
+signal-hook.workspace = true
+signal-hook-registry.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
