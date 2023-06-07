@@ -441,7 +441,6 @@ fn cached_credential_shared_with_target_user_that_is_self() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn flag_reset_timestamp_plus_command_prompts_for_password() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
@@ -467,7 +466,6 @@ fn flag_reset_timestamp_plus_command_prompts_for_password() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn flag_reset_timestamp_plus_command_does_not_invalidate_credential_cache() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
