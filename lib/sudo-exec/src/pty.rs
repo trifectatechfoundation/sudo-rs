@@ -31,7 +31,7 @@ impl PtyRelay {
     ) -> io::Result<Self> {
         let signal_handlers = SignalHandlers::new()?;
 
-        retry_while_interrupted(|| backchannel.send(&MonitorEvent::ExecCommand))?;
+        retry_while_interrupted(|| backchannel.send(MonitorEvent::ExecCommand))?;
 
         Ok(Self {
             signal_handlers,

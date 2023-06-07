@@ -40,6 +40,38 @@ pub(crate) enum ParentEvent {
 
 impl ParentEvent {
     const LEN: usize = PREFIX_LEN + PARENT_DATA_LEN;
+    const IO_ERROR: Prefix = 0;
+    const CMD_EXIT: Prefix = 1;
+    const CMD_SIGNAL: Prefix = 2;
+    const CMD_PID: Prefix = 3;
+
+    fn from_parts(prefix: Prefix, data: ParentData) -> Self {
+        match prefix {
+            Self::IO_ERROR => Self::IoError(data),
+            Self::CMD_EXIT => Self::CommandExit(data),
+            Self::CMD_SIGNAL => Self::CommandSignal(data),
+            Self::CMD_PID => Self::CommandPid(data),
+            _ => unreachable!(),
+        }
+    }
+
+    fn to_parts(self) -> (Prefix, ParentData) {
+        let prefix = match self {
+            ParentEvent::IoError(_) => Self::IO_ERROR,
+            ParentEvent::CommandExit(_) => Self::CMD_EXIT,
+            ParentEvent::CommandSignal(_) => Self::CMD_SIGNAL,
+            ParentEvent::CommandPid(_) => Self::CMD_PID,
+        };
+
+        let data = match self {
+            ParentEvent::IoError(data)
+            | ParentEvent::CommandExit(data)
+            | ParentEvent::CommandSignal(data)
+            | ParentEvent::CommandPid(data) => data,
+        };
+
+        (prefix, data)
+    }
 }
 
 impl<'a> From<&'a io::Error> for ParentEvent {
@@ -70,13 +102,8 @@ impl ParentBackchannel {
     /// Send a [`MonitorEvent`].
     ///
     /// Calling this method will block until the socket is ready for writing.
-    pub(crate) fn send(&mut self, event: &MonitorEvent) -> io::Result<()> {
-        let prefix: Prefix = match event {
-            MonitorEvent::ExecCommand => 0,
-        };
-
-        let buf: [u8; MonitorEvent::LEN] = prefix.to_ne_bytes();
-
+    pub(crate) fn send(&mut self, event: MonitorEvent) -> io::Result<()> {
+        let buf: [u8; MonitorEvent::LEN] = event.to_prefix().to_ne_bytes();
         self.socket.write_all(&buf)
     }
 
@@ -92,15 +119,7 @@ impl ParentBackchannel {
         let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
         let data = ParentData::from_ne_bytes(data_buf.try_into().unwrap());
 
-        let event = match prefix {
-            0 => ParentEvent::IoError(data),
-            1 => ParentEvent::CommandExit(data),
-            2 => ParentEvent::CommandSignal(data),
-            3 => ParentEvent::CommandPid(data),
-            _ => unreachable!(),
-        };
-
-        Ok(event)
+        Ok(ParentEvent::from_parts(prefix, data))
     }
 }
 
@@ -111,6 +130,20 @@ pub(crate) enum MonitorEvent {
 
 impl MonitorEvent {
     const LEN: usize = PREFIX_LEN;
+    const EXEC_CMD: Prefix = 0;
+
+    fn from_prefix(prefix: Prefix) -> Self {
+        match prefix {
+            Self::EXEC_CMD => Self::ExecCommand,
+            _ => unreachable!(),
+        }
+    }
+
+    fn to_prefix(self) -> Prefix {
+        match self {
+            MonitorEvent::ExecCommand => Self::EXEC_CMD,
+        }
+    }
 }
 
 /// A socket use for commmunication between the monitor and the parent process.
@@ -126,20 +159,7 @@ impl MonitorBackchannel {
         let mut buf = [0; ParentEvent::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
-
-        let prefix: Prefix = match event {
-            ParentEvent::IoError(_) => 0,
-            ParentEvent::CommandExit(_) => 1,
-            ParentEvent::CommandSignal(_) => 2,
-            ParentEvent::CommandPid(_) => 3,
-        };
-
-        let data: ParentData = match event {
-            ParentEvent::IoError(int)
-            | ParentEvent::CommandExit(int)
-            | ParentEvent::CommandSignal(int)
-            | ParentEvent::CommandPid(int) => int,
-        };
+        let (prefix, data) = event.to_parts();
 
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());
@@ -156,11 +176,6 @@ impl MonitorBackchannel {
 
         let prefix = Prefix::from_ne_bytes(buf);
 
-        let event = match prefix {
-            0 => MonitorEvent::ExecCommand,
-            _ => unreachable!(),
-        };
-
-        Ok(event)
+        Ok(MonitorEvent::from_prefix(prefix))
     }
 }
