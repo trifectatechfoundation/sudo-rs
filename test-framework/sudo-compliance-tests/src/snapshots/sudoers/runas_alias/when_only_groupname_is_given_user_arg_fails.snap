@@ -1,0 +1,5 @@
+---
+source: sudo-compliance-tests/src/sudoers/runas_alias.rs
+expression: stderr
+---
+[sudo] password for ferris: Sorry, user ferris is not allowed to execute '/bin/true' as otheruser on [host].
