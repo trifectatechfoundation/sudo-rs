@@ -117,7 +117,7 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-  clippy-compliance-tests:
+  compliance-tests-lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -143,6 +143,12 @@ jobs:
       - name: clippy compliance-tests
         working-directory: test-framework
         run: cargo clippy -p sudo-compliance-tests --tests --no-deps -- --deny clippy::all
+
+      - name: Check that all ignored tests are linked to a GH issue
+        working-directory: test-framework/sudo-compliance-tests
+        run: |
+          grep -r '#\[ignore' ./src | grep -v '"gh' && echo 'found ignored tests not linked to a GitHub issue. please like them using the format #[ignore = "gh123"]' && exit 1; true
+
 
   build-and-test:
     runs-on: ubuntu-latest

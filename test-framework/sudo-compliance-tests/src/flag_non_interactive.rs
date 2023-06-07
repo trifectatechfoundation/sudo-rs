@@ -7,7 +7,7 @@ use sudo_test::{Command, Env, User};
 
 /* cases where password input is expected */
 #[test]
-#[ignore]
+#[ignore = "gh405"]
 fn fails_if_password_needed() -> Result<()> {
     let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
 
@@ -34,7 +34,7 @@ fn fails_if_password_needed() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh405"]
 fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
     let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
 

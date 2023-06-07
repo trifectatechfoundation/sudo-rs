@@ -4,7 +4,7 @@ use crate::{
 };
 use sudo_test::{Command, Env, User};
 
-#[ignore]
+#[ignore = "gh399"]
 #[test]
 fn default_lecture_message() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL)
@@ -21,7 +21,7 @@ fn default_lecture_message() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
+#[ignore = "gh400"]
 #[test]
 fn new_lecture_message() -> Result<()> {
     let new_lecture = "I <3 sudo";
@@ -41,7 +41,7 @@ fn new_lecture_message() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh400"]
 fn new_lecture_for_specific_user() -> Result<()> {
     let new_lecture = "I <3 sudo";
     let env = Env([SUDOERS_ROOT_ALL, SUDOERS_NEW_LECTURE_USER])
@@ -59,7 +59,7 @@ fn new_lecture_for_specific_user() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
+#[ignore = "gh400"]
 #[test]
 fn default_lecture_for_unspecified_user() -> Result<()> {
     let new_lecture = "I <3 sudo";

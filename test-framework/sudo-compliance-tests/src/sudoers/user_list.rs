@@ -257,7 +257,7 @@ fn user_alias_cannot_start_with_underscore() -> Result<()> {
     let env = Env([
         "User_Alias _FOO = ALL",
         "ALL ALL = (ALL:ALL) NOPASSWD: /bin/true",
-        "_FOO ALL = (ALL:ALL) PASSWD: ALL"
+        "_FOO ALL = (ALL:ALL) PASSWD: ALL",
     ])
     .user(USERNAME)
     .build()?;
@@ -271,7 +271,7 @@ fn user_alias_cannot_start_with_underscore() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
+#[ignore = "gh180"]
 #[test]
 fn negated_user_alias_works() -> Result<()> {
     let env = Env("
