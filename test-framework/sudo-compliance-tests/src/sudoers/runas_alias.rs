@@ -357,8 +357,7 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
     let env = Env([
         &format!("Runas_Alias GROUPALIAS = {GROUPNAME}"),
         ("Runas_Alias USERALIAS = otheruser"),
-        &format!("{USERNAME} ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL"),
-        SUDOERS_NO_LECTURE
+        &format!("{USERNAME} ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL")
     ])
         .user(USERNAME)
         .user("otheruser")
@@ -412,6 +411,33 @@ fn different_aliases_user_and_group_fails_when_both_are_passed() -> Result<()> {
             format!("Sorry, user {USERNAME} is not allowed to execute '/bin/true' as otheruser:{GROUPNAME}")
         );
     }
+
+    Ok(())
+}
+
+#[ignore]
+#[test]
+fn aliases_given_on_one_line_divided_by_colon() -> Result<()> {
+    let env = Env([
+        &format!("Runas_Alias GROUPALIAS = {GROUPNAME} : USERALIAS = otheruser"),
+        &format!("{USERNAME} ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL")
+    ])
+        .user(USERNAME)
+        .user("otheruser")
+        .group(GROUPNAME)
+        .build()?;
+
+    Command::new("sudo")
+        .args(["-g", GROUPNAME, "true"])
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()?;
+
+    Command::new("sudo")
+        .args(["-u", "otheruser", "true"])
+        .as_user(USERNAME)
+        .exec(&env)?
+        .assert_success()?;
 
     Ok(())
 }
