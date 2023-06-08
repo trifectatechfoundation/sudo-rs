@@ -1,8 +1,9 @@
+use std::ffi::c_int;
 use std::{io, os::fd::OwnedFd};
 
 use signal_hook::consts::*;
 use sudo_log::user_error;
-use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
+use sudo_system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use crate::event::{EventClosure, EventDispatcher};
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
 };
 
 pub(super) struct ParentClosure {
-    monitor_pid: ProcessId,
+    _monitor_pid: ProcessId,
     sudo_pid: ProcessId,
     command_pid: Option<ProcessId>,
     // FIXME: Look for `SFD_LEADER` occurences in `exec_pty` to decide what to do with the leader
@@ -38,7 +39,7 @@ impl ParentClosure {
 
         Ok((
             Self {
-                monitor_pid,
+                _monitor_pid: monitor_pid,
                 sudo_pid,
                 command_pid: None,
                 _pty_leader: pty_leader,
@@ -109,6 +110,11 @@ impl ParentClosure {
 
         false
     }
+
+    /// Send a signal event to the monitor using the backchannel.
+    fn send_signal(&mut self, signal: c_int) -> io::Result<()> {
+        self.backchannel.send(MonitorEvent::Signal(signal))
+    }
 }
 
 impl EventClosure for ParentClosure {
@@ -126,7 +132,7 @@ impl EventClosure for ParentClosure {
             _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
             // FIXME: check `send_command_status`
             signal => {
-                kill(self.monitor_pid, signal).ok();
+                self.send_signal(signal).ok();
             }
         }
     }
