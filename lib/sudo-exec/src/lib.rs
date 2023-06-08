@@ -1,5 +1,7 @@
 #![deny(unsafe_code)]
 
+mod backchannel;
+mod io_util;
 mod monitor;
 mod pty;
 mod signal;
@@ -7,15 +9,15 @@ mod signal;
 use std::{
     ffi::{CString, OsStr},
     io,
-    mem::size_of,
-    os::unix::{ffi::OsStrExt, process::ExitStatusExt},
-    os::{fd::OwnedFd, unix::process::CommandExt},
-    process::{Command, ExitStatus},
+    os::unix::ffi::OsStrExt,
+    os::unix::process::CommandExt,
+    process::Command,
 };
 
+use backchannel::BackchannelPair;
 use sudo_common::{context::LaunchType::Login, Context, Environment};
 use sudo_log::user_error;
-use sudo_system::{fork, openpty, pipe, read, set_target_user, write};
+use sudo_system::{fork, openpty, set_target_user};
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
@@ -69,65 +71,29 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
     set_target_user(&mut command, ctx.target_user, ctx.target_group);
 
     let (pty_leader, pty_follower) = openpty()?;
-    let (rx, tx) = pipe()?;
+
+    let backchannels = BackchannelPair::new()?;
+
+    // FIXME: We should block all the incoming signals before forking and unblock them just after
+    // initializing the signal hadnlers.
     let monitor_pid = fork()?;
     // Monitor logic. Based on `exec_monitor`.
     if monitor_pid == 0 {
-        match monitor::MonitorRelay::new(command, pty_follower, tx)?.run()? {}
+        match monitor::MonitorRelay::new(command, pty_follower, backchannels.monitor)?.run() {}
     } else {
-        pty::PtyRelay::new(monitor_pid, ctx.process.pid, pty_leader, rx)?.run()
+        pty::PtyRelay::new(
+            monitor_pid,
+            ctx.process.pid,
+            pty_leader,
+            backchannels.parent,
+        )?
+        .run()
     }
 }
 
 /// Exit reason for the command executed by sudo.
+#[derive(Debug)]
 pub enum ExitReason {
     Code(i32),
     Signal(i32),
-}
-
-impl ExitReason {
-    fn send(self, tx: &OwnedFd) -> io::Result<()> {
-        let mut bytes = [0u8; size_of::<u8>() + size_of::<i32>()];
-        let (prefix_bytes, int_bytes) = bytes.split_at_mut(size_of::<u8>());
-        match self {
-            Self::Code(code) => {
-                int_bytes.copy_from_slice(&code.to_ne_bytes());
-            }
-            Self::Signal(signal) => {
-                prefix_bytes.copy_from_slice(&1u8.to_ne_bytes());
-                int_bytes.copy_from_slice(&signal.to_ne_bytes());
-            }
-        }
-
-        write(tx, &bytes)?;
-
-        Ok(())
-    }
-
-    fn recv(rx: &OwnedFd) -> io::Result<Self> {
-        let mut bytes = [0u8; size_of::<u8>() + size_of::<i32>()];
-
-        read(rx, &mut bytes)?;
-
-        let (prefix_bytes, int_bytes) = {
-            let (hd, tl) = bytes.split_at(size_of::<u8>());
-            (hd.try_into().unwrap(), tl.try_into().unwrap())
-        };
-
-        let prefix = u8::from_ne_bytes(prefix_bytes);
-        let int = i32::from_ne_bytes(int_bytes);
-        if prefix == 0 {
-            Ok(Self::Code(int))
-        } else {
-            Ok(Self::Signal(int))
-        }
-    }
-
-    fn from_status(status: ExitStatus) -> Self {
-        if let Some(code) = status.code() {
-            Self::Code(code)
-        } else {
-            Self::Signal(status.signal().unwrap())
-        }
-    }
 }

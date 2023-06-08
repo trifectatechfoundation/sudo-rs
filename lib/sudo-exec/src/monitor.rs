@@ -1,7 +1,7 @@
 use std::{
     io,
     os::fd::OwnedFd,
-    process::{exit, Child, Command, ExitStatus},
+    process::{exit, Child, Command},
     time::Duration,
 };
 
@@ -12,7 +12,11 @@ use sudo_system::{
     signal::SignalInfo,
 };
 
-use crate::{signal::SignalHandlers, ExitReason};
+use crate::{
+    backchannel::{MonitorBackchannel, MonitorEvent, ParentEvent},
+    io_util::retry_while_interrupted,
+    signal::SignalHandlers,
+};
 
 pub(super) struct MonitorRelay {
     signal_handlers: SignalHandlers,
@@ -20,32 +24,39 @@ pub(super) struct MonitorRelay {
     command_pgrp: ProcessId,
     command: Child,
     _pty_follower: OwnedFd,
-    tx: OwnedFd,
+    backchannel: MonitorBackchannel,
 }
 
 impl MonitorRelay {
     pub(super) fn new(
         mut command: Command,
         pty_follower: OwnedFd,
-        tx: OwnedFd,
+        mut backchannel: MonitorBackchannel,
     ) -> io::Result<Self> {
-        let result = Ok(()).and_then(|()| {
+        let result = io::Result::Ok(()).and_then(|()| {
+            let signal_handlers = SignalHandlers::new()?;
+
             // Create new terminal session.
             setsid()?;
 
             // Set the pty as the controlling terminal.
             set_controlling_terminal(&pty_follower)?;
 
+            // Wait for the main sudo process to give us green light before spawning the command. This
+            // avoids race conditions when the command exits quickly.
+            let MonitorEvent::ExecCommand = retry_while_interrupted(|| backchannel.recv())?;
+
             // spawn and exec to command
             let command = command.spawn()?;
 
             let command_pid = command.id() as ProcessId;
 
+            // Send the command's PID to the main sudo process.
+            backchannel.send(ParentEvent::CommandPid(command_pid)).ok();
+
             // set the process group ID of the command to the command PID.
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp);
-
-            let signal_handlers = SignalHandlers::new()?;
 
             Ok((
                 signal_handlers,
@@ -56,29 +67,28 @@ impl MonitorRelay {
             ))
         });
 
-        if result.is_err() {
-            ExitReason::Code(1).send(&tx)?;
-        }
-
-        result.map(
-            |(signals, command_pid, command_pgrp, command, pty_follower)| Self {
+        match result {
+            Err(err) => {
+                backchannel.send((&err).into())?;
+                Err(err)
+            }
+            Ok((signals, command_pid, command_pgrp, command, pty_follower)) => Ok(Self {
                 signal_handlers: signals,
                 command_pid,
                 command_pgrp,
                 command,
                 _pty_follower: pty_follower,
-                tx,
-            },
-        )
+                backchannel,
+            }),
+        }
     }
 
-    /// FIXME: this should return `!` but it is not stable yet.
-    pub(super) fn run(mut self) -> io::Result<std::convert::Infallible> {
+    pub(super) fn run(mut self) -> ! {
         loop {
             // First we check if the command is finished
             // FIXME: This should be polled alongside the signal handlers instead.
-            if let Some(status) = self.wait_command()? {
-                ExitReason::from_status(status).send(&self.tx)?;
+            if let Ok(Some(status)) = self.command.try_wait() {
+                self.backchannel.send(status.into()).ok();
 
                 exit(0);
             }
@@ -96,10 +106,6 @@ impl MonitorRelay {
                 }
             }
         }
-    }
-
-    fn wait_command(&mut self) -> io::Result<Option<ExitStatus>> {
-        self.command.try_wait()
     }
 
     fn relay_signal(&self, info: SignalInfo) {

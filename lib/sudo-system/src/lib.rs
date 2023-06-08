@@ -140,7 +140,7 @@ pub fn set_target_user(
     }
 }
 
-/// Send a signal to a process.
+/// Send a signal to a process with the specified ID.
 pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
