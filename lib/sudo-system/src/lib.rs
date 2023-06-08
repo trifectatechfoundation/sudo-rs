@@ -141,13 +141,10 @@ pub fn set_target_user(
 }
 
 /// Send a signal to a process with the specified ID.
-///
-/// if the ID is `None`, then the signal is sent to every process for which the calling process has
-/// permission to send signal except for the init process.
-pub fn kill(pid: impl Into<Option<ProcessId>>, signal: c_int) -> io::Result<()> {
+pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    cerr(unsafe { libc::kill(pid.into().unwrap_or(-1), signal) }).map(|_| ())
+    cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
 }
 
 /// Get a process group ID.
