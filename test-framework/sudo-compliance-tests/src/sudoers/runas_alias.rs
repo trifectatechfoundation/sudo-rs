@@ -289,7 +289,7 @@ fn when_only_username_is_given_group_arg_fails() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
+#[ignore = "gh403"]
 #[test]
 fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
     let env = Env([
@@ -317,7 +317,7 @@ fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh432"]
 fn user_and_group_fails_when_both_are_passed() -> Result<()> {
     let env = Env([
         &format!("Runas_Alias OP = otheruser, {GROUPNAME}"),
@@ -351,7 +351,7 @@ fn user_and_group_fails_when_both_are_passed() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
+#[ignore = "gh403"]
 #[test]
 fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
     let env = Env([
@@ -365,13 +365,13 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
         .build()?;
 
     Command::new("sudo")
-        .args(["-g", GROUPNAME, "true"])
+        .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
         .exec(&env)?
         .assert_success()?;
 
     Command::new("sudo")
-        .args(["-u", "otheruser", "true"])
+        .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
         .exec(&env)?
         .assert_success()?;
@@ -380,7 +380,7 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
 }
 
 #[test]
-#[ignore]
+#[ignore = "gh432"]
 fn different_aliases_user_and_group_fails_when_both_are_passed() -> Result<()> {
     let env = Env([
         &format!("Runas_Alias GROUPALIAS = {GROUPNAME}"),
@@ -415,7 +415,7 @@ fn different_aliases_user_and_group_fails_when_both_are_passed() -> Result<()> {
     Ok(())
 }
 
-#[ignore]
+#[ignore = "gh431"]
 #[test]
 fn aliases_given_on_one_line_divided_by_colon() -> Result<()> {
     let env = Env([
