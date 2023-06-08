@@ -1,4 +1,5 @@
 use std::{
+    ffi::c_int,
     io,
     os::fd::OwnedFd,
     process::{exit, Child, Command},
@@ -15,7 +16,7 @@ use sudo_system::{
 use crate::{
     backchannel::{MonitorBackchannel, MonitorEvent, ParentEvent},
     event::{EventClosure, EventDispatcher},
-    io_util::retry_while_interrupted,
+    io_util::{retry_while_interrupted, was_interrupted},
 };
 
 pub(super) struct MonitorClosure {
@@ -33,7 +34,8 @@ impl MonitorClosure {
         mut backchannel: MonitorBackchannel,
     ) -> (Self, EventDispatcher<Self>) {
         let result = io::Result::Ok(()).and_then(|()| {
-            let dispatcher = EventDispatcher::<Self>::new()?;
+            let mut dispatcher = EventDispatcher::<Self>::new()?;
+
             // Create new terminal session.
             setsid()?;
 
@@ -55,6 +57,9 @@ impl MonitorClosure {
 
             // Send the command's PID to the main sudo process.
             backchannel.send(ParentEvent::CommandPid(command_pid)).ok();
+
+            // Register the callback to receive events from the backchannel
+            dispatcher.set_read_callback(&backchannel, |mc, ev| mc.read_backchannel(ev));
 
             // set the process group ID of the command to the command PID.
             let command_pgrp = command_pid;
@@ -109,6 +114,46 @@ impl MonitorClosure {
 
         false
     }
+
+    /// Based on `mon_backchannel_cb`
+    fn read_backchannel(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+        match self.backchannel.recv() {
+            // Read interrupted, we can try again later.
+            Err(err) if was_interrupted(&err) => {}
+            // There's something wrong with the backchannel, break the event loop
+            Err(err) => {
+                dispatcher.set_break(());
+                self.backchannel.send((&err).into()).unwrap();
+            }
+            Ok(event) => {
+                match event {
+                    // We shouldn't receive this event more than once.
+                    MonitorEvent::ExecCommand => unreachable!(),
+                    // Forward signal to the command.
+                    MonitorEvent::Signal(signal) => self.send_signal(signal),
+                }
+            }
+        }
+    }
+
+    /// Send a signal to the command
+    fn send_signal(&self, signal: c_int) {
+        // FIXME: We should call `killpg` instead of `kill`.
+        // FIXME: We shouldn't send any signals if the command exited already.
+        match signal {
+            SIGALRM => {
+                // Kill the command with increasing urgency. Based on `terminate_command`.
+                kill(self.command_pid, SIGHUP).ok();
+                kill(self.command_pid, SIGTERM).ok();
+                std::thread::sleep(Duration::from_secs(2));
+                kill(self.command_pid, SIGKILL).ok();
+            }
+            signal => {
+                // Send the signal to the command.
+                kill(self.command_pid, signal).ok();
+            }
+        }
+    }
 }
 
 impl EventClosure for MonitorClosure {
@@ -125,17 +170,7 @@ impl EventClosure for MonitorClosure {
             }
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            // Kill the command with increasing urgency.
-            SIGALRM => {
-                // Based on `terminate_command`.
-                kill(self.command_pid, SIGHUP).ok();
-                kill(self.command_pid, SIGTERM).ok();
-                std::thread::sleep(Duration::from_secs(2));
-                kill(self.command_pid, SIGKILL).ok();
-            }
-            signal => {
-                kill(self.command_pid, signal).ok();
-            }
+            signal => self.send_signal(signal),
         }
     }
 }
