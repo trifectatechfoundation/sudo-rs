@@ -3,14 +3,15 @@ use sudo_test::{Command, Env, TextFile, User};
 use crate::{Result, PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
 
 mod cmnd;
+mod cmnd_alias;
 mod cwd;
 mod env;
+mod host_alias;
 mod host_list;
 mod run_as;
 mod secure_path;
+mod timestamp_timeout;
 mod user_list;
-mod host_alias;
-mod cmnd_alias;
 
 #[test]
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
