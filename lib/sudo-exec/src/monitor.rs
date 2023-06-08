@@ -70,7 +70,7 @@ impl MonitorClosure {
 
         match result {
             Err(err) => {
-                backchannel.send(&(&err).into()).unwrap();
+                backchannel.send(&err.into()).unwrap();
                 exit(1);
             }
             Ok((dispatcher, command_pid, command_pgrp, command, pty_follower)) => (
@@ -123,7 +123,7 @@ impl MonitorClosure {
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
                 dispatcher.set_break(());
-                self.backchannel.send(&(&err).into()).unwrap();
+                self.backchannel.send(&err.into()).unwrap();
             }
             Ok(event) => {
                 match event {

@@ -77,7 +77,7 @@ impl ParentClosure {
             // and we should stop.
             Err(err) => {
                 if !dispatcher.got_break() {
-                    dispatcher.set_break((&err).into());
+                    dispatcher.set_break(err.into());
                 }
             }
             Ok(event) => match event {
@@ -134,7 +134,7 @@ impl ParentClosure {
                 // The other end of the socket is gone, we should exit.
                 Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
                     // FIXME: maybe we need a different event for backchannel errors.
-                    dispatcher.set_break((&err).into());
+                    dispatcher.set_break(err.into());
                 }
                 // Non critical error, we can retry later.
                 Err(_) => {}

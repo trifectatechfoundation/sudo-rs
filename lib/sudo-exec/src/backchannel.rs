@@ -80,8 +80,8 @@ impl ParentEvent {
     }
 }
 
-impl<'a> From<&'a io::Error> for ParentEvent {
-    fn from(err: &'a io::Error) -> Self {
+impl From<io::Error> for ParentEvent {
+    fn from(err: io::Error) -> Self {
         // This only panics if an error is created using `io::Error::new`.
         Self::IoError(err.raw_os_error().unwrap())
     }
