@@ -18,7 +18,7 @@ use crate::{
     io_util::retry_while_interrupted,
 };
 
-pub(super) struct MonitorRelay {
+pub(super) struct MonitorClosure {
     command_pid: ProcessId,
     command_pgrp: ProcessId,
     command: Child,
@@ -26,7 +26,7 @@ pub(super) struct MonitorRelay {
     backchannel: MonitorBackchannel,
 }
 
-impl MonitorRelay {
+impl MonitorClosure {
     pub(super) fn new(
         mut command: Command,
         pty_follower: OwnedFd,
@@ -107,7 +107,7 @@ impl MonitorRelay {
     }
 }
 
-impl EventClosure for MonitorRelay {
+impl EventClosure for MonitorClosure {
     type Break = ();
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {

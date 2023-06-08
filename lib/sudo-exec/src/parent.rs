@@ -11,7 +11,7 @@ use crate::{
     ExitReason,
 };
 
-pub(super) struct PtyRelay {
+pub(super) struct ParentClosure {
     monitor_pid: ProcessId,
     sudo_pid: ProcessId,
     command_pid: Option<ProcessId>,
@@ -21,7 +21,7 @@ pub(super) struct PtyRelay {
     backchannel: ParentBackchannel,
 }
 
-impl PtyRelay {
+impl ParentClosure {
     pub(super) fn new(
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
@@ -111,7 +111,7 @@ impl PtyRelay {
     }
 }
 
-impl EventClosure for PtyRelay {
+impl EventClosure for ParentClosure {
     type Break = ParentEvent;
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
