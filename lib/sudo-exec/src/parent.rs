@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::{io, os::fd::OwnedFd};
 
@@ -20,6 +21,7 @@ pub(super) struct ParentClosure {
     // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
     _pty_leader: OwnedFd,
     backchannel: ParentBackchannel,
+    event_queue: VecDeque<MonitorEvent>,
 }
 
 impl ParentClosure {
@@ -35,7 +37,11 @@ impl ParentClosure {
             parent.check_backchannel(dispatcher)
         });
 
-        retry_while_interrupted(|| backchannel.send(MonitorEvent::ExecCommand))?;
+        dispatcher.set_write_callback(&backchannel, |parent, dispatcher| {
+            parent.check_queue(dispatcher)
+        });
+
+        retry_while_interrupted(|| backchannel.send(&MonitorEvent::ExecCommand))?;
 
         Ok((
             Self {
@@ -44,6 +50,7 @@ impl ParentClosure {
                 command_pid: None,
                 _pty_leader: pty_leader,
                 backchannel,
+                event_queue: VecDeque::new(),
             },
             dispatcher,
         ))
@@ -111,9 +118,28 @@ impl ParentClosure {
         false
     }
 
-    /// Send a signal event to the monitor using the backchannel.
-    fn send_signal(&mut self, signal: c_int) -> io::Result<()> {
-        self.backchannel.send(MonitorEvent::Signal(signal))
+    /// Schedule sending a signal event to the monitor using the backchannel.
+    fn schedule_signal(&mut self, signal: c_int) {
+        self.event_queue.push_back(MonitorEvent::Signal(signal));
+    }
+
+    /// Send the first message in the event queue using the backchannel, if any.
+    fn check_queue(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+        if let Some(event) = self.event_queue.front() {
+            match self.backchannel.send(event) {
+                // The event was sent, remove it from the queue
+                Ok(()) => {
+                    self.event_queue.pop_front().unwrap();
+                }
+                // The other end of the socket is gone, we should exit.
+                Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
+                    // FIXME: maybe we need a different event for backchannel errors.
+                    dispatcher.set_break((&err).into());
+                }
+                // Non critical error, we can retry later.
+                Err(_) => {}
+            }
+        }
     }
 }
 
@@ -131,9 +157,7 @@ impl EventClosure for ParentClosure {
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
             // FIXME: check `send_command_status`
-            signal => {
-                self.send_signal(signal).ok();
-            }
+            signal => self.schedule_signal(signal),
         }
     }
 }

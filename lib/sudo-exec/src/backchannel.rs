@@ -61,7 +61,7 @@ impl ParentEvent {
         }
     }
 
-    fn into_parts(self) -> (Prefix, ParentData) {
+    fn to_parts(&self) -> (Prefix, ParentData) {
         let prefix = match self {
             ParentEvent::IoError(_) => Self::IO_ERROR,
             ParentEvent::CommandExit(_) => Self::CMD_EXIT,
@@ -73,7 +73,7 @@ impl ParentEvent {
             ParentEvent::IoError(data)
             | ParentEvent::CommandExit(data)
             | ParentEvent::CommandSignal(data)
-            | ParentEvent::CommandPid(data) => data,
+            | ParentEvent::CommandPid(data) => *data,
         };
 
         (prefix, data)
@@ -108,11 +108,11 @@ impl ParentBackchannel {
     /// Send a [`MonitorEvent`].
     ///
     /// Calling this method will block until the socket is ready for writing.
-    pub(crate) fn send(&mut self, event: MonitorEvent) -> io::Result<()> {
+    pub(crate) fn send(&mut self, event: &MonitorEvent) -> io::Result<()> {
         let mut buf = [0; MonitorEvent::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
-        let (prefix, data) = event.into_parts();
+        let (prefix, data) = event.to_parts();
 
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());
@@ -162,7 +162,7 @@ impl MonitorEvent {
         }
     }
 
-    fn into_parts(self) -> (Prefix, MonitorData) {
+    fn to_parts(&self) -> (Prefix, MonitorData) {
         let prefix = match self {
             MonitorEvent::ExecCommand => Self::EXEC_CMD,
             MonitorEvent::Signal(_) => Self::SIGNAL,
@@ -170,7 +170,7 @@ impl MonitorEvent {
 
         let data = match self {
             MonitorEvent::ExecCommand => 0,
-            MonitorEvent::Signal(data) => data,
+            MonitorEvent::Signal(data) => *data,
         };
 
         (prefix, data)
@@ -186,11 +186,11 @@ impl MonitorBackchannel {
     /// Send a [`ParentEvent`].
     ///
     /// Calling this method will block until the socket is ready for writing.
-    pub(crate) fn send(&mut self, event: ParentEvent) -> io::Result<()> {
+    pub(crate) fn send(&mut self, event: &ParentEvent) -> io::Result<()> {
         let mut buf = [0; ParentEvent::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
-        let (prefix, data) = event.into_parts();
+        let (prefix, data) = event.to_parts();
 
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());

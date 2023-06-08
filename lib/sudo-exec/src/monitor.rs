@@ -56,7 +56,7 @@ impl MonitorClosure {
             let command_pid = command.id() as ProcessId;
 
             // Send the command's PID to the main sudo process.
-            backchannel.send(ParentEvent::CommandPid(command_pid)).ok();
+            backchannel.send(&ParentEvent::CommandPid(command_pid)).ok();
 
             // Register the callback to receive events from the backchannel
             dispatcher.set_read_callback(&backchannel, |mc, ev| mc.read_backchannel(ev));
@@ -70,7 +70,7 @@ impl MonitorClosure {
 
         match result {
             Err(err) => {
-                backchannel.send((&err).into()).unwrap();
+                backchannel.send(&(&err).into()).unwrap();
                 exit(1);
             }
             Ok((dispatcher, command_pid, command_pgrp, command, pty_follower)) => (
@@ -123,7 +123,7 @@ impl MonitorClosure {
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
                 dispatcher.set_break(());
-                self.backchannel.send((&err).into()).unwrap();
+                self.backchannel.send(&(&err).into()).unwrap();
             }
             Ok(event) => {
                 match event {
@@ -165,7 +165,7 @@ impl EventClosure for MonitorClosure {
             SIGCHLD => {
                 if let Ok(Some(exit_status)) = self.command.try_wait() {
                     dispatcher.set_break(());
-                    self.backchannel.send(exit_status.into()).unwrap();
+                    self.backchannel.send(&exit_status.into()).unwrap();
                 }
             }
             // Skip the signal if it was sent by the user and it is self-terminating.
