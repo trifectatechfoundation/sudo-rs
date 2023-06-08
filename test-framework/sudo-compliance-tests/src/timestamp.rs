@@ -471,6 +471,16 @@ fn flag_reset_timestamp_plus_command_does_not_invalidate_credential_cache() -> R
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
+    // the first command, `sudo -S true`, succeeds and caches credentials
+    //
+    // the second command, `sudo -k true`, prompts for a password and fails because no password is
+    // provided
+    //
+    // the last command, `sudo true`, is expected to work because `sudo -k true` did *not*
+    // invalidate the credentials
+    //
+    // the `[ $? -eq 1 ] || exit 2` bit is there to turn the success of `sudo -k true` (which is
+    // expected to fail) into a failure of the entire shell script
     Command::new("sh")
         .arg("-c")
         .arg(format!(
