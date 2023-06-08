@@ -17,7 +17,7 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn changes_the_group_id() -> Result<()> {
+fn changes_the_real_and_effective_group_id() -> Result<()> {
     let expected_gid = 1234;
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
@@ -25,14 +25,22 @@ fn changes_the_group_id() -> Result<()> {
         .build()?;
 
     for user in ["root", USERNAME] {
-        let actual = Command::new("sudo")
+        let effective_gid = Command::new("sudo")
             .args(["-g", GROUPNAME, "id", "-g"])
             .as_user(user)
             .exec(&env)?
             .stdout()?
             .parse::<u32>()?;
 
-        assert_eq!(expected_gid, actual);
+        let real_gid = Command::new("sudo")
+            .args(["-g", GROUPNAME, "id", "-r", "-g"])
+            .as_user(user)
+            .exec(&env)?
+            .stdout()?
+            .parse::<u32>()?;
+
+        assert_eq!(expected_gid, effective_gid);
+        assert_eq!(expected_gid, real_gid);
     }
 
     Ok(())

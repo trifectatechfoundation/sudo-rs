@@ -21,6 +21,9 @@ macro_rules! assert_snapshot {
 fn root_can_become_another_user_by_name() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(USERNAME).build()?;
 
+    // NOTE `id` without flags prints the *real* user/group id if it's different from the
+    // *effective* user/group id so here we are checking that both the real *and* effective UID has
+    // changed to match the target user's
     let expected = Command::new("id").as_user(USERNAME).exec(&env)?.stdout()?;
     let actual = Command::new("sudo")
         .args(["-u", USERNAME, "id"])
