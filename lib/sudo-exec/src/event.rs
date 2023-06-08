@@ -22,7 +22,7 @@ macro_rules! define_signals {
             ///
             /// Calling this function also creates new signal handlers for the signals in
             /// [`SIGNALS`] and sets the callbacks for each one of them using the `RelaySignal`
-            /// implementation..
+            /// implementation.
             pub(crate) fn new() -> io::Result<Self> {
                 let mut ev = Self {
                     signal_handlers: HashMap::with_capacity(Self::SIGNALS.len()),
