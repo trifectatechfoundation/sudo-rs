@@ -14,7 +14,7 @@ use sudo_system::{
 
 use crate::{
     backchannel::{MonitorBackchannel, MonitorEvent, ParentEvent},
-    event::EventHandler,
+    event::{EventHandler, RelaySignal},
     io_util::retry_while_interrupted,
 };
 
@@ -56,23 +56,6 @@ impl MonitorRelay {
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp);
 
-            macro_rules! set_signal_handler {
-                ($($signo:ident,)*) => {
-                    $({
-                        event_handler.set_signal_callback::<$signo>(|mc, ev| {
-                            if let Ok(info) = ev.recv_signal_info::<$signo>().unwrap() {
-                                mc.relay_signal(info, ev);
-                            }
-                        })
-                    })*
-                };
-            }
-
-            set_signal_handler! {
-                SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGPIPE, SIGUSR1, SIGUSR2,
-                SIGCHLD, SIGCONT, SIGWINCH,
-            }
-
             Ok((
                 event_handler,
                 command_pid,
@@ -106,6 +89,31 @@ impl MonitorRelay {
         exit(0);
     }
 
+    /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
+    ///
+    /// A signal is self-terminating if `signaler_pid`:
+    /// - is the same PID of the command, or
+    /// - is in the process group of the command and the command is the leader.
+    fn is_self_terminating(&self, signaler_pid: ProcessId) -> bool {
+        if signaler_pid != 0 {
+            if signaler_pid == self.command_pid {
+                return true;
+            }
+
+            if let Ok(grp_leader) = getpgid(signaler_pid) {
+                if grp_leader == self.command_pgrp {
+                    return true;
+                }
+            } else {
+                user_error!("Could not fetch process group ID");
+            }
+        }
+
+        false
+    }
+}
+
+impl RelaySignal for MonitorRelay {
     fn relay_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
         match info.signal() {
             // FIXME: check `mon_handle_sigchld`
@@ -129,28 +137,5 @@ impl MonitorRelay {
                 kill(self.command_pid, signal).ok();
             }
         }
-    }
-
-    /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
-    ///
-    /// A signal is self-terminating if `signaler_pid`:
-    /// - is the same PID of the command, or
-    /// - is in the process group of the command and the command is the leader.
-    fn is_self_terminating(&self, signaler_pid: ProcessId) -> bool {
-        if signaler_pid != 0 {
-            if signaler_pid == self.command_pid {
-                return true;
-            }
-
-            if let Ok(grp_leader) = getpgid(signaler_pid) {
-                if grp_leader == self.command_pgrp {
-                    return true;
-                }
-            } else {
-                user_error!("Could not fetch process group ID");
-            }
-        }
-
-        false
     }
 }

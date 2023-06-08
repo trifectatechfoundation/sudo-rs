@@ -4,7 +4,7 @@ use signal_hook::consts::*;
 use sudo_log::user_error;
 use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
 
-use crate::event::EventHandler;
+use crate::event::{EventHandler, RelaySignal};
 use crate::{
     backchannel::{MonitorEvent, ParentBackchannel, ParentEvent},
     io_util::{retry_while_interrupted, was_interrupted},
@@ -30,23 +30,6 @@ impl PtyRelay {
         mut backchannel: ParentBackchannel,
     ) -> io::Result<(Self, EventHandler<Self>)> {
         let mut event_handler = EventHandler::<Self>::new()?;
-
-        macro_rules! set_signal_handler {
-            ($($signo:ident,)*) => {
-                $({
-                    event_handler.set_signal_callback::<$signo>(|ec, ev| {
-                        if let Ok(info) = ev.recv_signal_info::<$signo>().unwrap() {
-                            ec.relay_signal(info, ev);
-                        }
-                    })
-                })*
-            };
-        }
-
-        set_signal_handler! {
-            SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGPIPE, SIGUSR1, SIGUSR2,
-            SIGCHLD, SIGCONT, SIGWINCH,
-        }
 
         event_handler.set_read_callback(&backchannel, |ec, ev| ec.check_backchannel(ev));
 
@@ -108,23 +91,6 @@ impl PtyRelay {
         }
     }
 
-    fn relay_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
-        match info.signal() {
-            // FIXME: check `handle_sigchld_pty`
-            SIGCHLD => self.check_backchannel(event_handler),
-            // FIXME: check `resume_terminal`
-            SIGCONT => {}
-            // FIXME: check `sync_ttysize`
-            SIGWINCH => {}
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            // FIXME: check `send_command_status`
-            signal => {
-                kill(self.monitor_pid, signal).ok();
-            }
-        }
-    }
-
     /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
     ///
     /// A signal is self-terminating if `signaler_pid`:
@@ -146,5 +112,24 @@ impl PtyRelay {
         }
 
         false
+    }
+}
+
+impl RelaySignal for PtyRelay {
+    fn relay_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
+        match info.signal() {
+            // FIXME: check `handle_sigchld_pty`
+            SIGCHLD => self.check_backchannel(event_handler),
+            // FIXME: check `resume_terminal`
+            SIGCONT => {}
+            // FIXME: check `sync_ttysize`
+            SIGWINCH => {}
+            // Skip the signal if it was sent by the user and it is self-terminating.
+            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
+            // FIXME: check `send_command_status`
+            signal => {
+                kill(self.monitor_pid, signal).ok();
+            }
+        }
     }
 }
