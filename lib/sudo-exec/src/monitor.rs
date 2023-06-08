@@ -42,7 +42,11 @@ impl MonitorClosure {
 
             // Wait for the main sudo process to give us green light before spawning the command. This
             // avoids race conditions when the command exits quickly.
-            let MonitorEvent::ExecCommand = retry_while_interrupted(|| backchannel.recv())?;
+            let event = retry_while_interrupted(|| backchannel.recv())?;
+
+            // FIXME: ogsudo doesn't check that this event is not a forwarded signal from the
+            // parent process. What should we do in that case?
+            assert_eq!(event, MonitorEvent::ExecCommand);
 
             // spawn the command
             let command = command.spawn()?;

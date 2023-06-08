@@ -13,8 +13,11 @@ use sudo_system::{interface::ProcessId, signal::SignalNumber};
 
 type Prefix = u8;
 type ParentData = c_int;
+type MonitorData = c_int;
+
 const PREFIX_LEN: usize = size_of::<Prefix>();
 const PARENT_DATA_LEN: usize = size_of::<ParentData>();
+const MONITOR_DATA_LEN: usize = size_of::<MonitorData>();
 
 pub(crate) struct BackchannelPair {
     pub(crate) parent: ParentBackchannel,
@@ -106,7 +109,14 @@ impl ParentBackchannel {
     ///
     /// Calling this method will block until the socket is ready for writing.
     pub(crate) fn send(&mut self, event: MonitorEvent) -> io::Result<()> {
-        let buf: [u8; MonitorEvent::LEN] = event.into_prefix().to_ne_bytes();
+        let mut buf = [0; MonitorEvent::LEN];
+
+        let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
+        let (prefix, data) = event.into_parts();
+
+        prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
+        data_buf.copy_from_slice(&data.to_ne_bytes());
+
         self.socket.write_all(&buf)
     }
 
@@ -133,25 +143,37 @@ impl AsRawFd for ParentBackchannel {
 }
 
 /// Different messages exchanged between the monitor and the parent process using a [`Backchannel`].
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) enum MonitorEvent {
     ExecCommand,
+    Signal(c_int),
 }
 
 impl MonitorEvent {
-    const LEN: usize = PREFIX_LEN;
+    const LEN: usize = PREFIX_LEN + MONITOR_DATA_LEN;
     const EXEC_CMD: Prefix = 0;
+    const SIGNAL: Prefix = 1;
 
-    fn from_prefix(prefix: Prefix) -> Self {
+    fn from_parts(prefix: Prefix, data: MonitorData) -> Self {
         match prefix {
             Self::EXEC_CMD => Self::ExecCommand,
+            Self::SIGNAL => Self::Signal(data),
             _ => unreachable!(),
         }
     }
 
-    fn into_prefix(self) -> Prefix {
-        match self {
+    fn into_parts(self) -> (Prefix, MonitorData) {
+        let prefix = match self {
             MonitorEvent::ExecCommand => Self::EXEC_CMD,
-        }
+            MonitorEvent::Signal(_) => Self::SIGNAL,
+        };
+
+        let data = match self {
+            MonitorEvent::ExecCommand => 0,
+            MonitorEvent::Signal(data) => data,
+        };
+
+        (prefix, data)
     }
 }
 
@@ -183,9 +205,12 @@ impl MonitorBackchannel {
         let mut buf = [0; MonitorEvent::LEN];
         self.socket.read_exact(&mut buf)?;
 
-        let prefix = Prefix::from_ne_bytes(buf);
+        let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
 
-        Ok(MonitorEvent::from_prefix(prefix))
+        let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
+        let data = MonitorData::from_ne_bytes(data_buf.try_into().unwrap());
+
+        Ok(MonitorEvent::from_parts(prefix, data))
     }
 }
 
