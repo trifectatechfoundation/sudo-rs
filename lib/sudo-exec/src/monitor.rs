@@ -33,7 +33,7 @@ impl MonitorRelay {
         mut backchannel: MonitorBackchannel,
     ) -> (Self, EventHandler<Self>) {
         let result = io::Result::Ok(()).and_then(|()| {
-            let mut event_handler = EventHandler::<Self>::new()?;
+            let event_handler = EventHandler::<Self>::new()?;
             // Create new terminal session.
             setsid()?;
 
