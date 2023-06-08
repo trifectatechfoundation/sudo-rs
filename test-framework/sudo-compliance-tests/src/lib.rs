@@ -62,7 +62,6 @@ const SUDO_ENV_DEFAULT_TERM: &str = "unknown";
 const SUDOERS_USE_PTY: &str = "Defaults use_pty";
 
 enum EnvList {
-    #[allow(dead_code)]
     Check,
     Keep,
 }

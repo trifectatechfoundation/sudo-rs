@@ -4,6 +4,8 @@ use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, USERNAME};
 
+mod env;
+
 #[test]
 fn given_pam_permit_then_no_password_auth_required() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
