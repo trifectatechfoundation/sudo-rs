@@ -25,6 +25,8 @@ use crate::interface::ProcessId;
 
 const SIGINFO_SIZE: usize = std::mem::size_of::<siginfo_t>();
 
+pub type SignalNumber = c_int;
+
 /// Information related to the arrival of a signal.
 pub struct SignalInfo {
     info: siginfo_t,
@@ -45,7 +47,7 @@ impl SignalInfo {
     }
 
     /// Gets the signal number.
-    pub fn signal(&self) -> c_int {
+    pub fn signal(&self) -> SignalNumber {
         self.info.si_signo
     }
 }
@@ -80,7 +82,7 @@ impl SignalAction {
 /// using [`SignalHandler::set_action`] and [`SignalHandler::with_action`].
 pub struct SignalHandler {
     /// The number of the signal being handled.
-    signal: c_int,
+    signal: SignalNumber,
     /// The identifier under which the action of this handler was registered.
     ///
     /// It can be used to unregister or re-register the action if needed.
@@ -121,7 +123,7 @@ impl SignalHandler {
     /// * `SIGILL`
     /// * `SIGFPE`
     /// * `SIGSEGV`
-    pub fn new(signal: c_int) -> io::Result<Self> {
+    pub fn new(signal: SignalNumber) -> io::Result<Self> {
         Self::with_action(signal, SignalAction::Stream)
     }
 
@@ -136,7 +138,7 @@ impl SignalHandler {
     /// * `SIGILL`
     /// * `SIGFPE`
     /// * `SIGSEGV`
-    pub fn with_action(signal: c_int, action: SignalAction) -> io::Result<Self> {
+    pub fn with_action(signal: SignalNumber, action: SignalAction) -> io::Result<Self> {
         if FORBIDDEN.contains(&signal) {
             panic!(
                 "SignalHandler cannot be used to handle the forbidden {} signal",
@@ -213,7 +215,7 @@ impl SignalHandler {
     }
 
     /// Returns the number of the signal that is being handled.
-    pub fn signal(&self) -> c_int {
+    pub fn signal(&self) -> SignalNumber {
         self.signal
     }
 

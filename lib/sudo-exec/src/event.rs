@@ -1,8 +1,8 @@
-use std::{collections::HashMap, ffi::c_int, io, os::fd::AsRawFd};
+use std::{collections::HashMap, io, os::fd::AsRawFd};
 
 use sudo_system::{
     poll::PollSet,
-    signal::{SignalHandler, SignalInfo},
+    signal::{SignalHandler, SignalInfo, SignalNumber},
 };
 
 use signal_hook::consts::*;
@@ -16,7 +16,7 @@ macro_rules! define_signals {
     ($($signal:ident,)*) => {
         impl<T: RelaySignal> EventHandler<T> {
             /// The signals that we can handle.
-            pub(crate) const SIGNALS: &[c_int] = &[$($signal,)*];
+            pub(crate) const SIGNALS: &[SignalNumber] = &[$($signal,)*];
 
             /// Create a new and empty event handler.
             ///
@@ -61,7 +61,7 @@ pub(crate) type Callback<T> = fn(&mut T, &mut EventHandler<T>);
 
 /// A type able to poll events from file descriptors and run callbacks when events are ready.
 pub(crate) struct EventHandler<T> {
-    signal_handlers: HashMap<c_int, SignalHandler>,
+    signal_handlers: HashMap<SignalNumber, SignalHandler>,
     poll_set: PollSet<EventId>,
     callbacks: Vec<Callback<T>>,
     brk: bool,
