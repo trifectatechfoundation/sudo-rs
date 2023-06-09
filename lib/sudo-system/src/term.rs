@@ -40,12 +40,39 @@ pub fn tcgetpgrp<F: AsRawFd>(fd: &F) -> io::Result<ProcessId> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{getpgid, interface::ProcessId, term::*};
+    use libc::SIGHUP;
+
+    use crate::{
+        getpgid,
+        interface::ProcessId,
+        setsid,
+        signal::{SignalAction, SignalHandler},
+        term::*,
+    };
 
     #[test]
-    fn tcgetpgrp_matches_getpgid() {
+    fn tcgetpgrp_works() {
         let stdout = std::io::stdout();
         let pgrp = getpgid(std::process::id() as ProcessId).unwrap();
         assert_eq!(tcgetpgrp(&stdout).unwrap(), pgrp);
+    }
+
+    #[test]
+    fn tcsetpgrp_works() {
+        // Ignore `SIGHUP` to avoid hanging up when we change the controlling terminal.
+        let _handler = SignalHandler::with_action(SIGHUP, SignalAction::Ignore).unwrap();
+        // Open a new pseudoterminal.
+        let (leader, _follower) = openpty().unwrap();
+        // The pty leader should not have a foreground process group yet.
+        assert_eq!(tcgetpgrp(&leader).unwrap(), 0);
+        // Create a new session so we can change the controlling terminal.
+        setsid().unwrap();
+        // Set the pty leader as the controlling terminal. 
+        set_controlling_terminal(&leader).unwrap();
+        // Set us as the foreground process group of the pty leader.
+        let pgid = getpgid(0).unwrap();
+        tcsetpgrp(&leader, pgid).unwrap();
+        // Check that we are in fact the foreground process group of the pty leader.
+        assert_eq!(pgid, tcgetpgrp(&leader).unwrap());
     }
 }
