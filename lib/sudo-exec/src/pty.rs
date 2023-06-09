@@ -4,7 +4,7 @@ use signal_hook::consts::*;
 use sudo_log::user_error;
 use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
 
-use crate::event::{EventHandler, RelaySignal};
+use crate::event::{EventClosure, EventHandler};
 use crate::{
     backchannel::{MonitorEvent, ParentBackchannel, ParentEvent},
     io_util::{retry_while_interrupted, was_interrupted},
@@ -19,7 +19,6 @@ pub(super) struct PtyRelay {
     // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
     _pty_leader: OwnedFd,
     backchannel: ParentBackchannel,
-    last_event: Option<ParentEvent>,
 }
 
 impl PtyRelay {
@@ -44,16 +43,13 @@ impl PtyRelay {
                 command_pid: None,
                 _pty_leader: pty_leader,
                 backchannel,
-                last_event: None,
             },
             event_handler,
         ))
     }
 
     pub(super) fn run(mut self, event_handler: &mut EventHandler<Self>) -> io::Result<ExitReason> {
-        event_handler.event_loop(&mut self);
-        // The event loop is only broken if `last_event` is set.
-        let exit_reason = match self.last_event.unwrap() {
+        let exit_reason = match event_handler.event_loop(&mut self) {
             ParentEvent::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
             ParentEvent::CommandExit(code) => ExitReason::Code(code),
             ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
@@ -65,16 +61,15 @@ impl PtyRelay {
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
-    fn check_backchannel(&mut self, ev: &mut EventHandler<Self>) {
+    fn check_backchannel(&mut self, event_handler: &mut EventHandler<Self>) {
         match self.backchannel.recv() {
             // Not an actual error, we can retry later.
             Err(err) if was_interrupted(&err) => {}
             // Failed to read command status. This means that something is wrong with the socket
             // and we should stop.
             Err(err) => {
-                if self.last_event.is_none() {
-                    self.last_event = Some((&err).into());
-                    ev.set_break();
+                if !event_handler.got_break() {
+                    event_handler.set_break((&err).into());
                 }
             }
             Ok(event) => match event {
@@ -86,8 +81,7 @@ impl PtyRelay {
                 ParentEvent::CommandExit(_)
                 | ParentEvent::CommandSignal(_)
                 | ParentEvent::IoError(_) => {
-                    self.last_event = event.into();
-                    ev.set_break();
+                    event_handler.set_break(event);
                 }
             },
         }
@@ -117,8 +111,10 @@ impl PtyRelay {
     }
 }
 
-impl RelaySignal for PtyRelay {
-    fn relay_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
+impl EventClosure for PtyRelay {
+    type Break = ParentEvent;
+
+    fn on_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
         match info.signal() {
             // FIXME: check `handle_sigchld_pty`
             SIGCHLD => self.check_backchannel(event_handler),

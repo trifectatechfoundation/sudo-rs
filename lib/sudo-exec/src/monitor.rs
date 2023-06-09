@@ -14,7 +14,7 @@ use sudo_system::{
 
 use crate::{
     backchannel::{MonitorBackchannel, MonitorEvent, ParentEvent},
-    event::{EventHandler, RelaySignal},
+    event::{EventClosure, EventHandler},
     io_util::retry_while_interrupted,
 };
 
@@ -84,7 +84,7 @@ impl MonitorRelay {
     }
 
     pub(super) fn run(mut self, event_handler: &mut EventHandler<Self>) -> ! {
-        event_handler.event_loop(&mut self);
+        let () = event_handler.event_loop(&mut self);
         drop(self);
         exit(0);
     }
@@ -113,13 +113,15 @@ impl MonitorRelay {
     }
 }
 
-impl RelaySignal for MonitorRelay {
-    fn relay_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
+impl EventClosure for MonitorRelay {
+    type Break = ();
+
+    fn on_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
         match info.signal() {
             // FIXME: check `mon_handle_sigchld`
             SIGCHLD => {
                 if let Ok(Some(exit_status)) = self.command.try_wait() {
-                    event_handler.set_break();
+                    event_handler.set_break(());
                     self.backchannel.send(exit_status.into()).unwrap();
                 }
             }
