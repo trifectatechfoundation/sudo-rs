@@ -84,7 +84,7 @@ impl MonitorRelay {
     }
 
     pub(super) fn run(mut self, event_handler: &mut EventHandler<Self>) -> ! {
-        let () = event_handler.event_loop(&mut self);
+        event_handler.event_loop(&mut self);
         drop(self);
         exit(0);
     }
