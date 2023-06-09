@@ -49,9 +49,9 @@ mod tests {
 
     #[test]
     fn tcgetpgrp_works() {
-        let stdout = std::io::stdout();
+        let tty = std::fs::File::open("/dev/tty").unwrap();
         let pgrp = getpgid(std::process::id() as ProcessId).unwrap();
-        assert_eq!(tcgetpgrp(&stdout).unwrap(), pgrp);
+        assert_eq!(tcgetpgrp(&tty).unwrap(), pgrp);
     }
 
     #[test]
