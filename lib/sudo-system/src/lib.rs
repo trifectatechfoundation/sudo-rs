@@ -5,7 +5,6 @@ use std::{
     mem::MaybeUninit,
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     path::PathBuf,
-    ptr::null,
     str::FromStr,
 };
 
@@ -29,6 +28,8 @@ pub mod timestamp;
 pub mod signal;
 
 pub mod poll;
+
+pub mod term;
 
 pub fn write<F: AsRawFd>(fd: &F, buf: &[u8]) -> io::Result<libc::ssize_t> {
     cerr(unsafe { libc::write(fd.as_raw_fd(), buf.as_ptr().cast(), buf.len()) })
@@ -65,26 +66,6 @@ pub unsafe fn fork() -> io::Result<ProcessId> {
 
 pub fn setsid() -> io::Result<ProcessId> {
     cerr(unsafe { libc::setsid() })
-}
-
-pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
-    let (mut leader, mut follower) = (0, 0);
-    cerr(unsafe {
-        libc::openpty(
-            &mut leader,
-            &mut follower,
-            null::<libc::c_char>() as *mut _,
-            null::<libc::termios>() as *mut _,
-            null::<libc::winsize>() as *mut _,
-        )
-    })?;
-
-    Ok(unsafe { (OwnedFd::from_raw_fd(leader), OwnedFd::from_raw_fd(follower)) })
-}
-
-pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
-    cerr(unsafe { libc::ioctl(fd.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
-    Ok(())
 }
 
 pub fn hostname() -> String {

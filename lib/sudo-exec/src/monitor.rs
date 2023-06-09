@@ -8,8 +8,8 @@ use std::{
 use signal_hook::consts::*;
 use sudo_log::user_error;
 use sudo_system::{
-    getpgid, interface::ProcessId, kill, set_controlling_terminal, setpgid, setsid,
-    signal::SignalInfo,
+    getpgid, interface::ProcessId, kill, setpgid, setsid, signal::SignalInfo,
+    term::set_controlling_terminal,
 };
 
 use crate::{

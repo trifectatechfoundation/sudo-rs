@@ -17,7 +17,7 @@ use std::{
 use backchannel::BackchannelPair;
 use sudo_common::{context::LaunchType::Login, Context, Environment};
 use sudo_log::user_error;
-use sudo_system::{fork, openpty, set_target_user};
+use sudo_system::{fork, set_target_user, term::openpty};
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
