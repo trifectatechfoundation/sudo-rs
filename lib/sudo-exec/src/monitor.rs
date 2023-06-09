@@ -50,7 +50,7 @@ impl MonitorClosure {
             let event = retry_while_interrupted(|| backchannel.recv())?;
 
             // Given that `UnixStream` delivers messages in order it shouldn't be possible to
-            // receive an event different to `ExecCommand` at the beginning. 
+            // receive an event different to `ExecCommand` at the beginning.
             debug_assert_eq!(event, MonitorEvent::ExecCommand);
 
             // spawn the command
