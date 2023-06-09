@@ -554,14 +554,14 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
 
 #[cfg(test)]
 mod tests {
-    use std::os::unix::process::ExitStatusExt;
-
-    use libc::SIGTERM;
-
-    use crate::{
-        signal::{SignalAction, SignalHandler},
-        Group, User, WithProcess,
+    use std::{
+        io::{Read, Write},
+        os::unix::net::UnixStream,
     };
+
+    use libc::SIGKILL;
+
+    use crate::{fork, setpgid, Group, User, WithProcess};
 
     #[test]
     fn test_get_user_and_group_by_id() {
@@ -661,26 +661,38 @@ mod tests {
             .arg("1")
             .spawn()
             .unwrap();
-        super::kill(child.id() as i32, 9).unwrap();
+        super::kill(child.id() as i32, SIGKILL).unwrap();
         assert!(!child.wait().unwrap().success());
     }
     #[test]
     fn killpg_test() {
-        let mut child = std::process::Command::new("/bin/sleep")
-            .arg("1")
-            .spawn()
-            .unwrap();
-        // The child process must be in our process group.
-        let pgid = super::getpgid(0).unwrap();
-        // Ignore `SIGTERM` so we don't terminate ourselves by accident.
-        let handler = SignalHandler::with_action(SIGTERM, SignalAction::Ignore);
-        // Give `SignalHandler` time to set up.
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        // Send `SIGTERM` to all processes in our own process group.
-        super::killpg(pgid, SIGTERM).unwrap();
-        // Restore the default handler for `SIGTERM`.
-        drop(handler);
-        // Ensure that the child was terminated by `SIGTERM`.
-        assert_eq!(Some(SIGTERM), child.wait().unwrap().signal());
+        // Create a socket so the children write to it if they aren't terminated by `killpg`.
+        let (mut rx, mut tx) = UnixStream::pair().unwrap();
+
+        let pid1 = fork().unwrap();
+        if pid1 == 0 {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            tx.write_all(&[42]).unwrap();
+        }
+
+        let pid2 = fork().unwrap();
+        if pid2 == 0 {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            tx.write_all(&[42]).unwrap();
+        }
+
+        drop(tx);
+
+        let pgid = pid1;
+        // Move the children to their own process group.
+        setpgid(pid1, pgid).unwrap();
+        setpgid(pid2, pgid).unwrap();
+        // Send `SIGKILL` to the children process group.
+        super::killpg(pgid, SIGKILL).unwrap();
+        // Ensure that the child were terminated before writing.
+        assert_eq!(
+            rx.read_exact(&mut [0; 2]).unwrap_err().kind(),
+            std::io::ErrorKind::UnexpectedEof
+        );
     }
 }
