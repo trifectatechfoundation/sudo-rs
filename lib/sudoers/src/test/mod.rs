@@ -314,9 +314,21 @@ fn invalid_directive() {
 fn directive_test() {
     let y = parse_eval::<Spec<UserSpecifier>>;
     match parse_eval::<ast::Sudo>("User_Alias HENK = user1, user2") {
-        Sudo::Decl(Directive::UserAlias(Def(name, list))) => {
+        Sudo::Decl(Directive::UserAlias(defs)) => {
+            let [Def(name, list)] = &defs[..] else { panic!("incorrectly parsed") };
             assert_eq!(name, "HENK");
-            assert_eq!(list, vec![y("user1"), y("user2")]);
+            assert_eq!(*list, vec![y("user1"), y("user2")]);
+        }
+        _ => panic!("incorrectly parsed"),
+    }
+
+    match parse_eval::<ast::Sudo>("Runas_Alias FOO = foo : BAR = bar") {
+        Sudo::Decl(Directive::RunasAlias(defs)) => {
+            let [Def(name1, list1), Def(name2, list2)] = &defs[..] else { panic!("incorrectly parsed") };
+            assert_eq!(name1, "FOO");
+            assert_eq!(*list1, vec![y("foo")]);
+            assert_eq!(name2, "BAR");
+            assert_eq!(*list2, vec![y("bar")]);
         }
         _ => panic!("incorrectly parsed"),
     }
