@@ -6,6 +6,8 @@ use std::{
 
 use sudo_cutils::cerr;
 
+use crate::interface::ProcessId;
+
 pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
     let (mut leader, mut follower) = (0, 0);
     cerr(unsafe {
@@ -24,4 +26,14 @@ pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
 pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
     cerr(unsafe { libc::ioctl(fd.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
     Ok(())
+}
+
+/// Set the foreground process group ID associated with the `fd` terminal device to `pgrp`.
+pub fn tcsetpgrp<F: AsRawFd>(fd: &F, pgrp: ProcessId) -> io::Result<()> {
+    cerr(unsafe { libc::tcsetpgrp(fd.as_raw_fd(), pgrp) }).map(|_| ())
+}
+
+/// Get the foreground process group ID associated with the `fd` terminal device.
+pub fn tcgetpgrp<F: AsRawFd>(fd: &F) -> io::Result<ProcessId> {
+    cerr(unsafe { libc::tcgetpgrp(fd.as_raw_fd()) })
 }
