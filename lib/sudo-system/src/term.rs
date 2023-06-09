@@ -67,7 +67,7 @@ mod tests {
         assert_eq!(tcgetpgrp(&leader).unwrap(), 0);
         // Create a new session so we can change the controlling terminal.
         setsid().unwrap();
-        // Set the pty leader as the controlling terminal. 
+        // Set the pty leader as the controlling terminal.
         set_controlling_terminal(&leader).unwrap();
         // Set us as the foreground process group of the pty leader.
         let pgid = getpgid(0).unwrap();
