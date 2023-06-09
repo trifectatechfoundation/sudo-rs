@@ -154,8 +154,8 @@ pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
 }
 
 /// Set a process group ID.
-pub fn setpgid(pid: ProcessId, pgid: ProcessId) {
-    unsafe { libc::setpgid(pid, pgid) };
+pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
+    cerr(unsafe { libc::setpgid(pid, pgid) }).map(|_| ())
 }
 
 pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {

@@ -56,7 +56,7 @@ impl MonitorRelay {
 
             // set the process group ID of the command to the command PID.
             let command_pgrp = command_pid;
-            setpgid(command_pid, command_pgrp);
+            setpgid(command_pid, command_pgrp).ok();
 
             Ok((
                 signal_handlers,
