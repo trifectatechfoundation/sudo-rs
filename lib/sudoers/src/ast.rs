@@ -495,29 +495,12 @@ fn get_directive(
     use crate::ast::UserSpecifier::*;
     let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else { return reject() };
 
-    /// Parse an alias definition
-    fn parse_alias<T: UserFriendly>(
-        ctor: fn(Defs<T>) -> Directive,
-        stream: &mut impl CharStream,
-    ) -> Parsed<Directive>
-    where
-        Meta<T>: Parse + Many,
-    {
-        make(ctor(expect_nonterminal(stream)?))
-    }
-
-    /// Parse "Defaults" entries
-    fn parse_default<T: CharStream>(stream: &mut T) -> Parsed<Directive> {
-        let parameters = expect_nonterminal(stream)?;
-        make(Defaults(parameters))
-    }
-
     match keyword.as_str() {
-        "User_Alias" => parse_alias(UserAlias, stream),
-        "Host_Alias" => parse_alias(HostAlias, stream),
-        "Cmnd_Alias" | "Cmd_Alias" => parse_alias(CmndAlias, stream),
-        "Runas_Alias" => parse_alias(RunasAlias, stream),
-        "Defaults" => parse_default(stream),
+        "User_Alias" => make(UserAlias(expect_nonterminal(stream)?)),
+        "Host_Alias" => make(HostAlias(expect_nonterminal(stream)?)),
+        "Cmnd_Alias" | "Cmd_Alias" => make(CmndAlias(expect_nonterminal(stream)?)),
+        "Runas_Alias" => make(RunasAlias(expect_nonterminal(stream)?)),
+        "Defaults" => make(Defaults(expect_nonterminal(stream)?)),
         _ => reject(),
     }
 }
