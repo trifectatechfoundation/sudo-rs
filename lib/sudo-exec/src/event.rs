@@ -8,7 +8,7 @@ use sudo_system::{
 use signal_hook::consts::*;
 
 pub(crate) trait RelaySignal: Sized {
-    fn relay_signal(&mut self, info: SignalInfo, ev: &mut EventHandler<Self>);
+    fn relay_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>);
 }
 
 /// This macro ensures that we don't forget to set signal handlers.
@@ -24,7 +24,7 @@ macro_rules! define_signals {
             /// [`SIGNALS`] and sets the callbacks for each one of them using the `RelaySignal`
             /// implementation.
             pub(crate) fn new() -> io::Result<Self> {
-                let mut ev = Self {
+                let mut event_handler = Self {
                     signal_handlers: HashMap::with_capacity(Self::SIGNALS.len()),
                     poll_set: PollSet::new(),
                     callbacks: Vec::new(),
@@ -33,16 +33,16 @@ macro_rules! define_signals {
 
                 $(
                     let handler = SignalHandler::new($signal)?;
-                    ev.set_read_callback(&handler, |t, ev| {
-                        let handler = ev.signal_handlers.get_mut(&$signal).unwrap();
+                    event_handler.set_read_callback(&handler, |relay, event_handler| {
+                        let handler = event_handler.signal_handlers.get_mut(&$signal).unwrap();
                         if let Ok(info) = handler.recv() {
-                            t.relay_signal(info, ev);
+                            relay.relay_signal(info, event_handler);
                         }
                     });
-                    ev.signal_handlers.insert($signal, handler);
+                    event_handler.signal_handlers.insert($signal, handler);
                 )*
 
-                Ok(ev)
+                Ok(event_handler)
             }
         }
     };

@@ -31,7 +31,9 @@ impl PtyRelay {
     ) -> io::Result<(Self, EventHandler<Self>)> {
         let mut event_handler = EventHandler::<Self>::new()?;
 
-        event_handler.set_read_callback(&backchannel, |ec, ev| ec.check_backchannel(ev));
+        event_handler.set_read_callback(&backchannel, |parent, event_handler| {
+            parent.check_backchannel(event_handler)
+        });
 
         retry_while_interrupted(|| backchannel.send(MonitorEvent::ExecCommand))?;
 
