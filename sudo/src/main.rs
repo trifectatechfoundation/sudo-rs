@@ -33,7 +33,7 @@ do this then this software is not suited for you at this time."
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Default)]
-pub struct SudoersPolicy;
+pub struct SudoersPolicy {}
 
 impl PolicyPlugin for SudoersPolicy {
     type PreJudgementPolicy = sudoers::Sudoers;

@@ -1,5 +1,5 @@
-///! Routines for "secure" memory operations; i.e. data that we need to send to Linux-PAM and don't
-///! want any copies to leak (that we would then need to zeroize).
+//! Routines for "secure" memory operations; i.e. data that we need to send to Linux-PAM and don't
+//! want any copies to leak (that we would then need to zeroize).
 use std::slice;
 
 pub struct PamBuffer(*mut u8);
