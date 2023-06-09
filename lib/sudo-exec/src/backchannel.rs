@@ -9,7 +9,7 @@ use std::{
     process::ExitStatus,
 };
 
-use sudo_system::interface::ProcessId;
+use sudo_system::{interface::ProcessId, signal::SignalNumber};
 
 type Prefix = u8;
 type ParentData = c_int;
@@ -37,7 +37,7 @@ impl BackchannelPair {
 pub(crate) enum ParentEvent {
     IoError(c_int),
     CommandExit(c_int),
-    CommandSignal(c_int),
+    CommandSignal(SignalNumber),
     CommandPid(ProcessId),
 }
 
