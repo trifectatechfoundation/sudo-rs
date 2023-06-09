@@ -20,7 +20,10 @@ use crate::{
 };
 
 pub(super) struct MonitorClosure {
-    command_pid: ProcessId,
+    /// The command PID.
+    ///
+    /// This is `Some` iff the process is still running.
+    command_pid: Option<ProcessId>,
     command_pgrp: ProcessId,
     command: Child,
     _pty_follower: OwnedFd,
@@ -75,7 +78,7 @@ impl MonitorClosure {
             }
             Ok((dispatcher, command_pid, command_pgrp, command, pty_follower)) => (
                 Self {
-                    command_pid,
+                    command_pid: Some(command_pid),
                     command_pgrp,
                     command,
                     _pty_follower: pty_follower,
@@ -97,14 +100,18 @@ impl MonitorClosure {
     /// A signal is self-terminating if `signaler_pid`:
     /// - is the same PID of the command, or
     /// - is in the process group of the command and the command is the leader.
-    fn is_self_terminating(&self, signaler_pid: ProcessId) -> bool {
+    fn is_self_terminating(
+        signaler_pid: ProcessId,
+        command_pid: ProcessId,
+        command_pgrp: ProcessId,
+    ) -> bool {
         if signaler_pid != 0 {
-            if signaler_pid == self.command_pid {
+            if signaler_pid == command_pid {
                 return true;
             }
 
             if let Ok(grp_leader) = getpgid(signaler_pid) {
-                if grp_leader == self.command_pgrp {
+                if grp_leader == command_pgrp {
                     return true;
                 }
             } else {
@@ -130,27 +137,30 @@ impl MonitorClosure {
                     // We shouldn't receive this event more than once.
                     MonitorEvent::ExecCommand => unreachable!(),
                     // Forward signal to the command.
-                    MonitorEvent::Signal(signal) => self.send_signal(signal),
+                    MonitorEvent::Signal(signal) => {
+                        if let Some(command_pid) = self.command_pid {
+                            Self::send_signal(signal, command_pid)
+                        }
+                    }
                 }
             }
         }
     }
 
     /// Send a signal to the command
-    fn send_signal(&self, signal: c_int) {
+    fn send_signal(signal: c_int, command_pid: ProcessId) {
         // FIXME: We should call `killpg` instead of `kill`.
-        // FIXME: We shouldn't send any signals if the command exited already.
         match signal {
             SIGALRM => {
                 // Kill the command with increasing urgency. Based on `terminate_command`.
-                kill(self.command_pid, SIGHUP).ok();
-                kill(self.command_pid, SIGTERM).ok();
+                kill(command_pid, SIGHUP).ok();
+                kill(command_pid, SIGTERM).ok();
                 std::thread::sleep(Duration::from_secs(2));
-                kill(self.command_pid, SIGKILL).ok();
+                kill(command_pid, SIGKILL).ok();
             }
             signal => {
                 // Send the signal to the command.
-                kill(self.command_pid, signal).ok();
+                kill(command_pid, signal).ok();
             }
         }
     }
@@ -160,17 +170,25 @@ impl EventClosure for MonitorClosure {
     type Break = ();
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
+        // Don't do anything if the command has terminated already
+        let Some(command_pid) = self.command_pid else {
+            return;
+        };
+
         match info.signal() {
             // FIXME: check `mon_handle_sigchld`
             SIGCHLD => {
                 if let Ok(Some(exit_status)) = self.command.try_wait() {
+                    // The command has terminated, set it's PID to `None`.
+                    self.command_pid = None;
                     dispatcher.set_break(());
                     self.backchannel.send(&exit_status.into()).unwrap();
                 }
             }
             // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            signal => self.send_signal(signal),
+            _ if info.is_user_signaled()
+                && Self::is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
+            signal => Self::send_signal(signal, command_pid),
         }
     }
 }
