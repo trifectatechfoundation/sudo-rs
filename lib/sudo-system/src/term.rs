@@ -37,3 +37,15 @@ pub fn tcsetpgrp<F: AsRawFd>(fd: &F, pgrp: ProcessId) -> io::Result<()> {
 pub fn tcgetpgrp<F: AsRawFd>(fd: &F) -> io::Result<ProcessId> {
     cerr(unsafe { libc::tcgetpgrp(fd.as_raw_fd()) })
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{getpgid, interface::ProcessId, term::*};
+
+    #[test]
+    fn tcgetpgrp_matches_getpgid() {
+        let stdout = std::io::stdout();
+        let pgrp = getpgid(std::process::id() as ProcessId).unwrap();
+        assert_eq!(tcgetpgrp(&stdout).unwrap(), pgrp);
+    }
+}
