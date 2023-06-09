@@ -147,6 +147,13 @@ pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
     cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
 }
 
+/// Send a signal to a process group with the specified ID.
+pub fn killpg(pgid: ProcessId, signal: c_int) -> io::Result<()> {
+    // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
+    // `signal` is not a valid signal code.
+    cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
+}
+
 /// Get a process group ID.
 pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
@@ -566,7 +573,14 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
 
 #[cfg(test)]
 mod tests {
-    use crate::{Group, User, WithProcess};
+    use std::os::unix::process::ExitStatusExt;
+
+    use libc::SIGTERM;
+
+    use crate::{
+        signal::{SignalAction, SignalHandler},
+        Group, User, WithProcess,
+    };
 
     #[test]
     fn test_get_user_and_group_by_id() {
@@ -652,5 +666,24 @@ mod tests {
             .unwrap();
         super::kill(child.id() as i32, 9).unwrap();
         assert!(!child.wait().unwrap().success());
+    }
+    #[test]
+    fn killpg_test() {
+        let mut child = std::process::Command::new("/bin/sleep")
+            .arg("1")
+            .spawn()
+            .unwrap();
+        // The child process must be in our process group.
+        let pgid = super::getpgid(0).unwrap();
+        // Ignore `SIGTERM` so we don't terminate ourselves by accident.
+        let handler = SignalHandler::with_action(SIGTERM, SignalAction::Ignore);
+        // Give `SignalHandler` time to set up.
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        // Send `SIGTERM` to all processes in our own process group.
+        super::killpg(pgid, SIGTERM).unwrap();
+        // Restore the default handler for `SIGTERM`.
+        drop(handler);
+        // Ensure that the child was terminated by `SIGTERM`.
+        assert_eq!(Some(SIGTERM), child.wait().unwrap().signal());
     }
 }
