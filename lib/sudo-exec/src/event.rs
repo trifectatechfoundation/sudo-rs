@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io, ops::ControlFlow, os::fd::AsRawFd};
+use std::{io, ops::ControlFlow, os::fd::AsRawFd};
 
 use sudo_system::{
     poll::PollSet,
@@ -16,11 +16,11 @@ pub(crate) trait EventClosure: Sized {
 
 /// This macro ensures that we don't forget to set signal handlers.
 macro_rules! define_signals {
-    ($($signal:ident,)*) => {
-        impl<T: EventClosure> EventHandler<T> {
-            /// The signals that we can handle.
-            pub(crate) const SIGNALS: &[SignalNumber] = &[$($signal,)*];
+    ($($signal:ident = $repr:literal,)*) => {
+        /// The signals that we can handle.
+        pub(crate) const SIGNALS: &[SignalNumber] = &[$($signal,)*];
 
+        impl<T: EventClosure> EventHandler<T> {
             /// Create a new and empty event handler.
             ///
             /// Calling this function also creates new signal handlers for the signals in
@@ -28,21 +28,20 @@ macro_rules! define_signals {
             /// [`EventClosure::on_signal`] implementation.
             pub(crate) fn new() -> io::Result<Self> {
                 let mut event_handler = Self {
-                    signal_handlers: HashMap::with_capacity(Self::SIGNALS.len()),
+                    signal_handlers: [$(SignalHandler::new($signal)?,)*],
                     poll_set: PollSet::new(),
                     callbacks: Vec::new(),
                     status: ControlFlow::Continue(()),
                 };
 
                 $(
-                    let handler = SignalHandler::new($signal)?;
-                    event_handler.set_read_callback(&handler, |closure, event_handler| {
-                        let handler = event_handler.signal_handlers.get_mut(&$signal).unwrap();
+                    let handler = &event_handler.signal_handlers[$repr].as_raw_fd();
+                    event_handler.set_read_callback(handler, |closure, event_handler| {
+                        let handler = &mut event_handler.signal_handlers[$repr];
                         if let Ok(info) = handler.recv() {
                             closure.on_signal(info, event_handler);
                         }
                     });
-                    event_handler.signal_handlers.insert($signal, handler);
                 )*
 
                 Ok(event_handler)
@@ -53,8 +52,18 @@ macro_rules! define_signals {
 }
 
 define_signals! {
-    SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGPIPE, SIGUSR1, SIGUSR2, SIGCHLD,
-    SIGCONT, SIGWINCH,
+    SIGINT = 0,
+    SIGQUIT = 1,
+    SIGTSTP = 2,
+    SIGTERM = 3,
+    SIGHUP = 4,
+    SIGALRM = 5,
+    SIGPIPE = 6,
+    SIGUSR1 = 7,
+    SIGUSR2 = 8,
+    SIGCHLD = 9,
+    SIGCONT = 10,
+    SIGWINCH = 11,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -64,7 +73,7 @@ pub(crate) type Callback<T> = fn(&mut T, &mut EventHandler<T>);
 
 /// A type able to poll events from file descriptors and run callbacks when events are ready.
 pub(crate) struct EventHandler<T: EventClosure> {
-    signal_handlers: HashMap<SignalNumber, SignalHandler>,
+    signal_handlers: [SignalHandler; SIGNALS.len()],
     poll_set: PollSet<EventId>,
     callbacks: Vec<Callback<T>>,
     status: ControlFlow<T::Break>,
