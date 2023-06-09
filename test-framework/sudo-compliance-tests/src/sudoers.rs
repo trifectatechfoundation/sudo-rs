@@ -9,6 +9,7 @@ mod env;
 mod host_alias;
 mod host_list;
 mod run_as;
+mod runas_alias;
 mod secure_path;
 mod timestamp_timeout;
 mod user_list;
