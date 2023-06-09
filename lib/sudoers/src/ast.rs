@@ -62,14 +62,15 @@ pub struct PermissionSpec {
     pub permissions: PairVec<SpecList<Hostname>, (Option<RunAs>, CommandSpec)>,
 }
 
+pub type Defs<T> = Vec<Def<T>>;
 pub struct Def<T>(pub String, pub SpecList<T>);
 
 /// AST object for directive specifications (aliases, arguments, etc)
 pub enum Directive {
-    UserAlias(Def<UserSpecifier>),
-    HostAlias(Def<Hostname>),
-    CmndAlias(Def<Command>),
-    RunasAlias(Def<UserSpecifier>),
+    UserAlias(Defs<UserSpecifier>),
+    HostAlias(Defs<Hostname>),
+    CmndAlias(Defs<Command>),
+    RunasAlias(Defs<UserSpecifier>),
     Defaults(Vec<(String, ConfigValue)>),
 }
 
@@ -462,6 +463,28 @@ fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
 use sudo_defaults::sudo_default;
 use sudo_defaults::SudoDefault as Setting;
 
+/// grammar:
+/// ```text
+/// name = definition [ : name = definiton [ : ... ] ]
+/// ```
+///
+impl<T> Parse for Def<T>
+where
+    T: UserFriendly,
+    Meta<T>: Parse + Many,
+{
+    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+        let AliasName(name) = try_nonterminal(stream)?;
+        expect_syntax('=', stream)?;
+
+        make(Def(name, expect_nonterminal(stream)?))
+    }
+}
+
+impl<T> Many for Def<T> {
+    const SEP: char = ':';
+}
+
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut impl CharStream,
@@ -474,16 +497,13 @@ fn get_directive(
 
     /// Parse an alias definition
     fn parse_alias<T: UserFriendly>(
-        ctor: fn(Def<T>) -> Directive,
+        ctor: fn(Defs<T>) -> Directive,
         stream: &mut impl CharStream,
     ) -> Parsed<Directive>
     where
         Meta<T>: Parse + Many,
     {
-        let AliasName(name) = expect_nonterminal(stream)?;
-        expect_syntax('=', stream)?;
-
-        make(ctor(Def(name, expect_nonterminal(stream)?)))
+        make(ctor(expect_nonterminal(stream)?))
     }
 
     /// Parse "Defaults" entries
