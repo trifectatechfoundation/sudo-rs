@@ -40,15 +40,12 @@ pub fn tcgetpgrp<F: AsRawFd>(fd: &F) -> io::Result<ProcessId> {
 
 #[cfg(test)]
 mod tests {
-    use libc::SIGHUP;
-
-    use crate::{
-        getpgid,
-        interface::ProcessId,
-        setsid,
-        signal::{SignalAction, SignalHandler},
-        term::*,
+    use std::{
+        io::{Read, Write},
+        os::unix::net::UnixStream,
     };
+
+    use crate::{fork, getpgid, interface::ProcessId, setsid, term::*};
 
     #[test]
     fn tcgetpgrp_works() {
@@ -59,20 +56,34 @@ mod tests {
 
     #[test]
     fn tcsetpgrp_works() {
-        // Ignore `SIGHUP` to avoid hanging up when we change the controlling terminal.
-        let _handler = SignalHandler::with_action(SIGHUP, SignalAction::Ignore).unwrap();
-        // Open a new pseudoterminal.
-        let (leader, _follower) = openpty().unwrap();
-        // The pty leader should not have a foreground process group yet.
-        assert_eq!(tcgetpgrp(&leader).unwrap(), 0);
-        // Create a new session so we can change the controlling terminal.
-        setsid().unwrap();
-        // Set the pty leader as the controlling terminal.
-        set_controlling_terminal(&leader).unwrap();
-        // Set us as the foreground process group of the pty leader.
-        let pgid = getpgid(0).unwrap();
-        tcsetpgrp(&leader, pgid).unwrap();
-        // Check that we are in fact the foreground process group of the pty leader.
-        assert_eq!(pgid, tcgetpgrp(&leader).unwrap());
+        // Create a socket so the child can send us a byte if successful.
+        let (mut rx, mut tx) = UnixStream::pair().unwrap();
+
+        let child_pid = fork().unwrap();
+
+        if child_pid == 0 {
+            // Open a new pseudoterminal.
+            let (leader, _follower) = openpty().unwrap();
+            // The pty leader should not have a foreground process group yet.
+            assert_eq!(tcgetpgrp(&leader).unwrap(), 0);
+            // Create a new session so we can change the controlling terminal.
+            setsid().unwrap();
+            // Set the pty leader as the controlling terminal.
+            set_controlling_terminal(&leader).unwrap();
+            // Set us as the foreground process group of the pty leader.
+            let pgid = getpgid(0).unwrap();
+            tcsetpgrp(&leader, pgid).unwrap();
+            // Check that we are in fact the foreground process group of the pty leader.
+            assert_eq!(pgid, tcgetpgrp(&leader).unwrap());
+            // If we haven't panicked yet, send a byte to the parent.
+            tx.write_all(&[42]).unwrap();
+        }
+
+        drop(tx);
+
+        // Read one byte from the children to comfirm that it did not panic.
+        let mut buf = [0];
+        rx.read_exact(&mut buf).unwrap();
+        assert_eq!(buf[0], 42);
     }
 }
