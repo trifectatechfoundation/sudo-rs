@@ -652,11 +652,27 @@ mod tests {
 
     #[test]
     fn pgid_test() {
-        use super::getpgid;
+        use super::{getpgid, setpgid};
         assert_eq!(
             getpgid(std::process::id() as i32).unwrap(),
             getpgid(0).unwrap()
         );
+        match super::fork().unwrap() {
+            // child
+            0 => {
+                // wait for the parent.
+                std::thread::sleep(std::time::Duration::from_secs(1))
+            }
+            // parent
+            child_pid => {
+                // The child should be in our process group.
+                assert_eq!(getpgid(child_pid).unwrap(), getpgid(0).unwrap(),);
+                // Move the child to its own process group
+                setpgid(child_pid, child_pid).unwrap();
+                // The process group of the child should have changed.
+                assert_eq!(getpgid(child_pid).unwrap(), child_pid);
+            }
+        }
     }
     #[test]
     fn kill_test() {
