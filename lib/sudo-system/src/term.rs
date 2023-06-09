@@ -45,17 +45,10 @@ mod tests {
         os::unix::net::UnixStream,
     };
 
-    use crate::{fork, getpgid, interface::ProcessId, setsid, term::*};
+    use crate::{fork, getpgid, setsid, term::*};
 
     #[test]
-    fn tcgetpgrp_works() {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let pgrp = getpgid(std::process::id() as ProcessId).unwrap();
-        assert_eq!(tcgetpgrp(&tty).unwrap(), pgrp);
-    }
-
-    #[test]
-    fn tcsetpgrp_works() {
+    fn tcsetpgrp_and_tcgetpgrp_are_consistent() {
         // Create a socket so the child can send us a byte if successful.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
