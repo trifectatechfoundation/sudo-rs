@@ -8,10 +8,10 @@ use sudo_system::{
 use signal_hook::consts::*;
 
 pub(crate) trait EventClosure: Sized {
-    /// Reason why the event loop should break. This is the return type of [`EventHandler::event_loop`].
+    /// Reason why the event loop should break. This is the return type of [`EventDispatcher::event_loop`].
     type Break;
     /// Operation that the closure must do when a signal arrives.
-    fn on_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>);
+    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>);
 }
 
 /// This macro ensures that we don't forget to set signal handlers.
@@ -20,14 +20,14 @@ macro_rules! define_signals {
         /// The signals that we can handle.
         pub(crate) const SIGNALS: &[SignalNumber] = &[$($signal,)*];
 
-        impl<T: EventClosure> EventHandler<T> {
+        impl<T: EventClosure> EventDispatcher<T> {
             /// Create a new and empty event handler.
             ///
             /// Calling this function also creates new signal handlers for the signals in
             /// [`SIGNALS`] and sets the callbacks for each one of them using the
             /// [`EventClosure::on_signal`] implementation.
             pub(crate) fn new() -> io::Result<Self> {
-                let mut event_handler = Self {
+                let mut dispatcher = Self {
                     signal_handlers: [$(SignalHandler::new($signal)?,)*],
                     poll_set: PollSet::new(),
                     callbacks: Vec::new(),
@@ -35,16 +35,16 @@ macro_rules! define_signals {
                 };
 
                 $(
-                    let handler = &event_handler.signal_handlers[$repr].as_raw_fd();
-                    event_handler.set_read_callback(handler, |closure, event_handler| {
-                        let handler = &mut event_handler.signal_handlers[$repr];
+                    let handler = &dispatcher.signal_handlers[$repr].as_raw_fd();
+                    dispatcher.set_read_callback(handler, |closure, dispatcher| {
+                        let handler = &mut dispatcher.signal_handlers[$repr];
                         if let Ok(info) = handler.recv() {
-                            closure.on_signal(info, event_handler);
+                            closure.on_signal(info, dispatcher);
                         }
                     });
                 )*
 
-                Ok(event_handler)
+                Ok(dispatcher)
             }
         }
     };
@@ -69,17 +69,17 @@ define_signals! {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct EventId(usize);
 
-pub(crate) type Callback<T> = fn(&mut T, &mut EventHandler<T>);
+pub(crate) type Callback<T> = fn(&mut T, &mut EventDispatcher<T>);
 
-/// A type able to poll events from file descriptors and run callbacks when events are ready.
-pub(crate) struct EventHandler<T: EventClosure> {
+/// A type able to poll file descriptors and run callbacks when the descriptors are ready.
+pub(crate) struct EventDispatcher<T: EventClosure> {
     signal_handlers: [SignalHandler; SIGNALS.len()],
     poll_set: PollSet<EventId>,
     callbacks: Vec<Callback<T>>,
     status: ControlFlow<T::Break>,
 }
 
-impl<T: EventClosure> EventHandler<T> {
+impl<T: EventClosure> EventDispatcher<T> {
     /// Set the `fd` descriptor to be polled for read events and set `callback` to be called if
     /// `fd` is ready.  
     pub(crate) fn set_read_callback<F: AsRawFd>(&mut self, fd: &F, callback: Callback<T>) {
@@ -96,15 +96,15 @@ impl<T: EventClosure> EventHandler<T> {
     }
 
     /// Return whether a break reason has been set already. This function will return `false` after
-    /// [`EventHandler::event_loop`] has been called.
+    /// [`EventDispatcher::event_loop`] has been called.
     pub(crate) fn got_break(&self) -> bool {
         self.status.is_break()
     }
 
     /// Run the event loop for this handler.
     ///
-    /// The event loop will continue indefinitely unless either [`EventHandler::set_exit`]  or
-    /// [`EventHandler::set_break`] are called.
+    /// The event loop will continue indefinitely unless either [`EventDispatcher::set_exit`]  or
+    /// [`EventDispatcher::set_break`] are called.
     pub(crate) fn event_loop(&mut self, state: &mut T) -> T::Break {
         loop {
             if let Ok(ids) = self.poll_set.poll() {

@@ -4,7 +4,7 @@ use signal_hook::consts::*;
 use sudo_log::user_error;
 use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
 
-use crate::event::{EventClosure, EventHandler};
+use crate::event::{EventClosure, EventDispatcher};
 use crate::{
     backchannel::{MonitorEvent, ParentBackchannel, ParentEvent},
     io_util::{retry_while_interrupted, was_interrupted},
@@ -27,11 +27,11 @@ impl PtyRelay {
         sudo_pid: ProcessId,
         pty_leader: OwnedFd,
         mut backchannel: ParentBackchannel,
-    ) -> io::Result<(Self, EventHandler<Self>)> {
-        let mut event_handler = EventHandler::<Self>::new()?;
+    ) -> io::Result<(Self, EventDispatcher<Self>)> {
+        let mut dispatcher = EventDispatcher::<Self>::new()?;
 
-        event_handler.set_read_callback(&backchannel, |parent, event_handler| {
-            parent.check_backchannel(event_handler)
+        dispatcher.set_read_callback(&backchannel, |parent, dispatcher| {
+            parent.check_backchannel(dispatcher)
         });
 
         retry_while_interrupted(|| backchannel.send(MonitorEvent::ExecCommand))?;
@@ -44,12 +44,12 @@ impl PtyRelay {
                 _pty_leader: pty_leader,
                 backchannel,
             },
-            event_handler,
+            dispatcher,
         ))
     }
 
-    pub(super) fn run(mut self, event_handler: &mut EventHandler<Self>) -> io::Result<ExitReason> {
-        let exit_reason = match event_handler.event_loop(&mut self) {
+    pub(super) fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
+        let exit_reason = match dispatcher.event_loop(&mut self) {
             ParentEvent::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
             ParentEvent::CommandExit(code) => ExitReason::Code(code),
             ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
@@ -61,15 +61,15 @@ impl PtyRelay {
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
-    fn check_backchannel(&mut self, event_handler: &mut EventHandler<Self>) {
+    fn check_backchannel(&mut self, dispatcher: &mut EventDispatcher<Self>) {
         match self.backchannel.recv() {
             // Not an actual error, we can retry later.
             Err(err) if was_interrupted(&err) => {}
             // Failed to read command status. This means that something is wrong with the socket
             // and we should stop.
             Err(err) => {
-                if !event_handler.got_break() {
-                    event_handler.set_break((&err).into());
+                if !dispatcher.got_break() {
+                    dispatcher.set_break((&err).into());
                 }
             }
             Ok(event) => match event {
@@ -81,7 +81,7 @@ impl PtyRelay {
                 ParentEvent::CommandExit(_)
                 | ParentEvent::CommandSignal(_)
                 | ParentEvent::IoError(_) => {
-                    event_handler.set_break(event);
+                    dispatcher.set_break(event);
                 }
             },
         }
@@ -114,10 +114,10 @@ impl PtyRelay {
 impl EventClosure for PtyRelay {
     type Break = ParentEvent;
 
-    fn on_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
+    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         match info.signal() {
             // FIXME: check `handle_sigchld_pty`
-            SIGCHLD => self.check_backchannel(event_handler),
+            SIGCHLD => self.check_backchannel(dispatcher),
             // FIXME: check `resume_terminal`
             SIGCONT => {}
             // FIXME: check `sync_ttysize`

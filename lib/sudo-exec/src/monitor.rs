@@ -14,7 +14,7 @@ use sudo_system::{
 
 use crate::{
     backchannel::{MonitorBackchannel, MonitorEvent, ParentEvent},
-    event::{EventClosure, EventHandler},
+    event::{EventClosure, EventDispatcher},
     io_util::retry_while_interrupted,
 };
 
@@ -31,9 +31,9 @@ impl MonitorRelay {
         mut command: Command,
         pty_follower: OwnedFd,
         mut backchannel: MonitorBackchannel,
-    ) -> (Self, EventHandler<Self>) {
+    ) -> (Self, EventDispatcher<Self>) {
         let result = io::Result::Ok(()).and_then(|()| {
-            let event_handler = EventHandler::<Self>::new()?;
+            let dispatcher = EventDispatcher::<Self>::new()?;
             // Create new terminal session.
             setsid()?;
 
@@ -56,13 +56,7 @@ impl MonitorRelay {
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp);
 
-            Ok((
-                event_handler,
-                command_pid,
-                command_pgrp,
-                command,
-                pty_follower,
-            ))
+            Ok((dispatcher, command_pid, command_pgrp, command, pty_follower))
         });
 
         match result {
@@ -70,7 +64,7 @@ impl MonitorRelay {
                 backchannel.send((&err).into()).unwrap();
                 exit(1);
             }
-            Ok((event_handler, command_pid, command_pgrp, command, pty_follower)) => (
+            Ok((dispatcher, command_pid, command_pgrp, command, pty_follower)) => (
                 Self {
                     command_pid,
                     command_pgrp,
@@ -78,13 +72,13 @@ impl MonitorRelay {
                     _pty_follower: pty_follower,
                     backchannel,
                 },
-                event_handler,
+                dispatcher,
             ),
         }
     }
 
-    pub(super) fn run(mut self, event_handler: &mut EventHandler<Self>) -> ! {
-        event_handler.event_loop(&mut self);
+    pub(super) fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> ! {
+        dispatcher.event_loop(&mut self);
         drop(self);
         exit(0);
     }
@@ -116,12 +110,12 @@ impl MonitorRelay {
 impl EventClosure for MonitorRelay {
     type Break = ();
 
-    fn on_signal(&mut self, info: SignalInfo, event_handler: &mut EventHandler<Self>) {
+    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         match info.signal() {
             // FIXME: check `mon_handle_sigchld`
             SIGCHLD => {
                 if let Ok(Some(exit_status)) = self.command.try_wait() {
-                    event_handler.set_break(());
+                    dispatcher.set_break(());
                     self.backchannel.send(exit_status.into()).unwrap();
                 }
             }

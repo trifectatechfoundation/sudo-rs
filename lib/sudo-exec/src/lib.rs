@@ -79,19 +79,19 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
     let monitor_pid = fork()?;
     // Monitor logic. Based on `exec_monitor`.
     if monitor_pid == 0 {
-        let (monitor, mut event_handler) =
+        let (monitor, mut dispatcher) =
             monitor::MonitorRelay::new(command, pty_follower, backchannels.monitor);
-        match monitor.run(&mut event_handler) {}
+        match monitor.run(&mut dispatcher) {}
     } else {
-        let (parent, mut event_handler) = pty::PtyRelay::new(
+        let (parent, mut dispatcher) = pty::PtyRelay::new(
             monitor_pid,
             ctx.process.pid,
             pty_leader,
             backchannels.parent,
         )?;
         parent
-            .run(&mut event_handler)
-            .map(|exit_reason| (exit_reason, move || drop(event_handler)))
+            .run(&mut dispatcher)
+            .map(|exit_reason| (exit_reason, move || drop(dispatcher)))
     }
 }
 
