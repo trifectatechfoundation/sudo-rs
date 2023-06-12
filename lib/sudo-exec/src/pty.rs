@@ -1,18 +1,17 @@
-use std::{io, ops::ControlFlow, os::fd::OwnedFd};
+use std::{io, os::fd::OwnedFd};
 
 use signal_hook::consts::*;
 use sudo_log::user_error;
 use sudo_system::{getpgid, interface::ProcessId, kill, signal::SignalInfo};
 
+use crate::event::{EventClosure, EventDispatcher};
 use crate::{
     backchannel::{MonitorEvent, ParentBackchannel, ParentEvent},
     io_util::{retry_while_interrupted, was_interrupted},
-    signal::SignalHandlers,
     ExitReason,
 };
 
 pub(super) struct PtyRelay {
-    signal_handlers: SignalHandlers,
     monitor_pid: ProcessId,
     sudo_pid: ProcessId,
     command_pid: Option<ProcessId>,
@@ -28,55 +27,50 @@ impl PtyRelay {
         sudo_pid: ProcessId,
         pty_leader: OwnedFd,
         mut backchannel: ParentBackchannel,
-    ) -> io::Result<Self> {
-        let signal_handlers = SignalHandlers::new()?;
+    ) -> io::Result<(Self, EventDispatcher<Self>)> {
+        let mut dispatcher = EventDispatcher::<Self>::new()?;
+
+        dispatcher.set_read_callback(&backchannel, |parent, dispatcher| {
+            parent.check_backchannel(dispatcher)
+        });
 
         retry_while_interrupted(|| backchannel.send(MonitorEvent::ExecCommand))?;
 
-        Ok(Self {
-            signal_handlers,
-            monitor_pid,
-            sudo_pid,
-            command_pid: None,
-            _pty_leader: pty_leader,
-            backchannel,
-        })
+        Ok((
+            Self {
+                monitor_pid,
+                sudo_pid,
+                command_pid: None,
+                _pty_leader: pty_leader,
+                backchannel,
+            },
+            dispatcher,
+        ))
     }
 
-    pub(super) fn run(mut self) -> io::Result<(ExitReason, impl FnOnce())> {
-        loop {
-            // First we check the backchannel for any status updates from the command or the
-            // monitor.
-            if let ControlFlow::Break(event) = self.check_backchannel() {
-                let exit_reason = match event {
-                    ParentEvent::CommandExit(code) => ExitReason::Code(code),
-                    ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
-                    ParentEvent::IoError(raw) => return Err(io::Error::from_raw_os_error(raw)),
-                    // We never break the event loop because of this event.
-                    ParentEvent::CommandPid(_) => unreachable!(),
-                };
+    pub(super) fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
+        let exit_reason = match dispatcher.event_loop(&mut self) {
+            ParentEvent::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
+            ParentEvent::CommandExit(code) => ExitReason::Code(code),
+            ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
+            // We never set this event as the last event
+            ParentEvent::CommandPid(_) => unreachable!(),
+        };
 
-                return Ok((exit_reason, move || drop(self.signal_handlers)));
-            }
-
-            // Then we check any pending signals that we received. Based on `signal_cb_pty`
-            if let Ok(infos) = self.signal_handlers.poll() {
-                for info in infos {
-                    self.relay_signal(info);
-                }
-            }
-        }
+        Ok(exit_reason)
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
-    fn check_backchannel(&mut self) -> ControlFlow<ParentEvent> {
+    fn check_backchannel(&mut self, dispatcher: &mut EventDispatcher<Self>) {
         match self.backchannel.recv() {
             // Not an actual error, we can retry later.
             Err(err) if was_interrupted(&err) => {}
             // Failed to read command status. This means that something is wrong with the socket
             // and we should stop.
             Err(err) => {
-                return ControlFlow::Break((&err).into());
+                if !dispatcher.got_break() {
+                    dispatcher.set_break((&err).into());
+                }
             }
             Ok(event) => match event {
                 // Received the PID of the command. This means that the command is already
@@ -87,27 +81,9 @@ impl PtyRelay {
                 ParentEvent::CommandExit(_)
                 | ParentEvent::CommandSignal(_)
                 | ParentEvent::IoError(_) => {
-                    return ControlFlow::Break(event);
+                    dispatcher.set_break(event);
                 }
             },
-        }
-        ControlFlow::Continue(())
-    }
-
-    fn relay_signal(&self, info: SignalInfo) {
-        match info.signal() {
-            // FIXME: check `handle_sigchld_pty`
-            SIGCHLD => {}
-            // FIXME: check `resume_terminal`
-            SIGCONT => {}
-            // FIXME: check `sync_ttysize`
-            SIGWINCH => {}
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            // FIXME: check `send_command_status`
-            signal => {
-                kill(self.monitor_pid, signal).ok();
-            }
         }
     }
 
@@ -132,5 +108,26 @@ impl PtyRelay {
         }
 
         false
+    }
+}
+
+impl EventClosure for PtyRelay {
+    type Break = ParentEvent;
+
+    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
+        match info.signal() {
+            // FIXME: check `handle_sigchld_pty`
+            SIGCHLD => self.check_backchannel(dispatcher),
+            // FIXME: check `resume_terminal`
+            SIGCONT => {}
+            // FIXME: check `sync_ttysize`
+            SIGWINCH => {}
+            // Skip the signal if it was sent by the user and it is self-terminating.
+            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
+            // FIXME: check `send_command_status`
+            signal => {
+                kill(self.monitor_pid, signal).ok();
+            }
+        }
     }
 }

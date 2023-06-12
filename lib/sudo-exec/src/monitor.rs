@@ -14,12 +14,11 @@ use sudo_system::{
 
 use crate::{
     backchannel::{MonitorBackchannel, MonitorEvent, ParentEvent},
+    event::{EventClosure, EventDispatcher},
     io_util::retry_while_interrupted,
-    signal::SignalHandlers,
 };
 
 pub(super) struct MonitorRelay {
-    signal_handlers: SignalHandlers,
     command_pid: ProcessId,
     command_pgrp: ProcessId,
     command: Child,
@@ -32,10 +31,9 @@ impl MonitorRelay {
         mut command: Command,
         pty_follower: OwnedFd,
         mut backchannel: MonitorBackchannel,
-    ) -> io::Result<Self> {
+    ) -> (Self, EventDispatcher<Self>) {
         let result = io::Result::Ok(()).and_then(|()| {
-            let signal_handlers = SignalHandlers::new()?;
-
+            let dispatcher = EventDispatcher::<Self>::new()?;
             // Create new terminal session.
             setsid()?;
 
@@ -46,7 +44,7 @@ impl MonitorRelay {
             // avoids race conditions when the command exits quickly.
             let MonitorEvent::ExecCommand = retry_while_interrupted(|| backchannel.recv())?;
 
-            // spawn and exec to command
+            // spawn the command
             let command = command.spawn()?;
 
             let command_pid = command.id() as ProcessId;
@@ -58,74 +56,31 @@ impl MonitorRelay {
             let command_pgrp = command_pid;
             setpgid(command_pid, command_pgrp).ok();
 
-            Ok((
-                signal_handlers,
-                command_pid,
-                command_pgrp,
-                command,
-                pty_follower,
-            ))
+            Ok((dispatcher, command_pid, command_pgrp, command, pty_follower))
         });
 
         match result {
             Err(err) => {
-                backchannel.send((&err).into())?;
-                Err(err)
+                backchannel.send((&err).into()).unwrap();
+                exit(1);
             }
-            Ok((signals, command_pid, command_pgrp, command, pty_follower)) => Ok(Self {
-                signal_handlers: signals,
-                command_pid,
-                command_pgrp,
-                command,
-                _pty_follower: pty_follower,
-                backchannel,
-            }),
+            Ok((dispatcher, command_pid, command_pgrp, command, pty_follower)) => (
+                Self {
+                    command_pid,
+                    command_pgrp,
+                    command,
+                    _pty_follower: pty_follower,
+                    backchannel,
+                },
+                dispatcher,
+            ),
         }
     }
 
-    pub(super) fn run(mut self) -> ! {
-        loop {
-            // First we check if the command is finished
-            // FIXME: This should be polled alongside the signal handlers instead.
-            if let Ok(Some(status)) = self.command.try_wait() {
-                self.backchannel.send(status.into()).ok();
-
-                exit(0);
-            }
-
-            // Then we check any pending signals that we received. Based on `mon_signal_cb`.
-            //
-            // Right now, we rely on the fact that `poll` can be interrupted by a signal so this
-            // call doesn't block forever. We are guaranteed to receive `SIGCHLD` when the
-            // command terminates meaning that the `wait_command` call above will succeed on the
-            // next iteration of this loop. We won't have to rely on this behavior once we
-            // integrate `wait_command` into the `poll` itself.
-            if let Ok(infos) = self.signal_handlers.poll() {
-                for info in infos {
-                    self.relay_signal(info);
-                }
-            }
-        }
-    }
-
-    fn relay_signal(&self, info: SignalInfo) {
-        match info.signal() {
-            // FIXME: check `mon_handle_sigchld`
-            SIGCHLD => {}
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            // Kill the command with increasing urgency.
-            SIGALRM => {
-                // Based on `terminate_command`.
-                kill(self.command_pid, SIGHUP).ok();
-                kill(self.command_pid, SIGTERM).ok();
-                std::thread::sleep(Duration::from_secs(2));
-                kill(self.command_pid, SIGKILL).ok();
-            }
-            signal => {
-                kill(self.command_pid, signal).ok();
-            }
-        }
+    pub(super) fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> ! {
+        dispatcher.event_loop(&mut self);
+        drop(self);
+        exit(0);
     }
 
     /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
@@ -149,5 +104,34 @@ impl MonitorRelay {
         }
 
         false
+    }
+}
+
+impl EventClosure for MonitorRelay {
+    type Break = ();
+
+    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
+        match info.signal() {
+            // FIXME: check `mon_handle_sigchld`
+            SIGCHLD => {
+                if let Ok(Some(exit_status)) = self.command.try_wait() {
+                    dispatcher.set_break(());
+                    self.backchannel.send(exit_status.into()).unwrap();
+                }
+            }
+            // Skip the signal if it was sent by the user and it is self-terminating.
+            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
+            // Kill the command with increasing urgency.
+            SIGALRM => {
+                // Based on `terminate_command`.
+                kill(self.command_pid, SIGHUP).ok();
+                kill(self.command_pid, SIGTERM).ok();
+                std::thread::sleep(Duration::from_secs(2));
+                kill(self.command_pid, SIGKILL).ok();
+            }
+            signal => {
+                kill(self.command_pid, signal).ok();
+            }
+        }
     }
 }
