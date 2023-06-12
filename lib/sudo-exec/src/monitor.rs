@@ -97,33 +97,6 @@ impl MonitorClosure {
         exit(0);
     }
 
-    /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
-    ///
-    /// A signal is self-terminating if `signaler_pid`:
-    /// - is the same PID of the command, or
-    /// - is in the process group of the command and the command is the leader.
-    fn is_self_terminating(
-        signaler_pid: ProcessId,
-        command_pid: ProcessId,
-        command_pgrp: ProcessId,
-    ) -> bool {
-        if signaler_pid != 0 {
-            if signaler_pid == command_pid {
-                return true;
-            }
-
-            if let Ok(grp_leader) = getpgid(signaler_pid) {
-                if grp_leader == command_pgrp {
-                    return true;
-                }
-            } else {
-                user_error!("Could not fetch process group ID");
-            }
-        }
-
-        false
-    }
-
     /// Based on `mon_backchannel_cb`
     fn read_backchannel(&mut self, dispatcher: &mut EventDispatcher<Self>) {
         match self.backchannel.recv() {
@@ -168,6 +141,33 @@ impl MonitorClosure {
     }
 }
 
+/// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
+///
+/// A signal is self-terminating if `signaler_pid`:
+/// - is the same PID of the command, or
+/// - is in the process group of the command and the command is the leader.
+fn is_self_terminating(
+    signaler_pid: ProcessId,
+    command_pid: ProcessId,
+    command_pgrp: ProcessId,
+) -> bool {
+    if signaler_pid != 0 {
+        if signaler_pid == command_pid {
+            return true;
+        }
+
+        if let Ok(grp_leader) = getpgid(signaler_pid) {
+            if grp_leader == command_pgrp {
+                return true;
+            }
+        } else {
+            user_error!("Could not fetch process group ID");
+        }
+    }
+
+    false
+}
+
 impl EventClosure for MonitorClosure {
     type Break = ();
 
@@ -189,7 +189,7 @@ impl EventClosure for MonitorClosure {
             }
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
-                && Self::is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
+                && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
             signal => Self::send_signal(signal, command_pid),
         }
     }
