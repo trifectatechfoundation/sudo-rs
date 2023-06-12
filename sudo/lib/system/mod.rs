@@ -30,6 +30,8 @@ pub mod poll;
 
 pub mod term;
 
+pub mod wait;
+
 #[cfg(target_os = "linux")]
 /// Create a new process.
 pub fn fork() -> io::Result<ProcessId> {
