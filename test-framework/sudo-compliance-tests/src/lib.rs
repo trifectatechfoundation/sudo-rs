@@ -46,6 +46,7 @@ const SUDOERS_ROOT_ALL_NOPASSWD: &str = "root ALL=(ALL:ALL) NOPASSWD: ALL";
 const SUDOERS_USER_ALL_NOPASSWD: &str = "ferris ALL=(ALL:ALL) NOPASSWD: ALL";
 const SUDOERS_USER_ALL_ALL: &str = "ferris ALL=(ALL:ALL) ALL";
 const SUDOERS_NO_LECTURE: &str = "Defaults lecture=\"never\"";
+const SUDOERS_ONCE_LECTURE: &str = "Defaults lecture=\"once\"";
 const SUDOERS_ALWAYS_LECTURE: &str = "Defaults lecture=\"always\"";
 const SUDOERS_NEW_LECTURE: &str = "Defaults lecture_file = \"/etc/sudo_lecture\"";
 const SUDOERS_NEW_LECTURE_USER: &str = "Defaults:ferris lecture_file = \"/etc/sudo_lecture\"";

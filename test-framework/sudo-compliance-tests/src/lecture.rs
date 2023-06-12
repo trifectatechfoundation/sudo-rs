@@ -1,13 +1,13 @@
 use crate::{
-    Result, OG_SUDO_STANDARD_LECTURE, PASSWORD, SUDOERS_ALWAYS_LECTURE, SUDOERS_NO_LECTURE,
-    SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL, SUDOERS_USER_ALL_NOPASSWD, USERNAME,
+    Result, OG_SUDO_STANDARD_LECTURE, SUDOERS_ALWAYS_LECTURE, SUDOERS_NO_LECTURE, SUDOERS_ONCE_LECTURE,
+    SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL, SUDOERS_USER_ALL_NOPASSWD, USERNAME, PASSWORD,
 };
 use sudo_test::{Command, Env, User};
 
 #[test]
 #[ignore = "gh399"]
 fn default_lecture_shown_once() -> Result<()> {
-    let env = Env([SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL])
+    let env = Env([SUDOERS_ROOT_ALL, SUDOERS_ONCE_LECTURE, SUDOERS_USER_ALL_ALL])
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
@@ -34,7 +34,7 @@ fn default_lecture_shown_once() -> Result<()> {
 #[test]
 #[ignore = "gh399"]
 fn lecture_in_stderr() -> Result<()> {
-    let env = Env([SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL])
+    let env = Env([SUDOERS_ROOT_ALL, SUDOERS_ONCE_LECTURE, SUDOERS_USER_ALL_ALL])
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
@@ -54,7 +54,7 @@ fn lecture_in_stderr() -> Result<()> {
 #[test]
 #[ignore = "gh399"]
 fn lecture_always_shown() -> Result<()> {
-    let env = Env([SUDOERS_ROOT_ALL, SUDOERS_ALWAYS_LECTURE])
+    let env = Env([SUDOERS_ROOT_ALL, SUDOERS_ONCE_LECTURE, SUDOERS_ALWAYS_LECTURE])
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
