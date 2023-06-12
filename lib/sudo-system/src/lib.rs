@@ -5,7 +5,6 @@ use std::{
     mem::MaybeUninit,
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     path::PathBuf,
-    ptr::null,
     str::FromStr,
 };
 
@@ -29,6 +28,8 @@ pub mod timestamp;
 pub mod signal;
 
 pub mod poll;
+
+pub mod term;
 
 pub fn write<F: AsRawFd>(fd: &F, buf: &[u8]) -> io::Result<libc::ssize_t> {
     cerr(unsafe { libc::write(fd.as_raw_fd(), buf.as_ptr().cast(), buf.len()) })
@@ -65,26 +66,6 @@ pub unsafe fn fork() -> io::Result<ProcessId> {
 
 pub fn setsid() -> io::Result<ProcessId> {
     cerr(unsafe { libc::setsid() })
-}
-
-pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
-    let (mut leader, mut follower) = (0, 0);
-    cerr(unsafe {
-        libc::openpty(
-            &mut leader,
-            &mut follower,
-            null::<libc::c_char>() as *mut _,
-            null::<libc::termios>() as *mut _,
-            null::<libc::winsize>() as *mut _,
-        )
-    })?;
-
-    Ok(unsafe { (OwnedFd::from_raw_fd(leader), OwnedFd::from_raw_fd(follower)) })
-}
-
-pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
-    cerr(unsafe { libc::ioctl(fd.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
-    Ok(())
 }
 
 pub fn hostname() -> String {
@@ -147,6 +128,13 @@ pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
     cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
 }
 
+/// Send a signal to a process group with the specified ID.
+pub fn killpg(pgid: ProcessId, signal: c_int) -> io::Result<()> {
+    // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
+    // `signal` is not a valid signal code.
+    cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
+}
+
 /// Get a process group ID.
 pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
@@ -154,8 +142,8 @@ pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
 }
 
 /// Set a process group ID.
-pub fn setpgid(pid: ProcessId, pgid: ProcessId) {
-    unsafe { libc::setpgid(pid, pgid) };
+pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
+    cerr(unsafe { libc::setpgid(pid, pgid) }).map(|_| ())
 }
 
 pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
@@ -566,7 +554,14 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
 
 #[cfg(test)]
 mod tests {
-    use crate::{Group, User, WithProcess};
+    use std::{
+        io::{Read, Write},
+        os::unix::net::UnixStream,
+    };
+
+    use libc::SIGKILL;
+
+    use crate::{fork, setpgid, Group, User, WithProcess};
 
     #[test]
     fn test_get_user_and_group_by_id() {
@@ -638,11 +633,27 @@ mod tests {
 
     #[test]
     fn pgid_test() {
-        use super::getpgid;
+        use super::{getpgid, setpgid};
         assert_eq!(
             getpgid(std::process::id() as i32).unwrap(),
             getpgid(0).unwrap()
         );
+        match super::fork().unwrap() {
+            // child
+            0 => {
+                // wait for the parent.
+                std::thread::sleep(std::time::Duration::from_secs(1))
+            }
+            // parent
+            child_pid => {
+                // The child should be in our process group.
+                assert_eq!(getpgid(child_pid).unwrap(), getpgid(0).unwrap(),);
+                // Move the child to its own process group
+                setpgid(child_pid, child_pid).unwrap();
+                // The process group of the child should have changed.
+                assert_eq!(getpgid(child_pid).unwrap(), child_pid);
+            }
+        }
     }
     #[test]
     fn kill_test() {
@@ -650,7 +661,38 @@ mod tests {
             .arg("1")
             .spawn()
             .unwrap();
-        super::kill(child.id() as i32, 9).unwrap();
+        super::kill(child.id() as i32, SIGKILL).unwrap();
         assert!(!child.wait().unwrap().success());
+    }
+    #[test]
+    fn killpg_test() {
+        // Create a socket so the children write to it if they aren't terminated by `killpg`.
+        let (mut rx, mut tx) = UnixStream::pair().unwrap();
+
+        let pid1 = fork().unwrap();
+        if pid1 == 0 {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            tx.write_all(&[42]).unwrap();
+        }
+
+        let pid2 = fork().unwrap();
+        if pid2 == 0 {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            tx.write_all(&[42]).unwrap();
+        }
+
+        drop(tx);
+
+        let pgid = pid1;
+        // Move the children to their own process group.
+        setpgid(pid1, pgid).unwrap();
+        setpgid(pid2, pgid).unwrap();
+        // Send `SIGKILL` to the children process group.
+        super::killpg(pgid, SIGKILL).unwrap();
+        // Ensure that the child were terminated before writing.
+        assert_eq!(
+            rx.read_exact(&mut [0; 2]).unwrap_err().kind(),
+            std::io::ErrorKind::UnexpectedEof
+        );
     }
 }
