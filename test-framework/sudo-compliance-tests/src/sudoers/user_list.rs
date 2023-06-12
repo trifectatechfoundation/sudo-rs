@@ -238,7 +238,7 @@ fn user_alias_works() -> Result<()> {
 fn user_alias_can_contain_underscore_and_digits() -> Result<()> {
     let env = Env([
         "User_Alias UNDER_SCORE123 = ALL",
-        "UNDER_SCORE123 ALL = (ALL:ALL) NOPASSWD: /bin/true",
+        "UNDER_SCORE123 ALL = (ALL:ALL) NOPASSWD: /usr/bin/true",
     ])
     .user(USERNAME)
     .build()?;
@@ -256,7 +256,7 @@ fn user_alias_can_contain_underscore_and_digits() -> Result<()> {
 fn user_alias_cannot_start_with_underscore() -> Result<()> {
     let env = Env([
         "User_Alias _FOO = ALL",
-        "ALL ALL = (ALL:ALL) NOPASSWD: /bin/true",
+        "ALL ALL = (ALL:ALL) NOPASSWD: /usr/bin/true",
         "_FOO ALL = (ALL:ALL) PASSWD: ALL",
     ])
     .user(USERNAME)
