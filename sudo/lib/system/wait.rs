@@ -159,6 +159,8 @@ impl WaitStatus {
 
 #[cfg(test)]
 mod tests {
+    use std::process::exit;
+
     use libc::{SIGCONT, SIGKILL, SIGSTOP};
 
     use crate::{
@@ -236,22 +238,32 @@ mod tests {
 
     #[test]
     fn any() {
-        let cmd1 = std::process::Command::new("sh")
-            .args(["-c", "sleep 0.1; exit 42"])
-            .spawn()
-            .unwrap();
+        // We fork so waiting for `WaitPid::Any` doesn't wait for other tests.
+        let child_pid = crate::fork().unwrap();
+        if child_pid == 0 {
+            let cmd1 = std::process::Command::new("sh")
+                .args(["-c", "sleep 0.1; exit 42"])
+                .spawn()
+                .unwrap();
 
-        let cmd2 = std::process::Command::new("sh")
-            .args(["-c", "sleep 0.5; exit 43"])
-            .spawn()
-            .unwrap();
+            let cmd2 = std::process::Command::new("sh")
+                .args(["-c", "sleep 0.2; exit 43"])
+                .spawn()
+                .unwrap();
 
-        let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
-        assert_eq!(cmd1.id() as ProcessId, pid);
-        assert_eq!(status.exit_status(), Some(42));
+            let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
+            assert_eq!(cmd1.id() as ProcessId, pid);
+            assert_eq!(status.exit_status(), Some(42));
 
-        let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
-        assert_eq!(cmd2.id() as ProcessId, pid);
-        assert_eq!(status.exit_status(), Some(43));
+            let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
+            assert_eq!(cmd2.id() as ProcessId, pid);
+            assert_eq!(status.exit_status(), Some(43));
+            // Exit with a specific status code so we can check it from the parent.
+            exit(44);
+        }
+
+        let (pid, status) = waitpid(child_pid, WaitOptions::new()).unwrap();
+        assert_eq!(child_pid, pid);
+        assert_eq!(status.exit_status(), Some(44));
     }
 }
