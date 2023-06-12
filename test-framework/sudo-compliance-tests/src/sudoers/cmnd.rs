@@ -190,7 +190,7 @@ fn runas_override() -> Result<()> {
 #[test]
 fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
     let env = Env(format!(
-        "ALL ALL = (root) /bin/true, ({USERNAME}) /bin/true"
+        "ALL ALL = (root) /usr/bin/true, ({USERNAME}) /usr/bin/true"
     ))
     .user(USERNAME)
     .build()?;

@@ -1,5 +1,5 @@
 ---
 source: sudo-compliance-tests/src/sudoers/user_list.rs
-expression: output.stderr()
+expression: stderr
 ---
-ferris is not in the sudoers file.  This incident will be reported.
+ferris is not in the sudoers file.

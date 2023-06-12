@@ -39,7 +39,7 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
 
     let match_in_relative_path_when_path_is_unset = "unset PATH; cd /bin; /usr/bin/sudo true";
     let match_in_absolute_path_when_path_is_unset = "unset PATH; cd /; /usr/bin/sudo my-script";
-    // `true` is in `/bin/true`
+    // `true` is in `/usr/bin/true`
     let match_in_relative_path_when_path_is_set = "export PATH=/usr/bin; cd /bin; sudo true";
     // default PATH does not include `/root`
     let match_in_absolute_path_when_path_is_set = "cd /; /usr/bin/sudo my-script";

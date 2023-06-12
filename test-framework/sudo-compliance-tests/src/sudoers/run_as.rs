@@ -182,7 +182,7 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
         assert_eq!(Some(1), output.status().code());
 
         let diagnostic = if sudo_test::is_original_sudo() {
-            " is not allowed to execute '/bin/true' as ".to_string()
+            " is not allowed to execute '/usr/bin/true' as ".to_string()
         } else {
             format!("authentication failed: I'm sorry {user}. I'm afraid I can't do that")
         };
@@ -339,7 +339,7 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()>
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "user root is not allowed to execute '/bin/true' as ferris"
+        "user root is not allowed to execute '/usr/bin/true' as ferris"
     } else {
         "I'm sorry root. I'm afraid I can't do that"
     };
@@ -373,16 +373,17 @@ fn when_no_run_as_spec_then_a_target_group_may_be_specified() -> Result<()> {
 }
 
 #[test]
-fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_allowed() -> Result<()> {
-    let env = Env([
-        &format!("{USERNAME} ALL=(otheruser:{GROUPNAME}) NOPASSWD: ALL"),
-    ])
-        .user(User(USERNAME))
-        .user(User("otheruser"))
-        .group(GROUPNAME)
-        .build()?;
+fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_allowed(
+) -> Result<()> {
+    let env = Env([&format!(
+        "{USERNAME} ALL=(otheruser:{GROUPNAME}) NOPASSWD: ALL"
+    )])
+    .user(User(USERNAME))
+    .user(User("otheruser"))
+    .group(GROUPNAME)
+    .build()?;
 
-        Command::new("sudo")
+    Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "true"])
         .as_user(USERNAME)
         .exec(&env)?

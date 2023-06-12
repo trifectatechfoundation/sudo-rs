@@ -1,4 +1,4 @@
-FROM rust:1-slim-buster
+FROM rust:1-slim-bookworm
 RUN apt-get update && \
     apt-get install -y --no-install-recommends clang libclang-dev libpam0g-dev procps sshpass rsyslog
 # cache the crates.io index in the image for faster local testing

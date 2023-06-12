@@ -2,7 +2,7 @@
 source: sudo-compliance-tests/src/sudoers/cmnd_alias.rs
 expression: stderr
 ---
-/etc/sudoers:1:24: syntax error
-Cmnd_Alias CMDSGROUP = true, /bin/ls
+/etc/sudoers:1:24: expected a fully-qualified path name
+Cmnd_Alias CMDSGROUP = true, /usr/bin/ls
                        ^~~~
-Sorry, user root is not allowed to execute '/bin/true' as root on [host].
+Sorry, user root is not allowed to execute '/usr/bin/true' as root on [host].

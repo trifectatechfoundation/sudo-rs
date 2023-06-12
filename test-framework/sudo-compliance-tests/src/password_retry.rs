@@ -142,7 +142,6 @@ fn retry_is_not_allowed_immediately() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh397"]
 fn can_control_retry_delay_using_pam() -> Result<()> {
     let check_env = Env("").build()?;
     let common_auth = Command::new("cat")

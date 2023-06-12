@@ -139,7 +139,7 @@ fn group_does_not_exist() -> Result<()> {
         assert_eq!(Some(1), output.status().code());
 
         let diagnostic = if sudo_test::is_original_sudo() {
-            "unknown group: ghosts"
+            "unknown group ghosts"
         } else {
             "group `ghosts' not found"
         };
