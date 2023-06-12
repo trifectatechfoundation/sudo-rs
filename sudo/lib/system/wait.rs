@@ -242,7 +242,7 @@ mod tests {
             .unwrap();
 
         let cmd2 = std::process::Command::new("sh")
-            .args(["-c", "sleep 0.2; exit 43"])
+            .args(["-c", "sleep 0.5; exit 43"])
             .spawn()
             .unwrap();
 
