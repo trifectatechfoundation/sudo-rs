@@ -37,14 +37,14 @@ impl BackchannelPair {
     }
 }
 
-pub(crate) enum ParentEvent {
+pub(crate) enum ParentMessage {
     IoError(c_int),
     CommandExit(c_int),
     CommandSignal(SignalNumber),
     CommandPid(ProcessId),
 }
 
-impl ParentEvent {
+impl ParentMessage {
     const LEN: usize = PREFIX_LEN + PARENT_DATA_LEN;
     const IO_ERROR: Prefix = 0;
     const CMD_EXIT: Prefix = 1;
@@ -63,31 +63,31 @@ impl ParentEvent {
 
     fn to_parts(&self) -> (Prefix, ParentData) {
         let prefix = match self {
-            ParentEvent::IoError(_) => Self::IO_ERROR,
-            ParentEvent::CommandExit(_) => Self::CMD_EXIT,
-            ParentEvent::CommandSignal(_) => Self::CMD_SIGNAL,
-            ParentEvent::CommandPid(_) => Self::CMD_PID,
+            ParentMessage::IoError(_) => Self::IO_ERROR,
+            ParentMessage::CommandExit(_) => Self::CMD_EXIT,
+            ParentMessage::CommandSignal(_) => Self::CMD_SIGNAL,
+            ParentMessage::CommandPid(_) => Self::CMD_PID,
         };
 
         let data = match self {
-            ParentEvent::IoError(data)
-            | ParentEvent::CommandExit(data)
-            | ParentEvent::CommandSignal(data)
-            | ParentEvent::CommandPid(data) => *data,
+            ParentMessage::IoError(data)
+            | ParentMessage::CommandExit(data)
+            | ParentMessage::CommandSignal(data)
+            | ParentMessage::CommandPid(data) => *data,
         };
 
         (prefix, data)
     }
 }
 
-impl From<io::Error> for ParentEvent {
+impl From<io::Error> for ParentMessage {
     fn from(err: io::Error) -> Self {
         // This only panics if an error is created using `io::Error::new`.
         Self::IoError(err.raw_os_error().unwrap())
     }
 }
 
-impl From<ExitStatus> for ParentEvent {
+impl From<ExitStatus> for ParentMessage {
     fn from(status: ExitStatus) -> Self {
         if let Some(code) = status.code() {
             Self::CommandExit(code)
@@ -108,8 +108,8 @@ impl ParentBackchannel {
     /// Send a [`MonitorEvent`].
     ///
     /// Calling this method will block until the socket is ready for writing.
-    pub(crate) fn send(&mut self, event: &MonitorEvent) -> io::Result<()> {
-        let mut buf = [0; MonitorEvent::LEN];
+    pub(crate) fn send(&mut self, event: &MonitorMessage) -> io::Result<()> {
+        let mut buf = [0; MonitorMessage::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
         let (prefix, data) = event.to_parts();
@@ -123,8 +123,8 @@ impl ParentBackchannel {
     /// Receive a [`ParentEvent`].
     ///
     /// Calling this method will block until the socket is ready for reading.
-    pub(crate) fn recv(&mut self) -> io::Result<ParentEvent> {
-        let mut buf = [0; ParentEvent::LEN];
+    pub(crate) fn recv(&mut self) -> io::Result<ParentMessage> {
+        let mut buf = [0; ParentMessage::LEN];
         self.socket.read_exact(&mut buf)?;
 
         let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
@@ -132,7 +132,7 @@ impl ParentBackchannel {
         let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
         let data = ParentData::from_ne_bytes(data_buf.try_into().unwrap());
 
-        Ok(ParentEvent::from_parts(prefix, data))
+        Ok(ParentMessage::from_parts(prefix, data))
     }
 }
 
@@ -144,12 +144,12 @@ impl AsRawFd for ParentBackchannel {
 
 /// Different messages exchanged between the monitor and the parent process using a [`Backchannel`].
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum MonitorEvent {
+pub(crate) enum MonitorMessage {
     ExecCommand,
     Signal(c_int),
 }
 
-impl MonitorEvent {
+impl MonitorMessage {
     const LEN: usize = PREFIX_LEN + MONITOR_DATA_LEN;
     const EXEC_CMD: Prefix = 0;
     const SIGNAL: Prefix = 1;
@@ -164,13 +164,13 @@ impl MonitorEvent {
 
     fn to_parts(&self) -> (Prefix, MonitorData) {
         let prefix = match self {
-            MonitorEvent::ExecCommand => Self::EXEC_CMD,
-            MonitorEvent::Signal(_) => Self::SIGNAL,
+            MonitorMessage::ExecCommand => Self::EXEC_CMD,
+            MonitorMessage::Signal(_) => Self::SIGNAL,
         };
 
         let data = match self {
-            MonitorEvent::ExecCommand => 0,
-            MonitorEvent::Signal(data) => *data,
+            MonitorMessage::ExecCommand => 0,
+            MonitorMessage::Signal(data) => *data,
         };
 
         (prefix, data)
@@ -186,8 +186,8 @@ impl MonitorBackchannel {
     /// Send a [`ParentEvent`].
     ///
     /// Calling this method will block until the socket is ready for writing.
-    pub(crate) fn send(&mut self, event: &ParentEvent) -> io::Result<()> {
-        let mut buf = [0; ParentEvent::LEN];
+    pub(crate) fn send(&mut self, event: &ParentMessage) -> io::Result<()> {
+        let mut buf = [0; ParentMessage::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
         let (prefix, data) = event.to_parts();
@@ -201,8 +201,8 @@ impl MonitorBackchannel {
     /// Receive a [`MonitorEvent`].
     ///
     /// Calling this method will block until the socket is ready for reading.
-    pub(crate) fn recv(&mut self) -> io::Result<MonitorEvent> {
-        let mut buf = [0; MonitorEvent::LEN];
+    pub(crate) fn recv(&mut self) -> io::Result<MonitorMessage> {
+        let mut buf = [0; MonitorMessage::LEN];
         self.socket.read_exact(&mut buf)?;
 
         let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
@@ -210,7 +210,7 @@ impl MonitorBackchannel {
         let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
         let data = MonitorData::from_ne_bytes(data_buf.try_into().unwrap());
 
-        Ok(MonitorEvent::from_parts(prefix, data))
+        Ok(MonitorMessage::from_parts(prefix, data))
     }
 }
 

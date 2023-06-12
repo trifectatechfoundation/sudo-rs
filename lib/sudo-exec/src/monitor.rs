@@ -14,7 +14,7 @@ use sudo_system::{
 };
 
 use crate::{
-    backchannel::{MonitorBackchannel, MonitorEvent, ParentEvent},
+    backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
 };
@@ -51,7 +51,7 @@ impl MonitorClosure {
 
             // Given that `UnixStream` delivers messages in order it shouldn't be possible to
             // receive an event different to `ExecCommand` at the beginning.
-            debug_assert_eq!(event, MonitorEvent::ExecCommand);
+            debug_assert_eq!(event, MonitorMessage::ExecCommand);
 
             // spawn the command
             let command = command.spawn()?;
@@ -59,7 +59,9 @@ impl MonitorClosure {
             let command_pid = command.id() as ProcessId;
 
             // Send the command's PID to the main sudo process.
-            backchannel.send(&ParentEvent::CommandPid(command_pid)).ok();
+            backchannel
+                .send(&ParentMessage::CommandPid(command_pid))
+                .ok();
 
             // Register the callback to receive events from the backchannel
             dispatcher.set_read_callback(&backchannel, |mc, ev| mc.read_backchannel(ev));
@@ -135,9 +137,9 @@ impl MonitorClosure {
             Ok(event) => {
                 match event {
                     // We shouldn't receive this event more than once.
-                    MonitorEvent::ExecCommand => unreachable!(),
+                    MonitorMessage::ExecCommand => unreachable!(),
                     // Forward signal to the command.
-                    MonitorEvent::Signal(signal) => {
+                    MonitorMessage::Signal(signal) => {
                         if let Some(command_pid) = self.command_pid {
                             Self::send_signal(signal, command_pid)
                         }

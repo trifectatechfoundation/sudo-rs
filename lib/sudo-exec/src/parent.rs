@@ -8,7 +8,7 @@ use sudo_system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use crate::event::{EventClosure, EventDispatcher};
 use crate::{
-    backchannel::{MonitorEvent, ParentBackchannel, ParentEvent},
+    backchannel::{MonitorMessage, ParentBackchannel, ParentMessage},
     io_util::{retry_while_interrupted, was_interrupted},
     ExitReason,
 };
@@ -21,7 +21,7 @@ pub(super) struct ParentClosure {
     // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
     _pty_leader: OwnedFd,
     backchannel: ParentBackchannel,
-    event_queue: VecDeque<MonitorEvent>,
+    message_queue: VecDeque<MonitorMessage>,
 }
 
 impl ParentClosure {
@@ -34,14 +34,16 @@ impl ParentClosure {
         let mut dispatcher = EventDispatcher::<Self>::new()?;
 
         dispatcher.set_read_callback(&backchannel, |parent, dispatcher| {
-            parent.check_backchannel(dispatcher)
+            parent.on_message_received(dispatcher)
         });
 
+        // Check for queued messages only when the backchannel can be written so we can send
+        // messages to the monitor process without blocking.
         dispatcher.set_write_callback(&backchannel, |parent, dispatcher| {
-            parent.check_queue(dispatcher)
+            parent.check_message_queue(dispatcher)
         });
 
-        retry_while_interrupted(|| backchannel.send(&MonitorEvent::ExecCommand))?;
+        retry_while_interrupted(|| backchannel.send(&MonitorMessage::ExecCommand))?;
 
         Ok((
             Self {
@@ -50,7 +52,7 @@ impl ParentClosure {
                 command_pid: None,
                 _pty_leader: pty_leader,
                 backchannel,
-                event_queue: VecDeque::new(),
+                message_queue: VecDeque::new(),
             },
             dispatcher,
         ))
@@ -58,18 +60,18 @@ impl ParentClosure {
 
     pub(super) fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
         let exit_reason = match dispatcher.event_loop(&mut self) {
-            ParentEvent::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
-            ParentEvent::CommandExit(code) => ExitReason::Code(code),
-            ParentEvent::CommandSignal(signal) => ExitReason::Signal(signal),
+            ParentMessage::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
+            ParentMessage::CommandExit(code) => ExitReason::Code(code),
+            ParentMessage::CommandSignal(signal) => ExitReason::Signal(signal),
             // We never set this event as the last event
-            ParentEvent::CommandPid(_) => unreachable!(),
+            ParentMessage::CommandPid(_) => unreachable!(),
         };
 
         Ok(exit_reason)
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
-    fn check_backchannel(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+    fn on_message_received(&mut self, dispatcher: &mut EventDispatcher<Self>) {
         match self.backchannel.recv() {
             // Not an actual error, we can retry later.
             Err(err) if was_interrupted(&err) => {}
@@ -83,12 +85,12 @@ impl ParentClosure {
             Ok(event) => match event {
                 // Received the PID of the command. This means that the command is already
                 // executing.
-                ParentEvent::CommandPid(pid) => self.command_pid = pid.into(),
+                ParentMessage::CommandPid(pid) => self.command_pid = pid.into(),
                 // The command terminated or the monitor was not able to spawn it. We should stop
                 // either way.
-                ParentEvent::CommandExit(_)
-                | ParentEvent::CommandSignal(_)
-                | ParentEvent::IoError(_) => {
+                ParentMessage::CommandExit(_)
+                | ParentMessage::CommandSignal(_)
+                | ParentMessage::IoError(_) => {
                     dispatcher.set_break(event);
                 }
             },
@@ -119,17 +121,21 @@ impl ParentClosure {
     }
 
     /// Schedule sending a signal event to the monitor using the backchannel.
+    ///
+    /// The signal message will be sent once the backchannel is ready to be written.
     fn schedule_signal(&mut self, signal: c_int) {
-        self.event_queue.push_back(MonitorEvent::Signal(signal));
+        self.message_queue.push_back(MonitorMessage::Signal(signal));
     }
 
     /// Send the first message in the event queue using the backchannel, if any.
-    fn check_queue(&mut self, dispatcher: &mut EventDispatcher<Self>) {
-        if let Some(event) = self.event_queue.front() {
+    ///
+    /// Calling this function will block until the backchannel can be written.
+    fn check_message_queue(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+        if let Some(event) = self.message_queue.front() {
             match self.backchannel.send(event) {
                 // The event was sent, remove it from the queue
                 Ok(()) => {
-                    self.event_queue.pop_front().unwrap();
+                    self.message_queue.pop_front().unwrap();
                 }
                 // The other end of the socket is gone, we should exit.
                 Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
@@ -144,12 +150,12 @@ impl ParentClosure {
 }
 
 impl EventClosure for ParentClosure {
-    type Break = ParentEvent;
+    type Break = ParentMessage;
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         match info.signal() {
             // FIXME: check `handle_sigchld_pty`
-            SIGCHLD => self.check_backchannel(dispatcher),
+            SIGCHLD => self.on_message_received(dispatcher),
             // FIXME: check `resume_terminal`
             SIGCONT => {}
             // FIXME: check `sync_ttysize`
