@@ -49,7 +49,7 @@ fn host_alias_cannot_start_with_underscore() -> Result<()> {
     let env = Env([
         "Host_Alias _FOO = ALL",
         "ALL ALL = (ALL:ALL) NOPASSWD: /usr/bin/true",
-        "ALL _FOO = (ALL:ALL) PASSWD: ALL"
+        "ALL _FOO = (ALL:ALL) PASSWD: ALL",
     ])
     .build()?;
 

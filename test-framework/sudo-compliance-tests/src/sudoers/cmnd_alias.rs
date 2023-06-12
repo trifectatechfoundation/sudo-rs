@@ -75,7 +75,11 @@ fn cmnd_alias_cannot_start_with_underscore() -> Result<()> {
 
 #[test]
 fn unlisted_cmnd_fails() -> Result<()> {
-    let env = Env(["Cmnd_Alias CMDS = /usr/bin/ls", "ALL ALL=(ALL:ALL) CMDSGROUP"]).build()?;
+    let env = Env([
+        "Cmnd_Alias CMDS = /usr/bin/ls",
+        "ALL ALL=(ALL:ALL) CMDSGROUP",
+    ])
+    .build()?;
 
     let output = Command::new("sudo").arg("true").exec(&env)?;
 

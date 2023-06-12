@@ -373,16 +373,17 @@ fn when_no_run_as_spec_then_a_target_group_may_be_specified() -> Result<()> {
 }
 
 #[test]
-fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_allowed() -> Result<()> {
-    let env = Env([
-        &format!("{USERNAME} ALL=(otheruser:{GROUPNAME}) NOPASSWD: ALL"),
-    ])
-        .user(User(USERNAME))
-        .user(User("otheruser"))
-        .group(GROUPNAME)
-        .build()?;
+fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_allowed(
+) -> Result<()> {
+    let env = Env([&format!(
+        "{USERNAME} ALL=(otheruser:{GROUPNAME}) NOPASSWD: ALL"
+    )])
+    .user(User(USERNAME))
+    .user(User("otheruser"))
+    .group(GROUPNAME)
+    .build()?;
 
-        Command::new("sudo")
+    Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "true"])
         .as_user(USERNAME)
         .exec(&env)?
