@@ -1,2 +1,2 @@
-FROM rust:1.67-slim-buster
+FROM rust:1-slim-bookworm
 RUN apt-get update -y && apt-get install -y clang libclang-dev libpam0g-dev
