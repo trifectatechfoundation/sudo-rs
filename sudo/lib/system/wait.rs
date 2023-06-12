@@ -156,3 +156,102 @@ impl WaitStatus {
         WIFCONTINUED(self.status)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use libc::{SIGCONT, SIGKILL, SIGSTOP};
+
+    use crate::{
+        interface::ProcessId,
+        kill,
+        wait::{WaitError, WaitPid},
+    };
+
+    use super::{waitpid, WaitOptions};
+
+    #[test]
+    fn exit_status() {
+        let command = std::process::Command::new("sh")
+            .args(["-c", "exit 42"])
+            .spawn()
+            .unwrap();
+
+        let command_pid = command.id() as ProcessId;
+
+        let (pid, status) = waitpid(command_pid, WaitOptions::new()).unwrap();
+        assert_eq!(command_pid, pid);
+        assert_eq!(status.exit_status(), Some(42));
+    }
+
+    #[test]
+    fn signals() {
+        let command = std::process::Command::new("sh")
+            .args(["-c", "sleep 1; exit 42"])
+            .spawn()
+            .unwrap();
+
+        let command_pid = command.id() as ProcessId;
+
+        kill(command_pid, SIGSTOP).unwrap();
+
+        let (pid, status) = waitpid(command_pid, WaitOptions::new().untraced()).unwrap();
+        assert_eq!(command_pid, pid);
+        assert_eq!(status.stop_signal(), Some(SIGSTOP));
+
+        kill(command_pid, SIGCONT).unwrap();
+
+        let (pid, status) = waitpid(command_pid, WaitOptions::new().continued()).unwrap();
+        assert_eq!(command_pid, pid);
+        assert!(status.did_continue());
+
+        kill(command_pid, SIGKILL).unwrap();
+
+        let (pid, status) = waitpid(command_pid, WaitOptions::new()).unwrap();
+        assert_eq!(command_pid, pid);
+        assert_eq!(status.term_signal(), Some(SIGKILL));
+    }
+
+    #[test]
+    fn no_hang() {
+        let command = std::process::Command::new("sh")
+            .args(["-c", "sleep 0.1; exit 42"])
+            .spawn()
+            .unwrap();
+
+        let command_pid = command.id() as ProcessId;
+
+        let mut count = 0;
+        let (pid, status) = loop {
+            match waitpid(command_pid, WaitOptions::new().no_hang()) {
+                Ok(ok) => break ok,
+                Err(WaitError::NotReady) => count += 1,
+                Err(WaitError::Io(err)) => panic!("{err}"),
+            }
+        };
+
+        assert_eq!(command_pid, pid);
+        assert_eq!(status.exit_status(), Some(42));
+        assert!(count > 0);
+    }
+
+    #[test]
+    fn any() {
+        let cmd1 = std::process::Command::new("sh")
+            .args(["-c", "sleep 0.1; exit 42"])
+            .spawn()
+            .unwrap();
+
+        let cmd2 = std::process::Command::new("sh")
+            .args(["-c", "sleep 0.2; exit 43"])
+            .spawn()
+            .unwrap();
+
+        let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
+        assert_eq!(cmd1.id() as ProcessId, pid);
+        assert_eq!(status.exit_status(), Some(42));
+
+        let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
+        assert_eq!(cmd2.id() as ProcessId, pid);
+        assert_eq!(status.exit_status(), Some(43));
+    }
+}
