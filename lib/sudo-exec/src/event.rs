@@ -124,14 +124,11 @@ impl<T: EventClosure> EventDispatcher<T> {
     }
 
     pub(crate) fn check_break(&mut self) -> Option<T::Break> {
-        if self.status.is_break() {
-            match std::mem::replace(&mut self.status, ControlFlow::Continue(())) {
-                // `self.status` was `Break`, this cannot happen.
-                ControlFlow::Continue(_) => unreachable!(),
-                ControlFlow::Break(reason) => Some(reason),
-            }
-        } else {
-            None
+        // This is OK as we are swapping `Continue(())` by other `Continue(())` if the status is
+        // not `Break`.
+        match std::mem::replace(&mut self.status, ControlFlow::Continue(())) {
+            ControlFlow::Continue(()) => None,
+            ControlFlow::Break(reason) => Some(reason),
         }
     }
 }
