@@ -96,6 +96,10 @@ mod names {
     impl UserFriendly for (String, ConfigValue) {
         const DESCRIPTION: &'static str = "parameter";
     }
+
+    impl<T> UserFriendly for Def<T> {
+        const DESCRIPTION: &'static str = "alias definition";
+    }
 }
 
 #[cfg(test)]

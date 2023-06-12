@@ -401,10 +401,10 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
 
                         Sudo::Spec(permission) => self.rules.push(permission),
 
-                        Sudo::Decl(UserAlias(def)) => self.aliases.user.1.push(def),
-                        Sudo::Decl(HostAlias(def)) => self.aliases.host.1.push(def),
-                        Sudo::Decl(CmndAlias(def)) => self.aliases.cmnd.1.push(def),
-                        Sudo::Decl(RunasAlias(def)) => self.aliases.runas.1.push(def),
+                        Sudo::Decl(UserAlias(mut def)) => self.aliases.user.1.append(&mut def),
+                        Sudo::Decl(HostAlias(mut def)) => self.aliases.host.1.append(&mut def),
+                        Sudo::Decl(CmndAlias(mut def)) => self.aliases.cmnd.1.append(&mut def),
+                        Sudo::Decl(RunasAlias(mut def)) => self.aliases.runas.1.append(&mut def),
 
                         Sudo::Decl(Defaults(params)) => {
                             for (name, value) in params {

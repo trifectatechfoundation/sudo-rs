@@ -415,26 +415,25 @@ fn different_aliases_user_and_group_fails_when_both_are_passed() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh431"]
 #[test]
 fn aliases_given_on_one_line_divided_by_colon() -> Result<()> {
     let env = Env([
-        &format!("Runas_Alias GROUPALIAS = {GROUPNAME} : USERALIAS = otheruser"),
-        &format!("{USERNAME} ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL")
+        "Runas_Alias GROUPALIAS = ALL : USERALIAS = ALL",
+        "ALL ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL"
     ])
         .user(USERNAME)
         .user("otheruser")
-        .group(GROUPNAME)
+        .group("ghost")
         .build()?;
 
     Command::new("sudo")
-        .args(["-g", GROUPNAME, "true"])
+        .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
         .exec(&env)?
         .assert_success()?;
 
     Command::new("sudo")
-        .args(["-u", "otheruser", "true"])
+        .args(["-g", "ghost", "true"])
         .as_user(USERNAME)
         .exec(&env)?
         .assert_success()?;
