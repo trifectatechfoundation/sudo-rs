@@ -20,7 +20,7 @@ use super::{
 };
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
-pub(crate) fn exec_monitor(
+pub(super) fn exec_monitor(
     pty_follower: OwnedFd,
     mut command: Command,
     backchannel: &mut MonitorBackchannel,
