@@ -30,7 +30,7 @@ macro_rules! define_signals {
                 let mut dispatcher = Self {
                     signal_handlers: [$(SignalHandler::new($signal)?,)*],
                     poll_set: PollSet::new(),
-                    callbacks: Vec::new(),
+                    callbacks: Vec::with_capacity(SIGNALS.len()),
                     status: ControlFlow::Continue(()),
                 };
 
@@ -85,6 +85,14 @@ impl<T: EventClosure> EventDispatcher<T> {
     pub(crate) fn set_read_callback<F: AsRawFd>(&mut self, fd: &F, callback: Callback<T>) {
         let id = EventId(self.callbacks.len());
         self.poll_set.add_fd_read(id, fd);
+        self.callbacks.push(callback);
+    }
+
+    /// Set the `fd` descriptor to be polled for write events and set `callback` to be called if
+    /// `fd` is ready.  
+    pub(crate) fn set_write_callback<F: AsRawFd>(&mut self, fd: &F, callback: Callback<T>) {
+        let id = EventId(self.callbacks.len());
+        self.poll_set.add_fd_write(id, fd);
         self.callbacks.push(callback);
     }
 
