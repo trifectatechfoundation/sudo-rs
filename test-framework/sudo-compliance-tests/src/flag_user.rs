@@ -147,7 +147,7 @@ fn user_does_not_exist() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "unknown user: ghost"
+        "unknown user ghost"
     } else {
         "user `ghost' not found"
     };

@@ -67,7 +67,7 @@ fn sudo_logs_every_executed_command() -> Result<()> {
         .assert_success()?;
 
     let auth_log = rsyslog.auth_log()?;
-    assert_contains!(auth_log, "COMMAND=/bin/true");
+    assert_contains!(auth_log, "COMMAND=/usr/bin/true");
 
     Ok(())
 }

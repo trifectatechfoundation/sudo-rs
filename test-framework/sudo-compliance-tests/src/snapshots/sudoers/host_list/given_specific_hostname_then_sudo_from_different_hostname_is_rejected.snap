@@ -1,5 +1,5 @@
 ---
 source: sudo-compliance-tests/src/sudoers/host_list.rs
-expression: output.stderr()
+expression: stderr
 ---
-root is not allowed to run sudo on container.  This incident will be reported.
+root is not allowed to run sudo on container.

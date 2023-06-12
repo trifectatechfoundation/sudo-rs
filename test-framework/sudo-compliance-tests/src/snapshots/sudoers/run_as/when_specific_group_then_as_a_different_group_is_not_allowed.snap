@@ -1,5 +1,5 @@
 ---
 source: sudo-compliance-tests/src/sudoers/run_as.rs
-expression: output.stderr()
+expression: stderr
 ---
-Sorry, user root is not allowed to execute '/bin/true' as root:ghosts on [host].
+Sorry, user root is not allowed to execute '/usr/bin/true' as root:ghosts on [host].

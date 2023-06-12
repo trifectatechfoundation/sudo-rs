@@ -98,7 +98,7 @@ fn dash_flag_equal_value_invalid_syntax() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "sudo: unknown user: =root"
+        "sudo: unknown user =root"
     } else {
         "invalid option"
     };

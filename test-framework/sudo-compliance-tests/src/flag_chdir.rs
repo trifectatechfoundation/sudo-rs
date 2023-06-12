@@ -11,7 +11,7 @@ fn cwd_not_set_cannot_change_dir() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
     assert!(!output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
-        "you are not permitted to use the -D option with /bin/pwd"
+        "you are not permitted to use the -D option with /usr/bin/pwd"
     } else {
         "authentication failed: no permission"
     };
@@ -97,7 +97,7 @@ fn cwd_set_to_non_glob_value_then_cannot_use_chdir_flag() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "you are not permitted to use the -D option with /bin/pwd"
+        "you are not permitted to use the -D option with /usr/bin/pwd"
     } else {
         "authentication failed: no permission"
     };
@@ -119,7 +119,7 @@ fn cwd_set_to_non_glob_value_then_cannot_use_that_path_with_chdir_flag() -> Resu
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "you are not permitted to use the -D option with /bin/pwd"
+        "you are not permitted to use the -D option with /usr/bin/pwd"
     } else {
         "authentication failed: no permission"
     };

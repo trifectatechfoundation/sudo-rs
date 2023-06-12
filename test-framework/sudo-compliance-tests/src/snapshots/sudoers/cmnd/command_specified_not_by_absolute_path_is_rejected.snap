@@ -1,8 +1,8 @@
 ---
 source: sudo-compliance-tests/src/sudoers/cmnd.rs
-expression: output.stderr()
+expression: stderr
 ---
-/etc/sudoers:1:19: syntax error
+/etc/sudoers:1:19: expected a fully-qualified path name
 ALL ALL=(ALL:ALL) true
                   ^~~~
-root is not in the sudoers file.  This incident will be reported.
+root is not in the sudoers file.

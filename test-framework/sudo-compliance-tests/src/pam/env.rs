@@ -10,7 +10,7 @@ const ETC_ENVIRONMENT_PATH: &str = "/etc/environment";
 const PAM_D_SUDO_PATH: &str = "/etc/pam.d/sudo";
 const SECURITY_PAM_ENV_PATH: &str = "/etc/security/pam_env.conf";
 
-const STOCK_PAM_D_SUDO: &str = "#%PAM-1.0\n@include common-auth\n@include common-account\n@include common-session-noninteractive";
+const STOCK_PAM_D_SUDO: &str = "#%PAM-1.0\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session-noninteractive";
 const STOCK_SECURITY_PAM_ENV: &str = "";
 
 const PAM_D_SUDO_READENV: &str = "session       required   pam_env.so readenv=1";
