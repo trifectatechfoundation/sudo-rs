@@ -2,21 +2,6 @@ use log::{Level, Log, Metadata};
 
 use crate::system::syslog;
 
-const LOG_AUTH: libc::c_int = 4 << 3;
-
-#[allow(dead_code)]
-#[derive(Copy, Clone)]
-pub enum Priority {
-    Emergency,
-    Alert,
-    Critical,
-    Error,
-    Warning,
-    Notice,
-    Informational,
-    Debug,
-}
-
 pub struct Syslog;
 
 impl Log for Syslog {
@@ -26,15 +11,15 @@ impl Log for Syslog {
 
     fn log(&self, record: &log::Record) {
         let priority = match record.level() {
-            Level::Error => Priority::Error,
-            Level::Warn => Priority::Warning,
-            Level::Info => Priority::Informational,
-            Level::Debug => Priority::Debug,
-            Level::Trace => Priority::Debug,
+            Level::Error => libc::LOG_ERR,
+            Level::Warn => libc::LOG_WARNING,
+            Level::Info => libc::LOG_INFO,
+            Level::Debug => libc::LOG_DEBUG,
+            Level::Trace => libc::LOG_DEBUG,
         };
 
         let message = format!("{}", record.args());
-        syslog(priority as libc::c_int, LOG_AUTH, &message);
+        syslog(priority, libc::LOG_AUTH, &message);
     }
 
     fn flush(&self) {
