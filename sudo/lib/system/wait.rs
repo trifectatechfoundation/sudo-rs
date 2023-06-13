@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn exit_status() {
         let command = std::process::Command::new("sh")
-            .args(["-c", "exit 42"])
+            .args(["-c", "sleep 0.1; exit 42"])
             .spawn()
             .unwrap();
 
@@ -201,6 +201,11 @@ mod tests {
         let (pid, status) = waitpid(command_pid, WaitOptions::new()).unwrap();
         assert_eq!(command_pid, pid);
         assert_eq!(status.exit_status(), Some(42));
+        // Waiting when there are no children should fail.
+        let WaitError::Io(err) = waitpid(command_pid, WaitOptions::new()).unwrap_err() else {
+            panic!("`WaitError::NotReady` should not happens if `WaitOptions::no_hang` was not called.");
+        };
+        assert_eq!(err.raw_os_error(), Some(libc::ECHILD));
     }
 
     #[test]
