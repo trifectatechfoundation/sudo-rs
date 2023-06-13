@@ -4,9 +4,9 @@ use std::{
     path::PathBuf,
 };
 
-use sudo_log::auth_info;
+use crate::log::auth_info;
 
-use crate::{
+use super::{
     audit::secure_open_cookie_file,
     file::Lockable,
     interface::UserId,

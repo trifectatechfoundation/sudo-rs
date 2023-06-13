@@ -1,5 +1,5 @@
+use super::ast;
 use super::*;
-use crate::ast;
 use basic_parser::{parse_eval, parse_lines, parse_string};
 use std::iter;
 
@@ -37,7 +37,7 @@ impl UnixUser for Named {
 }
 
 impl UnixGroup for Named {
-    fn as_gid(&self) -> sudo_system::interface::GroupId {
+    fn as_gid(&self) -> crate::system::interface::GroupId {
         dummy_cksum(self.0)
     }
     fn try_as_name(&self) -> Option<&str> {

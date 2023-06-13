@@ -1,6 +1,8 @@
-use sudo_pam_sys::*;
+use crate::cutils::string_from_ptr;
 
-use crate::{error::PamResult, rpassword, securemem::PamBuffer, PamErrorType};
+use super::sys::*;
+
+use super::{error::PamResult, rpassword, securemem::PamBuffer, PamErrorType};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
@@ -132,7 +134,7 @@ where
 /// A converser that uses stdin/stdout/stderr to display messages and to request
 /// input from the user.
 pub struct CLIConverser {
-    pub(crate) use_stdin: bool,
+    pub(super) use_stdin: bool,
 }
 
 use rpassword::Terminal;
@@ -172,9 +174,9 @@ impl SequentialConverser for CLIConverser {
 }
 
 /// Helper struct that contains the converser as well as panic boolean
-pub(crate) struct ConverserData<C> {
-    pub(crate) converser: C,
-    pub(crate) panicked: bool,
+pub(super) struct ConverserData<C> {
+    pub(super) converser: C,
+    pub(super) panicked: bool,
 }
 
 /// This function implements the conversation function of `pam_conv`.
@@ -191,7 +193,7 @@ pub(crate) struct ConverserData<C> {
 /// * If called with an appdata_ptr that does not correspond with the Converser
 ///   this function will exhibit undefined behavior.
 /// * The messages from PAM are assumed to be formatted correctly.
-pub(crate) unsafe extern "C" fn converse<C: Converser>(
+pub(super) unsafe extern "C" fn converse<C: Converser>(
     num_msg: libc::c_int,
     msg: *mut *const pam_message,
     response: *mut *mut pam_response,
@@ -205,7 +207,7 @@ pub(crate) unsafe extern "C" fn converse<C: Converser>(
         for i in 0..num_msg as isize {
             let message: &pam_message = unsafe { &**msg.offset(i) };
 
-            let msg = unsafe { sudo_cutils::string_from_ptr(message.msg) };
+            let msg = unsafe { string_from_ptr(message.msg) };
             let style = if let Some(style) = PamMessageStyle::from_int(message.msg_style) {
                 style
             } else {
@@ -343,7 +345,7 @@ mod test {
                 } else {
                     // "The resp_retcode member of this struct is unused and should be set to zero."
                     assert_eq!((*ptr).resp_retcode, 0);
-                    let response = sudo_cutils::string_from_ptr((*ptr).resp);
+                    let response = string_from_ptr((*ptr).resp);
                     libc::free((*ptr).resp as *mut _);
                     Some(response)
                 }

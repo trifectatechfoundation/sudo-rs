@@ -19,6 +19,7 @@ path = "src/main.rs"
 [dependencies]
 libc.workspace = true
 signal-hook = { workspace = true, features = [ "extended-siginfo" ] }
+signal-hook-registry.workspace = true
 log.workspace = true
 syslog.workspace = true
 env_logger = { workspace = true, default-features = false }

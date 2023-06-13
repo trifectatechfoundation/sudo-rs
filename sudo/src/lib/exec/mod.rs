@@ -14,12 +14,12 @@ use std::{
     process::Command,
 };
 
+use crate::common::{context::LaunchType::Login, Context, Environment};
+use crate::log::user_error;
+use crate::system::{fork, set_target_user, term::openpty};
 use backchannel::BackchannelPair;
 use monitor::MonitorClosure;
 use parent::ParentClosure;
-use sudo_common::{context::LaunchType::Login, Context, Environment};
-use sudo_log::user_error;
-use sudo_system::{fork, set_target_user, term::openpty};
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
@@ -57,7 +57,7 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
                 let c_path =
                     CString::new(bytes).expect("nul byte found in provided directory path");
 
-                if let Err(err) = sudo_system::chdir(&c_path) {
+                if let Err(err) = crate::system::chdir(&c_path) {
                     user_error!("unable to change directory to {}: {}", path.display(), err);
                     if ctx.chdir.is_some() {
                         return Err(err);

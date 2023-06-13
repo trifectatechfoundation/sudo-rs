@@ -1,4 +1,4 @@
-use crate::Sudoers;
+use super::Sudoers;
 
 use super::Judgement;
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
@@ -87,7 +87,7 @@ impl PreJudgementPolicy for Sudoers {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Tag;
+    use crate::sudoers::{ast::Tag, tokens::ChDir};
 
     impl Judgement {
         fn mod_flag(&mut self, mut modify: impl FnMut(&mut Tag)) {
@@ -125,11 +125,11 @@ mod test {
             ..Default::default()
         };
         assert_eq!(judge.chdir(), DirChange::Strict(None));
-        judge.mod_flag(|tag| tag.cwd = Some(crate::ChDir::Any));
+        judge.mod_flag(|tag| tag.cwd = Some(ChDir::Any));
         assert_eq!(judge.chdir(), DirChange::Any);
-        judge.mod_flag(|tag| tag.cwd = Some(crate::ChDir::Path("/usr".into())));
+        judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/usr".into())));
         assert_eq!(judge.chdir(), (DirChange::Strict(Some(Path::new("/usr")))));
-        judge.mod_flag(|tag| tag.cwd = Some(crate::ChDir::Path("/bin".into())));
+        judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/bin".into())));
         assert_eq!(judge.chdir(), (DirChange::Strict(Some(Path::new("/bin")))));
     }
 }

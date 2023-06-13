@@ -1,13 +1,13 @@
+use crate::cli::SudoOptions;
+use crate::system::{Group, User};
 use std::{
     env, fs,
     os::unix::prelude::MetadataExt,
     path::{Path, PathBuf},
     str::FromStr,
 };
-use sudo_cli::SudoOptions;
-use sudo_system::{Group, User};
 
-use crate::{context::LaunchType, Error};
+use super::{context::LaunchType, Error};
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
@@ -33,7 +33,7 @@ pub fn resolve_current_user() -> Result<User, Error> {
 
 type Shell = Option<PathBuf>;
 
-pub(crate) fn resolve_launch_and_shell(
+pub(super) fn resolve_launch_and_shell(
     sudo_options: &SudoOptions,
     current_user: &User,
     target_user: &User,
@@ -51,7 +51,7 @@ pub(crate) fn resolve_launch_and_shell(
     }
 }
 
-pub(crate) fn resolve_target_user_and_group(
+pub(super) fn resolve_target_user_and_group(
     target_user_name_or_id: &Option<String>,
     target_group_name_or_id: &Option<String>,
     current_user: &User,
@@ -129,7 +129,7 @@ fn is_valid_executable(path: &PathBuf) -> bool {
 /// When resolving a path, this code checks whether the target file is
 /// a regular file and has any executable bits set. It does not specifically
 /// check for user, group, or others' executable bit.
-pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
+pub(super) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
     // To prevent command spoofing, sudo checks "." and "" (both denoting current directory)
     // last when searching for a command in the user's PATH (if one or both are in the PATH).
     // Depending on the security policy, the user's PATH environment variable may be modified,
@@ -175,8 +175,8 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
 mod tests {
     use std::path::PathBuf;
 
+    use super::resolve_path;
     use super::{resolve_current_user, resolve_target_user_and_group, NameOrId};
-    use crate::resolve::resolve_path;
 
     // this test is platform specific -> should be changed when targetting different platforms
     #[test]

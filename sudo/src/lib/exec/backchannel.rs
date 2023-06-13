@@ -9,7 +9,7 @@ use std::{
     process::ExitStatus,
 };
 
-use sudo_system::{interface::ProcessId, signal::SignalNumber};
+use crate::system::{interface::ProcessId, signal::SignalNumber};
 
 type Prefix = u8;
 type ParentData = c_int;
@@ -19,13 +19,13 @@ const PREFIX_LEN: usize = size_of::<Prefix>();
 const PARENT_DATA_LEN: usize = size_of::<ParentData>();
 const MONITOR_DATA_LEN: usize = size_of::<MonitorData>();
 
-pub(crate) struct BackchannelPair {
-    pub(crate) parent: ParentBackchannel,
-    pub(crate) monitor: MonitorBackchannel,
+pub(super) struct BackchannelPair {
+    pub(super) parent: ParentBackchannel,
+    pub(super) monitor: MonitorBackchannel,
 }
 
 impl BackchannelPair {
-    pub(crate) fn new() -> io::Result<Self> {
+    pub(super) fn new() -> io::Result<Self> {
         let (sock1, sock2) = UnixStream::pair()?;
         sock1.set_nonblocking(true)?;
         sock2.set_nonblocking(true)?;
@@ -37,7 +37,7 @@ impl BackchannelPair {
     }
 }
 
-pub(crate) enum ParentMessage {
+pub(super) enum ParentMessage {
     IoError(c_int),
     CommandExit(c_int),
     CommandSignal(SignalNumber),
@@ -100,7 +100,7 @@ impl From<ExitStatus> for ParentMessage {
 }
 
 /// A socket use for commmunication between the monitor and the parent process.
-pub(crate) struct ParentBackchannel {
+pub(super) struct ParentBackchannel {
     socket: UnixStream,
 }
 
@@ -108,7 +108,7 @@ impl ParentBackchannel {
     /// Send a [`MonitorEvent`].
     ///
     /// Calling this method will block until the socket is ready for writing.
-    pub(crate) fn send(&mut self, event: &MonitorMessage) -> io::Result<()> {
+    pub(super) fn send(&mut self, event: &MonitorMessage) -> io::Result<()> {
         let mut buf = [0; MonitorMessage::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
@@ -123,7 +123,7 @@ impl ParentBackchannel {
     /// Receive a [`ParentEvent`].
     ///
     /// Calling this method will block until the socket is ready for reading.
-    pub(crate) fn recv(&mut self) -> io::Result<ParentMessage> {
+    pub(super) fn recv(&mut self) -> io::Result<ParentMessage> {
         let mut buf = [0; ParentMessage::LEN];
         self.socket.read_exact(&mut buf)?;
 
@@ -144,7 +144,7 @@ impl AsRawFd for ParentBackchannel {
 
 /// Different messages exchanged between the monitor and the parent process using a [`Backchannel`].
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum MonitorMessage {
+pub(super) enum MonitorMessage {
     ExecCommand,
     Signal(c_int),
 }
@@ -178,7 +178,7 @@ impl MonitorMessage {
 }
 
 /// A socket use for commmunication between the monitor and the parent process.
-pub(crate) struct MonitorBackchannel {
+pub(super) struct MonitorBackchannel {
     socket: UnixStream,
 }
 
@@ -186,7 +186,7 @@ impl MonitorBackchannel {
     /// Send a [`ParentEvent`].
     ///
     /// Calling this method will block until the socket is ready for writing.
-    pub(crate) fn send(&mut self, event: &ParentMessage) -> io::Result<()> {
+    pub(super) fn send(&mut self, event: &ParentMessage) -> io::Result<()> {
         let mut buf = [0; ParentMessage::LEN];
 
         let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
@@ -201,7 +201,7 @@ impl MonitorBackchannel {
     /// Receive a [`MonitorEvent`].
     ///
     /// Calling this method will block until the socket is ready for reading.
-    pub(crate) fn recv(&mut self) -> io::Result<MonitorMessage> {
+    pub(super) fn recv(&mut self) -> io::Result<MonitorMessage> {
         let mut buf = [0; MonitorMessage::LEN];
         self.socket.read_exact(&mut buf)?;
 

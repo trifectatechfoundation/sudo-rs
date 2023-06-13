@@ -5,8 +5,8 @@ use std::{
     os::fd::{AsRawFd, RawFd},
 };
 
+use crate::cutils::cerr;
 use libc::{c_short, pollfd, POLLIN, POLLOUT};
-use sudo_cutils::cerr;
 
 /// A set of indexed file descriptors to be polled using the [`poll`](https://manpage.me/?q=poll) system call.
 pub struct PollSet<K> {

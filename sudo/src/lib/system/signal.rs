@@ -16,12 +16,12 @@ use std::{
     },
 };
 
+use crate::cutils::cerr;
 use libc::{c_int, siginfo_t, MSG_DONTWAIT};
 use signal_hook::low_level::{emulate_default_handler, signal_name};
 use signal_hook_registry::{register_sigaction, unregister, SigId, FORBIDDEN};
-use sudo_cutils::cerr;
 
-use crate::interface::ProcessId;
+use super::interface::ProcessId;
 
 const SIGINFO_SIZE: usize = std::mem::size_of::<siginfo_t>();
 

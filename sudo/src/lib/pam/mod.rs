@@ -3,11 +3,11 @@ use std::{
     time::Duration,
 };
 
+use crate::cutils::string_from_ptr;
 use converse::ConverserData;
 use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
-use sudo_cutils::string_from_ptr;
-use sudo_pam_sys::*;
+use sys::*;
 
 mod converse;
 mod error;

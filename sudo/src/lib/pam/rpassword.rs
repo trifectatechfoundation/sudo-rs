@@ -19,9 +19,9 @@ use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
 
-use sudo_cutils::cerr;
+use crate::cutils::cerr;
 
-use crate::securemem::PamBuffer;
+use super::securemem::PamBuffer;
 
 pub struct HiddenInput {
     tty: fs::File,

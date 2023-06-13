@@ -1,13 +1,13 @@
 use std::{io, ops::ControlFlow, os::fd::AsRawFd};
 
-use sudo_system::{
+use crate::system::{
     poll::PollSet,
     signal::{SignalHandler, SignalInfo, SignalNumber},
 };
 
 use signal_hook::consts::*;
 
-pub(crate) trait EventClosure: Sized {
+pub(super) trait EventClosure: Sized {
     /// Reason why the event loop should break. This is the return type of [`EventDispatcher::event_loop`].
     type Break;
     /// Operation that the closure must do when a signal arrives.
@@ -18,7 +18,7 @@ pub(crate) trait EventClosure: Sized {
 macro_rules! define_signals {
     ($($signal:ident = $repr:literal,)*) => {
         /// The signals that we can handle.
-        pub(crate) const SIGNALS: &[SignalNumber] = &[$($signal,)*];
+        pub(super) const SIGNALS: &[SignalNumber] = &[$($signal,)*];
 
         impl<T: EventClosure> EventDispatcher<T> {
             /// Create a new and empty event handler.
@@ -26,7 +26,7 @@ macro_rules! define_signals {
             /// Calling this function also creates new signal handlers for the signals in
             /// [`SIGNALS`] and sets the callbacks for each one of them using the
             /// [`EventClosure::on_signal`] implementation.
-            pub(crate) fn new() -> io::Result<Self> {
+            pub(super) fn new() -> io::Result<Self> {
                 let mut dispatcher = Self {
                     signal_handlers: [$(SignalHandler::new($signal)?,)*],
                     poll_set: PollSet::new(),
@@ -69,10 +69,10 @@ define_signals! {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct EventId(usize);
 
-pub(crate) type Callback<T> = fn(&mut T, &mut EventDispatcher<T>);
+pub(super) type Callback<T> = fn(&mut T, &mut EventDispatcher<T>);
 
 /// A type able to poll file descriptors and run callbacks when the descriptors are ready.
-pub(crate) struct EventDispatcher<T: EventClosure> {
+pub(super) struct EventDispatcher<T: EventClosure> {
     signal_handlers: [SignalHandler; SIGNALS.len()],
     poll_set: PollSet<EventId>,
     callbacks: Vec<Callback<T>>,
@@ -81,16 +81,16 @@ pub(crate) struct EventDispatcher<T: EventClosure> {
 
 impl<T: EventClosure> EventDispatcher<T> {
     /// Set the `fd` descriptor to be polled for read events and set `callback` to be called if
-    /// `fd` is ready.  
-    pub(crate) fn set_read_callback<F: AsRawFd>(&mut self, fd: &F, callback: Callback<T>) {
+    /// `fd` is ready.
+    pub(super) fn set_read_callback<F: AsRawFd>(&mut self, fd: &F, callback: Callback<T>) {
         let id = EventId(self.callbacks.len());
         self.poll_set.add_fd_read(id, fd);
         self.callbacks.push(callback);
     }
 
     /// Set the `fd` descriptor to be polled for write events and set `callback` to be called if
-    /// `fd` is ready.  
-    pub(crate) fn set_write_callback<F: AsRawFd>(&mut self, fd: &F, callback: Callback<T>) {
+    /// `fd` is ready.
+    pub(super) fn set_write_callback<F: AsRawFd>(&mut self, fd: &F, callback: Callback<T>) {
         let id = EventId(self.callbacks.len());
         self.poll_set.add_fd_write(id, fd);
         self.callbacks.push(callback);
@@ -99,13 +99,13 @@ impl<T: EventClosure> EventDispatcher<T> {
     /// Stop the event loop when the current callback is done and set a reason for it.
     ///
     /// This means that the event loop will stop even if other events are ready.
-    pub(crate) fn set_break(&mut self, reason: T::Break) {
+    pub(super) fn set_break(&mut self, reason: T::Break) {
         self.status = ControlFlow::Break(reason);
     }
 
     /// Return whether a break reason has been set already. This function will return `false` after
     /// [`EventDispatcher::event_loop`] has been called.
-    pub(crate) fn got_break(&self) -> bool {
+    pub(super) fn got_break(&self) -> bool {
         self.status.is_break()
     }
 
@@ -113,7 +113,7 @@ impl<T: EventClosure> EventDispatcher<T> {
     ///
     /// The event loop will continue indefinitely unless either [`EventDispatcher::set_exit`]  or
     /// [`EventDispatcher::set_break`] are called.
-    pub(crate) fn event_loop(&mut self, state: &mut T) -> T::Break {
+    pub(super) fn event_loop(&mut self, state: &mut T) -> T::Break {
         loop {
             if let Ok(ids) = self.poll_set.poll() {
                 for EventId(id) in ids {
@@ -131,7 +131,7 @@ impl<T: EventClosure> EventDispatcher<T> {
         }
     }
 
-    pub(crate) fn check_break(&mut self) -> Option<T::Break> {
+    pub(super) fn check_break(&mut self) -> Option<T::Break> {
         // This is OK as we are swapping `Continue(())` by other `Continue(())` if the status is
         // not `Break`.
         match std::mem::replace(&mut self.status, ControlFlow::Continue(())) {

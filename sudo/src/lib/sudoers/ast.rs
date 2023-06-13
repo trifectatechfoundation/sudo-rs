@@ -1,6 +1,6 @@
-use crate::ast_names::UserFriendly;
-use crate::basic_parser::*;
-use crate::tokens::*;
+use super::ast_names::UserFriendly;
+use super::basic_parser::*;
+use super::tokens::*;
 
 /// The Sudoers file allows negating items with the exclamation mark.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
@@ -74,7 +74,7 @@ pub enum Directive {
     Defaults(Vec<(String, ConfigValue)>),
 }
 
-pub type TextEnum = sudo_defaults::StrEnum<'static>;
+pub type TextEnum = crate::defaults::StrEnum<'static>;
 
 pub enum ConfigValue {
     Flag(bool),
@@ -460,8 +460,8 @@ fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
     make(result)
 }
 
-use sudo_defaults::sudo_default;
-use sudo_defaults::SudoDefault as Setting;
+use crate::defaults::sudo_default;
+use crate::defaults::SudoDefault as Setting;
 
 /// grammar:
 /// ```text
@@ -489,10 +489,10 @@ fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut impl CharStream,
 ) -> Parsed<Directive> {
-    use crate::ast::Directive::*;
-    use crate::ast::Meta::*;
-    use crate::ast::Qualified::*;
-    use crate::ast::UserSpecifier::*;
+    use super::ast::Directive::*;
+    use super::ast::Meta::*;
+    use super::ast::Qualified::*;
+    use super::ast::UserSpecifier::*;
     let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else { return reject() };
 
     match keyword.as_str() {
@@ -560,7 +560,7 @@ impl Parse for (String, ConfigValue) {
             }
         };
 
-        use sudo_defaults::OptTuple;
+        use crate::defaults::OptTuple;
 
         if is_syntax('!', stream)? {
             let value_pos = stream.get_pos();
@@ -624,7 +624,7 @@ impl Parse for (String, ConfigValue) {
                         let text = text_item(stream)?;
                         make((name, ConfigValue::Text(Some(text.into_boxed_str()))))
                     }
-                    Setting::Enum(sudo_defaults::OptTuple { default: key, .. }) => {
+                    Setting::Enum(OptTuple { default: key, .. }) => {
                         let text = text_item(stream)?;
                         let Some(value) = key.alt(&text) else {
                             unrecoverable!(

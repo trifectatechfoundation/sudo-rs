@@ -1,6 +1,6 @@
 /// Match a  test input with a pattern
 /// Only wildcard characters (*) in the pattern string have a special meaning: they match on zero or more characters
-pub(crate) fn wildcard_match(test: &[u8], pattern: &[u8]) -> bool {
+pub(super) fn wildcard_match(test: &[u8], pattern: &[u8]) -> bool {
     let mut test_index = 0;
     let mut pattern_index = 0;
     let mut last_star = None;
@@ -46,7 +46,7 @@ pub(crate) fn wildcard_match(test: &[u8], pattern: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::wildcard_match::wildcard_match;
+    use super::wildcard_match;
 
     #[test]
     fn test_wildcard_match() {

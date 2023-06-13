@@ -11,9 +11,9 @@ mod tokens;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
+use crate::log::auth_warn;
+use crate::system::interface::{UnixGroup, UnixUser};
 use ast::*;
-use sudo_log::auth_warn;
-use sudo_system::interface::{UnixGroup, UnixUser};
 use tokens::*;
 
 /// How many nested include files do we allow?
@@ -81,7 +81,7 @@ impl Sudoers {
 
 fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io::Error> {
     use std::io::Read;
-    let mut source = sudo_system::secure_open(path)?;
+    let mut source = crate::system::secure_open(path)?;
 
     // it's a bit frustrating that BufReader.chars() does not exist
     let mut buffer = String::new();
@@ -93,7 +93,7 @@ fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io:
 }
 
 #[derive(Default)]
-pub(crate) struct AliasTable {
+pub(super) struct AliasTable {
     user: VecOrd<Def<UserSpecifier>>,
     host: VecOrd<Def<Hostname>>,
     cmnd: VecOrd<Def<Command>>,
@@ -332,8 +332,8 @@ impl Default for Settings {
             list: Default::default(),
         };
 
-        use sudo_defaults::{sudo_default, OptTuple, SudoDefault};
-        for key in sudo_defaults::ALL_PARAMS.iter() {
+        use crate::defaults::{sudo_default, OptTuple, SudoDefault};
+        for key in crate::defaults::ALL_PARAMS.iter() {
             match sudo_default(key).expect("internal error") {
                 SudoDefault::Flag(default) => {
                     if default {

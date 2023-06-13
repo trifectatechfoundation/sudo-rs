@@ -1,6 +1,8 @@
 use std::{ffi::NulError, fmt};
 
-use sudo_pam_sys::*;
+use crate::cutils::string_from_ptr;
+
+use super::sys::*;
 
 pub type PamResult<T, E = PamError> = Result<T, E>;
 
@@ -79,7 +81,7 @@ pub enum PamErrorType {
 }
 
 impl PamErrorType {
-    pub(crate) fn from_int(errno: libc::c_int) -> PamErrorType {
+    pub(super) fn from_int(errno: libc::c_int) -> PamErrorType {
         use PamErrorType::*;
 
         match errno as libc::c_uint {
@@ -175,7 +177,7 @@ impl PamErrorType {
         if data.is_null() {
             String::from("Error unresolved by PAM")
         } else {
-            unsafe { sudo_cutils::string_from_ptr(data) }
+            unsafe { string_from_ptr(data) }
         }
     }
 }
@@ -232,7 +234,7 @@ impl fmt::Display for PamError {
 impl PamError {
     /// Create a new PamError based on the error number from pam and a handle to a pam session
     /// The handle to the pam session is allowed to be null
-    pub(crate) fn from_pam(errno: libc::c_int) -> PamError {
+    pub(super) fn from_pam(errno: libc::c_int) -> PamError {
         let tp = PamErrorType::from_int(errno);
         let msg = tp.get_err_msg();
         PamError::Pam(tp, msg)
@@ -240,7 +242,7 @@ impl PamError {
 }
 
 /// Returns `Ok(())` if the error code is `PAM_SUCCESS` or a `PamError` in other cases
-pub(crate) fn pam_err(err: libc::c_int) -> Result<(), PamError> {
+pub(super) fn pam_err(err: libc::c_int) -> Result<(), PamError> {
     if err == PAM_SUCCESS as libc::c_int {
         Ok(())
     } else {

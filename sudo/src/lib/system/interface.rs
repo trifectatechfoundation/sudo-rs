@@ -63,6 +63,8 @@ impl UnixGroup for super::Group {
 
 #[cfg(test)]
 mod test {
+    use crate::system::{Group, User};
+
     use super::*;
 
     fn test_user(user: impl UnixUser, name: &str, uid: libc::uid_t) {
@@ -79,14 +81,14 @@ mod test {
 
     #[test]
     fn test_unix_user() {
-        let user = |name| crate::User::from_name(name).unwrap().unwrap();
+        let user = |name| User::from_name(name).unwrap().unwrap();
         test_user(user("root"), "root", 0);
         test_user(user("daemon"), "daemon", 1);
     }
 
     #[test]
     fn test_unix_group() {
-        let group = |name| crate::Group::from_name(name).unwrap().unwrap();
+        let group = |name| Group::from_name(name).unwrap().unwrap();
         test_group(group("root"), "root", 0);
         test_group(group("daemon"), "daemon", 1);
     }

@@ -1,25 +1,25 @@
 macro_rules! add_from {
     ($ctor:ident, $type:ty) => {
-        impl From<$type> for $crate::SudoDefault {
+        impl From<$type> for $crate::defaults::SudoDefault {
             fn from(value: $type) -> Self {
-                $crate::SudoDefault::$ctor(value.into())
+                $crate::defaults::SudoDefault::$ctor(value.into())
             }
         }
     };
 
     ($ctor:ident, $type:ty, negatable$(, $vetting_function:expr)?) => {
-        impl From<$type> for $crate::SudoDefault {
+        impl From<$type> for $crate::defaults::SudoDefault {
             fn from(value: $type) -> Self {
-                $crate::SudoDefault::$ctor(OptTuple {
+                $crate::defaults::SudoDefault::$ctor(OptTuple {
                     default: value.into(),
                     negated: None,
                 }$(, $vetting_function)?)
             }
         }
 
-        impl From<($type, $type)> for $crate::SudoDefault {
+        impl From<($type, $type)> for $crate::defaults::SudoDefault {
             fn from((value, neg): ($type, $type)) -> Self {
-                $crate::SudoDefault::$ctor(OptTuple {
+                $crate::defaults::SudoDefault::$ctor(OptTuple {
                     default: value.into(),
                     negated: Some(neg.into()),
                 }$(, $vetting_function)?)

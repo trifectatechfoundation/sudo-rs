@@ -46,12 +46,12 @@ pub fn reject<T>() -> Parsed<T> {
 
 macro_rules! unrecoverable {
     (pos=$pos:expr, $stream:ident, $($str:expr),*) => {
-        return Err(crate::basic_parser::Status::Fatal($pos .. CharStream::get_pos($stream), format![$($str),*]))
+        return Err(crate::sudoers::basic_parser::Status::Fatal($pos .. CharStream::get_pos($stream), format![$($str),*]))
     };
     ($stream:ident, $($str:expr),*) => {
         {
             let pos = CharStream::get_pos($stream);
-            return Err(crate::basic_parser::Status::Fatal(pos .. pos, format![$($str),*]))
+            return Err(crate::sudoers::basic_parser::Status::Fatal(pos .. pos, format![$($str),*]))
         }
     };
     ($($str:expr),*) => {
@@ -59,7 +59,7 @@ macro_rules! unrecoverable {
     };
 }
 
-pub(crate) use unrecoverable;
+pub(super) use unrecoverable;
 
 /// This recovers from a failed parsing.
 pub fn maybe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
@@ -70,7 +70,7 @@ pub fn maybe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
     }
 }
 
-pub use crate::char_stream::CharStream;
+pub use super::char_stream::CharStream;
 
 /// All implementations of the Parse trait must satisfy this contract:
 ///
@@ -197,7 +197,7 @@ pub fn try_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 
 /// Interface for working with types that implement the [Parse] trait; this expects to parse
 /// the given type or aborts parsing if not.
-use crate::ast_names::UserFriendly;
+use super::ast_names::UserFriendly;
 
 pub fn expect_nonterminal<T: Parse + UserFriendly>(stream: &mut impl CharStream) -> Parsed<T> {
     let begin_pos = stream.get_pos();
@@ -272,7 +272,7 @@ impl<T: Parse> Parse for Option<T> {
 }
 
 /// Parsing method for lists of items separated by a given character; this adheres to the contract of the [Parse] trait.
-pub(crate) fn parse_list<T: Parse>(
+pub(super) fn parse_list<T: Parse>(
     sep_by: char,
     max: usize,
     stream: &mut impl CharStream,

@@ -8,11 +8,11 @@ use std::{
     str::FromStr,
 };
 
+use crate::cutils::*;
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
 use libc::{O_CLOEXEC, O_NONBLOCK};
-use sudo_cutils::*;
 use time::SystemTime;
 
 mod audit;
@@ -476,7 +476,7 @@ impl Process {
 
         // the startime field is stored in ticks since the system start, so we need to know how many
         // ticks go into a second
-        let ticks_per_second = sudo_cutils::sysconf(libc::_SC_CLK_TCK).ok_or_else(|| {
+        let ticks_per_second = crate::cutils::sysconf(libc::_SC_CLK_TCK).ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
                 "Could not retrieve system config variable for ticks per second",
@@ -561,7 +561,7 @@ mod tests {
 
     use libc::SIGKILL;
 
-    use crate::{fork, setpgid, Group, User, WithProcess};
+    use super::{fork, setpgid, Group, User, WithProcess};
 
     #[test]
     fn test_get_user_and_group_by_id() {

@@ -6,14 +6,14 @@ use std::{
     time::Duration,
 };
 
-use signal_hook::consts::*;
-use sudo_log::user_error;
-use sudo_system::{
+use crate::log::user_error;
+use crate::system::{
     getpgid, interface::ProcessId, kill, setpgid, setsid, signal::SignalInfo,
     term::set_controlling_terminal,
 };
+use signal_hook::consts::*;
 
-use crate::{
+use super::{
     backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},

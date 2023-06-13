@@ -1,8 +1,6 @@
 use std::io::Write;
 use std::ops::Deref;
 
-#[doc(hidden)]
-pub use log::log as _private_log;
 pub use log::Level;
 use syslog::{BasicLogger, Facility, Formatter3164};
 
@@ -10,8 +8,9 @@ macro_rules! logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
         #[macro_export(local_inner_macros)]
         macro_rules! $name {
-            ($d($d arg:tt)+) => (_private_log!(target: $target, $crate::Level::$rule_level, $d($d arg)+));
+            ($d($d arg:tt)+) => (::log::log!(target: $target, $crate::log::Level::$rule_level, $d($d arg)+));
         }
+        pub use $name;
     };
     ($name:ident is $rule_level:ident to $target:expr) => {
         logger_macro!($name is $rule_level to $target, $);
@@ -114,7 +113,7 @@ impl log::Log for SudoLogger {
 
 #[cfg(test)]
 mod tests {
-    use crate::SudoLogger;
+    use super::SudoLogger;
 
     #[test]
     fn can_construct_logger() {

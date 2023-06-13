@@ -1,8 +1,8 @@
+use crate::cli::{SudoAction, SudoOptions};
+use crate::system::{hostname, Group, Process, User};
 use std::path::PathBuf;
-use sudo_cli::{SudoAction, SudoOptions};
-use sudo_system::{hostname, Group, Process, User};
 
-use crate::{
+use super::{
     command::CommandAndArguments,
     resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
     Error,
@@ -61,15 +61,15 @@ impl Context {
             launch,
             chdir: sudo_options.directory,
             stdin: sudo_options.stdin,
-            process: sudo_system::Process::new(),
+            process: Process::new(),
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{cli::SudoOptions, system::hostname};
     use std::collections::HashMap;
-    use sudo_cli::SudoOptions;
 
     use super::Context;
 
@@ -84,7 +84,7 @@ mod tests {
 
         assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
         assert_eq!(context.command.arguments, ["hello"]);
-        assert_eq!(context.hostname, sudo_system::hostname());
+        assert_eq!(context.hostname, hostname());
         assert_eq!(context.target_user.uid, 0);
     }
 }

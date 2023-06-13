@@ -1,9 +1,9 @@
 use std::fs::File;
 
-use sudo_common::{error::Error, Context};
-use sudo_log::{auth_warn, user_warn};
-use sudo_pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
-use sudo_system::{
+use sudo::common::{error::Error, Context};
+use sudo::log::{auth_warn, user_warn};
+use sudo::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
+use sudo::system::{
     time::Duration,
     timestamp::{RecordScope, SessionRecordFile, TouchResult},
     Process, WithProcess,

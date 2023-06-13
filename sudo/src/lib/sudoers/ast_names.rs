@@ -8,8 +8,8 @@ pub trait UserFriendly {
 #[cfg(not(test))]
 mod names {
     use super::*;
-    use crate::ast::*;
-    use crate::tokens;
+    use crate::sudoers::ast::*;
+    use crate::sudoers::tokens;
 
     impl UserFriendly for tokens::Digits {
         const DESCRIPTION: &'static str = "number";
@@ -103,6 +103,6 @@ mod names {
 }
 
 #[cfg(test)]
-impl<T: crate::basic_parser::Parse> UserFriendly for T {
+impl<T: super::basic_parser::Parse> UserFriendly for T {
     const DESCRIPTION: &'static str = "elem";
 }

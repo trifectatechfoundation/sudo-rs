@@ -2,12 +2,12 @@ use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::{io, os::fd::OwnedFd};
 
+use crate::log::user_error;
+use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 use signal_hook::consts::*;
-use sudo_log::user_error;
-use sudo_system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
-use crate::event::{EventClosure, EventDispatcher};
-use crate::{
+use super::event::{EventClosure, EventDispatcher};
+use super::{
     backchannel::{MonitorMessage, ParentBackchannel, ParentMessage},
     io_util::{retry_while_interrupted, was_interrupted},
     ExitReason,

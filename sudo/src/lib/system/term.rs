@@ -4,9 +4,9 @@ use std::{
     ptr::null_mut,
 };
 
-use sudo_cutils::cerr;
+use crate::cutils::cerr;
 
-use crate::interface::ProcessId;
+use super::interface::ProcessId;
 
 pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
     let (mut leader, mut follower) = (0, 0);
@@ -45,7 +45,7 @@ mod tests {
         os::unix::net::UnixStream,
     };
 
-    use crate::{fork, getpgid, setsid, term::*};
+    use crate::system::{fork, getpgid, setsid, term::*};
 
     #[test]
     fn tcsetpgrp_and_tcgetpgrp_are_consistent() {

@@ -4,11 +4,11 @@ use std::{
     os::unix::prelude::OsStrExt,
 };
 
-use sudo_common::{CommandAndArguments, Context, Environment};
-use sudo_system::PATH_MAX;
-use sudoers::Policy;
+use crate::common::{CommandAndArguments, Context, Environment};
+use crate::sudoers::Policy;
+use crate::system::PATH_MAX;
 
-use crate::wildcard_match::wildcard_match;
+use super::wildcard_match::wildcard_match;
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
@@ -210,9 +210,9 @@ pub fn get_target_environment(
 
 #[cfg(test)]
 mod tests {
-    use crate::environment::{is_safe_tz, should_keep, PATH_ZONEINFO};
+    use super::{is_safe_tz, should_keep, PATH_ZONEINFO};
+    use crate::sudoers::Policy;
     use std::{collections::HashSet, ffi::OsStr};
-    use sudoers::Policy;
 
     struct TestConfiguration {
         keep: HashSet<String>,

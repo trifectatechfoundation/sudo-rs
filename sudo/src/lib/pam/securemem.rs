@@ -5,7 +5,7 @@ use std::slice;
 pub struct PamBuffer(*mut u8);
 
 impl PamBuffer {
-    const SIZE: usize = sudo_pam_sys::PAM_MAX_RESP_SIZE as usize;
+    const SIZE: usize = super::sys::PAM_MAX_RESP_SIZE as usize;
 
     // consume this buffer and return its internal pointer
     // (ending the type-level security, but guaranteeing you need unsafe code to access the data)
@@ -83,7 +83,7 @@ mod test {
             let buf = PamBuffer::new(text.to_string().as_bytes_mut());
             assert_eq!(&buf[..text.len()], text.as_bytes());
             let ptr = buf.leak();
-            let result = sudo_cutils::string_from_ptr(ptr as *mut _);
+            let result = crate::cutils::string_from_ptr(ptr as *mut _);
             libc::free(ptr as *mut libc::c_void);
             result
         };

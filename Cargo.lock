@@ -271,6 +271,7 @@ dependencies = [
  "log",
  "pretty_assertions",
  "signal-hook",
+ "signal-hook-registry",
  "syslog",
  "tempfile",
 ]

@@ -1,5 +1,5 @@
+use crate::pam::PamError;
 use std::{fmt, path::PathBuf};
-use sudo_pam::PamError;
 
 #[derive(Debug)]
 pub enum Error {

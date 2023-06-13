@@ -1,6 +1,6 @@
 use std::{fs::File, io::Result, os::fd::AsRawFd};
 
-use sudo_cutils::cerr;
+use crate::cutils::cerr;
 
 pub trait Lockable {
     /// Get an exclusive lock on the file, waits if there is currently a lock

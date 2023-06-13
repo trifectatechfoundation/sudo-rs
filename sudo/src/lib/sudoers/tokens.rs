@@ -1,6 +1,6 @@
 //! Various tokens
 
-use crate::basic_parser::{Many, Token};
+use super::basic_parser::{Many, Token};
 
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
 pub struct Username(pub String);

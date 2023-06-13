@@ -11,7 +11,7 @@ pub struct SystemTime {
 }
 
 impl SystemTime {
-    pub(crate) fn new(secs: i64, nsecs: i64) -> SystemTime {
+    pub(super) fn new(secs: i64, nsecs: i64) -> SystemTime {
         SystemTime {
             secs: secs + nsecs.div_euclid(1_000_000_000),
             nsecs: nsecs.rem_euclid(1_000_000_000),
@@ -20,12 +20,14 @@ impl SystemTime {
 
     pub fn now() -> std::io::Result<SystemTime> {
         let mut spec = MaybeUninit::<libc::timespec>::uninit();
-        sudo_cutils::cerr(unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr()) })?;
+        crate::cutils::cerr(unsafe {
+            libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr())
+        })?;
         let spec = unsafe { spec.assume_init() };
         Ok(spec.into())
     }
 
-    pub(crate) fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
+    pub(super) fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         let secs = self.secs.to_ne_bytes();
         let nsecs = self.nsecs.to_ne_bytes();
         target.write_all(&secs)?;
@@ -33,7 +35,7 @@ impl SystemTime {
         Ok(())
     }
 
-    pub(crate) fn decode(from: &mut impl Read) -> std::io::Result<SystemTime> {
+    pub(super) fn decode(from: &mut impl Read) -> std::io::Result<SystemTime> {
         let mut sec_bytes = [0; 8];
         let mut nsec_bytes = [0; 8];
 

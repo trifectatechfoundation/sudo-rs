@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{resolve::resolve_path, Error};
+use super::{resolve::resolve_path, Error};
 
 #[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
