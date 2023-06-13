@@ -3,7 +3,7 @@ use std::{
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
-    os::fd::{AsRawFd, FromRawFd, OwnedFd},
+    os::fd::AsRawFd,
     path::PathBuf,
     str::FromStr,
 };
@@ -12,7 +12,6 @@ use crate::cutils::*;
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
-use libc::{O_CLOEXEC, O_NONBLOCK};
 use time::SystemTime;
 
 mod audit;
@@ -31,19 +30,7 @@ pub mod poll;
 
 pub mod term;
 
-pub fn write<F: AsRawFd>(fd: &F, buf: &[u8]) -> io::Result<libc::ssize_t> {
-    cerr(unsafe { libc::write(fd.as_raw_fd(), buf.as_ptr().cast(), buf.len()) })
-}
-
-pub fn read<F: AsRawFd>(fd: &F, buf: &mut [u8]) -> io::Result<libc::ssize_t> {
-    cerr(unsafe { libc::read(fd.as_raw_fd(), buf.as_mut_ptr().cast(), buf.len()) })
-}
-
-pub fn pipe() -> io::Result<(OwnedFd, OwnedFd)> {
-    let mut fds = [0; 2];
-    cerr(unsafe { libc::pipe2(fds.as_mut_ptr(), O_CLOEXEC | O_NONBLOCK) })?;
-    Ok(unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) })
-}
+pub mod wait;
 
 #[cfg(target_os = "linux")]
 /// Create a new process.
