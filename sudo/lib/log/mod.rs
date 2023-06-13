@@ -1,8 +1,9 @@
+use self::syslog::Syslog;
+pub use log::Level;
 use std::io::Write;
 use std::ops::Deref;
 
-pub use log::Level;
-use syslog::{BasicLogger, Facility, Formatter3164};
+mod syslog;
 
 macro_rules! logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
@@ -36,23 +37,13 @@ impl SudoLogger {
     pub fn new() -> Self {
         let mut logger: Self = Default::default();
 
-        match syslog::unix(Formatter3164 {
-            facility: Facility::LOG_AUTH,
-            hostname: None,
-            process: "sudo".into(),
-            pid: std::process::id(),
-        }) {
-            // if we cannot connect to syslog daemon we silently ignore messages
-            Err(_) => (),
-            Ok(writer) => {
-                logger.add_logger("sudo::auth", BasicLogger::new(writer));
-            }
-        }
+        logger.add_logger("sudo::auth", Syslog);
 
         let stderr_logger = env_logger::Builder::new()
             .filter_level(log::LevelFilter::Trace)
             .format(|buf, record| writeln!(buf, "sudo: {}", record.args()))
             .build();
+
         logger.add_logger("sudo::user", stderr_logger);
 
         logger
