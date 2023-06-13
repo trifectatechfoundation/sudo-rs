@@ -144,6 +144,10 @@ pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
     cerr(unsafe { libc::chdir(path.as_ref().as_ptr()) }).map(|_| ())
 }
 
+pub fn chown<S: AsRef<CStr>>(path: &S, uid: UserId, gid: GroupId) -> io::Result<()> {
+    cerr(unsafe { libc::chown(path.as_ref().as_ptr(), uid, gid) }).map(|_| ())
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct User {
     pub uid: UserId,
