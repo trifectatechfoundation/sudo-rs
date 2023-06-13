@@ -38,7 +38,12 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> OsString {
 }
 
 /// Construct sudo-specific environment variables
-fn add_extra_env(context: &Context, cfg: &impl Policy, sudo_ps1: Option<OsString>, environment: &mut Environment) {
+fn add_extra_env(
+    context: &Context,
+    cfg: &impl Policy,
+    sudo_ps1: Option<OsString>,
+    environment: &mut Environment,
+) {
     // current user
     environment.insert("SUDO_COMMAND".into(), format_command(&context.command));
     environment.insert(
@@ -195,7 +200,8 @@ pub fn get_target_environment(
     environment.extend(
         current_env
             .into_iter()
-            .filter(|(key, value)| should_keep(key, value, settings)));
+            .filter(|(key, value)| should_keep(key, value, settings)),
+    );
 
     add_extra_env(context, settings, sudo_ps1, &mut environment);
 
