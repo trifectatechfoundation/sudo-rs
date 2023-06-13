@@ -10,8 +10,11 @@ use crate::cutils::cerr;
 use super::interface::ProcessId;
 
 pub struct Pty {
+    /// The file path of the leader side of the pty.
     pub path: CString,
+    /// The file descriptor of the leader side of the pty.
     pub leader: OwnedFd,
+    /// The file descriptor of the follower side of the pty.
     pub follower: OwnedFd,
 }
 
