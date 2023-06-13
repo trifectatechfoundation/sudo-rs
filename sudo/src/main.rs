@@ -3,9 +3,9 @@
 use pam::{determine_record_scope, PamAuthenticator};
 use pipeline::{Pipeline, PolicyPlugin};
 use std::env;
-use sudo_cli::{help, SudoAction, SudoOptions};
-use sudo_common::{resolve::resolve_current_user, Context, Error};
-use sudo_system::{time::Duration, timestamp::SessionRecordFile, Process};
+use sudo::cli::{help, SudoAction, SudoOptions};
+use sudo::common::{resolve::resolve_current_user, Context, Error};
+use sudo::system::{time::Duration, timestamp::SessionRecordFile, Process};
 
 mod diagnostic;
 use diagnostic::diagnostic;
@@ -36,17 +36,17 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct SudoersPolicy {}
 
 impl PolicyPlugin for SudoersPolicy {
-    type PreJudgementPolicy = sudoers::Sudoers;
-    type Policy = sudoers::Judgement;
+    type PreJudgementPolicy = sudo::sudoers::Sudoers;
+    type Policy = sudo::sudoers::Judgement;
 
     fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error> {
         // TODO: move to global configuration
         let sudoers_path = "/etc/sudoers.test";
 
-        let (sudoers, syntax_errors) = sudoers::Sudoers::new(sudoers_path)
+        let (sudoers, syntax_errors) = sudo::sudoers::Sudoers::new(sudoers_path)
             .map_err(|e| Error::Configuration(format!("{e}")))?;
 
-        for sudoers::Error(pos, error) in syntax_errors {
+        for sudo::sudoers::Error(pos, error) in syntax_errors {
             diagnostic!("{error}", sudoers_path @ pos);
         }
 
@@ -61,7 +61,7 @@ impl PolicyPlugin for SudoersPolicy {
         Ok(pre.check(
             &context.current_user,
             &context.hostname,
-            sudoers::Request {
+            sudo::sudoers::Request {
                 user: &context.target_user,
                 group: &context.target_group,
                 command: &context.command.command,
@@ -72,7 +72,7 @@ impl PolicyPlugin for SudoersPolicy {
 }
 
 fn sudo_process() -> Result<(), Error> {
-    sudo_log::SudoLogger::new().into_global_logger();
+    sudo::log::SudoLogger::new().into_global_logger();
 
     // parse cli options
     let sudo_options = match SudoOptions::from_env() {

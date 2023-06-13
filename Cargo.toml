@@ -2,17 +2,6 @@
 members = [
   "sudo",
   "su",
-  "lib/sudo-cli",
-  "lib/sudo-common",
-  "lib/sudo-cutils",
-  "lib/sudo-env",
-  "lib/sudo-system",
-  "lib/sudoers",
-  "lib/sudo-defaults",
-  "lib/sudo-pam-sys",
-  "lib/sudo-pam",
-  "lib/sudo-exec",
-  "lib/sudo-log",
 ]
 default-members = ["sudo"]
 
@@ -38,21 +27,6 @@ env_logger = { version = "0.9.3", default-features = false }
 # Test only dependencies
 pretty_assertions = "1.3.0"
 tempfile = "3.5.0"
-
-# Build time dependencies
-bindgen = "0.63.0"
-
-sudo-cli = { version = "0.1.0-alpha.1", path = "./lib/sudo-cli" }
-sudo-env = { version = "0.1.0-alpha.1", path = "./lib/sudo-env" }
-sudo-pam = { version = "0.1.0-alpha.1", path = "./lib/sudo-pam" }
-sudo-system = { version = "0.1.0-alpha.1", path = "./lib/sudo-system" }
-sudo-pam-sys = { version = "0.1.0-alpha.1", path = "./lib/sudo-pam-sys" }
-sudo-cutils = { version = "0.1.0-alpha.1", path = "./lib/sudo-cutils" }
-sudo-common = { version = "0.1.0-alpha.1", path = "./lib/sudo-common" }
-sudo-defaults = { version = "0.1.0-alpha.1", path = "./lib/sudo-defaults" }
-sudo-exec = { version = "0.1.0-alpha.1", path = "./lib/sudo-exec" }
-sudo-log = { version = "0.1.0-alpha.1", path = "./lib/sudo-log" }
-sudoers = { version = "0.1.0-alpha.1", path = "./lib/sudoers" }
 
 [profile.release]
 strip = "debuginfo"

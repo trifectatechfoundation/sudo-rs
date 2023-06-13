@@ -1,10 +1,10 @@
 use std::process::exit;
 
-use sudo_cli::SudoOptions;
-use sudo_common::{Context, Error};
-use sudo_env::environment;
-use sudo_exec::ExitReason;
-use sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
+use sudo::cli::SudoOptions;
+use sudo::common::{Context, Error};
+use sudo::env::environment;
+use sudo::exec::ExitReason;
+use sudo::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
 
 pub trait PolicyPlugin {
     type PreJudgementPolicy: PreJudgementPolicy;
@@ -66,7 +66,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let pid = context.process.pid;
 
         // run command and return corresponding exit code
-        let (reason, emulate_default_handler) = sudo_exec::run_command(context, target_env)?;
+        let (reason, emulate_default_handler) = sudo::exec::run_command(context, target_env)?;
 
         self.authenticator.cleanup();
 
@@ -76,7 +76,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         match reason {
             ExitReason::Code(code) => exit(code),
             ExitReason::Signal(signal) => {
-                sudo_system::kill(pid, signal)?;
+                sudo::system::kill(pid, signal)?;
             }
         }
 
@@ -87,7 +87,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         &mut self,
         context: &mut Context,
         policy: &<Policy as PolicyPlugin>::Policy,
-    ) -> Result<(), sudo_common::Error> {
+    ) -> Result<(), sudo::common::Error> {
         // see if the chdir flag is permitted
         match policy.chdir() {
             DirChange::Any => {}
