@@ -242,7 +242,7 @@ mod tests {
 
         let check_should_keep = |key: &str, value: &str, expected: bool| {
             assert_eq!(
-                should_keep(&OsStr::new(key), &OsStr::new(value), &config),
+                should_keep(OsStr::new(key), OsStr::new(value), &config),
                 expected,
                 "{} should {}",
                 key,
@@ -259,6 +259,8 @@ mod tests {
         check_should_keep("MIES", "FOO%", false);
     }
 
+    #[allow(clippy::useless_format)]
+    #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn test_tzinfo() {
         assert_eq!(is_safe_tz("Europe/Amsterdam".as_bytes()), true);

@@ -73,7 +73,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .collect()
 }
 
-fn create_test_context<'a>(sudo_options: &'a SudoOptions) -> Context {
+fn create_test_context(sudo_options: &SudoOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
     let command =
         CommandAndArguments::try_from_args(None, sudo_options.clone().args(), &path).unwrap();
