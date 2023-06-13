@@ -28,9 +28,6 @@ env_logger = { version = "0.9.3", default-features = false }
 pretty_assertions = "1.3.0"
 tempfile = "3.5.0"
 
-# Build time dependencies
-bindgen = "0.63.0"
-
 [profile.release]
 strip = "debuginfo"
 lto = true

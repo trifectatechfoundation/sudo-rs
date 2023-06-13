@@ -23,4 +23,6 @@ fn main() {
     println!("cargo:rustc-env=PATH_MAILDIR={path_maildir}");
     println!("cargo:rustc-env=PATH_ZONEINFO={path_zoneinfo}");
     println!("cargo:rerun-if-changed=build.rs");
+
+    println!("cargo:rustc-link-lib=pam");
 }

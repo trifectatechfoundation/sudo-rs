@@ -14,6 +14,9 @@ mod error;
 mod rpassword;
 mod securemem;
 
+#[allow(nonstandard_style)]
+pub mod sys;
+
 pub use converse::{CLIConverser, Converser};
 
 pub struct PamContext<C: Converser> {
