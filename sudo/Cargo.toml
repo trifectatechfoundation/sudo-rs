@@ -10,7 +10,7 @@ categories = ["command-line-interface"]
 
 [lib]
 name = "sudo"
-path = "src/lib/mod.rs"
+path = "lib/mod.rs"
 
 [[bin]]
 name = "sudo"
