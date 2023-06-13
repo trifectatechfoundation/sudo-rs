@@ -8,12 +8,22 @@ homepage.workspace = true
 publish.workspace = true
 categories = ["command-line-interface"]
 
+[lib]
+name = "sudo"
+path = "src/lib/mod.rs"
+
+[[bin]]
+name = "sudo"
+path = "src/main.rs"
+
 [dependencies]
-sudo-env.workspace = true
-sudo-common.workspace = true
-sudo-system.workspace = true
-sudo-cli.workspace = true
-sudoers.workspace = true
-sudo-pam.workspace = true
-sudo-exec.workspace = true
-sudo-log.workspace = true
+libc.workspace = true
+signal-hook = { workspace = true, features = [ "extended-siginfo" ] }
+log.workspace = true
+syslog.workspace = true
+env_logger = { workspace = true, default-features = false }
+glob.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tempfile.workspace = true
