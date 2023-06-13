@@ -200,7 +200,15 @@ mod tests {
 
         let (pid, status) = waitpid(command_pid, WaitOptions::new()).unwrap();
         assert_eq!(command_pid, pid);
+        assert!(status.did_exit());
         assert_eq!(status.exit_status(), Some(42));
+
+        assert!(!status.was_signaled());
+        assert!(status.term_signal().is_none());
+        assert!(!status.was_stopped());
+        assert!(status.stop_signal().is_none());
+        assert!(!status.did_continue());
+
         // Waiting when there are no children should fail.
         let WaitError::Io(err) = waitpid(command_pid, WaitOptions::new()).unwrap_err() else {
             panic!("`WaitError::NotReady` should not happens if `WaitOptions::no_hang` was not called.");
@@ -233,7 +241,14 @@ mod tests {
 
         let (pid, status) = waitpid(command_pid, WaitOptions::new()).unwrap();
         assert_eq!(command_pid, pid);
+        assert!(status.was_signaled());
         assert_eq!(status.term_signal(), Some(SIGKILL));
+
+        assert!(!status.did_exit());
+        assert!(status.exit_status().is_none());
+        assert!(!status.was_stopped());
+        assert!(status.stop_signal().is_none());
+        assert!(!status.did_continue());
     }
 
     #[test]
@@ -255,8 +270,15 @@ mod tests {
         };
 
         assert_eq!(command_pid, pid);
+        assert!(status.did_exit());
         assert_eq!(status.exit_status(), Some(42));
         assert!(count > 0);
+
+        assert!(!status.was_signaled());
+        assert!(status.term_signal().is_none());
+        assert!(!status.was_stopped());
+        assert!(status.stop_signal().is_none());
+        assert!(!status.did_continue());
     }
 
     #[test]
@@ -278,9 +300,21 @@ mod tests {
             assert_eq!(cmd1.id() as ProcessId, pid);
             assert_eq!(status.exit_status(), Some(42));
 
+            assert!(!status.was_signaled());
+            assert!(status.term_signal().is_none());
+            assert!(!status.was_stopped());
+            assert!(status.stop_signal().is_none());
+            assert!(!status.did_continue());
+
             let (pid, status) = waitpid(WaitPid::any(), WaitOptions::new()).unwrap();
             assert_eq!(cmd2.id() as ProcessId, pid);
             assert_eq!(status.exit_status(), Some(43));
+
+            assert!(!status.was_signaled());
+            assert!(status.term_signal().is_none());
+            assert!(!status.was_stopped());
+            assert!(status.stop_signal().is_none());
+            assert!(!status.did_continue());
             // Exit with a specific status code so we can check it from the parent.
             exit(44);
         }
@@ -288,5 +322,11 @@ mod tests {
         let (pid, status) = waitpid(child_pid, WaitOptions::new()).unwrap();
         assert_eq!(child_pid, pid);
         assert_eq!(status.exit_status(), Some(44));
+
+        assert!(!status.was_signaled());
+        assert!(status.term_signal().is_none());
+        assert!(!status.was_stopped());
+        assert!(status.stop_signal().is_none());
+        assert!(!status.did_continue());
     }
 }
