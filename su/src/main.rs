@@ -12,10 +12,11 @@ mod context;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn authenticate(user: &str) -> Result<PamContext<CLIConverser>, Error> {
+fn authenticate(user: &str, login: bool) -> Result<PamContext<CLIConverser>, Error> {
+    let context = if login { "su-l" } else { "su" };
     let mut pam = PamContext::builder_cli("su", false)
         .target_user(user)
-        .service_name("su")
+        .service_name(context)
         .build()?;
 
     pam.mark_silent(true);
@@ -61,7 +62,7 @@ fn authenticate(user: &str) -> Result<PamContext<CLIConverser>, Error> {
 }
 
 fn run(options: SuOptions) -> Result<(), Error> {
-    let mut pam = authenticate(&options.user)?;
+    let mut pam = authenticate(&options.user, options.login)?;
 
     let context = SuContext::from_env(options)?;
 

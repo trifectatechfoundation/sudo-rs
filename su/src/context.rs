@@ -21,8 +21,13 @@ impl SuContext {
     pub(crate) fn from_env(options: SuOptions) -> Result<SuContext, Error> {
         let process = sudo::system::Process::new();
 
-        // resolve environment
-        let mut environment = Environment::default();
+        // resolve environment, reset if this is a login
+        let mut environment = if options.login {
+            Environment::default()
+        } else {
+            env::vars_os().collect::<Environment>()
+        };
+
         for name in options.whitelist_environment.iter() {
             if let Some(value) = env::var_os(name) {
                 environment.insert(name.into(), value);
@@ -79,14 +84,12 @@ impl SuContext {
         };
 
         // extend environment with fixed variables
-        if options.login {
-            environment.insert("HOME".into(), user.home.clone().into_os_string());
-            environment.insert("SHELL".into(), command.clone().into());
+        environment.insert("HOME".into(), user.home.clone().into_os_string());
+        environment.insert("SHELL".into(), command.clone().into());
 
-            if options.user == "root" {
-                environment.insert("USER".into(), options.user.clone().into());
-                environment.insert("LOGNAME".into(), options.user.clone().into());
-            }
+        if options.user == "root" {
+            environment.insert("USER".into(), options.user.clone().into());
+            environment.insert("LOGNAME".into(), options.user.clone().into());
         }
 
         Ok(SuContext {
