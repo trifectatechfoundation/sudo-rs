@@ -78,10 +78,10 @@ pub(super) fn exec_monitor(
 }
 
 struct MonitorClosure<'a> {
+    command: Child,
     /// The command PID.
     ///
     /// This is `Some` iff the process is still running.
-    command: Child,
     command_pid: Option<ProcessId>,
     command_pgrp: ProcessId,
     backchannel: &'a mut MonitorBackchannel,
