@@ -3,6 +3,7 @@
 mod backchannel;
 mod event;
 mod io_util;
+mod interface;
 mod monitor;
 mod parent;
 
@@ -13,42 +14,47 @@ use std::{
     os::unix::process::CommandExt,
     process::Command,
 };
+use backchannel::BackchannelPair;
 
-use crate::common::{context::LaunchType::Login, Context, Environment};
+pub use interface::RunOptions;
+use crate::common::Environment;
 use crate::log::user_error;
 use crate::system::{fork, set_target_user, term::openpty};
-use backchannel::BackchannelPair;
-use monitor::MonitorClosure;
-use parent::ParentClosure;
+
+use self::{monitor::MonitorClosure, parent::ParentClosure};
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
 /// Returns the [`ExitReason`] of the command and a function that restores the default handler for
 /// signals once its called.
-pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, impl FnOnce())> {
+pub fn run_command(
+    options: impl RunOptions,
+    env: Environment,
+) -> io::Result<(ExitReason, impl FnOnce())> {
     // FIXME: should we pipe the stdio streams?
-    let mut command = Command::new(&ctx.command.command);
+    let mut command = Command::new(options.command());
     // reset env and set filtered environment
-    command.args(ctx.command.arguments).env_clear().envs(env);
+    command.args(options.arguments()).env_clear().envs(env);
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
-    let path = ctx.chdir.as_ref().or_else(|| {
-        (ctx.launch == Login).then(|| {
+    let path = options.chdir().cloned().or_else(|| {
+        options.is_login().then(|| {
             // signal to the operating system that the command is a login shell by prefixing "-"
-            let mut process_name = ctx
-                .command
-                .command
+            let mut process_name = options
+                .command()
                 .file_name()
                 .map(|osstr| osstr.as_bytes().to_vec())
                 .unwrap_or_else(Vec::new);
             process_name.insert(0, b'-');
             command.arg0(OsStr::from_bytes(&process_name));
 
-            &ctx.target_user.home
+            options.user().home.clone()
         })
     });
 
     // change current directory if necessary.
-    if let Some(path) = path.cloned() {
+    if let Some(path) = path {
+        let is_chdir = options.chdir().is_some();
+
         #[allow(unsafe_code)]
         unsafe {
             command.pre_exec(move || {
@@ -59,7 +65,7 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
 
                 if let Err(err) = crate::system::chdir(&c_path) {
                     user_error!("unable to change directory to {}: {}", path.display(), err);
-                    if ctx.chdir.is_some() {
+                    if is_chdir {
                         return Err(err);
                     }
                 }
@@ -70,7 +76,11 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
     }
 
     // set target user and groups
-    set_target_user(&mut command, ctx.target_user, ctx.target_group);
+    set_target_user(
+        &mut command,
+        options.user().clone(),
+        options.group().clone(),
+    );
 
     let (pty_leader, pty_follower) = openpty()?;
 
@@ -87,7 +97,7 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
     } else {
         let (parent, mut dispatcher) = ParentClosure::new(
             monitor_pid,
-            ctx.process.pid,
+            options.pid(),
             pty_leader,
             backchannels.parent,
         )?;

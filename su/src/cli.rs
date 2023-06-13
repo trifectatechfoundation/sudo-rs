@@ -1,23 +1,50 @@
-#[derive(Default, Debug, PartialEq)]
+use std::path::PathBuf;
+
+#[derive(Debug, PartialEq)]
 pub struct SuOptions {
-    user: Option<String>,
-    command: Option<String>,
-    group: Option<String>,
-    supp_group: Option<String>,
-    pty: bool,
-    login: bool,
-    shell: Option<String>,
-    whitelist_environment: Vec<String>,
-    help: bool,
-    version: bool,
-    arguments: Vec<String>,
+    pub user: String,
+    pub command: Option<String>,
+    pub group: Option<String>,
+    pub supp_group: Option<String>,
+    pub pty: bool,
+    pub login: bool,
+    pub shell: Option<PathBuf>,
+    pub whitelist_environment: Vec<String>,
+    pub arguments: Vec<String>,
+    pub action: SuAction,
 }
+
+impl Default for SuOptions {
+    fn default() -> Self {
+        Self {
+            user: "root".to_owned(),
+            command: None,
+            group: None,
+            supp_group: None,
+            pty: false,
+            login: false,
+            shell: None,
+            whitelist_environment: vec![],
+            arguments: vec![],
+            action: SuAction::Run,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum SuAction {
+    Help,
+    Version,
+    Run,
+}
+
+type OptionSetter = &'static dyn Fn(&mut SuOptions, Option<String>) -> Result<(), String>;
 
 struct SuOption {
     short: char,
     long: &'static str,
     takes_argument: bool,
-    set: &'static dyn Fn(&mut SuOptions, Option<String>) -> Result<(), String>,
+    set: OptionSetter,
 }
 
 impl SuOptions {
@@ -87,8 +114,8 @@ impl SuOptions {
             long: "shell",
             takes_argument: true,
             set: &|sudo_options, argument| {
-                if argument.is_some() {
-                    sudo_options.shell = argument;
+                if let Some(path) = argument {
+                    sudo_options.shell = Some(PathBuf::from(path));
                 } else {
                     Err("no shell provided")?
                 }
@@ -116,7 +143,7 @@ impl SuOptions {
             long: "version",
             takes_argument: false,
             set: &|sudo_options, _| {
-                sudo_options.version = true;
+                sudo_options.action = SuAction::Version;
                 Ok(())
             },
         },
@@ -125,7 +152,7 @@ impl SuOptions {
             long: "help",
             takes_argument: false,
             set: &|sudo_options, _| {
-                sudo_options.help = true;
+                sudo_options.action = SuAction::Help;
                 Ok(())
             },
         },
@@ -140,7 +167,7 @@ impl SuOptions {
     /// parse su arguments into SuOptions struct
     fn parse_arguments(arguments: Vec<String>) -> Result<SuOptions, String> {
         let mut options: SuOptions = SuOptions::default();
-        let mut arg_iter = arguments.into_iter();
+        let mut arg_iter = arguments.into_iter().skip(1);
 
         while let Some(arg) = arg_iter.next() {
             // - or -l or --login indicates a login shell should be started
@@ -175,7 +202,7 @@ impl SuOptions {
                 } else {
                     Err(format!("unrecognized option '{}'", arg))?;
                 }
-            } else if arg.starts_with("-") {
+            } else if arg.starts_with('-') {
                 // flags can be grouped, so we loop over the the characters
                 for (n, char) in arg.trim_start_matches('-').chars().enumerate() {
                     // lookup the option
@@ -201,7 +228,7 @@ impl SuOptions {
                 }
             } else {
                 // when no option is provided (styarting with - or --) the next argument is interpreted as an username
-                options.user = Some(arg);
+                options.user = arg;
                 // the rest of the arguments are passed to the shell
                 options.arguments = arg_iter.collect();
                 break;
@@ -216,15 +243,17 @@ impl SuOptions {
 mod tests {
     use std::vec;
 
+    use crate::cli::SuAction;
+
     use super::SuOptions;
 
     fn parse(args: &[&str]) -> SuOptions {
-        SuOptions::parse_arguments(
-            args.into_iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>(),
-        )
-        .unwrap()
+        let mut args = args
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+        args.insert(0, "/bin/su".to_string());
+        SuOptions::parse_arguments(args).unwrap()
     }
 
     #[test]
@@ -246,7 +275,7 @@ mod tests {
         assert_eq!(
             result,
             SuOptions {
-                shell: Some("/bin/bash".to_string()),
+                shell: Some("/bin/bash".into()),
                 ..Default::default()
             }
         );
@@ -281,7 +310,7 @@ mod tests {
         let expected = SuOptions {
             login: true,
             pty: true,
-            shell: Some("/bin/bash".to_string()),
+            shell: Some("/bin/bash".into()),
             ..Default::default()
         };
 
@@ -297,7 +326,7 @@ mod tests {
     fn it_parses_an_user() {
         assert_eq!(
             SuOptions {
-                user: Some("ferris".to_string()),
+                user: "ferris".to_string(),
                 pty: true,
                 ..Default::default()
             },
@@ -306,7 +335,7 @@ mod tests {
 
         assert_eq!(
             SuOptions {
-                user: Some("ferris".to_string()),
+                user: "ferris".to_string(),
                 arguments: vec!["-P".to_string()],
                 ..Default::default()
             },
@@ -317,7 +346,7 @@ mod tests {
     #[test]
     fn it_parses_arguments() {
         let expected = SuOptions {
-            user: Some("ferris".to_string()),
+            user: "ferris".to_string(),
             pty: true,
             arguments: vec!["script.sh".to_string()],
             ..Default::default()
@@ -383,7 +412,7 @@ mod tests {
     #[test]
     fn it_parses_shell() {
         let expected = SuOptions {
-            shell: Some("some-shell".to_string()),
+            shell: Some("some-shell".into()),
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-s", "some-shell"]));
@@ -407,7 +436,7 @@ mod tests {
     #[test]
     fn it_parses_help() {
         let expected = SuOptions {
-            help: true,
+            action: SuAction::Help,
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-h"]));
@@ -417,7 +446,7 @@ mod tests {
     #[test]
     fn it_parses_version() {
         let expected = SuOptions {
-            version: true,
+            action: SuAction::Version,
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-V"]));

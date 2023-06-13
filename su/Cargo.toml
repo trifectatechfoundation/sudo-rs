@@ -7,3 +7,6 @@ repository.workspace = true
 homepage.workspace = true
 publish.workspace = true
 categories = ["command-line-interface"]
+
+[dependencies]
+sudo.workspace = true

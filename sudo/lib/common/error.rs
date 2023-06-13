@@ -9,6 +9,7 @@ pub enum Error {
     Exec,
     Authentication(String),
     Configuration(String),
+    Options(String),
     Pam(PamError),
     IoError(std::io::Error),
     MaxAuthAttempts(usize),
@@ -23,6 +24,7 @@ impl fmt::Display for Error {
             Error::Exec => write!(f, "could not spawn child process"),
             Error::Authentication(e) => write!(f, "authentication failed: {e}"),
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
+            Error::Options(e) => write!(f, "invalid options: {e}"),
             Error::Pam(e) => write!(f, "PAM error: {e}"),
             Error::IoError(e) => write!(f, "IO error: {e}"),
             Error::MaxAuthAttempts(num) => {
