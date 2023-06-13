@@ -144,8 +144,16 @@ pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
     cerr(unsafe { libc::chdir(path.as_ref().as_ptr()) }).map(|_| ())
 }
 
-pub fn chown<S: AsRef<CStr>>(path: &S, uid: UserId, gid: GroupId) -> io::Result<()> {
-    cerr(unsafe { libc::chown(path.as_ref().as_ptr(), uid, gid) }).map(|_| ())
+pub fn chown<S: AsRef<CStr>>(
+    path: &S,
+    uid: impl Into<Option<UserId>>,
+    gid: impl Into<Option<GroupId>>,
+) -> io::Result<()> {
+    let path = path.as_ref().as_ptr();
+    let uid = uid.into().unwrap_or(UserId::MAX);
+    let gid = gid.into().unwrap_or(GroupId::MAX);
+
+    cerr(unsafe { libc::chown(path, uid, gid) }).map(|_| ())
 }
 
 #[derive(Debug, Clone, PartialEq)]

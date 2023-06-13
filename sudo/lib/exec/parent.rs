@@ -6,7 +6,6 @@ use std::process::{exit, Command};
 use signal_hook::consts::*;
 
 use crate::log::user_error;
-use crate::system::interface::GroupId;
 use crate::system::signal::{SignalAction, SignalHandler};
 use crate::system::term::Pty;
 use crate::system::{chown, fork, Group, User};
@@ -81,11 +80,7 @@ pub(super) fn exec_pty(
 }
 
 fn get_pty() -> io::Result<Pty> {
-    let mut tty_gid = GroupId::MAX;
-
-    if let Some(group) = Group::from_name("tty")? {
-        tty_gid = group.gid;
-    }
+    let tty_gid = Group::from_name("tty")?.map(|group| group.gid);
 
     let pty = Pty::open()?;
     // FIXME: Test this
