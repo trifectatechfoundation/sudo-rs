@@ -128,13 +128,11 @@ fn sudo_ps1_has_precedence_over_env_list_ps1(env_list: &EnvList) -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh424"]
 fn sudo_ps1_has_precedence_over_env_keep_ps1() -> Result<()> {
     sudo_ps1_has_precedence_over_env_list_ps1(&EnvList::Keep)
 }
 
 #[test]
-#[ignore = "gh424"]
 fn sudo_ps1_has_precedence_over_env_check_ps1() -> Result<()> {
     sudo_ps1_has_precedence_over_env_list_ps1(&EnvList::Check)
 }
