@@ -138,8 +138,7 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         .flatten()
         .filter_map(|(hosts, runas_cmds)| {
             find_item(hosts, &match_token(on_host), &host_aliases)?;
-            // TODO: calling collect() here is not necessary if find_item is a forward loop
-            Some(distribute_tags(runas_cmds).collect::<Vec<_>>())
+            Some(distribute_tags(runas_cmds))
         })
         .flatten()
         .filter_map(|(runas, cmdspec)| {
