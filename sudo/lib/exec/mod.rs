@@ -16,10 +16,8 @@ use std::{
 
 use crate::common::{context::LaunchType::Login, Context, Environment};
 use crate::log::user_error;
-use crate::system::{fork, set_target_user, term::openpty};
-use backchannel::BackchannelPair;
-use monitor::MonitorClosure;
-use parent::ParentClosure;
+use crate::system::set_target_user;
+use parent::exec_pty;
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
@@ -72,29 +70,7 @@ pub fn run_command(ctx: Context, env: Environment) -> io::Result<(ExitReason, im
     // set target user and groups
     set_target_user(&mut command, ctx.target_user, ctx.target_group);
 
-    let (pty_leader, pty_follower) = openpty()?;
-
-    let backchannels = BackchannelPair::new()?;
-
-    // FIXME: We should block all the incoming signals before forking and unblock them just after
-    // initializing the signal handlers.
-    let monitor_pid = fork()?;
-    // Monitor logic. Based on `exec_monitor`.
-    if monitor_pid == 0 {
-        let (monitor, mut dispatcher) =
-            MonitorClosure::new(command, pty_follower, backchannels.monitor);
-        match monitor.run(&mut dispatcher) {}
-    } else {
-        let (parent, mut dispatcher) = ParentClosure::new(
-            monitor_pid,
-            ctx.process.pid,
-            pty_leader,
-            backchannels.parent,
-        )?;
-        parent
-            .run(&mut dispatcher)
-            .map(|exit_reason| (exit_reason, move || drop(dispatcher)))
-    }
+    exec_pty(ctx.process.pid, command)
 }
 
 /// Exit reason for the command executed by sudo.
