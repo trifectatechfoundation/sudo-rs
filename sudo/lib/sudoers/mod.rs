@@ -193,22 +193,21 @@ where
     Predicate: Fn(&T) -> bool,
     Iter: IntoIterator,
     Iter::Item: WithInfo<Item = &'a Spec<T>>,
-    Iter::IntoIter: DoubleEndedIterator,
 {
-    for item in items.into_iter().rev() {
+    let mut result = None;
+    for item in items {
         let (judgement, who) = match item.clone().to_inner() {
             Qualified::Forbid(x) => (None, x),
             Qualified::Allow(x) => (Some(item.to_info()), x),
         };
         match who {
-            Meta::All => return judgement,
-            Meta::Only(ident) if matches(ident) => return judgement,
-            Meta::Alias(id) if aliases.contains(id) => return judgement,
+            Meta::All => result = judgement,
+            Meta::Only(ident) if matches(ident) => result = judgement,
+            Meta::Alias(id) if aliases.contains(id) => result = judgement,
             _ => {}
         };
     }
-
-    None
+    result
 }
 
 /// A interface to access optional "satellite data"
