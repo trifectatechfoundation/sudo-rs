@@ -8,7 +8,7 @@ use signal_hook::consts::*;
 use crate::log::user_error;
 use crate::system::fork;
 use crate::system::signal::{SignalAction, SignalHandler};
-use crate::system::term::openpty;
+use crate::system::term::Pty;
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use super::event::{EventClosure, EventDispatcher};
@@ -25,8 +25,8 @@ pub(super) fn exec_pty(
 ) -> io::Result<(ExitReason, impl FnOnce())> {
     // Allocate a pseudoterminal.
     // FIXME (ogsudo): We also need to open `/dev/tty` and set the right owner of the
-    // pseudoterminal.
-    let (pty_leader, pty_follower) = openpty()?;
+    // pseudoterminal
+    let pty = Pty::open()?;
 
     // Create backchannels to communicate with the monitor.
     let mut backchannels = BackchannelPair::new()?;
@@ -52,11 +52,11 @@ pub(super) fn exec_pty(
 
     if monitor_pid == 0 {
         // Close the file descriptors that we don't access
-        drop(pty_leader);
+        drop(pty.leader);
         drop(backchannels.parent);
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
-        if let Err(err) = exec_monitor(pty_follower, command, &mut backchannels.monitor) {
+        if let Err(err) = exec_monitor(pty.follower, command, &mut backchannels.monitor) {
             backchannels.monitor.send(&err.into()).ok();
         }
         // FIXME: drop everything before calling `exit`.
@@ -64,7 +64,7 @@ pub(super) fn exec_pty(
     }
 
     // Close the file descriptors that we don't access
-    drop(pty_follower);
+    drop(pty.follower);
     drop(backchannels.monitor);
 
     // Send green light to the monitor after closing the follower.

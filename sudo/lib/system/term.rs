@@ -8,19 +8,29 @@ use crate::cutils::cerr;
 
 use super::interface::ProcessId;
 
-pub fn openpty() -> io::Result<(OwnedFd, OwnedFd)> {
-    let (mut leader, mut follower) = (0, 0);
-    cerr(unsafe {
-        libc::openpty(
-            &mut leader,
-            &mut follower,
-            null_mut::<libc::c_char>(),
-            null_mut::<libc::termios>(),
-            null_mut::<libc::winsize>(),
-        )
-    })?;
+pub struct Pty {
+    pub leader: OwnedFd,
+    pub follower: OwnedFd,
+}
 
-    Ok(unsafe { (OwnedFd::from_raw_fd(leader), OwnedFd::from_raw_fd(follower)) })
+impl Pty {
+    pub fn open() -> io::Result<Self> {
+        let (mut leader, mut follower) = (0, 0);
+        cerr(unsafe {
+            libc::openpty(
+                &mut leader,
+                &mut follower,
+                null_mut::<libc::c_char>(),
+                null_mut::<libc::termios>(),
+                null_mut::<libc::winsize>(),
+            )
+        })?;
+
+        Ok(Self {
+            leader: unsafe { OwnedFd::from_raw_fd(leader) },
+            follower: unsafe { OwnedFd::from_raw_fd(follower) },
+        })
+    }
 }
 
 pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
@@ -56,7 +66,7 @@ mod tests {
 
         if child_pid == 0 {
             // Open a new pseudoterminal.
-            let (leader, _follower) = openpty().unwrap();
+            let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.
             assert_eq!(tcgetpgrp(&leader).unwrap(), 0);
             // Create a new session so we can change the controlling terminal.
