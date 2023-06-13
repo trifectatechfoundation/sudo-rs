@@ -60,7 +60,7 @@ impl Drop for PamBuffer {
 }
 
 /// Used to zero out memory and protect sensitive data from leaking; inspired by Conrad Kleinespel's
-/// Rustatic rtoolbox::SafeString, https://crates.io/crates/rtoolbox/0.0.1
+/// Rustatic rtoolbox::SafeString, <https://crates.io/crates/rtoolbox/0.0.1>
 fn wipe_memory(memory: &mut [u8]) {
     use std::sync::atomic;
 

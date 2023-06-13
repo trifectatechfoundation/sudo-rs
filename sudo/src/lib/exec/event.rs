@@ -111,8 +111,7 @@ impl<T: EventClosure> EventDispatcher<T> {
 
     /// Run the event loop for this handler.
     ///
-    /// The event loop will continue indefinitely unless either [`EventDispatcher::set_exit`]  or
-    /// [`EventDispatcher::set_break`] are called.
+    /// The event loop will continue indefinitely unless [`EventDispatcher::set_break`] is called.
     pub(super) fn event_loop(&mut self, state: &mut T) -> T::Break {
         loop {
             if let Ok(ids) = self.poll_set.poll() {

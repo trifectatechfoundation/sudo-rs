@@ -220,7 +220,7 @@ trait WithInfo: Clone {
 }
 
 /// A specific interface for `Spec<T>` --- we can't make a generic one;
-/// A Spec<T> does not contain any additional information.
+/// A `Spec<T>` does not contain any additional information.
 impl<'a, T> WithInfo for &'a Spec<T> {
     type Item = &'a Spec<T>;
     type Info = ();

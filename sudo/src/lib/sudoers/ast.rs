@@ -152,7 +152,7 @@ impl<T: Many> Many for Qualified<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
-/// Helper function for parsing Meta<T> things where T is not a token
+/// Helper function for parsing `Meta<T>` things where T is not a token
 
 fn parse_meta<T: Parse>(
     stream: &mut impl CharStream,
@@ -169,7 +169,7 @@ fn parse_meta<T: Parse>(
     }
 }
 
-/// Since Identifier is not a token, add the parser for Meta<Identifier>
+/// Since Identifier is not a token, add the parser for `Meta<Identifier>`
 
 impl Parse for Meta<Identifier> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
@@ -208,7 +208,7 @@ impl Parse for UserSpecifier {
 
 impl Many for UserSpecifier {}
 
-/// UserSpecifier is not a token, implement the parser for Meta<UserSpecifier>
+/// UserSpecifier is not a token, implement the parser for `Meta<UserSpecifier>`
 impl Parse for Meta<UserSpecifier> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         parse_meta(stream, |name| UserSpecifier::User(Identifier::Name(name)))

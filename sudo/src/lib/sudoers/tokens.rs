@@ -74,7 +74,7 @@ impl Token for Hostname {
 impl Many for Hostname {}
 
 /// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
-/// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::basic_parser::Parse])
+/// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::sudoers::basic_parser::Parse])
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub enum Meta<T> {
     All,

@@ -105,7 +105,7 @@ pub(super) struct ParentBackchannel {
 }
 
 impl ParentBackchannel {
-    /// Send a [`MonitorEvent`].
+    /// Send a [`MonitorMessage`].
     ///
     /// Calling this method will block until the socket is ready for writing.
     pub(super) fn send(&mut self, event: &MonitorMessage) -> io::Result<()> {
@@ -120,7 +120,7 @@ impl ParentBackchannel {
         self.socket.write_all(&buf)
     }
 
-    /// Receive a [`ParentEvent`].
+    /// Receive a [`ParentMessage`].
     ///
     /// Calling this method will block until the socket is ready for reading.
     pub(super) fn recv(&mut self) -> io::Result<ParentMessage> {
@@ -142,7 +142,7 @@ impl AsRawFd for ParentBackchannel {
     }
 }
 
-/// Different messages exchanged between the monitor and the parent process using a [`Backchannel`].
+/// Different messages exchanged between the monitor and the parent process using a [`ParentBackchannel`].
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum MonitorMessage {
     ExecCommand,
@@ -183,7 +183,7 @@ pub(super) struct MonitorBackchannel {
 }
 
 impl MonitorBackchannel {
-    /// Send a [`ParentEvent`].
+    /// Send a [`ParentMessage`].
     ///
     /// Calling this method will block until the socket is ready for writing.
     pub(super) fn send(&mut self, event: &ParentMessage) -> io::Result<()> {
@@ -198,7 +198,7 @@ impl MonitorBackchannel {
         self.socket.write_all(&buf)
     }
 
-    /// Receive a [`MonitorEvent`].
+    /// Receive a [`MonitorMessage`].
     ///
     /// Calling this method will block until the socket is ready for reading.
     pub(super) fn recv(&mut self) -> io::Result<MonitorMessage> {

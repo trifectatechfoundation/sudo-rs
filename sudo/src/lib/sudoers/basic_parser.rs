@@ -264,7 +264,7 @@ impl<T: Token> Parse for T {
     }
 }
 
-/// Parser for Option<T> (this can be used to make the code more readable)
+/// Parser for `Option<T>` (this can be used to make the code more readable)
 impl<T: Parse> Parse for Option<T> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         maybe(T::parse(stream))
@@ -307,7 +307,7 @@ impl<T: Parse + Many + UserFriendly> Parse for Vec<T> {
     }
 }
 
-/// Entry point utility function; parse a Vec<T> but with fatal error recovery per line
+/// Entry point utility function; parse a `Vec<T>` but with fatal error recovery per line
 pub fn parse_lines<T, Stream: CharStream>(stream: &mut Stream) -> Vec<Parsed<T>>
 where
     T: Parse + UserFriendly,
