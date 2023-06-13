@@ -10,3 +10,4 @@ categories = ["command-line-interface"]
 
 [dependencies]
 sudo.workspace = true
+log.workspace = true

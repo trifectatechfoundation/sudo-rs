@@ -261,6 +261,7 @@ dependencies = [
 name = "su"
 version = "0.1.0-alpha.1"
 dependencies = [
+ "log",
  "sudo",
 ]
 
