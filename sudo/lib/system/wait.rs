@@ -4,9 +4,9 @@ use libc::{
     c_int, WCONTINUED, WEXITSTATUS, WIFCONTINUED, WIFEXITED, WIFSIGNALED, WIFSTOPPED, WNOHANG,
     WSTOPSIG, WTERMSIG, WUNTRACED, __WALL,
 };
-use sudo_cutils::cerr;
 
-use crate::{interface::ProcessId, signal::SignalNumber};
+use crate::cutils::cerr;
+use crate::{system::interface::ProcessId, system::signal::SignalNumber};
 
 /// Wait for a process to change state.
 ///
@@ -163,13 +163,12 @@ mod tests {
 
     use libc::{SIGCONT, SIGKILL, SIGSTOP};
 
-    use crate::{
+    use crate::system::{
+        fork,
         interface::ProcessId,
         kill,
-        wait::{WaitError, WaitPid},
+        wait::{waitpid, WaitError, WaitOptions, WaitPid},
     };
-
-    use super::{waitpid, WaitOptions};
 
     #[test]
     fn exit_status() {
@@ -239,7 +238,7 @@ mod tests {
     #[test]
     fn any() {
         // We fork so waiting for `WaitPid::Any` doesn't wait for other tests.
-        let child_pid = crate::fork().unwrap();
+        let child_pid = fork().unwrap();
         if child_pid == 0 {
             let cmd1 = std::process::Command::new("sh")
                 .args(["-c", "sleep 0.1; exit 42"])
