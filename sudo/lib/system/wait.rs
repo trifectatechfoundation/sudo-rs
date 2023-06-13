@@ -16,7 +16,7 @@ pub fn waitpid<P: Into<WaitPid>>(
     pid: P,
     options: WaitOptions,
 ) -> Result<(ProcessId, WaitStatus), WaitError> {
-    let pid = pid.into().into_pid();
+    let pid = pid.into().pid;
     let mut status: c_int = 0;
 
     let pid =
@@ -41,26 +41,20 @@ pub enum WaitError {
 }
 
 /// Which child process to wait for.
-pub enum WaitPid {
-    /// Wait for any child process.
-    Any,
-    /// Wait for the child process with the given ID.
-    One(ProcessId),
+pub struct WaitPid {
+    pid: ProcessId,
 }
 
 impl WaitPid {
-    fn into_pid(self) -> ProcessId {
-        match self {
-            Self::Any => -1,
-            Self::One(pid) => pid,
-        }
+    pub const fn any() -> Self {
+        Self { pid: -1 }
     }
 }
 
 impl From<ProcessId> for WaitPid {
     fn from(pid: ProcessId) -> Self {
-        debug_assert!(pid > 0);
-        Self::One(pid)
+        assert!(pid > 0, "non-positive PID passed to `waitpid` {pid}");
+        Self { pid }
     }
 }
 
@@ -250,11 +244,11 @@ mod tests {
                 .spawn()
                 .unwrap();
 
-            let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
+            let (pid, status) = waitpid(WaitPid::any(), WaitOptions::new()).unwrap();
             assert_eq!(cmd1.id() as ProcessId, pid);
             assert_eq!(status.exit_status(), Some(42));
 
-            let (pid, status) = waitpid(WaitPid::Any, WaitOptions::new()).unwrap();
+            let (pid, status) = waitpid(WaitPid::any(), WaitOptions::new()).unwrap();
             assert_eq!(cmd2.id() as ProcessId, pid);
             assert_eq!(status.exit_status(), Some(43));
             // Exit with a specific status code so we can check it from the parent.
