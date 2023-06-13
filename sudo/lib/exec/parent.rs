@@ -6,9 +6,10 @@ use std::process::{exit, Command};
 use signal_hook::consts::*;
 
 use crate::log::user_error;
-use crate::system::fork;
+use crate::system::interface::GroupId;
 use crate::system::signal::{SignalAction, SignalHandler};
 use crate::system::term::Pty;
+use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use super::event::{EventClosure, EventDispatcher};
@@ -24,9 +25,8 @@ pub(super) fn exec_pty(
     command: Command,
 ) -> io::Result<(ExitReason, impl FnOnce())> {
     // Allocate a pseudoterminal.
-    // FIXME (ogsudo): We also need to open `/dev/tty` and set the right owner of the
-    // pseudoterminal
-    let pty = Pty::open()?;
+    // FIXME (ogsudo): We also need to open `/dev/tty`.
+    let pty = get_pty()?;
 
     // Create backchannels to communicate with the monitor.
     let mut backchannels = BackchannelPair::new()?;
@@ -78,6 +78,20 @@ pub(super) fn exec_pty(
     closure
         .run(&mut dispatcher)
         .map(|exit_reason| (exit_reason, move || drop(dispatcher)))
+}
+
+fn get_pty() -> io::Result<Pty> {
+    let mut tty_gid = GroupId::MAX;
+
+    if let Some(group) = Group::from_name("tty")? {
+        tty_gid = group.gid;
+    }
+
+    let pty = Pty::open()?;
+    // FIXME: Test this
+    chown(&pty.path, User::effective_uid(), tty_gid)?;
+
+    Ok(pty)
 }
 
 struct ParentClosure {
