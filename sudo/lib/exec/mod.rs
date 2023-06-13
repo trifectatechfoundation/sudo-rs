@@ -2,11 +2,12 @@
 
 mod backchannel;
 mod event;
-mod io_util;
 mod interface;
+mod io_util;
 mod monitor;
 mod parent;
 
+use backchannel::BackchannelPair;
 use std::{
     ffi::{CString, OsStr},
     io,
@@ -14,12 +15,11 @@ use std::{
     os::unix::process::CommandExt,
     process::Command,
 };
-use backchannel::BackchannelPair;
 
-pub use interface::RunOptions;
 use crate::common::Environment;
 use crate::log::user_error;
 use crate::system::{fork, set_target_user, term::openpty};
+pub use interface::RunOptions;
 
 use self::{monitor::MonitorClosure, parent::ParentClosure};
 
@@ -95,12 +95,8 @@ pub fn run_command(
             MonitorClosure::new(command, pty_follower, backchannels.monitor);
         match monitor.run(&mut dispatcher) {}
     } else {
-        let (parent, mut dispatcher) = ParentClosure::new(
-            monitor_pid,
-            options.pid(),
-            pty_leader,
-            backchannels.parent,
-        )?;
+        let (parent, mut dispatcher) =
+            ParentClosure::new(monitor_pid, options.pid(), pty_leader, backchannels.parent)?;
         parent
             .run(&mut dispatcher)
             .map(|exit_reason| (exit_reason, move || drop(dispatcher)))

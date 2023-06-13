@@ -93,7 +93,7 @@ impl<C: Converser> PamAuthenticator<C> {
 impl PamAuthenticator<CLIConverser> {
     pub fn new_cli() -> PamAuthenticator<CLIConverser> {
         PamAuthenticator::new(|context| {
-            let mut pam = PamContext::builder_cli(context.stdin)
+            let mut pam = PamContext::builder_cli("sudo", context.stdin)
                 .target_user(&context.current_user.name)
                 .service_name("sudo")
                 .build()?;
