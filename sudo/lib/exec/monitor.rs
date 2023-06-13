@@ -97,7 +97,9 @@ impl<'a> MonitorClosure<'a> {
         // FIXME (ogsudo): Store the pgid of the monitor.
 
         // Register the callback to receive events from the backchannel
-        dispatcher.set_read_callback(backchannel, |mc, ev| mc.read_backchannel(ev));
+        dispatcher.set_read_callback(backchannel, |monitor, dispatcher| {
+            monitor.read_backchannel(dispatcher)
+        });
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
