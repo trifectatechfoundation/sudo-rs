@@ -37,13 +37,7 @@ impl SudoLogger {
     pub fn new() -> Self {
         let mut logger: Self = Default::default();
 
-        match Syslog::new() {
-            // if we cannot connect to syslog daemon we silently ignore messages
-            Err(_) => (),
-            Ok(syslog) => {
-                logger.add_logger("sudo::auth", syslog);
-            }
-        }
+        logger.add_logger("sudo::auth", Syslog);
 
         let stderr_logger = env_logger::Builder::new()
             .filter_level(log::LevelFilter::Trace)

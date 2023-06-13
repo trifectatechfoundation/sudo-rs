@@ -91,6 +91,13 @@ pub fn hostname() -> String {
     }
 }
 
+pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &str) {
+    let msg = CString::new(message).unwrap();
+    unsafe {
+        libc::syslog(priority | facility, msg.as_ptr());
+    }
+}
+
 /// set target user and groups (uid, gid, additional groups) for a command
 pub fn set_target_user(
     cmd: &mut std::process::Command,

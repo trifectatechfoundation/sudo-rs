@@ -1,21 +1,12 @@
-use std::io::ErrorKind;
-use std::os::unix::net::UnixDatagram;
-use std::sync::Mutex;
-
 use log::{Level, Log, Metadata};
 
-use crate::system::hostname;
+use crate::system::syslog;
 
-const LOG_AUTH: u8 = 4 << 3;
-
-const PROCESS_NAME: &str = "sudo";
-
-const UNIX_SOCK_PATHS: [&str; 3] = ["/dev/log", "/var/run/syslog", "/var/run/log"];
+const LOG_AUTH: libc::c_int = 4 << 3;
 
 #[allow(dead_code)]
 #[derive(Copy, Clone)]
-#[repr(u8)]
-pub enum Severity {
+pub enum Priority {
     Emergency,
     Alert,
     Critical,
@@ -26,40 +17,7 @@ pub enum Severity {
     Debug,
 }
 
-pub struct Syslog {
-    logger: Mutex<UnixDatagram>,
-    hostname: String,
-    pid: u32,
-}
-
-impl Syslog {
-    pub fn new() -> Result<Syslog, std::io::Error> {
-        let logger = UNIX_SOCK_PATHS
-            .iter()
-            .find_map(|path| -> Option<Result<UnixDatagram, std::io::Error>> {
-                match UnixDatagram::unbound() {
-                    Ok(sock) => match sock.connect(path) {
-                        Ok(_) => Some(Ok(sock)),
-                        Err(e) if e.kind() == ErrorKind::NotFound => Some(Err(e)),
-                        _ => None,
-                    },
-                    Err(e) => Some(Err(e)),
-                }
-            })
-            .unwrap_or_else(|| {
-                Err(std::io::Error::new(
-                    ErrorKind::NotFound,
-                    "Could not initialize syslog",
-                ))
-            })?;
-
-        Ok(Syslog {
-            logger: Mutex::new(logger),
-            hostname: hostname(),
-            pid: std::process::id(),
-        })
-    }
-}
+pub struct Syslog;
 
 impl Log for Syslog {
     fn enabled(&self, metadata: &Metadata) -> bool {
@@ -67,26 +25,16 @@ impl Log for Syslog {
     }
 
     fn log(&self, record: &log::Record) {
-        if let Ok(logger) = self.logger.lock() {
-            let severity = match record.level() {
-                Level::Error => Severity::Error,
-                Level::Warn => Severity::Warning,
-                Level::Info => Severity::Informational,
-                Level::Debug => Severity::Debug,
-                Level::Trace => Severity::Debug,
-            };
+        let priority = match record.level() {
+            Level::Error => Priority::Error,
+            Level::Warn => Priority::Warning,
+            Level::Info => Priority::Informational,
+            Level::Debug => Priority::Debug,
+            Level::Trace => Priority::Debug,
+        };
 
-            let message = format!(
-                "<{}> {} {}[{}]: {}",
-                severity as u8 | LOG_AUTH,
-                self.hostname,
-                PROCESS_NAME,
-                self.pid,
-                record.args()
-            );
-
-            let _ = logger.send(message.as_bytes());
-        }
+        let message = format!("{}", record.args());
+        syslog(priority as libc::c_int, LOG_AUTH, &message);
     }
 
     fn flush(&self) {
@@ -101,7 +49,7 @@ mod tests {
 
     #[test]
     fn can_write_to_syslog() {
-        let logger = Syslog::new().unwrap();
+        let logger = Syslog;
         let record = log::Record::builder()
             .args(format_args!("Hello World!"))
             .level(log::Level::Info)
