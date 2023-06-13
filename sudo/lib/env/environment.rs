@@ -109,7 +109,7 @@ fn add_extra_env(
     // target environment to the same value of SUDO_PS1 if the latter is set.
     if let Some(sudo_ps1_value) = sudo_ps1 {
         // set PS1 to the SUDO_PS1 value in the target environment
-        environment.insert("PS1".into(), sudo_ps1_value.clone());
+        environment.insert("PS1".into(), sudo_ps1_value);
     }
 }
 
