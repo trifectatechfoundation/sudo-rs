@@ -6,9 +6,9 @@ use std::process::{exit, Command};
 use signal_hook::consts::*;
 
 use crate::log::user_error;
-use crate::system::fork;
 use crate::system::signal::{SignalAction, SignalHandler};
-use crate::system::term::openpty;
+use crate::system::term::Pty;
+use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use super::event::{EventClosure, EventDispatcher};
@@ -24,9 +24,8 @@ pub(super) fn exec_pty(
     command: Command,
 ) -> io::Result<(ExitReason, impl FnOnce())> {
     // Allocate a pseudoterminal.
-    // FIXME (ogsudo): We also need to open `/dev/tty` and set the right owner of the
-    // pseudoterminal.
-    let (pty_leader, pty_follower) = openpty()?;
+    // FIXME (ogsudo): We also need to open `/dev/tty`.
+    let pty = get_pty()?;
 
     // Create backchannels to communicate with the monitor.
     let mut backchannels = BackchannelPair::new()?;
@@ -52,11 +51,11 @@ pub(super) fn exec_pty(
 
     if monitor_pid == 0 {
         // Close the file descriptors that we don't access
-        drop(pty_leader);
+        drop(pty.leader);
         drop(backchannels.parent);
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
-        if let Err(err) = exec_monitor(pty_follower, command, &mut backchannels.monitor) {
+        if let Err(err) = exec_monitor(pty.follower, command, &mut backchannels.monitor) {
             backchannels.monitor.send(&err.into()).ok();
         }
         // FIXME: drop everything before calling `exit`.
@@ -64,7 +63,7 @@ pub(super) fn exec_pty(
     }
 
     // Close the file descriptors that we don't access
-    drop(pty_follower);
+    drop(pty.follower);
     drop(backchannels.monitor);
 
     // Send green light to the monitor after closing the follower.
@@ -78,6 +77,16 @@ pub(super) fn exec_pty(
     closure
         .run(&mut dispatcher)
         .map(|exit_reason| (exit_reason, move || drop(dispatcher)))
+}
+
+fn get_pty() -> io::Result<Pty> {
+    let tty_gid = Group::from_name("tty")?.map(|group| group.gid);
+
+    let pty = Pty::open()?;
+    // FIXME: Test this
+    chown(&pty.path, User::effective_uid(), tty_gid)?;
+
+    Ok(pty)
 }
 
 struct ParentClosure {
