@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use pretty_assertions::assert_eq;
-use sudo::cli::{SudoAction, SudoOptions};
+use super::{SudoAction, SudoOptions};
 
 /// Passing '-E' with a variable fails
 #[test]

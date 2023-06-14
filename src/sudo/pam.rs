@@ -1,15 +1,15 @@
 use std::fs::File;
 
-use sudo::common::{error::Error, Context};
-use sudo::log::{auth_warn, user_warn};
-use sudo::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
-use sudo::system::{
+use crate::common::{error::Error, Context};
+use crate::log::{auth_warn, user_warn};
+use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
+use crate::system::{
     time::Duration,
     timestamp::{RecordScope, SessionRecordFile, TouchResult},
     Process, WithProcess,
 };
 
-use crate::pipeline::AuthPlugin;
+use super::pipeline::AuthPlugin;
 
 /// Tries to determine a record match scope for the current context.
 /// This should never produce an error since any actual error should just be

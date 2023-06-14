@@ -3,10 +3,10 @@
 use pam::{determine_record_scope, PamAuthenticator};
 use pipeline::{Pipeline, PolicyPlugin};
 use std::env;
-use sudo::cli::{help, SudoAction, SudoOptions};
-use sudo::common::{resolve::resolve_current_user, Context, Error};
-use sudo::dev_info;
-use sudo::system::{time::Duration, timestamp::SessionRecordFile, Process};
+use crate::cli::{help, SudoAction, SudoOptions};
+use crate::common::{resolve::resolve_current_user, Context, Error};
+use crate::log::dev_info;
+use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
 
 mod diagnostic;
 use diagnostic::diagnostic;
@@ -34,20 +34,20 @@ do this then this software is not suited for you at this time."
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Default)]
-pub struct SudoersPolicy {}
+pub(crate) struct SudoersPolicy {}
 
 impl PolicyPlugin for SudoersPolicy {
-    type PreJudgementPolicy = sudo::sudoers::Sudoers;
-    type Policy = sudo::sudoers::Judgement;
+    type PreJudgementPolicy = crate::sudoers::Sudoers;
+    type Policy = crate::sudoers::Judgement;
 
     fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error> {
         // TODO: move to global configuration
         let sudoers_path = "/etc/sudoers.test";
 
-        let (sudoers, syntax_errors) = sudo::sudoers::Sudoers::new(sudoers_path)
+        let (sudoers, syntax_errors) = crate::sudoers::Sudoers::new(sudoers_path)
             .map_err(|e| Error::Configuration(format!("{e}")))?;
 
-        for sudo::sudoers::Error(pos, error) in syntax_errors {
+        for crate::sudoers::Error(pos, error) in syntax_errors {
             diagnostic!("{error}", sudoers_path @ pos);
         }
 
@@ -62,7 +62,7 @@ impl PolicyPlugin for SudoersPolicy {
         Ok(pre.check(
             &context.current_user,
             &context.hostname,
-            sudo::sudoers::Request {
+            crate::sudoers::Request {
                 user: &context.target_user,
                 group: &context.target_group,
                 command: &context.command.command,
@@ -73,7 +73,7 @@ impl PolicyPlugin for SudoersPolicy {
 }
 
 fn sudo_process() -> Result<(), Error> {
-    sudo::log::SudoLogger::new().into_global_logger();
+    crate::log::SudoLogger::new().into_global_logger();
 
     dev_info!("development logs are enabled");
 
@@ -137,7 +137,7 @@ fn sudo_process() -> Result<(), Error> {
     pipeline.run(sudo_options)
 }
 
-fn main() {
+pub fn main() {
     match sudo_process() {
         Ok(()) => (),
         Err(error) => {

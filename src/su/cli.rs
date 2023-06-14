@@ -243,7 +243,7 @@ impl SuOptions {
 mod tests {
     use std::vec;
 
-    use crate::cli::SuAction;
+    use super::super::cli::SuAction;
 
     use super::SuOptions;
 

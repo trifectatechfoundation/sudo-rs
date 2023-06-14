@@ -1,10 +1,10 @@
 use std::{env, ffi::OsString, path::PathBuf};
 
-use sudo::common::{error::Error, Environment};
-use sudo::exec::RunOptions;
-use sudo::system::{Group, Process, User};
+use crate::common::{error::Error, Environment};
+use crate::exec::RunOptions;
+use crate::system::{Group, Process, User};
 
-use crate::cli::SuOptions;
+use super::cli::SuOptions;
 
 #[derive(Debug)]
 pub(crate) struct SuContext {
@@ -19,7 +19,7 @@ pub(crate) struct SuContext {
 
 impl SuContext {
     pub(crate) fn from_env(options: SuOptions) -> Result<SuContext, Error> {
-        let process = sudo::system::Process::new();
+        let process = crate::system::Process::new();
 
         // resolve environment, reset if this is a login
         let mut environment = if options.login {
@@ -121,11 +121,11 @@ impl RunOptions for SuContext {
         self.options.login
     }
 
-    fn user(&self) -> &sudo::system::User {
+    fn user(&self) -> &crate::system::User {
         &self.user
     }
 
-    fn group(&self) -> &sudo::system::Group {
+    fn group(&self) -> &crate::system::Group {
         &self.group
     }
 
