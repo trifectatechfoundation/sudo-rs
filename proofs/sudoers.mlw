@@ -44,19 +44,31 @@ let find_item (items: array (spec 'tag 'a)) (pred: 'a -> bool): option 'tag
       | None     -> not contains (matched_by pred) items \/ final_match (matched_by pred) items condition None
     }
 
-= for i = items.length - 1 downto 0 do
-    invariant { forall k. i < k < items.length -> not matched_by pred items[k] }
-    invariant { contains (matched_by pred) items -> exists k. 0 <= k <= i /\ matched_by pred items[k] }
-    let (judgement, who) = match items[i] with
+= let result = ref None in
+
+  for i = 0 to items.length - 1 do
+    invariant { forall tag. !result = Some tag <->
+                  exists j.  0 <= j < i /\ matched_by pred items[j] /\ Some tag = condition items[j] /\
+                  forall k. j < k < i -> not matched_by pred items[k] }
+    let (qualifiedment, who) = match items[i] with
       | No x -> (None, x)
       | Yes x tag -> (Some tag, x)
     end in
     match who with
-      | All -> return judgement
-      | Only id -> if pred id then return judgement;
+      | All -> result := qualifiedment
+      | Only id -> if pred id then result := qualifiedment;
     end;
   done;
 
-  None
+  (* perform a "virtual loop" to strength the case !result = None;
+     this could also be solved by adding a ghost variable above *)
+  ghost if is_none !result && contains (matched_by pred) items then
+    for i = items.length - 1 downto 0 do
+      invariant { forall k. i < k < items.length -> not matched_by pred items[k] }
+      invariant { exists k. 0 <= k <= i /\ matched_by pred items[k] }
+      if matched_by pred items[i] then break
+    done;
+
+  !result;
 
 end
