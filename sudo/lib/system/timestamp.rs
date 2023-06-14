@@ -187,17 +187,17 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         }
     }
 
-    /// Try and find a record for the given scope and target user and update
+    /// Try and find a record for the given scope and auth user id and update
     /// that record time to the current time. This will not create a new record
     /// when one is not found. A record will only be updated if it is still
     /// valid at this time.
-    pub fn touch(&mut self, scope: RecordScope, target_user: UserId) -> io::Result<TouchResult> {
+    pub fn touch(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             // only touch if record is enabled
-            if record.enabled && record.matches(&scope, target_user) {
+            if record.enabled && record.matches(&scope, auth_user) {
                 let now = SystemTime::now()?;
                 if record.written_between(now - self.timeout, now) {
                     // move back to where the timestamp is and overwrite with the latest time
@@ -227,14 +227,14 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         Ok(TouchResult::NotFound)
     }
 
-    /// Disable all records that match the given scope. If a target user is
+    /// Disable all records that match the given scope. If an auth user id is
     /// given then only records with the given scope that are targetting that
     /// specific user will be disabled.
-    pub fn disable(&mut self, scope: RecordScope, target_user: Option<UserId>) -> io::Result<()> {
+    pub fn disable(&mut self, scope: RecordScope, auth_user: Option<UserId>) -> io::Result<()> {
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
-            let must_disable = target_user
+            let must_disable = auth_user
                 .map(|tu| record.matches(&scope, tu))
                 .unwrap_or_else(|| record.scope == scope);
             if must_disable {
@@ -246,15 +246,15 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         Ok(())
     }
 
-    /// Create a new record for the given scope and target user.
-    /// If there is an existing record that matches the scope and target user,
+    /// Create a new record for the given scope and auth user id.
+    /// If there is an existing record that matches the scope and auth user,
     /// then that record will be updated.
-    pub fn create(&mut self, scope: RecordScope, target_user: UserId) -> io::Result<CreateResult> {
+    pub fn create(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<CreateResult> {
         // lock the file to indicate that we are currently writing to it
         self.io.lock_exclusive()?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
-            if record.matches(&scope, target_user) {
+            if record.matches(&scope, auth_user) {
                 self.io.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
                 let new_time = SystemTime::now()?;
                 new_time.encode(&mut self.io)?;
@@ -268,7 +268,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         }
 
         // record was not found in the list so far, create a new one
-        let record = SessionRecord::new(scope, target_user)?;
+        let record = SessionRecord::new(scope, auth_user)?;
 
         // make sure we really are at the end of the file
         self.io.seek(io::SeekFrom::End(0))?;
@@ -428,21 +428,20 @@ pub struct SessionRecord {
     /// The scope for which the current record applies, i.e. what process group
     /// or which TTY for interactive sessions
     scope: RecordScope,
-    /// The user that the current user wants to become, i.e. the target user
-    /// of the sudo session
+    /// The user that needs to be authenticated against
     auth_user: libc::uid_t,
     /// The timestamp at which the time was created. This must always be a time
     /// originating from a monotonic clock that continues counting during system
     /// sleep.
     timestamp: SystemTime,
     /// Disabled records act as if they do not exist, but their storage can
-    /// be re-used when recreating for the same scope and target user
+    /// be re-used when recreating for the same scope and auth user
     enabled: bool,
 }
 
 impl SessionRecord {
     /// Create a new record that is scoped to the specified scope and has `auth_user` as
-    /// the target for the session.
+    /// the target for authentication for the session.
     fn new(scope: RecordScope, auth_user: UserId) -> io::Result<SessionRecord> {
         Ok(Self::init(scope, auth_user, true, SystemTime::now()?))
     }
@@ -483,7 +482,7 @@ impl SessionRecord {
     fn decode(from: &mut impl Read) -> std::io::Result<SessionRecord> {
         let scope = RecordScope::decode(from)?;
 
-        // user id
+        // auth user id
         let mut buf = [0; std::mem::size_of::<libc::uid_t>()];
         from.read_exact(&mut buf)?;
         let auth_user = libc::uid_t::from_le_bytes(buf);
@@ -704,14 +703,14 @@ mod tests {
             session_pid: 0,
             init_time: SystemTime::new(0, 0),
         };
-        let target_user = 2424;
-        let res = srf.create(tty_scope, target_user).unwrap();
+        let auth_user = 2424;
+        let res = srf.create(tty_scope, auth_user).unwrap();
         let CreateResult::Created { time } = res else {
             panic!("Expected record to be created");
         };
 
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let second = srf.touch(tty_scope, target_user).unwrap();
+        let second = srf.touch(tty_scope, auth_user).unwrap();
         let TouchResult::Updated { old_time, new_time } = second else {
             panic!("Expected record to be updated");
         };
@@ -719,7 +718,7 @@ mod tests {
         assert_ne!(old_time, new_time);
 
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let res = srf.create(tty_scope, target_user).unwrap();
+        let res = srf.create(tty_scope, auth_user).unwrap();
         let CreateResult::Updated { .. } = res else {
             panic!("Expected record to be updated");
         };

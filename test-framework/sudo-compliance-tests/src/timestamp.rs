@@ -106,7 +106,6 @@ fn credential_cache_is_shared_between_sibling_shells() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh387"]
 fn cached_credential_applies_to_all_target_users() -> Result<()> {
     let second_target_user = "ghost";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
@@ -135,7 +134,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<(
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -u {second_target_user} sudo -S true"
+            "echo {PASSWORD} | sudo -u {second_target_user} -S true; sudo -u {second_target_user} sh -c 'export \"{SUDO_RS_IS_UNSTABLE}\"; sudo -S true'"
         ))
         .as_user(USERNAME)
         .exec(&env)?;

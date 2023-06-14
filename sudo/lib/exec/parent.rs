@@ -1,38 +1,100 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::{io, os::fd::OwnedFd};
+use std::io;
+use std::process::{exit, Command};
 
-use crate::log::user_error;
-use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 use signal_hook::consts::*;
 
+use crate::log::user_error;
+use crate::system::fork;
+use crate::system::signal::{SignalAction, SignalHandler};
+use crate::system::term::openpty;
+use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
+
 use super::event::{EventClosure, EventDispatcher};
+use super::monitor::exec_monitor;
 use super::{
-    backchannel::{MonitorMessage, ParentBackchannel, ParentMessage},
+    backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
     io_util::{retry_while_interrupted, was_interrupted},
     ExitReason,
 };
 
-pub(super) struct ParentClosure {
+pub(super) fn exec_pty(
+    sudo_pid: ProcessId,
+    command: Command,
+) -> io::Result<(ExitReason, impl FnOnce())> {
+    // Allocate a pseudoterminal.
+    // FIXME (ogsudo): We also need to open `/dev/tty` and set the right owner of the
+    // pseudoterminal.
+    let (pty_leader, pty_follower) = openpty()?;
+
+    // Create backchannels to communicate with the monitor.
+    let mut backchannels = BackchannelPair::new()?;
+
+    // We don't want to receive SIGTTIN/SIGTTOU
+    // FIXME: why?
+    SignalHandler::with_action(SIGTTIN, SignalAction::Ignore).ok();
+    SignalHandler::with_action(SIGTTOU, SignalAction::Ignore).ok();
+
+    // FIXME (ogsudo): Initialize the policy plugin's session here by calling
+    // `policy_init_session`.
+    // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
+    // FIXME (ogsudo): Set all the IO streams for the command to the follower side of the pty.
+    // FIXME (ogsudo): Read from `/dev/tty` and write to the leader if not in the background.
+    // FIXME (ogsudo): Read from the leader and write to `/dev/tty`.
+    // FIXME (ogsudo): Do some extra setup if any of the IO streams are not a tty and logging is
+    // enabled or if sudo is running in background.
+    // FIXME (ogsudo): Copy terminal settings from `/dev/tty` to the pty.
+    // FIXME (ogsudo): Start in raw mode unless we're part of a pipeline
+    let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
+
+    let monitor_pid = fork()?;
+
+    if monitor_pid == 0 {
+        // Close the file descriptors that we don't access
+        drop(pty_leader);
+        drop(backchannels.parent);
+
+        // If `exec_monitor` returns, it means we failed to execute the command somehow.
+        if let Err(err) = exec_monitor(pty_follower, command, &mut backchannels.monitor) {
+            backchannels.monitor.send(&err.into()).ok();
+        }
+        // FIXME: drop everything before calling `exit`.
+        exit(1)
+    }
+
+    // Close the file descriptors that we don't access
+    drop(pty_follower);
+    drop(backchannels.monitor);
+
+    // Send green light to the monitor after closing the follower.
+    retry_while_interrupted(|| backchannels.parent.send(&MonitorMessage::ExecCommand))?;
+
+    let closure = ParentClosure::new(monitor_pid, sudo_pid, backchannels.parent, &mut dispatcher);
+
+    // FIXME (ogsudo): Restore the signal handlers here.
+
+    // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
+    closure
+        .run(&mut dispatcher)
+        .map(|exit_reason| (exit_reason, move || drop(dispatcher)))
+}
+
+struct ParentClosure {
     _monitor_pid: ProcessId,
     sudo_pid: ProcessId,
     command_pid: Option<ProcessId>,
-    // FIXME: Look for `SFD_LEADER` occurences in `exec_pty` to decide what to do with the leader
-    // side of the pty. It should be used to handle signals like `SIGWINCH` and `SIGCONT`.
-    _pty_leader: OwnedFd,
     backchannel: ParentBackchannel,
     message_queue: VecDeque<MonitorMessage>,
 }
 
 impl ParentClosure {
-    pub(super) fn new(
+    fn new(
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
-        pty_leader: OwnedFd,
-        mut backchannel: ParentBackchannel,
-    ) -> io::Result<(Self, EventDispatcher<Self>)> {
-        let mut dispatcher = EventDispatcher::<Self>::new()?;
-
+        backchannel: ParentBackchannel,
+        dispatcher: &mut EventDispatcher<Self>,
+    ) -> Self {
         dispatcher.set_read_callback(&backchannel, |parent, dispatcher| {
             parent.on_message_received(dispatcher)
         });
@@ -43,22 +105,16 @@ impl ParentClosure {
             parent.check_message_queue(dispatcher)
         });
 
-        retry_while_interrupted(|| backchannel.send(&MonitorMessage::ExecCommand))?;
-
-        Ok((
-            Self {
-                _monitor_pid: monitor_pid,
-                sudo_pid,
-                command_pid: None,
-                _pty_leader: pty_leader,
-                backchannel,
-                message_queue: VecDeque::new(),
-            },
-            dispatcher,
-        ))
+        Self {
+            _monitor_pid: monitor_pid,
+            sudo_pid,
+            command_pid: None,
+            backchannel,
+            message_queue: VecDeque::new(),
+        }
     }
 
-    pub(super) fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
+    fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
         let exit_reason = match dispatcher.event_loop(&mut self) {
             ParentMessage::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
             ParentMessage::CommandExit(code) => ExitReason::Code(code),

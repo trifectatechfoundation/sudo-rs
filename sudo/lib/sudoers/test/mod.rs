@@ -1,7 +1,6 @@
 use super::ast;
 use super::*;
 use basic_parser::{parse_eval, parse_lines, parse_string};
-use std::iter;
 
 #[derive(PartialEq)]
 struct Named(&'static str);
@@ -55,20 +54,10 @@ macro_rules! request {
 }
 
 macro_rules! sudoer {
-    ($h:expr $(,$e:expr)* $(,)?) => {
-	    parse_lines(&mut
-		(
-		    iter::once($h)
-		    $(
-			.chain(iter::once($e))
-		    )*
-		)
-		.map(|s|s.chars().chain(iter::once('\n')))
-		.flatten()
-		.peekable()
-	    )
-	    .into_iter()
-	    .map(|x| Ok::<_,basic_parser::Status>(x.unwrap()))
+    ($($e:expr),*) => {
+        parse_lines(&mut [$($e),*, ""].join("\n").chars().peekable())
+            .into_iter()
+            .map(|x| Ok::<_,basic_parser::Status>(x.unwrap()))
     }
 }
 

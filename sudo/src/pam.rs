@@ -51,7 +51,7 @@ fn determine_auth_status(
     if let (true, Some(record_for)) = (context.use_session_records, record_for) {
         match SessionRecordFile::open_for_user(&context.current_user.name, Duration::minutes(15)) {
             Ok(mut sr) => {
-                match sr.touch(record_for, context.target_user.uid) {
+                match sr.touch(record_for, context.current_user.uid) {
                     // if a record was found and updated within the timeout, we do not need to authenticate
                     Ok(TouchResult::Updated { .. }) => (false, Some(sr)),
                     Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => (true, Some(sr)),
@@ -154,7 +154,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
                 }
             }
             if let (Some(mut session_records), Some(scope)) = (records_file, scope) {
-                match session_records.create(scope, context.target_user.uid) {
+                match session_records.create(scope, context.current_user.uid) {
                     Ok(_) => (),
                     Err(e) => {
                         auth_warn!("Could not update session record file with new record: {e}");

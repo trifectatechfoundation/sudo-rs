@@ -38,7 +38,12 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> OsString {
 }
 
 /// Construct sudo-specific environment variables
-fn add_extra_env(context: &Context, cfg: &impl Policy, environment: &mut Environment) {
+fn add_extra_env(
+    context: &Context,
+    cfg: &impl Policy,
+    sudo_ps1: Option<OsString>,
+    environment: &mut Environment,
+) {
     // current user
     environment.insert("SUDO_COMMAND".into(), format_command(&context.command));
     environment.insert(
@@ -99,6 +104,12 @@ fn add_extra_env(context: &Context, cfg: &impl Policy, environment: &mut Environ
     // If the TERM variable is not preserved from the user's environment, it will be set to default value
     if !environment.contains_key(OsStr::new("TERM")) {
         environment.insert("TERM".into(), "unknown".into());
+    }
+    // The SUDO_PS1 variable requires special treatment as the PS1 variable must be set in the
+    // target environment to the same value of SUDO_PS1 if the latter is set.
+    if let Some(sudo_ps1_value) = sudo_ps1 {
+        // set PS1 to the SUDO_PS1 value in the target environment
+        environment.insert("PS1".into(), sudo_ps1_value);
     }
 }
 
@@ -177,25 +188,14 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
 ///
 /// Environment variables with a value beginning with ‘()’ are removed
 pub fn get_target_environment(
-    mut current_env: Environment,
+    current_env: Environment,
     context: &Context,
     settings: &impl Policy,
 ) -> Environment {
     let mut environment = Environment::default();
 
-    // The SUDO_PS1 variable requires special treatment as the PS1 variable must be set in the
-    // target enviromnet to the same value of  SUDO_PS1 if the latter is set. At the same time
-    // SUDO_PS1 should be preserved if it is in `keep_env`.
-    let sudo_ps1_key = OsStr::new("SUDO_PS1");
-    // Remove SUDO_PS1 from the current environment if it is set.
-    if let Some(sudo_ps1_value) = current_env.remove(sudo_ps1_key) {
-        // set PS1 to the SUDO_PS1 value in the target environment
-        environment.insert("PS1".into(), sudo_ps1_value.clone());
-        // Keep SUDO_PS1 if it should be kept.
-        if should_keep(sudo_ps1_key, &sudo_ps1_value, settings) {
-            environment.insert(sudo_ps1_key.to_os_string(), sudo_ps1_value);
-        }
-    }
+    // retrieve SUDO_PS1 value to set a PS1 value as additional environment
+    let sudo_ps1 = current_env.get(OsStr::new("SUDO_PS1")).cloned();
 
     environment.extend(
         current_env
@@ -203,7 +203,7 @@ pub fn get_target_environment(
             .filter(|(key, value)| should_keep(key, value, settings)),
     );
 
-    add_extra_env(context, settings, &mut environment);
+    add_extra_env(context, settings, sudo_ps1, &mut environment);
 
     environment
 }
@@ -242,7 +242,7 @@ mod tests {
 
         let check_should_keep = |key: &str, value: &str, expected: bool| {
             assert_eq!(
-                should_keep(&OsStr::new(key), &OsStr::new(value), &config),
+                should_keep(OsStr::new(key), OsStr::new(value), &config),
                 expected,
                 "{} should {}",
                 key,
@@ -259,6 +259,8 @@ mod tests {
         check_should_keep("MIES", "FOO%", false);
     }
 
+    #[allow(clippy::useless_format)]
+    #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn test_tzinfo() {
         assert_eq!(is_safe_tz("Europe/Amsterdam".as_bytes()), true);

@@ -19,82 +19,98 @@ use super::{
     io_util::{retry_while_interrupted, was_interrupted},
 };
 
-pub(super) struct MonitorClosure {
+// FIXME: This should return `io::Result<!>` but `!` is not stable yet.
+pub(super) fn exec_monitor(
+    pty_follower: OwnedFd,
+    mut command: Command,
+    backchannel: &mut MonitorBackchannel,
+) -> io::Result<()> {
+    let mut dispatcher = EventDispatcher::<MonitorClosure>::new()?;
+
+    // FIXME (ogsudo): Any file descriptor not used by the monitor are closed here.
+
+    // FIXME (ogsudo): SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
+    // be possible to receive them in the first place. Investigate
+
+    // Start a new terminal session with the monitor as the leader.
+    setsid()?;
+
+    // Set the follower side of the pty as the controlling terminal for the session.
+    set_controlling_terminal(&pty_follower)?;
+
+    // Wait for the parent to give us green light before spawning the command. This avoids race
+    // conditions when the command exits quickly.
+    let event = retry_while_interrupted(|| backchannel.recv())?;
+    // Given that `UnixStream` delivers messages in order it shouldn't be possible to
+    // receive an event different to `ExecCommand` at the beginning.
+    debug_assert_eq!(event, MonitorMessage::ExecCommand);
+
+    // FIXME (ogsudo): Some extra config happens here if selinux is available.
+
+    // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`.
+
+    // spawn the command.
+    let command = command.spawn()?;
+
+    let command_pid = command.id() as ProcessId;
+
+    // Send the command's PID to the parent.
+    backchannel
+        .send(&ParentMessage::CommandPid(command_pid))
+        .ok();
+
+    let mut closure = MonitorClosure::new(command, command_pid, backchannel, &mut dispatcher);
+
+    // FIXME (ogsudo): Here's where the signal mask is removed because the handlers for the signals
+    // have been setup after initializing the closure.
+    // FIXME (ogsudo): Set the command as the foreground process for the follower.
+
+    // Start the event loop.
+    dispatcher.event_loop(&mut closure);
+    // FIXME (ogsudo): Terminate the command using `killpg` if it's not terminated.
+    // FIXME (ogsudo): Take the controlling tty so the command's children don't receive SIGHUP when we exit.
+    // FIXME (ogsudo): Send the command status back to the parent.
+    // FIXME (ogsudo): The tty is restored here if selinux is available.
+
+    drop(closure);
+
+    exit(1)
+}
+
+struct MonitorClosure<'a> {
+    command: Child,
     /// The command PID.
     ///
     /// This is `Some` iff the process is still running.
     command_pid: Option<ProcessId>,
     command_pgrp: ProcessId,
-    command: Child,
-    _pty_follower: OwnedFd,
-    backchannel: MonitorBackchannel,
+    backchannel: &'a mut MonitorBackchannel,
 }
 
-impl MonitorClosure {
-    pub(super) fn new(
-        mut command: Command,
-        pty_follower: OwnedFd,
-        mut backchannel: MonitorBackchannel,
-    ) -> (Self, EventDispatcher<Self>) {
-        let result = io::Result::Ok(()).and_then(|()| {
-            let mut dispatcher = EventDispatcher::<Self>::new()?;
+impl<'a> MonitorClosure<'a> {
+    fn new(
+        command: Child,
+        command_pid: ProcessId,
+        backchannel: &'a mut MonitorBackchannel,
+        dispatcher: &mut EventDispatcher<Self>,
+    ) -> Self {
+        // FIXME (ogsudo): Store the pgid of the monitor.
 
-            // Create new terminal session.
-            setsid()?;
-
-            // Set the pty as the controlling terminal.
-            set_controlling_terminal(&pty_follower)?;
-
-            // Wait for the main sudo process to give us green light before spawning the command. This
-            // avoids race conditions when the command exits quickly.
-            let event = retry_while_interrupted(|| backchannel.recv())?;
-
-            // Given that `UnixStream` delivers messages in order it shouldn't be possible to
-            // receive an event different to `ExecCommand` at the beginning.
-            debug_assert_eq!(event, MonitorMessage::ExecCommand);
-
-            // spawn the command
-            let command = command.spawn()?;
-
-            let command_pid = command.id() as ProcessId;
-
-            // Send the command's PID to the main sudo process.
-            backchannel
-                .send(&ParentMessage::CommandPid(command_pid))
-                .ok();
-
-            // Register the callback to receive events from the backchannel
-            dispatcher.set_read_callback(&backchannel, |mc, ev| mc.read_backchannel(ev));
-
-            // set the process group ID of the command to the command PID.
-            let command_pgrp = command_pid;
-            setpgid(command_pid, command_pgrp).ok();
-
-            Ok((dispatcher, command_pid, command_pgrp, command, pty_follower))
+        // Register the callback to receive events from the backchannel
+        dispatcher.set_read_callback(backchannel, |monitor, dispatcher| {
+            monitor.read_backchannel(dispatcher)
         });
 
-        match result {
-            Err(err) => {
-                backchannel.send(&err.into()).unwrap();
-                exit(1);
-            }
-            Ok((dispatcher, command_pid, command_pgrp, command, pty_follower)) => (
-                Self {
-                    command_pid: Some(command_pid),
-                    command_pgrp,
-                    command,
-                    _pty_follower: pty_follower,
-                    backchannel,
-                },
-                dispatcher,
-            ),
-        }
-    }
+        // Put the command in its own process group.
+        let command_pgrp = command_pid;
+        setpgid(command_pid, command_pgrp).ok();
 
-    pub(super) fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> ! {
-        dispatcher.event_loop(&mut self);
-        drop(self);
-        exit(0);
+        Self {
+            command,
+            command_pid: Some(command_pid),
+            command_pgrp,
+            backchannel,
+        }
     }
 
     /// Based on `mon_backchannel_cb`
@@ -168,7 +184,7 @@ fn is_self_terminating(
     false
 }
 
-impl EventClosure for MonitorClosure {
+impl<'a> EventClosure for MonitorClosure<'a> {
     type Break = ();
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {

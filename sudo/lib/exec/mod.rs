@@ -7,7 +7,6 @@ mod io_util;
 mod monitor;
 mod parent;
 
-use backchannel::BackchannelPair;
 use std::{
     ffi::{CString, OsStr},
     io,
@@ -18,10 +17,10 @@ use std::{
 
 use crate::common::Environment;
 use crate::log::user_error;
-use crate::system::{fork, set_target_user, term::openpty};
-pub use interface::RunOptions;
+use crate::system::set_target_user;
+use parent::exec_pty;
 
-use self::{monitor::MonitorClosure, parent::ParentClosure};
+pub use interface::RunOptions;
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
@@ -82,25 +81,7 @@ pub fn run_command(
         options.group().clone(),
     );
 
-    let (pty_leader, pty_follower) = openpty()?;
-
-    let backchannels = BackchannelPair::new()?;
-
-    // FIXME: We should block all the incoming signals before forking and unblock them just after
-    // initializing the signal handlers.
-    let monitor_pid = fork()?;
-    // Monitor logic. Based on `exec_monitor`.
-    if monitor_pid == 0 {
-        let (monitor, mut dispatcher) =
-            MonitorClosure::new(command, pty_follower, backchannels.monitor);
-        match monitor.run(&mut dispatcher) {}
-    } else {
-        let (parent, mut dispatcher) =
-            ParentClosure::new(monitor_pid, options.pid(), pty_leader, backchannels.parent)?;
-        parent
-            .run(&mut dispatcher)
-            .map(|exit_reason| (exit_reason, move || drop(dispatcher)))
-    }
+    exec_pty(options.pid(), command)
 }
 
 /// Exit reason for the command executed by sudo.
