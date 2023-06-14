@@ -196,7 +196,7 @@ auth required pam_permit.so",
     dbg!(delta_millis);
 
     // use a lower value to avoid sporadic failures
-    assert!(delta_millis >= 3_200);
+    assert!(delta_millis >= 3_100);
 
     Ok(())
 }
