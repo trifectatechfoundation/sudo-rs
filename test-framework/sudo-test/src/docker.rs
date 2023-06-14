@@ -124,10 +124,10 @@ impl Drop for Container {
         // running this to completion would block the current thread for several seconds so just
         // fire and forget
         let _ = StdCommand::new("docker")
-            .args(["stop", &self.id])
+            .args(["rm", "-f", &self.id])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .spawn();
+            .status();
     }
 }
 
@@ -206,7 +206,6 @@ mod tests {
     const IMAGE: &str = "ubuntu:22.04";
 
     #[test]
-    #[ignore = "slow"]
     fn eventually_removes_container_on_drop() -> Result<()> {
         let mut check_cmd = StdCommand::new("docker");
         let docker = Container::new(IMAGE)?;
