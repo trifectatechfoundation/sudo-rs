@@ -18,6 +18,7 @@ mod lecture;
 mod lecture_file;
 mod misc;
 mod nopasswd;
+mod passwd;
 mod pam;
 mod pass_auth;
 mod password_retry;
