@@ -134,6 +134,7 @@ where
 /// A converser that uses stdin/stdout/stderr to display messages and to request
 /// input from the user.
 pub struct CLIConverser {
+    pub(super) name: String,
     pub(super) use_stdin: bool,
 }
 
@@ -152,24 +153,24 @@ impl CLIConverser {
 impl SequentialConverser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let mut tty = self.open()?;
-        tty.prompt(&format!("[Sudo: input needed] {msg} "))?;
+        tty.prompt(&format!("[{}: input needed] {msg} ", self.name))?;
         Ok(tty.read_cleartext()?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let mut tty = self.open()?;
-        tty.prompt(&format!("[Sudo: authenticate] {msg}"))?;
+        tty.prompt(&format!("[{}: authenticate] {msg}", self.name))?;
         Ok(tty.read_password()?)
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
         let mut tty = self.open()?;
-        Ok(tty.prompt(&format!("[Sudo error] {msg}\n"))?)
+        Ok(tty.prompt(&format!("[{} error] {msg}\n", self.name))?)
     }
 
     fn handle_info(&self, msg: &str) -> PamResult<()> {
         let mut tty = self.open()?;
-        Ok(tty.prompt(&format!("[Sudo] {msg}\n"))?)
+        Ok(tty.prompt(&format!("[{}] {msg}\n", self.name))?)
     }
 }
 

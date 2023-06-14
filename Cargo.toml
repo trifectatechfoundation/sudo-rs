@@ -23,6 +23,8 @@ signal-hook-registry = "1.4.1"
 log = "0.4.17"
 env_logger = { version = "0.9.3", default-features = false }
 
+sudo = { version = "0.1.0-alpha.1", path = "./sudo" }
+
 # Test only dependencies
 pretty_assertions = "1.3.0"
 tempfile = "3.5.0"

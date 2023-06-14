@@ -415,8 +415,11 @@ impl<C: Converser> PamContext<C> {
 
 impl PamContext<CLIConverser> {
     /// Create a builder that uses the CLI conversation function.
-    pub fn builder_cli(use_stdin: bool) -> PamContextBuilder<CLIConverser> {
-        PamContextBuilder::default().converser(CLIConverser { use_stdin })
+    pub fn builder_cli(name: &str, use_stdin: bool) -> PamContextBuilder<CLIConverser> {
+        PamContextBuilder::default().converser(CLIConverser {
+            name: name.to_owned(),
+            use_stdin,
+        })
     }
 }
 
