@@ -117,22 +117,7 @@ fn retry_is_not_allowed_immediately() -> Result<()> {
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
-    let stdout = Command::new("sh")
-        .arg(script_path)
-        .as_user(USERNAME)
-        .exec(&env)?
-        .stdout()?;
-
-    let timestamps = stdout
-        .lines()
-        .filter_map(|line| line.parse::<u64>().ok())
-        .collect::<Vec<_>>();
-
-    assert_eq!(2, timestamps.len());
-
-    let delta_millis = timestamps[1] - timestamps[0];
-
-    dbg!(delta_millis);
+    let delta_millis = time_password_retry(script_path, env)?;
 
     // by default, the retry delay should be around 2 seconds
     // use a lower value to avoid sporadic failures
@@ -141,9 +126,34 @@ fn retry_is_not_allowed_immediately() -> Result<()> {
     Ok(())
 }
 
+fn time_password_retry(script_path: &str, env: Env) -> Result<u64> {
+    let stdout = Command::new("sh")
+        .arg(script_path)
+        .as_user(USERNAME)
+        .exec(&env)?
+        .stdout()?;
+    let timestamps = stdout
+        .lines()
+        .filter_map(|line| line.parse::<u64>().ok())
+        .collect::<Vec<_>>();
+    assert_eq!(2, timestamps.len());
+    let delta_millis = timestamps[1] - timestamps[0];
+    dbg!(delta_millis);
+    Ok(delta_millis)
+}
+
 #[test]
 fn can_control_retry_delay_using_pam() -> Result<()> {
-    let check_env = Env("").build()?;
+    const NEW_DELAY_MICROS: u32 = 5_000_000;
+
+    let script_path = "/tmp/script.sh";
+    let check_env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .file(
+            script_path,
+            TextFile(include_str!("password_retry/time-password-retry.sh")).chmod("777"),
+        )
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
     let common_auth = Command::new("cat")
         .arg("/etc/pam.d/common-auth")
         .exec(&check_env)?
@@ -161,16 +171,19 @@ auth\trequired\t\t\tpam_permit.so",
         "the stock /etc/pam.d/common-auth file has changed; this test needs to be updated"
     );
 
+    let initial_delta_millis = time_password_retry(script_path, check_env)?;
+
     // increase the retry delay from 2 seconds to 5
-    let script_path = "/tmp/script.sh";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
         .file(
             "/etc/pam.d/common-auth",
-            "auth optional pam_faildelay.so delay=5000000
+            format!(
+                "auth optional pam_faildelay.so delay={NEW_DELAY_MICROS}
 auth [success=1 default=ignore] pam_unix.so nullok nodelay
 auth requisite pam_deny.so
-auth required pam_permit.so",
+auth required pam_permit.so"
+            ),
         )
         .file(
             script_path,
@@ -178,25 +191,17 @@ auth required pam_permit.so",
         )
         .build()?;
 
-    let output = Command::new("sh")
-        .arg(script_path)
-        .as_user(USERNAME)
-        .exec(&env)?
-        .stdout()?;
-
-    let timestamps = output
-        .lines()
-        .filter_map(|line| line.parse::<u64>().ok())
-        .collect::<Vec<_>>();
-
-    assert_eq!(2, timestamps.len());
-
-    let delta_millis = timestamps[1] - timestamps[0];
-
-    dbg!(delta_millis);
+    let newer_delta_millis = time_password_retry(script_path, env)?;
 
     // use a lower value to avoid sporadic failures
-    assert!(delta_millis >= 3_200);
+    assert!(newer_delta_millis >= 3_100);
+
+    assert!(
+        newer_delta_millis > initial_delta_millis,
+        "password retry delay appears to not have increased.
+it could be that the image defaults to a high retry delay value; \
+you may want to increase NEW_DELAY_MICROS"
+    );
 
     Ok(())
 }
