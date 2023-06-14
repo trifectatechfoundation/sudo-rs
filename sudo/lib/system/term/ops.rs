@@ -165,7 +165,7 @@ pub fn term_raw<F: AsRawFd>(fd: &F, with_signals: bool) -> io::Result<()> {
         term.c_cflag |= ISIG;
     }
 
-    tcsetattr_nobg(fd, TCSADRAIN, &mut term)?;
+    tcsetattr_nobg(fd, TCSADRAIN, &term)?;
     unsafe { CHANGED = true };
 
     Ok(())
@@ -179,7 +179,7 @@ pub fn term_restore<F: AsRawFd>(fd: &F, flush: bool) -> io::Result<()> {
     if unsafe { CHANGED } {
         let fd = fd.as_raw_fd();
         let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
-        tcsetattr_nobg(fd, flags, unsafe { OTERM.as_mut_ptr() })?;
+        tcsetattr_nobg(fd, flags, unsafe { OTERM.as_ptr() })?;
     }
 
     Ok(())
