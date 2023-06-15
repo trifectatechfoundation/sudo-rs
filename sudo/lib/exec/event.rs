@@ -1,11 +1,14 @@
 use std::{io, ops::ControlFlow, os::fd::AsRawFd};
 
+use crate::log::dev_error;
 use crate::system::{
     poll::PollSet,
     signal::{SignalHandler, SignalInfo, SignalNumber},
 };
 
 use signal_hook::consts::*;
+#[cfg(feature = "dev")]
+use signal_hook::low_level::signal_name;
 
 pub(super) trait EventClosure: Sized {
     /// Reason why the event loop should break. This is the return type of [`EventDispatcher::event_loop`].
@@ -28,7 +31,13 @@ macro_rules! define_signals {
             /// [`EventClosure::on_signal`] implementation.
             pub(super) fn new() -> io::Result<Self> {
                 let mut dispatcher = Self {
-                    signal_handlers: [$(SignalHandler::new($signal)?,)*],
+                    signal_handlers: [$(SignalHandler::new($signal).map_err(|err| {
+                        dev_error!(
+                            "unable to set handler for {}",
+                            signal_name($signal).unwrap(),
+                        );
+                        err
+                    })?,)*],
                     poll_set: PollSet::new(),
                     callbacks: Vec::with_capacity(SIGNALS.len()),
                     status: ControlFlow::Continue(()),

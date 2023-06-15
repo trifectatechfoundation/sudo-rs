@@ -6,12 +6,15 @@ use std::{
     time::Duration,
 };
 
-use crate::log::user_error;
+use crate::log::{dev_info, dev_warn};
 use crate::system::{
     getpgid, interface::ProcessId, kill, setpgid, setsid, signal::SignalInfo,
     term::set_controlling_terminal,
 };
+
 use signal_hook::consts::*;
+#[cfg(feature = "dev")]
+use signal_hook::low_level::signal_name;
 
 use super::{
     backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
@@ -33,14 +36,23 @@ pub(super) fn exec_monitor(
     // be possible to receive them in the first place. Investigate
 
     // Start a new terminal session with the monitor as the leader.
-    setsid()?;
+    setsid().map_err(|err| {
+        dev_warn!("cannot start a new session: {err}");
+        err
+    })?;
 
     // Set the follower side of the pty as the controlling terminal for the session.
-    set_controlling_terminal(&pty_follower)?;
+    set_controlling_terminal(&pty_follower).map_err(|err| {
+        dev_warn!("cannot set the controlling terminal: {err}");
+        err
+    })?;
 
     // Wait for the parent to give us green light before spawning the command. This avoids race
     // conditions when the command exits quickly.
-    let event = retry_while_interrupted(|| backchannel.recv())?;
+    let event = retry_while_interrupted(|| backchannel.recv()).map_err(|err| {
+        dev_warn!("cannot receive green light from parent: {err}");
+        err
+    })?;
     // Given that `UnixStream` delivers messages in order it shouldn't be possible to
     // receive an event different to `ExecCommand` at the beginning.
     debug_assert_eq!(event, MonitorMessage::ExecCommand);
@@ -50,14 +62,17 @@ pub(super) fn exec_monitor(
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`.
 
     // spawn the command.
-    let command = command.spawn()?;
+    let command = command.spawn().map_err(|err| {
+        dev_warn!("cannot spawn command: {err}");
+        err
+    })?;
 
     let command_pid = command.id() as ProcessId;
 
     // Send the command's PID to the parent.
-    backchannel
-        .send(&ParentMessage::CommandPid(command_pid))
-        .ok();
+    if let Err(_err) = backchannel.send(&ParentMessage::CommandPid(command_pid)) {
+        dev_warn!("cannot send command PID to parent: {_err}");
+    }
 
     let mut closure = MonitorClosure::new(command, command_pid, backchannel, &mut dispatcher);
 
@@ -103,7 +118,9 @@ impl<'a> MonitorClosure<'a> {
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
-        setpgid(command_pid, command_pgrp).ok();
+        if let Err(_err) = setpgid(command_pid, command_pgrp) {
+            dev_warn!("cannot set process group ID for process: {_err}");
+        };
 
         Self {
             command,
@@ -120,6 +137,7 @@ impl<'a> MonitorClosure<'a> {
             Err(err) if was_interrupted(&err) => {}
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
+                dev_warn!("monitor could not read from backchannel: {}", err);
                 dispatcher.set_break(());
                 self.backchannel.send(&err.into()).unwrap();
             }
@@ -130,29 +148,33 @@ impl<'a> MonitorClosure<'a> {
                     // Forward signal to the command.
                     MonitorMessage::Signal(signal) => {
                         if let Some(command_pid) = self.command_pid {
-                            Self::send_signal(signal, command_pid)
+                            send_signal::<true>(signal, command_pid)
                         }
                     }
                 }
             }
         }
     }
-
-    /// Send a signal to the command
-    fn send_signal(signal: c_int, command_pid: ProcessId) {
-        // FIXME: We should call `killpg` instead of `kill`.
-        match signal {
-            SIGALRM => {
-                // Kill the command with increasing urgency. Based on `terminate_command`.
-                kill(command_pid, SIGHUP).ok();
-                kill(command_pid, SIGTERM).ok();
-                std::thread::sleep(Duration::from_secs(2));
-                kill(command_pid, SIGKILL).ok();
-            }
-            signal => {
-                // Send the signal to the command.
-                kill(command_pid, signal).ok();
-            }
+}
+/// Send a signal to the command.
+fn send_signal<const FROM_PARENT: bool>(signal: c_int, command_pid: ProcessId) {
+    dev_info!(
+        "sending {}{} to command",
+        signal_name(signal).unwrap_or("unknown signal"),
+        if FROM_PARENT { " from parent" } else { "" }
+    );
+    // FIXME: We should call `killpg` instead of `kill`.
+    match signal {
+        SIGALRM => {
+            // Kill the command with increasing urgency. Based on `terminate_command`.
+            kill(command_pid, SIGHUP).ok();
+            kill(command_pid, SIGTERM).ok();
+            std::thread::sleep(Duration::from_secs(2));
+            kill(command_pid, SIGKILL).ok();
+        }
+        signal => {
+            // Send the signal to the command.
+            kill(command_pid, signal).ok();
         }
     }
 }
@@ -176,8 +198,6 @@ fn is_self_terminating(
             if grp_leader == command_pgrp {
                 return true;
             }
-        } else {
-            user_error!("Could not fetch process group ID");
         }
     }
 
@@ -188,8 +208,20 @@ impl<'a> EventClosure for MonitorClosure<'a> {
     type Break = ();
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
+        dev_info!(
+            "monitor received {}{} from {}",
+            if info.is_user_signaled() {
+                " user signaled"
+            } else {
+                ""
+            },
+            signal_name(info.signal()).unwrap_or("unknown signal"),
+            info.pid()
+        );
+
         // Don't do anything if the command has terminated already
         let Some(command_pid) = self.command_pid else {
+            dev_info!("command was terminated, ignoring signal");
             return;
         };
 
@@ -197,6 +229,10 @@ impl<'a> EventClosure for MonitorClosure<'a> {
             // FIXME: check `mon_handle_sigchld`
             SIGCHLD => {
                 if let Ok(Some(exit_status)) = self.command.try_wait() {
+                    dev_info!(
+                        "command ({command_pid}) exited with status: {}",
+                        exit_status
+                    );
                     // The command has terminated, set it's PID to `None`.
                     self.command_pid = None;
                     dispatcher.set_break(());
@@ -206,7 +242,7 @@ impl<'a> EventClosure for MonitorClosure<'a> {
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
-            signal => Self::send_signal(signal, command_pid),
+            signal => send_signal::<false>(signal, command_pid),
         }
     }
 }
