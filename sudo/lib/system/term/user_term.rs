@@ -102,7 +102,7 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
 pub struct UserTerm {
     tty: File,
     original_termios: MaybeUninit<termios>,
-    changed: AtomicBool,
+    changed: bool,
 }
 
 impl UserTerm {
@@ -111,7 +111,7 @@ impl UserTerm {
         Ok(Self {
             tty: OpenOptions::new().read(true).write(true).open("/dev/tty")?,
             original_termios: MaybeUninit::uninit(),
-            changed: AtomicBool::new(false),
+            changed: false,
         })
     }
 
@@ -170,7 +170,7 @@ impl UserTerm {
     pub fn term_raw<F: AsRawFd>(&mut self, with_signals: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
-        if !self.changed.load(Ordering::Acquire) {
+        if !self.changed {
             cerr(unsafe { tcgetattr(fd, self.original_termios.as_mut_ptr()) })?;
         }
         // Retrieve the original terminal.
@@ -183,7 +183,7 @@ impl UserTerm {
         }
 
         tcsetattr_nobg(fd, TCSADRAIN, &term)?;
-        self.changed.store(true, Ordering::Release);
+        self.changed = true;
 
         Ok(())
     }
@@ -192,12 +192,12 @@ impl UserTerm {
     ///
     /// This change is done after waiting for all the queued output to be written. To discard the
     /// queued input `flush` must be set to `true`.
-    pub fn restore(&self, flush: bool) -> io::Result<()> {
-        if self.changed.load(Ordering::Acquire) {
+    pub fn restore(&mut self, flush: bool) -> io::Result<()> {
+        if self.changed {
             let fd = self.tty.as_raw_fd();
             let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
             tcsetattr_nobg(fd, flags, self.original_termios.as_ptr())?;
-            self.changed.store(false, Ordering::Release);
+            self.changed = false;
         }
 
         Ok(())
