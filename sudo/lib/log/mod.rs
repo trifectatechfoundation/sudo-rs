@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn can_construct_logger() {
         let logger = SudoLogger::new();
-
-        assert_eq!(logger.0.len(), 2);
+        let len = if cfg!(feature = "dev") { 3 } else { 2 };
+        assert_eq!(logger.0.len(), len);
     }
 }
