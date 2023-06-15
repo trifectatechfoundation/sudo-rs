@@ -16,16 +16,16 @@ use crate::{
 fn some_vars_are_set() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
-    let stdout = Command::new("env").exec(&env)?.stdout()?;
+    let stdout = Command::new("env").output(&env)?.stdout()?;
     let normal_env = helpers::parse_env_output(&stdout)?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
         .args(["-i", SUDO_RS_IS_UNSTABLE, &sudo_abs_path, &env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let mut sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -85,7 +85,7 @@ fn most_vars_are_removed() -> Result<()> {
     let stdout = Command::new("sh")
         .arg("-c")
         .arg(format!("{set_env_var}; env"))
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let env_vars = helpers::parse_env_output(&stdout)?;
     assert!(env_vars.contains_key(varname));
@@ -93,7 +93,7 @@ fn most_vars_are_removed() -> Result<()> {
     let stdout = Command::new("sh")
         .arg("-c")
         .arg(format!("{set_env_var}; sudo env"))
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let env_vars = helpers::parse_env_output(&stdout)?;
     assert!(!env_vars.contains_key(varname));
@@ -110,8 +110,8 @@ fn user_dependent_vars() -> Result<()> {
         .user(User(USERNAME).shell(shell_path))
         .build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
@@ -123,7 +123,7 @@ fn user_dependent_vars() -> Result<()> {
             USERNAME,
             &env_abs_path,
         ])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let mut sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -158,8 +158,8 @@ fn user_dependent_vars() -> Result<()> {
 fn some_vars_are_preserved() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let home = "some-home";
     let mail = "some-mail";
@@ -192,7 +192,7 @@ fn some_vars_are_preserved() -> Result<()> {
             &sudo_abs_path,
             &env_abs_path,
         ])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let mut sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -225,8 +225,8 @@ fn some_vars_are_preserved() -> Result<()> {
 fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let stdout = Command::new("env")
         .args([
@@ -238,7 +238,7 @@ fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
             &sudo_abs_path,
             &env_abs_path,
         ])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 

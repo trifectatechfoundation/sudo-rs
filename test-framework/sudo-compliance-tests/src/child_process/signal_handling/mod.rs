@@ -21,7 +21,7 @@ fn signal_sent_by_child_process_is_ignored() -> Result<()> {
         .args(["sh", kill_sudo_parent])
         .as_user(USERNAME)
         .tty(true)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -44,7 +44,7 @@ fn signal_is_forwarded_to_child() -> Result<()> {
     Command::new("sh")
         .arg(kill_sudo)
         .tty(true)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let actual = child.wait()?.stdout()?;
@@ -67,7 +67,7 @@ fn child_terminated_by_signal() -> Result<()> {
         .args(["sh", "-c", "kill $$"])
         .as_user(USERNAME)
         .tty(true)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert_eq!(Some(143), output.status().code());
     assert!(output.stderr().is_empty());
@@ -89,7 +89,7 @@ fn sigtstp_works() -> Result<()> {
     let output = Command::new("bash")
         .arg(script_path)
         .tty(true)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let timestamps = output

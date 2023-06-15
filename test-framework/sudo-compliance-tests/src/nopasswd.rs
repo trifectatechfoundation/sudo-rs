@@ -14,7 +14,7 @@ fn user_is_root() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -29,7 +29,7 @@ fn user_as_themselves() -> Result<()> {
     Command::new("sudo")
         .args(["-u", USERNAME, "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -43,7 +43,7 @@ fn user_as_their_own_group() -> Result<()> {
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -56,6 +56,6 @@ fn nopasswd_tag() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }

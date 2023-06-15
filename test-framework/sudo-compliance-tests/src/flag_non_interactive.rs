@@ -14,7 +14,7 @@ fn fails_if_password_needed() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-n", "true"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -44,7 +44,7 @@ fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
             "echo {PASSWORD} | sudo -S true 2>/dev/null; sudo -n -k true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -70,7 +70,7 @@ fn root() -> Result<()> {
 
     Command::new("sudo")
         .args(["-n", "true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -81,7 +81,7 @@ fn nopasswd() -> Result<()> {
     Command::new("sudo")
         .args(["-n", "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -95,7 +95,7 @@ fn cached_credential() -> Result<()> {
         .arg("-c")
         .arg(format!("echo {PASSWORD} | sudo -S true; sudo -n true"))
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -107,7 +107,7 @@ fn lecture_is_not_shown() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-n", "true"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());

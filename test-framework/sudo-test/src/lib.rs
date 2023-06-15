@@ -80,7 +80,7 @@ impl Command {
     ///
     /// this method panics if the requested `as_user` does not exist in the test environment. to
     /// execute a command as a non-existent user use `Command::as_user_id`
-    pub fn exec(&self, env: &Env) -> Result<Output> {
+    pub fn output(&self, env: &Env) -> Result<Output> {
         if let Some(As::User(username)) = self.get_as() {
             assert!(
                 env.users.contains(username),
@@ -88,7 +88,7 @@ impl Command {
             );
         }
 
-        env.container.exec(self)
+        env.container.output(self)
     }
 
     /// spawns the command in the specified test environment
@@ -377,11 +377,11 @@ impl User {
             useradd.arg("--groups").arg(group_list);
         }
         useradd.arg(&self.name);
-        container.exec(&useradd)?.assert_success()?;
+        container.output(&useradd)?.assert_success()?;
 
         if let Some(password) = &self.password {
             container
-                .exec(Command::new("chpasswd").stdin(format!("{}:{password}", self.name)))?
+                .output(Command::new("chpasswd").stdin(format!("{}:{password}", self.name)))?
                 .assert_success()?;
         }
 
@@ -439,7 +439,7 @@ impl Group {
             groupadd.arg(id.to_string());
         }
         groupadd.arg(&self.name);
-        container.exec(&groupadd)?.assert_success()
+        container.output(&groupadd)?.assert_success()
     }
 }
 
@@ -515,10 +515,10 @@ impl TextFile {
         container.cp(path, &contents)?;
 
         container
-            .exec(Command::new("chown").args([&self.chown, path]))?
+            .output(Command::new("chown").args([&self.chown, path]))?
             .assert_success()?;
         container
-            .exec(Command::new("chmod").args([&self.chmod, path]))?
+            .output(Command::new("chmod").args([&self.chmod, path]))?
             .assert_success()
     }
 }
@@ -592,13 +592,13 @@ impl Directory {
     fn create(&self, container: &Container) -> Result<()> {
         let path = &self.path;
         container
-            .exec(Command::new("mkdir").args([path]))?
+            .output(Command::new("mkdir").args([path]))?
             .assert_success()?;
         container
-            .exec(Command::new("chown").args([&self.chown, path]))?
+            .output(Command::new("chown").args([&self.chown, path]))?
             .assert_success()?;
         container
-            .exec(Command::new("chmod").args([&self.chmod, path]))?
+            .output(Command::new("chmod").args([&self.chmod, path]))?
             .assert_success()
     }
 }
@@ -621,7 +621,7 @@ impl From<&'_ str> for Directory {
 
 fn getent_group(container: &Container) -> Result<(HashSet<Groupname>, HashSet<u32>)> {
     let stdout = container
-        .exec(Command::new("getent").arg("group"))?
+        .output(Command::new("getent").arg("group"))?
         .stdout()?;
     let mut groupnames = HashSet::new();
     let mut group_ids = HashSet::new();
@@ -643,7 +643,7 @@ fn getent_group(container: &Container) -> Result<(HashSet<Groupname>, HashSet<u3
 
 fn getent_passwd(container: &Container) -> Result<(HashSet<Username>, HashSet<u32>)> {
     let stdout = container
-        .exec(Command::new("getent").arg("passwd"))?
+        .output(Command::new("getent").arg("passwd"))?
         .stdout()?;
     let mut usernames = HashSet::new();
     let mut user_ids = HashSet::new();
@@ -697,7 +697,7 @@ mod tests {
         let output = Command::new("sh")
             .arg("-c")
             .arg(format!("[ -d /home/{USERNAME} ]"))
-            .exec(&env)?;
+            .output(&env)?;
         assert!(!output.status().success());
         Ok(())
     }
@@ -708,7 +708,7 @@ mod tests {
 
         let stdout = Command::new("groups")
             .as_user(USERNAME)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let groups = stdout.split(' ').collect::<HashSet<_>>();
         assert!(!groups.contains(USERNAME));
@@ -722,7 +722,7 @@ mod tests {
 
         let stdout = Command::new("passwd")
             .args(["--status", USERNAME])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
 
         assert!(stdout.starts_with(&format!("{USERNAME} L")));
@@ -741,7 +741,7 @@ mod tests {
             .args(["-S", "true"])
             .as_user(USERNAME)
             .stdin(password)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()
     }
 
@@ -754,7 +754,7 @@ mod tests {
 
         let stdout = Command::new("groups")
             .as_user(USERNAME)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let user_groups = stdout.split(' ').collect::<HashSet<_>>();
         assert!(user_groups.contains(groupname));
@@ -769,7 +769,7 @@ mod tests {
 
         let actual = Command::new("cat")
             .arg("/etc/sudoers")
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         assert_eq!(expected, actual);
 
@@ -788,10 +788,13 @@ mod tests {
             .file(path, TextFile(expected_contents).chown(chown).chmod(chmod))
             .build()?;
 
-        let actual_contents = Command::new("cat").arg(path).exec(&env)?.stdout()?;
+        let actual_contents = Command::new("cat").arg(path).output(&env)?.stdout()?;
         assert_eq!(expected_contents, &actual_contents);
 
-        let ls_l = Command::new("ls").args(["-l", path]).exec(&env)?.stdout()?;
+        let ls_l = Command::new("ls")
+            .args(["-l", path])
+            .output(&env)?
+            .stdout()?;
         assert!(ls_l.starts_with("-rw-------"));
         assert!(ls_l.contains(&format!("{USERNAME} {GROUPNAME}")));
 
@@ -837,7 +840,7 @@ mod tests {
 
         let actual = Command::new("id")
             .args(["-u", USERNAME])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?
             .parse()?;
         assert_eq!(expected, actual);
@@ -854,7 +857,7 @@ mod tests {
 
         let stdout = Command::new("getent")
             .args(["group", GROUPNAME])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let actual = stdout.split(':').nth(2);
         assert_eq!(Some(expected.to_string().as_str()), actual);
@@ -868,7 +871,7 @@ mod tests {
 
         let env = EnvBuilder::default().hostname(expected).build()?;
 
-        let actual = Command::new("hostname").exec(&env)?.stdout()?;
+        let actual = Command::new("hostname").output(&env)?.stdout()?;
         assert_eq!(expected, actual);
 
         Ok(())
@@ -885,13 +888,13 @@ mod tests {
 
         let a_last_char = Command::new("tail")
             .args(["-c1", path_a])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         assert_eq!("", a_last_char);
 
         let b_last_char = Command::new("tail")
             .args(["-c1", path_b])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         assert_eq!("", b_last_char);
 
@@ -909,13 +912,13 @@ mod tests {
 
         let a_last_char = Command::new("tail")
             .args(["-c1", path_a])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         assert_eq!("o", a_last_char);
 
         let b_last_char = Command::new("tail")
             .args(["-c1", path_b])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
 
         assert_eq!("o", b_last_char);
@@ -936,7 +939,7 @@ mod tests {
 
         let ls_al = Command::new("ls")
             .args(["-al", path])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let dot_entry = ls_al.lines().nth(1).unwrap();
         assert!(dot_entry.ends_with(" ."));
@@ -973,13 +976,13 @@ mod tests {
         Command::new("sh")
             .arg("-c")
             .arg(format!("[ -d {dir_path} ]"))
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
 
         Command::new("sh")
             .arg("-c")
             .arg(format!("[ -f {file_path} ]"))
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
 
         Ok(())
@@ -989,7 +992,7 @@ mod tests {
     fn run_as_nonexistent_user() -> Result<()> {
         let env = EnvBuilder::default().build()?;
 
-        let output = Command::new("whoami").as_user_id(1000).exec(&env)?;
+        let output = Command::new("whoami").as_user_id(1000).output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!("whoami: cannot find name for user ID 1000", output.stderr());
@@ -1006,7 +1009,7 @@ mod tests {
         Command::new("sh")
             .arg("-c")
             .arg(format!("[ -d /home/{USERNAME} ]"))
-            .exec(&env)?
+            .output(&env)?
             .assert_success()
     }
 
@@ -1017,7 +1020,10 @@ mod tests {
             .user(User(USERNAME).shell(expected))
             .build()?;
 
-        let passwd = Command::new("getent").arg("passwd").exec(&env)?.stdout()?;
+        let passwd = Command::new("getent")
+            .arg("passwd")
+            .output(&env)?
+            .stdout()?;
 
         let mut found = false;
         for line in passwd.lines() {

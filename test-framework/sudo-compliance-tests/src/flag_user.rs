@@ -24,10 +24,13 @@ fn root_can_become_another_user_by_name() -> Result<()> {
     // NOTE `id` without flags prints the *real* user/group id if it's different from the
     // *effective* user/group id so here we are checking that both the real *and* effective UID has
     // changed to match the target user's
-    let expected = Command::new("id").as_user(USERNAME).exec(&env)?.stdout()?;
+    let expected = Command::new("id")
+        .as_user(USERNAME)
+        .output(&env)?
+        .stdout()?;
     let actual = Command::new("sudo")
         .args(["-u", USERNAME, "id"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(expected, actual);
@@ -42,15 +45,18 @@ fn root_can_become_another_user_by_uid() -> Result<()> {
     let uid = Command::new("id")
         .arg("-u")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?
         .parse::<u32>()?;
-    let expected = Command::new("id").as_user(USERNAME).exec(&env)?.stdout()?;
+    let expected = Command::new("id")
+        .as_user(USERNAME)
+        .output(&env)?
+        .stdout()?;
     let actual = Command::new("sudo")
         .arg("-u")
         .arg(format!("#{uid}"))
         .arg("id")
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(expected, actual);
@@ -69,12 +75,12 @@ fn user_can_become_another_user() -> Result<()> {
 
     let expected = Command::new("id")
         .as_user(another_user)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let actual = Command::new("sudo")
         .args(["-u", another_user, "id"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(expected, actual);
@@ -95,12 +101,12 @@ fn invoking_user_groups_are_lost_when_becoming_another_user() -> Result<()> {
 
     let expected = Command::new("id")
         .as_user(another_user)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let actual = Command::new("sudo")
         .args(["-u", another_user, "id"])
         .as_user(invoking_user)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(expected, actual);
@@ -119,7 +125,7 @@ fn unassigned_user_id_is_rejected() -> Result<()> {
             .arg(format!("#{expected_uid}"))
             .arg("true")
             .as_user(user)
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -141,7 +147,7 @@ fn user_does_not_exist() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["-u", "ghost", "true"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());

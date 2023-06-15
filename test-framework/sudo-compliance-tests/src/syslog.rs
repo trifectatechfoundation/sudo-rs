@@ -19,7 +19,7 @@ impl<'a> Rsyslogd<'a> {
         Command::new("sh")
             .arg("-c")
             .arg(format!("[ ! -f {path} ] || cat {path}"))
-            .exec(self.env)?
+            .output(self.env)?
             .stdout()
     }
 }
@@ -29,7 +29,7 @@ impl Drop for Rsyslogd<'_> {
         // need to kill the daemon or `Env::drop` won't properly `stop` the docker container
         let _ = Command::new("sh")
             .args(["-c", "kill -9 $(pidof rsyslogd)"])
-            .exec(self.env);
+            .output(self.env);
     }
 }
 
@@ -43,7 +43,7 @@ fn rsyslogd_works() -> Result<()> {
 
     Command::new("useradd")
         .arg("ferris")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let auth_log = rsyslog.auth_log()?;
@@ -63,7 +63,7 @@ fn sudo_logs_every_executed_command() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let auth_log = rsyslog.auth_log()?;
@@ -83,7 +83,7 @@ fn sudo_logs_every_failed_authentication_attempt() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
 

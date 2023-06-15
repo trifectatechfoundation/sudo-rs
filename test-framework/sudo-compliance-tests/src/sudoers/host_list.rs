@@ -22,7 +22,7 @@ fn given_specific_hostname_then_sudo_from_said_hostname_is_allowed() -> Result<(
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -32,7 +32,7 @@ fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() -> Re
         .hostname("container")
         .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -58,7 +58,7 @@ fn different() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -70,7 +70,7 @@ fn repeated() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -80,7 +80,7 @@ fn negation_rejects() -> Result<()> {
         .hostname("container")
         .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -106,7 +106,7 @@ fn double_negative_is_positive() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -118,6 +118,6 @@ fn longest_hostname() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }

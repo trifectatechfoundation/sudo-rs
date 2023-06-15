@@ -24,7 +24,7 @@ fn cmnd_alias_works() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -40,7 +40,7 @@ fn cmnd_alias_nopasswd() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -54,7 +54,7 @@ fn cmnd_alias_can_contain_underscore_and_digits() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -69,7 +69,7 @@ fn cmnd_alias_cannot_start_with_underscore() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -81,7 +81,7 @@ fn unlisted_cmnd_fails() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -106,7 +106,7 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -132,7 +132,7 @@ fn command_alias_negation() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -159,7 +159,7 @@ fn combined_cmnd_aliases() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     let stderr = output.stderr();
@@ -172,7 +172,7 @@ fn combined_cmnd_aliases() -> Result<()> {
         );
     }
 
-    let second_output = Command::new("sudo").arg("ls").exec(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env)?;
 
     assert!(second_output.status().success());
 
@@ -189,7 +189,7 @@ fn double_negation() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -205,10 +205,10 @@ fn negation_not_order_sensitive() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
-    let output = Command::new("sudo").arg("ls").exec(&env)?;
+    let output = Command::new("sudo").arg("ls").output(&env)?;
     assert!(!output.status().success());
 
     let stderr = output.stderr();
@@ -235,11 +235,11 @@ fn negation_combination() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
 
-    let second_output = Command::new("sudo").arg("ls").exec(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env)?;
 
     assert!(second_output.status().success());
 
@@ -257,7 +257,7 @@ fn another_negation_combination() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -271,7 +271,7 @@ fn another_negation_combination() -> Result<()> {
         );
     }
 
-    let second_output = Command::new("sudo").arg("ls").exec(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env)?;
 
     assert!(second_output.status().success());
 
@@ -289,7 +289,7 @@ fn one_more_negation_combination() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -303,7 +303,7 @@ fn one_more_negation_combination() -> Result<()> {
         );
     }
 
-    let second_output = Command::new("sudo").arg("ls").exec(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env)?;
 
     assert!(second_output.status().success());
 
@@ -320,7 +320,7 @@ fn tripple_negation_combination() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -334,7 +334,7 @@ fn tripple_negation_combination() -> Result<()> {
         );
     }
 
-    let second_output = Command::new("sudo").arg("ls").exec(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env)?;
 
     assert!(!second_output.status().success());
 
@@ -360,11 +360,11 @@ fn comma_listing_works() -> Result<()> {
     ])
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
 
-    let second_output = Command::new("sudo").arg("ls").exec(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env)?;
 
     assert!(second_output.status().success());
 
@@ -383,13 +383,13 @@ fn runas_override() -> Result<()> {
 
     let stdout = Command::new("sudo")
         .args(["/usr/bin/ls", "/root"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     assert_eq!("", stdout);
 
     let output = Command::new("sudo")
         .args(["-u", "ferris", "/usr/bin/ls"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -406,10 +406,10 @@ fn runas_override() -> Result<()> {
 
     Command::new("sudo")
         .args(["-u", "ferris", "/usr/bin/true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
-    let second_output = Command::new("sudo").args(["/usr/bin/true"]).exec(&env)?;
+    let second_output = Command::new("sudo").args(["/usr/bin/true"]).output(&env)?;
 
     assert!(!second_output.status().success());
     assert_eq!(Some(1), second_output.status().code());
@@ -439,12 +439,12 @@ fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .args(["-u", "ferris", "true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())

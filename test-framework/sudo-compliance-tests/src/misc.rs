@@ -20,7 +20,7 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
     let output = Command::new("sudo")
         .arg("true")
         .as_user_id(1000)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -46,7 +46,7 @@ fn closes_open_file_descriptors() -> Result<()> {
         )
         .build()?;
 
-    let output = Command::new("bash").arg(script_path).exec(&env)?;
+    let output = Command::new("bash").arg(script_path).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -63,13 +63,13 @@ fn sudo_binary_lacks_setuid_flag() -> Result<()> {
 
     Command::new("chmod")
         .args(["0755", "/usr/bin/sudo"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -89,13 +89,13 @@ fn sudo_binary_is_not_owned_by_root() -> Result<()> {
 
     Command::new("chown")
         .args([USERNAME, "/usr/bin/sudo"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());

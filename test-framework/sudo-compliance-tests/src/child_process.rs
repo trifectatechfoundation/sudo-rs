@@ -13,7 +13,7 @@ fn sudo_forwards_childs_exit_code() -> Result<()> {
     let output = Command::new("sudo")
         .args(["sh", "-c"])
         .arg(format!("exit {expected}"))
-        .exec(&env)?;
+        .output(&env)?;
     assert_eq!(Some(expected), output.status().code());
 
     Ok(())
@@ -24,7 +24,7 @@ fn sudo_forwards_childs_stdout() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
     let expected = "hello";
-    let output = Command::new("sudo").args(["echo", expected]).exec(&env)?;
+    let output = Command::new("sudo").args(["echo", expected]).output(&env)?;
     assert!(output.stderr().is_empty());
     assert_eq!(expected, output.stdout()?);
 
@@ -39,7 +39,7 @@ fn sudo_forwards_childs_stderr() -> Result<()> {
     let output = Command::new("sudo")
         .args(["sh", "-c"])
         .arg(format!(">&2 echo {expected}"))
-        .exec(&env)?;
+        .output(&env)?;
     assert_eq!(expected, output.stderr());
     assert!(output.stdout()?.is_empty());
 
@@ -55,10 +55,10 @@ fn sudo_forwards_stdin_to_child() -> Result<()> {
     Command::new("sudo")
         .args(["tee", path])
         .stdin(expected)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
-    let actual = Command::new("cat").arg(path).exec(&env)?.stdout()?;
+    let actual = Command::new("cat").arg(path).output(&env)?.stdout()?;
 
     assert_eq!(expected, actual);
 

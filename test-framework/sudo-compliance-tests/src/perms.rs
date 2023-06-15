@@ -15,7 +15,7 @@ fn user_can_read_file_owned_by_root() -> Result<()> {
     let actual = Command::new("sudo")
         .args(["cat", path])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     assert_eq!(expected, actual);
 
@@ -33,7 +33,7 @@ fn user_can_write_file_owned_by_root() -> Result<()> {
     Command::new("sudo")
         .args(["rm", path])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -55,6 +55,6 @@ exit 0"#,
     Command::new("sudo")
         .arg(path)
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }

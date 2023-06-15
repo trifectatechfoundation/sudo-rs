@@ -28,7 +28,7 @@ fn when_empty_then_implicit_as_self_is_allowed() -> Result<()> {
         Command::new("sudo")
             .args(["true"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -43,7 +43,7 @@ fn when_empty_then_explicit_as_self_is_allowed() -> Result<()> {
         Command::new("sudo")
             .args(["-u", user, "true"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -56,7 +56,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "true"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -85,7 +85,7 @@ fn when_empty_then_as_own_group_is_allowed() -> Result<()> {
         Command::new("sudo")
             .args(["-g", user, "true"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -102,7 +102,7 @@ fn when_specific_user_then_as_that_user_is_allowed() -> Result<()> {
         Command::new("sudo")
             .args(["-u", USERNAME, "true"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -118,7 +118,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["-u", "ghost", "true"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -140,7 +140,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
 fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
     let env = Env(format!("ALL ALL=({USERNAME}) NOPASSWD: ALL")).build()?;
 
-    let output = Command::new("sudo").args(["true"]).exec(&env)?;
+    let output = Command::new("sudo").args(["true"]).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -176,7 +176,7 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
         let output = Command::new("sudo")
             .args(["-g", GROUPNAME, "true"])
             .as_user(user)
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -203,7 +203,7 @@ fn when_specific_group_then_as_that_group_is_allowed() -> Result<()> {
         Command::new("sudo")
             .args(["-g", GROUPNAME, "true"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -224,7 +224,7 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> 
         let output = Command::new("sudo")
             .args(["-g", "ghosts", "true"])
             .as_user(user)
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -257,7 +257,7 @@ fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()>
         let output = Command::new("sudo")
             .args(["-u", "ghost", "true"])
             .as_user(user)
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -288,7 +288,7 @@ fn when_both_user_and_group_are_specified_then_as_that_user_is_allowed() -> Resu
         Command::new("sudo")
             .args(["-u", USERNAME, "true"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -307,7 +307,7 @@ fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Res
         Command::new("sudo")
             .args(["-g", GROUPNAME, "true"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -323,7 +323,7 @@ fn when_no_run_as_spec_then_target_user_can_be_root() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -333,7 +333,7 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()>
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "true"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -360,7 +360,7 @@ fn when_no_run_as_spec_then_a_target_group_may_be_specified() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-u", "root", "-g", GROUPNAME, "groups"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let mut actual = output.split_ascii_whitespace().collect::<HashSet<_>>();
@@ -386,7 +386,7 @@ fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_a
     Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())

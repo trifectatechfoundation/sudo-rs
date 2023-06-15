@@ -20,7 +20,7 @@ macro_rules! assert_snapshot {
 fn no_match() -> Result<()> {
     let env = Env("").build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
     assert_eq!(Some(1), output.status().code());
 
     let stderr = output.stderr();
@@ -44,13 +44,13 @@ fn all() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -60,7 +60,7 @@ fn user_name() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -70,7 +70,7 @@ fn user_id() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -80,7 +80,7 @@ fn group_name() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -90,7 +90,7 @@ fn group_id() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -102,13 +102,13 @@ fn many_different() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -118,7 +118,7 @@ fn many_repeated() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -130,7 +130,7 @@ fn double_negative_is_positive() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -147,13 +147,13 @@ fn negation_excludes_group_members() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user("ferris")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user("ghost")
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -183,13 +183,13 @@ fn negation_is_order_sensitive() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user("ferris")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .arg("true")
         .as_user("ghost")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -210,13 +210,13 @@ fn user_alias_works() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user("ferris")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user("ghost")
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -246,7 +246,7 @@ fn user_alias_can_contain_underscore_and_digits() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -265,7 +265,7 @@ fn user_alias_cannot_start_with_underscore() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -287,13 +287,13 @@ User_Alias ADMINS = %users, !ghost
     Command::new("sudo")
         .arg("true")
         .as_user("ghost")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user("ferris")
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -322,13 +322,13 @@ fn negated_subgroup() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user("ghost")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user("ferris")
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -352,7 +352,10 @@ fn negated_supergroup() -> Result<()> {
         .build()?;
 
     for user in ["ferris", "ghost"] {
-        let output = Command::new("sudo").arg("true").as_user(user).exec(&env)?;
+        let output = Command::new("sudo")
+            .arg("true")
+            .as_user(user)
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());

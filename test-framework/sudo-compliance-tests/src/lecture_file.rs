@@ -15,7 +15,7 @@ fn default_lecture_message() -> Result<()> {
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
     Ok(())
@@ -34,7 +34,7 @@ fn new_lecture_message() -> Result<()> {
         .as_user(USERNAME)
         .stdin(PASSWORD)
         .args(["-S", "true"])
-        .exec(&env)?;
+        .output(&env)?;
     assert!(!output.status().success());
     assert_contains!(output.stderr(), "I <3 sudo");
     Ok(())
@@ -57,7 +57,7 @@ fn new_lecture_for_specific_user() -> Result<()> {
         .as_user(USERNAME)
         .stdin(PASSWORD)
         .args(["-S", "true"])
-        .exec(&env)?;
+        .output(&env)?;
     assert!(!output.status().success());
     assert_contains!(output.stderr(), "I <3 sudo");
     Ok(())
@@ -81,7 +81,7 @@ fn default_lecture_for_unspecified_user() -> Result<()> {
         .as_user("other_user")
         .stdin("other_password")
         .args(["-S", "true"])
-        .exec(&env)?;
+        .output(&env)?;
     assert!(!output.status().success());
     assert_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
     Ok(())

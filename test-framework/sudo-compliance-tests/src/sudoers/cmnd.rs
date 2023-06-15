@@ -23,7 +23,7 @@ fn given_specific_command_then_that_command_is_allowed() -> Result<()> {
 
     Command::new("sudo")
         .arg("/bin/true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -31,7 +31,7 @@ fn given_specific_command_then_that_command_is_allowed() -> Result<()> {
 fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) /bin/ls").build()?;
 
-    let output = Command::new("sudo").arg("/bin/true").exec(&env)?;
+    let output = Command::new("sudo").arg("/bin/true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -58,7 +58,7 @@ fn given_specific_command_with_nopasswd_tag_then_no_password_auth_is_required() 
     Command::new("sudo")
         .arg("/bin/true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -66,7 +66,7 @@ fn given_specific_command_with_nopasswd_tag_then_no_password_auth_is_required() 
 fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) true").build()?;
 
-    let output = Command::new("sudo").arg("/bin/true").exec(&env)?;
+    let output = Command::new("sudo").arg("/bin/true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -90,12 +90,12 @@ fn different() -> Result<()> {
 
     Command::new("sudo")
         .arg("/bin/true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .args(["/bin/ls", "/root"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("", output);
@@ -113,7 +113,7 @@ fn nopasswd_is_sticky() -> Result<()> {
     Command::new("sudo")
         .arg("/bin/true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -123,7 +123,7 @@ fn repeated() -> Result<()> {
 
     Command::new("sudo")
         .arg("/bin/true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -136,7 +136,7 @@ fn nopasswd_override() -> Result<()> {
     Command::new("sudo")
         .arg("/bin/true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -148,14 +148,14 @@ fn runas_override() -> Result<()> {
 
     let stdout = Command::new("sudo")
         .args(["/bin/ls", "/root"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("", stdout);
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "/bin/ls"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -169,10 +169,10 @@ fn runas_override() -> Result<()> {
 
     Command::new("sudo")
         .args(["-u", "ferris", "/bin/true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
-    let output = Command::new("sudo").args(["/bin/true"]).exec(&env)?;
+    let output = Command::new("sudo").args(["/bin/true"]).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -197,12 +197,12 @@ fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .args(["-u", USERNAME, "true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())

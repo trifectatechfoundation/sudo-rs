@@ -14,7 +14,7 @@ fn can_retry_password() -> Result<()> {
             "(echo wrong-password; echo {PASSWORD}) | sudo -S true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -30,7 +30,7 @@ fn three_retries_allowed_by_default() -> Result<()> {
             "(for i in $(seq 1 3); do echo wrong-password; done; echo {PASSWORD}) | sudo -S true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -76,7 +76,7 @@ Defaults passwd_tries=2"
             "(for i in $(seq 1 2); do echo wrong-password; done; echo {PASSWORD}) | sudo -S true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -130,7 +130,7 @@ fn time_password_retry(script_path: &str, env: Env) -> Result<u64> {
     let stdout = Command::new("sh")
         .arg(script_path)
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let timestamps = stdout
         .lines()
@@ -156,7 +156,7 @@ fn can_control_retry_delay_using_pam() -> Result<()> {
         .build()?;
     let common_auth = Command::new("cat")
         .arg("/etc/pam.d/common-auth")
-        .exec(&check_env)?
+        .output(&check_env)?
         .stdout()?;
     let common_auth = common_auth
         .lines()

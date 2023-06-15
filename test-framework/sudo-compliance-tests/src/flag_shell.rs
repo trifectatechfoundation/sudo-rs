@@ -20,7 +20,10 @@ fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_data
 {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
-    let getent_passwd = Command::new("getent").arg("passwd").exec(&env)?.stdout()?;
+    let getent_passwd = Command::new("getent")
+        .arg("passwd")
+        .output(&env)?
+        .stdout()?;
     let user_to_shell = parse_getent_passwd_output(&getent_passwd)?;
     let target_users_shell = user_to_shell["root"];
     let invoking_users_shell = user_to_shell["ferris"];
@@ -31,7 +34,7 @@ fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_data
     let output = Command::new("env")
         .args(["-u", "SHELL", "sudo", "-s", "echo", "$0"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(invoking_users_shell, output);
@@ -51,7 +54,7 @@ echo $0";
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(shell_path, output);
@@ -71,7 +74,7 @@ echo $@";
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s", "argument"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("-c argument", output);
@@ -91,7 +94,7 @@ echo $@";
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s", "a", "b"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("-c a b", output);
@@ -111,7 +114,7 @@ for arg in \"$@\"; do echo -n \"{$arg}\"; done";
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s", "a b", "c d"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("{-c}{a\\ b c\\ d}", output);
@@ -131,7 +134,7 @@ echo $@";
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s", "'", "\"", "a b"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(r#"-c \' \" a\ b"#, output);
@@ -151,7 +154,7 @@ echo $@";
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s", "a", "1", "_", "-", "$", "$VAR", "${VAR}"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(r#"-c a 1 _ - $ $VAR $\{VAR\}"#, output);
@@ -165,7 +168,7 @@ fn shell_is_not_invoked_as_a_login_shell() -> Result<()> {
 
     let actual = Command::new("env")
         .args(["SHELL=/bin/bash", "sudo", "-s", "echo", "$0"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     // man bash says "A login shell is one whose first character of argument zero is a -"
@@ -183,7 +186,7 @@ fn shell_does_not_exist() -> Result<()> {
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -208,7 +211,7 @@ fn shell_is_not_executable() -> Result<()> {
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -233,7 +236,7 @@ fn shell_with_open_permissions_is_accepted() -> Result<()> {
     let output = Command::new("env")
         .arg(format!("SHELL={shell_path}"))
         .args(["sudo", "-s"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(output.status().success());
 

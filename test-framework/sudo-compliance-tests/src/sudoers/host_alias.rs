@@ -24,7 +24,7 @@ fn host_alias_works() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -38,7 +38,7 @@ fn host_alias_can_contain_underscore_and_digits() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -55,7 +55,7 @@ fn host_alias_cannot_start_with_underscore() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -70,7 +70,7 @@ fn host_alias_negation() -> Result<()> {
     .hostname("mail")
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -98,7 +98,7 @@ fn host_alias_double_negation() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -113,7 +113,7 @@ fn combined_host_aliases() -> Result<()> {
     .hostname("foo")
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
     assert!(output.status().success());
 
     let second_env = Env([
@@ -125,7 +125,7 @@ fn combined_host_aliases() -> Result<()> {
     .hostname("mail")
     .build()?;
 
-    let second_output = Command::new("sudo").arg("true").exec(&second_env)?;
+    let second_output = Command::new("sudo").arg("true").output(&second_env)?;
     assert!(!second_output.status().success());
     let stderr = second_output.stderr();
     if sudo_test::is_original_sudo() {
@@ -151,7 +151,7 @@ fn unlisted_host_fails() -> Result<()> {
     .hostname("not_listed")
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -179,7 +179,7 @@ fn negation_not_order_sensitive() -> Result<()> {
     .hostname("mail")
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
 
@@ -208,7 +208,7 @@ fn negation_combination() -> Result<()> {
     .hostname("mail")
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
 
@@ -226,7 +226,7 @@ fn comma_listing_works() -> Result<()> {
     .hostname("foo")
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
     let second_env = Env([
@@ -238,7 +238,7 @@ fn comma_listing_works() -> Result<()> {
     .hostname("mail")
     .build()?;
 
-    let second_output = Command::new("sudo").arg("true").exec(&second_env)?;
+    let second_output = Command::new("sudo").arg("true").output(&second_env)?;
 
     assert!(second_output.status().success());
 

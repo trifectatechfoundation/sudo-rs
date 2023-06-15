@@ -18,7 +18,7 @@ mod user_list;
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
     let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chmod("446")).build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -39,7 +39,7 @@ fn cannot_sudo_if_sudoers_file_is_group_writable() -> Result<()> {
     .user(User(USERNAME).password(PASSWORD))
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -56,7 +56,7 @@ fn cannot_sudo_if_sudoers_file_is_group_writable() -> Result<()> {
 fn can_sudo_if_sudoers_file_is_owner_writable() -> Result<()> {
     let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chmod("644")).build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
     assert_eq!(Some(0), output.status().code());
 
     Ok(())
@@ -68,7 +68,7 @@ fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() -> Result<()> {
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -93,7 +93,7 @@ fn user_specifications_evaluated_bottom_to_top() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
@@ -108,7 +108,7 @@ fn user_specifications_evaluated_bottom_to_top() -> Result<()> {
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -120,6 +120,6 @@ fn accepts_sudoers_file_that_has_no_trailing_newline() -> Result<()> {
 
     Command::new("sudo")
         .arg("true")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }

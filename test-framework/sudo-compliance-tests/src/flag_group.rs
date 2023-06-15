@@ -28,14 +28,14 @@ fn changes_the_real_and_effective_group_id() -> Result<()> {
         let effective_gid = Command::new("sudo")
             .args(["-g", GROUPNAME, "id", "-g"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?
             .parse::<u32>()?;
 
         let real_gid = Command::new("sudo")
             .args(["-g", GROUPNAME, "id", "-r", "-g"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?
             .parse::<u32>()?;
 
@@ -56,13 +56,16 @@ fn adds_group_to_groups_output() -> Result<()> {
         .build()?;
 
     for user in ["root", USERNAME] {
-        let stdout = Command::new("groups").as_user(user).exec(&env)?.stdout()?;
+        let stdout = Command::new("groups")
+            .as_user(user)
+            .output(&env)?
+            .stdout()?;
         let groups_without_sudo = stdout.split_ascii_whitespace().collect::<HashSet<_>>();
 
         let stdout = Command::new("sudo")
             .args(["-g", GROUPNAME, "groups"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let mut groups_with_sudo = stdout.split_ascii_whitespace().collect::<HashSet<_>>();
 
@@ -88,7 +91,7 @@ fn group_can_be_specified_by_id() -> Result<()> {
             .arg(format!("#{expected_gid}"))
             .args(["id", "-g"])
             .as_user(user)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?
             .parse::<u32>()?;
 
@@ -109,7 +112,7 @@ fn unassigned_group_id_is_rejected() -> Result<()> {
             .arg(format!("#{expected_gid}"))
             .arg("true")
             .as_user(user)
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -133,7 +136,7 @@ fn group_does_not_exist() -> Result<()> {
         let output = Command::new("sudo")
             .args(["-g", "ghosts", "true"])
             .as_user(user)
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -160,7 +163,7 @@ fn group_does_not_add_groups_without_authorization() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-g", "elite", "true"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
 
@@ -187,7 +190,7 @@ fn if_no_flag_user_then_target_user_is_the_invoking_user() -> Result<()> {
         let target_user = Command::new("sudo")
             .args(["-g", GROUPNAME, "whoami"])
             .as_user(invoking_user)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
 
         assert_eq!(invoking_user, target_user);
