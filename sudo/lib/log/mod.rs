@@ -30,6 +30,35 @@ logger_macro!(user_info is Info to "sudo::user");
 logger_macro!(user_debug is Debug to "sudo::user");
 logger_macro!(user_trace is Trace to "sudo::user");
 
+#[cfg(not(feature = "dev"))]
+macro_rules! fake_logger {
+    ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
+        #[macro_export(local_inner_macros)]
+        macro_rules! $name {
+            ($d($d arg:tt)+) => ();
+        }
+        pub use $name;
+    };
+    ($name:ident is $rule_level:ident to $target:expr) => {
+        fake_logger!($name is $rule_level to $target, $);
+    };
+}
+
+macro_rules! dev_logger {
+    ($($tokens:tt)*) => {
+        #[cfg(feature = "dev")]
+        logger_macro!($($tokens)*);
+        #[cfg(not(feature = "dev"))]
+        fake_logger!($($tokens)*);
+    };
+}
+
+dev_logger!(dev_error is Error to "sudo::dev");
+dev_logger!(dev_warn is Warn to "sudo::dev");
+dev_logger!(dev_info is Info to "sudo::dev");
+dev_logger!(dev_debug is Debug to "sudo::dev");
+dev_logger!(dev_trace is Trace to "sudo::dev");
+
 #[derive(Default)]
 pub struct SudoLogger(Vec<(String, Box<dyn log::Log>)>);
 
@@ -45,6 +74,21 @@ impl SudoLogger {
             .build();
 
         logger.add_logger("sudo::user", stderr_logger);
+        #[cfg(feature = "dev")]
+        {
+            let path = option_env!("SUDO_DEV_LOGS")
+                .map(|s| s.into())
+                .unwrap_or_else(|| std::env::temp_dir().join("sudo-dev.log"));
+
+            let dev_logger = env_logger::Builder::new()
+                .filter_level(log::LevelFilter::Trace)
+                .target(env_logger::Target::Pipe(Box::new(
+                    std::fs::File::create(path).unwrap(),
+                )))
+                .build();
+
+            logger.add_logger("sudo::dev", dev_logger);
+        }
 
         logger
     }

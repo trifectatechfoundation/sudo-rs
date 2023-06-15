@@ -5,6 +5,7 @@ use pipeline::{Pipeline, PolicyPlugin};
 use std::env;
 use sudo::cli::{help, SudoAction, SudoOptions};
 use sudo::common::{resolve::resolve_current_user, Context, Error};
+use sudo::dev_info;
 use sudo::system::{time::Duration, timestamp::SessionRecordFile, Process};
 
 mod diagnostic;
@@ -73,6 +74,8 @@ impl PolicyPlugin for SudoersPolicy {
 
 fn sudo_process() -> Result<(), Error> {
     sudo::log::SudoLogger::new().into_global_logger();
+
+    dev_info!("development logs are enabled");
 
     // parse cli options
     let sudo_options = match SudoOptions::from_env() {
