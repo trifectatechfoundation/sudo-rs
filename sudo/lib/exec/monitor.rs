@@ -209,7 +209,7 @@ impl<'a> EventClosure for MonitorClosure<'a> {
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
-            "monitor received {}{} from {}",
+            "monitor received{} {} from {}",
             cond_fmt(" user signaled", info.is_user_signaled()),
             signal_fmt(info.signal()),
             info.pid()

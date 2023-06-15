@@ -306,7 +306,7 @@ impl EventClosure for ParentClosure {
 
     fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
-            "parent received {}{} from {}",
+            "parent received{} {} from {}",
             cond_fmt(" user signaled", info.is_user_signaled()),
             signal_fmt(info.signal()),
             info.pid()
