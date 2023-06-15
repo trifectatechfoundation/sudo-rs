@@ -1,4 +1,4 @@
-mod ops;
+mod user_term;
 
 use std::{
     ffi::{c_uchar, CString},
@@ -11,7 +11,7 @@ use crate::cutils::cerr;
 
 use super::interface::ProcessId;
 
-pub use ops::{term_copy, term_raw, term_restore};
+pub use user_term::UserTerm;
 
 pub struct Pty {
     /// The file path of the leader side of the pty.
