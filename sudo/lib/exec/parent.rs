@@ -8,7 +8,7 @@ use signal_hook::consts::*;
 use crate::log::user_error;
 use crate::system::signal::{SignalAction, SignalHandler};
 use crate::system::term::Pty;
-use crate::system::wait::{waitpid, WaitError, WaitOptions, WaitPid};
+use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
@@ -218,25 +218,23 @@ impl ParentClosure {
     }
 
     /// Handle changes to the monitor status.
-    fn handle_sigchld(&mut self) {
+    fn handle_sigchld(&mut self, monitor_pid: ProcessId) {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
-        let (pid, status) = loop {
-            match waitpid(WaitPid::any(), OPTS) {
+        let status = loop {
+            match waitpid(monitor_pid, OPTS) {
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
+                // This only happens if we receive `SIGCHLD` but there's no status update from the
+                // monitor or if the monitor exited and any process already waited for the monitor.
                 Err(_) => return,
-                Ok(ok) => break ok,
+                Ok((_pid, status)) => break status,
             }
         };
 
-        if Some(pid) == self.monitor_pid {
-            if status.did_exit() || status.was_signaled() {
-                self.monitor_pid = None;
-            } else if status.was_stopped() {
-                // FIXME: we should stop too.
-            }
-        } else {
-            // FIXME: what other child could we have?
+        if status.did_exit() || status.was_signaled() {
+            self.monitor_pid = None;
+        } else if status.was_stopped() {
+            // FIXME: we should stop too.
         }
     }
 }
@@ -245,12 +243,12 @@ impl EventClosure for ParentClosure {
     type Break = ParentMessage;
 
     fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
-        if self.monitor_pid.is_none() {
+        let Some(monitor_pid) = self.monitor_pid else {
             return;
-        }
+        };
 
         match info.signal() {
-            SIGCHLD => self.handle_sigchld(),
+            SIGCHLD => self.handle_sigchld(monitor_pid),
             // FIXME: check `resume_terminal`
             SIGCONT => {}
             // FIXME: check `sync_ttysize`
