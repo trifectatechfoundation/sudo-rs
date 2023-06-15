@@ -35,7 +35,7 @@ macro_rules! fake_logger {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
         #[macro_export(local_inner_macros)]
         macro_rules! $name {
-            ($d($d arg:tt)+) => ();
+            ($d($d arg:tt)+) => {{}};
         }
         pub use $name;
     };
