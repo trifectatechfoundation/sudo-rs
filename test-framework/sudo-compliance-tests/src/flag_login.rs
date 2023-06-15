@@ -23,7 +23,7 @@ fn if_home_directory_does_not_exist_executes_program_without_changing_the_workin
         let output = Command::new("sh")
             .arg("-c")
             .arg(format!("cd {expected}; sudo -u {USERNAME} -i pwd"))
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(output.status().success());
 
@@ -51,7 +51,7 @@ fn sets_home_directory_as_working_directory() -> Result<()> {
     let actual = Command::new("sh")
         .arg("-c")
         .arg(format!("cd /; sudo -u {USERNAME} -i pwd"))
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(expected, actual);
@@ -74,7 +74,7 @@ echo $0";
 
     let actual = Command::new("sudo")
         .args(["-u", USERNAME, "-i"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let expected = shell_path;
 
@@ -95,7 +95,7 @@ echo $@";
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-i", "argument"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("-c argument", output);
@@ -115,7 +115,7 @@ echo $@";
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-i", "a", "b"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("-c a b", output);
@@ -135,7 +135,7 @@ for arg in \"$@\"; do echo -n \"{$arg}\"; done";
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-i", "a b", "c d"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("{-c}{a\\ b c\\ d}", output);
@@ -155,7 +155,7 @@ echo $@";
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-i", "'", "\"", "a b"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(r#"-c \' \" a\ b"#, output);
@@ -177,7 +177,7 @@ echo $@";
         .args([
             "-u", USERNAME, "-i", "a", "1", "_", "-", "$", "$VAR", "${VAR}",
         ])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(r#"-c a 1 _ - $ $VAR $\{VAR\}"#, output);
@@ -194,7 +194,7 @@ fn shell_is_invoked_as_a_login_shell() -> Result<()> {
     let expected = "-bash";
     let actual = Command::new("sudo")
         .args(["-u", "ferris", "-i", "echo", "$0"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     // man bash says "A login shell is one whose first character of argument zero is a -"
@@ -212,7 +212,7 @@ fn shell_does_not_exist() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-i"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -237,7 +237,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-i"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -262,6 +262,6 @@ fn shell_with_open_permissions_is_accepted() -> Result<()> {
 
     Command::new("sudo")
         .args(["-u", USERNAME, "-i"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }

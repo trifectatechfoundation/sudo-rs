@@ -40,7 +40,7 @@ impl Container {
         Ok(Container { id })
     }
 
-    pub fn exec(&self, cmd: &Command) -> Result<Output> {
+    pub fn output(&self, cmd: &Command) -> Result<Output> {
         run(&mut self.docker_exec(cmd), cmd.get_stdin())
     }
 
@@ -97,7 +97,7 @@ impl Container {
         let profraw_dir = profraw_dir.as_ref();
         fs::create_dir_all(profraw_dir)?;
 
-        self.exec(Command::new("sh").args([
+        self.output(Command::new("sh").args([
             "-c",
             "mkdir /tmp/profraw; find / -name '*.profraw' -exec cp {} /tmp/profraw/ \\; || true",
         ]))?
@@ -229,9 +229,9 @@ mod tests {
     fn exec_as_root_works() -> Result<()> {
         let docker = Container::new(IMAGE)?;
 
-        docker.exec(&Command::new("true"))?.assert_success()?;
+        docker.output(&Command::new("true"))?.assert_success()?;
 
-        let output = docker.exec(&Command::new("false"))?;
+        let output = docker.output(&Command::new("false"))?;
         assert_eq!(Some(1), output.status.code());
 
         Ok(())
@@ -242,7 +242,7 @@ mod tests {
         let docker = Container::new(IMAGE)?;
 
         docker
-            .exec(Command::new("true").as_user("root"))?
+            .output(Command::new("true").as_user("root"))?
             .assert_success()
     }
 
@@ -253,11 +253,11 @@ mod tests {
         let docker = Container::new(IMAGE)?;
 
         docker
-            .exec(Command::new("useradd").arg(username))?
+            .output(Command::new("useradd").arg(username))?
             .assert_success()?;
 
         docker
-            .exec(Command::new("true").as_user(username))?
+            .output(Command::new("true").as_user(username))?
             .assert_success()
     }
 
@@ -270,7 +270,7 @@ mod tests {
 
         docker.cp(path, expected)?;
 
-        let actual = docker.exec(Command::new("cat").arg(path))?.stdout()?;
+        let actual = docker.output(Command::new("cat").arg(path))?.stdout()?;
         assert_eq!(expected, actual);
 
         Ok(())
@@ -284,10 +284,10 @@ mod tests {
         let docker = Container::new(IMAGE)?;
 
         docker
-            .exec(Command::new("tee").arg(filename).stdin(expected))?
+            .output(Command::new("tee").arg(filename).stdin(expected))?
             .assert_success()?;
 
-        let actual = docker.exec(Command::new("cat").arg(filename))?.stdout()?;
+        let actual = docker.output(Command::new("cat").arg(filename))?.stdout()?;
         assert_eq!(expected, actual);
 
         Ok(())
@@ -303,12 +303,12 @@ mod tests {
         thread::sleep(Duration::from_millis(500));
 
         docker
-            .exec(Command::new("pidof").arg("sh"))?
+            .output(Command::new("pidof").arg("sh"))?
             .assert_success()?;
 
         child.wait()?.assert_success()?;
 
-        let output = docker.exec(Command::new("pidof").arg("sh"))?;
+        let output = docker.output(Command::new("pidof").arg("sh"))?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());

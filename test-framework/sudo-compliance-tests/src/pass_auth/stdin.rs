@@ -15,7 +15,7 @@ fn correct_password() -> Result<()> {
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -29,7 +29,7 @@ fn incorrect_password() -> Result<()> {
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin("incorrect-password")
-        .exec(&env)?;
+        .output(&env)?;
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
@@ -52,7 +52,7 @@ fn no_password() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -77,7 +77,7 @@ fn longest_possible_password_works() -> Result<()> {
         .args(["-S", "true"])
         .stdin(password)
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -90,7 +90,7 @@ fn input_longer_than_max_pam_response_size_is_handled_gracefully() -> Result<()>
         .args(["-S", "true"])
         .stdin(input)
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -121,7 +121,7 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Re
             .args(["-S", "true"])
             .stdin(input)
             .as_user(USERNAME)
-            .exec(&env)?;
+            .output(&env)?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());

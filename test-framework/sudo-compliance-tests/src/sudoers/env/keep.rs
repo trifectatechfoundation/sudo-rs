@@ -144,8 +144,8 @@ fn skips_invalid_variable_names() -> Result<()> {
 fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_keep = WHATEVER"]).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let term = "some-term";
     let stdout = Command::new("env")
@@ -153,7 +153,7 @@ fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<
         .arg("DISPLAY=some-display")
         .arg(format!("TERM={term}"))
         .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -176,8 +176,8 @@ fn minus_equal_can_disable_preservation_of_vars_display_path_but_not_term() -> R
     ])
     .build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let term = "some-term";
     let stdout = Command::new("env")
@@ -185,7 +185,7 @@ fn minus_equal_can_disable_preservation_of_vars_display_path_but_not_term() -> R
         .arg("DISPLAY=some-display")
         .arg(format!("TERM={term}"))
         .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -204,8 +204,8 @@ fn minus_equal_can_disable_preservation_of_vars_display_path_but_not_term() -> R
 fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults !env_keep"]).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let term = "some-term";
     let stdout = Command::new("env")
@@ -213,7 +213,7 @@ fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<(
         .arg("DISPLAY=some-display")
         .arg(format!("TERM={term}"))
         .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -241,7 +241,7 @@ fn checks_not_applied() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{name}={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 

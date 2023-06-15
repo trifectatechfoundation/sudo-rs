@@ -16,7 +16,7 @@ fn given_pam_permit_then_no_password_auth_required() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -31,7 +31,7 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -54,7 +54,7 @@ fn being_root_has_precedence_over_pam() -> Result<()> {
 
     Command::new("sudo")
         .args(["true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -68,6 +68,6 @@ fn nopasswd_in_sudoers_has_precedence_over_pam() -> Result<()> {
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }

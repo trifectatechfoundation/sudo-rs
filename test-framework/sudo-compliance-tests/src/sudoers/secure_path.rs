@@ -22,7 +22,7 @@ fn if_unset_searches_program_in_invoking_users_path() -> Result<()> {
 
     Command::new("sh")
         .args(["-c", "export PATH=/root; cd /; /usr/bin/sudo my-script"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -56,7 +56,7 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
 
         Command::new("sh")
             .args(["-c", script])
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -70,7 +70,7 @@ fn if_set_it_does_not_search_in_original_user_path() -> Result<()> {
 ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     .build()?;
 
-    let output = Command::new("sudo").arg("true").exec(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -103,7 +103,7 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL"
 
         let path = Command::new("sh")
             .args(["-c", script])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
 
         assert_eq!(secure_path, &path);

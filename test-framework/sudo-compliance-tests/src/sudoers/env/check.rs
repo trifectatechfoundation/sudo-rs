@@ -146,8 +146,8 @@ fn skips_invalid_variable_names() -> Result<()> {
 fn equal_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults env_check = WHATEVER"]).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let display = "some-display";
     let path = "some-path";
@@ -156,7 +156,7 @@ fn equal_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<
         .arg(format!("DISPLAY={display}"))
         .arg("TERM=some-term")
         .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -179,8 +179,8 @@ fn minus_equal_can_disable_preservation_of_vars_term_but_not_display_path() -> R
     ])
     .build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let display = "some-display";
     let path = "some-path";
@@ -189,7 +189,7 @@ fn minus_equal_can_disable_preservation_of_vars_term_but_not_display_path() -> R
         .arg(format!("DISPLAY={display}"))
         .arg("TERM=some-term")
         .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -208,8 +208,8 @@ fn minus_equal_can_disable_preservation_of_vars_term_but_not_display_path() -> R
 fn bang_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults !env_check"]).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     let display = "some-display";
     let path = "some-path";
@@ -218,7 +218,7 @@ fn bang_can_disable_preservation_of_vars_term_but_not_display_path() -> Result<(
         .arg(format!("DISPLAY={display}"))
         .arg("TERM=some-term")
         .args([sudo_abs_path, env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -249,7 +249,7 @@ fn vars_not_preserved_if_they_fail_checks() -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -296,7 +296,7 @@ fn good_tz() -> Result<()> {
         let stdout = Command::new("env")
             .arg(format!("{TZ}={value}"))
             .args(["sudo", "env"])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -331,7 +331,7 @@ fn bad_tz() -> Result<()> {
         let stdout = Command::new("env")
             .arg(format!("{TZ}={value}"))
             .args(["sudo", "env"])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -349,7 +349,7 @@ fn tz_is_in_default_list() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{TZ}={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -359,7 +359,7 @@ fn tz_is_in_default_list() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{TZ}={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 

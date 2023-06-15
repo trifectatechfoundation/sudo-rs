@@ -17,7 +17,7 @@ fn it_works() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -k; sudo true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -50,7 +50,7 @@ fn has_a_local_effect() -> Result<()> {
         .arg("-c")
         .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -k; touch /tmp/barrier2")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     child.wait()?.assert_success()
@@ -66,7 +66,7 @@ fn with_command_prompts_for_password() -> Result<()> {
         .arg("-c")
         .arg(format!("echo {PASSWORD} | sudo -S true; sudo -k true"))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -103,7 +103,7 @@ fn with_command_failure_does_not_invalidate_credential_cache() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -k true; [ $? -eq 1 ] || exit 2; sudo true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -125,7 +125,7 @@ fn with_command_success_does_not_invalidate_credential_cache() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; echo {PASSWORD} | sudo -k -S true; sudo true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -141,7 +141,7 @@ fn with_command_does_not_cache_credentials() -> Result<()> {
             "echo {PASSWORD} | sudo -k -S true 2>/dev/null || exit 2; sudo true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());

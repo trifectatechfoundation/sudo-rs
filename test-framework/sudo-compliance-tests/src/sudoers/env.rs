@@ -36,7 +36,7 @@ fn var_in_both_lists_is_preserved() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{name}={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -55,7 +55,7 @@ fn var_in_both_lists_is_preserved() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{name}={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -78,7 +78,7 @@ fn checks_applied_if_in_both_lists() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{name}={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -97,7 +97,7 @@ fn checks_applied_if_in_both_lists() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{name}={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -124,7 +124,7 @@ fn unchecked_tz() -> Result<()> {
         let stdout = Command::new("env")
             .arg(format!("{TZ}={value}"))
             .args(["sudo", "env"])
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
         let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -145,7 +145,7 @@ fn equal_single(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -169,7 +169,7 @@ fn equal_multiple(env_list: EnvList) -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -191,7 +191,7 @@ fn equal_repeated(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -216,7 +216,7 @@ fn equal_overrides(env_list: EnvList) -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -238,7 +238,7 @@ fn plus_equal_on_empty_set(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -263,7 +263,7 @@ fn plus_equal_appends(env_list: EnvList) -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -286,7 +286,7 @@ fn plus_equal_repeated(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -316,7 +316,7 @@ fn vars_with_target_user_specific_values(env_list: EnvList) -> Result<()> {
         .arg(format!("MAIL={mail}"))
         .arg(format!("USER={user}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -342,7 +342,7 @@ fn sudo_env_vars(env_list: EnvList) -> Result<()> {
         .arg("SUDO_UID=uid")
         .arg("SUDO_USER=user")
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -365,7 +365,7 @@ fn user_set_to_preserved_logname_value(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("LOGNAME={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -386,7 +386,7 @@ fn logname_set_to_preserved_user_value(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("USER={value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -408,7 +408,7 @@ fn if_value_starts_with_parentheses_variable_is_removed(env_list: EnvList) -> Re
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -429,7 +429,7 @@ fn key_value_matches(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -450,7 +450,7 @@ fn key_value_no_match(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}=different-value"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -473,7 +473,7 @@ fn key_value_syntax_needs_double_quotes(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -495,7 +495,7 @@ fn key_value_where_value_is_parentheses_glob(env_list: EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -520,7 +520,7 @@ fn minus_equal_removes(env_list: EnvList) -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -542,7 +542,7 @@ fn minus_equal_an_element_not_in_the_list_is_not_an_error(env_list: EnvList) -> 
     let output = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .exec(&env)?;
+        .output(&env)?;
 
     // no diagnostics in this case
     assert!(output.stderr().is_empty());
@@ -571,7 +571,7 @@ fn bang_clears_the_whole_list(env_list: EnvList) -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -599,7 +599,7 @@ fn can_append_after_bang(env_list: EnvList) -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -627,7 +627,7 @@ fn can_override_after_bang(env_list: EnvList) -> Result<()> {
         .arg(format!("{env_name1}={env_val1}"))
         .arg(format!("{env_name2}={env_val2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -657,7 +657,7 @@ fn wildcard_works(env_list: EnvList) -> Result<()> {
         .arg(format!("{kept_name2}={kept_value2}"))
         .arg(format!("{discarded_name}={discarded_value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -689,7 +689,7 @@ fn double_wildcard_is_ok(env_list: EnvList) -> Result<()> {
         .arg(format!("{kept_name2}={kept_value2}"))
         .arg(format!("{discarded_name}={discarded_value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -718,7 +718,7 @@ fn minus_equal_can_remove_wildcard(env_list: EnvList) -> Result<()> {
         .arg(format!("{name1}={value1}"))
         .arg(format!("{name2}={value2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -748,7 +748,7 @@ fn accepts_uncommon_var_names(env_list: EnvList) -> Result<()> {
         .arg(format!("{name2}={value2}"))
         .arg(format!("{name3}={value3}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
@@ -779,7 +779,7 @@ fn skips_invalid_variable_names(env_list: EnvList) -> Result<()> {
         .arg(format!("{discarded_name1}={discarded_value1}"))
         .arg(format!("{discarded_name2}={discarded_value2}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     let sudo_env = helpers::parse_env_output(&stdout)?;

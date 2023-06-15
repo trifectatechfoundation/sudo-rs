@@ -9,15 +9,15 @@ fn ps1_env_var_is_set_when_sudo_ps1_is_set() -> Result<()> {
     let ps1 = "abc";
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
         .args(["-i", SUDO_RS_IS_UNSTABLE])
         .arg(format!("SUDO_PS1={ps1}"))
         .args([&sudo_abs_path, &env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -31,15 +31,15 @@ fn ps1_env_var_is_set_when_sudo_ps1_is_set() -> Result<()> {
 fn ps1_env_var_is_not_set_when_sudo_ps1_is_set_and_flag_login_is_used() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
         .args(["-i", SUDO_RS_IS_UNSTABLE])
         .arg("SUDO_PS1=abc")
         .args([&sudo_abs_path, "-i", &env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -55,15 +55,15 @@ fn can_start_with_parentheses() -> Result<()> {
     let ps1 = "() abc";
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
 
-    let sudo_abs_path = Command::new("which").arg("sudo").exec(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").exec(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
+    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
         .args(["-i", SUDO_RS_IS_UNSTABLE])
         .arg(format!("SUDO_PS1={ps1}"))
         .args([&sudo_abs_path, &env_abs_path])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -84,7 +84,7 @@ fn preserved_when_in_env_list(env_list: &EnvList) -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("SUDO_PS1={ps1}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -117,7 +117,7 @@ fn sudo_ps1_has_precedence_over_env_list_ps1(env_list: &EnvList) -> Result<()> {
         .arg(format!("PS1={ps1}"))
         .arg(format!("SUDO_PS1={sudo_ps1}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -145,7 +145,7 @@ fn ps1_is_set_even_if_sudo_ps1_fails_the_env_check_check() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("SUDO_PS1={sudo_ps1}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
@@ -163,7 +163,7 @@ fn ps1_is_set_even_if_sudo_ps1_fails_the_env_keep_check() -> Result<()> {
     let stdout = Command::new("env")
         .arg(format!("SUDO_PS1={sudo_ps1}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 

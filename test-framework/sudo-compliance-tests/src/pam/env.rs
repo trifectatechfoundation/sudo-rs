@@ -34,7 +34,7 @@ fn stock_pam_d_sudo() -> Result<()> {
     if sudo_test::is_original_sudo() {
         let pam_d_sudo = Command::new("cat")
             .arg(PAM_D_SUDO_PATH)
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
 
         assert_eq!(
@@ -50,13 +50,13 @@ fn stock_pam_d_sudo() -> Result<()> {
             .arg(format!(
                 "if [ -f {PAM_D_SUDO_PATH} ]; then exit 1; else exit 0; fi"
             ))
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
     }
 
     let security_pam_env = Command::new("cat")
         .arg(SECURITY_PAM_ENV_PATH)
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(
@@ -91,7 +91,7 @@ fn preserves_pam_env() -> Result<()> {
         )
         .build()?;
 
-    let stdout = Command::new("sudo").arg("env").exec(&env)?.stdout()?;
+    let stdout = Command::new("sudo").arg("env").output(&env)?.stdout()?;
     let env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(set_value), env.get(set_name).copied());
@@ -128,7 +128,7 @@ fn pam_env_has_precedence_over_callers_env() -> Result<()> {
         .arg(format!("{default_name}=1"))
         .arg(format!("{override_name}=2"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let env = helpers::parse_env_output(&stdout)?;
 
@@ -170,7 +170,7 @@ fn env_list_has_precendece_over_pam_env(env_list: EnvList) -> Result<()> {
         .arg(format!("{default_name}={new_default_value}"))
         .arg(format!("{override_name}={new_override_value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let env = helpers::parse_env_output(&stdout)?;
 
@@ -224,7 +224,7 @@ fn var_rejected_by_env_check_falls_back_to_pam_env_value() -> Result<()> {
         .arg(format!("{default_name}={new_default_value}"))
         .arg(format!("{override_name}={new_override_value}"))
         .args(["sudo", "env"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
     let env = helpers::parse_env_output(&stdout)?;
 
@@ -257,7 +257,7 @@ fn default_and_override_pam_env_vars_are_parentheses_checked_but_set_vars_are_no
         )
         .build()?;
 
-    let stdout = Command::new("sudo").arg("env").exec(&env)?.stdout()?;
+    let stdout = Command::new("sudo").arg("env").output(&env)?.stdout()?;
     let env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(set_value), env.get(set_name).copied());
@@ -292,7 +292,7 @@ fn pam_env_vars_are_not_env_checked() -> Result<()> {
     )
     .build()?;
 
-    let stdout = Command::new("sudo").arg("env").exec(&env)?.stdout()?;
+    let stdout = Command::new("sudo").arg("env").output(&env)?.stdout()?;
     let env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(set_value), env.get(set_name).copied());

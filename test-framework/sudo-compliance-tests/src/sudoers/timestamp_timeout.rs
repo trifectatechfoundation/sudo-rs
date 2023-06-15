@@ -21,7 +21,7 @@ Defaults timestamp_timeout=0.1"
             "echo {PASSWORD} | sudo -S true; sleep 10; sudo true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -52,7 +52,7 @@ Defaults timestamp_timeout=0"
         .arg("-c")
         .arg(format!("echo {PASSWORD} | sudo -S true; sudo true"))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());

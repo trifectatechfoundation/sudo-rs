@@ -15,7 +15,7 @@ fn fixture() -> Result<Vec<PsAuxEntry>> {
             "-c",
             "until [ -f /tmp/barrier ]; do sleep 0.1; done; ps aux",
         ])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     child.wait()?.assert_success()?;

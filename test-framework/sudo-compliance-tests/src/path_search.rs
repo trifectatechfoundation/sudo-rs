@@ -24,7 +24,7 @@ fn can_find_command_not_visible_to_regular_user() -> Result<()> {
     Command::new("sh")
         .args(["-c", "export PATH=/root; cd /; /usr/bin/sudo my-script"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -39,7 +39,7 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
 
     let default_path = Command::new("sh")
         .args(["-c", "unset PATH; /usr/bin/sudo /usr/bin/printenv PATH"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     // sanity check that `/usr/bin` is in sudo's default PATH
@@ -48,7 +48,7 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
 
     let output = Command::new("sh")
         .args(["-c", "unset PATH; /usr/bin/sudo my-script"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -74,7 +74,7 @@ fn ignores_path_for_qualified_commands() -> Result<()> {
         Command::new("sh")
             .args(["-c", &format!("cd /root; sudo {param}")])
             .as_user("root")
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 

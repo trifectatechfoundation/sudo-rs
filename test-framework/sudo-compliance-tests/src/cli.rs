@@ -19,7 +19,7 @@ fn just_dash_dash_works() -> Result<()> {
 
     Command::new("sudo")
         .args(["--", "true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -29,7 +29,7 @@ fn dash_dash_after_other_flag_works() -> Result<()> {
 
     Command::new("sudo")
         .args(["-u", "root", "--", "true"])
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -39,7 +39,7 @@ fn dash_dash_before_flag_is_an_error() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["--", "-u", "root", "true"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -61,7 +61,7 @@ fn dash_flag_space_value_syntax() -> Result<()> {
 
     let actual = Command::new("sudo")
         .args(["-u", "root", "id", "-u"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?
         .parse::<u16>()?;
 
@@ -77,7 +77,7 @@ fn dash_flag_no_space_value_syntax() -> Result<()> {
 
     let actual = Command::new("sudo")
         .args(["-uroot", "id", "-u"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?
         .parse::<u16>()?;
 
@@ -92,7 +92,7 @@ fn dash_flag_equal_value_invalid_syntax() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["-u=root", "id", "-u"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -114,7 +114,7 @@ fn dash_dash_flag_space_value_syntax() -> Result<()> {
 
     let actual = Command::new("sudo")
         .args(["--user", "root", "id", "-u"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?
         .parse::<u16>()?;
 
@@ -130,7 +130,7 @@ fn dash_dash_flag_equal_value_syntax() -> Result<()> {
 
     let actual = Command::new("sudo")
         .args(["--user=root", "id", "-u"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?
         .parse::<u16>()?;
 

@@ -7,7 +7,7 @@ fn cwd_not_set_cannot_change_dir() -> Result<()> {
 
     let output = Command::new("sudo")
         .args(["--chdir", "/root", "pwd"])
-        .exec(&env)?;
+        .output(&env)?;
     assert_eq!(Some(1), output.status().code());
     assert!(!output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -25,7 +25,7 @@ fn cwd_set_to_glob_change_dir() -> Result<()> {
     let env = Env(TextFile("ALL ALL=(ALL:ALL) CWD=* NOPASSWD: ALL")).build()?;
     let output = Command::new("sh")
         .args(["-c", "cd /; sudo --chdir /root pwd"])
-        .exec(&env)?;
+        .output(&env)?;
     assert_eq!(Some(0), output.status().code());
     assert!(output.status().success());
     assert_contains!(output.stdout()?, "/root");
@@ -44,7 +44,7 @@ fn cwd_fails_for_non_existent_dirs() -> Result<()> {
             "-c",
             "echo >&2 'avocado'",
         ])
-        .exec(&env)?;
+        .output(&env)?;
     assert_eq!(Some(1), output.status().code());
     assert!(!output.status().success());
     let stderr = output.stderr();
@@ -73,7 +73,7 @@ fn cwd_with_login_fails_for_non_existent_dirs() -> Result<()> {
             "-c",
             "echo >&2 'avocado'",
         ])
-        .exec(&env)?;
+        .output(&env)?;
     assert_eq!(Some(1), output.status().code());
     assert!(!output.status().success());
     let stderr = output.stderr();
@@ -91,7 +91,7 @@ fn cwd_set_to_non_glob_value_then_cannot_use_chdir_flag() -> Result<()> {
     let env = Env(TextFile("ALL ALL=(ALL:ALL) CWD=/root NOPASSWD: ALL")).build()?;
     let output = Command::new("sh")
         .args(["-c", "cd /; sudo --chdir /tmp pwd"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -113,7 +113,7 @@ fn cwd_set_to_non_glob_value_then_cannot_use_that_path_with_chdir_flag() -> Resu
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("cd /; sudo --chdir {path} pwd"))
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -136,7 +136,7 @@ fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_unset() -> Result<()> {
     let stdout = Command::new("sh")
         .arg("-c")
         .arg(format!("cd {path}; sudo --chdir {path} pwd"))
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(path, stdout);
@@ -156,7 +156,7 @@ fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_set() -> Result<()> {
         .arg(format!(
             "cd {another_path}; sudo --chdir {another_path} pwd"
         ))
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(cwd_path, stdout);
@@ -175,7 +175,7 @@ fn target_user_has_insufficient_perms() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("cd /; sudo -u {USERNAME} --chdir {path} pwd"))
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());

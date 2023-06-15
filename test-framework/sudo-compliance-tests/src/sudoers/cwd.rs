@@ -9,7 +9,7 @@ fn sets_the_working_directory_of_the_executed_command() -> Result<()> {
 
     let stdout = Command::new("sh")
         .args(["-c", "cd /; sudo pwd"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(expected_path, stdout);
@@ -25,7 +25,7 @@ fn glob_has_no_effect_on_its_own() -> Result<()> {
     let stdout = Command::new("sh")
         .arg("-c")
         .arg(format!("cd {expected_path}; sudo pwd"))
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(expected_path, stdout);
@@ -39,7 +39,7 @@ fn non_absolute_path_is_rejected() -> Result<()> {
 
     let output = Command::new("sh")
         .args(["-c", "cd /; sudo pwd"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -60,7 +60,7 @@ fn dot_slash_is_rejected() -> Result<()> {
 
     let output = Command::new("sh")
         .args(["-c", "cd /; sudo pwd"])
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -82,7 +82,7 @@ fn tilde_when_target_user_is_root() -> Result<()> {
 
     let stdout = Command::new("sh")
         .args(["-c", "cd /; sudo pwd"])
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!("/root", stdout);
@@ -100,7 +100,7 @@ fn tilde_when_target_user_is_regular_user() -> Result<()> {
     let stdout = Command::new("sh")
         .arg("-c")
         .arg(format!("cd /; sudo -u {USERNAME} pwd"))
-        .exec(&env)?
+        .output(&env)?
         .stdout()?;
 
     assert_eq!(format!("/home/{USERNAME}"), stdout);
@@ -119,7 +119,7 @@ fn tilde_username() -> Result<()> {
         let stdout = Command::new("sh")
             .arg("-c")
             .arg(format!("cd /; sudo -u {target_user} pwd"))
-            .exec(&env)?
+            .output(&env)?
             .stdout()?;
 
         assert_eq!(format!("/home/{USERNAME}"), stdout);
@@ -135,7 +135,7 @@ fn path_does_not_exist() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg("cd /; sudo pwd")
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -155,7 +155,7 @@ fn path_is_file() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg("cd /; sudo pwd")
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -178,7 +178,7 @@ fn target_user_has_insufficient_permissions() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("cd /; sudo -u {USERNAME} pwd"))
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());

@@ -18,7 +18,7 @@ fn credential_caching_works() -> Result<()> {
         .arg("-c")
         .arg(format!("set -e; echo {PASSWORD} | sudo -S true; sudo true"))
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -32,13 +32,13 @@ fn by_default_credential_caching_is_local() -> Result<()> {
         .arg("-c")
         .arg(format!("set -e; echo {PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -67,7 +67,7 @@ fn credential_cache_is_shared_with_child_shell() -> Result<()> {
         .as_user(USERNAME)
         // XXX unclear why this and the tests that follow need a pseudo-TTY allocation to pass
         .tty(true)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -84,7 +84,7 @@ fn credential_cache_is_shared_with_parent_shell() -> Result<()> {
         ))
         .as_user(USERNAME)
         .tty(true)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -101,7 +101,7 @@ fn credential_cache_is_shared_between_sibling_shells() -> Result<()> {
         ))
         .as_user(USERNAME)
         .tty(true)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -119,7 +119,7 @@ fn cached_credential_applies_to_all_target_users() -> Result<()> {
             "set -e; echo {PASSWORD} | sudo -S true; sudo -u {second_target_user} true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
@@ -137,7 +137,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<(
             "echo {PASSWORD} | sudo -u {second_target_user} -S true; sudo -u {second_target_user} sh -c 'export \"{SUDO_RS_IS_UNSTABLE}\"; sudo -S true'"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
 

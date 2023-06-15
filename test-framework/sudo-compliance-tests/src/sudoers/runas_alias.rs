@@ -29,13 +29,13 @@ fn runas_alias_works() -> Result<()> {
             .args(["-u", "root", "-S", "true"])
             .as_user(user)
             .stdin(PASSWORD)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
     Command::new("sudo")
         .args(["-S", "true"])
         .as_user("root")
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -56,7 +56,7 @@ fn underscore() -> Result<()> {
             .args(["-u", "root", "-S", "true"])
             .as_user(user)
             .stdin(PASSWORD)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -78,7 +78,7 @@ fn runas_alias_negation() -> Result<()> {
         .args(["-u", "root", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -110,7 +110,7 @@ fn negation_on_user() -> Result<()> {
         .args(["-u", "root", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -142,7 +142,7 @@ fn double_negation() -> Result<()> {
             .args(["-u", "root", "-S", "true"])
             .as_user(user)
             .stdin(PASSWORD)
-            .exec(&env)?
+            .output(&env)?
             .assert_success()?;
     }
 
@@ -164,7 +164,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
         .args(["-u", "ghost", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -202,7 +202,7 @@ fn alias_for_group() -> Result<()> {
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -223,14 +223,14 @@ fn when_only_groupname_is_given_user_arg_fails() -> Result<()> {
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .args(["-u", "otheruser", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -263,14 +263,14 @@ fn when_only_username_is_given_group_arg_fails() -> Result<()> {
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
         .args(["-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -303,13 +303,13 @@ fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -332,7 +332,7 @@ fn user_and_group_fails_when_both_are_passed() -> Result<()> {
         .args(["-u", "otheruser", "-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -366,13 +366,13 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())
@@ -396,7 +396,7 @@ fn different_aliases_user_and_group_fails_when_both_are_passed() -> Result<()> {
         .args(["-u", "otheruser", "-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -428,13 +428,13 @@ fn aliases_given_on_one_line_divided_by_colon() -> Result<()> {
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Command::new("sudo")
         .args(["-g", "ghost", "true"])
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     Ok(())

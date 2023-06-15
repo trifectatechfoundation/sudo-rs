@@ -22,7 +22,7 @@ fn is_limited_to_a_single_user() -> Result<()> {
         .arg("-c")
         .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -K && touch /tmp/barrier2")
         .as_user(second_user)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     child.wait()?.assert_success()
@@ -46,7 +46,7 @@ fn has_a_user_global_effect() -> Result<()> {
         .arg("-c")
         .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -K && touch /tmp/barrier2")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()?;
 
     let output = child.wait()?;
@@ -79,7 +79,7 @@ fn also_works_locally() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -K; sudo true"
         ))
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
