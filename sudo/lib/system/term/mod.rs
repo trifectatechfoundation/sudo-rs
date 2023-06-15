@@ -1,3 +1,5 @@
+mod user_term;
+
 use std::{
     ffi::{c_uchar, CString},
     io,
@@ -8,6 +10,8 @@ use std::{
 use crate::cutils::cerr;
 
 use super::interface::ProcessId;
+
+pub use user_term::UserTerm;
 
 pub struct Pty {
     /// The file path of the leader side of the pty.
