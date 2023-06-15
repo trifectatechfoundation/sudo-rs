@@ -8,6 +8,7 @@ use signal_hook::consts::*;
 use crate::log::user_error;
 use crate::system::signal::{SignalAction, SignalHandler};
 use crate::system::term::Pty;
+use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
@@ -90,7 +91,10 @@ fn get_pty() -> io::Result<Pty> {
 }
 
 struct ParentClosure {
-    _monitor_pid: ProcessId,
+    // The monitor PID.
+    //
+    /// This is `Some` iff the process is still running.
+    monitor_pid: Option<ProcessId>,
     sudo_pid: ProcessId,
     command_pid: Option<ProcessId>,
     backchannel: ParentBackchannel,
@@ -115,7 +119,7 @@ impl ParentClosure {
         });
 
         Self {
-            _monitor_pid: monitor_pid,
+            monitor_pid: Some(monitor_pid),
             sudo_pid,
             command_pid: None,
             backchannel,
@@ -212,15 +216,39 @@ impl ParentClosure {
             }
         }
     }
+
+    /// Handle changes to the monitor status.
+    fn handle_sigchld(&mut self, monitor_pid: ProcessId) {
+        const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
+
+        let status = loop {
+            match waitpid(monitor_pid, OPTS) {
+                Err(WaitError::Io(err)) if was_interrupted(&err) => {}
+                // This only happens if we receive `SIGCHLD` but there's no status update from the
+                // monitor or if the monitor exited and any process already waited for the monitor.
+                Err(_) => return,
+                Ok((_pid, status)) => break status,
+            }
+        };
+
+        if status.did_exit() || status.was_signaled() {
+            self.monitor_pid = None;
+        } else if status.was_stopped() {
+            // FIXME: we should stop too.
+        }
+    }
 }
 
 impl EventClosure for ParentClosure {
     type Break = ParentMessage;
 
-    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
+    fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
+        let Some(monitor_pid) = self.monitor_pid else {
+            return;
+        };
+
         match info.signal() {
-            // FIXME: check `handle_sigchld_pty`
-            SIGCHLD => self.on_message_received(dispatcher),
+            SIGCHLD => self.handle_sigchld(monitor_pid),
             // FIXME: check `resume_terminal`
             SIGCONT => {}
             // FIXME: check `sync_ttysize`
