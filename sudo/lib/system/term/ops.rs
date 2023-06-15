@@ -130,15 +130,16 @@ pub fn term_copy<S: AsRawFd, D: AsRawFd>(src: &S, dst: &D) -> io::Result<()> {
     // Copy special chars from src verbatim.
     tt_dst.c_cc.copy_from_slice(&tt_src.c_cc);
 
-    // Copy speed from src (zero output speed closes the connection).
+    // Copy speed from `src`.
     {
         let mut speed = unsafe { cfgetospeed(&tt_src) };
+        // Zero output speed closes the connection.
         if speed == libc::B0 {
             speed = libc::B38400;
-            unsafe { cfsetospeed(&mut tt_dst, speed) };
-            speed = unsafe { cfgetispeed(&tt_src) };
-            unsafe { cfsetispeed(&mut tt_dst, speed) };
         }
+        unsafe { cfsetospeed(&mut tt_dst, speed) };
+        speed = unsafe { cfgetispeed(&tt_src) };
+        unsafe { cfsetispeed(&mut tt_dst, speed) };
     }
 
     tcsetattr_nobg(dst, TCSAFLUSH, &tt_dst)?;
