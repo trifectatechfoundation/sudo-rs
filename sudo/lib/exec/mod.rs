@@ -91,7 +91,6 @@ pub enum ExitReason {
     Signal(i32),
 }
 
-#[cfg(feature = "dev")]
 fn signal_fmt(signal: crate::system::signal::SignalNumber) -> std::borrow::Cow<'static, str> {
     signal_hook::low_level::signal_name(signal)
         .map(|name| name.into())
