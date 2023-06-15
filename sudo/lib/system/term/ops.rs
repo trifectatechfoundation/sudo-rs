@@ -50,7 +50,7 @@ const LOCAL_FLAGS: tcflag_t = ISIG
     | PENDIN;
 
 // FIXME: me no like `static mut`.
-static mut OTERM: MaybeUninit<termios> = MaybeUninit::uninit();
+static mut ORIGINAL_TERMIOS: MaybeUninit<termios> = MaybeUninit::uninit();
 static CHANGED: AtomicBool = AtomicBool::new(false);
 static GOT_SIGTTOU: AtomicBool = AtomicBool::new(false);
 
@@ -155,10 +155,10 @@ pub fn term_raw<F: AsRawFd>(fd: &F, with_signals: bool) -> io::Result<()> {
     let fd = fd.as_raw_fd();
 
     if !CHANGED.load(Ordering::Acquire) {
-        cerr(unsafe { tcgetattr(fd, OTERM.as_mut_ptr()) })?;
+        cerr(unsafe { tcgetattr(fd, ORIGINAL_TERMIOS.as_mut_ptr()) })?;
     }
     // Retrieve the original terminal.
-    let mut term = unsafe { OTERM.assume_init() };
+    let mut term = unsafe { ORIGINAL_TERMIOS.assume_init() };
     // Set terminal to raw mode.
     unsafe { cfmakeraw(&mut term) };
     // Enable terminal signals.
@@ -180,7 +180,7 @@ pub fn term_restore<F: AsRawFd>(fd: &F, flush: bool) -> io::Result<()> {
     if CHANGED.load(Ordering::Acquire) {
         let fd = fd.as_raw_fd();
         let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
-        tcsetattr_nobg(fd, flags, unsafe { OTERM.as_ptr() })?;
+        tcsetattr_nobg(fd, flags, unsafe { ORIGINAL_TERMIOS.as_ptr() })?;
     }
 
     Ok(())
