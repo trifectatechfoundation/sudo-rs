@@ -4,8 +4,6 @@ use std::io;
 use std::process::{exit, Command};
 
 use signal_hook::consts::*;
-#[cfg(feature = "dev")]
-use signal_hook::low_level::signal_name;
 
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler};
@@ -21,6 +19,8 @@ use super::{
     io_util::{retry_while_interrupted, was_interrupted},
     ExitReason,
 };
+#[cfg(feature = "dev")]
+use super::{cond_fmt, signal_fmt};
 
 pub(super) fn exec_pty(
     sudo_pid: ProcessId,
@@ -196,10 +196,7 @@ impl ParentClosure {
                     }
 
                     ParentMessage::CommandSignal(_signal) => {
-                        dev_info!(
-                            "command was terminated by {}",
-                            signal_name(_signal).unwrap_or("unknown signal")
-                        )
+                        dev_info!("command was terminated by {}", signal_fmt(_signal))
                     }
                     ParentMessage::IoError(_code) => {
                         dev_info!(
@@ -238,10 +235,7 @@ impl ParentClosure {
     ///
     /// The signal message will be sent once the backchannel is ready to be written.
     fn schedule_signal(&mut self, signal: c_int) {
-        dev_error!(
-            "scheduling {} for command",
-            signal_name(signal).unwrap_or("unknown signal")
-        );
+        dev_error!("scheduling {} for command", signal_fmt(signal));
         self.message_queue.push_back(MonitorMessage::Signal(signal));
     }
 
@@ -290,14 +284,14 @@ impl ParentClosure {
         } else if let Some(_signal) = status.term_signal() {
             dev_info!(
                 "monitor ({monitor_pid}) was terminated by {}",
-                signal_name(_signal).unwrap_or("unknown signal")
+                signal_fmt(_signal)
             );
             self.monitor_pid = None;
         } else if let Some(_signal) = status.stop_signal() {
             // FIXME: we should stop too.
             dev_info!(
                 "monitor ({monitor_pid}) was stopped by {}",
-                signal_name(_signal).unwrap_or("unknown signal")
+                signal_fmt(_signal)
             );
         } else if status.did_continue() {
             dev_info!("monitor ({monitor_pid}) continued execution");
@@ -313,12 +307,8 @@ impl EventClosure for ParentClosure {
     fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "parent received {}{} from {}",
-            if info.is_user_signaled() {
-                " user signaled"
-            } else {
-                ""
-            },
-            signal_name(info.signal()).unwrap_or("unknown signal"),
+            cond_fmt(" user signaled", info.is_user_signaled()),
+            signal_fmt(info.signal()),
             info.pid()
         );
 

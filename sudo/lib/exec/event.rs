@@ -7,8 +7,6 @@ use crate::system::{
 };
 
 use signal_hook::consts::*;
-#[cfg(feature = "dev")]
-use signal_hook::low_level::signal_name;
 
 pub(super) trait EventClosure: Sized {
     /// Reason why the event loop should break. This is the return type of [`EventDispatcher::event_loop`].
@@ -34,7 +32,7 @@ macro_rules! define_signals {
                     signal_handlers: [$(SignalHandler::new($signal).map_err(|err| {
                         dev_error!(
                             "unable to set handler for {}",
-                            signal_name($signal).unwrap(),
+                            super::signal_fmt($signal)
                         );
                         err
                     })?,)*],

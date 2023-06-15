@@ -13,14 +13,14 @@ use crate::system::{
 };
 
 use signal_hook::consts::*;
-#[cfg(feature = "dev")]
-use signal_hook::low_level::signal_name;
 
 use super::{
     backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
 };
+#[cfg(feature = "dev")]
+use super::{cond_fmt, signal_fmt};
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 pub(super) fn exec_monitor(
@@ -160,8 +160,8 @@ impl<'a> MonitorClosure<'a> {
 fn send_signal<const FROM_PARENT: bool>(signal: c_int, command_pid: ProcessId) {
     dev_info!(
         "sending {}{} to command",
-        signal_name(signal).unwrap_or("unknown signal"),
-        if FROM_PARENT { " from parent" } else { "" }
+        signal_fmt(signal),
+        cond_fmt(" from parent", FROM_PARENT),
     );
     // FIXME: We should call `killpg` instead of `kill`.
     match signal {
@@ -210,12 +210,8 @@ impl<'a> EventClosure for MonitorClosure<'a> {
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "monitor received {}{} from {}",
-            if info.is_user_signaled() {
-                " user signaled"
-            } else {
-                ""
-            },
-            signal_name(info.signal()).unwrap_or("unknown signal"),
+            cond_fmt(" user signaled", info.is_user_signaled()),
+            signal_fmt(info.signal()),
             info.pid()
         );
 
