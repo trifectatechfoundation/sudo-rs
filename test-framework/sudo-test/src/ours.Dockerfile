@@ -5,7 +5,7 @@ RUN apt-get update && \
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
-RUN --mount=type=cache,target=/usr/src/sudo/target RUSTFLAGS="-C instrument-coverage" cargo build --locked -p sudo && mkdir -p build && cp target/debug/sudo build/sudo
+RUN --mount=type=cache,target=/usr/src/sudo/target RUSTFLAGS="-C instrument-coverage" cargo build --locked --features="dev" -p sudo && mkdir -p build && cp target/debug/sudo build/sudo
 # discard code coverage data created during `cargo build`
 RUN find / -name '*.profraw' -exec rm {} \;
 # set setuid on install
