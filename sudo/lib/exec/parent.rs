@@ -12,7 +12,7 @@ use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
-use super::event::{EventClosure, EventDispatcher};
+use super::event::{EventClosure, EventDispatcher, StopReason};
 use super::monitor::exec_monitor;
 use super::{
     backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
@@ -154,15 +154,10 @@ impl ParentClosure {
     }
 
     fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
-        let exit_reason = match dispatcher.event_loop(&mut self) {
-            ParentMessage::IoError(code) => return Err(io::Error::from_raw_os_error(code)),
-            ParentMessage::CommandExit(code) => ExitReason::Code(code),
-            ParentMessage::CommandSignal(signal) => ExitReason::Signal(signal),
-            // We never set this event as the last event
-            ParentMessage::CommandPid(_) => unreachable!(),
-        };
-
-        Ok(exit_reason)
+        match dispatcher.event_loop(&mut self) {
+            StopReason::Break(err) | StopReason::Exit(ParentExit::Backchannel(err)) => Err(err),
+            StopReason::Exit(ParentExit::Command(exit_reason)) => Ok(exit_reason),
+        }
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
@@ -173,9 +168,15 @@ impl ParentClosure {
             // Failed to read command status. This means that something is wrong with the socket
             // and we should stop.
             Err(err) => {
-                dev_error!("could not receive message from monitor: {err}");
-                if !dispatcher.got_break() {
-                    dispatcher.set_break(err.into());
+                // If we get EOF the monitor exited or was killed
+                if err.kind() == io::ErrorKind::UnexpectedEof {
+                    dev_info!("parent received EOF from backchannel");
+                    dispatcher.set_exit(err.into());
+                } else {
+                    dev_error!("could not receive message from monitor: {err}");
+                    if !dispatcher.got_break() {
+                        dispatcher.set_break(err);
+                    }
                 }
             }
             Ok(event) => {
@@ -185,26 +186,24 @@ impl ParentClosure {
                     ParentMessage::CommandPid(pid) => {
                         dev_info!("received command PID ({pid}) from monitor");
                         self.command_pid = pid.into();
-                        // Do not set `CommandPid` as a break reason.
-                        return;
                     }
                     // The command terminated or the monitor was not able to spawn it. We should stop
                     // either way.
-                    ParentMessage::CommandExit(_code) => {
-                        dev_info!("command exited with status code {_code}");
+                    ParentMessage::CommandExit(code) => {
+                        dev_info!("command exited with status code {code}");
+                        dispatcher.set_exit(ExitReason::Code(code).into());
                     }
 
-                    ParentMessage::CommandSignal(_signal) => {
-                        dev_info!("command was terminated by {}", signal_fmt(_signal))
+                    ParentMessage::CommandSignal(signal) => {
+                        dev_info!("command was terminated by {}", signal_fmt(signal));
+                        dispatcher.set_exit(ExitReason::Signal(signal).into());
                     }
-                    ParentMessage::IoError(_code) => {
-                        dev_info!(
-                            "received error ({_code}) for monitor: {}",
-                            io::Error::from_raw_os_error(_code)
-                        )
+                    ParentMessage::IoError(code) => {
+                        let err = io::Error::from_raw_os_error(code);
+                        dev_info!("received error ({code}) for monitor: {err}",);
+                        dispatcher.set_break(err);
                     }
                 }
-                dispatcher.set_break(event);
             }
         }
     }
@@ -253,7 +252,7 @@ impl ParentClosure {
                 Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
                     dev_error!("broken pipe while writing to monitor over backchannel");
                     // FIXME: maybe we need a different event for backchannel errors.
-                    dispatcher.set_break(err.into());
+                    dispatcher.set_break(err);
                 }
                 // Non critical error, we can retry later.
                 Err(_) => {}
@@ -300,8 +299,28 @@ impl ParentClosure {
     }
 }
 
+enum ParentExit {
+    /// Error while reading from the backchannel.
+    Backchannel(io::Error),
+    /// The command exited.
+    Command(ExitReason),
+}
+
+impl From<io::Error> for ParentExit {
+    fn from(err: io::Error) -> Self {
+        Self::Backchannel(err)
+    }
+}
+
+impl From<ExitReason> for ParentExit {
+    fn from(reason: ExitReason) -> Self {
+        Self::Command(reason)
+    }
+}
+
 impl EventClosure for ParentClosure {
-    type Break = ParentMessage;
+    type Break = io::Error;
+    type Exit = ParentExit;
 
     fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(

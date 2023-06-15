@@ -308,6 +308,7 @@ fn is_self_terminating(
 
 impl<'a> EventClosure for MonitorClosure<'a> {
     type Break = ();
+    type Exit = ();
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
@@ -327,9 +328,7 @@ impl<'a> EventClosure for MonitorClosure<'a> {
             SIGCHLD => {
                 self.handle_sigchld(command_pid);
                 if self.command_pid.is_none() {
-                    // FIXME: This is what ogsudo calls a `loopexit`. Meaning that we should still
-                    // dispatch the remaining events to their callbacks and exit nicely.
-                    dispatcher.set_break(());
+                    dispatcher.set_exit(());
                 }
             }
             // Skip the signal if it was sent by the user and it is self-terminating.
