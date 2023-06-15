@@ -51,7 +51,7 @@ const LOCAL_FLAGS: tcflag_t = ISIG
 
 // FIXME: me no like `static mut`.
 static mut OTERM: MaybeUninit<termios> = MaybeUninit::uninit();
-static mut CHANGED: bool = false;
+static CHANGED: AtomicBool = AtomicBool::new(false);
 static GOT_SIGTTOU: AtomicBool = AtomicBool::new(false);
 
 extern "C" fn on_sigttou(_signal: c_int, _info: *mut siginfo_t, _: *mut c_void) {
@@ -154,7 +154,7 @@ pub fn term_copy<S: AsRawFd, D: AsRawFd>(src: &S, dst: &D) -> io::Result<()> {
 pub fn term_raw<F: AsRawFd>(fd: &F, with_signals: bool) -> io::Result<()> {
     let fd = fd.as_raw_fd();
 
-    if !unsafe { CHANGED } {
+    if !CHANGED.load(Ordering::Acquire) {
         cerr(unsafe { tcgetattr(fd, OTERM.as_mut_ptr()) })?;
     }
     // Retrieve the original terminal.
@@ -167,7 +167,7 @@ pub fn term_raw<F: AsRawFd>(fd: &F, with_signals: bool) -> io::Result<()> {
     }
 
     tcsetattr_nobg(fd, TCSADRAIN, &term)?;
-    unsafe { CHANGED = true };
+    CHANGED.store(true, Ordering::Release);
 
     Ok(())
 }
@@ -177,7 +177,7 @@ pub fn term_raw<F: AsRawFd>(fd: &F, with_signals: bool) -> io::Result<()> {
 /// This change is done after waiting for all the queued output to be written. To discard the
 /// queued input `flush` must be set to `true`.
 pub fn term_restore<F: AsRawFd>(fd: &F, flush: bool) -> io::Result<()> {
-    if unsafe { CHANGED } {
+    if CHANGED.load(Ordering::Acquire) {
         let fd = fd.as_raw_fd();
         let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
         tcsetattr_nobg(fd, flags, unsafe { OTERM.as_ptr() })?;
