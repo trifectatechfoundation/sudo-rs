@@ -54,6 +54,8 @@ pub(super) fn exec_pty(
     // enabled or if sudo is running in background.
     // FIXME (ogsudo): Copy terminal settings from `/dev/tty` to the pty.
     // FIXME (ogsudo): Start in raw mode unless we're part of a pipeline
+    // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
+    // to block all the signals instead.
     let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
 
     let monitor_pid = fork().map_err(|err| {
@@ -65,6 +67,10 @@ pub(super) fn exec_pty(
         // Close the file descriptors that we don't access
         drop(pty.leader);
         drop(backchannels.parent);
+
+        // Unregister all the handlers so `exec_monitor` can register new ones for the monitor
+        // process.
+        dispatcher.unregister_handlers();
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
         if let Err(err) = exec_monitor(pty.follower, command, &mut backchannels.monitor) {

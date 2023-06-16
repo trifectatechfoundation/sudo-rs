@@ -200,4 +200,11 @@ impl<T: EventClosure> EventDispatcher<T> {
             }
         }
     }
+
+    /// Unregister all the handlers created by the dispatcher.
+    pub(super) fn unregister_handlers(self) {
+        for handler in self.signal_handlers {
+            handler.unregister();
+        }
+    }
 }
