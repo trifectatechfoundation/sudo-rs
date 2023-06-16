@@ -19,7 +19,6 @@ use super::{
     io_util::{retry_while_interrupted, was_interrupted},
     ExitReason,
 };
-#[cfg(feature = "dev")]
 use super::{cond_fmt, signal_fmt};
 
 pub(super) fn exec_pty(
@@ -38,11 +37,11 @@ pub(super) fn exec_pty(
 
     // We don't want to receive SIGTTIN/SIGTTOU
     // FIXME: why?
-    if let Err(_err) = SignalHandler::with_action(SIGTTIN, SignalAction::Ignore) {
-        dev_error!("unable to set handler for SIGTTIN: {_err}");
+    if let Err(err) = SignalHandler::with_action(SIGTTIN, SignalAction::Ignore) {
+        dev_error!("unable to set handler for SIGTTIN: {err}");
     }
-    if let Err(_err) = SignalHandler::with_action(SIGTTOU, SignalAction::Ignore) {
-        dev_error!("unable to set handler for SIGTTOU: {_err}");
+    if let Err(err) = SignalHandler::with_action(SIGTTOU, SignalAction::Ignore) {
+        dev_error!("unable to set handler for SIGTTOU: {err}");
     }
 
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
@@ -69,8 +68,8 @@ pub(super) fn exec_pty(
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
         if let Err(err) = exec_monitor(pty.follower, command, &mut backchannels.monitor) {
-            if let Err(_err) = backchannels.monitor.send(&err.into()) {
-                dev_error!("unable to send status to parent: {_err}");
+            if let Err(err) = backchannels.monitor.send(&err.into()) {
+                dev_error!("unable to send status to parent: {err}");
             }
         }
         // FIXME: drop everything before calling `exit`.

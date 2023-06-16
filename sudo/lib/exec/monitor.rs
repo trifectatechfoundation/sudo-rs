@@ -19,7 +19,6 @@ use super::{
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
 };
-#[cfg(feature = "dev")]
 use super::{cond_fmt, signal_fmt};
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
@@ -70,8 +69,8 @@ pub(super) fn exec_monitor(
     let command_pid = command.id() as ProcessId;
 
     // Send the command's PID to the parent.
-    if let Err(_err) = backchannel.send(&ParentMessage::CommandPid(command_pid)) {
-        dev_warn!("cannot send command PID to parent: {_err}");
+    if let Err(err) = backchannel.send(&ParentMessage::CommandPid(command_pid)) {
+        dev_warn!("cannot send command PID to parent: {err}");
     }
 
     let mut closure = MonitorClosure::new(command, command_pid, backchannel, &mut dispatcher);
@@ -118,8 +117,8 @@ impl<'a> MonitorClosure<'a> {
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
-        if let Err(_err) = setpgid(command_pid, command_pgrp) {
-            dev_warn!("cannot set process group ID for process: {_err}");
+        if let Err(err) = setpgid(command_pid, command_pgrp) {
+            dev_warn!("cannot set process group ID for process: {err}");
         };
 
         Self {

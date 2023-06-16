@@ -97,7 +97,6 @@ fn signal_fmt(signal: crate::system::signal::SignalNumber) -> std::borrow::Cow<'
         .unwrap_or_else(|| format!("unknown signal #{}", signal).into())
 }
 
-#[cfg(feature = "dev")]
 const fn cond_fmt(s: &str, cond: bool) -> &str {
     if cond {
         s
