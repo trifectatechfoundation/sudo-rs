@@ -68,11 +68,14 @@ impl SudoLogger {
             .build();
 
         logger.add_logger("sudo::user", stderr_logger);
+
         #[cfg(feature = "dev")]
         {
             let path = option_env!("SUDO_DEV_LOGS")
                 .map(|s| s.into())
-                .unwrap_or_else(|| std::env::temp_dir().join("sudo-dev.log"));
+                .unwrap_or_else(|| {
+                    std::env::temp_dir().join(format!("sudo-dev-{}.log", std::process::id()))
+                });
 
             let dev_logger = env_logger::Builder::new()
                 .filter_level(log::LevelFilter::Trace)
