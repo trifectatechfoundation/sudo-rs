@@ -199,8 +199,10 @@ impl ParentClosure {
                         dev_info!("command exited with status code {code}");
                         dispatcher.set_exit(ExitReason::Code(code).into());
                     }
-
                     ParentMessage::CommandSignal(signal) => {
+                        // FIXME: this isn't right as the command has not exited if the signal is
+                        // not a termination one. However, doing this makes us fail an ignored
+                        // compliance test instead of hanging forever.
                         dev_info!("command was terminated by {}", signal_fmt(signal));
                         dispatcher.set_exit(ExitReason::Signal(signal).into());
                     }

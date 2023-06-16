@@ -9,7 +9,6 @@ use std::{
     time::Duration,
 };
 
-use crate::log::{dev_info, dev_warn};
 use crate::system::{
     fork, getpgid,
     interface::ProcessId,
@@ -18,6 +17,10 @@ use crate::system::{
     term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
     wait::{waitpid, WaitError, WaitOptions},
 };
+use crate::{
+    exec::event::StopReason,
+    log::{dev_info, dev_warn},
+};
 
 use signal_hook::consts::*;
 
@@ -25,6 +28,7 @@ use super::{
     backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
+    ExitReason,
 };
 use super::{cond_fmt, signal_fmt};
 
@@ -103,10 +107,17 @@ pub(super) fn exec_monitor(
     // FIXME (ogsudo): Set the command as the foreground process for the follower.
 
     // Start the event loop.
-    dispatcher.event_loop(&mut closure);
+    let reason = dispatcher.event_loop(&mut closure);
     // FIXME (ogsudo): Terminate the command using `killpg` if it's not terminated.
     // FIXME (ogsudo): Take the controlling tty so the command's children don't receive SIGHUP when we exit.
-    // FIXME (ogsudo): Send the command status back to the parent.
+
+    match reason {
+        StopReason::Break(()) => {}
+        StopReason::Exit(exit_reason) => {
+            closure.backchannel.send(&exit_reason.into()).ok();
+        }
+    }
+
     // FIXME (ogsudo): The tty is restored here if selinux is available.
 
     drop(closure);
@@ -180,6 +191,7 @@ impl<'a> MonitorClosure<'a> {
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
                 dev_warn!("monitor could not read from backchannel: {}", err);
+                // FIXME: maybe the break reason should be `io::Error` instead.
                 dispatcher.set_break(());
                 self.backchannel.send(&err.into()).unwrap();
             }
@@ -198,7 +210,7 @@ impl<'a> MonitorClosure<'a> {
         }
     }
 
-    fn handle_sigchld(&mut self, command_pid: ProcessId) {
+    fn handle_sigchld(&mut self, command_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
         let status = loop {
             match waitpid(command_pid, WaitOptions::new().untraced().no_hang()) {
                 Ok((_pid, status)) => break status,
@@ -211,9 +223,7 @@ impl<'a> MonitorClosure<'a> {
             dev_info!("command ({command_pid}) exited with status code {exit_code}");
             // The command did exit, set it's PID to `None`.
             self.command_pid = None;
-            self.backchannel
-                .send(&ParentMessage::CommandExit(exit_code))
-                .ok();
+            dispatcher.set_exit(ExitReason::Code(exit_code))
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
                 "command ({command_pid}) was terminated by {}",
@@ -221,15 +231,16 @@ impl<'a> MonitorClosure<'a> {
             );
             // The command was terminated, set it's PID to `None`.
             self.command_pid = None;
+            dispatcher.set_exit(ExitReason::Signal(signal))
+        } else if let Some(signal) = status.stop_signal() {
+            dev_info!(
+                "command ({command_pid}) was stopped by {}",
+                signal_fmt(signal),
+            );
+            // FIXME: we should save the foreground process group ID so we can restore it later.
             self.backchannel
                 .send(&ParentMessage::CommandSignal(signal))
                 .ok();
-        } else if let Some(_signal) = status.stop_signal() {
-            // FIXME: we should save the foreground process group ID so we can restore it later.
-            dev_info!(
-                "command ({command_pid}) was stopped by {}",
-                signal_fmt(_signal),
-            );
         } else if status.did_continue() {
             dev_info!("command ({command_pid}) continued execution");
         } else {
@@ -308,7 +319,7 @@ fn is_self_terminating(
 
 impl<'a> EventClosure for MonitorClosure<'a> {
     type Break = ();
-    type Exit = ();
+    type Exit = ExitReason;
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
@@ -325,12 +336,7 @@ impl<'a> EventClosure for MonitorClosure<'a> {
         };
 
         match info.signal() {
-            SIGCHLD => {
-                self.handle_sigchld(command_pid);
-                if self.command_pid.is_none() {
-                    dispatcher.set_exit(());
-                }
-            }
+            SIGCHLD => self.handle_sigchld(command_pid, dispatcher),
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
