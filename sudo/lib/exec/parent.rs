@@ -235,7 +235,7 @@ impl ParentClosure {
     ///
     /// The signal message will be sent once the backchannel is ready to be written.
     fn schedule_signal(&mut self, signal: c_int) {
-        dev_error!("scheduling {} for command", signal_fmt(signal));
+        dev_info!("scheduling message with {} for monitor", signal_fmt(signal));
         self.message_queue.push_back(MonitorMessage::Signal(signal));
     }
 
