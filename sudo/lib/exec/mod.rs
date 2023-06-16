@@ -90,3 +90,17 @@ pub enum ExitReason {
     Code(i32),
     Signal(i32),
 }
+
+fn signal_fmt(signal: crate::system::signal::SignalNumber) -> std::borrow::Cow<'static, str> {
+    signal_hook::low_level::signal_name(signal)
+        .map(|name| name.into())
+        .unwrap_or_else(|| format!("unknown signal #{}", signal).into())
+}
+
+const fn cond_fmt(s: &str, cond: bool) -> &str {
+    if cond {
+        s
+    } else {
+        ""
+    }
+}

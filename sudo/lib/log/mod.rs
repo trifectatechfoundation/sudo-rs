@@ -30,6 +30,29 @@ logger_macro!(user_info is Info to "sudo::user");
 logger_macro!(user_debug is Debug to "sudo::user");
 logger_macro!(user_trace is Trace to "sudo::user");
 
+macro_rules! dev_logger_macro {
+    ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
+        #[macro_export(local_inner_macros)]
+        macro_rules! $name {
+            ($d($d arg:tt)+) => {
+                if std::cfg!(feature = "dev") {
+                    (::log::log!(target: $target, $crate::log::Level::$rule_level, $d($d arg)+));
+                }
+            };
+        }
+        pub use $name;
+    };
+    ($name:ident is $rule_level:ident to $target:expr) => {
+        dev_logger_macro!($name is $rule_level to $target, $);
+    };
+}
+
+dev_logger_macro!(dev_error is Error to "sudo::dev");
+dev_logger_macro!(dev_warn is Warn to "sudo::dev");
+dev_logger_macro!(dev_info is Info to "sudo::dev");
+dev_logger_macro!(dev_debug is Debug to "sudo::dev");
+dev_logger_macro!(dev_trace is Trace to "sudo::dev");
+
 #[derive(Default)]
 pub struct SudoLogger(Vec<(String, Box<dyn log::Log>)>);
 
@@ -45,6 +68,24 @@ impl SudoLogger {
             .build();
 
         logger.add_logger("sudo::user", stderr_logger);
+
+        #[cfg(feature = "dev")]
+        {
+            let path = option_env!("SUDO_DEV_LOGS")
+                .map(|s| s.into())
+                .unwrap_or_else(|| {
+                    std::env::temp_dir().join(format!("sudo-dev-{}.log", std::process::id()))
+                });
+
+            let dev_logger = env_logger::Builder::new()
+                .filter_level(log::LevelFilter::Trace)
+                .target(env_logger::Target::Pipe(Box::new(
+                    std::fs::File::create(path).unwrap(),
+                )))
+                .build();
+
+            logger.add_logger("sudo::dev", dev_logger);
+        }
 
         logger
     }
@@ -109,7 +150,7 @@ mod tests {
     #[test]
     fn can_construct_logger() {
         let logger = SudoLogger::new();
-
-        assert_eq!(logger.0.len(), 2);
+        let len = if cfg!(feature = "dev") { 3 } else { 2 };
+        assert_eq!(logger.0.len(), len);
     }
 }

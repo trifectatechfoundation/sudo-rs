@@ -1,5 +1,6 @@
 use std::{io, ops::ControlFlow, os::fd::AsRawFd};
 
+use crate::log::dev_error;
 use crate::system::{
     poll::PollSet,
     signal::{SignalHandler, SignalInfo, SignalNumber},
@@ -28,7 +29,13 @@ macro_rules! define_signals {
             /// [`EventClosure::on_signal`] implementation.
             pub(super) fn new() -> io::Result<Self> {
                 let mut dispatcher = Self {
-                    signal_handlers: [$(SignalHandler::new($signal)?,)*],
+                    signal_handlers: [$(SignalHandler::new($signal).map_err(|err| {
+                        dev_error!(
+                            "unable to set handler for {}",
+                            super::signal_fmt($signal)
+                        );
+                        err
+                    })?,)*],
                     poll_set: PollSet::new(),
                     callbacks: Vec::with_capacity(SIGNALS.len()),
                     status: ControlFlow::Continue(()),

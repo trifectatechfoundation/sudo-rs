@@ -11,6 +11,8 @@ use std::{
 
 use crate::system::{interface::ProcessId, signal::SignalNumber};
 
+use super::signal_fmt;
+
 type Prefix = u8;
 type ParentData = c_int;
 type MonitorData = c_int;
@@ -143,7 +145,7 @@ impl AsRawFd for ParentBackchannel {
 }
 
 /// Different messages exchanged between the monitor and the parent process using a [`ParentBackchannel`].
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub(super) enum MonitorMessage {
     ExecCommand,
     Signal(c_int),
@@ -174,6 +176,15 @@ impl MonitorMessage {
         };
 
         (prefix, data)
+    }
+}
+
+impl std::fmt::Debug for MonitorMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ExecCommand => "ExecCommand".fmt(f),
+            &Self::Signal(signal) => write!(f, "Signal({})", signal_fmt(signal)),
+        }
     }
 }
 
