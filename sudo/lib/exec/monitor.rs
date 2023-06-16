@@ -147,7 +147,7 @@ impl<'a> MonitorClosure<'a> {
                     // Forward signal to the command.
                     MonitorMessage::Signal(signal) => {
                         if let Some(command_pid) = self.command_pid {
-                            send_signal::<true>(signal, command_pid)
+                            send_signal(signal, command_pid, true)
                         }
                     }
                 }
@@ -156,11 +156,11 @@ impl<'a> MonitorClosure<'a> {
     }
 }
 /// Send a signal to the command.
-fn send_signal<const FROM_PARENT: bool>(signal: c_int, command_pid: ProcessId) {
+fn send_signal(signal: c_int, command_pid: ProcessId, from_parent: bool) {
     dev_info!(
         "sending {}{} to command",
         signal_fmt(signal),
-        cond_fmt(" from parent", FROM_PARENT),
+        cond_fmt(" from parent", from_parent),
     );
     // FIXME: We should call `killpg` instead of `kill`.
     match signal {
@@ -237,7 +237,7 @@ impl<'a> EventClosure for MonitorClosure<'a> {
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
-            signal => send_signal::<false>(signal, command_pid),
+            signal => send_signal(signal, command_pid, false),
         }
     }
 }
