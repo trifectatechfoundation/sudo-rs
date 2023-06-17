@@ -4,14 +4,13 @@ use std::{
     mem::size_of,
     os::{
         fd::{AsRawFd, RawFd},
-        unix::{net::UnixStream, process::ExitStatusExt},
+        unix::net::UnixStream,
     },
-    process::ExitStatus,
 };
 
 use crate::system::{interface::ProcessId, signal::SignalNumber};
 
-use super::signal_fmt;
+use super::{signal_fmt, ExitReason};
 
 type Prefix = u8;
 type ParentData = c_int;
@@ -89,14 +88,11 @@ impl From<io::Error> for ParentMessage {
     }
 }
 
-impl From<ExitStatus> for ParentMessage {
-    fn from(status: ExitStatus) -> Self {
-        if let Some(code) = status.code() {
-            Self::CommandExit(code)
-        } else {
-            // `ExitStatus::code` docs state that it only returns `None` if the process was
-            // terminated by a signal so this should always succeed.
-            Self::CommandSignal(status.signal().unwrap())
+impl From<ExitReason> for ParentMessage {
+    fn from(reason: ExitReason) -> Self {
+        match reason {
+            ExitReason::Code(code) => Self::CommandExit(code),
+            ExitReason::Signal(signal) => Self::CommandSignal(signal),
         }
     }
 }

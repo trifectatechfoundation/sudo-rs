@@ -1,4 +1,4 @@
-use std::{io, ops::ControlFlow, os::fd::AsRawFd};
+use std::{io, os::fd::AsRawFd};
 
 use crate::log::dev_error;
 use crate::system::{
@@ -9,8 +9,14 @@ use crate::system::{
 use signal_hook::consts::*;
 
 pub(super) trait EventClosure: Sized {
-    /// Reason why the event loop should break. This is the return type of [`EventDispatcher::event_loop`].
+    /// Reason why the event loop should break.
+    ///
+    /// See [`EventDispatcher::set_break`] for more information.
     type Break;
+    /// Reason why the event loop should exit.
+    ///
+    /// See [`EventDispatcher::set_exit`] for more information.
+    type Exit;
     /// Operation that the closure must do when a signal arrives.
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>);
 }
@@ -38,7 +44,7 @@ macro_rules! define_signals {
                     })?,)*],
                     poll_set: PollSet::new(),
                     callbacks: Vec::with_capacity(SIGNALS.len()),
-                    status: ControlFlow::Continue(()),
+                    status: Status::Continue,
                 };
 
                 $(
@@ -73,6 +79,53 @@ define_signals! {
     SIGWINCH = 11,
 }
 
+enum Status<T: EventClosure> {
+    Continue,
+    Stop(StopReason<T>),
+}
+
+impl<T: EventClosure> Status<T> {
+    fn is_break(&self) -> bool {
+        matches!(self, Self::Stop(StopReason::Break(_)))
+    }
+
+    fn take_stop(&mut self) -> Option<StopReason<T>> {
+        // If the status ends up to be `Continue`, we are replacing it by another `Continue`.
+        let status = std::mem::replace(self, Self::Continue);
+        match status {
+            Status::Continue => None,
+            Status::Stop(reason) => Some(reason),
+        }
+    }
+
+    fn take_break(&mut self) -> Option<T::Break> {
+        match self.take_stop()? {
+            StopReason::Break(break_reason) => Some(break_reason),
+            reason @ StopReason::Exit(_) => {
+                // Replace back the status because it was not a `Break`.
+                *self = Self::Stop(reason);
+                None
+            }
+        }
+    }
+
+    fn take_exit(&mut self) -> Option<T::Exit> {
+        match self.take_stop()? {
+            reason @ StopReason::Break(_) => {
+                // Replace back the status because it was not an `Exit`.
+                *self = Self::Stop(reason);
+                None
+            }
+            StopReason::Exit(exit_reason) => Some(exit_reason),
+        }
+    }
+}
+
+pub(super) enum StopReason<T: EventClosure> {
+    Break(T::Break),
+    Exit(T::Exit),
+}
+
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct EventId(usize);
 
@@ -83,7 +136,7 @@ pub(super) struct EventDispatcher<T: EventClosure> {
     signal_handlers: [SignalHandler; SIGNALS.len()],
     poll_set: PollSet<EventId>,
     callbacks: Vec<Callback<T>>,
-    status: ControlFlow<T::Break>,
+    status: Status<T>,
 }
 
 impl<T: EventClosure> EventDispatcher<T> {
@@ -107,7 +160,13 @@ impl<T: EventClosure> EventDispatcher<T> {
     ///
     /// This means that the event loop will stop even if other events are ready.
     pub(super) fn set_break(&mut self, reason: T::Break) {
-        self.status = ControlFlow::Break(reason);
+        self.status = Status::Stop(StopReason::Break(reason));
+    }
+
+    /// Stop the event loop when the callbacks for the events that are ready by now have been
+    /// dispatched and set a reason for it.
+    pub(super) fn set_exit(&mut self, reason: T::Exit) {
+        self.status = Status::Stop(StopReason::Exit(reason));
     }
 
     /// Return whether a break reason has been set already. This function will return `false` after
@@ -118,31 +177,34 @@ impl<T: EventClosure> EventDispatcher<T> {
 
     /// Run the event loop for this handler.
     ///
-    /// The event loop will continue indefinitely unless [`EventDispatcher::set_break`] is called.
-    pub(super) fn event_loop(&mut self, state: &mut T) -> T::Break {
+    /// The event loop will continue indefinitely unless you call [`EventDispatcher::set_break`] or
+    /// [`EventDispatcher::set_exit`].
+    pub(super) fn event_loop(&mut self, state: &mut T) -> StopReason<T> {
         loop {
             if let Ok(ids) = self.poll_set.poll() {
                 for EventId(id) in ids {
                     self.callbacks[id](state, self);
 
-                    if let Some(break_reason) = self.check_break() {
-                        return break_reason;
+                    if let Some(reason) = self.status.take_break() {
+                        return StopReason::Break(reason);
                     }
                 }
-            }
-
-            if let Some(break_reason) = self.check_break() {
-                return break_reason;
+                if let Some(reason) = self.status.take_exit() {
+                    return StopReason::Exit(reason);
+                }
+            } else {
+                // FIXME: maybe we shout return the IO error instead.
+                if let Some(reason) = self.status.take_stop() {
+                    return reason;
+                }
             }
         }
     }
 
-    pub(super) fn check_break(&mut self) -> Option<T::Break> {
-        // This is OK as we are swapping `Continue(())` by other `Continue(())` if the status is
-        // not `Break`.
-        match std::mem::replace(&mut self.status, ControlFlow::Continue(())) {
-            ControlFlow::Continue(()) => None,
-            ControlFlow::Break(reason) => Some(reason),
+    /// Unregister all the handlers created by the dispatcher.
+    pub(super) fn unregister_handlers(self) {
+        for handler in self.signal_handlers {
+            handler.unregister();
         }
     }
 }
