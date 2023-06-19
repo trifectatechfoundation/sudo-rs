@@ -55,7 +55,7 @@ fn authenticate(user: &str, login: bool) -> Result<PamContext<CLIConverser>, Err
         }
     }
 
-    pam.validate_account()?;
+    pam.validate_account_or_change_auth_token()?;
     pam.open_session()?;
 
     Ok(pam)

@@ -48,11 +48,6 @@ impl PamMessage {
     pub fn set_response(&mut self, resp: PamBuffer) {
         self.response = Some(resp);
     }
-
-    /// Clear the response to the message.
-    pub fn clear_response(&mut self) {
-        self.response = None;
-    }
 }
 
 /// Contains the conversation messages and allows setting responses to
@@ -66,11 +61,6 @@ pub struct Conversation {
 }
 
 impl Conversation {
-    /// Get an iterator of the messages in this conversation.
-    pub fn messages(&self) -> impl Iterator<Item = &PamMessage> {
-        self.messages.iter()
-    }
-
     /// Get a mutable iterator of the messages in this conversation.
     ///
     /// This can be used to add the resulting values to the messages.

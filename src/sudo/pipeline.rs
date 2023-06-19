@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::ffi::OsString;
 use std::process::exit;
 
 use crate::cli::SudoOptions;
@@ -21,7 +23,7 @@ pub trait PolicyPlugin {
 pub trait AuthPlugin {
     fn init(&mut self, context: &Context) -> Result<(), Error>;
     fn authenticate(&mut self, context: &Context) -> Result<(), Error>;
-    fn pre_exec(&mut self, context: &Context) -> Result<(), Error>;
+    fn pre_exec(&mut self, context: &Context) -> Result<HashMap<OsString, OsString>, Error>;
     fn cleanup(&mut self);
 }
 
@@ -57,11 +59,12 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             }
         }
 
-        self.authenticator.pre_exec(&context)?;
+        let additional_env = self.authenticator.pre_exec(&context)?;
 
         // build environment
         let current_env = std::env::vars_os().collect();
-        let target_env = environment::get_target_environment(current_env, &context, &policy);
+        let target_env =
+            environment::get_target_environment(current_env, additional_env, &context, &policy);
 
         let pid = context.process.pid;
 
