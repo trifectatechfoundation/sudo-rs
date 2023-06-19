@@ -7,7 +7,6 @@ use sudo_test::{Command, Env, User};
 
 /* cases where password input is expected */
 #[test]
-#[ignore = "gh405"]
 fn fails_if_password_needed() -> Result<()> {
     let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
 
@@ -27,14 +26,17 @@ fn fails_if_password_needed() -> Result<()> {
     };
     assert_not_contains!(stderr, password_prompt);
 
-    let diagnostic = "sudo: a password is required";
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: a password is required"
+    } else {
+        "Maximum 3 incorrect authentication attempts"
+    };
     assert_contains!(stderr, diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh405"]
 fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
     let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
 
@@ -57,7 +59,11 @@ fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
     };
     assert_not_contains!(stderr, password_prompt);
 
-    let diagnostic = "sudo: a password is required";
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: a password is required"
+    } else {
+        "Maximum 3 incorrect authentication attempts"
+    };
     assert_contains!(stderr, diagnostic);
 
     Ok(())
