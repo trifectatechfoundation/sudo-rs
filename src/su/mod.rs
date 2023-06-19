@@ -14,7 +14,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn authenticate(user: &str, login: bool) -> Result<PamContext<CLIConverser>, Error> {
     let context = if login { "su-l" } else { "su" };
-    let mut pam = PamContext::builder_cli("su", false)
+    let mut pam = PamContext::builder_cli("su", Default::default(), Default::default())
         .target_user(user)
         .service_name(context)
         .build()?;

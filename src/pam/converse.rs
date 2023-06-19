@@ -2,7 +2,7 @@ use crate::cutils::string_from_ptr;
 
 use super::sys::*;
 
-use super::{error::PamResult, rpassword, securemem::PamBuffer, PamErrorType};
+use super::{error::PamResult, rpassword, securemem::PamBuffer, PamError, PamErrorType};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
@@ -136,6 +136,7 @@ where
 pub struct CLIConverser {
     pub(super) name: String,
     pub(super) use_stdin: bool,
+    pub(super) no_interact: bool,
 }
 
 use rpassword::Terminal;
@@ -152,12 +153,18 @@ impl CLIConverser {
 
 impl SequentialConverser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
+        if self.no_interact {
+            return Err(PamError::InteractionRequired);
+        }
         let mut tty = self.open()?;
         tty.prompt(&format!("[{}: input needed] {msg} ", self.name))?;
         Ok(tty.read_cleartext()?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
+        if self.no_interact {
+            return Err(PamError::InteractionRequired);
+        }
         let mut tty = self.open()?;
         tty.prompt(&format!("[{}: authenticate] {msg}", self.name))?;
         Ok(tty.read_password()?)

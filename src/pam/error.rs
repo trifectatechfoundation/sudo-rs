@@ -191,6 +191,7 @@ pub enum PamError {
     SessionAlreadyOpen,
     SessionNotOpen,
     EnvListFailure,
+    InteractionRequired,
 }
 
 impl From<std::io::Error> for PamError {
@@ -227,6 +228,7 @@ impl fmt::Display for PamError {
                     "It was not possible to get a list of environment variables"
                 )
             }
+            PamError::InteractionRequired => write!(f, "Interaction is required"),
         }
     }
 }
