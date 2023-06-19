@@ -1,8 +1,8 @@
-use std::{env, process};
 use crate::common::error::Error;
 use crate::exec::ExitReason;
 use crate::log::user_warn;
 use crate::pam::{CLIConverser, PamContext, PamError, PamErrorType};
+use std::{env, process};
 
 use cli::{SuAction, SuOptions};
 use context::SuContext;

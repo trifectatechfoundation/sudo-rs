@@ -1,8 +1,8 @@
-use std::collections::HashSet;
 use crate::cli::SudoOptions;
 use crate::common::{CommandAndArguments, Context, Environment};
 use crate::env::environment::get_target_environment;
 use crate::system::{Group, Process, User};
+use std::collections::HashSet;
 
 const TESTS: &str = "
 > env

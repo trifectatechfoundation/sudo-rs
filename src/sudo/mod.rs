@@ -1,12 +1,12 @@
 #![forbid(unsafe_code)]
 
-use pam::{determine_record_scope, PamAuthenticator};
-use pipeline::{Pipeline, PolicyPlugin};
-use std::env;
 use crate::cli::{help, SudoAction, SudoOptions};
 use crate::common::{resolve::resolve_current_user, Context, Error};
 use crate::log::dev_info;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
+use pam::{determine_record_scope, PamAuthenticator};
+use pipeline::{Pipeline, PolicyPlugin};
+use std::env;
 
 mod diagnostic;
 use diagnostic::diagnostic;
