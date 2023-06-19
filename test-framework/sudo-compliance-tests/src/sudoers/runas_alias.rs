@@ -316,8 +316,12 @@ fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh432"]
-fn user_and_group_fails_when_both_are_passed() -> Result<()> {
+fn user_and_group_succeeds_when_both_are_passed() -> Result<()> {
+    if sudo_test::is_original_sudo() {
+        // TODO: original sudo should pass this test after 1.9.14b2
+        return Ok(());
+    }
+
     let env = Env([
         &format!("Runas_Alias OP = otheruser, {GROUPNAME}"),
         &format!("{USERNAME} ALL = (OP:OP) NOPASSWD: ALL"),
@@ -328,24 +332,12 @@ fn user_and_group_fails_when_both_are_passed() -> Result<()> {
     .group(GROUPNAME)
     .build()?;
 
-    let output = Command::new("sudo")
+    Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
-
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
-
-    let stderr = output.stderr();
-    if sudo_test::is_original_sudo() {
-        assert_snapshot!(stderr);
-    } else {
-        assert_contains!(
-                stderr,
-                format!("Sorry, user {USERNAME} is not allowed to execute '/bin/true' as otheruser:{GROUPNAME}")
-            );
-    }
+        .output(&env)?
+        .assert_success()?;
 
     Ok(())
 }
@@ -379,8 +371,12 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
 }
 
 #[test]
-#[ignore = "gh432"]
-fn different_aliases_user_and_group_fails_when_both_are_passed() -> Result<()> {
+fn different_aliases_user_and_group_succeeds_when_both_are_passed() -> Result<()> {
+    if sudo_test::is_original_sudo() {
+        // TODO: original sudo should pass this test after 1.9.14b2
+        return Ok(());
+    }
+
     let env = Env([
         &format!("Runas_Alias GROUPALIAS = {GROUPNAME}"),
         ("Runas_Alias USERALIAS = otheruser"),
@@ -392,24 +388,12 @@ fn different_aliases_user_and_group_fails_when_both_are_passed() -> Result<()> {
     .group(GROUPNAME)
     .build()?;
 
-    let output = Command::new("sudo")
+    Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
-
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
-
-    let stderr = output.stderr();
-    if sudo_test::is_original_sudo() {
-        assert_snapshot!(stderr);
-    } else {
-        assert_contains!(
-            stderr,
-            format!("Sorry, user {USERNAME} is not allowed to execute '/bin/true' as otheruser:{GROUPNAME}")
-        );
-    }
+        .output(&env)?
+        .assert_success()?;
 
     Ok(())
 }

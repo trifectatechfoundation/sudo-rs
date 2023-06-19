@@ -315,7 +315,7 @@ fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Res
 }
 
 // `man sudoers` says in the 'Runas_Spec' section
-// "If no Runas_Spec is specified the command may be run as root and no group may be specified."
+// "If no Runas_Spec is specified, the command may only be run as root and the group, if specified, must be one that root is a member of."
 #[test]
 fn when_no_run_as_spec_then_target_user_can_be_root() -> Result<()> {
     let env = Env("ALL ALL=NOPASSWD: ALL").user(USERNAME).build()?;
@@ -348,10 +348,13 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()>
     Ok(())
 }
 
-// NOTE opposed to what the `man sudoers` says?
 #[test]
-#[ignore = "gh427"]
-fn when_no_run_as_spec_then_a_target_group_may_be_specified() -> Result<()> {
+fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() -> Result<()> {
+    if sudo_test::is_original_sudo() {
+        // TODO: original sudo should pass this test after 1.9.14b2
+        return Ok(());
+    }
+
     let env = Env("ALL ALL = NOPASSWD: ALL")
         .user(User(USERNAME))
         .group(GROUPNAME)
@@ -360,13 +363,38 @@ fn when_no_run_as_spec_then_a_target_group_may_be_specified() -> Result<()> {
     let output = Command::new("sudo")
         .args(["-u", "root", "-g", GROUPNAME, "groups"])
         .as_user(USERNAME)
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        format!("user {USERNAME} is not allowed to execute '/usr/bin/true' as root:{GROUPNAME}")
+    } else {
+        format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+fn when_no_run_as_spec_then_a_group_that_root_is_in_may_be_specified() -> Result<()> {
+    let env = Env("ALL ALL = NOPASSWD: ALL")
+        .user(User(USERNAME))
+        .group(GROUPNAME)
+        .build()?;
+
+    //TODO: also test the case '-g wheel' (when root is made a group of 'wheel'); this requires a change in sudo-test
+    let output = Command::new("sudo")
+        .args(["-u", "root", "-g", "root", "groups"])
+        .as_user(USERNAME)
         .output(&env)?
         .stdout()?;
 
     let mut actual = output.split_ascii_whitespace().collect::<HashSet<_>>();
 
     assert!(actual.remove("root"));
-    assert!(actual.remove("rustaceans"));
     assert!(actual.is_empty());
 
     Ok(())
