@@ -116,7 +116,7 @@ impl UserTerm {
     }
 
     /// Copy the settings of the user's terminal to the `dst` terminal.
-    pub fn copy_to<S: AsRawFd, D: AsRawFd>(&self, dst: &D) -> io::Result<()> {
+    pub fn copy_to<D: AsRawFd>(&self, dst: &D) -> io::Result<()> {
         let src = self.tty.as_raw_fd();
         let dst = dst.as_raw_fd();
 
@@ -166,8 +166,8 @@ impl UserTerm {
     }
 
     /// Set the user's terminal to raw mode. Enable terminal signals if `with_signals` is set to
-    /// `true`.  
-    pub fn term_raw<F: AsRawFd>(&mut self, with_signals: bool) -> io::Result<()> {
+    /// `true`.
+    pub fn term_raw(&mut self, with_signals: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
         if !self.changed {

@@ -18,7 +18,7 @@ pub fn determine_record_scope(process: &Process) -> Option<RecordScope> {
     let tty = Process::tty_device_id(WithProcess::Current);
     if let Ok(Some(tty_device)) = tty {
         if let Ok(init_time) = Process::starting_time(WithProcess::Other(process.session_id)) {
-            Some(RecordScope::TTY {
+            Some(RecordScope::Tty {
                 tty_device,
                 session_pid: process.session_id,
                 init_time,
@@ -29,7 +29,7 @@ pub fn determine_record_scope(process: &Process) -> Option<RecordScope> {
         }
     } else if let Some(parent_pid) = process.parent_pid {
         if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
-            Some(RecordScope::PPID {
+            Some(RecordScope::Ppid {
                 group_pid: parent_pid,
                 init_time,
             })

@@ -339,12 +339,12 @@ pub enum CreateResult {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecordScope {
-    TTY {
+    Tty {
         tty_device: libc::dev_t,
         session_pid: libc::pid_t,
         init_time: SystemTime,
     },
-    PPID {
+    Ppid {
         group_pid: libc::pid_t,
         init_time: SystemTime,
     },
@@ -353,7 +353,7 @@ pub enum RecordScope {
 impl RecordScope {
     fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         match self {
-            RecordScope::TTY {
+            RecordScope::Tty {
                 tty_device,
                 session_pid,
                 init_time,
@@ -365,7 +365,7 @@ impl RecordScope {
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
-            RecordScope::PPID {
+            RecordScope::Ppid {
                 group_pid,
                 init_time,
             } => {
@@ -391,7 +391,7 @@ impl RecordScope {
                 from.read_exact(&mut buf)?;
                 let session_pid = libc::pid_t::from_le_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
-                Ok(RecordScope::TTY {
+                Ok(RecordScope::Tty {
                     tty_device,
                     session_pid,
                     init_time,
@@ -402,7 +402,7 @@ impl RecordScope {
                 from.read_exact(&mut buf)?;
                 let group_pid = libc::pid_t::from_le_bytes(buf);
                 let init_time = SystemTime::decode(from)?;
-                Ok(RecordScope::PPID {
+                Ok(RecordScope::Ppid {
                     group_pid,
                     init_time,
                 })
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     fn can_encode_and_decode() {
         let tty_sample = SessionRecord::new(
-            RecordScope::TTY {
+            RecordScope::Tty {
                 tty_device: 10,
                 session_pid: 42,
                 init_time: SystemTime::now().unwrap() - Duration::seconds(150),
@@ -591,7 +591,7 @@ mod tests {
         assert!(SessionRecord::from_bytes(&bytes).is_err());
 
         let ppid_sample = SessionRecord::new(
-            RecordScope::PPID {
+            RecordScope::Ppid {
                 group_pid: 42,
                 init_time: SystemTime::now().unwrap(),
             },
@@ -606,7 +606,7 @@ mod tests {
     #[test]
     fn timestamp_record_matches_works() {
         let init_time = SystemTime::now().unwrap();
-        let scope = RecordScope::TTY {
+        let scope = RecordScope::Tty {
             tty_device: 12,
             session_pid: 1234,
             init_time,
@@ -617,7 +617,7 @@ mod tests {
         assert!(tty_sample.matches(&scope, 675));
         assert!(!tty_sample.matches(&scope, 789));
         assert!(!tty_sample.matches(
-            &RecordScope::TTY {
+            &RecordScope::Tty {
                 tty_device: 20,
                 session_pid: 1234,
                 init_time
@@ -625,7 +625,7 @@ mod tests {
             675
         ));
         assert!(!tty_sample.matches(
-            &RecordScope::PPID {
+            &RecordScope::Ppid {
                 group_pid: 42,
                 init_time
             },
@@ -635,7 +635,7 @@ mod tests {
         // make sure time is different
         std::thread::sleep(std::time::Duration::from_millis(1));
         assert!(!tty_sample.matches(
-            &RecordScope::TTY {
+            &RecordScope::Tty {
                 tty_device: 12,
                 session_pid: 1234,
                 init_time: SystemTime::now().unwrap()
@@ -647,7 +647,7 @@ mod tests {
     #[test]
     fn timestamp_record_written_between_works() {
         let some_time = SystemTime::now().unwrap() + Duration::minutes(100);
-        let scope = RecordScope::TTY {
+        let scope = RecordScope::Tty {
             tty_device: 12,
             session_pid: 1234,
             init_time: some_time,
@@ -698,7 +698,7 @@ mod tests {
         let mut data = vec![];
         let c = Cursor::new(&mut data);
         let mut srf = SessionRecordFile::new("test", c, timeout).unwrap();
-        let tty_scope = RecordScope::TTY {
+        let tty_scope = RecordScope::Tty {
             tty_device: 0,
             session_pid: 0,
             init_time: SystemTime::new(0, 0),

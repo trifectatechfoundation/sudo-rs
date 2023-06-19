@@ -6,7 +6,6 @@ pub enum Error {
     InvalidCommand(PathBuf),
     UserNotFound(String),
     GroupNotFound(String),
-    Exec,
     Authentication(String),
     Configuration(String),
     Options(String),
@@ -21,7 +20,6 @@ impl fmt::Display for Error {
             Error::InvalidCommand(p) => write!(f, "`{p:?}': command not found"),
             Error::UserNotFound(u) => write!(f, "user `{u}' not found"),
             Error::GroupNotFound(g) => write!(f, "group `{g}' not found"),
-            Error::Exec => write!(f, "could not spawn child process"),
             Error::Authentication(e) => write!(f, "authentication failed: {e}"),
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
             Error::Options(e) => write!(f, "invalid options: {e}"),
@@ -49,9 +47,5 @@ impl From<std::io::Error> for Error {
 impl Error {
     pub fn auth(message: &str) -> Self {
         Self::Authentication(message.to_string())
-    }
-
-    pub fn conf(message: &str) -> Self {
-        Self::Configuration(message.to_string())
     }
 }

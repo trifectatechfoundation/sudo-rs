@@ -1,5 +1,3 @@
-// TODO: remove unused attribute when cli module is cleaned up
-#![allow(unused)]
 #![forbid(unsafe_code)]
 
 use std::path::PathBuf;
@@ -344,6 +342,7 @@ impl SudoOptions {
         Ok(options)
     }
 
+    #[cfg(test)]
     pub fn args(self) -> Vec<String> {
         match self.action {
             SudoAction::Run(args) => args,
