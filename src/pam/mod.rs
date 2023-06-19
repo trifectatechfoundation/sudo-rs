@@ -1,3 +1,6 @@
+// TODO: allow unused must be removed when PAM module is cleaned up
+#![allow(unused)]
+
 use std::{
     ffi::{CStr, CString},
     time::Duration,

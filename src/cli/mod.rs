@@ -1,3 +1,5 @@
+// TODO: remove unused attribute when cli module is cleaned up
+#![allow(unused)]
 #![forbid(unsafe_code)]
 
 use std::path::PathBuf;

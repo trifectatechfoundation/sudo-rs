@@ -1,3 +1,4 @@
+#![allow(unused_macros)]
 use self::syslog::Syslog;
 pub use log::Level;
 use std::io::Write;
@@ -5,13 +6,15 @@ use std::ops::Deref;
 
 mod syslog;
 
+// TODO: logger_macro has an allow_unused that should be removed
 macro_rules! logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
-        #[macro_export(local_inner_macros)]
         macro_rules! $name {
             ($d($d arg:tt)+) => (::log::log!(target: $target, $crate::log::Level::$rule_level, $d($d arg)+));
         }
-        pub use $name;
+
+        #[allow(unused)]
+        pub(crate) use $name;
     };
     ($name:ident is $rule_level:ident to $target:expr) => {
         logger_macro!($name is $rule_level to $target, $);
@@ -30,9 +33,9 @@ logger_macro!(user_info is Info to "sudo::user");
 logger_macro!(user_debug is Debug to "sudo::user");
 logger_macro!(user_trace is Trace to "sudo::user");
 
+// TODO: dev_logger_macro has an allow_unused that should be removed
 macro_rules! dev_logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
-        #[macro_export(local_inner_macros)]
         macro_rules! $name {
             ($d($d arg:tt)+) => {
                 if std::cfg!(feature = "dev") {
@@ -40,7 +43,9 @@ macro_rules! dev_logger_macro {
                 }
             };
         }
-        pub use $name;
+
+        #[allow(unused)]
+        pub(crate) use $name;
     };
     ($name:ident is $rule_level:ident to $target:expr) => {
         dev_logger_macro!($name is $rule_level to $target, $);
