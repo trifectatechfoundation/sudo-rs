@@ -385,6 +385,7 @@ fn when_no_run_as_spec_then_a_group_that_root_is_in_may_be_specified() -> Result
         .group(GROUPNAME)
         .build()?;
 
+    //TODO: also test the case '-g wheel' (when root is made a group of 'wheel'); this requires a change in sudo-test
     let output = Command::new("sudo")
         .args(["-u", "root", "-g", "root", "groups"])
         .as_user(USERNAME)
