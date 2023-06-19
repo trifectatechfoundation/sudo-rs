@@ -4,7 +4,6 @@
 # but these
 !Cargo.lock
 !Cargo.toml
-!lib/**/*
-!test-binaries/**/*
-!sudo/**/*
-!su/**/*
+!src/**/*
+!bin/**/*
+!build.rs
