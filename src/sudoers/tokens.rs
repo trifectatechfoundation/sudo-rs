@@ -145,7 +145,7 @@ impl Token for Command {
 
         // the tokenizer should not give us a token that consists of only whitespace
         let mut cmd_iter = s.split_whitespace();
-        let cmd = cmd_iter.next().unwrap();
+        let mut cmd = cmd_iter.next().unwrap().to_string();
         let mut args = cmd_iter.map(String::from).collect::<Vec<String>>();
 
         let argpat = if args.is_empty() {
@@ -159,7 +159,12 @@ impl Token for Command {
             Some(args.into_boxed_slice())
         };
 
-        Ok((cvt_err(glob::Pattern::new(cmd))?, argpat))
+        // if the cmd ends with a slash, any command in that directory is allowed
+        if cmd.ends_with('/') {
+            cmd.push('*');
+        }
+
+        Ok((cvt_err(glob::Pattern::new(&cmd))?, argpat))
     }
 
     // all commands start with "/" except "sudoedit"
