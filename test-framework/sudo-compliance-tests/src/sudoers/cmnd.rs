@@ -209,6 +209,37 @@ fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
 }
 
 #[test]
+fn given_directory_then_commands_in_it_are_allowed() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/").build()?;
+
+    Command::new("sudo")
+        .arg("/usr/bin/true")
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+fn given_directory_then_commands_in_its_subdirectories_are_not_allowed() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/").build()?;
+
+    let output = Command::new("sudo")
+        .arg("/usr/bin/true")
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/usr/bin/true' as root"
+    } else {
+        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
 fn wildcards_dont_cross_directory_boundaries() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) /usr/*/foo")
         .directory("/usr/bin/sub")
