@@ -1,3 +1,5 @@
+// TODO: remove unused attribute when defaults module is cleaned up
+#![allow(unused)]
 #![forbid(unsafe_code)]
 // FUTURE IDEA: use a representation that allows for more Rust-type structure rather than passing
 // strings around; some settings in sudoers file are more naturally represented like that, such as

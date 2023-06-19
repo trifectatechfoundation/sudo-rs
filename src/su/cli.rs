@@ -243,9 +243,7 @@ impl SuOptions {
 mod tests {
     use std::vec;
 
-    use crate::cli::SuAction;
-
-    use super::SuOptions;
+    use super::{SuAction, SuOptions};
 
     fn parse(args: &[&str]) -> SuOptions {
         let mut args = args

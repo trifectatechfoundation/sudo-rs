@@ -1,11 +1,11 @@
+use crate::common::error::Error;
+use crate::exec::ExitReason;
+use crate::log::user_warn;
+use crate::pam::{CLIConverser, PamContext, PamError, PamErrorType};
 use std::{env, process};
-use sudo::common::error::Error;
-use sudo::exec::ExitReason;
-use sudo::log::user_warn;
-use sudo::pam::{CLIConverser, PamContext, PamError, PamErrorType};
 
-use crate::cli::{SuAction, SuOptions};
-use crate::context::SuContext;
+use cli::{SuAction, SuOptions};
+use context::SuContext;
 
 mod cli;
 mod context;
@@ -70,7 +70,7 @@ fn run(options: SuOptions) -> Result<(), Error> {
     let environment = context.environment.clone();
     let pid = context.process.pid;
 
-    let (reason, emulate_default_handler) = sudo::exec::run_command(context, environment)?;
+    let (reason, emulate_default_handler) = crate::exec::run_command(context, environment)?;
 
     // closing the pam session is best effort, if any error occurs we cannot
     // do anything with it
@@ -82,14 +82,14 @@ fn run(options: SuOptions) -> Result<(), Error> {
     match reason {
         ExitReason::Code(code) => process::exit(code),
         ExitReason::Signal(signal) => {
-            sudo::system::kill(pid, signal)?;
+            crate::system::kill(pid, signal)?;
         }
     }
 
     Ok(())
 }
 
-fn main() {
+pub fn main() {
     let su_options = SuOptions::from_env().unwrap();
 
     match su_options.action {

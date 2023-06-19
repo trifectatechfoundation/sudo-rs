@@ -1,8 +1,13 @@
+// TODO: remove unused attribute when cli module is cleaned up
+#![allow(unused)]
 #![forbid(unsafe_code)]
 
 use std::path::PathBuf;
 
 pub mod help;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Debug, Default, PartialEq, Clone)]
 pub enum SudoAction {

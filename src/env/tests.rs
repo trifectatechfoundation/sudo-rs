@@ -1,8 +1,8 @@
+use crate::cli::SudoOptions;
+use crate::common::{CommandAndArguments, Context, Environment};
+use crate::env::environment::get_target_environment;
+use crate::system::{Group, Process, User};
 use std::collections::HashSet;
-use sudo::cli::SudoOptions;
-use sudo::common::{CommandAndArguments, Context, Environment};
-use sudo::env::environment::get_target_environment;
-use sudo::system::{Group, Process, User};
 
 const TESTS: &str = "
 > env
@@ -131,7 +131,7 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
         set_home: sudo_options.set_home,
         preserve_env: sudo_options.preserve_env.clone(),
         path,
-        launch: sudo::common::context::LaunchType::Direct,
+        launch: crate::common::context::LaunchType::Direct,
         chdir: sudo_options.directory.clone(),
         stdin: sudo_options.stdin,
         process: Process::new(),
@@ -154,7 +154,7 @@ fn test_environment_variable_filtering() {
 
     for (cmd, expected_env) in parts {
         let options = SudoOptions::try_parse_from(cmd.split_whitespace()).unwrap();
-        let settings = sudo::sudoers::Judgement::default();
+        let settings = crate::sudoers::Judgement::default();
         let context = create_test_context(&options);
         let resulting_env = get_target_environment(initial_env.clone(), &context, &settings);
 

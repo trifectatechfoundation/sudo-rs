@@ -1,3 +1,5 @@
+// TODO: remove unused attribute when system is cleaned up
+#![allow(unused)]
 use std::{
     ffi::{c_int, CStr, CString},
     fs::OpenOptions,

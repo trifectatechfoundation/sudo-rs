@@ -40,7 +40,7 @@ pub(crate) fn cited_error(message: &str, range: Range<(usize, usize)>, path: imp
 macro_rules! diagnostic {
     ($str:expr, $path:tt @ $pos:ident) => {
         if let Some(range) = $pos {
-            $crate::diagnostic::cited_error(&format!($str), range, $path);
+            $crate::sudo::diagnostic::cited_error(&format!($str), range, $path);
         } else {
             eprintln!("sudo-rs: {}", format!($str));
         }

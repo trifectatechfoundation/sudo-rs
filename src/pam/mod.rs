@@ -1,3 +1,6 @@
+// TODO: allow unused must be removed when PAM module is cleaned up
+#![allow(unused)]
+
 use std::{
     ffi::{CStr, CString},
     time::Duration,
@@ -15,6 +18,7 @@ mod rpassword;
 mod securemem;
 
 #[allow(nonstandard_style)]
+#[allow(unused)]
 pub mod sys;
 
 pub use converse::{CLIConverser, Converser};
