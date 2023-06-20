@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use crate::cli::SudoOptions;
-use crate::common::{Context, Error, Environment};
+use crate::common::{Context, Environment, Error};
 use crate::env::environment;
 use crate::exec::ExitReason;
 use crate::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
