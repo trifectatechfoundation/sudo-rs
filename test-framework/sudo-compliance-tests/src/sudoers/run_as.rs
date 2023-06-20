@@ -296,7 +296,6 @@ fn when_both_user_and_group_are_specified_then_as_that_user_is_allowed() -> Resu
 }
 
 #[test]
-#[ignore = "gh403"]
 fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Result<()> {
     let env = Env(format!("ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: ALL"))
         .user(USERNAME)
