@@ -131,6 +131,7 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
         launch: crate::common::context::LaunchType::Direct,
         chdir: sudo_options.directory.clone(),
         stdin: sudo_options.stdin,
+        non_interactive: sudo_options.non_interactive,
         process: Process::new(),
         use_session_records: false,
     }

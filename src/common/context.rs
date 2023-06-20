@@ -17,6 +17,7 @@ pub struct Context {
     pub target_user: User,
     pub target_group: Group,
     pub stdin: bool,
+    pub non_interactive: bool,
     pub use_session_records: bool,
     // system
     pub hostname: String,
@@ -55,6 +56,7 @@ impl Context {
             launch,
             chdir: sudo_options.directory,
             stdin: sudo_options.stdin,
+            non_interactive: sudo_options.non_interactive,
             process: Process::new(),
         })
     }
