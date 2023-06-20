@@ -1,5 +1,5 @@
 use crate::common::error::Error;
-use crate::exec::ExitReason;
+use crate::exec::{ExitReason, RunOptions};
 use crate::log::user_warn;
 use crate::pam::{CLIConverser, PamContext, PamError, PamErrorType};
 use std::{env, process};
@@ -14,7 +14,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn authenticate(user: &str, login: bool) -> Result<PamContext<CLIConverser>, Error> {
     let context = if login { "su-l" } else { "su" };
-    let mut pam = PamContext::builder_cli("su", Default::default(), Default::default())
+    let use_stdin = true;
+    let mut pam = PamContext::builder_cli("su", use_stdin, Default::default())
         .target_user(user)
         .service_name(context)
         .build()?;
@@ -62,9 +63,11 @@ fn authenticate(user: &str, login: bool) -> Result<PamContext<CLIConverser>, Err
 }
 
 fn run(options: SuOptions) -> Result<(), Error> {
-    let mut pam = authenticate(&options.user, options.login)?;
-
+    // lookup user and build context object
     let context = SuContext::from_env(options)?;
+
+    // authenticate the target user
+    let mut pam = authenticate(&context.user().name, context.is_login())?;
 
     // run command and return corresponding exit code
     let environment = context.environment.clone();
