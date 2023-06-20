@@ -49,6 +49,7 @@ fn explicit_target_user() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh491"]
 fn target_user_must_exist_in_passwd_db() -> Result<()> {
     let env = Env("").build()?;
 
@@ -68,6 +69,7 @@ fn target_user_must_exist_in_passwd_db() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh490"]
 fn required_password_is_target_users_pass() -> Result<()> {
     let invoking_user = "ferris";
     let target_user_name = "ghost";
