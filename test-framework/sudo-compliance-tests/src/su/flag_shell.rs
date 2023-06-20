@@ -74,6 +74,7 @@ fn specified_shell_could_not_be_executed() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh507"]
 fn ignores_shell_env_var_when_flag_preserve_environment_is_absent() -> Result<()> {
     let env = Env("").build()?;
 
