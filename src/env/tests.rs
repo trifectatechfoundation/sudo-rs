@@ -128,9 +128,6 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
         } else {
             root_group
         },
-        set_home: sudo_options.set_home,
-        preserve_env: sudo_options.preserve_env.clone(),
-        path,
         launch: crate::common::context::LaunchType::Direct,
         chdir: sudo_options.directory.clone(),
         stdin: sudo_options.stdin,
