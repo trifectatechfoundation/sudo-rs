@@ -143,6 +143,8 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
                         max_tries -= 1;
                         if max_tries == 0 {
                             return Err(Error::MaxAuthAttempts(current_try));
+                        } else if context.non_interactive {
+                            return Err(Error::Authentication("interaction required".to_string()));
                         } else {
                             user_warn!("Authentication failed, try again.");
                         }
