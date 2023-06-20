@@ -112,7 +112,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         Ok(())
     }
 
-    fn authenticate(&mut self, context: &Context) -> Result<(), Error> {
+    fn authenticate(&mut self, context: &Context, mut max_tries: u16) -> Result<(), Error> {
         let pam = self
             .pam
             .as_mut()
@@ -126,7 +126,6 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         let (must_authenticate, records_file) = determine_auth_status(scope, context);
 
         if must_authenticate {
-            let mut max_tries = 3;
             let mut current_try = 0;
             loop {
                 current_try += 1;
