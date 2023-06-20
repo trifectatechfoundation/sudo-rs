@@ -80,3 +80,64 @@ impl SimpleLogger<MutexTarget> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, RwLock};
+
+    use super::{LoggerWrite, SimpleLogger};
+    use log::{LevelFilter, Log};
+
+    impl LoggerWrite for Arc<RwLock<String>> {
+        fn write_log(&self, buf: &[u8]) -> std::io::Result<usize> {
+            self.write()
+                .unwrap()
+                .push_str(std::str::from_utf8(buf).unwrap());
+
+            Ok(buf.len())
+        }
+
+        fn flush_log(&self) -> std::io::Result<()> {
+            self.write().unwrap().push_str("flushed");
+
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_default_level() {
+        let logger = SimpleLogger::to_stderr("test");
+        let metadata = log::Metadata::builder().level(log::Level::Trace).build();
+
+        log::set_max_level(LevelFilter::Trace);
+        assert!(logger.enabled(&metadata));
+
+        log::set_max_level(LevelFilter::Info);
+        assert!(!logger.enabled(&metadata));
+    }
+
+    #[test]
+    fn test_write_and_flush() {
+        let target = Arc::new(RwLock::new(String::new()));
+        let logger = SimpleLogger {
+            target: target.clone(),
+            prefix: "[test] ",
+        };
+        let record = log::Record::builder()
+            .args(format_args!("Hello World!"))
+            .level(log::Level::Info)
+            .build();
+
+        logger.log(&record);
+
+        let value = target.read().unwrap();
+        assert_eq!(*value, "[test] Hello World!\n");
+        drop(value);
+
+        logger.flush();
+
+        let value = target.read().unwrap();
+        assert_eq!(*value, "[test] Hello World!\nflushed");
+        drop(value);
+    }
+}
