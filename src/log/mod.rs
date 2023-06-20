@@ -1,9 +1,10 @@
 #![allow(unused_macros)]
+use self::simple_logger::SimpleLogger;
 use self::syslog::Syslog;
 pub use log::Level;
-use std::io::Write;
 use std::ops::Deref;
 
+mod simple_logger;
 mod syslog;
 
 // TODO: logger_macro has an allow_unused that should be removed
@@ -67,12 +68,7 @@ impl SudoLogger {
 
         logger.add_logger("sudo::auth", Syslog);
 
-        let stderr_logger = env_logger::Builder::new()
-            .filter_level(log::LevelFilter::Trace)
-            .format(|buf, record| writeln!(buf, "sudo: {}", record.args()))
-            .build();
-
-        logger.add_logger("sudo::user", stderr_logger);
+        logger.add_logger("sudo::user", SimpleLogger::to_stderr("sudo: "));
 
         #[cfg(feature = "dev")]
         {
@@ -81,15 +77,7 @@ impl SudoLogger {
                 .unwrap_or_else(|| {
                     std::env::temp_dir().join(format!("sudo-dev-{}.log", std::process::id()))
                 });
-
-            let dev_logger = env_logger::Builder::new()
-                .filter_level(log::LevelFilter::Trace)
-                .target(env_logger::Target::Pipe(Box::new(
-                    std::fs::File::create(path).unwrap(),
-                )))
-                .build();
-
-            logger.add_logger("sudo::dev", dev_logger);
+            logger.add_logger("sudo::dev", SimpleLogger::to_file(path, "").unwrap());
         }
 
         logger
