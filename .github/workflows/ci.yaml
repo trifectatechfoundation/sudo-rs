@@ -365,6 +365,7 @@ jobs:
       - uses: tweedegolf/cargo-dependencies-action@v0.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          bin: sudo
           mainBranchName: main
 
   audit:
