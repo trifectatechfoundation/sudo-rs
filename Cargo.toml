@@ -43,3 +43,4 @@ dev = []
 strip = "debuginfo"
 lto = true
 opt-level = "s"
+panic = "abort"
