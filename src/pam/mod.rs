@@ -1,12 +1,9 @@
-// TODO: allow unused must be removed when PAM module is cleaned up
-#![allow(unused)]
-
 use std::{
-    ffi::{CStr, CString},
-    time::Duration,
+    collections::HashMap,
+    ffi::{CStr, CString, OsStr, OsString},
+    os::unix::prelude::OsStrExt,
 };
 
-use crate::cutils::string_from_ptr;
 use converse::ConverserData;
 use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
@@ -36,27 +33,6 @@ pub struct PamContextBuilder<C> {
     converser: Option<C>,
     service_name: Option<String>,
     target_user: Option<String>,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum CredentialsAction {
-    Establish,
-    Delete,
-    Reinitialize,
-    Refresh,
-}
-
-impl CredentialsAction {
-    pub fn as_int(&self) -> libc::c_int {
-        use CredentialsAction::*;
-
-        match self {
-            Establish => PAM_ESTABLISH_CRED as libc::c_int,
-            Delete => PAM_DELETE_CRED as libc::c_int,
-            Reinitialize => PAM_REINITIALIZE_CRED as libc::c_int,
-            Refresh => PAM_REFRESH_CRED as libc::c_int,
-        }
-    }
 }
 
 impl<C: Converser> PamContextBuilder<C> {
@@ -135,12 +111,6 @@ impl<C: Converser> PamContextBuilder<C> {
         self.target_user = Some(user.into());
         self
     }
-
-    /// Remove the target user if one was previously set.
-    pub fn clear_target_user(mut self) -> PamContextBuilder<C> {
-        self.target_user = None;
-        self
-    }
 }
 
 impl<C> Default for PamContextBuilder<C> {
@@ -154,11 +124,6 @@ impl<C> Default for PamContextBuilder<C> {
 }
 
 impl<C: Converser> PamContext<C> {
-    /// Create a new builder that can be used to create a new context.
-    pub fn builder() -> PamContextBuilder<C> {
-        PamContextBuilder::default()
-    }
-
     /// Set whether output of pam calls should be silent or not, by default
     /// PAM calls are not silent.
     pub fn mark_silent(&mut self, silent: bool) {
@@ -195,7 +160,12 @@ impl<C: Converser> PamContext<C> {
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
 
-        pam_err(unsafe { pam_authenticate(self.pamh, flags) })
+        pam_err(unsafe { pam_authenticate(self.pamh, flags) })?;
+
+        if self.has_panicked() {
+            panic!("Panic during pam authentication");
+        }
+        Ok(())
     }
 
     /// Check that the account is valid
@@ -221,30 +191,6 @@ impl<C: Converser> PamContext<C> {
         }
     }
 
-    /// Request a delay when an authentication failure occured in the PAM stack.
-    pub fn request_failure_delay(&mut self, delay: Duration) -> PamResult<()> {
-        let delay = delay.as_micros();
-        let delay = delay.min(libc::c_uint::MAX as u128) as libc::c_uint;
-        pam_err(unsafe { pam_fail_delay(self.pamh, delay) })
-    }
-
-    /// Set the user that is requesting the authentication.
-    pub fn set_requesting_user(&mut self, user: &str) -> PamResult<()> {
-        let c_user = CString::new(user)?;
-        pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_RUSER as i32,
-                c_user.as_ptr() as *const libc::c_void,
-            )
-        })
-    }
-
-    /// Clear the user that is requesting the authentication.
-    pub fn clear_requesting_user(&mut self) -> PamResult<()> {
-        pam_err(unsafe { pam_set_item(self.pamh, PAM_RUSER as i32, std::ptr::null()) })
-    }
-
     /// Set the user that will be authenticated.
     pub fn set_user(&mut self, user: &str) -> PamResult<()> {
         let c_user = CString::new(user)?;
@@ -257,62 +203,14 @@ impl<C: Converser> PamContext<C> {
         })
     }
 
-    /// Clear the user that will be authenticated
-    pub fn clear_user(&mut self) -> PamResult<()> {
-        pam_err(unsafe { pam_set_item(self.pamh, PAM_USER as i32, std::ptr::null()) })
-    }
-
-    /// Get the user that will be/was authenticated.
-    ///
-    /// Note that PAM modules might change the authenticated user, so you should
-    /// read this after authentication was completed to make sure what the
-    /// authenticated user is.
-    pub fn get_user(&mut self) -> PamResult<String> {
-        let mut ptr = std::ptr::null();
-        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER as i32, &mut ptr) })?;
-        Ok(unsafe { string_from_ptr(ptr as *const libc::c_char) })
-    }
-
-    /// Set the host that is requesting authentication
-    pub fn set_requesting_host(&mut self, host: &str) -> PamResult<()> {
-        let c_host = CString::new(host)?;
-        pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_RHOST as i32,
-                c_host.as_ptr() as *const libc::c_void,
-            )
-        })
-    }
-
-    /// Clear the host that is requesting authentication
-    pub fn clear_requesting_host(&mut self) -> PamResult<()> {
-        pam_err(unsafe { pam_set_item(self.pamh, PAM_RHOST as i32, std::ptr::null()) })
-    }
-
-    /// Establish credentials to be stored in PAM
-    pub fn credentials_establish(&mut self) -> PamResult<()> {
-        self.credentials(CredentialsAction::Establish)
-    }
-
-    /// Delete the credentials stored in PAM
-    pub fn credentials_delete(&mut self) -> PamResult<()> {
-        self.credentials(CredentialsAction::Delete)
-    }
-
     /// Re-initialize the credentials stored in PAM
     pub fn credentials_reinitialize(&mut self) -> PamResult<()> {
-        self.credentials(CredentialsAction::Reinitialize)
-    }
-
-    /// Refresh the credentials stored in PAM
-    pub fn credentials_refresh(&mut self) -> PamResult<()> {
-        self.credentials(CredentialsAction::Refresh)
+        self.credentials(PAM_REINITIALIZE_CRED as libc::c_int)
     }
 
     /// Updates to the credentials stored in PAM
-    pub fn credentials(&mut self, action: CredentialsAction) -> PamResult<()> {
-        let mut flags = action.as_int();
+    fn credentials(&mut self, action: libc::c_int) -> PamResult<()> {
+        let mut flags = action;
         flags |= self.silent_flag();
 
         pam_err(unsafe { pam_setcred(self.pamh, flags) })
@@ -354,33 +252,9 @@ impl<C: Converser> PamContext<C> {
         }
     }
 
-    /// Set an environment variable in the PAM environment
-    pub fn set_env(&mut self, variable: &str, value: &str) -> PamResult<()> {
-        let env = format!("{variable}={value}");
-        let c_env = CString::new(env)?;
-        pam_err(unsafe { pam_putenv(self.pamh, c_env.as_ptr()) })
-    }
-
-    /// Remove an environment variable in the PAM environment
-    pub fn unset_env(&mut self, variable: &str) -> PamResult<()> {
-        let c_env = CString::new(variable)?;
-        pam_err(unsafe { pam_putenv(self.pamh, c_env.as_ptr()) })
-    }
-
-    /// Get an environment variable from the PAM environment
-    pub fn get_env(&mut self, variable: &str) -> PamResult<Option<String>> {
-        let c_env = CString::new(variable).expect("String contained nul bytes");
-        let c_res = unsafe { pam_getenv(self.pamh, c_env.as_ptr()) };
-        if c_res.is_null() {
-            Ok(None)
-        } else {
-            Ok(Some(unsafe { string_from_ptr(c_res) }))
-        }
-    }
-
     /// Get a full listing of the current PAM environment
-    pub fn env(&mut self) -> PamResult<Vec<(String, String)>> {
-        let mut res = vec![];
+    pub fn env(&mut self) -> PamResult<HashMap<OsString, OsString>> {
+        let mut res = HashMap::new();
         let envs = unsafe { pam_getenvlist(self.pamh) };
         if envs.is_null() {
             return Err(PamError::EnvListFailure);
@@ -390,14 +264,17 @@ impl<C: Converser> PamContext<C> {
             let curr_str = unsafe { *curr_env };
             let data = {
                 let cstr = unsafe { CStr::from_ptr(curr_str) };
-                if let Some((key, value)) = cstr.to_string_lossy().split_once('=') {
-                    Some((String::from(key), String::from(value)))
+                let bytes = cstr.to_bytes();
+                if let Some(pos) = bytes.iter().position(|b| *b == b'=') {
+                    let key = OsStr::from_bytes(&bytes[..pos]).to_owned();
+                    let value = OsStr::from_bytes(&bytes[pos + 1..]).to_owned();
+                    Some((key, value))
                 } else {
                     None
                 }
             };
-            if let Some(kv) = data {
-                res.push(kv);
+            if let Some((k, v)) = data {
+                res.insert(k, v);
             }
 
             // free the current string and move to the next one
