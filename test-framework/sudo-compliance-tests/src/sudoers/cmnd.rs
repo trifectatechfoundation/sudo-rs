@@ -1,7 +1,7 @@
 //! Test the Cmnd_Spec component of the user specification: <user> ALL=(ALL:ALL) <cmnd_spec>
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, TextFile};
 
 use crate::{Result, USERNAME};
 
@@ -204,6 +204,165 @@ fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
         .args(["-u", USERNAME, "true"])
         .output(&env)?
         .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
+fn given_directory_then_commands_in_it_are_allowed() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/").build()?;
+
+    Command::new("sudo")
+        .arg("/usr/bin/true")
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+fn given_directory_then_commands_in_its_subdirectories_are_not_allowed() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/").build()?;
+
+    let output = Command::new("sudo").arg("/usr/bin/true").output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/usr/bin/true' as root"
+    } else {
+        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+fn wildcards_are_allowed_for_dir() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/*/true").build()?;
+
+    Command::new("sudo")
+        .arg("/usr/bin/true")
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
+fn wildcards_are_allowed_for_file() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/*").build()?;
+
+    Command::new("sudo")
+        .arg("/usr/bin/true")
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+// due to frequent misusage ("sudo: you are doing it wrong"), we explicitly don't support this
+#[test]
+#[ignore = "wontfix"]
+fn wildcards_are_allowed_for_args() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true /root/*").build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .arg("/root/ hello world")
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
+fn arguments_can_be_supplied() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true").build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .arg("/root/ hello world")
+        .output(&env)?
+        .assert_success()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .arg("foo")
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
+fn arguments_can_be_forced() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true hello").build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .arg("hello")
+        .output(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .arg("/root/ hello world")
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/usr/bin/true /root/ hello world' as root"
+    } else {
+        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+fn arguments_can_be_forbidded() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true \"\"").build()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .arg("/root/ hello world")
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/usr/bin/true /root/ hello world' as root"
+    } else {
+        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+fn wildcards_dont_cross_directory_boundaries() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/*/foo")
+        .directory("/usr/bin/sub")
+        .file("/usr/bin/sub/foo", TextFile("").chown("root").chmod("777"))
+        .build()?;
+
+    let output = Command::new("sudo").arg("/usr/bin/sub/foo").output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "user root is not allowed to execute '/usr/bin/sub/foo' as root"
+    } else {
+        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

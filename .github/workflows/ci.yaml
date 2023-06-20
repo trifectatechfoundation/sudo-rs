@@ -147,7 +147,7 @@ jobs:
       - name: Check that all ignored tests are linked to a GH issue
         working-directory: test-framework/sudo-compliance-tests
         run: |
-          grep -r '#\[ignore' ./src | grep -v '"gh' && echo 'found ignored tests not linked to a GitHub issue. please like them using the format #[ignore = "gh123"]' && exit 1; true
+          grep -r '#\[ignore' ./src | grep -v -e '"gh' -e '"wontfix"' && echo 'found ignored tests not linked to a GitHub issue. please like them using the format #[ignore = "gh123"]' && exit 1; true
 
 
   build-and-test:
