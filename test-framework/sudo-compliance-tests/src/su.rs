@@ -2,22 +2,10 @@ use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, USERNAME};
 
-#[test]
-fn flag_command() -> Result<()> {
-    let env = Env("").build()?;
-
-    Command::new("su")
-        .args(["-c", "true"])
-        .output(&env)?
-        .assert_success()?;
-
-    let output = Command::new("su").args(["-c", "false"]).output(&env)?;
-
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
-
-    Ok(())
-}
+mod env;
+mod flag_command;
+mod flag_login;
+mod flag_shell;
 
 #[test]
 fn default_target_is_root() -> Result<()> {
