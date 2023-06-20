@@ -92,8 +92,8 @@ impl TryFrom<io::Error> for ParentMessage {
     fn try_from(err: io::Error) -> Result<Self, Self::Error> {
         err.raw_os_error()
             .map(Self::IoError)
-            .or_else(|| (err.kind() == io::ErrorKind::UnexpectedEof).then(|| Self::ShortRead))
-            .ok_or_else(|| err)
+            .or_else(|| (err.kind() == io::ErrorKind::UnexpectedEof).then_some(Self::ShortRead))
+            .ok_or(err)
     }
 }
 
