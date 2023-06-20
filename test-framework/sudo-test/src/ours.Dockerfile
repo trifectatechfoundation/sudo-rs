@@ -5,11 +5,12 @@ RUN apt-get update && \
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
-RUN --mount=type=cache,target=/usr/src/sudo/target RUSTFLAGS="-C instrument-coverage" cargo build --locked --features="dev" --bin sudo && mkdir -p build && cp target/debug/sudo build/sudo
+RUN --mount=type=cache,target=/usr/src/sudo/target RUSTFLAGS="-C instrument-coverage" cargo build --locked --features="dev" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su
 # discard code coverage data created during `cargo build`
 RUN find / -name '*.profraw' -exec rm {} \;
 # set setuid on install
 RUN install --mode 4755 build/sudo /usr/bin/sudo
+RUN install --mode 4755 build/su /usr/bin/su
 # remove build dependencies
 RUN apt-get autoremove -y clang libclang-dev
 # HACK sudo-rs is hard-coded to use /etc/sudoers.test
