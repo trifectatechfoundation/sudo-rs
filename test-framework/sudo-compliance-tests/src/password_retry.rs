@@ -61,7 +61,6 @@ fn three_retries_allowed_by_default() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh396"]
 fn defaults_passwd_tries() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
