@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-use std::ffi::OsString;
 use std::process::exit;
 
 use crate::cli::SudoOptions;
-use crate::common::{Context, Error};
+use crate::common::{Context, Error, Environment};
 use crate::env::environment;
 use crate::exec::ExitReason;
 use crate::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
@@ -23,7 +21,7 @@ pub trait PolicyPlugin {
 pub trait AuthPlugin {
     fn init(&mut self, context: &Context) -> Result<(), Error>;
     fn authenticate(&mut self, context: &Context) -> Result<(), Error>;
-    fn pre_exec(&mut self, context: &Context) -> Result<HashMap<OsString, OsString>, Error>;
+    fn pre_exec(&mut self, context: &Context) -> Result<Environment, Error>;
     fn cleanup(&mut self);
 }
 

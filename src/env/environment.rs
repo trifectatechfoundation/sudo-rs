@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{hash_map::Entry, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
 };
@@ -189,7 +189,7 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
 /// Environment variables with a value beginning with ‘()’ are removed
 pub fn get_target_environment(
     current_env: Environment,
-    additional_env: HashMap<OsString, OsString>,
+    additional_env: Environment,
     context: &Context,
     settings: &impl Policy,
 ) -> Environment {
@@ -198,6 +198,8 @@ pub fn get_target_environment(
     // retrieve SUDO_PS1 value to set a PS1 value as additional environment
     let sudo_ps1 = current_env.get(OsStr::new("SUDO_PS1")).cloned();
 
+    // variables preserved from the invoking user's environment by the
+    // env_keep list take precedence over those in the PAM environment
     environment.extend(additional_env);
 
     environment.extend(
