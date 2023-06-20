@@ -74,8 +74,13 @@ pub(super) fn exec_pty(
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
         if let Err(err) = exec_monitor(pty.follower, command, &mut backchannels.monitor) {
-            if let Err(err) = backchannels.monitor.send(&err.into()) {
-                dev_error!("unable to send status to parent: {err}");
+            match err.try_into() {
+                Ok(msg) => {
+                    if let Err(err) = backchannels.monitor.send(&msg) {
+                        dev_error!("unable to send status to parent: {err}");
+                    }
+                }
+                Err(err) => dev_warn!("execution error {err:?} cannot be send over backchannel"),
             }
         }
         // FIXME: drop everything before calling `exit`.
@@ -208,8 +213,12 @@ impl ParentClosure {
                     }
                     ParentMessage::IoError(code) => {
                         let err = io::Error::from_raw_os_error(code);
-                        dev_info!("received error ({code}) for monitor: {err}",);
+                        dev_info!("received error ({code}) for monitor: {err}");
                         dispatcher.set_break(err);
+                    }
+                    ParentMessage::ShortRead => {
+                        dev_info!("received short read error for monitor");
+                        dispatcher.set_break(io::ErrorKind::UnexpectedEof.into());
                     }
                 }
             }

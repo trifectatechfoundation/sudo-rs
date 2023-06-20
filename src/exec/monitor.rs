@@ -193,7 +193,16 @@ impl<'a> MonitorClosure<'a> {
                 dev_warn!("monitor could not read from backchannel: {}", err);
                 // FIXME: maybe the break reason should be `io::Error` instead.
                 dispatcher.set_break(());
-                self.backchannel.send(&err.into()).unwrap();
+                match err.try_into() {
+                    Ok(msg) => {
+                        if let Err(err) = self.backchannel.send(&msg) {
+                            dev_warn!("monitor could not write to the backchannel: {err}");
+                        }
+                    }
+                    Err(err) => {
+                        dev_warn!("backchannel read error {err:?} cannot be send over backchannel")
+                    }
+                }
             }
             Ok(event) => {
                 match event {
@@ -255,7 +264,15 @@ impl<'a> MonitorClosure<'a> {
             Err(err) => {
                 // Could not read from the pipe, report error to the parent.
                 // FIXME: Maybe we should have a different variant for this.
-                self.backchannel.send(&err.into()).ok();
+                match err.try_into() {
+                    Ok(msg) => {
+                        self.backchannel.send(&msg).ok();
+                    }
+                    Err(err) => {
+                        dev_warn!("pipe read error {err:?} cannot be send over backchannel")
+                    }
+                }
+
                 dispatcher.set_break(());
             }
             Ok(_) => {
