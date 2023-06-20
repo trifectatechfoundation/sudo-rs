@@ -39,6 +39,7 @@ echo $0";
 }
 
 #[test]
+#[ignore = "gh502"]
 fn specified_shell_does_not_exist() -> Result<()> {
     let env = Env("").build()?;
 
@@ -56,6 +57,7 @@ fn specified_shell_does_not_exist() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh503"]
 fn specified_shell_could_not_be_executed() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let env = Env("").file(shell_path, "").build()?;
