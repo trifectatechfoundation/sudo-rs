@@ -72,3 +72,18 @@ fn specified_shell_could_not_be_executed() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn ignores_shell_env_var_when_flag_preserve_environment_is_absent() -> Result<()> {
+    let env = Env("").build()?;
+
+    let stdout = Command::new("env")
+        .arg("SHELL=/usr/bin/false")
+        .args(["su", "-c", "echo $0"])
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!("bash", stdout);
+
+    Ok(())
+}
