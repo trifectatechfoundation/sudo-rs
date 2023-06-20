@@ -20,7 +20,7 @@ pub trait PolicyPlugin {
 
 pub trait AuthPlugin {
     fn init(&mut self, context: &Context) -> Result<(), Error>;
-    fn authenticate(&mut self, context: &Context) -> Result<(), Error>;
+    fn authenticate(&mut self, context: &Context, attempts: u16) -> Result<(), Error>;
     fn pre_exec(&mut self, context: &Context) -> Result<Environment, Error>;
     fn cleanup(&mut self);
 }
@@ -48,11 +48,15 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                     context.current_user.name
                 )));
             }
-            Authorization::Allowed { must_authenticate } => {
+            Authorization::Allowed {
+                must_authenticate,
+                allowed_attempts,
+            } => {
                 self.apply_policy_to_context(&mut context, &policy)?;
                 self.authenticator.init(&context)?;
                 if must_authenticate {
-                    self.authenticator.authenticate(&context)?;
+                    self.authenticator
+                        .authenticate(&context, allowed_attempts)?;
                 }
             }
         }

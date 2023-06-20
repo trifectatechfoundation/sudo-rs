@@ -31,7 +31,7 @@ defaults! {
     use_pty                   = false
     visiblepw                 = false
 
-    passwd_tries              = 3
+    passwd_tries              = 3                  [0..=1000]
     umask                     = 0o22 (!= 0o777)    [0..=0o777; radix: 8]
 
     editor                    = "/usr/bin/editor"

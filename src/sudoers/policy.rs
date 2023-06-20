@@ -27,7 +27,10 @@ pub trait Policy {
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum Authorization {
-    Allowed { must_authenticate: bool },
+    Allowed {
+        must_authenticate: bool,
+        allowed_attempts: u16,
+    },
     Forbidden,
 }
 
@@ -43,6 +46,7 @@ impl Policy for Judgement {
         if let Some(tag) = &self.flags {
             Authorization::Allowed {
                 must_authenticate: tag.passwd,
+                allowed_attempts: self.settings.int_value["passwd_tries"].try_into().unwrap(),
             }
         } else {
             Authorization::Forbidden
@@ -106,14 +110,16 @@ mod test {
         assert_eq!(
             judge.authorization(),
             Authorization::Allowed {
-                must_authenticate: true
+                must_authenticate: true,
+                allowed_attempts: 3,
             }
         );
         judge.mod_flag(|tag| tag.passwd = false);
         assert_eq!(
             judge.authorization(),
             Authorization::Allowed {
-                must_authenticate: false
+                must_authenticate: false,
+                allowed_attempts: 3,
             }
         );
     }
