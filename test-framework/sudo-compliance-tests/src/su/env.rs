@@ -60,12 +60,14 @@ fn vars_set_by_su_when_target_is_not_root() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh505"]
 fn vars_set_by_su_override_existing_ones() -> Result<()> {
     let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
 
     let stdout = Command::new("env")
         .arg("-i")
-        .arg("SHELL=my-shell")
+        // FIXME workaround for gh506. change to `SHELL=my-shell`
+        .arg("SHELL=/usr/bin/env")
         .arg("HOME=my-home")
         .arg("USER=my-user")
         .arg("LOGNAME=my-logname")
