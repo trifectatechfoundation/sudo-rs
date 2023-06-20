@@ -23,6 +23,7 @@ mod pass_auth;
 mod password_retry;
 mod path_search;
 mod perms;
+mod su;
 mod sudo_ps1;
 mod sudoers;
 mod syslog;
