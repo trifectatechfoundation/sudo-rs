@@ -183,7 +183,7 @@ fn distribute_tags(
 /// A type to represent positive or negative association with an alias; i.e. if a key maps to true,
 /// the alias affirms membership, if a key maps to false, the alias denies membership; if a key
 /// isn't present membership is affirmed nor denied
-type FoundAliases = HashMap<String, ()>;
+type FoundAliases = HashMap<String, bool>;
 
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
@@ -208,10 +208,18 @@ where
         match who {
             Meta::All => result = judgement,
             Meta::Only(ident) if matches(ident) => result = judgement,
-            Meta::Alias(id) if aliases.contains_key(id) => result = judgement,
+            Meta::Alias(id) if aliases.contains_key(id) => {
+                result = if aliases[id] {
+                    judgement
+                } else {
+                    // in this case, an explicit negation in the alias applies
+                    result // TODO REPLACE ME
+                }
+            }
             _ => {}
         };
     }
+
     result
 }
 
@@ -303,10 +311,17 @@ fn get_aliases<Predicate, T>(table: &VecOrd<Def<T>>, pred: &Predicate) -> FoundA
 where
     Predicate: Fn(&T) -> bool,
 {
+    use std::iter::once;
+    let all = Qualified::Allow(Meta::All);
+
     let mut set = HashMap::new();
     for Def(id, list) in elems(table) {
         if find_item(list, &pred, &set).is_some() {
-            set.insert(id.clone(), ());
+            set.insert(id.clone(), true);
+        } else if find_item(once(&all).chain(list), &pred, &set).is_none() {
+            // the item wasn't found even if we prepend ALL to the list of definitions; that means
+            // it is explicitly excluded by the alias definition.
+            set.insert(id.clone(), false);
         }
     }
 
