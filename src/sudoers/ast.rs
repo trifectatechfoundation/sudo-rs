@@ -566,7 +566,7 @@ impl Parse for (String, ConfigValue) {
 
         if is_syntax('!', stream)? {
             let value_pos = stream.get_pos();
-            let EnvVar(name) = expect_nonterminal(stream)?;
+            let DefaultName(name) = expect_nonterminal(stream)?;
             let value = match sudo_default(&name) {
                 Some(Setting::Flag(_)) => ConfigValue::Flag(false),
                 Some(Setting::List(_)) => ConfigValue::List(Mode::Set, vec![]),
@@ -591,7 +591,7 @@ impl Parse for (String, ConfigValue) {
             };
             make((name, value))
         } else {
-            let EnvVar(name) = try_nonterminal(stream)?;
+            let DefaultName(name) = try_nonterminal(stream)?;
             let Some(cfg) = sudo_default(&name) else {
                 unrecoverable!(pos = id_pos, stream, "unknown setting: '{name}'");
             };

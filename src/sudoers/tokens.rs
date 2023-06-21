@@ -184,8 +184,18 @@ impl Token for Command {
 
 impl Many for Command {}
 
-/// An environment variable name pattern consists of alphanumeric characters as well as "_", "%" and wildcard "*"
-/// (Value patterns are not supported yet)
+pub struct DefaultName(pub String);
+
+impl Token for DefaultName {
+    fn construct(text: String) -> Result<Self, String> {
+        Ok(DefaultName(text))
+    }
+
+    fn accept(c: char) -> bool {
+        c.is_ascii_alphanumeric() || c == '_'
+    }
+}
+
 pub struct EnvVar(pub String);
 
 impl Token for EnvVar {

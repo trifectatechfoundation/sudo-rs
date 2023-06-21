@@ -81,6 +81,10 @@ mod names {
         const DESCRIPTION: &'static str = "alias name";
     }
 
+    impl UserFriendly for tokens::DefaultName {
+        const DESCRIPTION: &'static str = "configuration option";
+    }
+
     impl UserFriendly for tokens::EnvVar {
         const DESCRIPTION: &'static str = "environment variable";
     }
