@@ -100,11 +100,17 @@ pub(super) fn exec_monitor(
         dev_warn!("cannot send command PID to parent: {err}");
     }
 
-    let mut closure = MonitorClosure::new(command_pid, errpipe_rx, backchannel, &mut dispatcher);
+    let mut closure = MonitorClosure::new(
+        command_pid,
+        pty_follower,
+        errpipe_rx,
+        backchannel,
+        &mut dispatcher,
+    );
 
     // Set the foreground group for the pty follower.
     if foreground {
-        if let Err(err) = tcsetpgrp(&pty_follower, closure.command_pgrp) {
+        if let Err(err) = tcsetpgrp(&closure.pty_follower, closure.command_pgrp) {
             dev_error!(
                 "cannot set foreground progess group to command ({}): {err}",
                 closure.command_pgrp
@@ -121,7 +127,7 @@ pub(super) fn exec_monitor(
     // FIXME (ogsudo): Terminate the command using `killpg` if it's not terminated.
 
     // Take the controlling tty so the command's children don't receive SIGHUP when we exit.
-    if let Err(err) = tcsetpgrp(&pty_follower, closure.monitor_pgrp) {
+    if let Err(err) = tcsetpgrp(&closure.pty_follower, closure.monitor_pgrp) {
         dev_error!(
             "cannot set foreground process group to monitor ({}): {err}",
             closure.monitor_pgrp
@@ -170,6 +176,7 @@ struct MonitorClosure<'a> {
     command_pid: Option<ProcessId>,
     command_pgrp: ProcessId,
     monitor_pgrp: ProcessId,
+    pty_follower: OwnedFd,
     errpipe_rx: UnixStream,
     backchannel: &'a mut MonitorBackchannel,
 }
@@ -177,6 +184,7 @@ struct MonitorClosure<'a> {
 impl<'a> MonitorClosure<'a> {
     fn new(
         command_pid: ProcessId,
+        pty_follower: OwnedFd,
         errpipe_rx: UnixStream,
         backchannel: &'a mut MonitorBackchannel,
         dispatcher: &mut EventDispatcher<Self>,
@@ -205,6 +213,7 @@ impl<'a> MonitorClosure<'a> {
             command_pid: Some(command_pid),
             command_pgrp,
             monitor_pgrp,
+            pty_follower,
             errpipe_rx,
             backchannel,
         }
@@ -273,7 +282,12 @@ impl<'a> MonitorClosure<'a> {
                 "command ({command_pid}) was stopped by {}",
                 signal_fmt(signal),
             );
-            // FIXME: we should save the foreground process group ID so we can restore it later.
+            // Save the foreground process group ID so we can restore it later.
+            if let Ok(pgrp) = tcgetpgrp(&self.pty_follower) {
+                if pgrp != self.monitor_pgrp {
+                    self.command_pgrp = pgrp;
+                }
+            }
             self.backchannel
                 .send(&ParentMessage::CommandSignal(signal))
                 .ok();
