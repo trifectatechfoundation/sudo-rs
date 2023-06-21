@@ -18,10 +18,14 @@ use std::{
 
 use signal_hook::consts::*;
 
-use crate::system::{set_target_user, signal::SignalNumber};
 use crate::{
     common::Environment,
     system::{interface::ProcessId, killpg},
+};
+use crate::{
+    exec::no_pty::exec_no_pty,
+    log::dev_info,
+    system::{set_target_user, signal::SignalNumber, term::UserTerm},
 };
 use crate::{log::user_error, system::kill};
 
@@ -88,7 +92,13 @@ pub fn run_command(
         options.group().clone(),
     );
 
-    exec_pty(options.pid(), command)
+    match UserTerm::new() {
+        Ok(user_tty) => exec_pty(options.pid(), command, user_tty),
+        Err(err) => {
+            dev_info!("Could not open user's terminal, not allocating a pty: {err}");
+            exec_no_pty(options.pid(), command)
+        }
+    }
 }
 
 /// Exit reason for the command executed by sudo.

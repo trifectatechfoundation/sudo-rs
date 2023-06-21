@@ -20,7 +20,7 @@ use crate::{
 pub(crate) fn exec_no_pty(
     sudo_pid: ProcessId,
     mut command: Command,
-) -> io::Result<(ExitReason, impl FnOnce())> {
+) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // FIXME: block signals directly instead of using the dispatcher.
@@ -39,7 +39,7 @@ pub(crate) fn exec_no_pty(
         StopReason::Exit(reason) => reason,
     };
 
-    Ok((exit_reason, move || drop(dispatcher)))
+    Ok((exit_reason, Box::new(move || drop(dispatcher))))
 }
 
 struct ExecClosure {
