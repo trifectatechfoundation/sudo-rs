@@ -117,8 +117,16 @@ pub(super) fn exec_monitor(
 
     // Start the event loop.
     let reason = dispatcher.event_loop(&mut closure);
+
     // FIXME (ogsudo): Terminate the command using `killpg` if it's not terminated.
-    // FIXME (ogsudo): Take the controlling tty so the command's children don't receive SIGHUP when we exit.
+
+    // Take the controlling tty so the command's children don't receive SIGHUP when we exit.
+    if let Err(err) = tcsetpgrp(&pty_follower, closure.monitor_pgrp) {
+        dev_error!(
+            "cannot set foreground process group to monitor ({}): {err}",
+            closure.monitor_pgrp
+        );
+    }
 
     match reason {
         StopReason::Break(()) => {}
@@ -161,6 +169,7 @@ struct MonitorClosure<'a> {
     /// This is `Some` iff the process is still running.
     command_pid: Option<ProcessId>,
     command_pgrp: ProcessId,
+    monitor_pgrp: ProcessId,
     errpipe_rx: UnixStream,
     backchannel: &'a mut MonitorBackchannel,
 }
@@ -172,7 +181,9 @@ impl<'a> MonitorClosure<'a> {
         backchannel: &'a mut MonitorBackchannel,
         dispatcher: &mut EventDispatcher<Self>,
     ) -> Self {
-        // FIXME (ogsudo): Store the pgid of the monitor.
+        // Store the pgid of the monitor.
+        // FIXME: ogsudo does not handle this error explicitly.
+        let monitor_pgrp = getpgid(0).unwrap_or(-1);
 
         // Register the callback to receive the IO error if the command fails to execute.
         dispatcher.set_read_callback(&errpipe_rx, |monitor, dispatcher| {
@@ -193,6 +204,7 @@ impl<'a> MonitorClosure<'a> {
         Self {
             command_pid: Some(command_pid),
             command_pgrp,
+            monitor_pgrp,
             errpipe_rx,
             backchannel,
         }
