@@ -25,7 +25,7 @@ use super::pipe::Pipe;
 
 pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
-    command: Command,
+    mut command: Command,
     user_tty: UserTerm,
 ) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // Allocate a pseudoterminal.
@@ -55,7 +55,17 @@ pub(crate) fn exec_pty(
     // FIXME: ogsudo never handles this error explicitly.
     let parent_pgrp = getpgid(0).unwrap_or(-1);
 
-    // FIXME (ogsudo): Set all the IO streams for the command to the follower side of the pty.
+    // Set all the IO streams for the command to the follower side of the pty.
+    let clone_follower = || {
+        pty.follower.try_clone().map_err(|err| {
+            dev_error!("cannot clone pty follower: {err}");
+            err
+        })
+    };
+
+    command.stdin(clone_follower()?);
+    command.stdout(clone_follower()?);
+    command.stderr(clone_follower()?);
 
     let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
 
