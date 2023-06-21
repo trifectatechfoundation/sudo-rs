@@ -202,15 +202,16 @@ where
     let mut result = None;
     for item in items {
         let (judgement, who) = match item.clone().to_inner() {
-            Qualified::Forbid(x) => (None, x),
-            Qualified::Allow(x) => (Some(item.to_info()), x),
+            Qualified::Forbid(x) => (false, x),
+            Qualified::Allow(x) => (true, x),
         };
+        let info = || item.to_info();
         match who {
-            Meta::All => result = judgement,
-            Meta::Only(ident) if matches(ident) => result = judgement,
+            Meta::All => result = judgement.then(info),
+            Meta::Only(ident) if matches(ident) => result = judgement.then(info),
             Meta::Alias(id) if aliases.contains_key(id) => {
                 result = if aliases[id] {
-                    judgement
+                    judgement.then(info)
                 } else {
                     // in this case, an explicit negation in the alias applies
                     result // TODO REPLACE ME
