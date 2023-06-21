@@ -7,7 +7,8 @@ use super::{
     terminate_process, ExitReason,
 };
 use crate::{
-    exec::io_util::was_interrupted,
+    exec::{cond_fmt, io_util::was_interrupted, signal_fmt},
+    log::{dev_error, dev_info, dev_warn},
     system::{
         getpgid,
         interface::ProcessId,
@@ -28,9 +29,15 @@ pub(crate) fn exec_no_pty(
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
-    let command = command.spawn()?;
+    let command = command.spawn().map_err(|err| {
+        dev_error!("Cannot spawn command: {err}");
+        err
+    })?;
 
-    let mut closure = ExecClosure::new(command.id() as ProcessId, sudo_pid);
+    let command_pid = command.id() as ProcessId;
+    dev_info!("Executed command with pid {command_pid}");
+
+    let mut closure = ExecClosure::new(command_pid, sudo_pid);
 
     // FIXME: restore signal mask here.
 
@@ -87,14 +94,27 @@ impl ExecClosure {
             }
         };
 
-        if let Some(_signal) = status.stop_signal() {
+        if let Some(signal) = status.stop_signal() {
+            dev_info!(
+                "command ({command_pid}) was stopped by {}",
+                signal_fmt(signal),
+            );
             // FIXME: check `sudo_suspend_parent`
         } else if let Some(signal) = status.term_signal() {
+            dev_info!(
+                "command ({command_pid}) was terminated by {}",
+                signal_fmt(signal),
+            );
             dispatcher.set_exit(ExitReason::Signal(signal));
             self.command_pid = None;
         } else if let Some(exit_code) = status.exit_status() {
+            dev_info!("command ({command_pid}) exited with status code {exit_code}");
             dispatcher.set_exit(ExitReason::Code(exit_code));
             self.command_pid = None;
+        } else if status.did_continue() {
+            dev_info!("command ({command_pid}) continued execution");
+        } else {
+            dev_warn!("unexpected wait status for command ({command_pid})")
         }
     }
 }
@@ -104,7 +124,15 @@ impl EventClosure for ExecClosure {
     type Exit = ExitReason;
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
+        dev_info!(
+            "sudo received{} {} from {}",
+            cond_fmt(" user signaled", info.is_user_signaled()),
+            signal_fmt(info.signal()),
+            info.pid()
+        );
+
         let Some(command_pid) = self.command_pid else {
+            dev_info!("command was terminated, ignoring signal");
             return;
         };
 
