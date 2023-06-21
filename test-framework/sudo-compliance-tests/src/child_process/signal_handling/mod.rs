@@ -5,10 +5,59 @@ use crate::{
     Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY, USERNAME,
 };
 
+mod tty {
+    use crate::Result;
+
+    #[test]
+    fn signal_sent_by_child_process_is_ignored() -> Result<()> {
+        super::signal_sent_by_child_process_is_ignored(true)
+    }
+
+    #[test]
+    fn signal_is_forwarded_to_child() -> Result<()> {
+        super::signal_is_forwarded_to_child(true)
+    }
+
+    #[test]
+    fn child_terminated_by_signal() -> Result<()> {
+        super::child_terminated_by_signal(true)
+    }
+
+    #[test]
+    #[ignore = "gh325"]
+    fn sigtstp_works() -> Result<()> {
+        super::sigtstp_works(true)
+    }
+}
+
+mod no_tty {
+    use crate::Result;
+
+    #[test]
+    fn signal_sent_by_child_process_is_ignored() -> Result<()> {
+        super::signal_sent_by_child_process_is_ignored(false)
+    }
+
+    #[test]
+    fn signal_is_forwarded_to_child() -> Result<()> {
+        super::signal_is_forwarded_to_child(false)
+    }
+
+    #[test]
+    fn child_terminated_by_signal() -> Result<()> {
+        super::child_terminated_by_signal(false)
+    }
+
+    #[test]
+    #[ignore = "gh325"]
+    fn sigtstp_works() -> Result<()> {
+        super::sigtstp_works(false)
+    }
+}
+
 // man sudo > Signal handling
 // "As a special case, sudo will not relay signals that were sent by the command it is running."
-#[test]
-fn signal_sent_by_child_process_is_ignored() -> Result<()> {
+fn signal_sent_by_child_process_is_ignored(tty: bool) -> Result<()> {
     let script = include_str!("kill-sudo-parent.sh");
 
     let kill_sudo_parent = "/root/kill-sudo-parent.sh";
@@ -20,13 +69,12 @@ fn signal_sent_by_child_process_is_ignored() -> Result<()> {
     Command::new("sudo")
         .args(["sh", kill_sudo_parent])
         .as_user(USERNAME)
-        .tty(true)
+        .tty(tty)
         .output(&env)?
         .assert_success()
 }
 
-#[test]
-fn signal_is_forwarded_to_child() -> Result<()> {
+fn signal_is_forwarded_to_child(tty: bool) -> Result<()> {
     let expected = "got signal";
     let expects_signal = "/root/expects-signal.sh";
     let kill_sudo = "/root/kill-sudo.sh";
@@ -43,7 +91,7 @@ fn signal_is_forwarded_to_child() -> Result<()> {
 
     Command::new("sh")
         .arg(kill_sudo)
-        .tty(true)
+        .tty(tty)
         .output(&env)?
         .assert_success()?;
 
@@ -56,8 +104,7 @@ fn signal_is_forwarded_to_child() -> Result<()> {
 
 // man sudo > Exit value
 // "If the command terminated due to receipt of a signal, sudo will send itself the same signal that terminated the command."
-#[test]
-fn child_terminated_by_signal() -> Result<()> {
+fn child_terminated_by_signal(tty: bool) -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY])
         .user(USERNAME)
         .build()?;
@@ -66,7 +113,7 @@ fn child_terminated_by_signal() -> Result<()> {
     let output = Command::new("sudo")
         .args(["sh", "-c", "kill $$"])
         .as_user(USERNAME)
-        .tty(true)
+        .tty(tty)
         .output(&env)?;
 
     assert_eq!(Some(143), output.status().code());
@@ -75,9 +122,7 @@ fn child_terminated_by_signal() -> Result<()> {
     Ok(())
 }
 
-#[test]
-#[ignore = "gh325"]
-fn sigtstp_works() -> Result<()> {
+fn sigtstp_works(tty: bool) -> Result<()> {
     const STOP_DELAY: u64 = 5;
     const NUM_ITERATIONS: usize = 5;
 
@@ -88,7 +133,7 @@ fn sigtstp_works() -> Result<()> {
 
     let output = Command::new("bash")
         .arg(script_path)
-        .tty(true)
+        .tty(tty)
         .output(&env)?
         .stdout()?;
 
