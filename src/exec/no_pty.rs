@@ -99,7 +99,10 @@ impl ExecClosure {
                 "command ({command_pid}) was stopped by {}",
                 signal_fmt(signal),
             );
-            // FIXME: check `sudo_suspend_parent`
+            // FIXME: this isn't right as the command has not exited if the signal is
+            // not a termination one. However, doing this makes us fail an ignored
+            // compliance test instead of hanging forever.
+            dispatcher.set_exit(ExitReason::Signal(signal));
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
                 "command ({command_pid}) was terminated by {}",
