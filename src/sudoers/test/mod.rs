@@ -192,6 +192,9 @@ fn permission_test() {
     FAIL!(["user ALL=/bin/foo"], "user" => request! { root, sudo }, "server"; "/bin/foo");
     pass!(["user ALL=/bin/foo"], "user" => request! { root, root }, "server"; "/bin/foo");
 
+    // slightly counterintuitive test which simulates only -g being passed
+    pass!(["user ALL=(sudo:sudo) /bin/foo"], "user" => request! { user, sudo }, "server"; "/bin/foo");
+
     // tests with multiple runas specs
     pass!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/ls");
     pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/true" => [passwd: false]);

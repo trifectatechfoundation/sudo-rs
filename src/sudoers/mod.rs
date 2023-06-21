@@ -143,10 +143,11 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         .flatten()
         .filter_map(|(runas, cmdspec)| {
             if let Some(RunAs { users, groups }) = runas {
-                if !users.is_empty() || request.user != am_user {
+                let stays_in_group = in_group(request.user, request.group);
+                if request.user != am_user || (stays_in_group && !users.is_empty()) {
                     find_item(users, &match_user(request.user), &runas_user_aliases)?
                 }
-                if !in_group(request.user, request.group) {
+                if !stays_in_group {
                     find_item(groups, &match_group(request.group), &runas_group_aliases)?
                 }
             } else if !(request.user.is_root() && in_group(request.user, request.group)) {

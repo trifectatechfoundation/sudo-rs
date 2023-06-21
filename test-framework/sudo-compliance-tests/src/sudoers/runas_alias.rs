@@ -288,7 +288,6 @@ fn when_only_username_is_given_group_arg_fails() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh403"]
 #[test]
 fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
     let env = Env([
@@ -342,7 +341,6 @@ fn user_and_group_succeeds_when_both_are_passed() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh403"]
 #[test]
 fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
     let env = Env([
