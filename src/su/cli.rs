@@ -246,10 +246,7 @@ mod tests {
     use super::{SuAction, SuOptions};
 
     fn parse(args: &[&str]) -> SuOptions {
-        let mut args = args
-            .into_iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
+        let mut args = args.iter().map(|s| s.to_string()).collect::<Vec<String>>();
         args.insert(0, "/bin/su".to_string());
         SuOptions::parse_arguments(args).unwrap()
     }

@@ -121,7 +121,7 @@ fn unassigned_group_id_is_rejected() -> Result<()> {
         if sudo_test::is_original_sudo() {
             assert_snapshot!(stderr);
         } else {
-            assert_contains!(stderr, "group `#1234' not found");
+            assert_contains!(stderr, "group '#1234' not found");
         }
     }
 
@@ -144,7 +144,7 @@ fn group_does_not_exist() -> Result<()> {
         let diagnostic = if sudo_test::is_original_sudo() {
             "unknown group ghosts"
         } else {
-            "group `ghosts' not found"
+            "group 'ghosts' not found"
         };
         assert_contains!(output.stderr(), diagnostic);
     }
