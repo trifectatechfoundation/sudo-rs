@@ -520,9 +520,11 @@ impl Parse for (String, ConfigValue) {
                 while let Some(EnvVar(name)) = try_nonterminal(stream)? {
                     result.push(name);
                     if is_syntax('=', stream)? {
-                        let QuotedText(_) = expect_nonterminal(stream)?;
-                        expect_syntax('"', stream)?;
+                        let EnvVar(_) = expect_nonterminal(stream)?;
                         unrecoverable!(stream, "values in environment variables not yet supported")
+                    }
+                    if result.len() > Identifier::LIMIT {
+                        unrecoverable!(stream, "environment variable list too long")
                     }
                 }
                 expect_syntax('"', stream)?;

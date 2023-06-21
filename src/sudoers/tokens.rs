@@ -194,7 +194,12 @@ impl Token for EnvVar {
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_alphanumeric() || "*_%".contains(c)
+        !c.is_control() && !c.is_whitespace() && !Self::escaped(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        "\\=#\"".contains(c)
     }
 }
 
