@@ -214,7 +214,7 @@ where
                     judgement.then(info)
                 } else {
                     // in this case, an explicit negation in the alias applies
-                    result // TODO REPLACE ME
+                    (!judgement).then(info)
                 }
             }
             _ => {}

@@ -224,7 +224,6 @@ fn negation_not_order_sensitive() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh398"]
 #[test]
 fn negation_combination() -> Result<()> {
     let env = Env([
@@ -246,7 +245,6 @@ fn negation_combination() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh398"]
 #[test]
 fn another_negation_combination() -> Result<()> {
     let env = Env([
@@ -278,7 +276,6 @@ fn another_negation_combination() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh398"]
 #[test]
 fn one_more_negation_combination() -> Result<()> {
     let env = Env([
