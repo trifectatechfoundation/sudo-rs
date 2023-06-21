@@ -9,10 +9,6 @@ use std::{
 };
 
 use crate::{
-    exec::event::StopReason,
-    log::{dev_error, dev_info, dev_warn},
-};
-use crate::{
     exec::terminate_process,
     system::{
         fork, getpgid,
@@ -22,6 +18,13 @@ use crate::{
         term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
         wait::{waitpid, WaitError, WaitOptions},
     },
+};
+use crate::{
+    exec::{
+        event::StopReason,
+        use_pty::{SIGCONT_BG, SIGCONT_FG},
+    },
+    log::{dev_error, dev_info, dev_warn},
 };
 
 use signal_hook::consts::*;
@@ -247,7 +250,7 @@ impl<'a> MonitorClosure<'a> {
                     // Forward signal to the command.
                     MonitorMessage::Signal(signal) => {
                         if let Some(command_pid) = self.command_pid {
-                            send_signal(signal, command_pid, true)
+                            self.send_signal(signal, command_pid, true)
                         }
                     }
                 }
@@ -325,23 +328,43 @@ impl<'a> MonitorClosure<'a> {
             }
         }
     }
-}
 
-/// Send a signal to the command.
-fn send_signal(signal: c_int, command_pid: ProcessId, from_parent: bool) {
-    dev_info!(
-        "sending {}{} to command",
-        signal_fmt(signal),
-        opt_fmt(from_parent, " from parent"),
-    );
-    // FIXME: We should call `killpg` instead of `kill`.
-    match signal {
-        SIGALRM => {
-            terminate_process(command_pid, false);
-        }
-        signal => {
-            // Send the signal to the command.
-            kill(command_pid, signal).ok();
+    /// Send a signal to the command.
+    fn send_signal(&self, signal: c_int, command_pid: ProcessId, from_parent: bool) {
+        dev_info!(
+            "sending {}{} to command",
+            signal_fmt(signal),
+            opt_fmt(from_parent, " from parent"),
+        );
+        // FIXME: We should call `killpg` instead of `kill`.
+        match signal {
+            SIGALRM => {
+                terminate_process(command_pid, false);
+            }
+            SIGCONT_FG => {
+                // Continue with the command as the foreground process group
+                if let Err(err) = tcsetpgrp(&self.pty_follower, self.command_pgrp) {
+                    dev_error!(
+                        "cannot set the foreground process group to command ({}): {err}",
+                        self.command_pgrp
+                    );
+                }
+                kill(command_pid, SIGCONT).ok();
+            }
+            SIGCONT_BG => {
+                // Continue with the monitor as the foreground process group
+                if let Err(err) = tcsetpgrp(&self.pty_follower, self.monitor_pgrp) {
+                    dev_error!(
+                        "cannot set the foreground process group to monitor ({}): {err}",
+                        self.monitor_pgrp
+                    );
+                }
+                kill(command_pid, SIGCONT).ok();
+            }
+            signal => {
+                // Send the signal to the command.
+                kill(command_pid, signal).ok();
+            }
         }
     }
 }
@@ -394,7 +417,7 @@ impl<'a> EventClosure for MonitorClosure<'a> {
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
-            signal => send_signal(signal, command_pid, false),
+            signal => self.send_signal(signal, command_pid, false),
         }
     }
 }
