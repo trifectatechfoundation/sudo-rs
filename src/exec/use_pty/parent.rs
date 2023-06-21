@@ -8,12 +8,12 @@ use signal_hook::consts::*;
 
 use crate::exec::event::{EventClosure, EventDispatcher, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
+use crate::exec::{cond_fmt, opt_fmt, signal_fmt};
 use crate::exec::{
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
     ExitReason,
 };
-use crate::exec::{opt_fmt, signal_fmt};
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler};
 use crate::system::term::{tcgetpgrp, Pty, UserTerm};
@@ -81,11 +81,7 @@ pub(crate) fn exec_pty(
     let foreground = tcgetpgrp(&user_tty).is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
     dev_info!(
         "sudo is runnning in the {}",
-        if foreground {
-            "foreground"
-        } else {
-            "background"
-        }
+        cond_fmt(foreground, "foreground", "background")
     );
 
     // FIXME (ogsudo): Do some extra setup if any of the IO streams are not a tty and logging is

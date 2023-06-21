@@ -125,10 +125,14 @@ fn signal_fmt(signal: SignalNumber) -> Cow<'static, str> {
         .unwrap_or_else(|| format!("unknown signal #{}", signal).into())
 }
 
-const fn opt_fmt(cond: bool, s: &str) -> &str {
+const fn cond_fmt<'a>(cond: bool, true_s: &'a str, false_s: &'a str) -> &'a str {
     if cond {
-        s
+        true_s
     } else {
-        ""
+        false_s
     }
+}
+
+const fn opt_fmt(cond: bool, s: &str) -> &str {
+    cond_fmt(cond, s, "")
 }
