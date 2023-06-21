@@ -137,7 +137,6 @@ fn accepts_uncommon_var_names() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh384"]
 fn skips_invalid_variable_names() -> Result<()> {
     super::skips_invalid_variable_names(ENV_LIST)
 }
