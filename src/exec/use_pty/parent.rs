@@ -8,12 +8,12 @@ use signal_hook::consts::*;
 
 use crate::exec::event::{EventClosure, EventDispatcher, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
-use crate::exec::{cond_fmt, signal_fmt};
 use crate::exec::{
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
     ExitReason,
 };
+use crate::exec::{opt_fmt, signal_fmt};
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler};
 use crate::system::term::{tcgetpgrp, Pty, UserTerm};
@@ -401,7 +401,7 @@ impl EventClosure for ParentClosure {
     fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "parent received{} {} from {}",
-            cond_fmt(" user signaled", info.is_user_signaled()),
+            opt_fmt(info.is_user_signaled(), " user signaled"),
             signal_fmt(info.signal()),
             info.pid()
         );

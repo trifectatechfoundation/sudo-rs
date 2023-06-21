@@ -26,13 +26,13 @@ use crate::{
 
 use signal_hook::consts::*;
 
-use crate::exec::{cond_fmt, signal_fmt};
 use crate::exec::{
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     ExitReason,
 };
+use crate::exec::{opt_fmt, signal_fmt};
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 pub(super) fn exec_monitor(
@@ -293,7 +293,7 @@ fn send_signal(signal: c_int, command_pid: ProcessId, from_parent: bool) {
     dev_info!(
         "sending {}{} to command",
         signal_fmt(signal),
-        cond_fmt(" from parent", from_parent),
+        opt_fmt(from_parent, " from parent"),
     );
     // FIXME: We should call `killpg` instead of `kill`.
     match signal {
@@ -339,7 +339,7 @@ impl<'a> EventClosure for MonitorClosure<'a> {
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "monitor received{} {} from {}",
-            cond_fmt(" user signaled", info.is_user_signaled()),
+            opt_fmt(info.is_user_signaled(), " user signaled"),
             signal_fmt(info.signal()),
             info.pid()
         );
