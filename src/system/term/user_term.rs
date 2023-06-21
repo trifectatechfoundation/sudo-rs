@@ -19,7 +19,9 @@ use libc::{
     TIOCGWINSZ, TIOCSWINSZ, TOSTOP,
 };
 
-use crate::cutils::cerr;
+use crate::{cutils::cerr, system::interface::ProcessId};
+
+use super::tcsetpgrp;
 
 const INPUT_FLAGS: tcflag_t = IGNPAR
     | PARMRK
@@ -81,21 +83,21 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
     // to restore it later.
     unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
     // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
-    loop {
+    let result = loop {
         match cerr(unsafe { tcsetattr(fd, flags, tp) }) {
-            Ok(_) => break,
+            Ok(_) => break Ok(()),
             Err(err) => {
                 let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);
                 if got_sigttou || err.kind() != io::ErrorKind::Interrupted {
-                    return Err(err);
+                    break Err(err);
                 }
             }
         }
-    }
+    };
     // Restore the original action.
     unsafe { sigaction(SIGTTOU, original_action.as_ptr(), std::ptr::null_mut()) };
 
-    Ok(())
+    result
 }
 
 /// Type to manipulate the settings of the user's terminal.
@@ -201,6 +203,48 @@ impl UserTerm {
         }
 
         Ok(())
+    }
+
+    /// This is like `tcsetpgrp` but it only suceeds if we are in the foreground process group.
+    pub fn tcsetpgrp_nobg(&self, pgrp: ProcessId) -> io::Result<()> {
+        // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetpgrp` and
+        // we are not in the foreground process group.
+
+        let mut original_action = MaybeUninit::<sigaction>::uninit();
+
+        let action = sigaction {
+            // Call `on_sigttou` if `SIGTTOU` arrives.
+            sa_sigaction: on_sigttou as sighandler_t,
+            // Exclude any other signals from the set
+            sa_mask: {
+                let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
+                unsafe { sigemptyset(sa_mask.as_mut_ptr()) };
+                unsafe { sa_mask.assume_init() }
+            },
+            sa_flags: 0,
+            sa_restorer: None,
+        };
+        // Reset `GOT_SIGTTOU`.
+        GOT_SIGTTOU.store(false, Ordering::SeqCst);
+        // Set `action` as the action for `SIGTTOU` and store the original action in `original_action`
+        // to restore it later.
+        unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
+        // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
+        let result = loop {
+            match tcsetpgrp(&self.tty, pgrp) {
+                Ok(()) => break Ok(()),
+                Err(err) => {
+                    let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);
+                    if got_sigttou || err.kind() != io::ErrorKind::Interrupted {
+                        break Err(err);
+                    }
+                }
+            }
+        };
+        // Restore the original action.
+        unsafe { sigaction(SIGTTOU, original_action.as_ptr(), std::ptr::null_mut()) };
+
+        result
     }
 }
 
