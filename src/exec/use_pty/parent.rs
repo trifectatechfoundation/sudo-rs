@@ -26,7 +26,7 @@ use super::pipe::Pipe;
 pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
     mut command: Command,
-    user_tty: UserTerm,
+    mut user_tty: UserTerm,
 ) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // Allocate a pseudoterminal.
     let pty = get_pty()?;
@@ -88,16 +88,36 @@ pub(crate) fn exec_pty(
     });
 
     // Check if we are the foreground process
-    let foreground = tcgetpgrp(&user_tty).is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
+    let mut foreground = tcgetpgrp(&user_tty).is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
     dev_info!(
         "sudo is runnning in the {}",
         cond_fmt(foreground, "foreground", "background")
     );
 
+    // FIXME: maybe all these boolean flags should be on a dedicated type.
+
+    // Whether we're running on a pipeline
+    let pipeline = false;
+    // Whether the command should be executed in the background (this is not the `-b` flag)
+    let exec_bg = false;
+    // Whether the user's terminal is in raw mode or not.
+    let mut _term_raw = false;
+
     // FIXME (ogsudo): Do some extra setup if any of the IO streams are not a tty and logging is
     // enabled or if sudo is running in background.
-    // FIXME (ogsudo): Copy terminal settings from `/dev/tty` to the pty.
-    // FIXME (ogsudo): Start in raw mode unless we're part of a pipeline
+
+    // Copy terminal settings from `/dev/tty` to the pty.
+    if let Err(err) = user_tty.copy_to(&pty.follower) {
+        dev_error!("cannot copy terminal settings to pty: {err}");
+        foreground = false;
+    }
+
+    // Start in raw mode unless we're part of a pipeline or backgrounded.
+    if foreground && !pipeline && !exec_bg && user_tty.term_raw(false).is_ok() {
+        _term_raw = true;
+    }
+
+    // enabled or if sudo is running in background.
     // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
     // to block all the signals here instead.
 
