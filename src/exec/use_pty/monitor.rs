@@ -39,7 +39,6 @@ pub(super) fn exec_monitor(
     pty_follower: OwnedFd,
     command: Command,
     foreground: bool,
-    exec_bg: bool,
     backchannel: &mut MonitorBackchannel,
 ) -> io::Result<()> {
     let mut dispatcher = EventDispatcher::<MonitorClosure>::new()?;
@@ -84,7 +83,7 @@ pub(super) fn exec_monitor(
     if command_pid == 0 {
         drop(errpipe_rx);
 
-        let err = exec_command(command, foreground, exec_bg, pty_follower);
+        let err = exec_command(command, foreground, pty_follower);
         dev_warn!("failed to execute command: {err}");
         // If `exec_command` returns, it means that executing the command failed. Send the error to
         // the monitor using the pipe.
@@ -104,7 +103,7 @@ pub(super) fn exec_monitor(
     let mut closure = MonitorClosure::new(command_pid, errpipe_rx, backchannel, &mut dispatcher);
 
     // Set the foreground group for the pty follower.
-    if foreground && !exec_bg {
+    if foreground {
         if let Err(err) = tcsetpgrp(&pty_follower, closure.command_pgrp) {
             dev_error!(
                 "cannot set foreground progess group to command ({}): {err}",
@@ -136,12 +135,7 @@ pub(super) fn exec_monitor(
 }
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
-fn exec_command(
-    mut command: Command,
-    foreground: bool,
-    exec_bg: bool,
-    pty_follower: OwnedFd,
-) -> io::Error {
+fn exec_command(mut command: Command, foreground: bool, pty_follower: OwnedFd) -> io::Error {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
     let command_pid = std::process::id() as ProcessId;
 
@@ -149,7 +143,7 @@ fn exec_command(
 
     // Wait for the monitor to set us as the foreground group for the pty if we are in the
     // foreground.
-    if foreground && !exec_bg {
+    if foreground {
         while !tcgetpgrp(&pty_follower).is_ok_and(|pid| pid == command_pid) {
             std::thread::sleep(std::time::Duration::from_micros(1));
         }

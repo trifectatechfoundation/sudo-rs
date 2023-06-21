@@ -138,8 +138,7 @@ pub(crate) fn exec_pty(
         if let Err(err) = exec_monitor(
             pty.follower,
             command,
-            foreground && !pipeline,
-            exec_bg,
+            foreground && !pipeline && !exec_bg,
             &mut backchannels.monitor,
         ) {
             match err.try_into() {
