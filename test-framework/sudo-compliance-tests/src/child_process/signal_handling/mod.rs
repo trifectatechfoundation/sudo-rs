@@ -35,7 +35,6 @@ dup! {
     signal_sent_by_child_process_is_ignored,
     signal_is_forwarded_to_child,
     child_terminated_by_signal,
-    #[ignore = "gh325"]
     sigtstp_works,
 }
 
