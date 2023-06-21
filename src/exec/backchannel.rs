@@ -43,6 +43,7 @@ pub(super) enum ParentMessage {
     CommandExit(c_int),
     CommandSignal(SignalNumber),
     CommandPid(ProcessId),
+    ShortRead,
 }
 
 impl ParentMessage {
@@ -51,6 +52,7 @@ impl ParentMessage {
     const CMD_EXIT: Prefix = 1;
     const CMD_SIGNAL: Prefix = 2;
     const CMD_PID: Prefix = 3;
+    const SHORT_READ: Prefix = 4;
 
     fn from_parts(prefix: Prefix, data: ParentData) -> Self {
         match prefix {
@@ -58,6 +60,7 @@ impl ParentMessage {
             Self::CMD_EXIT => Self::CommandExit(data),
             Self::CMD_SIGNAL => Self::CommandSignal(data),
             Self::CMD_PID => Self::CommandPid(data),
+            Self::SHORT_READ => Self::ShortRead,
             _ => unreachable!(),
         }
     }
@@ -68,6 +71,7 @@ impl ParentMessage {
             ParentMessage::CommandExit(_) => Self::CMD_EXIT,
             ParentMessage::CommandSignal(_) => Self::CMD_SIGNAL,
             ParentMessage::CommandPid(_) => Self::CMD_PID,
+            ParentMessage::ShortRead => Self::SHORT_READ,
         };
 
         let data = match self {
@@ -75,16 +79,21 @@ impl ParentMessage {
             | ParentMessage::CommandExit(data)
             | ParentMessage::CommandSignal(data)
             | ParentMessage::CommandPid(data) => *data,
+            ParentMessage::ShortRead => 0,
         };
 
         (prefix, data)
     }
 }
 
-impl From<io::Error> for ParentMessage {
-    fn from(err: io::Error) -> Self {
-        // This only panics if an error is created using `io::Error::new`.
-        Self::IoError(err.raw_os_error().unwrap())
+impl TryFrom<io::Error> for ParentMessage {
+    type Error = io::Error;
+
+    fn try_from(err: io::Error) -> Result<Self, Self::Error> {
+        err.raw_os_error()
+            .map(Self::IoError)
+            .or_else(|| (err.kind() == io::ErrorKind::UnexpectedEof).then_some(Self::ShortRead))
+            .ok_or(err)
     }
 }
 
