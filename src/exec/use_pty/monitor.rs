@@ -16,7 +16,7 @@ use crate::{
         kill, setpgid, setsid,
         signal::SignalInfo,
         term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
-        wait::{waitpid, WaitError, WaitOptions},
+        wait::{waitpid, WaitError, WaitOptions, WaitStatus},
     },
 };
 use crate::{
@@ -33,7 +33,6 @@ use crate::exec::{
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
-    ExitReason,
 };
 use crate::exec::{opt_fmt, signal_fmt};
 
@@ -139,8 +138,8 @@ pub(super) fn exec_monitor(
 
     match reason {
         StopReason::Break(()) => {}
-        StopReason::Exit(exit_reason) => {
-            closure.backchannel.send(&exit_reason.into()).ok();
+        StopReason::Exit(command_status) => {
+            closure.backchannel.send(&command_status.into()).ok();
         }
     }
 
@@ -271,7 +270,7 @@ impl<'a> MonitorClosure<'a> {
             dev_info!("command ({command_pid}) exited with status code {exit_code}");
             // The command did exit, set it's PID to `None`.
             self.command_pid = None;
-            dispatcher.set_exit(ExitReason::Code(exit_code))
+            dispatcher.set_exit(status);
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
                 "command ({command_pid}) was terminated by {}",
@@ -279,7 +278,7 @@ impl<'a> MonitorClosure<'a> {
             );
             // The command was terminated, set it's PID to `None`.
             self.command_pid = None;
-            dispatcher.set_exit(ExitReason::Signal(signal))
+            dispatcher.set_exit(status);
         } else if let Some(signal) = status.stop_signal() {
             dev_info!(
                 "command ({command_pid}) was stopped by {}",
@@ -292,7 +291,7 @@ impl<'a> MonitorClosure<'a> {
                 }
             }
             self.backchannel
-                .send(&ParentMessage::CommandSignal(signal))
+                .send(&ParentMessage::CommandStatus(status))
                 .ok();
         } else if status.did_continue() {
             dev_info!("command ({command_pid}) continued execution");
@@ -396,7 +395,7 @@ fn is_self_terminating(
 
 impl<'a> EventClosure for MonitorClosure<'a> {
     type Break = ();
-    type Exit = ExitReason;
+    type Exit = WaitStatus;
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(

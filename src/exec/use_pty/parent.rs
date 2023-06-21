@@ -287,18 +287,22 @@ impl ParentClosure {
                         dev_info!("received command PID ({pid}) from monitor");
                         self.command_pid = pid.into();
                     }
-                    // The command terminated or the monitor was not able to spawn it. We should stop
-                    // either way.
-                    ParentMessage::CommandExit(code) => {
-                        dev_info!("command exited with status code {code}");
-                        dispatcher.set_exit(ExitReason::Code(code).into());
-                    }
-                    ParentMessage::CommandSignal(signal) => {
-                        // FIXME: this isn't right as the command has not exited if the signal is
-                        // not a termination one. However, doing this makes us fail an ignored
-                        // compliance test instead of hanging forever.
-                        dev_info!("command was terminated by {}", signal_fmt(signal));
-                        dispatcher.set_exit(ExitReason::Signal(signal).into());
+                    ParentMessage::CommandStatus(status) => {
+                        // The command terminated or the monitor was not able to spawn it. We should stop
+                        // either way.
+                        if let Some(exit_code) = status.exit_status() {
+                            dev_info!("command exited with status code {exit_code}");
+                            dispatcher.set_exit(ExitReason::Code(exit_code).into());
+                        } else if let Some(signal) = status.term_signal() {
+                            dev_info!("command was terminated by {}", signal_fmt(signal));
+                            dispatcher.set_exit(ExitReason::Signal(signal).into());
+                        } else if let Some(signal) = status.stop_signal() {
+                            dev_info!("command was stopped by {}", signal_fmt(signal));
+                            // FIXME: this isn't right as the command has not exited if the signal is
+                            // not a termination one. However, doing this makes us fail an ignored
+                            // compliance test instead of hanging forever.
+                            dispatcher.set_exit(ExitReason::Signal(signal).into());
+                        }
                     }
                     ParentMessage::IoError(code) => {
                         let err = io::Error::from_raw_os_error(code);
