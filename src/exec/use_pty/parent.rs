@@ -135,7 +135,13 @@ pub(crate) fn exec_pty(
         dispatcher.unregister_handlers();
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
-        if let Err(err) = exec_monitor(pty.follower, command, &mut backchannels.monitor) {
+        if let Err(err) = exec_monitor(
+            pty.follower,
+            command,
+            foreground && !pipeline,
+            exec_bg,
+            &mut backchannels.monitor,
+        ) {
             match err.try_into() {
                 Ok(msg) => {
                     if let Err(err) = backchannels.monitor.send(&msg) {

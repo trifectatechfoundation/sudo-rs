@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     exec::event::StopReason,
-    log::{dev_info, dev_warn},
+    log::{dev_error, dev_info, dev_warn},
 };
 use crate::{
     exec::terminate_process,
@@ -38,6 +38,8 @@ use crate::exec::{opt_fmt, signal_fmt};
 pub(super) fn exec_monitor(
     pty_follower: OwnedFd,
     command: Command,
+    foreground: bool,
+    exec_bg: bool,
     backchannel: &mut MonitorBackchannel,
 ) -> io::Result<()> {
     let mut dispatcher = EventDispatcher::<MonitorClosure>::new()?;
@@ -82,7 +84,7 @@ pub(super) fn exec_monitor(
     if command_pid == 0 {
         drop(errpipe_rx);
 
-        let err = exec_command(command, pty_follower);
+        let err = exec_command(command, foreground, exec_bg, pty_follower);
         dev_warn!("failed to execute command: {err}");
         // If `exec_command` returns, it means that executing the command failed. Send the error to
         // the monitor using the pipe.
@@ -102,11 +104,17 @@ pub(super) fn exec_monitor(
     let mut closure = MonitorClosure::new(command_pid, errpipe_rx, backchannel, &mut dispatcher);
 
     // Set the foreground group for the pty follower.
-    tcsetpgrp(&pty_follower, closure.command_pgrp).ok();
+    if foreground && !exec_bg {
+        if let Err(err) = tcsetpgrp(&pty_follower, closure.command_pgrp) {
+            dev_error!(
+                "cannot set foreground progess group to command ({}): {err}",
+                closure.command_pgrp
+            );
+        }
+    }
 
     // FIXME (ogsudo): Here's where the signal mask is removed because the handlers for the signals
     // have been setup after initializing the closure.
-    // FIXME (ogsudo): Set the command as the foreground process for the follower.
 
     // Start the event loop.
     let reason = dispatcher.event_loop(&mut closure);
@@ -128,16 +136,27 @@ pub(super) fn exec_monitor(
 }
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
-fn exec_command(mut command: Command, pty_follower: OwnedFd) -> io::Error {
+fn exec_command(
+    mut command: Command,
+    foreground: bool,
+    exec_bg: bool,
+    pty_follower: OwnedFd,
+) -> io::Error {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
     let command_pid = std::process::id() as ProcessId;
 
     setpgid(0, command_pid).ok();
 
-    // Wait for the monitor to set us as the foreground group for the pty.
-    while !tcgetpgrp(&pty_follower).is_ok_and(|pid| pid == command_pid) {
-        std::thread::sleep(std::time::Duration::from_micros(1));
+    // Wait for the monitor to set us as the foreground group for the pty if we are in the
+    // foreground.
+    if foreground && !exec_bg {
+        while !tcgetpgrp(&pty_follower).is_ok_and(|pid| pid == command_pid) {
+            std::thread::sleep(std::time::Duration::from_micros(1));
+        }
     }
+
+    // Done with the pty follower.
+    drop(pty_follower);
 
     command.exec()
 }
