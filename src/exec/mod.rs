@@ -31,7 +31,7 @@ use crate::{log::user_error, system::kill};
 
 pub use interface::RunOptions;
 
-use self::use_pty::exec_pty;
+use self::use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG};
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
@@ -121,6 +121,8 @@ fn terminate_process(pid: ProcessId, use_killpg: bool) {
 
 fn signal_fmt(signal: SignalNumber) -> Cow<'static, str> {
     signal_hook::low_level::signal_name(signal)
+        .or_else(|| (signal == SIGCONT_FG).then_some("SIGCONT_FG"))
+        .or_else(|| (signal == SIGCONT_BG).then_some("SIGCONT_BG"))
         .map(|name| name.into())
         .unwrap_or_else(|| format!("unknown signal #{}", signal).into())
 }
