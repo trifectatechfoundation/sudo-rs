@@ -5,54 +5,38 @@ use crate::{
     Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY, USERNAME,
 };
 
-mod tty {
-    use crate::Result;
+macro_rules! dup {
+    ($($(#[$attrs:meta])* $name:ident,)*) => {
+        mod tty {
+            use crate::Result;
+            $(
+                #[test]
+                $(#[$attrs])*
+                fn $name() -> Result<()> {
+                    super::$name(true)
+                }
+            )*
+        }
 
-    #[test]
-    fn signal_sent_by_child_process_is_ignored() -> Result<()> {
-        super::signal_sent_by_child_process_is_ignored(true)
-    }
-
-    #[test]
-    fn signal_is_forwarded_to_child() -> Result<()> {
-        super::signal_is_forwarded_to_child(true)
-    }
-
-    #[test]
-    fn child_terminated_by_signal() -> Result<()> {
-        super::child_terminated_by_signal(true)
-    }
-
-    #[test]
-    #[ignore = "gh325"]
-    fn sigtstp_works() -> Result<()> {
-        super::sigtstp_works(true)
-    }
+        mod no_tty {
+            use crate::Result;
+            $(
+                #[test]
+                $(#[$attrs])*
+                fn $name() -> Result<()> {
+                    super::$name(false)
+                }
+            )*
+        }
+    };
 }
 
-mod no_tty {
-    use crate::Result;
-
-    #[test]
-    fn signal_sent_by_child_process_is_ignored() -> Result<()> {
-        super::signal_sent_by_child_process_is_ignored(false)
-    }
-
-    #[test]
-    fn signal_is_forwarded_to_child() -> Result<()> {
-        super::signal_is_forwarded_to_child(false)
-    }
-
-    #[test]
-    fn child_terminated_by_signal() -> Result<()> {
-        super::child_terminated_by_signal(false)
-    }
-
-    #[test]
+dup! {
+    signal_sent_by_child_process_is_ignored,
+    signal_is_forwarded_to_child,
+    child_terminated_by_signal,
     #[ignore = "gh325"]
-    fn sigtstp_works() -> Result<()> {
-        super::sigtstp_works(false)
-    }
+    sigtstp_works,
 }
 
 // man sudo > Signal handling
