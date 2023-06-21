@@ -85,7 +85,13 @@ impl SuContext {
             .shell
             .as_ref()
             .cloned()
-            .or_else(|| environment.get(&OsString::from("SHELL")).map(|v| v.into()))
+            .or_else(|| {
+                if options.preserve_environment {
+                    environment.get(&OsString::from("SHELL")).map(|v| v.into())
+                } else {
+                    None
+                }
+            })
             .unwrap_or(user.shell.clone());
 
         if !command.exists() {
