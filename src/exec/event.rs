@@ -1,6 +1,7 @@
 use std::{io, os::fd::AsRawFd};
 
 use crate::log::dev_error;
+use crate::system::signal::SignalAction;
 use crate::system::{
     poll::PollSet,
     signal::{SignalHandler, SignalInfo, SignalNumber},
@@ -205,6 +206,17 @@ impl<T: EventClosure> EventDispatcher<T> {
     pub(super) fn unregister_handlers(self) {
         for handler in self.signal_handlers {
             handler.unregister();
+        }
+    }
+
+    /// Set the signal action for a specific signal handler.
+    pub(super) fn set_signal_action(&mut self, signal: SignalNumber, action: SignalAction) {
+        if let Some(i) = SIGNALS
+            .iter()
+            .enumerate()
+            .find_map(|(i, &sig)| (signal == sig).then_some(i))
+        {
+            self.signal_handlers[i].set_action(action);
         }
     }
 }
