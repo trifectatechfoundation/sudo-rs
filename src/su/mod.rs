@@ -104,11 +104,20 @@ pub fn main() {
             eprintln!("su-rs {VERSION}");
             std::process::exit(0);
         }
-        SuAction::Run => {
-            if let Err(error) = run(su_options) {
-                eprintln!("{error}");
+        SuAction::Run => match run(su_options) {
+            Err(Error::CommandNotFound(c)) => {
+                eprintln!("su: {}", Error::CommandNotFound(c));
+                std::process::exit(127);
+            }
+            Err(Error::InvalidCommand(c)) => {
+                eprintln!("su: {}", Error::InvalidCommand(c));
+                std::process::exit(126);
+            }
+            Err(e) => {
+                eprintln!("su: {e}");
                 std::process::exit(1);
             }
-        }
+            _ => {}
+        },
     };
 }

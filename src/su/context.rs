@@ -1,5 +1,6 @@
 use std::{env, ffi::OsString, path::PathBuf};
 
+use crate::common::resolve::is_valid_executable;
 use crate::common::{error::Error, Environment};
 use crate::exec::RunOptions;
 use crate::system::{Group, Process, User};
@@ -75,6 +76,14 @@ impl SuContext {
             .cloned()
             .or_else(|| environment.get(&OsString::from("SHELL")).map(|v| v.into()))
             .unwrap_or(user.shell.clone());
+
+        if !command.exists() {
+            return Err(Error::CommandNotFound(command));
+        }
+
+        if !is_valid_executable(&command) {
+            return Err(Error::InvalidCommand(command));
+        }
 
         // pass command to shell
         let arguments = if let Some(command) = &options.command {

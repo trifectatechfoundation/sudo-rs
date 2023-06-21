@@ -48,7 +48,7 @@ fn dash_dash_before_flag_is_an_error() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(stderr, "'\"-u\"': command not found");
+        assert_contains!(stderr, "'-u': command not found");
     }
 
     Ok(())
