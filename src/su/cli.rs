@@ -8,6 +8,7 @@ pub struct SuOptions {
     pub supp_group: Option<String>,
     pub pty: bool,
     pub login: bool,
+    pub preserve_environment: bool,
     pub shell: Option<PathBuf>,
     pub whitelist_environment: Vec<String>,
     pub arguments: Vec<String>,
@@ -23,6 +24,7 @@ impl Default for SuOptions {
             supp_group: None,
             pty: false,
             login: false,
+            preserve_environment: false,
             shell: None,
             whitelist_environment: vec![],
             arguments: vec![],
@@ -97,6 +99,15 @@ impl SuOptions {
             takes_argument: false,
             set: &|sudo_options, _| {
                 sudo_options.login = true;
+                Ok(())
+            },
+        },
+        SuOption {
+            short: 'p',
+            long: "preserve-environment",
+            takes_argument: false,
+            set: &|sudo_options, _| {
+                sudo_options.preserve_environment = true;
                 Ok(())
             },
         },

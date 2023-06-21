@@ -5,7 +5,6 @@ use sudo_test::{Command, Env, User};
 use crate::{helpers, Result, ENV_PATH, USERNAME};
 
 #[test]
-#[ignore = "gh504"]
 fn vars_set_by_su_when_target_is_root() -> Result<()> {
     let env = Env("").build()?;
 
@@ -28,7 +27,6 @@ fn vars_set_by_su_when_target_is_root() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh505"]
 fn vars_set_by_su_when_target_is_not_root() -> Result<()> {
     let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
 
@@ -60,7 +58,6 @@ fn vars_set_by_su_when_target_is_not_root() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh505"]
 fn vars_set_by_su_override_existing_ones() -> Result<()> {
     let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
 

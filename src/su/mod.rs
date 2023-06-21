@@ -67,12 +67,18 @@ fn run(options: SuOptions) -> Result<(), Error> {
     let context = SuContext::from_env(options)?;
 
     // authenticate the target user
-    let mut pam = authenticate(&context.user().name, context.is_login())?;
+    let mut pam: PamContext<CLIConverser> = authenticate(&context.user().name, context.is_login())?;
 
-    // run command and return corresponding exit code
-    let environment = context.environment.clone();
+    // su in all cases uses PAM (pam_getenvlist(3)) to do the
+    // final environment modification. Command-line options such as
+    // --login and --preserve-environment affect the environment before
+    // it is modified by PAM.
+    let mut environment = context.environment.clone();
+    environment.extend(pam.env()?);
+
     let pid = context.process.pid;
 
+    // run command and return corresponding exit code
     let (reason, emulate_default_handler) = crate::exec::run_command(context, environment)?;
 
     // closing the pam session is best effort, if any error occurs we cannot
