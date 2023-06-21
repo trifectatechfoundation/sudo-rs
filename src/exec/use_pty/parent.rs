@@ -5,6 +5,14 @@ use std::process::{exit, Command};
 
 use signal_hook::consts::*;
 
+use crate::exec::event::{EventClosure, EventDispatcher, StopReason};
+use crate::exec::use_pty::monitor::exec_monitor;
+use crate::exec::{cond_fmt, signal_fmt};
+use crate::exec::{
+    io_util::{retry_while_interrupted, was_interrupted},
+    use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
+    ExitReason,
+};
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler};
 use crate::system::term::Pty;
@@ -12,16 +20,7 @@ use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
-use super::event::{EventClosure, EventDispatcher, StopReason};
-use super::monitor::exec_monitor;
-use super::{
-    backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
-    io_util::{retry_while_interrupted, was_interrupted},
-    ExitReason,
-};
-use super::{cond_fmt, signal_fmt};
-
-pub(super) fn exec_pty(
+pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
     command: Command,
 ) -> io::Result<(ExitReason, impl FnOnce())> {

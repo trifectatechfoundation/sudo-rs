@@ -8,9 +8,8 @@ use std::{
     },
 };
 
+use crate::exec::{signal_fmt, ExitReason};
 use crate::system::{interface::ProcessId, signal::SignalNumber};
-
-use super::{signal_fmt, ExitReason};
 
 type Prefix = u8;
 type ParentData = c_int;

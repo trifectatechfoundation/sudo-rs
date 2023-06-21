@@ -24,13 +24,13 @@ use crate::{
 
 use signal_hook::consts::*;
 
-use super::{
-    backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
+use crate::exec::{cond_fmt, signal_fmt};
+use crate::exec::{
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
+    use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     ExitReason,
 };
-use super::{cond_fmt, signal_fmt};
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 pub(super) fn exec_monitor(

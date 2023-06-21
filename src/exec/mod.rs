@@ -1,11 +1,9 @@
 #![deny(unsafe_code)]
 
-mod backchannel;
 mod event;
 mod interface;
 mod io_util;
-mod monitor;
-mod parent;
+mod use_pty;
 
 use std::{
     ffi::{CString, OsStr},
@@ -18,9 +16,10 @@ use std::{
 use crate::common::Environment;
 use crate::log::user_error;
 use crate::system::set_target_user;
-use parent::exec_pty;
 
 pub use interface::RunOptions;
+
+use self::use_pty::exec_pty;
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
