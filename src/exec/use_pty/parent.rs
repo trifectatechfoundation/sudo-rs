@@ -16,7 +16,7 @@ use crate::exec::{
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler};
-use crate::system::term::{Pty, UserTerm};
+use crate::system::term::{tcgetpgrp, Pty, UserTerm};
 use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
@@ -49,6 +49,12 @@ pub(crate) fn exec_pty(
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
     // `policy_init_session`.
     // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
+
+    // Fetch the parent process group so we can signals to it.
+
+    // FIXME: ogsudo never handles this error explicitly.
+    let parent_pgrp = getpgid(0).unwrap_or(-1);
+
     // FIXME (ogsudo): Set all the IO streams for the command to the follower side of the pty.
 
     let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
@@ -70,6 +76,17 @@ pub(crate) fn exec_pty(
     dispatcher.set_write_callback(&user_tty, |parent, _| {
         parent.pty_pipe.on_write(&mut parent.user_tty)
     });
+
+    // Check if we are the foreground process
+    let foreground = tcgetpgrp(&user_tty).is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
+    dev_info!(
+        "sudo is runnning in the {}",
+        if foreground {
+            "foreground"
+        } else {
+            "background"
+        }
+    );
 
     // FIXME (ogsudo): Do some extra setup if any of the IO streams are not a tty and logging is
     // enabled or if sudo is running in background.
