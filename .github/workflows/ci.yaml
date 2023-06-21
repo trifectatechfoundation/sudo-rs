@@ -242,14 +242,14 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: stable
           override: true
           components: rustfmt
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: nightly
+          shared-key: 'stable'
 
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
@@ -269,7 +269,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: stable
           override: true
           components: clippy
 
@@ -282,7 +282,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: nightly
+          shared-key: 'stable'
 
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
@@ -303,7 +303,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: stable
           override: true
 
       - name: Install dependencies
@@ -315,7 +315,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: nightly
+          shared-key: 'stable'
 
       - name: Build docs
         uses: actions-rs/cargo@v1
