@@ -117,7 +117,6 @@ pub(crate) fn exec_pty(
         _term_raw = true;
     }
 
-    // enabled or if sudo is running in background.
     // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
     // to block all the signals here instead.
 
