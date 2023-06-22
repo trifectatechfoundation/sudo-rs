@@ -79,7 +79,7 @@ pub type TextEnum = crate::defaults::StrEnum<'static>;
 pub enum ConfigValue {
     Flag(bool),
     Text(Option<Box<str>>),
-    Num(i128),
+    Num(i64),
     List(Mode, Vec<String>),
     Enum(TextEnum),
 }
