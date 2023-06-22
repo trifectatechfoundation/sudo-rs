@@ -92,7 +92,7 @@ pub fn run_command(
         options.group().clone(),
     );
 
-    match UserTerm::new() {
+    match UserTerm::open() {
         Ok(user_tty) => exec_pty(options.pid(), command, user_tty),
         Err(err) => {
             dev_info!("Could not open user's terminal, not allocating a pty: {err}");

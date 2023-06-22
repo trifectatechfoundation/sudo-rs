@@ -123,7 +123,7 @@ impl ExecClosure {
 
     /// Suspend the main process.
     fn suspend_parent(&self, signal: SignalNumber, dispatcher: &mut EventDispatcher<Self>) {
-        let mut opt_tty = UserTerm::new().ok();
+        let mut opt_tty = UserTerm::open().ok();
         let mut opt_pgrp = None;
 
         if let Some(tty) = opt_tty.as_ref() {

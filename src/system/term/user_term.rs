@@ -108,7 +108,7 @@ pub struct UserTerm {
 
 impl UserTerm {
     /// Open the user's terminal.
-    pub fn new() -> io::Result<Self> {
+    pub fn open() -> io::Result<Self> {
         Ok(Self {
             tty: OpenOptions::new().read(true).write(true).open("/dev/tty")?,
             original_termios: MaybeUninit::uninit(),
