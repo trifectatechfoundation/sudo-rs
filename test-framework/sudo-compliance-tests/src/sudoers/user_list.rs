@@ -271,7 +271,6 @@ fn user_alias_cannot_start_with_underscore() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh180"]
 #[test]
 fn negated_user_alias_works() -> Result<()> {
     let env = Env("

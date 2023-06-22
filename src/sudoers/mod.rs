@@ -180,6 +180,11 @@ fn distribute_tags(
     )
 }
 
+/// A type to represent positive or negative association with an alias; i.e. if a key maps to true,
+/// the alias affirms membership, if a key maps to false, the alias denies membership; if a key
+/// isn't present membership is affirmed nor denied
+type FoundAliases = HashMap<String, bool>;
+
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
@@ -187,7 +192,7 @@ fn distribute_tags(
 fn find_item<'a, Predicate, Iter, T: 'a>(
     items: Iter,
     matches: &Predicate,
-    aliases: &HashSet<String>,
+    aliases: &FoundAliases,
 ) -> Option<<Iter::Item as WithInfo>::Info>
 where
     Predicate: Fn(&T) -> bool,
@@ -197,16 +202,25 @@ where
     let mut result = None;
     for item in items {
         let (judgement, who) = match item.clone().to_inner() {
-            Qualified::Forbid(x) => (None, x),
-            Qualified::Allow(x) => (Some(item.to_info()), x),
+            Qualified::Forbid(x) => (false, x),
+            Qualified::Allow(x) => (true, x),
         };
+        let info = || item.to_info();
         match who {
-            Meta::All => result = judgement,
-            Meta::Only(ident) if matches(ident) => result = judgement,
-            Meta::Alias(id) if aliases.contains(id) => result = judgement,
+            Meta::All => result = judgement.then(info),
+            Meta::Only(ident) if matches(ident) => result = judgement.then(info),
+            Meta::Alias(id) if aliases.contains_key(id) => {
+                result = if aliases[id] {
+                    judgement.then(info)
+                } else {
+                    // in this case, an explicit negation in the alias applies
+                    (!judgement).then(info)
+                }
+            }
             _ => {}
         };
     }
+
     result
 }
 
@@ -294,14 +308,21 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
 /// I.e. this function should not be "pub".
 
-fn get_aliases<Predicate, T>(table: &VecOrd<Def<T>>, pred: &Predicate) -> HashSet<String>
+fn get_aliases<Predicate, T>(table: &VecOrd<Def<T>>, pred: &Predicate) -> FoundAliases
 where
     Predicate: Fn(&T) -> bool,
 {
-    let mut set = HashSet::new();
+    use std::iter::once;
+    let all = Qualified::Allow(Meta::All);
+
+    let mut set = HashMap::new();
     for Def(id, list) in elems(table) {
         if find_item(list, &pred, &set).is_some() {
-            set.insert(id.clone());
+            set.insert(id.clone(), true);
+        } else if find_item(once(&all).chain(list), &pred, &set).is_none() {
+            // the item wasn't found even if we prepend ALL to the list of definitions; that means
+            // it is explicitly excluded by the alias definition.
+            set.insert(id.clone(), false);
         }
     }
 

@@ -225,6 +225,10 @@ fn permission_test() {
     pass!(["Runas_Alias TIME=%wheel,!!sudo","user ALL=(TIME) ALL"], "user" => request! { wheel, wheel }, "vm"; "/bin/ls");
 
     pass!(["Runas_Alias \\"," TIME=%wheel\\",",sudo # hallo","user ALL\\","=(TIME) ALL"], "user" => request! { wheel, wheel }, "vm"; "/bin/ls");
+
+    // test the less-intuitive "substition-like" alias mechanism
+    FAIL!(["User_Alias FOO=!user", "ALL, FOO ALL=ALL"], "user" => root(), "vm"; "/bin/ls");
+    pass!(["User_Alias FOO=!user", "!FOO ALL=ALL"], "user" => root(), "vm"; "/bin/ls");
 }
 
 #[test]

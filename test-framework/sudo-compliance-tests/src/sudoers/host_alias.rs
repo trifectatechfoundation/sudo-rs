@@ -196,7 +196,6 @@ fn negation_not_order_sensitive() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh379"]
 #[test]
 fn negation_combination() -> Result<()> {
     let env = Env([
