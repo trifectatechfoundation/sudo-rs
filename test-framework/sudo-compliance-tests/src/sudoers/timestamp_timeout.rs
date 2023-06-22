@@ -13,6 +13,17 @@ Defaults timestamp_timeout=0.1"
     .build()?;
 
     // input valid credentials
+    // try to sudo without a password
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; sudo true"
+        ))
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()?;
+
+    // input valid credentials
     // wait until they expire / timeout
     // try to sudo without a password
     let output = Command::new("sh")
