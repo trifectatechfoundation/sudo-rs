@@ -19,9 +19,8 @@ use libc::{
     TIOCGWINSZ, TIOCSWINSZ, TOSTOP,
 };
 
+use super::Terminal;
 use crate::{cutils::cerr, system::interface::ProcessId};
-
-use super::tcsetpgrp;
 
 const INPUT_FLAGS: tcflag_t = IGNPAR
     | PARMRK
@@ -231,7 +230,7 @@ impl UserTerm {
         unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
         // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
         let result = loop {
-            match tcsetpgrp(&self.tty, pgrp) {
+            match self.tty.tcsetpgrp(pgrp) {
                 Ok(()) => break Ok(()),
                 Err(err) => {
                     let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);

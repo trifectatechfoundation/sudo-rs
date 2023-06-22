@@ -14,7 +14,7 @@ use crate::{
         interface::ProcessId,
         kill, killpg,
         signal::{SignalAction, SignalInfo, SignalNumber},
-        term::{tcgetpgrp, UserTerm},
+        term::{Terminal, UserTerm},
         wait::{waitpid, WaitError, WaitOptions},
     },
 };
@@ -129,7 +129,7 @@ impl ExecClosure {
         let mut opt_pgrp = None;
 
         if let Some(tty) = opt_tty.as_ref() {
-            if let Ok(saved_pgrp) = tcgetpgrp(tty) {
+            if let Ok(saved_pgrp) = tty.tcgetpgrp() {
                 // Save the terminal's foreground process group so we can restore it after resuming
                 // if needed.
                 opt_pgrp = Some(saved_pgrp);

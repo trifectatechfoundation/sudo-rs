@@ -15,7 +15,7 @@ use crate::{
         interface::ProcessId,
         kill, setpgid, setsid,
         signal::SignalInfo,
-        term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
+        term::Terminal,
         wait::{waitpid, WaitError, WaitOptions, WaitStatus},
     },
 };
@@ -57,7 +57,7 @@ pub(super) fn exec_monitor(
     })?;
 
     // Set the follower side of the pty as the controlling terminal for the session.
-    set_controlling_terminal(&pty_follower).map_err(|err| {
+    pty_follower.make_controlling_terminal().map_err(|err| {
         dev_warn!("cannot set the controlling terminal: {err}");
         err
     })?;
@@ -112,7 +112,7 @@ pub(super) fn exec_monitor(
 
     // Set the foreground group for the pty follower.
     if foreground {
-        if let Err(err) = tcsetpgrp(&closure.pty_follower, closure.command_pgrp) {
+        if let Err(err) = closure.pty_follower.tcsetpgrp(closure.command_pgrp) {
             dev_error!(
                 "cannot set foreground progess group to command ({}): {err}",
                 closure.command_pgrp
@@ -129,7 +129,7 @@ pub(super) fn exec_monitor(
     // FIXME (ogsudo): Terminate the command using `killpg` if it's not terminated.
 
     // Take the controlling tty so the command's children don't receive SIGHUP when we exit.
-    if let Err(err) = tcsetpgrp(&closure.pty_follower, closure.monitor_pgrp) {
+    if let Err(err) = closure.pty_follower.tcsetpgrp(closure.monitor_pgrp) {
         dev_error!(
             "cannot set foreground process group to monitor ({}): {err}",
             closure.monitor_pgrp
@@ -160,7 +160,7 @@ fn exec_command(mut command: Command, foreground: bool, pty_follower: OwnedFd) -
     // Wait for the monitor to set us as the foreground group for the pty if we are in the
     // foreground.
     if foreground {
-        while !tcgetpgrp(&pty_follower).is_ok_and(|pid| pid == command_pid) {
+        while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
             std::thread::sleep(std::time::Duration::from_micros(1));
         }
     }
@@ -285,7 +285,7 @@ impl<'a> MonitorClosure<'a> {
                 signal_fmt(signal),
             );
             // Save the foreground process group ID so we can restore it later.
-            if let Ok(pgrp) = tcgetpgrp(&self.pty_follower) {
+            if let Ok(pgrp) = self.pty_follower.tcgetpgrp() {
                 if pgrp != self.monitor_pgrp {
                     self.command_pgrp = pgrp;
                 }
@@ -342,7 +342,7 @@ impl<'a> MonitorClosure<'a> {
             }
             SIGCONT_FG => {
                 // Continue with the command as the foreground process group
-                if let Err(err) = tcsetpgrp(&self.pty_follower, self.command_pgrp) {
+                if let Err(err) = self.pty_follower.tcsetpgrp(self.command_pgrp) {
                     dev_error!(
                         "cannot set the foreground process group to command ({}): {err}",
                         self.command_pgrp
@@ -352,7 +352,7 @@ impl<'a> MonitorClosure<'a> {
             }
             SIGCONT_BG => {
                 // Continue with the monitor as the foreground process group
-                if let Err(err) = tcsetpgrp(&self.pty_follower, self.monitor_pgrp) {
+                if let Err(err) = self.pty_follower.tcsetpgrp(self.monitor_pgrp) {
                     dev_error!(
                         "cannot set the foreground process group to monitor ({}): {err}",
                         self.monitor_pgrp

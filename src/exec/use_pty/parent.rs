@@ -17,7 +17,7 @@ use crate::exec::{
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
-use crate::system::term::{tcgetpgrp, Pty, UserTerm};
+use crate::system::term::{Pty, Terminal, UserTerm};
 use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, kill, killpg, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
@@ -90,7 +90,9 @@ pub(crate) fn exec_pty(
     });
 
     // Check if we are the foreground process
-    let mut foreground = tcgetpgrp(&user_tty).is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
+    let mut foreground = user_tty
+        .tcgetpgrp()
+        .is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
     dev_info!(
         "sudo is runnning in the {}",
         cond_fmt(foreground, "foreground", "background")
@@ -193,7 +195,7 @@ pub(crate) fn exec_pty(
     // Restore the terminal settings
     if closure.term_raw {
         // Only restore the terminal if sudo is the foreground process.
-        if let Ok(pgrp) = tcgetpgrp(&closure.user_tty) {
+        if let Ok(pgrp) = closure.user_tty.tcgetpgrp() {
             if pgrp == closure.parent_pgrp {
                 match closure.user_tty.restore(false) {
                     Ok(()) => closure.term_raw = false,
@@ -526,7 +528,7 @@ impl ParentClosure {
 
     /// Check whether we are part of the foreground process group and update the foreground flag.
     fn check_foreground(&mut self) -> io::Result<()> {
-        let pgrp = tcgetpgrp(&self.user_tty)?;
+        let pgrp = self.user_tty.tcgetpgrp()?;
         self.foreground = pgrp == self.parent_pgrp;
         Ok(())
     }
