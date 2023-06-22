@@ -100,6 +100,24 @@ fn process_state() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn terminal_is_restored() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+    // Run `stty` before and after running sudo to check that the terminal configuration is
+    // restored before sudo exits.
+    let stdout = Command::new("sh")
+        .args(["-c", "stty; sudo echo 'hello'; stty"])
+        .tty(true)
+        .output(&env)?
+        .stdout()?;
+
+    assert_contains!(stdout, "hello");
+    let (before, after) = stdout.split_once("hello").unwrap();
+    assert_eq!(before.trim(), after.trim());
+
+    Ok(())
+}
+
 fn parse_ps_aux(ps_aux: &str) -> Vec<PsAuxEntry> {
     let mut entries = vec![];
     for line in ps_aux.lines().skip(1 /* header */) {
