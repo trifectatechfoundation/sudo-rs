@@ -5,28 +5,28 @@ use std::process::{exit, Command};
 
 use signal_hook::consts::*;
 
+use crate::exec::event::{EventClosure, EventDispatcher, StopReason};
+use crate::exec::use_pty::monitor::exec_monitor;
+use crate::exec::{cond_fmt, signal_fmt};
+use crate::exec::{
+    io_util::{retry_while_interrupted, was_interrupted},
+    use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
+    ExitReason,
+};
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler};
-use crate::system::term::Pty;
+use crate::system::term::{Pty, UserTerm};
 use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
-use super::event::{EventClosure, EventDispatcher, StopReason};
-use super::monitor::exec_monitor;
-use super::{
-    backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
-    io_util::{retry_while_interrupted, was_interrupted},
-    ExitReason,
-};
-use super::{cond_fmt, signal_fmt};
-
-pub(super) fn exec_pty(
+pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
     command: Command,
-) -> io::Result<(ExitReason, impl FnOnce())> {
+    // FIXME: use this!
+    _user_tty: UserTerm,
+) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // Allocate a pseudoterminal.
-    // FIXME (ogsudo): We also need to open `/dev/tty`.
     let pty = get_pty()?;
 
     // Create backchannels to communicate with the monitor.
@@ -104,9 +104,9 @@ pub(super) fn exec_pty(
     // FIXME (ogsudo): Restore the signal handlers here.
 
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
-    closure
-        .run(&mut dispatcher)
-        .map(|exit_reason| (exit_reason, move || drop(dispatcher)))
+    let exit_reason = closure.run(&mut dispatcher)?;
+
+    Ok((exit_reason, Box::new(move || drop(dispatcher))))
 }
 
 fn get_pty() -> io::Result<Pty> {

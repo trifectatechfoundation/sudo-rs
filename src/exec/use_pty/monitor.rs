@@ -6,31 +6,33 @@ use std::{
         unix::{net::UnixStream, process::CommandExt},
     },
     process::{exit, Command},
-    time::Duration,
 };
 
-use crate::system::{
-    fork, getpgid,
-    interface::ProcessId,
-    kill, setpgid, setsid,
-    signal::SignalInfo,
-    term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
-    wait::{waitpid, WaitError, WaitOptions},
-};
 use crate::{
     exec::event::StopReason,
     log::{dev_info, dev_warn},
 };
+use crate::{
+    exec::terminate_process,
+    system::{
+        fork, getpgid,
+        interface::ProcessId,
+        kill, setpgid, setsid,
+        signal::SignalInfo,
+        term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
+        wait::{waitpid, WaitError, WaitOptions},
+    },
+};
 
 use signal_hook::consts::*;
 
-use super::{
-    backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
+use crate::exec::{cond_fmt, signal_fmt};
+use crate::exec::{
     event::{EventClosure, EventDispatcher},
     io_util::{retry_while_interrupted, was_interrupted},
+    use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     ExitReason,
 };
-use super::{cond_fmt, signal_fmt};
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 pub(super) fn exec_monitor(
@@ -296,11 +298,7 @@ fn send_signal(signal: c_int, command_pid: ProcessId, from_parent: bool) {
     // FIXME: We should call `killpg` instead of `kill`.
     match signal {
         SIGALRM => {
-            // Kill the command with increasing urgency. Based on `terminate_command`.
-            kill(command_pid, SIGHUP).ok();
-            kill(command_pid, SIGTERM).ok();
-            std::thread::sleep(Duration::from_secs(2));
-            kill(command_pid, SIGKILL).ok();
+            terminate_process(command_pid, false);
         }
         signal => {
             // Send the signal to the command.

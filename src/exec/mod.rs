@@ -1,26 +1,37 @@
 #![deny(unsafe_code)]
 
-mod backchannel;
 mod event;
 mod interface;
 mod io_util;
-mod monitor;
-mod parent;
+mod no_pty;
+mod use_pty;
 
 use std::{
+    borrow::Cow,
     ffi::{CString, OsStr},
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
     process::Command,
+    time::Duration,
 };
 
-use crate::common::Environment;
-use crate::log::user_error;
-use crate::system::set_target_user;
-use parent::exec_pty;
+use signal_hook::consts::*;
+
+use crate::{
+    common::Environment,
+    system::{interface::ProcessId, killpg},
+};
+use crate::{
+    exec::no_pty::exec_no_pty,
+    log::dev_info,
+    system::{set_target_user, signal::SignalNumber, term::UserTerm},
+};
+use crate::{log::user_error, system::kill};
 
 pub use interface::RunOptions;
+
+use self::use_pty::exec_pty;
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
@@ -81,7 +92,13 @@ pub fn run_command(
         options.group().clone(),
     );
 
-    exec_pty(options.pid(), command)
+    match UserTerm::new() {
+        Ok(user_tty) => exec_pty(options.pid(), command, user_tty),
+        Err(err) => {
+            dev_info!("Could not open user's terminal, not allocating a pty: {err}");
+            exec_no_pty(options.pid(), command)
+        }
+    }
 }
 
 /// Exit reason for the command executed by sudo.
@@ -91,7 +108,18 @@ pub enum ExitReason {
     Signal(i32),
 }
 
-fn signal_fmt(signal: crate::system::signal::SignalNumber) -> std::borrow::Cow<'static, str> {
+// Kill the process with increasing urgency.
+//
+// Based on `terminate_command`.
+fn terminate_process(pid: ProcessId, use_killpg: bool) {
+    let kill_fn = if use_killpg { killpg } else { kill };
+    kill_fn(pid, SIGHUP).ok();
+    kill_fn(pid, SIGTERM).ok();
+    std::thread::sleep(Duration::from_secs(2));
+    kill_fn(pid, SIGKILL).ok();
+}
+
+fn signal_fmt(signal: SignalNumber) -> Cow<'static, str> {
     signal_hook::low_level::signal_name(signal)
         .map(|name| name.into())
         .unwrap_or_else(|| format!("unknown signal #{}", signal).into())
