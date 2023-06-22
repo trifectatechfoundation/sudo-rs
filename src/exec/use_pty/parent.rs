@@ -8,20 +8,22 @@ use signal_hook::consts::*;
 
 use crate::exec::event::{EventClosure, EventDispatcher, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
-use crate::exec::{cond_fmt, opt_fmt, signal_fmt};
+use crate::exec::use_pty::SIGCONT_FG;
+use crate::exec::{cond_fmt, opt_fmt, signal_fmt, terminate_process};
 use crate::exec::{
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
     ExitReason,
 };
 use crate::log::{dev_error, dev_info, dev_warn};
-use crate::system::signal::{SignalAction, SignalHandler};
+use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
 use crate::system::term::{tcgetpgrp, Pty, UserTerm};
 use crate::system::wait::{waitpid, WaitError, WaitOptions};
-use crate::system::{chown, fork, Group, User};
+use crate::system::{chown, fork, kill, killpg, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use super::pipe::Pipe;
+use super::SIGCONT_BG;
 
 pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
@@ -101,7 +103,7 @@ pub(crate) fn exec_pty(
     // Whether the command should be executed in the background (this is not the `-b` flag)
     let exec_bg = false;
     // Whether the user's terminal is in raw mode or not.
-    let mut _term_raw = false;
+    let mut term_raw = false;
 
     // FIXME (ogsudo): Do some extra setup if any of the IO streams are not a tty and logging is
     // enabled or if sudo is running in background.
@@ -114,7 +116,7 @@ pub(crate) fn exec_pty(
 
     // Start in raw mode unless we're part of a pipeline or backgrounded.
     if foreground && !pipeline && !exec_bg && user_tty.term_raw(false).is_ok() {
-        _term_raw = true;
+        term_raw = true;
     }
 
     // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
@@ -169,9 +171,12 @@ pub(crate) fn exec_pty(
     let closure = ParentClosure::new(
         monitor_pid,
         sudo_pid,
+        parent_pgrp,
         backchannels.parent,
         user_tty,
         tty_pipe,
+        foreground,
+        term_raw,
         pty.leader.into(),
         pty_pipe,
         &mut dispatcher,
@@ -209,10 +214,13 @@ struct ParentClosure {
     /// This is `Some` iff the process is still running.
     monitor_pid: Option<ProcessId>,
     sudo_pid: ProcessId,
+    parent_pgrp: ProcessId,
     command_pid: Option<ProcessId>,
     backchannel: ParentBackchannel,
     user_tty: UserTerm,
     tty_pipe: Pipe<UserTerm, File>,
+    foreground: bool,
+    term_raw: bool,
     pty_leader: File,
     pty_pipe: Pipe<File, UserTerm>,
     message_queue: VecDeque<MonitorMessage>,
@@ -223,9 +231,12 @@ impl ParentClosure {
     fn new(
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
+        parent_pgrp: ProcessId,
         backchannel: ParentBackchannel,
         user_tty: UserTerm,
         tty_pipe: Pipe<UserTerm, File>,
+        foreground: bool,
+        term_raw: bool,
         pty_leader: File,
         pty_pipe: Pipe<File, UserTerm>,
         dispatcher: &mut EventDispatcher<Self>,
@@ -243,10 +254,13 @@ impl ParentClosure {
         Self {
             monitor_pid: Some(monitor_pid),
             sudo_pid,
+            parent_pgrp,
             command_pid: None,
             backchannel,
             user_tty,
             tty_pipe,
+            foreground,
+            term_raw,
             pty_leader,
             pty_pipe,
             message_queue: VecDeque::new(),
@@ -287,18 +301,26 @@ impl ParentClosure {
                         dev_info!("received command PID ({pid}) from monitor");
                         self.command_pid = pid.into();
                     }
-                    // The command terminated or the monitor was not able to spawn it. We should stop
-                    // either way.
-                    ParentMessage::CommandExit(code) => {
-                        dev_info!("command exited with status code {code}");
-                        dispatcher.set_exit(ExitReason::Code(code).into());
-                    }
-                    ParentMessage::CommandSignal(signal) => {
-                        // FIXME: this isn't right as the command has not exited if the signal is
-                        // not a termination one. However, doing this makes us fail an ignored
-                        // compliance test instead of hanging forever.
-                        dev_info!("command was terminated by {}", signal_fmt(signal));
-                        dispatcher.set_exit(ExitReason::Signal(signal).into());
+                    ParentMessage::CommandStatus(status) => {
+                        // The command terminated or the monitor was not able to spawn it. We should stop
+                        // either way.
+                        if let Some(exit_code) = status.exit_status() {
+                            dev_info!("command exited with status code {exit_code}");
+                            dispatcher.set_exit(ExitReason::Code(exit_code).into());
+                        } else if let Some(signal) = status.term_signal() {
+                            dev_info!("command was terminated by {}", signal_fmt(signal));
+                            dispatcher.set_exit(ExitReason::Signal(signal).into());
+                        } else if let Some(signal) = status.stop_signal() {
+                            dev_info!(
+                                "command was stopped by {}, suspending parent",
+                                signal_fmt(signal)
+                            );
+                            // Suspend parent and tell monitor how to resume on return
+                            if let Some(signal) = self.suspend_pty(signal, dispatcher) {
+                                self.schedule_signal(signal);
+                            }
+                            // FIXME: enable IO events here.
+                        }
                     }
                     ParentMessage::IoError(code) => {
                         let err = io::Error::from_raw_os_error(code);
@@ -367,7 +389,7 @@ impl ParentClosure {
     }
 
     /// Handle changes to the monitor status.
-    fn handle_sigchld(&mut self, monitor_pid: ProcessId) {
+    fn handle_sigchld(&mut self, monitor_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
@@ -391,17 +413,133 @@ impl ParentClosure {
                 signal_fmt(_signal)
             );
             self.monitor_pid = None;
-        } else if let Some(_signal) = status.stop_signal() {
-            // FIXME: we should stop too.
+        } else if let Some(signal) = status.stop_signal() {
             dev_info!(
-                "monitor ({monitor_pid}) was stopped by {}",
-                signal_fmt(_signal)
+                "monitor ({monitor_pid}) was stopped by {}, suspending sudo",
+                signal_fmt(signal)
             );
+            if let Some(signal) = self.suspend_pty(signal, dispatcher) {
+                self.schedule_signal(signal);
+            }
+            // FIXME: Restore IO events here.
         } else if status.did_continue() {
             dev_info!("monitor ({monitor_pid}) continued execution");
         } else {
             dev_warn!("unexpected wait status for monitor ({monitor_pid})")
         }
+    }
+
+    /// Suspend sudo if the command is suspended.
+    ///
+    /// Return `SIGCONT_FG` or `SIGCONT_BG` to state whether the command should be resumend in the
+    /// foreground or not.
+    fn suspend_pty(
+        &mut self,
+        signal: SignalNumber,
+        dispatcher: &mut EventDispatcher<Self>,
+    ) -> Option<SignalNumber> {
+        // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
+        dispatcher.set_signal_action(SIGCONT, SignalAction::Ignore);
+
+        if let SIGTTOU | SIGTTIN = signal {
+            // If sudo is already the foreground process we can resume the command in the
+            // foreground. Otherwise, we have to suspend and resume later.
+            if !self.foreground && self.check_foreground().is_err() {
+                // User's tty was revoked.
+                return None;
+            }
+
+            if self.foreground {
+                dev_info!(
+                    "command received {}, parent running in the foreground",
+                    signal_fmt(signal)
+                );
+                if !self.term_raw {
+                    if self.user_tty.term_raw(false).is_ok() {
+                        self.term_raw = true;
+                    }
+                    // Resume command in the foreground
+                    return Some(SIGCONT_FG);
+                }
+            }
+        }
+
+        // FIXME: we should stop polling the terminal if we're suspending.
+
+        if self.term_raw {
+            match self.user_tty.restore(false) {
+                Ok(()) => self.term_raw = false,
+                Err(err) => dev_warn!("unable to restore terminal settings: {err}"),
+            }
+        }
+
+        if signal != SIGSTOP {
+            dispatcher.set_signal_action(signal, SignalAction::Default);
+        }
+
+        if self.parent_pgrp != self.sudo_pid && kill(self.parent_pgrp, 0).is_err()
+            || killpg(self.parent_pgrp, signal).is_err()
+        {
+            dev_error!("no parent to suspend, terminating command");
+            if let Some(command_pid) = self.command_pid.take() {
+                terminate_process(command_pid, true);
+            }
+        }
+
+        if signal != SIGSTOP {
+            dispatcher.set_signal_action(signal, SignalAction::Stream);
+        }
+
+        if self.command_pid.is_none() || self.resume_terminal().is_err() {
+            return None;
+        }
+
+        let ret_signal = if self.term_raw {
+            SIGCONT_FG
+        } else {
+            SIGCONT_BG
+        };
+
+        dispatcher.set_signal_action(SIGCONT, SignalAction::Stream);
+
+        Some(ret_signal)
+    }
+
+    /// Check whether we are part of the foreground process group and update the foreground flag.
+    fn check_foreground(&mut self) -> io::Result<()> {
+        let pgrp = tcgetpgrp(&self.user_tty)?;
+        self.foreground = pgrp == self.parent_pgrp;
+        Ok(())
+    }
+
+    /// Restore the terminal when sudo resumes after receving `SIGCONT`.
+    fn resume_terminal(&mut self) -> io::Result<()> {
+        self.check_foreground()?;
+
+        // Update the pty settings based on the user's tty.
+        self.user_tty.copy_to(&self.pty_leader).map_err(|err| {
+            dev_error!("cannot copy terminal settings to pty: {err}");
+            err
+        })?;
+        // FIXME: sync the terminal size here.
+        dev_info!(
+            "parent is in {} ({} -> {})",
+            cond_fmt(self.foreground, "foreground", "background"),
+            cond_fmt(self.term_raw, "raw", "cooked"),
+            cond_fmt(self.foreground, "raw", "cooked"),
+        );
+
+        if self.foreground {
+            // We're in the foreground, set tty to raw mode.
+            if self.user_tty.term_raw(false).is_ok() {
+                self.term_raw = true;
+            }
+        } else {
+            // We're in the background, cannot access tty.
+            self.term_raw = false;
+        }
+
+        Ok(())
     }
 }
 
@@ -428,7 +566,7 @@ impl EventClosure for ParentClosure {
     type Break = io::Error;
     type Exit = ParentExit;
 
-    fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
+    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "parent received{} {} from {}",
             opt_fmt(info.is_user_signaled(), " user signaled"),
@@ -442,9 +580,10 @@ impl EventClosure for ParentClosure {
         };
 
         match info.signal() {
-            SIGCHLD => self.handle_sigchld(monitor_pid),
-            // FIXME: check `resume_terminal`
-            SIGCONT => {}
+            SIGCHLD => self.handle_sigchld(monitor_pid, dispatcher),
+            SIGCONT => {
+                self.resume_terminal().ok();
+            }
             // FIXME: check `sync_ttysize`
             SIGWINCH => {}
             // Skip the signal if it was sent by the user and it is self-terminating.

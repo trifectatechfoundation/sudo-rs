@@ -12,8 +12,9 @@ use crate::{
     system::{
         getpgid,
         interface::ProcessId,
-        kill,
-        signal::SignalInfo,
+        kill, killpg,
+        signal::{SignalAction, SignalInfo, SignalNumber},
+        term::{tcgetpgrp, UserTerm},
         wait::{waitpid, WaitError, WaitOptions},
     },
 };
@@ -52,13 +53,17 @@ pub(crate) fn exec_no_pty(
 struct ExecClosure {
     command_pid: Option<ProcessId>,
     sudo_pid: ProcessId,
+    parent_pgrp: ProcessId,
 }
 
 impl ExecClosure {
     fn new(command_pid: ProcessId, sudo_pid: ProcessId) -> Self {
+        // FIXME: handle this!
+        let parent_pgrp = getpgid(0).unwrap_or(-1);
         Self {
             command_pid: Some(command_pid),
             sudo_pid,
+            parent_pgrp,
         }
     }
 
@@ -99,10 +104,7 @@ impl ExecClosure {
                 "command ({command_pid}) was stopped by {}",
                 signal_fmt(signal),
             );
-            // FIXME: this isn't right as the command has not exited if the signal is
-            // not a termination one. However, doing this makes us fail an ignored
-            // compliance test instead of hanging forever.
-            dispatcher.set_exit(ExitReason::Signal(signal));
+            self.suspend_parent(signal, dispatcher);
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
                 "command ({command_pid}) was terminated by {}",
@@ -118,6 +120,70 @@ impl ExecClosure {
             dev_info!("command ({command_pid}) continued execution");
         } else {
             dev_warn!("unexpected wait status for command ({command_pid})")
+        }
+    }
+
+    /// Suspend the main process.
+    fn suspend_parent(&self, signal: SignalNumber, dispatcher: &mut EventDispatcher<Self>) {
+        let mut opt_tty = UserTerm::new().ok();
+        let mut opt_pgrp = None;
+
+        if let Some(tty) = opt_tty.as_ref() {
+            if let Ok(saved_pgrp) = tcgetpgrp(tty) {
+                // Save the terminal's foreground process group so we can restore it after resuming
+                // if needed.
+                opt_pgrp = Some(saved_pgrp);
+            } else {
+                opt_tty.take();
+            }
+        }
+
+        if let Some(saved_pgrp) = opt_pgrp {
+            // This means that the command was stopped trying to access the terminal. If the
+            // terminal has a different foreground process group and we own the terminal, we give
+            // it to the command and let it continue.
+            if let SIGTTOU | SIGTTIN = signal {
+                if saved_pgrp == self.parent_pgrp {
+                    if let Some(command_pgrp) = self.command_pid.and_then(|pid| getpgid(pid).ok()) {
+                        if command_pgrp != self.parent_pgrp
+                            && opt_tty
+                                .as_ref()
+                                .is_some_and(|tty| tty.tcsetpgrp_nobg(command_pgrp).is_ok())
+                        {
+                            if let Err(err) = killpg(command_pgrp, SIGCONT) {
+                                dev_warn!("cannot send SIGCONT to command ({command_pgrp}): {err}");
+                            }
+
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        if signal == SIGTSTP {
+            dispatcher.set_signal_action(signal, SignalAction::Default);
+        }
+
+        if let Err(err) = kill(self.sudo_pid, signal) {
+            dev_warn!(
+                "cannot send {} to sudo ({}): {err}",
+                signal_fmt(signal),
+                self.sudo_pid
+            );
+        }
+
+        if signal == SIGTSTP {
+            dispatcher.set_signal_action(signal, SignalAction::Stream);
+        }
+
+        if let Some(saved_pgrp) = opt_pgrp {
+            // Restore the foreground process group after resuming.
+            if saved_pgrp != self.parent_pgrp {
+                if let Some(tty) = opt_tty {
+                    tty.tcsetpgrp_nobg(saved_pgrp).ok();
+                }
+            }
         }
     }
 }
