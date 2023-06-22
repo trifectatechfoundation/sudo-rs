@@ -46,10 +46,12 @@ pub enum DirChange<'a> {
 impl Policy for Judgement {
     fn authorization(&self) -> Authorization {
         if let Some(tag) = &self.flags {
+            let allowed_attempts = self.settings.int_value["passwd_tries"].try_into().unwrap();
+            let valid_minutes = self.settings.int_value["timestamp_timeout"].try_into().unwrap();
             Authorization::Allowed {
                 must_authenticate: tag.passwd,
-                allowed_attempts: self.settings.int_value["passwd_tries"].try_into().unwrap(),
-                prior_validity: Duration::minutes(15),
+                allowed_attempts,
+                prior_validity: Duration::minutes(valid_minutes),
             }
         } else {
             Authorization::Forbidden

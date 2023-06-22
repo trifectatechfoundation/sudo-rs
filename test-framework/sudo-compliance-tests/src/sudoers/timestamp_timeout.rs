@@ -37,7 +37,6 @@ Defaults timestamp_timeout=0.1"
 }
 
 #[test]
-#[ignore = "gh394"]
 fn zero_always_prompts_for_password() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL

@@ -40,6 +40,8 @@ defaults! {
     secure_path               = None (!= None)
     verifypw                  = "all" (!= "never") [all, always, any, never]
 
+    timestamp_timeout         = 15 (!= 0)
+
     env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",
                                  "PS1", "PS2", "XAUTHORITY", "XAUTHORIZATION", "XDG_CURRENT_DESKTOP"]
 
