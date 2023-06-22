@@ -195,6 +195,7 @@ mod tests {
         interface::ProcessId,
         kill,
         wait::{waitpid, WaitError, WaitOptions, WaitPid},
+        ForkResult,
     };
 
     #[test]
@@ -292,8 +293,7 @@ mod tests {
     #[test]
     fn any() {
         // We fork so waiting for `WaitPid::Any` doesn't wait for other tests.
-        let child_pid = fork().unwrap();
-        if child_pid == 0 {
+        let ForkResult::Parent(child_pid) = fork().unwrap() else {
             let cmd1 = std::process::Command::new("sh")
                 .args(["-c", "sleep 0.1; exit 42"])
                 .spawn()
@@ -325,7 +325,7 @@ mod tests {
             assert!(!status.did_continue());
             // Exit with a specific status code so we can check it from the parent.
             exit(44);
-        }
+        };
 
         let (pid, status) = waitpid(child_pid, WaitOptions::new()).unwrap();
         assert_eq!(child_pid, pid);

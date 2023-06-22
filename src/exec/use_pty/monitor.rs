@@ -17,6 +17,7 @@ use crate::{
         signal::SignalInfo,
         term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
         wait::{waitpid, WaitError, WaitOptions, WaitStatus},
+        ForkResult,
     },
 };
 use crate::{
@@ -77,12 +78,10 @@ pub(super) fn exec_monitor(
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
-    let command_pid = fork().map_err(|err| {
+    let ForkResult::Parent(command_pid) = fork().map_err(|err| {
         dev_warn!("unable to fork command process: {err}");
         err
-    })?;
-
-    if command_pid == 0 {
+    })? else {
         drop(errpipe_rx);
 
         let err = exec_command(command, foreground, pty_follower);
@@ -95,7 +94,7 @@ pub(super) fn exec_monitor(
         drop(errpipe_tx);
         // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
         exit(1)
-    }
+    };
 
     // Send the command's PID to the parent.
     if let Err(err) = backchannel.send(&ParentMessage::CommandPid(command_pid)) {
