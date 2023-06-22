@@ -42,17 +42,16 @@ echo $0";
 fn specified_shell_does_not_exist() -> Result<()> {
     let env = Env("").build()?;
 
-    let output = Command::new("su")
-        .args(["-s", "/does/not/exist"])
-        .output(&env)?;
+    let command_path = "/does/not/exist";
+    let output = Command::new("su").args(["-s", command_path]).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(127), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("su: failed to execute /does/not/exist: No such file or directory")
+        format!("su: failed to execute {command_path}: No such file or directory")
     } else {
-        format!("su: '/does/not/exist': command not found")
+        format!("su: '{command_path}': command not found")
     };
     assert_contains!(output.stderr(), diagnostic);
 
