@@ -11,7 +11,7 @@ use std::{
 use crate::{
     exec::terminate_process,
     system::{
-        fork, getpgid,
+        fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, setpgid, setsid,
         signal::SignalInfo,
@@ -192,8 +192,7 @@ impl<'a> MonitorClosure<'a> {
         dispatcher: &mut EventDispatcher<Self>,
     ) -> Self {
         // Store the pgid of the monitor.
-        // FIXME: ogsudo does not handle this error explicitly.
-        let monitor_pgrp = getpgid(0).unwrap_or(-1);
+        let monitor_pgrp = getpgrp();
 
         // Register the callback to receive the IO error if the command fails to execute.
         dispatcher.set_read_callback(&errpipe_rx, |monitor, dispatcher| {

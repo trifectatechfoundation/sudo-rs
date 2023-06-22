@@ -10,7 +10,7 @@ use crate::{
     exec::{io_util::was_interrupted, opt_fmt, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        getpgid,
+        getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
         signal::{SignalAction, SignalInfo, SignalNumber},
@@ -58,12 +58,10 @@ struct ExecClosure {
 
 impl ExecClosure {
     fn new(command_pid: ProcessId, sudo_pid: ProcessId) -> Self {
-        // FIXME: handle this!
-        let parent_pgrp = getpgid(0).unwrap_or(-1);
         Self {
             command_pid: Some(command_pid),
             sudo_pid,
-            parent_pgrp,
+            parent_pgrp: getpgrp(),
         }
     }
 

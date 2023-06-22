@@ -19,7 +19,7 @@ use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
 use crate::system::term::{Pty, Terminal, UserTerm};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
-use crate::system::{chown, fork, kill, killpg, Group, User};
+use crate::system::{chown, fork, getpgrp, kill, killpg, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use super::pipe::Pipe;
@@ -53,9 +53,7 @@ pub(crate) fn exec_pty(
     // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
 
     // Fetch the parent process group so we can signals to it.
-
-    // FIXME: ogsudo never handles this error explicitly.
-    let parent_pgrp = getpgid(0).unwrap_or(-1);
+    let parent_pgrp = getpgrp();
 
     // Set all the IO streams for the command to the follower side of the pty.
     let clone_follower = || {
