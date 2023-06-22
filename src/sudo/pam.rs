@@ -49,9 +49,10 @@ pub fn determine_record_scope(process: &Process) -> Option<RecordScope> {
 fn determine_auth_status(
     record_for: Option<RecordScope>,
     context: &Context,
+    prior_validity: Duration,
 ) -> (bool, Option<SessionRecordFile<File>>) {
     if let (true, Some(record_for)) = (context.use_session_records, record_for) {
-        match SessionRecordFile::open_for_user(&context.current_user.name, Duration::minutes(15)) {
+        match SessionRecordFile::open_for_user(&context.current_user.name, prior_validity) {
             Ok(mut sr) => {
                 match sr.touch(record_for, context.current_user.uid) {
                     // if a record was found and updated within the timeout, we do not need to authenticate
@@ -112,7 +113,12 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         Ok(())
     }
 
-    fn authenticate(&mut self, context: &Context, mut max_tries: u16) -> Result<(), Error> {
+    fn authenticate(
+        &mut self,
+        context: &Context,
+        prior_validity: Duration,
+        mut max_tries: u16,
+    ) -> Result<(), Error> {
         let pam = self
             .pam
             .as_mut()
@@ -123,7 +129,8 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         let scope = determine_record_scope(&context.process);
 
         // only if there is an interactive terminal or parent process we can store session information
-        let (must_authenticate, records_file) = determine_auth_status(scope, context);
+        let (must_authenticate, records_file) =
+            determine_auth_status(scope, context, prior_validity);
 
         if must_authenticate {
             let mut current_try = 0;

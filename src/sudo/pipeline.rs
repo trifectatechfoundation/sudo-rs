@@ -4,6 +4,7 @@ use crate::cli::SudoOptions;
 use crate::common::{Context, Environment, Error};
 use crate::env::environment;
 use crate::exec::ExitReason;
+use crate::sudo::Duration;
 use crate::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
 
 pub trait PolicyPlugin {
@@ -20,7 +21,12 @@ pub trait PolicyPlugin {
 
 pub trait AuthPlugin {
     fn init(&mut self, context: &Context) -> Result<(), Error>;
-    fn authenticate(&mut self, context: &Context, attempts: u16) -> Result<(), Error>;
+    fn authenticate(
+        &mut self,
+        context: &Context,
+        prior_validity: Duration,
+        attempts: u16,
+    ) -> Result<(), Error>;
     fn pre_exec(&mut self, context: &Context) -> Result<Environment, Error>;
     fn cleanup(&mut self);
 }
@@ -50,13 +56,14 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             }
             Authorization::Allowed {
                 must_authenticate,
+                prior_validity,
                 allowed_attempts,
             } => {
                 self.apply_policy_to_context(&mut context, &policy)?;
                 self.authenticator.init(&context)?;
                 if must_authenticate {
                     self.authenticator
-                        .authenticate(&context, allowed_attempts)?;
+                        .authenticate(&context, prior_validity, allowed_attempts)?;
                 }
             }
         }

@@ -1,6 +1,7 @@
 use super::Sudoers;
 
 use super::Judgement;
+use crate::system::time::Duration;
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
 /// permission check.
 ///
@@ -30,6 +31,7 @@ pub enum Authorization {
     Allowed {
         must_authenticate: bool,
         allowed_attempts: u16,
+        prior_validity: Duration,
     },
     Forbidden,
 }
@@ -47,6 +49,7 @@ impl Policy for Judgement {
             Authorization::Allowed {
                 must_authenticate: tag.passwd,
                 allowed_attempts: self.settings.int_value["passwd_tries"].try_into().unwrap(),
+                prior_validity: Duration::minutes(15),
             }
         } else {
             Authorization::Forbidden
@@ -112,6 +115,7 @@ mod test {
             Authorization::Allowed {
                 must_authenticate: true,
                 allowed_attempts: 3,
+                prior_validity: Duration::minutes(15),
             }
         );
         judge.mod_flag(|tag| tag.passwd = false);
@@ -120,6 +124,7 @@ mod test {
             Authorization::Allowed {
                 must_authenticate: false,
                 allowed_attempts: 3,
+                prior_validity: Duration::minutes(15),
             }
         );
     }
