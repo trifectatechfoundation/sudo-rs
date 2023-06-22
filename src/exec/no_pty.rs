@@ -15,7 +15,7 @@ use crate::{
         kill, killpg,
         signal::{SignalAction, SignalInfo, SignalNumber},
         term::{Terminal, UserTerm},
-        wait::{waitpid, WaitError, WaitOptions},
+        wait::{Wait, WaitError, WaitOptions},
     },
 };
 
@@ -92,7 +92,7 @@ impl ExecClosure {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
-            match waitpid(command_pid, OPTS) {
+            match command_pid.wait(OPTS) {
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
                 Err(_) => {}
                 Ok((_pid, status)) => break status,

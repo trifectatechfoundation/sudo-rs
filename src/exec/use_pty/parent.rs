@@ -18,7 +18,7 @@ use crate::exec::{
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
 use crate::system::term::{Pty, Terminal, UserTerm};
-use crate::system::wait::{waitpid, WaitError, WaitOptions};
+use crate::system::wait::{Wait, WaitError, WaitOptions};
 use crate::system::{chown, fork, kill, killpg, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
@@ -414,7 +414,7 @@ impl ParentClosure {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
-            match waitpid(monitor_pid, OPTS) {
+            match monitor_pid.wait(OPTS) {
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
                 // This only happens if we receive `SIGCHLD` but there's no status update from the
                 // monitor.

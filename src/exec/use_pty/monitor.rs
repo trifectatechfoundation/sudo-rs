@@ -16,7 +16,7 @@ use crate::{
         kill, setpgid, setsid,
         signal::SignalInfo,
         term::Terminal,
-        wait::{waitpid, WaitError, WaitOptions, WaitStatus},
+        wait::{Wait, WaitError, WaitOptions, WaitStatus},
     },
 };
 use crate::{
@@ -259,7 +259,7 @@ impl<'a> MonitorClosure<'a> {
 
     fn handle_sigchld(&mut self, command_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
         let status = loop {
-            match waitpid(command_pid, WaitOptions::new().untraced().no_hang()) {
+            match command_pid.wait(WaitOptions::new().untraced().no_hang()) {
                 Ok((_pid, status)) => break status,
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
                 Err(_) => return,
