@@ -115,7 +115,7 @@ pub(crate) fn exec_pty(
     }
 
     // Start in raw mode unless we're part of a pipeline or backgrounded.
-    if foreground && !pipeline && !exec_bg && user_tty.term_raw(false).is_ok() {
+    if foreground && !pipeline && !exec_bg && user_tty.set_raw_mode(false).is_ok() {
         term_raw = true;
     }
 
@@ -474,7 +474,7 @@ impl ParentClosure {
                     signal_fmt(signal)
                 );
                 if !self.term_raw {
-                    if self.user_tty.term_raw(false).is_ok() {
+                    if self.user_tty.set_raw_mode(false).is_ok() {
                         self.term_raw = true;
                     }
                     // Resume command in the foreground
@@ -550,7 +550,7 @@ impl ParentClosure {
 
         if self.foreground {
             // We're in the foreground, set tty to raw mode.
-            if self.user_tty.term_raw(false).is_ok() {
+            if self.user_tty.set_raw_mode(false).is_ok() {
                 self.term_raw = true;
             }
         } else {

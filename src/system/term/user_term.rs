@@ -169,7 +169,7 @@ impl UserTerm {
 
     /// Set the user's terminal to raw mode. Enable terminal signals if `with_signals` is set to
     /// `true`.
-    pub fn term_raw(&mut self, with_signals: bool) -> io::Result<()> {
+    pub fn set_raw_mode(&mut self, with_signals: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
         if !self.changed {
