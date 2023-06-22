@@ -1,6 +1,6 @@
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env};
 
-use crate::{Result, USERNAME, SUDOERS_NO_LECTURE, PASSWORD};
+use crate::{Result, USERNAME, SUDOERS_NO_LECTURE};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -14,7 +14,6 @@ macro_rules! assert_snapshot {
     };
 }
 
-#[ignore]
 #[test]
 fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     let env = Env([
@@ -27,14 +26,14 @@ fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
         assert!(output.status().success());
 
     let second_output = Command::new("sudo")
         .args(["-S", "ls"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
     assert!(!second_output.status().success());
     assert_eq!(Some(1), second_output.status().code());
@@ -46,46 +45,6 @@ fn explicit_passwd_overrides_nopasswd() -> Result<()> {
         assert_contains!(
             stderr,
             "[Sudo: authenticate] Password: sudo: Authentication failed, try again.\n[Sudo: authenticate] Password: sudo: Authentication failed, try again.\n[Sudo: authenticate] Password: sudo-rs: Maximum 3 incorrect authentication attempts"
-        );
-    }
-
-    Ok(())
-}
-
-#[test]
-#[ignore]
-fn overwrites_changed_default() -> Result<()> {
-    let env = Env([
-        "ferris ALL=(ALL:ALL) ALL, PASSWD: /bin/ls",
-        SUDOERS_NO_LECTURE,
-        "Defaults !authenticate",
-    ])
-        .user(User(USERNAME).password(PASSWORD))
-        .build()?;
-
-    let output = Command::new("sudo")
-        .arg("true")
-        .as_user(USERNAME)
-        .exec(&env)?;
-
-        assert!(output.status().success());
-
-
-    let second_output = Command::new("sudo")
-        .args(["ls"])
-        .as_user(USERNAME)
-        .exec(&env)?;
-
-    assert!(!second_output.status().success());
-    assert_eq!(Some(1), second_output.status().code());
-
-    let stderr = second_output.stderr();
-    if sudo_test::is_original_sudo() {
-        assert_snapshot!(stderr);
-    } else {
-        assert_contains!(
-            stderr,
-            "sudo: a password is required"
         );
     }
 

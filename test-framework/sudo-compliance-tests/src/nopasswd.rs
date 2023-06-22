@@ -61,7 +61,7 @@ fn nopasswd_tag() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore="gh530"]
 fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls")
         .user(USERNAME)
@@ -70,7 +70,7 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
     let output = Command::new("sudo")
         .arg("-l")
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
         assert!(output.status().success());
 
@@ -91,8 +91,7 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
 }
 
 #[test]
-#[ignore]
-// This behavior may be overridden via the verifypw and listpw options.
+#[ignore = "gh439"]
 fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Result<()> {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) NOPASSWD: /bin/true, /bin/ls"))
         .user(USERNAME)
@@ -101,13 +100,12 @@ fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Res
     Command::new("sudo")
         .arg("-v")
         .as_user(USERNAME)
-        .exec(&env)?
+        .output(&env)?
         .assert_success()
 }
 
 #[test]
-#[ignore]
-// This behavior may be overridden via the verifypw and listpw options.
+#[ignore = "gh439"]
 fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Result<()> {
     let env = Env([
         &format!("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls"),
@@ -119,7 +117,7 @@ fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Re
     let output = Command::new("sudo")
         .args(["-S", "-v"])
         .as_user(USERNAME)
-        .exec(&env)?;
+        .output(&env)?;
 
         assert!(!output.status().success());
 
