@@ -108,7 +108,7 @@ fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Res
 #[ignore = "gh439"]
 fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Result<()> {
     let env = Env([
-        &format!("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls"),
+        "ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls",
         SUDOERS_NO_LECTURE,
     ])
         .user(USERNAME)
