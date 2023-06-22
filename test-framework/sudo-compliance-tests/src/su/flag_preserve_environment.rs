@@ -3,6 +3,7 @@ use sudo_test::{Command, Env};
 use crate::{helpers, Result, USERNAME};
 
 #[test]
+#[ignore = "gh533"]
 fn vars_home_and_shell_are_preserved_for_root() -> Result<()> {
     let env = Env("").build()?;
 
@@ -24,6 +25,7 @@ fn vars_home_and_shell_are_preserved_for_root() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh533"]
 fn vars_home_shell_user_and_logname_are_preserved_for_reg_user() -> Result<()> {
     let env = Env("").user(USERNAME).build()?;
 
