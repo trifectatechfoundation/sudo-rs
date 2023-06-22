@@ -123,14 +123,13 @@ fn has_precedence_over_flag_preserve_environment() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh532"]
 fn term_var_in_invoking_users_env_is_preserved() -> Result<()> {
     let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
 
     let term = "my-term";
     let stdout = Command::new("env")
         .arg(format!("TERM={term}"))
-        .args(["su", "-l", USERNAME])
+        .args(["su", "-p", "-l", USERNAME])
         .output(&env)?
         .stdout()?;
     let su_env = helpers::parse_env_output(&stdout)?;
