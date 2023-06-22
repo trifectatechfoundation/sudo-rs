@@ -95,6 +95,7 @@ fn vars_set_by_su_override_existing_ones() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh529"]
 fn vars_in_invoking_users_env_are_preserved() -> Result<()> {
     let varname = "SHOULD_BE_PRESERVED";
     let varval = "42";
