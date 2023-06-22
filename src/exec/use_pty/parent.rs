@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
+use std::fs::File;
 use std::io;
 use std::process::{exit, Command};
 
@@ -7,7 +8,7 @@ use signal_hook::consts::*;
 
 use crate::exec::event::{EventClosure, EventDispatcher, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
-use crate::exec::{cond_fmt, signal_fmt};
+use crate::exec::{cond_fmt, opt_fmt, signal_fmt};
 use crate::exec::{
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
@@ -15,16 +16,17 @@ use crate::exec::{
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler};
-use crate::system::term::{Pty, UserTerm};
+use crate::system::term::{tcgetpgrp, Pty, UserTerm};
 use crate::system::wait::{waitpid, WaitError, WaitOptions};
 use crate::system::{chown, fork, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
+use super::pipe::Pipe;
+
 pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
-    command: Command,
-    // FIXME: use this!
-    _user_tty: UserTerm,
+    mut command: Command,
+    mut user_tty: UserTerm,
 ) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // Allocate a pseudoterminal.
     let pty = get_pty()?;
@@ -47,16 +49,76 @@ pub(crate) fn exec_pty(
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
     // `policy_init_session`.
     // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
-    // FIXME (ogsudo): Set all the IO streams for the command to the follower side of the pty.
-    // FIXME (ogsudo): Read from `/dev/tty` and write to the leader if not in the background.
-    // FIXME (ogsudo): Read from the leader and write to `/dev/tty`.
+
+    // Fetch the parent process group so we can signals to it.
+
+    // FIXME: ogsudo never handles this error explicitly.
+    let parent_pgrp = getpgid(0).unwrap_or(-1);
+
+    // Set all the IO streams for the command to the follower side of the pty.
+    let clone_follower = || {
+        pty.follower.try_clone().map_err(|err| {
+            dev_error!("cannot clone pty follower: {err}");
+            err
+        })
+    };
+
+    command.stdin(clone_follower()?);
+    command.stdout(clone_follower()?);
+    command.stderr(clone_follower()?);
+
+    let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
+
+    //  Read from `/dev/tty` and write to the leader if not in the background.
+    let tty_pipe = Pipe::new();
+    dispatcher.set_read_callback(&user_tty, |parent, _| {
+        parent.tty_pipe.on_read(&mut parent.user_tty)
+    });
+    dispatcher.set_write_callback(&pty.leader, |parent, _| {
+        parent.tty_pipe.on_write(&mut parent.pty_leader)
+    });
+
+    // Read from the leader and write to `/dev/tty`.
+    let pty_pipe = Pipe::new();
+    dispatcher.set_read_callback(&pty.leader, |parent, _| {
+        parent.pty_pipe.on_read(&mut parent.pty_leader)
+    });
+    dispatcher.set_write_callback(&user_tty, |parent, _| {
+        parent.pty_pipe.on_write(&mut parent.user_tty)
+    });
+
+    // Check if we are the foreground process
+    let mut foreground = tcgetpgrp(&user_tty).is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
+    dev_info!(
+        "sudo is runnning in the {}",
+        cond_fmt(foreground, "foreground", "background")
+    );
+
+    // FIXME: maybe all these boolean flags should be on a dedicated type.
+
+    // Whether we're running on a pipeline
+    let pipeline = false;
+    // Whether the command should be executed in the background (this is not the `-b` flag)
+    let exec_bg = false;
+    // Whether the user's terminal is in raw mode or not.
+    let mut _term_raw = false;
+
     // FIXME (ogsudo): Do some extra setup if any of the IO streams are not a tty and logging is
     // enabled or if sudo is running in background.
-    // FIXME (ogsudo): Copy terminal settings from `/dev/tty` to the pty.
-    // FIXME (ogsudo): Start in raw mode unless we're part of a pipeline
+
+    // Copy terminal settings from `/dev/tty` to the pty.
+    if let Err(err) = user_tty.copy_to(&pty.follower) {
+        dev_error!("cannot copy terminal settings to pty: {err}");
+        foreground = false;
+    }
+
+    // Start in raw mode unless we're part of a pipeline or backgrounded.
+    if foreground && !pipeline && !exec_bg && user_tty.term_raw(false).is_ok() {
+        _term_raw = true;
+    }
+
     // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
-    // to block all the signals instead.
-    let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
+    // to block all the signals here instead.
 
     let monitor_pid = fork().map_err(|err| {
         dev_error!("unable to fork monitor process: {err}");
@@ -73,7 +135,12 @@ pub(crate) fn exec_pty(
         dispatcher.unregister_handlers();
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
-        if let Err(err) = exec_monitor(pty.follower, command, &mut backchannels.monitor) {
+        if let Err(err) = exec_monitor(
+            pty.follower,
+            command,
+            foreground && !pipeline && !exec_bg,
+            &mut backchannels.monitor,
+        ) {
             match err.try_into() {
                 Ok(msg) => {
                     if let Err(err) = backchannels.monitor.send(&msg) {
@@ -99,7 +166,16 @@ pub(crate) fn exec_pty(
         },
     )?;
 
-    let closure = ParentClosure::new(monitor_pid, sudo_pid, backchannels.parent, &mut dispatcher);
+    let closure = ParentClosure::new(
+        monitor_pid,
+        sudo_pid,
+        backchannels.parent,
+        user_tty,
+        tty_pipe,
+        pty.leader.into(),
+        pty_pipe,
+        &mut dispatcher,
+    );
 
     // FIXME (ogsudo): Restore the signal handlers here.
 
@@ -135,14 +211,23 @@ struct ParentClosure {
     sudo_pid: ProcessId,
     command_pid: Option<ProcessId>,
     backchannel: ParentBackchannel,
+    user_tty: UserTerm,
+    tty_pipe: Pipe<UserTerm, File>,
+    pty_leader: File,
+    pty_pipe: Pipe<File, UserTerm>,
     message_queue: VecDeque<MonitorMessage>,
 }
 
 impl ParentClosure {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
         backchannel: ParentBackchannel,
+        user_tty: UserTerm,
+        tty_pipe: Pipe<UserTerm, File>,
+        pty_leader: File,
+        pty_pipe: Pipe<File, UserTerm>,
         dispatcher: &mut EventDispatcher<Self>,
     ) -> Self {
         dispatcher.set_read_callback(&backchannel, |parent, dispatcher| {
@@ -160,6 +245,10 @@ impl ParentClosure {
             sudo_pid,
             command_pid: None,
             backchannel,
+            user_tty,
+            tty_pipe,
+            pty_leader,
+            pty_pipe,
             message_queue: VecDeque::new(),
         }
     }
@@ -342,7 +431,7 @@ impl EventClosure for ParentClosure {
     fn on_signal(&mut self, info: SignalInfo, _dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "parent received{} {} from {}",
-            cond_fmt(" user signaled", info.is_user_signaled()),
+            opt_fmt(info.is_user_signaled(), " user signaled"),
             signal_fmt(info.signal()),
             info.pid()
         );

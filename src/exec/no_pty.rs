@@ -7,7 +7,7 @@ use super::{
     terminate_process, ExitReason,
 };
 use crate::{
-    exec::{cond_fmt, io_util::was_interrupted, signal_fmt},
+    exec::{io_util::was_interrupted, opt_fmt, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
         getpgid,
@@ -129,7 +129,7 @@ impl EventClosure for ExecClosure {
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "sudo received{} {} from {}",
-            cond_fmt(" user signaled", info.is_user_signaled()),
+            opt_fmt(info.is_user_signaled(), " user signaled"),
             signal_fmt(info.signal()),
             info.pid()
         );
