@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::fs::File;
-use std::io;
+use std::io::{self, Write};
 use std::process::{exit, Command};
 
 use signal_hook::consts::*;
@@ -168,7 +168,7 @@ pub(crate) fn exec_pty(
         },
     )?;
 
-    let closure = ParentClosure::new(
+    let mut closure = ParentClosure::new(
         monitor_pid,
         sudo_pid,
         parent_pgrp,
@@ -184,10 +184,29 @@ pub(crate) fn exec_pty(
 
     // FIXME (ogsudo): Restore the signal handlers here.
 
+    let exit_reason = closure.run(&mut dispatcher);
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
-    let exit_reason = closure.run(&mut dispatcher)?;
 
-    Ok((exit_reason, Box::new(move || drop(dispatcher))))
+    // Flush the terminal
+    closure.user_tty.flush().ok();
+
+    // Restore the terminal settings
+    if closure.term_raw {
+        // Only restore the terminal if sudo is the foreground process.
+        if let Ok(pgrp) = tcgetpgrp(&closure.user_tty) {
+            if pgrp == closure.parent_pgrp {
+                match closure.user_tty.restore(false) {
+                    Ok(()) => closure.term_raw = false,
+                    Err(err) => dev_warn!("cannot restore terminal settings: {err}"),
+                }
+            }
+        }
+    }
+
+    match exit_reason {
+        Ok(exit_reason) => Ok((exit_reason, Box::new(move || drop(dispatcher)))),
+        Err(err) => Err(err),
+    }
 }
 
 fn get_pty() -> io::Result<Pty> {
@@ -267,8 +286,8 @@ impl ParentClosure {
         }
     }
 
-    fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
-        match dispatcher.event_loop(&mut self) {
+    fn run(&mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
+        match dispatcher.event_loop(self) {
             StopReason::Break(err) | StopReason::Exit(ParentExit::Backchannel(err)) => Err(err),
             StopReason::Exit(ParentExit::Command(exit_reason)) => Ok(exit_reason),
         }
