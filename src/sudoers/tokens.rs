@@ -159,9 +159,23 @@ impl Token for Command {
             Some(args.into_boxed_slice())
         };
 
+        // record if the cmd ends in a slash and remove it if it does
+        let is_dir = cmd.ends_with('/') && {
+            cmd.pop();
+            true
+        };
+
+        // canonicalize path (if possible)
+        if let Ok(real_cmd) = std::fs::canonicalize(&cmd) {
+            cmd = real_cmd
+                .to_str()
+                .ok_or("non-UTF8 characters in filesystem")?
+                .to_string();
+        }
+
         // if the cmd ends with a slash, any command in that directory is allowed
-        if cmd.ends_with('/') {
-            cmd.push('*');
+        if is_dir {
+            cmd.push_str("/*");
         }
 
         Ok((cvt_err(glob::Pattern::new(&cmd))?, argpat))
