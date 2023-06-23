@@ -19,7 +19,7 @@ use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
 use crate::system::term::{Pty, Terminal, UserTerm};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
-use crate::system::{chown, fork, getpgrp, kill, killpg, Group, User};
+use crate::system::{chown, fork, getpgrp, kill, killpg, ForkResult, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use super::pipe::Pipe;
@@ -122,12 +122,10 @@ pub(crate) fn exec_pty(
     // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
     // to block all the signals here instead.
 
-    let monitor_pid = fork().map_err(|err| {
+    let ForkResult::Parent(monitor_pid) = fork().map_err(|err| {
         dev_error!("unable to fork monitor process: {err}");
         err
-    })?;
-
-    if monitor_pid == 0 {
+    })? else {
         // Close the file descriptors that we don't access
         drop(pty.leader);
         drop(backchannels.parent);
@@ -154,7 +152,7 @@ pub(crate) fn exec_pty(
         }
         // FIXME: drop everything before calling `exit`.
         exit(1)
-    }
+    };
 
     // Close the file descriptors that we don't access
     drop(pty.follower);

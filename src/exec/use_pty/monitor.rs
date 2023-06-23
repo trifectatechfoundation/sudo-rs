@@ -17,6 +17,7 @@ use crate::{
         signal::SignalInfo,
         term::Terminal,
         wait::{Wait, WaitError, WaitOptions, WaitStatus},
+        ForkResult,
     },
 };
 use crate::{
@@ -77,12 +78,10 @@ pub(super) fn exec_monitor(
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
-    let command_pid = fork().map_err(|err| {
+    let ForkResult::Parent(command_pid) = fork().map_err(|err| {
         dev_warn!("unable to fork command process: {err}");
         err
-    })?;
-
-    if command_pid == 0 {
+    })? else {
         drop(errpipe_rx);
 
         let err = exec_command(command, foreground, pty_follower);
@@ -95,7 +94,7 @@ pub(super) fn exec_monitor(
         drop(errpipe_tx);
         // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
         exit(1)
-    }
+    };
 
     // Send the command's PID to the parent.
     if let Err(err) = backchannel.send(&ParentMessage::CommandPid(command_pid)) {
@@ -137,9 +136,20 @@ pub(super) fn exec_monitor(
     }
 
     match reason {
-        StopReason::Break(()) => {}
+        StopReason::Break(err) => match err.try_into() {
+            Ok(msg) => {
+                if let Err(err) = closure.backchannel.send(&msg) {
+                    dev_warn!("cannot send message over backchannel: {err}")
+                }
+            }
+            Err(err) => {
+                dev_warn!("socket error `{err:?}` cannot be converted to a message")
+            }
+        },
         StopReason::Exit(command_status) => {
-            closure.backchannel.send(&command_status.into()).ok();
+            if let Err(err) = closure.backchannel.send(&command_status.into()) {
+                dev_warn!("command status cannot be send over backchannel: {err}")
+            }
         }
     }
 
@@ -228,18 +238,7 @@ impl<'a> MonitorClosure<'a> {
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
                 dev_warn!("monitor could not read from backchannel: {}", err);
-                // FIXME: maybe the break reason should be `io::Error` instead.
-                dispatcher.set_break(());
-                match err.try_into() {
-                    Ok(msg) => {
-                        if let Err(err) = self.backchannel.send(&msg) {
-                            dev_warn!("monitor could not write to the backchannel: {err}");
-                        }
-                    }
-                    Err(err) => {
-                        dev_warn!("backchannel read error {err:?} cannot be send over backchannel")
-                    }
-                }
+                dispatcher.set_break(err);
             }
             Ok(event) => {
                 match event {
@@ -303,20 +302,7 @@ impl<'a> MonitorClosure<'a> {
         let mut buf = 0i32.to_ne_bytes();
         match self.errpipe_rx.read_exact(&mut buf) {
             Err(err) if was_interrupted(&err) => { /* Retry later */ }
-            Err(err) => {
-                // Could not read from the pipe, report error to the parent.
-                // FIXME: Maybe we should have a different variant for this.
-                match err.try_into() {
-                    Ok(msg) => {
-                        self.backchannel.send(&msg).ok();
-                    }
-                    Err(err) => {
-                        dev_warn!("pipe read error {err:?} cannot be send over backchannel")
-                    }
-                }
-
-                dispatcher.set_break(());
-            }
+            Err(err) => dispatcher.set_break(err),
             Ok(_) => {
                 // Received error code from the command, forward it to the parent.
                 let error_code = i32::from_ne_bytes(buf);
@@ -393,7 +379,7 @@ fn is_self_terminating(
 }
 
 impl<'a> EventClosure for MonitorClosure<'a> {
-    type Break = ();
+    type Break = io::Error;
     type Exit = WaitStatus;
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
