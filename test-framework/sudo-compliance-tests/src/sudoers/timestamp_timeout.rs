@@ -3,7 +3,6 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
-#[ignore = "gh394"]
 fn nonzero() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL

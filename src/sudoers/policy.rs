@@ -47,11 +47,11 @@ impl Policy for Judgement {
     fn authorization(&self) -> Authorization {
         if let Some(tag) = &self.flags {
             let allowed_attempts = self.settings.int_value["passwd_tries"].try_into().unwrap();
-            let valid_minutes = self.settings.int_value["timestamp_timeout"];
+            let valid_seconds = self.settings.int_value["timestamp_timeout"];
             Authorization::Allowed {
                 must_authenticate: tag.passwd,
                 allowed_attempts,
-                prior_validity: Duration::minutes(valid_minutes),
+                prior_validity: Duration::seconds(valid_seconds),
             }
         } else {
             Authorization::Forbidden

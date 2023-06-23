@@ -56,7 +56,7 @@ macro_rules! optional {
 }
 
 macro_rules! defaults {
-    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])?)*) => {
+    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])? $({$fn: expr})?)*) => {
         pub const ALL_PARAMS: &'static [&'static str] = &[
             $(stringify!($name)),*
         ];
@@ -86,6 +86,11 @@ macro_rules! defaults {
                           $(
                               if let SudoDefault::Integer(_, ref mut checker) = &mut result {
                                   *checker = |text| i64::from_str_radix(text, 10$(*0 + $radix)?).ok().filter(|val| ($first ..= $last).contains(val));
+                              }
+                          )?
+                          $(
+                              if let SudoDefault::Integer(_, ref mut checker) = &mut result {
+                                  *checker = $fn
                               }
                           )?
                           result

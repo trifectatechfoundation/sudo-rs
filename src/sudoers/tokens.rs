@@ -46,7 +46,7 @@ impl Token for Numeric {
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_hexdigit()
+        c.is_ascii_hexdigit() || c == '.'
     }
 }
 
