@@ -78,12 +78,12 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_contains!(
             actual,
-            "User ferris may run the following commands"
+            format!("User {USERNAME} may run the following commands")
         );
     } else {
         assert_contains!(
             actual,
-            "User ferris may run the following commands"
+            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
 
