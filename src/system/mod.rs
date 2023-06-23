@@ -147,6 +147,11 @@ pub fn killpg(pgid: ProcessId, signal: c_int) -> io::Result<()> {
     cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
 }
 
+/// Get the process group ID of the current process.
+pub fn getpgrp() -> ProcessId {
+    unsafe { libc::getpgrp() }
+}
+
 /// Get a process group ID.
 pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
@@ -586,6 +591,7 @@ mod tests {
 
     use libc::SIGKILL;
 
+    use crate::system::getpgrp;
     use crate::system::ForkResult;
 
     use super::{fork, setpgid, Group, User, WithProcess};
@@ -661,10 +667,11 @@ mod tests {
     #[test]
     fn pgid_test() {
         use super::{getpgid, setpgid};
-        assert_eq!(
-            getpgid(std::process::id() as i32).unwrap(),
-            getpgid(0).unwrap()
-        );
+
+        let pgrp = getpgrp();
+        assert_eq!(getpgid(0).unwrap(), pgrp);
+        assert_eq!(getpgid(std::process::id() as i32).unwrap(), pgrp);
+
         match super::fork().unwrap() {
             ForkResult::Child => {
                 // wait for the parent.

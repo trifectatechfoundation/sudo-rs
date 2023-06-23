@@ -61,19 +61,35 @@ impl Pty {
     }
 }
 
-pub fn set_controlling_terminal<F: AsRawFd>(fd: &F) -> io::Result<()> {
-    cerr(unsafe { libc::ioctl(fd.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
-    Ok(())
+mod sealed {
+    use std::os::fd::AsRawFd;
+
+    pub(crate) trait Sealed {}
+
+    impl<F: AsRawFd> Sealed for F {}
 }
 
-/// Set the foreground process group ID associated with the `fd` terminal device to `pgrp`.
-pub fn tcsetpgrp<F: AsRawFd>(fd: &F, pgrp: ProcessId) -> io::Result<()> {
-    cerr(unsafe { libc::tcsetpgrp(fd.as_raw_fd(), pgrp) }).map(|_| ())
+pub(crate) trait Terminal: sealed::Sealed {
+    fn tcgetpgrp(&self) -> io::Result<ProcessId>;
+    fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()>;
+    fn make_controlling_terminal(&self) -> io::Result<()>;
 }
 
-/// Get the foreground process group ID associated with the `fd` terminal device.
-pub fn tcgetpgrp<F: AsRawFd>(fd: &F) -> io::Result<ProcessId> {
-    cerr(unsafe { libc::tcgetpgrp(fd.as_raw_fd()) })
+impl<F: AsRawFd> Terminal for F {
+    /// Get the foreground process group ID associated with this terminal.
+    fn tcgetpgrp(&self) -> io::Result<ProcessId> {
+        cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })
+    }
+    /// Set the foreground process group ID associated with this terminalto `pgrp`.
+    fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
+        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp) }).map(|_| ())
+    }
+
+    /// Make the given terminal the controlling terminal of the calling process.
+    fn make_controlling_terminal(&self) -> io::Result<()> {
+        cerr(unsafe { libc::ioctl(self.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -108,16 +124,16 @@ mod tests {
             // Open a new pseudoterminal.
             let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.
-            assert_eq!(tcgetpgrp(&leader).unwrap(), 0);
+            assert_eq!(leader.tcgetpgrp().unwrap(), 0);
             // Create a new session so we can change the controlling terminal.
             setsid().unwrap();
             // Set the pty leader as the controlling terminal.
-            set_controlling_terminal(&leader).unwrap();
+            leader.make_controlling_terminal().unwrap();
             // Set us as the foreground process group of the pty leader.
             let pgid = getpgid(0).unwrap();
-            tcsetpgrp(&leader, pgid).unwrap();
+            leader.tcsetpgrp(pgid).unwrap();
             // Check that we are in fact the foreground process group of the pty leader.
-            assert_eq!(pgid, tcgetpgrp(&leader).unwrap());
+            assert_eq!(pgid, leader.tcgetpgrp().unwrap());
             // If we haven't panicked yet, send a byte to the parent.
             tx.write_all(&[42]).unwrap();
 

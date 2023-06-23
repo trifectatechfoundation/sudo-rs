@@ -19,9 +19,8 @@ use libc::{
     TIOCGWINSZ, TIOCSWINSZ, TOSTOP,
 };
 
+use super::Terminal;
 use crate::{cutils::cerr, system::interface::ProcessId};
-
-use super::tcsetpgrp;
 
 const INPUT_FLAGS: tcflag_t = IGNPAR
     | PARMRK
@@ -109,7 +108,7 @@ pub struct UserTerm {
 
 impl UserTerm {
     /// Open the user's terminal.
-    pub fn new() -> io::Result<Self> {
+    pub fn open() -> io::Result<Self> {
         Ok(Self {
             tty: OpenOptions::new().read(true).write(true).open("/dev/tty")?,
             original_termios: MaybeUninit::uninit(),
@@ -169,7 +168,7 @@ impl UserTerm {
 
     /// Set the user's terminal to raw mode. Enable terminal signals if `with_signals` is set to
     /// `true`.
-    pub fn term_raw(&mut self, with_signals: bool) -> io::Result<()> {
+    pub fn set_raw_mode(&mut self, with_signals: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
         if !self.changed {
@@ -231,7 +230,7 @@ impl UserTerm {
         unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
         // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
         let result = loop {
-            match tcsetpgrp(&self.tty, pgrp) {
+            match self.tty.tcsetpgrp(pgrp) {
                 Ok(()) => break Ok(()),
                 Err(err) => {
                     let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);
