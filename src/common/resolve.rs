@@ -183,12 +183,12 @@ mod tests {
     fn test_resolve_path() {
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
         assert_eq!(
-            resolve_path(&PathBuf::from("sh"), path),
-            Some(PathBuf::from("/usr/bin/sh"))
+            resolve_path(&PathBuf::from("yes"), path),
+            Some(PathBuf::from("/usr/bin/yes"))
         );
         assert_eq!(
-            resolve_path(&PathBuf::from("sudo"), path),
-            Some(PathBuf::from("/usr/bin/sudo"))
+            resolve_path(&PathBuf::from("whoami"), path),
+            Some(PathBuf::from("/usr/bin/whoami"))
         );
         assert_eq!(
             resolve_path(&PathBuf::from("env"), path),
