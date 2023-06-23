@@ -83,9 +83,10 @@ mod tests {
         io::{IsTerminal, Read, Write},
         os::unix::{net::UnixStream, prelude::OsStringExt},
         path::PathBuf,
+        process::exit,
     };
 
-    use crate::system::{fork, getpgid, setsid, term::*};
+    use crate::system::{fork, getpgid, setsid, term::*, ForkResult};
 
     #[test]
     fn open_pty() {
@@ -103,9 +104,7 @@ mod tests {
         // Create a socket so the child can send us a byte if successful.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        let child_pid = fork().unwrap();
-
-        if child_pid == 0 {
+        let ForkResult::Parent(child_pid) = fork().unwrap() else {
             // Open a new pseudoterminal.
             let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.
@@ -121,7 +120,9 @@ mod tests {
             assert_eq!(pgid, tcgetpgrp(&leader).unwrap());
             // If we haven't panicked yet, send a byte to the parent.
             tx.write_all(&[42]).unwrap();
-        }
+
+            exit(0);
+        };
 
         drop(tx);
 
