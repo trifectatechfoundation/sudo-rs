@@ -216,7 +216,7 @@ fn get_pty() -> io::Result<Pty> {
         dev_error!("unable to allocate pty: {err}");
         err
     })?;
-    // FIXME: Test this
+
     chown(&pty.path, User::effective_uid(), tty_gid).map_err(|err| {
         dev_error!("unable to change owner for pty: {err}");
         err
