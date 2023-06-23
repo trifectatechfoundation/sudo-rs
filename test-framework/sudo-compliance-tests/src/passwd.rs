@@ -15,10 +15,9 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-#[ignore="gh558"]
 fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     let env = Env([
-        "ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls",
+        "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/true, PASSWD: /usr/bin/ls",
         SUDOERS_NO_LECTURE,
     ])
         .user(USERNAME)
@@ -45,7 +44,7 @@ fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
+            "Maximum 3 incorrect authentication attempts"
         );
     }
 
