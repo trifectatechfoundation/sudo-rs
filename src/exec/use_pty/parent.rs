@@ -186,6 +186,7 @@ pub(crate) fn exec_pty(
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
 
     // Flush the terminal
+    closure.pty_pipe.flush(&mut closure.user_tty).ok();
     closure.user_tty.flush().ok();
 
     // Restore the terminal settings

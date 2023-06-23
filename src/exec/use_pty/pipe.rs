@@ -1,5 +1,5 @@
 use std::{
-    io::{Read, Write},
+    io::{self, Read, Write},
     marker::PhantomData,
 };
 
@@ -74,6 +74,15 @@ impl<R: Read, W: Write> Pipe<R, W> {
             // Otherwise we just free the first `len` bytes of the busy section.
             self.start += len;
         }
+    }
+
+    /// Flush this pipe, ensuring that all the contents of its internal buffer are written.
+    pub(super) fn flush(&mut self, write: &mut W) -> io::Result<()> {
+        // This is the busy section of the buffer.
+        let buffer = &self.buffer[self.start..self.end];
+
+        // Write the complete busy section to `write`.
+        write.write_all(buffer)
     }
 }
 
