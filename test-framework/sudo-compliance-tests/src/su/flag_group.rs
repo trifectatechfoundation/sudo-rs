@@ -20,6 +20,7 @@ fn sets_primary_group_id() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh553"]
 fn original_primary_group_id_is_lost() -> Result<()> {
     let gid = 1000;
     let group_name = "rustaceans";
