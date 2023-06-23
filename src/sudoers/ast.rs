@@ -474,7 +474,15 @@ where
     Meta<T>: Parse + Many,
 {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+        let begin_pos = stream.get_pos();
         let AliasName(name) = try_nonterminal(stream)?;
+        if name == "ALL" {
+            unrecoverable!(
+                pos = begin_pos,
+                stream,
+                "the reserved alias ALL cannot be redefined"
+            );
+        }
         expect_syntax('=', stream)?;
 
         make(Def(name, expect_nonterminal(stream)?))

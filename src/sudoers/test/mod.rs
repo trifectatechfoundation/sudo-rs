@@ -366,6 +366,12 @@ fn include_regression() {
 
 #[test]
 #[should_panic]
+fn alias_all_regression() {
+    parse_line("User_Alias ALL = sudouser");
+}
+
+#[test]
+#[should_panic]
 fn defaults_regression() {
     parse_line("Defaults .mymachine=ALL");
 }
