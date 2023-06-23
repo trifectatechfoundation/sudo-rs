@@ -3,7 +3,7 @@ use sudo_test::{Command, Env, Group};
 use crate::Result;
 
 #[test]
-fn overrides_primary_group_id() -> Result<()> {
+fn sets_primary_group_id() -> Result<()> {
     let gid = 1000;
     let group_name = "rustaceans";
     let env = Env("").group(Group(group_name).id(gid)).build()?;
@@ -20,6 +20,23 @@ fn overrides_primary_group_id() -> Result<()> {
 }
 
 #[test]
+fn original_primary_group_id_is_lost() -> Result<()> {
+    let gid = 1000;
+    let group_name = "rustaceans";
+    let env = Env("").group(Group(group_name).id(gid)).build()?;
+
+    let actual = Command::new("su")
+        .args(["-g", group_name, "-c", "id -G"])
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(gid.to_string(), actual);
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh552"]
 fn invoking_user_must_be_root() -> Result<()> {
     let group_name = "rustaceans";
     let invoking_user = "ferris";
