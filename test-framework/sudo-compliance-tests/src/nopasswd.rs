@@ -61,7 +61,7 @@ fn nopasswd_tag() -> Result<()> {
 }
 
 #[test]
-#[ignore]
+#[ignore="gh558"]
 fn nopasswd_tag_for_command() -> Result<()> {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) NOPASSWD: /bin/true"))
         .user(USERNAME)
