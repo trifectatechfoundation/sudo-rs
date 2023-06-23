@@ -36,6 +36,7 @@ dup! {
     signal_is_forwarded_to_child,
     child_terminated_by_signal,
     sigtstp_works,
+    sigalrm_terminates_command,
 }
 
 // man sudo > Signal handling
@@ -68,12 +69,12 @@ fn signal_is_forwarded_to_child(tty: bool) -> Result<()> {
         .build()?;
 
     let child = Command::new("sudo")
-        .args(["sh", expects_signal])
+        .args(["sh", expects_signal, "TERM"])
         .as_user(USERNAME)
         .spawn(&env)?;
 
     Command::new("sh")
-        .arg(kill_sudo)
+        .args([kill_sudo, "-TERM"])
         .tty(tty)
         .output(&env)?
         .assert_success()?;
@@ -147,6 +148,34 @@ fn sigtstp_works(tty: bool) -> Result<()> {
     let did_suspend = suspended_iterations == 1;
 
     assert!(did_suspend);
+
+    Ok(())
+}
+
+fn sigalrm_terminates_command(tty: bool) -> Result<()> {
+    let expected = "got signal";
+    let expects_signal = "/root/expects-signal.sh";
+    let kill_sudo = "/root/kill-sudo.sh";
+    let env = Env([SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY])
+        .user(USERNAME)
+        .file(expects_signal, include_str!("expects-signal.sh"))
+        .file(kill_sudo, include_str!("kill-sudo.sh"))
+        .build()?;
+
+    let child = Command::new("sudo")
+        .args(["sh", expects_signal, "HUP", "TERM"])
+        .as_user(USERNAME)
+        .spawn(&env)?;
+
+    Command::new("sh")
+        .args([kill_sudo, "-ALRM"])
+        .tty(tty)
+        .output(&env)?
+        .assert_success()?;
+
+    let actual = child.wait()?.stdout()?;
+
+    assert_eq!(expected, actual);
 
     Ok(())
 }
