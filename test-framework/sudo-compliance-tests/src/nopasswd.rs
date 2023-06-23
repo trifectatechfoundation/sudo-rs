@@ -61,6 +61,20 @@ fn nopasswd_tag() -> Result<()> {
 }
 
 #[test]
+#[ignore]
+fn nopasswd_tag_for_command() -> Result<()> {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) NOPASSWD: /bin/true"))
+        .user(USERNAME)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
 #[ignore="gh530"]
 fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls")

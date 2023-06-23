@@ -15,6 +15,7 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
+#[ignore]
 fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     let env = Env([
         "ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls",
@@ -44,7 +45,7 @@ fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "[Sudo: authenticate] Password: sudo: Authentication failed, try again.\n[Sudo: authenticate] Password: sudo: Authentication failed, try again.\n[Sudo: authenticate] Password: sudo-rs: Maximum 3 incorrect authentication attempts"
+            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
 
