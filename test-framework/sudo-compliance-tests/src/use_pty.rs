@@ -133,6 +133,36 @@ fn pty_owner() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn stdin_pipe() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+
+    let stdout = Command::new("sh")
+        .args(["-c", "echo 'hello world' | sudo grep -o hello"])
+        .tty(true)
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(stdout.trim(), "hello");
+
+    Ok(())
+}
+
+#[test]
+fn stdout_pipe() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+
+    let stdout = Command::new("sh")
+        .args(["-c", "sudo echo 'hello world' | grep -o hello"])
+        .tty(true)
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(stdout.trim(), "hello");
+
+    Ok(())
+}
+
 fn parse_ps_aux(ps_aux: &str) -> Vec<PsAuxEntry> {
     let mut entries = vec![];
     for line in ps_aux.lines().skip(1 /* header */) {
