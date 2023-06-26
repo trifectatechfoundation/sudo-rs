@@ -160,7 +160,7 @@ impl<R: Read, W: Write> Buffer<R, W> {
         self.start = 0;
         self.end = 0;
 
-        Ok(())
+        write.flush()
     }
 }
 

@@ -185,7 +185,6 @@ pub(crate) fn exec_pty(
 
     // Flush the terminal
     closure.tty_pipe.flush_left().ok();
-    closure.tty_pipe.left_mut().flush().ok();
 
     // Restore the terminal settings
     if closure.term_raw {
