@@ -300,6 +300,9 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command
         ..glob::MatchOptions::new()
     };
     move |(cmdpat, argpat)| {
+        // use the canonicalized path (not using that is less permissive)
+        let realcmd = std::fs::canonicalize(cmd);
+        let cmd = realcmd.as_deref().unwrap_or(cmd);
         cmdpat.matches_path_with(cmd, opts)
             && argpat.as_ref().map_or(true, |vec| args == vec.as_ref())
     }

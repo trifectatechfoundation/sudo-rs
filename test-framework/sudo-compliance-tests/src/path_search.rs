@@ -80,3 +80,35 @@ fn ignores_path_for_qualified_commands() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn paths_are_matched_using_realpath_in_sudoers() -> Result<()> {
+    let env = Env(["ALL ALL = /bin/true"]).build()?;
+
+    // this test assumes /bin is a symbolic link for /usr/bin, which is the
+    // case on Debian bookworm; if it fails for original sudo, either change the
+    // dockerfile or explicitly create a symbolic link
+
+    Command::new("sudo")
+        .arg("/usr/bin/true")
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
+fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
+    let env = Env(["ALL ALL = /usr/bin/true"]).build()?;
+
+    // this test assumes /bin is a symbolic link for /usr/bin, which is the
+    // case on Debian bookworm; if it fails for original sudo, either change the
+    // dockerfile or explicitly create a symbolic link
+
+    Command::new("sudo")
+        .arg("/bin/true")
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
