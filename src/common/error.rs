@@ -17,7 +17,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::InvalidCommand(p) => write!(f, "'{p:?}': command not found"),
+            Error::InvalidCommand(p) => write!(f, "'{}': command not found", p.display()),
             Error::UserNotFound(u) => write!(f, "user '{u}' not found"),
             Error::GroupNotFound(g) => write!(f, "group '{g}' not found"),
             Error::Authentication(e) => write!(f, "authentication failed: {e}"),
