@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::fs::File;
 use std::io::{self, Write};
 use std::process::{exit, Command};
 
@@ -17,7 +16,7 @@ use crate::exec::{
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
-use crate::system::term::{Pty, Terminal, UserTerm};
+use crate::system::term::{Pty, PtyLeader, Terminal, UserTerm};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
 use crate::system::{chown, fork, getpgrp, kill, killpg, ForkResult, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
@@ -69,7 +68,7 @@ pub(crate) fn exec_pty(
 
     let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
 
-    let mut tty_pipe = Pipe::new(user_tty, pty.leader.into());
+    let mut tty_pipe = Pipe::new(user_tty, pty.leader);
 
     let (user_tty, pty_leader) = tty_pipe.both_mut();
 
@@ -234,7 +233,7 @@ struct ParentClosure {
     parent_pgrp: ProcessId,
     command_pid: Option<ProcessId>,
     backchannel: ParentBackchannel,
-    tty_pipe: Pipe<UserTerm, File>,
+    tty_pipe: Pipe<UserTerm, PtyLeader>,
     foreground: bool,
     term_raw: bool,
     message_queue: VecDeque<MonitorMessage>,
@@ -247,7 +246,7 @@ impl ParentClosure {
         sudo_pid: ProcessId,
         parent_pgrp: ProcessId,
         backchannel: ParentBackchannel,
-        tty_pipe: Pipe<UserTerm, File>,
+        tty_pipe: Pipe<UserTerm, PtyLeader>,
         foreground: bool,
         term_raw: bool,
         dispatcher: &mut EventDispatcher<Self>,

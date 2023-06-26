@@ -2,6 +2,7 @@ mod user_term;
 
 use std::{
     ffi::{c_uchar, CString},
+    fs::File,
     io,
     os::fd::{AsRawFd, FromRawFd, OwnedFd},
     ptr::null_mut,
@@ -11,19 +12,19 @@ use crate::cutils::cerr;
 
 use super::interface::ProcessId;
 
-pub use user_term::UserTerm;
+pub(crate) use user_term::UserTerm;
 
-pub struct Pty {
+pub(crate) struct Pty {
     /// The file path of the leader side of the pty.
-    pub path: CString,
-    /// The file descriptor of the leader side of the pty.
-    pub leader: OwnedFd,
-    /// The file descriptor of the follower side of the pty.
-    pub follower: OwnedFd,
+    pub(crate) path: CString,
+    /// The leader side of the pty.
+    pub(crate) leader: PtyLeader,
+    /// The follower side of the pty.
+    pub(crate) follower: PtyFollower,
 }
 
 impl Pty {
-    pub fn open() -> io::Result<Self> {
+    pub(crate) fn open() -> io::Result<Self> {
         const PATH_MAX: usize = libc::PATH_MAX as _;
         // Allocate a buffer to hold the path to the pty.
         let mut path = vec![0 as c_uchar; PATH_MAX];
@@ -55,9 +56,61 @@ impl Pty {
 
         Ok(Self {
             path,
-            leader: unsafe { OwnedFd::from_raw_fd(leader) },
-            follower: unsafe { OwnedFd::from_raw_fd(follower) },
+            leader: PtyLeader {
+                file: unsafe { OwnedFd::from_raw_fd(leader) }.into(),
+            },
+            follower: PtyFollower {
+                file: unsafe { OwnedFd::from_raw_fd(follower) }.into(),
+            },
         })
+    }
+}
+
+pub(crate) struct PtyLeader {
+    file: File,
+}
+
+impl io::Read for PtyLeader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl io::Write for PtyLeader {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
+impl AsRawFd for PtyLeader {
+    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+        self.file.as_raw_fd()
+    }
+}
+
+pub(crate) struct PtyFollower {
+    file: File,
+}
+
+impl PtyFollower {
+    pub(crate) fn try_clone(&self) -> io::Result<Self> {
+        self.file.try_clone().map(|file| Self { file })
+    }
+}
+
+impl AsRawFd for PtyFollower {
+    fn as_raw_fd(&self) -> std::os::fd::RawFd {
+        self.file.as_raw_fd()
+    }
+}
+
+impl From<PtyFollower> for std::process::Stdio {
+    fn from(follower: PtyFollower) -> Self {
+        follower.file.into()
     }
 }
 
@@ -107,8 +160,8 @@ mod tests {
     #[test]
     fn open_pty() {
         let pty = Pty::open().unwrap();
-        assert!(pty.leader.is_terminal());
-        assert!(pty.follower.is_terminal());
+        assert!(pty.leader.file.is_terminal());
+        assert!(pty.follower.file.is_terminal());
 
         let path = PathBuf::from(OsString::from_vec(pty.path.into_bytes()));
         assert!(path.try_exists().unwrap());
