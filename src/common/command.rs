@@ -52,11 +52,13 @@ impl CommandAndArguments {
             arguments.remove(0);
 
             // FIXME: we leak information here since we throw an error if a file does not exists
-            command = if !is_qualified(&command) {
-                resolve_path(&command, path).ok_or_else(|| Error::InvalidCommand(command))?
-            } else {
-                std::fs::canonicalize(&command).unwrap_or(command)
-            };
+            if !is_qualified(&command) {
+                command =
+                    resolve_path(&command, path).ok_or_else(|| Error::InvalidCommand(command))?
+            }
+
+            // resolve symlinks, even if the command was obtained through a PATH search
+            command = std::fs::canonicalize(&command).unwrap_or(command)
         }
 
         Ok(CommandAndArguments { command, arguments })
@@ -99,10 +101,14 @@ mod test {
         );
 
         assert_eq!(
-            CommandAndArguments::try_from_args(None, vec!["ls".into(), "hello".into()], "/bin")
-                .unwrap(),
+            CommandAndArguments::try_from_args(
+                None,
+                vec!["fmt".into(), "hello".into()],
+                "/tmp:/usr/bin:/bin"
+            )
+            .unwrap(),
             CommandAndArguments {
-                command: "/bin/ls".into(),
+                command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()]
             }
         );
