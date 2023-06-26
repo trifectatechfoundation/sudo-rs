@@ -81,7 +81,7 @@ fn sudo_process() -> Result<(), Error> {
     let sudo_options = match SudoOptions::from_env() {
         Ok(options) => match options.action {
             SudoAction::Help => {
-                eprintln!("{}", help::HELP_MSG);
+                eprintln!("{}", help::long_help_message());
                 std::process::exit(0);
             }
             SudoAction::Version => {
