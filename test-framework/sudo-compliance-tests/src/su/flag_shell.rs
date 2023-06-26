@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, TextFile, User};
 
-use crate::{Result, USERNAME};
+use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
 fn it_works() -> Result<()> {
@@ -90,6 +90,53 @@ fn ignores_shell_env_var_when_flag_preserve_environment_is_absent() -> Result<()
         .stdout()?;
 
     assert_eq!("/bin/bash", stdout);
+
+    Ok(())
+}
+
+#[test]
+fn ignored_when_target_user_has_a_restricted_shell_and_invoking_user_is_not_root() -> Result<()> {
+    let invoking_user = USERNAME;
+    let target_user = "ghost";
+    let message = "this is a restricted shell";
+    let restricted_shell_path = "/tmp/restricted-shell";
+    let restricted_shell = format!(
+        "#!/bin/sh
+echo {message}"
+    );
+    let env = Env("")
+        .file(
+            restricted_shell_path,
+            TextFile(restricted_shell).chmod("777"),
+        )
+        .user(invoking_user)
+        .user(
+            User(target_user)
+                .shell(restricted_shell_path)
+                .password(PASSWORD),
+        )
+        .build()?;
+
+    // restricted shell = "a shell not in /etc/shells"
+    let etc_shells = Command::new("cat")
+        .arg("/etc/shells")
+        .output(&env)?
+        .stdout()?;
+    assert_not_contains!(etc_shells, restricted_shell_path);
+
+    let output = Command::new("su")
+        .args(["-s", "/usr/bin/false", target_user])
+        .stdin(PASSWORD)
+        .as_user(invoking_user)
+        .output(&env)?;
+
+    assert!(output.status().success(), "{}", output.stderr());
+    assert_contains!(
+        output.stderr(),
+        format!("su: using restricted shell {restricted_shell_path}")
+    );
+
+    assert_eq!(message, output.stdout()?);
 
     Ok(())
 }

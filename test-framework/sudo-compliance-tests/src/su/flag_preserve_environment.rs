@@ -1,6 +1,6 @@
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, TextFile, User};
 
-use crate::{helpers, Result, USERNAME};
+use crate::{helpers, Result, PASSWORD, USERNAME};
 
 #[test]
 fn vars_home_and_shell_are_preserved_for_root() -> Result<()> {
@@ -88,6 +88,54 @@ fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
 
     assert_eq!(Some(home), su_env.get("HOME").copied());
     assert_eq!(Some(shell), su_env.get("SHELL").copied());
+
+    Ok(())
+}
+
+#[test]
+fn shell_env_var_is_ignored_when_target_user_has_a_restricted_shell_and_invoking_user_is_not_root(
+) -> Result<()> {
+    let invoking_user = USERNAME;
+    let target_user = "ghost";
+    let message = "this is a restricted shell";
+    let restricted_shell_path = "/tmp/restricted-shell";
+    let restricted_shell = format!(
+        "#!/bin/sh
+echo {message}"
+    );
+    let env = Env("")
+        .file(
+            restricted_shell_path,
+            TextFile(restricted_shell).chmod("777"),
+        )
+        .user(invoking_user)
+        .user(
+            User(target_user)
+                .shell(restricted_shell_path)
+                .password(PASSWORD),
+        )
+        .build()?;
+
+    // restricted shell = "a shell not in /etc/shells"
+    let etc_shells = Command::new("cat")
+        .arg("/etc/shells")
+        .output(&env)?
+        .stdout()?;
+    assert_not_contains!(etc_shells, restricted_shell_path);
+
+    let output = Command::new("env")
+        .args(["SHELL=/usr/bin/false", "su", "-p", target_user])
+        .stdin(PASSWORD)
+        .as_user(invoking_user)
+        .output(&env)?;
+
+    assert!(output.status().success(), "{}", output.stderr());
+    assert_contains!(
+        output.stderr(),
+        format!("su: using restricted shell {restricted_shell_path}")
+    );
+
+    assert_eq!(message, output.stdout()?);
 
     Ok(())
 }
