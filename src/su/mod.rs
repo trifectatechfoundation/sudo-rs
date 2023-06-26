@@ -94,7 +94,7 @@ fn run(options: SuOptions) -> Result<(), Error> {
     let pid = context.process.pid;
 
     // run command and return corresponding exit code
-    let (reason, emulate_default_handler) = crate::exec::run_command(context, environment)?;
+    let (reason, emulate_default_handler) = crate::exec::run_command(&context, environment)?;
 
     // closing the pam session is best effort, if any error occurs we cannot
     // do anything with it

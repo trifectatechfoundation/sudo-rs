@@ -38,7 +38,7 @@ use self::use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG};
 /// Returns the [`ExitReason`] of the command and a function that restores the default handler for
 /// signals once its called.
 pub fn run_command(
-    options: impl RunOptions,
+    options: &impl RunOptions,
     env: Environment,
 ) -> io::Result<(ExitReason, impl FnOnce())> {
     // FIXME: should we pipe the stdio streams?

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::{resolve::resolve_path, Error};
+use super::resolve::resolve_path;
 
 #[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -33,11 +33,7 @@ fn is_qualified(path: impl AsRef<Path>) -> bool {
 }
 
 impl CommandAndArguments {
-    pub fn try_from_args(
-        shell: Option<PathBuf>,
-        mut arguments: Vec<String>,
-        path: &str,
-    ) -> Result<Self, Error> {
+    pub fn build_from_args(shell: Option<PathBuf>, mut arguments: Vec<String>, path: &str) -> Self {
         let mut command;
         if let Some(chosen_shell) = shell {
             command = chosen_shell;
@@ -47,21 +43,22 @@ impl CommandAndArguments {
         } else {
             command = arguments
                 .get(0)
-                .ok_or_else(|| Error::InvalidCommand(PathBuf::new()))?
-                .into();
+                .map(|s| s.into())
+                .unwrap_or_else(PathBuf::new);
             arguments.remove(0);
 
-            // FIXME: we leak information here since we throw an error if a file does not exists
+            // resolve the command; do not be "user friendly" and resolve errors here, since a "friend or foe"
+            // check has not been performed yet; the policy/exec module can deal with non-existing commands.
             if !is_qualified(&command) {
-                command =
-                    resolve_path(&command, path).ok_or_else(|| Error::CommandNotFound(command))?
+                command = resolve_path(&command, path).unwrap_or(command)
             }
 
             // resolve symlinks, even if the command was obtained through a PATH search
+            // once again, failure to canonicalize should not stop the pipeline
             command = std::fs::canonicalize(&command).unwrap_or(command)
         }
 
-        Ok(CommandAndArguments { command, arguments })
+        CommandAndArguments { command, arguments }
     }
 }
 
@@ -88,12 +85,11 @@ mod test {
     #[test]
     fn test_build_command_and_args() {
         assert_eq!(
-            CommandAndArguments::try_from_args(
+            CommandAndArguments::build_from_args(
                 None,
                 vec!["/usr/bin/fmt".into(), "hello".into()],
                 "/bin"
-            )
-            .unwrap(),
+            ),
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()]
@@ -101,24 +97,22 @@ mod test {
         );
 
         assert_eq!(
-            CommandAndArguments::try_from_args(
+            CommandAndArguments::build_from_args(
                 None,
                 vec!["fmt".into(), "hello".into()],
                 "/tmp:/usr/bin:/bin"
-            )
-            .unwrap(),
+            ),
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()]
             }
         );
         assert_eq!(
-            CommandAndArguments::try_from_args(
+            CommandAndArguments::build_from_args(
                 Some("shell".into()),
                 vec!["ls".into(), "hello".into()],
                 "/bin"
-            )
-            .unwrap(),
+            ),
             CommandAndArguments {
                 command: "shell".into(),
                 arguments: vec!["-c".into(), "ls hello".into()]

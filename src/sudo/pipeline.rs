@@ -78,21 +78,25 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let pid = context.process.pid;
 
         // run command and return corresponding exit code
-        let (reason, emulate_default_handler) = crate::exec::run_command(context, target_env)?;
+        let exec_result = crate::exec::run_command(&context, target_env);
 
         self.authenticator.cleanup();
 
         // Run any clean-up code before this line.
-        emulate_default_handler();
+        if let Ok((reason, emulate_default_handler)) = exec_result {
+            emulate_default_handler();
 
-        match reason {
-            ExitReason::Code(code) => exit(code),
-            ExitReason::Signal(signal) => {
-                crate::system::kill(pid, signal)?;
+            match reason {
+                ExitReason::Code(code) => exit(code),
+                ExitReason::Signal(signal) => {
+                    crate::system::kill(pid, signal)?;
+                }
             }
-        }
 
-        Ok(())
+            Ok(())
+        } else {
+            Err(Error::InvalidCommand(context.command.command))
+        }
     }
 
     fn apply_policy_to_context(
