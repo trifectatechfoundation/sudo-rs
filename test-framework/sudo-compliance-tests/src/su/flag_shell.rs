@@ -140,3 +140,24 @@ echo {message}"
 
     Ok(())
 }
+
+#[test]
+fn when_specified_more_than_once_last_value_is_used() -> Result<()> {
+    let shell_path = "/root/my-shell";
+    let shell = "#!/bin/sh
+echo $0";
+    let env = Env("")
+        .file(shell_path, TextFile(shell).chmod("100"))
+        .build()?;
+
+    let actual = Command::new("su")
+        .args(["-s", "/usr/bin/env"])
+        .args(["-s", "/usr/bin/false"])
+        .args(["-s", shell_path])
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(shell_path, actual);
+
+    Ok(())
+}
