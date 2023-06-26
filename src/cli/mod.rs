@@ -32,7 +32,6 @@ pub struct SudoOptions {
     pub other_user: Option<String>,
     pub preserve_env: Vec<String>,
     pub preserve_groups: bool,
-    pub set_home: bool,
     pub shell: bool,
     pub stdin: bool,
     pub user: Option<String>,
@@ -199,7 +198,6 @@ impl SudoOptions {
         // check arguments for validate action
         if matches!(self.action, SudoAction::Validate)
             && (self.background
-                || self.set_home
                 || self.preserve_groups
                 || self.login
                 || self.shell
@@ -214,7 +212,6 @@ impl SudoOptions {
         // check arguments for list action
         if matches!(self.action, SudoAction::List(_))
             && (self.background
-                || self.set_home
                 || self.preserve_groups
                 || self.login
                 || self.shell
@@ -228,7 +225,6 @@ impl SudoOptions {
         // check arguments for edit action
         if matches!(self.action, SudoAction::Edit(_))
             && (self.background
-                || self.set_home
                 || self.preserve_groups
                 || self.login
                 || self.shell
@@ -262,7 +258,8 @@ impl SudoOptions {
                         options.edit = true;
                     }
                     "-H" | "--set-home" => {
-                        options.set_home = true;
+                        // this option is ignored, since it is the default for sudo-rs; but accept
+                        // it for backwards compatibility reasons
                     }
                     "-h" | "--help" => {
                         options.help = true;
