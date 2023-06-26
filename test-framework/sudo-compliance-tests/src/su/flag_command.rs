@@ -38,3 +38,19 @@ echo $@";
 
     Ok(())
 }
+
+#[test]
+fn when_specified_more_than_once_only_last_value_is_used() -> Result<()> {
+    let env = Env("").build()?;
+
+    let output = Command::new("su")
+        .args(["-c", "id"])
+        .args(["-c", "true"])
+        .output(&env)?;
+
+    assert!(output.status().success());
+    assert!(output.stderr().is_empty());
+    assert!(output.stdout()?.is_empty());
+
+    Ok(())
+}

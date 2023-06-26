@@ -2,6 +2,7 @@ use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, USERNAME};
 
+mod cli;
 mod env;
 mod flag_command;
 mod flag_group;

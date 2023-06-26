@@ -114,3 +114,37 @@ fn list_syntax_odd_names() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn when_specified_more_than_once_lists_are_merged() -> Result<()> {
+    let varname1 = "FOO";
+    let varval1 = "42";
+    let varname2 = "BAR";
+    let varval2 = "24";
+    let varname3 = "BAZ";
+    let varval3 = "33";
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{varname1}={varval1}"))
+        .arg(format!("{varname2}={varval2}"))
+        .arg(format!("{varname3}={varval3}"))
+        .args([
+            "su",
+            "-w",
+            &format!("{varname1},{varname2}"),
+            "-w",
+            varname3,
+            "-l",
+            USERNAME,
+        ])
+        .output(&env)?
+        .stdout()?;
+    let su_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(varval1), su_env.get(varname1).copied());
+    assert_eq!(Some(varval2), su_env.get(varname2).copied());
+    assert_eq!(Some(varval3), su_env.get(varname3).copied());
+
+    Ok(())
+}

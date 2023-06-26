@@ -70,3 +70,24 @@ fn uses_shell_env_var_when_flag_preserve_environment_is_present() -> Result<()> 
 
     Ok(())
 }
+
+#[test]
+fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
+    let env = Env("").build()?;
+
+    let home = "my-home";
+    let shell = "/usr/bin/env";
+    let stdout = Command::new("env")
+        .arg(format!("HOME={home}"))
+        .arg(format!("SHELL={shell}"))
+        .args(["su", "--preserve-environment", "-p"])
+        .output(&env)?
+        .stdout()?;
+    let su_env = helpers::parse_env_output(&stdout)?;
+    dbg!(&su_env);
+
+    assert_eq!(Some(home), su_env.get("HOME").copied());
+    assert_eq!(Some(shell), su_env.get("SHELL").copied());
+
+    Ok(())
+}

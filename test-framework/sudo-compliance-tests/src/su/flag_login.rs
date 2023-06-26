@@ -8,11 +8,7 @@ use crate::{helpers, Result, ENV_PATH, USERNAME};
 fn it_works() -> Result<()> {
     let env = Env("").build()?;
 
-    let argss = [
-        ["-l", "-c", "echo $0"],
-        ["-", "-c", "echo $0"],
-        ["-c", "echo $0", "-"],
-    ];
+    let argss = [["-c", "echo $0", "-l"], ["-c", "echo $0", "-"]];
 
     for args in argss {
         let actual = Command::new("su").args(args).output(&env)?.stdout()?;
@@ -136,6 +132,27 @@ fn term_var_in_invoking_users_env_is_preserved() -> Result<()> {
     let su_env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(term), su_env.get("TERM").copied());
+
+    Ok(())
+}
+
+#[test]
+fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
+    let env = Env("").build()?;
+
+    let argss = [
+        &["-c", "echo $0", "-l", "-l"],
+        &["-c", "echo $0", "-l", "-"],
+    ];
+
+    for args in argss {
+        dbg!(args);
+
+        let actual = Command::new("su").args(args).output(&env)?.stdout()?;
+
+        // argv[0] is prefixed with '-' to invoke the shell as a login shell
+        assert_eq!("-bash", actual);
+    }
 
     Ok(())
 }

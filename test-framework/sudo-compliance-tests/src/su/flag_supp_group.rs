@@ -39,7 +39,7 @@ fn overrides_primary_group_id() -> Result<()> {
 
 #[test]
 #[ignore = "gh556"]
-fn may_be_specified_more_than_once() -> Result<()> {
+fn when_specified_more_than_once_all_groups_are_added_to_group_list() -> Result<()> {
     let gid1 = 1000;
     let group_name1 = "rustaceans";
     let gid2 = 1001;
