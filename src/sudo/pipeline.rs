@@ -82,21 +82,20 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         self.authenticator.cleanup();
 
+        let (reason, emulate_default_handler) = exec_result
+            .map_err(|io_error| Error::IoError(Some(context.command.command), io_error))?;
+
         // Run any clean-up code before this line.
-        if let Ok((reason, emulate_default_handler)) = exec_result {
-            emulate_default_handler();
+        emulate_default_handler();
 
-            match reason {
-                ExitReason::Code(code) => exit(code),
-                ExitReason::Signal(signal) => {
-                    crate::system::kill(pid, signal)?;
-                }
+        match reason {
+            ExitReason::Code(code) => exit(code),
+            ExitReason::Signal(signal) => {
+                crate::system::kill(pid, signal)?;
             }
-
-            Ok(())
-        } else {
-            Err(Error::InvalidCommand(context.command.command))
         }
+
+        Ok(())
     }
 
     fn apply_policy_to_context(
