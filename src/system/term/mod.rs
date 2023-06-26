@@ -1,14 +1,17 @@
 mod user_term;
 
 use std::{
-    ffi::{c_uchar, CString},
+    ffi::{c_uchar, CStr, CString, OsStr, OsString},
     fs::File,
     io,
-    os::fd::{AsRawFd, FromRawFd, OwnedFd},
+    os::{
+        fd::{AsRawFd, FromRawFd, OwnedFd},
+        unix::prelude::OsStrExt,
+    },
     ptr::null_mut,
 };
 
-use crate::cutils::cerr;
+use crate::cutils::{cerr, os_string_from_ptr};
 
 use super::interface::ProcessId;
 
@@ -126,6 +129,7 @@ pub(crate) trait Terminal: sealed::Sealed {
     fn tcgetpgrp(&self) -> io::Result<ProcessId>;
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()>;
     fn make_controlling_terminal(&self) -> io::Result<()>;
+    fn ttyname(&self) -> io::Result<OsString>;
 }
 
 impl<F: AsRawFd> Terminal for F {
@@ -143,6 +147,21 @@ impl<F: AsRawFd> Terminal for F {
         cerr(unsafe { libc::ioctl(self.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
         Ok(())
     }
+
+    /// Get the filename of the tty
+    fn ttyname(&self) -> io::Result<OsString> {
+        use std::os::unix::ffi::OsStringExt;
+
+        let mut buf: [libc::c_char; 1024] = [0; 1024];
+
+        cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr() as _, buf.len()) })?;
+        Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
+    }
+}
+
+/// Try to get the path of the current TTY
+pub fn current_tty_name() -> io::Result<OsString> {
+    std::io::stdin().ttyname()
 }
 
 #[cfg(test)]
