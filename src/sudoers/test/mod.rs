@@ -75,11 +75,13 @@ fn ambiguous_spec() {
 fn permission_test() {
     let root = || (&Named("root"), &Named("root"));
 
+    let realpath = |path: &Path| std::fs::canonicalize(path).unwrap_or(path.to_path_buf());
+
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
-            let req = Request { user: $req.0, group: $req.1, command: cmdvec[0].as_ref(), arguments: &cmdvec[1..].to_vec() };
+            let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
             assert_eq!(Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags, None);
         }
     }
@@ -88,7 +90,7 @@ fn permission_test() {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
             let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
-            let req = Request { user: $req.0, group: $req.1, command: &cmdvec[0].as_ref(), arguments: &cmdvec[1..].to_vec() };
+            let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
             let result = Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags;
             assert!(!result.is_none());
             $(

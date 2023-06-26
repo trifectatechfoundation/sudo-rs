@@ -88,12 +88,12 @@ mod test {
         assert_eq!(
             CommandAndArguments::try_from_args(
                 None,
-                vec!["/bin/ls".into(), "hello".into()],
+                vec!["/usr/bin/fmt".into(), "hello".into()],
                 "/bin"
             )
             .unwrap(),
             CommandAndArguments {
-                command: "/bin/ls".into(),
+                command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()]
             }
         );
