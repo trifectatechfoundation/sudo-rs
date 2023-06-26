@@ -154,7 +154,13 @@ impl<R: Read, W: Write> Buffer<R, W> {
         let buffer = &self.buffer[self.start..self.end];
 
         // Write the complete busy section to `write`.
-        write.write_all(buffer)
+        write.write_all(buffer)?;
+
+        // If we were able to write all the busy section, we can mark the whole buffer as free.
+        self.start = 0;
+        self.end = 0;
+
+        Ok(())
     }
 }
 
