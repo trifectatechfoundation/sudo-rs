@@ -52,9 +52,10 @@ impl CommandAndArguments {
             arguments.remove(0);
 
             // FIXME: we leak information here since we throw an error if a file does not exists
-            if !is_qualified(&command) {
-                command =
-                    resolve_path(&command, path).ok_or_else(|| Error::InvalidCommand(command))?
+            command = if !is_qualified(&command) {
+                resolve_path(&command, path).ok_or_else(|| Error::InvalidCommand(command))?
+            } else {
+                std::fs::canonicalize(&command).unwrap_or(command)
             };
         }
 
