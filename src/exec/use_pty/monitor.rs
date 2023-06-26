@@ -125,7 +125,17 @@ pub(super) fn exec_monitor(
     // Start the event loop.
     let reason = dispatcher.event_loop(&mut closure);
 
-    // FIXME (ogsudo): Terminate the command using `killpg` if it's not terminated.
+    // Terminate the command if it's not terminated.
+    if let Some(command_pid) = closure.command_pid {
+        terminate_process(command_pid, true);
+
+        loop {
+            match command_pid.wait(WaitOptions::new()) {
+                Err(WaitError::Io(err)) if was_interrupted(&err) => {}
+                _ => break,
+            }
+        }
+    }
 
     // Take the controlling tty so the command's children don't receive SIGHUP when we exit.
     if let Err(err) = closure.pty_follower.tcsetpgrp(closure.monitor_pgrp) {
