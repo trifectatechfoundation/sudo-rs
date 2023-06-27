@@ -79,7 +79,7 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(stderr, "'\"true\"': command not found");
+        assert_contains!(stderr, "'true': command not found");
     }
 
     Ok(())

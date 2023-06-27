@@ -5,7 +5,6 @@ use sudo_test::{Command, Env, User};
 use crate::{helpers, Result, ENV_PATH, USERNAME};
 
 #[test]
-#[ignore = "gh504"]
 fn vars_set_by_su_when_target_is_root() -> Result<()> {
     let env = Env("").build()?;
 
@@ -22,13 +21,15 @@ fn vars_set_by_su_when_target_is_root() -> Result<()> {
     assert_eq!(Some("/root"), su_env.remove("HOME"));
     assert_eq!(Some("/var/mail/root"), su_env.remove("MAIL"));
 
+    // remove profiling environment var
+    let _ = su_env.remove("__LLVM_PROFILE_RT_INIT_ONCE");
+
     assert_eq!(HashMap::new(), su_env);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh505"]
 fn vars_set_by_su_when_target_is_not_root() -> Result<()> {
     let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
 
@@ -54,13 +55,15 @@ fn vars_set_by_su_when_target_is_not_root() -> Result<()> {
         su_env.remove("MAIL")
     );
 
+    // remove profiling environment var
+    let _ = su_env.remove("__LLVM_PROFILE_RT_INIT_ONCE");
+
     assert_eq!(HashMap::new(), su_env);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh505"]
 fn vars_set_by_su_override_existing_ones() -> Result<()> {
     let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
 
@@ -91,6 +94,9 @@ fn vars_set_by_su_override_existing_ones() -> Result<()> {
         Some(format!("/var/mail/{USERNAME}")).as_deref(),
         su_env.remove("MAIL")
     );
+
+    // remove profiling environment var
+    let _ = su_env.remove("__LLVM_PROFILE_RT_INIT_ONCE");
 
     assert_eq!(HashMap::new(), su_env);
 

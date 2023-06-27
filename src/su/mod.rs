@@ -78,16 +78,22 @@ fn run(options: SuOptions) -> Result<(), Error> {
     let context = SuContext::from_env(options)?;
 
     // authenticate the target user
-    let mut pam = authenticate(
+    let mut pam: PamContext<CLIConverser> = authenticate(
         &context.requesting_user().name,
         &context.user().name,
         context.is_login(),
     )?;
 
-    // run command and return corresponding exit code
-    let environment = context.environment.clone();
+    // su in all cases uses PAM (pam_getenvlist(3)) to do the
+    // final environment modification. Command-line options such as
+    // --login and --preserve-environment affect the environment before
+    // it is modified by PAM.
+    let mut environment = context.environment.clone();
+    environment.extend(pam.env()?);
+
     let pid = context.process.pid;
 
+    // run command and return corresponding exit code
     let (reason, emulate_default_handler) = crate::exec::run_command(context, environment)?;
 
     // closing the pam session is best effort, if any error occurs we cannot
@@ -119,11 +125,20 @@ pub fn main() {
             eprintln!("su-rs {VERSION}");
             std::process::exit(0);
         }
-        SuAction::Run => {
-            if let Err(error) = run(su_options) {
-                eprintln!("{error}");
+        SuAction::Run => match run(su_options) {
+            Err(Error::CommandNotFound(c)) => {
+                eprintln!("su: {}", Error::CommandNotFound(c));
+                std::process::exit(127);
+            }
+            Err(Error::InvalidCommand(c)) => {
+                eprintln!("su: {}", Error::InvalidCommand(c));
+                std::process::exit(126);
+            }
+            Err(e) => {
+                eprintln!("su: {e}");
                 std::process::exit(1);
             }
-        }
+            _ => {}
+        },
     };
 }

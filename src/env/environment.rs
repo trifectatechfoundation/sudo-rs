@@ -12,7 +12,7 @@ use super::wildcard_match::wildcard_match;
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
-const PATH_DEFAULT: &str = env!("PATH_DEFAULT");
+const PATH_DEFAULT: &str = env!("SUDO_PATH_DEFAULT");
 
 /// check byte slice contains with given byte slice
 fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {

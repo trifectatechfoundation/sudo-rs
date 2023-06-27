@@ -1,11 +1,15 @@
 use std::{env, ffi::OsString, path::PathBuf};
 
-use crate::common::resolve::resolve_current_user;
+use crate::common::resolve::{is_valid_executable, resolve_current_user};
 use crate::common::{error::Error, Environment};
 use crate::exec::RunOptions;
 use crate::system::{Group, Process, User};
 
 use super::cli::SuOptions;
+
+const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
+const PATH_DEFAULT: &str = env!("SU_PATH_DEFAULT");
+const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
 
 #[derive(Debug)]
 pub(crate) struct SuContext {
@@ -30,9 +34,15 @@ impl SuContext {
             env::vars_os().collect::<Environment>()
         };
 
-        for name in options.whitelist_environment.iter() {
-            if let Some(value) = env::var_os(name) {
-                environment.insert(name.into(), value);
+        // Don't reset the environment variables specified in the
+        // comma-separated list when clearing the environment for
+        // --login. The whitelist is ignored for the environment
+        // variables HOME, SHELL, USER, LOGNAME, and PATH.
+        if options.login {
+            for name in options.whitelist_environment.iter() {
+                if let Some(value) = env::var_os(name) {
+                    environment.insert(name.into(), value);
+                }
             }
         }
 
@@ -43,12 +53,13 @@ impl SuContext {
             .ok_or_else(|| Error::UserNotFound(options.user.clone()))?;
 
         // check the current user is root
-        let is_root = User::effective_uid() == 0;
+        let is_current_root = User::effective_uid() == 0;
+        let is_target_root = options.user == "root";
 
         // resolve target group
         let group = match (&options.group, &options.supp_group) {
             (Some(group), _) | (_, Some(group)) => {
-                if is_root {
+                if is_current_root {
                     Group::from_name(group)?.ok_or_else(|| Error::GroupNotFound(group.to_owned()))
                 } else {
                     Err(Error::Options(
@@ -63,7 +74,7 @@ impl SuContext {
 
         // add additional group if current user is root
         if let Some(group_name) = &options.supp_group {
-            if is_root {
+            if is_current_root {
                 let supp_group = Group::from_name(group_name)?
                     .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
                 user.groups.push(supp_group.gid);
@@ -77,8 +88,22 @@ impl SuContext {
             .shell
             .as_ref()
             .cloned()
-            .or_else(|| environment.get(&OsString::from("SHELL")).map(|v| v.into()))
+            .or_else(|| {
+                if options.preserve_environment {
+                    environment.get(&OsString::from("SHELL")).map(|v| v.into())
+                } else {
+                    None
+                }
+            })
             .unwrap_or(user.shell.clone());
+
+        if !command.exists() {
+            return Err(Error::CommandNotFound(command));
+        }
+
+        if !is_valid_executable(&command) {
+            return Err(Error::InvalidCommand(command));
+        }
 
         // pass command to shell
         let arguments = if let Some(command) = &options.command {
@@ -87,13 +112,31 @@ impl SuContext {
             options.arguments.clone()
         };
 
-        // extend environment with fixed variables
-        environment.insert("HOME".into(), user.home.clone().into_os_string());
-        environment.insert("SHELL".into(), command.clone().into());
+        if options.login {
+            environment.insert(
+                "PATH".into(),
+                if is_target_root {
+                    PATH_DEFAULT_ROOT
+                } else {
+                    PATH_DEFAULT
+                }
+                .into(),
+            );
+        }
 
-        if options.user == "root" {
-            environment.insert("USER".into(), options.user.clone().into());
-            environment.insert("LOGNAME".into(), options.user.clone().into());
+        if !options.preserve_environment {
+            // extend environment with fixed variables
+            environment.insert("HOME".into(), user.home.clone().into_os_string());
+            environment.insert("SHELL".into(), command.clone().into());
+            environment.insert(
+                "MAIL".into(),
+                format!("{PATH_MAILDIR}/{}", user.name).into(),
+            );
+
+            if !is_target_root || options.login {
+                environment.insert("USER".into(), options.user.clone().into());
+                environment.insert("LOGNAME".into(), options.user.clone().into());
+            }
         }
 
         Ok(SuContext {

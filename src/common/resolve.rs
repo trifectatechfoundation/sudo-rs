@@ -114,7 +114,7 @@ pub(super) fn resolve_target_user_and_group(
 }
 
 /// Check whether a path points to a regular file and any executable flag is set
-fn is_valid_executable(path: &PathBuf) -> bool {
+pub(crate) fn is_valid_executable(path: &PathBuf) -> bool {
     if path.is_file() {
         match fs::metadata(path) {
             Ok(meta) => meta.mode() & 0o111 != 0,

@@ -39,25 +39,26 @@ echo $0";
 }
 
 #[test]
-#[ignore = "gh502"]
 fn specified_shell_does_not_exist() -> Result<()> {
     let env = Env("").build()?;
 
-    let output = Command::new("su")
-        .args(["-s", "/does/not/exist"])
-        .output(&env)?;
+    let command_path = "/does/not/exist";
+    let output = Command::new("su").args(["-s", command_path]).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(127), output.status().code());
 
-    let diagnostic = "su: failed to execute /does/not/exist: No such file or directory";
+    let diagnostic = if sudo_test::is_original_sudo() {
+        format!("su: failed to execute {command_path}: No such file or directory")
+    } else {
+        format!("su: '{command_path}': command not found")
+    };
     assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh503"]
 fn specified_shell_could_not_be_executed() -> Result<()> {
     let shell_path = "/tmp/my-shell";
     let env = Env("").file(shell_path, "").build()?;
@@ -67,24 +68,28 @@ fn specified_shell_could_not_be_executed() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(126), output.status().code());
 
-    let diagnostic = format!("su: failed to execute {shell_path}: Permission denied");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        format!("su: failed to execute {shell_path}: Permission denied")
+    } else {
+        format!("su: '{shell_path}': invalid command")
+    };
+
     assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh507"]
 fn ignores_shell_env_var_when_flag_preserve_environment_is_absent() -> Result<()> {
     let env = Env("").build()?;
 
     let stdout = Command::new("env")
         .arg("SHELL=/usr/bin/false")
-        .args(["su", "-c", "echo $0"])
+        .args(["su", "-c", "echo $SHELL"])
         .output(&env)?
         .stdout()?;
 
-    assert_eq!("bash", stdout);
+    assert_eq!("/bin/bash", stdout);
 
     Ok(())
 }
