@@ -21,6 +21,9 @@ fn vars_set_by_su_when_target_is_root() -> Result<()> {
     assert_eq!(Some("/root"), su_env.remove("HOME"));
     assert_eq!(Some("/var/mail/root"), su_env.remove("MAIL"));
 
+    // remove profiling environment var
+    let _ = su_env.remove("__LLVM_PROFILE_RT_INIT_ONCE");
+
     assert_eq!(HashMap::new(), su_env);
 
     Ok(())
@@ -51,6 +54,9 @@ fn vars_set_by_su_when_target_is_not_root() -> Result<()> {
         Some(format!("/var/mail/{USERNAME}")).as_deref(),
         su_env.remove("MAIL")
     );
+
+    // remove profiling environment var
+    let _ = su_env.remove("__LLVM_PROFILE_RT_INIT_ONCE");
 
     assert_eq!(HashMap::new(), su_env);
 
@@ -89,13 +95,15 @@ fn vars_set_by_su_override_existing_ones() -> Result<()> {
         su_env.remove("MAIL")
     );
 
+    // remove profiling environment var
+    let _ = su_env.remove("__LLVM_PROFILE_RT_INIT_ONCE");
+
     assert_eq!(HashMap::new(), su_env);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh529"]
 fn vars_in_invoking_users_env_are_preserved() -> Result<()> {
     let varname = "SHOULD_BE_PRESERVED";
     let varval = "42";

@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./test-framework/sudo-compliance-tests/Cargo.toml"
+    ]
+}
