@@ -119,6 +119,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
             .as_mut()
             .expect("Pam must be initialized before authenticate");
         pam.set_user(&context.current_user.name)?;
+        pam.set_requesting_user(&context.current_user.name)?;
 
         // attempt to set the TTY this session is communicating on
         if let Ok(pam_tty) = current_tty_name() {
