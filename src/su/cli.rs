@@ -185,7 +185,7 @@ impl SuOptions {
     }
 
     /// parse su arguments into SuOptions struct
-    fn parse_arguments(arguments: Vec<String>) -> Result<SuOptions, String> {
+    pub(crate) fn parse_arguments(arguments: Vec<String>) -> Result<SuOptions, String> {
         let mut options: SuOptions = SuOptions::default();
         let mut arg_iter = arguments.into_iter().skip(1);
 

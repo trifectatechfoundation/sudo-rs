@@ -34,9 +34,7 @@ pub(crate) struct SuContext {
 fn is_restricted(shell: &Path) -> bool {
     if let Some(pattern) = shell.as_os_str().to_str() {
         if let Ok(contents) = fs::read_to_string(VALID_LOGIN_SHELLS_LIST) {
-            if contents.contains(pattern) {
-                return false;
-            }
+            return !contents.lines().any(|l| l == pattern);
         }
     }
 
@@ -233,5 +231,48 @@ impl RunOptions for SuContext {
 
     fn pid(&self) -> i32 {
         self.process.pid
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use crate::{common::Error, su::cli::SuOptions};
+
+    use super::SuContext;
+
+    fn get_options(args: &[&str]) -> SuOptions {
+        let mut args = args.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+        args.insert(0, "/bin/su".to_string());
+        SuOptions::parse_arguments(args).unwrap()
+    }
+
+    #[test]
+    fn su_to_root() {
+        let options = get_options(&["root"]);
+        let context = SuContext::from_env(options).unwrap();
+
+        assert_eq!(context.user.name, "root");
+    }
+
+    #[test]
+    fn group_as_non_root() {
+        let options = get_options(&["-g", "root"]);
+        let result = SuContext::from_env(options);
+        let expected = Error::Options("only root can specify alternative groups".to_owned());
+
+        assert!(result.is_err());
+        assert_eq!(format!("{}", result.err().unwrap()), format!("{expected}"));
+    }
+
+    #[test]
+    fn invalid_shell() {
+        let options = get_options(&["-s", "/not/a/shell"]);
+        let result = SuContext::from_env(options);
+        let expected = Error::CommandNotFound(PathBuf::from("/not/a/shell"));
+
+        assert!(result.is_err());
+        assert_eq!(format!("{}", result.err().unwrap()), format!("{expected}"));
     }
 }
