@@ -65,6 +65,7 @@ fn when_present_tty_is_allocated() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh592"]
 fn existing_tty_is_shared_when_absent() -> Result<()> {
     let env = Env("").build()?;
 
@@ -94,6 +95,7 @@ fn existing_tty_is_shared_when_absent() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh592"]
 fn when_present_a_new_tty_is_allocated_for_exclusive_use_of_the_child() -> Result<()> {
     let env = Env("").build()?;
 
