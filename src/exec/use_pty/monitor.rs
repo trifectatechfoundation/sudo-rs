@@ -1,22 +1,20 @@
 use std::{
     ffi::c_int,
     io::{self, Read, Write},
-    os::{
-        fd::OwnedFd,
-        unix::{net::UnixStream, process::CommandExt},
-    },
+    os::unix::{net::UnixStream, process::CommandExt},
     process::{exit, Command},
 };
 
 use crate::{
     exec::terminate_process,
     system::{
-        fork, getpgid,
+        fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, setpgid, setsid,
         signal::SignalInfo,
-        term::{set_controlling_terminal, tcgetpgrp, tcsetpgrp},
-        wait::{waitpid, WaitError, WaitOptions, WaitStatus},
+        term::{PtyFollower, Terminal},
+        wait::{Wait, WaitError, WaitOptions, WaitStatus},
+        ForkResult,
     },
 };
 use crate::{
@@ -38,7 +36,7 @@ use crate::exec::{opt_fmt, signal_fmt};
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 pub(super) fn exec_monitor(
-    pty_follower: OwnedFd,
+    pty_follower: PtyFollower,
     command: Command,
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
@@ -57,7 +55,7 @@ pub(super) fn exec_monitor(
     })?;
 
     // Set the follower side of the pty as the controlling terminal for the session.
-    set_controlling_terminal(&pty_follower).map_err(|err| {
+    pty_follower.make_controlling_terminal().map_err(|err| {
         dev_warn!("cannot set the controlling terminal: {err}");
         err
     })?;
@@ -77,12 +75,10 @@ pub(super) fn exec_monitor(
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
-    let command_pid = fork().map_err(|err| {
+    let ForkResult::Parent(command_pid) = fork().map_err(|err| {
         dev_warn!("unable to fork command process: {err}");
         err
-    })?;
-
-    if command_pid == 0 {
+    })? else {
         drop(errpipe_rx);
 
         let err = exec_command(command, foreground, pty_follower);
@@ -95,7 +91,7 @@ pub(super) fn exec_monitor(
         drop(errpipe_tx);
         // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
         exit(1)
-    }
+    };
 
     // Send the command's PID to the parent.
     if let Err(err) = backchannel.send(&ParentMessage::CommandPid(command_pid)) {
@@ -112,7 +108,7 @@ pub(super) fn exec_monitor(
 
     // Set the foreground group for the pty follower.
     if foreground {
-        if let Err(err) = tcsetpgrp(&closure.pty_follower, closure.command_pgrp) {
+        if let Err(err) = closure.pty_follower.tcsetpgrp(closure.command_pgrp) {
             dev_error!(
                 "cannot set foreground progess group to command ({}): {err}",
                 closure.command_pgrp
@@ -126,10 +122,20 @@ pub(super) fn exec_monitor(
     // Start the event loop.
     let reason = dispatcher.event_loop(&mut closure);
 
-    // FIXME (ogsudo): Terminate the command using `killpg` if it's not terminated.
+    // Terminate the command if it's not terminated.
+    if let Some(command_pid) = closure.command_pid {
+        terminate_process(command_pid, true);
+
+        loop {
+            match command_pid.wait(WaitOptions::new()) {
+                Err(WaitError::Io(err)) if was_interrupted(&err) => {}
+                _ => break,
+            }
+        }
+    }
 
     // Take the controlling tty so the command's children don't receive SIGHUP when we exit.
-    if let Err(err) = tcsetpgrp(&closure.pty_follower, closure.monitor_pgrp) {
+    if let Err(err) = closure.pty_follower.tcsetpgrp(closure.monitor_pgrp) {
         dev_error!(
             "cannot set foreground process group to monitor ({}): {err}",
             closure.monitor_pgrp
@@ -137,9 +143,20 @@ pub(super) fn exec_monitor(
     }
 
     match reason {
-        StopReason::Break(()) => {}
+        StopReason::Break(err) => match err.try_into() {
+            Ok(msg) => {
+                if let Err(err) = closure.backchannel.send(&msg) {
+                    dev_warn!("cannot send message over backchannel: {err}")
+                }
+            }
+            Err(err) => {
+                dev_warn!("socket error `{err:?}` cannot be converted to a message")
+            }
+        },
         StopReason::Exit(command_status) => {
-            closure.backchannel.send(&command_status.into()).ok();
+            if let Err(err) = closure.backchannel.send(&command_status.into()) {
+                dev_warn!("command status cannot be send over backchannel: {err}")
+            }
         }
     }
 
@@ -151,7 +168,7 @@ pub(super) fn exec_monitor(
 }
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
-fn exec_command(mut command: Command, foreground: bool, pty_follower: OwnedFd) -> io::Error {
+fn exec_command(mut command: Command, foreground: bool, pty_follower: PtyFollower) -> io::Error {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
     let command_pid = std::process::id() as ProcessId;
 
@@ -160,7 +177,7 @@ fn exec_command(mut command: Command, foreground: bool, pty_follower: OwnedFd) -
     // Wait for the monitor to set us as the foreground group for the pty if we are in the
     // foreground.
     if foreground {
-        while !tcgetpgrp(&pty_follower).is_ok_and(|pid| pid == command_pid) {
+        while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
             std::thread::sleep(std::time::Duration::from_micros(1));
         }
     }
@@ -178,7 +195,7 @@ struct MonitorClosure<'a> {
     command_pid: Option<ProcessId>,
     command_pgrp: ProcessId,
     monitor_pgrp: ProcessId,
-    pty_follower: OwnedFd,
+    pty_follower: PtyFollower,
     errpipe_rx: UnixStream,
     backchannel: &'a mut MonitorBackchannel,
 }
@@ -186,14 +203,13 @@ struct MonitorClosure<'a> {
 impl<'a> MonitorClosure<'a> {
     fn new(
         command_pid: ProcessId,
-        pty_follower: OwnedFd,
+        pty_follower: PtyFollower,
         errpipe_rx: UnixStream,
         backchannel: &'a mut MonitorBackchannel,
         dispatcher: &mut EventDispatcher<Self>,
     ) -> Self {
         // Store the pgid of the monitor.
-        // FIXME: ogsudo does not handle this error explicitly.
-        let monitor_pgrp = getpgid(0).unwrap_or(-1);
+        let monitor_pgrp = getpgrp();
 
         // Register the callback to receive the IO error if the command fails to execute.
         dispatcher.set_read_callback(&errpipe_rx, |monitor, dispatcher| {
@@ -229,18 +245,7 @@ impl<'a> MonitorClosure<'a> {
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
                 dev_warn!("monitor could not read from backchannel: {}", err);
-                // FIXME: maybe the break reason should be `io::Error` instead.
-                dispatcher.set_break(());
-                match err.try_into() {
-                    Ok(msg) => {
-                        if let Err(err) = self.backchannel.send(&msg) {
-                            dev_warn!("monitor could not write to the backchannel: {err}");
-                        }
-                    }
-                    Err(err) => {
-                        dev_warn!("backchannel read error {err:?} cannot be send over backchannel")
-                    }
-                }
+                dispatcher.set_break(err);
             }
             Ok(event) => {
                 match event {
@@ -259,7 +264,7 @@ impl<'a> MonitorClosure<'a> {
 
     fn handle_sigchld(&mut self, command_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
         let status = loop {
-            match waitpid(command_pid, WaitOptions::new().untraced().no_hang()) {
+            match command_pid.wait(WaitOptions::new().untraced().no_hang()) {
                 Ok((_pid, status)) => break status,
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
                 Err(_) => return,
@@ -285,7 +290,7 @@ impl<'a> MonitorClosure<'a> {
                 signal_fmt(signal),
             );
             // Save the foreground process group ID so we can restore it later.
-            if let Ok(pgrp) = tcgetpgrp(&self.pty_follower) {
+            if let Ok(pgrp) = self.pty_follower.tcgetpgrp() {
                 if pgrp != self.monitor_pgrp {
                     self.command_pgrp = pgrp;
                 }
@@ -304,20 +309,7 @@ impl<'a> MonitorClosure<'a> {
         let mut buf = 0i32.to_ne_bytes();
         match self.errpipe_rx.read_exact(&mut buf) {
             Err(err) if was_interrupted(&err) => { /* Retry later */ }
-            Err(err) => {
-                // Could not read from the pipe, report error to the parent.
-                // FIXME: Maybe we should have a different variant for this.
-                match err.try_into() {
-                    Ok(msg) => {
-                        self.backchannel.send(&msg).ok();
-                    }
-                    Err(err) => {
-                        dev_warn!("pipe read error {err:?} cannot be send over backchannel")
-                    }
-                }
-
-                dispatcher.set_break(());
-            }
+            Err(err) => dispatcher.set_break(err),
             Ok(_) => {
                 // Received error code from the command, forward it to the parent.
                 let error_code = i32::from_ne_bytes(buf);
@@ -342,7 +334,7 @@ impl<'a> MonitorClosure<'a> {
             }
             SIGCONT_FG => {
                 // Continue with the command as the foreground process group
-                if let Err(err) = tcsetpgrp(&self.pty_follower, self.command_pgrp) {
+                if let Err(err) = self.pty_follower.tcsetpgrp(self.command_pgrp) {
                     dev_error!(
                         "cannot set the foreground process group to command ({}): {err}",
                         self.command_pgrp
@@ -352,7 +344,7 @@ impl<'a> MonitorClosure<'a> {
             }
             SIGCONT_BG => {
                 // Continue with the monitor as the foreground process group
-                if let Err(err) = tcsetpgrp(&self.pty_follower, self.monitor_pgrp) {
+                if let Err(err) = self.pty_follower.tcsetpgrp(self.monitor_pgrp) {
                     dev_error!(
                         "cannot set the foreground process group to monitor ({}): {err}",
                         self.monitor_pgrp
@@ -394,7 +386,7 @@ fn is_self_terminating(
 }
 
 impl<'a> EventClosure for MonitorClosure<'a> {
-    type Break = ();
+    type Break = io::Error;
     type Exit = WaitStatus;
 
     fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {

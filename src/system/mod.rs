@@ -34,12 +34,28 @@ pub mod term;
 
 pub mod wait;
 
+pub(crate) enum ForkResult {
+    // Parent process branch with the child process' PID.
+    Parent(ProcessId),
+    // Child process branch.
+    Child,
+}
+
+unsafe fn inner_fork() -> io::Result<ForkResult> {
+    let pid = cerr(unsafe { libc::fork() })?;
+    if pid == 0 {
+        Ok(ForkResult::Child)
+    } else {
+        Ok(ForkResult::Parent(pid))
+    }
+}
+
 #[cfg(target_os = "linux")]
 /// Create a new process.
-pub fn fork() -> io::Result<ProcessId> {
+pub(crate) fn fork() -> io::Result<ForkResult> {
     // SAFETY: `fork` is implemented using `clone` in linux so we don't need to worry about signal
     // safety.
-    cerr(unsafe { libc::fork() })
+    unsafe { inner_fork() }
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -49,8 +65,8 @@ pub fn fork() -> io::Result<ProcessId> {
 ///
 /// In a multithreaded program, only async-signal-safe functions are guaranteed to work in the
 /// child process until a call to `execve` or a similar function is done.
-pub unsafe fn fork() -> io::Result<ProcessId> {
-    cerr(unsafe { libc::fork() })
+pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
+    inner_fork()
 }
 
 pub fn setsid() -> io::Result<ProcessId> {
@@ -129,6 +145,11 @@ pub fn killpg(pgid: ProcessId, signal: c_int) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
     // `signal` is not a valid signal code.
     cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
+}
+
+/// Get the process group ID of the current process.
+pub fn getpgrp() -> ProcessId {
+    unsafe { libc::getpgrp() }
 }
 
 /// Get a process group ID.
@@ -565,9 +586,13 @@ mod tests {
     use std::{
         io::{Read, Write},
         os::unix::net::UnixStream,
+        process::exit,
     };
 
     use libc::SIGKILL;
+
+    use crate::system::getpgrp;
+    use crate::system::ForkResult;
 
     use super::{fork, setpgid, Group, User, WithProcess};
 
@@ -642,18 +667,17 @@ mod tests {
     #[test]
     fn pgid_test() {
         use super::{getpgid, setpgid};
-        assert_eq!(
-            getpgid(std::process::id() as i32).unwrap(),
-            getpgid(0).unwrap()
-        );
+
+        let pgrp = getpgrp();
+        assert_eq!(getpgid(0).unwrap(), pgrp);
+        assert_eq!(getpgid(std::process::id() as i32).unwrap(), pgrp);
+
         match super::fork().unwrap() {
-            // child
-            0 => {
+            ForkResult::Child => {
                 // wait for the parent.
                 std::thread::sleep(std::time::Duration::from_secs(1))
             }
-            // parent
-            child_pid => {
+            ForkResult::Parent(child_pid) => {
                 // The child should be in our process group.
                 assert_eq!(getpgid(child_pid).unwrap(), getpgid(0).unwrap(),);
                 // Move the child to its own process group
@@ -677,17 +701,17 @@ mod tests {
         // Create a socket so the children write to it if they aren't terminated by `killpg`.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        let pid1 = fork().unwrap();
-        if pid1 == 0 {
+        let ForkResult::Parent(pid1) = fork().unwrap() else {
             std::thread::sleep(std::time::Duration::from_secs(1));
             tx.write_all(&[42]).unwrap();
-        }
+            exit(0);
+        };
 
-        let pid2 = fork().unwrap();
-        if pid2 == 0 {
+        let ForkResult::Parent(pid2) = fork().unwrap() else {
             std::thread::sleep(std::time::Duration::from_secs(1));
             tx.write_all(&[42]).unwrap();
-        }
+            exit(0);
+        };
 
         drop(tx);
 

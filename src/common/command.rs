@@ -55,7 +55,10 @@ impl CommandAndArguments {
             if !is_qualified(&command) {
                 command =
                     resolve_path(&command, path).ok_or_else(|| Error::CommandNotFound(command))?
-            };
+            }
+
+            // resolve symlinks, even if the command was obtained through a PATH search
+            command = std::fs::canonicalize(&command).unwrap_or(command)
         }
 
         Ok(CommandAndArguments { command, arguments })
@@ -87,21 +90,25 @@ mod test {
         assert_eq!(
             CommandAndArguments::try_from_args(
                 None,
-                vec!["/bin/ls".into(), "hello".into()],
+                vec!["/usr/bin/fmt".into(), "hello".into()],
                 "/bin"
             )
             .unwrap(),
             CommandAndArguments {
-                command: "/bin/ls".into(),
+                command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()]
             }
         );
 
         assert_eq!(
-            CommandAndArguments::try_from_args(None, vec!["ls".into(), "hello".into()], "/bin")
-                .unwrap(),
+            CommandAndArguments::try_from_args(
+                None,
+                vec!["fmt".into(), "hello".into()],
+                "/tmp:/usr/bin:/bin"
+            )
+            .unwrap(),
             CommandAndArguments {
-                command: "/bin/ls".into(),
+                command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()]
             }
         );

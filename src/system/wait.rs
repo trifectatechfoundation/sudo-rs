@@ -9,28 +9,39 @@ use signal_hook::low_level::signal_name;
 use crate::cutils::cerr;
 use crate::{system::interface::ProcessId, system::signal::SignalNumber};
 
-/// Wait for a process to change state.
-///
-/// Calling this function will block until a child specified by [`WaitPid`] has changed state. This
-/// can be configured further using [`WaitOptions`].
-pub fn waitpid<P: Into<WaitPid>>(
-    pid: P,
-    options: WaitOptions,
-) -> Result<(ProcessId, WaitStatus), WaitError> {
-    let pid = pid.into().pid;
-    let mut status: c_int = 0;
+mod sealed {
+    use super::WaitPid;
 
-    let pid =
-        cerr(unsafe { libc::waitpid(pid, &mut status, options.flags) }).map_err(WaitError::Io)?;
+    pub(crate) trait Sealed {}
 
-    if pid == 0 && options.flags & WNOHANG != 0 {
-        return Err(WaitError::NotReady);
-    }
-
-    Ok((pid, WaitStatus { status }))
+    impl<W: Into<WaitPid>> Sealed for W {}
 }
 
-/// Error values returned when [`waitpid`] fails.
+pub(crate) trait Wait: sealed::Sealed {
+    /// Wait for a process to change state.
+    ///
+    /// Calling this function will block until a child specified by [`WaitPid`] has changed state. This
+    /// can be configured further using [`WaitOptions`].
+    fn wait(self, options: WaitOptions) -> Result<(ProcessId, WaitStatus), WaitError>;
+}
+
+impl<W: Into<WaitPid>> Wait for W {
+    fn wait(self, options: WaitOptions) -> Result<(ProcessId, WaitStatus), WaitError> {
+        let pid = self.into().pid;
+        let mut status: c_int = 0;
+
+        let pid = cerr(unsafe { libc::waitpid(pid, &mut status, options.flags) })
+            .map_err(WaitError::Io)?;
+
+        if pid == 0 && options.flags & WNOHANG != 0 {
+            return Err(WaitError::NotReady);
+        }
+
+        Ok((pid, WaitStatus { status }))
+    }
+}
+
+/// Error values returned when [`Wait::wait`] fails.
 #[derive(Debug)]
 pub enum WaitError {
     // No children were in a waitable state.
@@ -59,7 +70,7 @@ impl From<ProcessId> for WaitPid {
     }
 }
 
-/// Options to configure how [`waitpid`] waits for children.
+/// Options to configure how [`Wait::wait`] waits for children.
 pub struct WaitOptions {
     flags: c_int,
 }
@@ -194,7 +205,8 @@ mod tests {
         fork,
         interface::ProcessId,
         kill,
-        wait::{waitpid, WaitError, WaitOptions, WaitPid},
+        wait::{Wait, WaitError, WaitOptions, WaitPid},
+        ForkResult,
     };
 
     #[test]
@@ -206,7 +218,7 @@ mod tests {
 
         let command_pid = command.id() as ProcessId;
 
-        let (pid, status) = waitpid(command_pid, WaitOptions::new()).unwrap();
+        let (pid, status) = command_pid.wait(WaitOptions::new()).unwrap();
         assert_eq!(command_pid, pid);
         assert!(status.did_exit());
         assert_eq!(status.exit_status(), Some(42));
@@ -218,7 +230,7 @@ mod tests {
         assert!(!status.did_continue());
 
         // Waiting when there are no children should fail.
-        let WaitError::Io(err) = waitpid(command_pid, WaitOptions::new()).unwrap_err() else {
+        let WaitError::Io(err) = command_pid.wait(WaitOptions::new()).unwrap_err() else {
             panic!("`WaitError::NotReady` should not happens if `WaitOptions::no_hang` was not called.");
         };
         assert_eq!(err.raw_os_error(), Some(libc::ECHILD));
@@ -235,19 +247,19 @@ mod tests {
 
         kill(command_pid, SIGSTOP).unwrap();
 
-        let (pid, status) = waitpid(command_pid, WaitOptions::new().untraced()).unwrap();
+        let (pid, status) = command_pid.wait(WaitOptions::new().untraced()).unwrap();
         assert_eq!(command_pid, pid);
         assert_eq!(status.stop_signal(), Some(SIGSTOP));
 
         kill(command_pid, SIGCONT).unwrap();
 
-        let (pid, status) = waitpid(command_pid, WaitOptions::new().continued()).unwrap();
+        let (pid, status) = command_pid.wait(WaitOptions::new().continued()).unwrap();
         assert_eq!(command_pid, pid);
         assert!(status.did_continue());
 
         kill(command_pid, SIGKILL).unwrap();
 
-        let (pid, status) = waitpid(command_pid, WaitOptions::new()).unwrap();
+        let (pid, status) = command_pid.wait(WaitOptions::new()).unwrap();
         assert_eq!(command_pid, pid);
         assert!(status.was_signaled());
         assert_eq!(status.term_signal(), Some(SIGKILL));
@@ -270,7 +282,7 @@ mod tests {
 
         let mut count = 0;
         let (pid, status) = loop {
-            match waitpid(command_pid, WaitOptions::new().no_hang()) {
+            match command_pid.wait(WaitOptions::new().no_hang()) {
                 Ok(ok) => break ok,
                 Err(WaitError::NotReady) => count += 1,
                 Err(WaitError::Io(err)) => panic!("{err}"),
@@ -292,8 +304,7 @@ mod tests {
     #[test]
     fn any() {
         // We fork so waiting for `WaitPid::Any` doesn't wait for other tests.
-        let child_pid = fork().unwrap();
-        if child_pid == 0 {
+        let ForkResult::Parent(child_pid) = fork().unwrap() else {
             let cmd1 = std::process::Command::new("sh")
                 .args(["-c", "sleep 0.1; exit 42"])
                 .spawn()
@@ -304,7 +315,7 @@ mod tests {
                 .spawn()
                 .unwrap();
 
-            let (pid, status) = waitpid(WaitPid::any(), WaitOptions::new()).unwrap();
+            let (pid, status) = WaitPid::any().wait(WaitOptions::new()).unwrap();
             assert_eq!(cmd1.id() as ProcessId, pid);
             assert_eq!(status.exit_status(), Some(42));
 
@@ -314,7 +325,7 @@ mod tests {
             assert!(status.stop_signal().is_none());
             assert!(!status.did_continue());
 
-            let (pid, status) = waitpid(WaitPid::any(), WaitOptions::new()).unwrap();
+            let (pid, status) = WaitPid::any().wait(WaitOptions::new()).unwrap();
             assert_eq!(cmd2.id() as ProcessId, pid);
             assert_eq!(status.exit_status(), Some(43));
 
@@ -325,9 +336,9 @@ mod tests {
             assert!(!status.did_continue());
             // Exit with a specific status code so we can check it from the parent.
             exit(44);
-        }
+        };
 
-        let (pid, status) = waitpid(child_pid, WaitOptions::new()).unwrap();
+        let (pid, status) = child_pid.wait(WaitOptions::new()).unwrap();
         assert_eq!(child_pid, pid);
         assert_eq!(status.exit_status(), Some(44));
 

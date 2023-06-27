@@ -16,7 +16,7 @@ for _ in $(seq 1 20); do
         # give `expects-signal.sh ` some time to execute the `trap` command
         # otherwise it'll be terminated before the signal handler is installed
 		sleep 0.1
-		kill "$sudopid"
+		kill $1 "$sudopid"
 		exit 0
 	fi
 	sleep 0.1

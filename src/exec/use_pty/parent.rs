@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::fs::File;
-use std::io;
+use std::io::{self, Write};
 use std::process::{exit, Command};
 
 use signal_hook::consts::*;
@@ -17,9 +16,9 @@ use crate::exec::{
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
-use crate::system::term::{tcgetpgrp, Pty, UserTerm};
-use crate::system::wait::{waitpid, WaitError, WaitOptions};
-use crate::system::{chown, fork, kill, killpg, Group, User};
+use crate::system::term::{Pty, PtyLeader, Terminal, UserTerm};
+use crate::system::wait::{Wait, WaitError, WaitOptions};
+use crate::system::{chown, fork, getpgrp, kill, killpg, ForkResult, Group, User};
 use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
 
 use super::pipe::Pipe;
@@ -28,7 +27,7 @@ use super::SIGCONT_BG;
 pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
     mut command: Command,
-    mut user_tty: UserTerm,
+    user_tty: UserTerm,
 ) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // Allocate a pseudoterminal.
     let pty = get_pty()?;
@@ -53,9 +52,7 @@ pub(crate) fn exec_pty(
     // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
 
     // Fetch the parent process group so we can signals to it.
-
-    // FIXME: ogsudo never handles this error explicitly.
-    let parent_pgrp = getpgid(0).unwrap_or(-1);
+    let parent_pgrp = getpgrp();
 
     // Set all the IO streams for the command to the follower side of the pty.
     let clone_follower = || {
@@ -71,26 +68,30 @@ pub(crate) fn exec_pty(
 
     let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
 
+    let mut tty_pipe = Pipe::new(user_tty, pty.leader);
+
+    let (user_tty, pty_leader) = tty_pipe.both_mut();
+
     //  Read from `/dev/tty` and write to the leader if not in the background.
-    let tty_pipe = Pipe::new();
-    dispatcher.set_read_callback(&user_tty, |parent, _| {
-        parent.tty_pipe.on_read(&mut parent.user_tty)
+    dispatcher.set_read_callback(user_tty, |parent, _| {
+        parent.tty_pipe.read_left().ok();
     });
-    dispatcher.set_write_callback(&pty.leader, |parent, _| {
-        parent.tty_pipe.on_write(&mut parent.pty_leader)
+    dispatcher.set_write_callback(pty_leader, |parent, _| {
+        parent.tty_pipe.write_right().ok();
     });
 
     // Read from the leader and write to `/dev/tty`.
-    let pty_pipe = Pipe::new();
-    dispatcher.set_read_callback(&pty.leader, |parent, _| {
-        parent.pty_pipe.on_read(&mut parent.pty_leader)
+    dispatcher.set_read_callback(pty_leader, |parent, _| {
+        parent.tty_pipe.read_right().ok();
     });
-    dispatcher.set_write_callback(&user_tty, |parent, _| {
-        parent.pty_pipe.on_write(&mut parent.user_tty)
+    dispatcher.set_write_callback(user_tty, |parent, _| {
+        parent.tty_pipe.write_left().ok();
     });
 
     // Check if we are the foreground process
-    let mut foreground = tcgetpgrp(&user_tty).is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
+    let mut foreground = user_tty
+        .tcgetpgrp()
+        .is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
     dev_info!(
         "sudo is runnning in the {}",
         cond_fmt(foreground, "foreground", "background")
@@ -115,21 +116,19 @@ pub(crate) fn exec_pty(
     }
 
     // Start in raw mode unless we're part of a pipeline or backgrounded.
-    if foreground && !pipeline && !exec_bg && user_tty.term_raw(false).is_ok() {
+    if foreground && !pipeline && !exec_bg && user_tty.set_raw_mode(false).is_ok() {
         term_raw = true;
     }
 
     // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
     // to block all the signals here instead.
 
-    let monitor_pid = fork().map_err(|err| {
+    let ForkResult::Parent(monitor_pid) = fork().map_err(|err| {
         dev_error!("unable to fork monitor process: {err}");
         err
-    })?;
-
-    if monitor_pid == 0 {
+    })? else {
         // Close the file descriptors that we don't access
-        drop(pty.leader);
+        drop(tty_pipe);
         drop(backchannels.parent);
 
         // Unregister all the handlers so `exec_monitor` can register new ones for the monitor
@@ -154,7 +153,7 @@ pub(crate) fn exec_pty(
         }
         // FIXME: drop everything before calling `exit`.
         exit(1)
-    }
+    };
 
     // Close the file descriptors that we don't access
     drop(pty.follower);
@@ -168,26 +167,42 @@ pub(crate) fn exec_pty(
         },
     )?;
 
-    let closure = ParentClosure::new(
+    let mut closure = ParentClosure::new(
         monitor_pid,
         sudo_pid,
         parent_pgrp,
         backchannels.parent,
-        user_tty,
         tty_pipe,
         foreground,
         term_raw,
-        pty.leader.into(),
-        pty_pipe,
         &mut dispatcher,
     );
 
     // FIXME (ogsudo): Restore the signal handlers here.
 
+    let exit_reason = closure.run(&mut dispatcher);
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
-    let exit_reason = closure.run(&mut dispatcher)?;
 
-    Ok((exit_reason, Box::new(move || drop(dispatcher))))
+    // Flush the terminal
+    closure.tty_pipe.flush_left().ok();
+
+    // Restore the terminal settings
+    if closure.term_raw {
+        // Only restore the terminal if sudo is the foreground process.
+        if let Ok(pgrp) = closure.tty_pipe.left().tcgetpgrp() {
+            if pgrp == closure.parent_pgrp {
+                match closure.tty_pipe.left_mut().restore(false) {
+                    Ok(()) => closure.term_raw = false,
+                    Err(err) => dev_warn!("cannot restore terminal settings: {err}"),
+                }
+            }
+        }
+    }
+
+    match exit_reason {
+        Ok(exit_reason) => Ok((exit_reason, Box::new(move || drop(dispatcher)))),
+        Err(err) => Err(err),
+    }
 }
 
 fn get_pty() -> io::Result<Pty> {
@@ -199,7 +214,7 @@ fn get_pty() -> io::Result<Pty> {
         dev_error!("unable to allocate pty: {err}");
         err
     })?;
-    // FIXME: Test this
+
     chown(&pty.path, User::effective_uid(), tty_gid).map_err(|err| {
         dev_error!("unable to change owner for pty: {err}");
         err
@@ -217,12 +232,9 @@ struct ParentClosure {
     parent_pgrp: ProcessId,
     command_pid: Option<ProcessId>,
     backchannel: ParentBackchannel,
-    user_tty: UserTerm,
-    tty_pipe: Pipe<UserTerm, File>,
+    tty_pipe: Pipe<UserTerm, PtyLeader>,
     foreground: bool,
     term_raw: bool,
-    pty_leader: File,
-    pty_pipe: Pipe<File, UserTerm>,
     message_queue: VecDeque<MonitorMessage>,
 }
 
@@ -233,12 +245,9 @@ impl ParentClosure {
         sudo_pid: ProcessId,
         parent_pgrp: ProcessId,
         backchannel: ParentBackchannel,
-        user_tty: UserTerm,
-        tty_pipe: Pipe<UserTerm, File>,
+        tty_pipe: Pipe<UserTerm, PtyLeader>,
         foreground: bool,
         term_raw: bool,
-        pty_leader: File,
-        pty_pipe: Pipe<File, UserTerm>,
         dispatcher: &mut EventDispatcher<Self>,
     ) -> Self {
         dispatcher.set_read_callback(&backchannel, |parent, dispatcher| {
@@ -257,18 +266,15 @@ impl ParentClosure {
             parent_pgrp,
             command_pid: None,
             backchannel,
-            user_tty,
             tty_pipe,
             foreground,
             term_raw,
-            pty_leader,
-            pty_pipe,
             message_queue: VecDeque::new(),
         }
     }
 
-    fn run(mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
-        match dispatcher.event_loop(&mut self) {
+    fn run(&mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
+        match dispatcher.event_loop(self) {
             StopReason::Break(err) | StopReason::Exit(ParentExit::Backchannel(err)) => Err(err),
             StopReason::Exit(ParentExit::Command(exit_reason)) => Ok(exit_reason),
         }
@@ -393,7 +399,7 @@ impl ParentClosure {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
-            match waitpid(monitor_pid, OPTS) {
+            match monitor_pid.wait(OPTS) {
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
                 // This only happens if we receive `SIGCHLD` but there's no status update from the
                 // monitor.
@@ -455,7 +461,7 @@ impl ParentClosure {
                     signal_fmt(signal)
                 );
                 if !self.term_raw {
-                    if self.user_tty.term_raw(false).is_ok() {
+                    if self.tty_pipe.left_mut().set_raw_mode(false).is_ok() {
                         self.term_raw = true;
                     }
                     // Resume command in the foreground
@@ -467,7 +473,7 @@ impl ParentClosure {
         // FIXME: we should stop polling the terminal if we're suspending.
 
         if self.term_raw {
-            match self.user_tty.restore(false) {
+            match self.tty_pipe.left_mut().restore(false) {
                 Ok(()) => self.term_raw = false,
                 Err(err) => dev_warn!("unable to restore terminal settings: {err}"),
             }
@@ -507,7 +513,7 @@ impl ParentClosure {
 
     /// Check whether we are part of the foreground process group and update the foreground flag.
     fn check_foreground(&mut self) -> io::Result<()> {
-        let pgrp = tcgetpgrp(&self.user_tty)?;
+        let pgrp = self.tty_pipe.left().tcgetpgrp()?;
         self.foreground = pgrp == self.parent_pgrp;
         Ok(())
     }
@@ -517,10 +523,13 @@ impl ParentClosure {
         self.check_foreground()?;
 
         // Update the pty settings based on the user's tty.
-        self.user_tty.copy_to(&self.pty_leader).map_err(|err| {
-            dev_error!("cannot copy terminal settings to pty: {err}");
-            err
-        })?;
+        self.tty_pipe
+            .left()
+            .copy_to(self.tty_pipe.right())
+            .map_err(|err| {
+                dev_error!("cannot copy terminal settings to pty: {err}");
+                err
+            })?;
         // FIXME: sync the terminal size here.
         dev_info!(
             "parent is in {} ({} -> {})",
@@ -531,7 +540,7 @@ impl ParentClosure {
 
         if self.foreground {
             // We're in the foreground, set tty to raw mode.
-            if self.user_tty.term_raw(false).is_ok() {
+            if self.tty_pipe.left_mut().set_raw_mode(false).is_ok() {
                 self.term_raw = true;
             }
         } else {

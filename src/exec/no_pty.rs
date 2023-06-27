@@ -10,12 +10,12 @@ use crate::{
     exec::{io_util::was_interrupted, opt_fmt, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        getpgid,
+        getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
         signal::{SignalAction, SignalInfo, SignalNumber},
-        term::{tcgetpgrp, UserTerm},
-        wait::{waitpid, WaitError, WaitOptions},
+        term::{Terminal, UserTerm},
+        wait::{Wait, WaitError, WaitOptions},
     },
 };
 
@@ -58,12 +58,10 @@ struct ExecClosure {
 
 impl ExecClosure {
     fn new(command_pid: ProcessId, sudo_pid: ProcessId) -> Self {
-        // FIXME: handle this!
-        let parent_pgrp = getpgid(0).unwrap_or(-1);
         Self {
             command_pid: Some(command_pid),
             sudo_pid,
-            parent_pgrp,
+            parent_pgrp: getpgrp(),
         }
     }
 
@@ -92,7 +90,7 @@ impl ExecClosure {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
-            match waitpid(command_pid, OPTS) {
+            match command_pid.wait(OPTS) {
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
                 Err(_) => {}
                 Ok((_pid, status)) => break status,
@@ -125,11 +123,11 @@ impl ExecClosure {
 
     /// Suspend the main process.
     fn suspend_parent(&self, signal: SignalNumber, dispatcher: &mut EventDispatcher<Self>) {
-        let mut opt_tty = UserTerm::new().ok();
+        let mut opt_tty = UserTerm::open().ok();
         let mut opt_pgrp = None;
 
         if let Some(tty) = opt_tty.as_ref() {
-            if let Ok(saved_pgrp) = tcgetpgrp(tty) {
+            if let Ok(saved_pgrp) = tty.tcgetpgrp() {
                 // Save the terminal's foreground process group so we can restore it after resuming
                 // if needed.
                 opt_pgrp = Some(saved_pgrp);

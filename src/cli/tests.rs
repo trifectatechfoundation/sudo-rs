@@ -178,15 +178,6 @@ fn shorthand_without_argument() {
 }
 
 #[test]
-fn set_home() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-H"]).unwrap();
-    assert!(cmd.set_home);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--set-home"]).unwrap();
-    assert!(cmd.set_home);
-}
-
-#[test]
 fn non_interactive() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-n"]).unwrap();
     assert!(cmd.non_interactive);
