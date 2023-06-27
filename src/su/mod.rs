@@ -121,7 +121,7 @@ pub fn main() {
         Ok(options) => options,
         Err(error) => {
             println!("su: {error}\n{USAGE_MSG}");
-            std::process::exit(0);
+            std::process::exit(1);
         }
     };
 
@@ -145,6 +145,7 @@ pub fn main() {
             }
             Err(error) => {
                 eprintln!("su: {error}");
+                std::process::exit(1);
             }
             _ => {}
         },
