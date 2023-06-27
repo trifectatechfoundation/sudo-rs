@@ -179,7 +179,10 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             DirChange::Any => {}
             DirChange::Strict(optdir) => {
                 if context.chdir.is_some() {
-                    return Err(Error::auth("no permission")); // TODO better user error messages
+                    return Err(Error::ChDirNotAllowed {
+                        chdir: context.chdir.clone().unwrap(),
+                        command: context.command.command.clone(),
+                    });
                 } else {
                     context.chdir = optdir.map(std::path::PathBuf::from)
                 }
