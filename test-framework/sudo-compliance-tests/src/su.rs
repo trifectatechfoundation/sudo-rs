@@ -5,7 +5,9 @@ use crate::{Result, PASSWORD, USERNAME};
 mod env;
 mod flag_command;
 mod flag_login;
+mod flag_preserve_environment;
 mod flag_shell;
+mod flag_whitelist_environment;
 
 #[test]
 fn default_target_is_root() -> Result<()> {

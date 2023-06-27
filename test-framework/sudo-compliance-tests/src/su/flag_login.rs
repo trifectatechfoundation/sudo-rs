@@ -85,3 +85,57 @@ fn vars_set_by_su_when_target_is_root() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn clears_vars_in_invoking_user_environment() -> Result<()> {
+    let varname = "SHOULD_BE_REMOVED";
+    let varval = "42";
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{varname}={varval}"))
+        .args(["su", "-l", USERNAME])
+        .output(&env)?
+        .stdout()?;
+    let su_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, su_env.get(varname).copied());
+
+    Ok(())
+}
+
+#[test]
+fn has_precedence_over_flag_preserve_environment() -> Result<()> {
+    let varname = "SHOULD_BE_REMOVED";
+    let varval = "42";
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+
+    let stdout = Command::new("env")
+        .arg(format!("{varname}={varval}"))
+        .args(["su", "-p", "-l", USERNAME])
+        .output(&env)?
+        .stdout()?;
+    let su_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(None, su_env.get(varname).copied());
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh532"]
+fn term_var_in_invoking_users_env_is_preserved() -> Result<()> {
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+
+    let term = "my-term";
+    let stdout = Command::new("env")
+        .arg(format!("TERM={term}"))
+        .args(["su", "-l", USERNAME])
+        .output(&env)?
+        .stdout()?;
+    let su_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(term), su_env.get("TERM").copied());
+
+    Ok(())
+}
