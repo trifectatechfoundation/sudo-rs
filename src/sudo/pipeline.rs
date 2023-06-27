@@ -118,6 +118,10 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                 }
             }
         }
+        // override the default pty behaviour if indicated
+        if !policy.use_pty() {
+            context.use_pty = false
+        }
 
         Ok(())
     }

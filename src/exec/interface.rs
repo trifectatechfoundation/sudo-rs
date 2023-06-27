@@ -13,6 +13,7 @@ pub trait RunOptions {
     fn requesting_user(&self) -> &User;
     fn group(&self) -> &Group;
     fn pid(&self) -> i32;
+    fn use_pty(&self) -> bool;
 }
 
 impl RunOptions for Context {
@@ -50,5 +51,9 @@ impl RunOptions for Context {
 
     fn pid(&self) -> i32 {
         self.process.pid
+    }
+
+    fn use_pty(&self) -> bool {
+        self.use_pty
     }
 }
