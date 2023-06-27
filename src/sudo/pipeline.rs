@@ -78,12 +78,16 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let pid = context.process.pid;
 
         // run command and return corresponding exit code
-        let exec_result = crate::exec::run_command(&context, target_env);
+        let exec_result = if context.command.resolved {
+            crate::exec::run_command(&context, target_env)
+                .map_err(|io_error| Error::IoError(Some(context.command.command), io_error))
+        } else {
+            Err(Error::CommandNotFound(context.command.command))
+        };
 
         self.authenticator.cleanup();
 
-        let (reason, emulate_default_handler) = exec_result
-            .map_err(|io_error| Error::IoError(Some(context.command.command), io_error))?;
+        let (reason, emulate_default_handler) = exec_result?;
 
         // Run any clean-up code before this line.
         emulate_default_handler();
