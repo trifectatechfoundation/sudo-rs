@@ -40,7 +40,15 @@ macro_rules! dev_logger_macro {
         macro_rules! $name {
             ($d($d arg:tt)+) => {
                 if std::cfg!(feature = "dev") {
-                    (::log::log!(target: $target, $crate::log::Level::$rule_level, $d($d arg)+));
+                    (::log::log!(
+                        target: $target,
+                        $crate::log::Level::$rule_level,
+                        "{}:{}:{}: {}",
+                        file!(),
+                        line!(),
+                        column!(),
+                        format_args!($d($d arg)+)
+                    ));
                 }
             };
         }
