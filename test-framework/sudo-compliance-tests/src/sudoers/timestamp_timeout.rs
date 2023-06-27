@@ -3,7 +3,7 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
-fn nonzero() -> Result<()> {
+fn credential_caching_works_with_custom_timeout() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
 Defaults timestamp_timeout=0.1"
@@ -21,6 +21,18 @@ Defaults timestamp_timeout=0.1"
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
+fn nonzero() -> Result<()> {
+    let env = Env(format!(
+        "{USERNAME} ALL=(ALL:ALL) ALL
+Defaults timestamp_timeout=0.1"
+    ))
+    .user(User(USERNAME).password(PASSWORD))
+    .build()?;
 
     // input valid credentials
     // wait until they expire / timeout
