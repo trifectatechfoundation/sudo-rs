@@ -67,9 +67,7 @@ impl ExecClosure {
         signal_manager: SignalManager,
         dispatcher: &mut EventDispatcher<Self>,
     ) -> Self {
-        for (signal, handler) in signal_manager.handlers() {
-            dispatcher.register_read_event(handler, ExecEvent::Signal(signal));
-        }
+        signal_manager.register_handlers(dispatcher, ExecEvent::Signal);
 
         Self {
             command_pid: Some(command_pid),
@@ -175,8 +173,7 @@ impl ExecClosure {
 
         let sigtstp_action = (signal == SIGTSTP).then(|| {
             self.signal_manager
-                .get_handler(Signal::SIGTSTP)
-                .set_action(SignalAction::Default)
+                .set_action(Signal::SIGTSTP, SignalAction::Default)
         });
 
         if let Err(err) = kill(self.sudo_pid, signal) {
@@ -188,9 +185,7 @@ impl ExecClosure {
         }
 
         if let Some(action) = sigtstp_action {
-            self.signal_manager
-                .get_handler(Signal::SIGTSTP)
-                .set_action(action);
+            self.signal_manager.set_action(Signal::SIGTSTP, action);
         }
 
         if let Some(saved_pgrp) = opt_pgrp {
@@ -204,7 +199,7 @@ impl ExecClosure {
     }
 
     fn on_signal(&mut self, signal: Signal, dispatcher: &mut EventDispatcher<Self>) {
-        let info = match self.signal_manager.get_handler_mut(signal).recv() {
+        let info = match self.signal_manager.recv(signal) {
             Ok(info) => info,
             Err(err) => {
                 dev_error!("sudo could not receive signal {signal:?}: {err}");

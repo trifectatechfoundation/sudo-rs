@@ -222,9 +222,7 @@ impl<'a> MonitorClosure<'a> {
         // Register the callback to receive events from the backchannel
         dispatcher.register_read_event(backchannel, MonitorEvent::ReadableBackchannel);
 
-        for (signal, signal_handler) in signal_manager.handlers() {
-            dispatcher.register_read_event(signal_handler, MonitorEvent::Signal(signal));
-        }
+        signal_manager.register_handlers(dispatcher, MonitorEvent::Signal);
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
@@ -366,7 +364,7 @@ impl<'a> MonitorClosure<'a> {
     }
 
     fn on_signal(&mut self, signal: Signal, dispatcher: &mut EventDispatcher<Self>) {
-        let info = match self.signal_manager.get_handler_mut(signal).recv() {
+        let info = match self.signal_manager.recv(signal) {
             Ok(info) => info,
             Err(err) => {
                 dev_error!("monitor could not receive signal {signal:?}: {err}");

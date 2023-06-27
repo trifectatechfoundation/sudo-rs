@@ -253,9 +253,7 @@ impl ParentClosure {
         // messages to the monitor process without blocking.
         dispatcher.register_write_event(&backchannel, ParentEvent::WritableBackchannel);
 
-        for (signal, signal_handler) in signal_manager.handlers() {
-            dispatcher.register_read_event(signal_handler, ParentEvent::Signal(signal));
-        }
+        signal_manager.register_handlers(dispatcher, ParentEvent::Signal);
 
         Self {
             monitor_pid: Some(monitor_pid),
@@ -441,8 +439,7 @@ impl ParentClosure {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
         let sigcont_action = self
             .signal_manager
-            .get_handler(Signal::SIGCONT)
-            .set_action(SignalAction::Ignore);
+            .set_action(Signal::SIGCONT, SignalAction::Ignore);
 
         if let SIGTTOU | SIGTTIN = signal {
             // If sudo is already the foreground process we can resume the command in the
@@ -481,8 +478,7 @@ impl ParentClosure {
             let signal = Signal::try_from_number(number)?;
             let action = self
                 .signal_manager
-                .get_handler(signal)
-                .set_action(SignalAction::Default);
+                .set_action(signal, SignalAction::Default);
             Some((signal, action))
         });
 
@@ -496,7 +492,7 @@ impl ParentClosure {
         }
 
         if let Some((signal, action)) = saved_signal_action {
-            self.signal_manager.get_handler(signal).set_action(action);
+            self.signal_manager.set_action(signal, action);
         }
 
         if self.command_pid.is_none() || self.resume_terminal().is_err() {
@@ -510,8 +506,7 @@ impl ParentClosure {
         };
 
         self.signal_manager
-            .get_handler(Signal::SIGCONT)
-            .set_action(sigcont_action);
+            .set_action(Signal::SIGCONT, sigcont_action);
 
         Some(ret_signal)
     }
@@ -557,7 +552,7 @@ impl ParentClosure {
     }
 
     fn on_signal(&mut self, signal: Signal) {
-        let info = match self.signal_manager.get_handler_mut(signal).recv() {
+        let info = match self.signal_manager.recv(signal) {
             Ok(info) => info,
             Err(err) => {
                 dev_error!("parent could not receive signal {signal:?}: {err}");

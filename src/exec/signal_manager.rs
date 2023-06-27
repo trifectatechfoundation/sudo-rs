@@ -1,8 +1,10 @@
 use std::io;
 
-use crate::system::signal::{SignalHandler, SignalNumber};
+use crate::system::signal::{SignalAction, SignalHandler, SignalInfo, SignalNumber};
 
 use signal_hook::consts::*;
+
+use super::event::{EventDispatcher, Process};
 
 pub(super) struct SignalManager {
     handlers: [SignalHandler; Signal::ALL.len()],
@@ -16,10 +18,15 @@ impl SignalManager {
         }
     }
 
-    pub(super) fn handlers(&self) -> impl Iterator<Item = (Signal, &SignalHandler)> {
-        (Signal::ALL).iter().copied().zip(self.handlers.iter())
+    pub(super) fn register_handlers<T: Process>(
+        &self,
+        dispatcher: &mut EventDispatcher<T>,
+        f: fn(Signal) -> T::Event,
+    ) {
+        for (&signal, handler) in Signal::ALL.iter().zip(&self.handlers) {
+            dispatcher.register_read_event(handler, f(signal))
+        }
     }
-
 }
 
 macro_rules! define_signals {
@@ -49,17 +56,22 @@ macro_rules! define_signals {
                 })
             }
 
-            pub(super) fn get_handler(&self, signal: Signal) -> &SignalHandler {
-                match signal {
+            pub(super) fn set_action(&self, signal: Signal, action: SignalAction) -> SignalAction {
+                let handler = match signal {
                     $(Signal::$signal => &self.handlers[$index],)*
-                }
+                };
+
+                handler.set_action(action)
             }
 
-            pub(super) fn get_handler_mut(&mut self, signal: Signal) -> &mut SignalHandler {
-                match signal {
+            pub(super) fn recv(&mut self, signal: Signal) -> io::Result<SignalInfo> {
+                let handler = match signal {
                     $(Signal::$signal => &mut self.handlers[$index],)*
-                }
+                };
+
+                handler.recv()
             }
+
         }
 
     };
