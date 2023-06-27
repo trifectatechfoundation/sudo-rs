@@ -195,7 +195,7 @@ fn shell_does_not_exist() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(stderr, "'/root/my-shell': command not found");
+        assert_contains!(stderr, "'/root/my-shell': No such file or directory");
     }
 
     Ok(())
