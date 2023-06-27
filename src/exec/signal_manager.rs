@@ -24,7 +24,7 @@ impl SignalManager {
         f: fn(Signal) -> T::Event,
     ) {
         for (&signal, handler) in Signal::ALL.iter().zip(&self.handlers) {
-            registry.register_read_event(handler, f(signal))
+            registry.register_read_event(handler, f(signal));
         }
     }
 }

@@ -5,7 +5,7 @@ use std::process::{exit, Command};
 
 use signal_hook::consts::*;
 
-use crate::exec::event::{EventRegistry, Process, StopReason};
+use crate::exec::event::{EventId, EventRegistry, Process, StopReason};
 use crate::exec::signal_manager::{Signal, SignalManager};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
@@ -73,13 +73,14 @@ pub(crate) fn exec_pty(
 
     let (user_tty, pty_leader) = tty_pipe.both_mut();
 
-    //  Read from `/dev/tty` and write to the leader if not in the background.
-    registry.register_read_event(user_tty, ParentEvent::ReadableTty);
-    registry.register_write_event(pty_leader, ParentEvent::WritablePty);
-
-    // Read from the leader and write to `/dev/tty`.
-    registry.register_read_event(pty_leader, ParentEvent::ReadablePty);
-    registry.register_write_event(user_tty, ParentEvent::WritableTty);
+    let tty_event_ids = [
+        //  Read from `/dev/tty` and write to the leader if not in the background.
+        registry.register_read_event(user_tty, ParentEvent::ReadableTty),
+        registry.register_write_event(pty_leader, ParentEvent::WritablePty),
+        // Read from the leader and write to `/dev/tty`.
+        registry.register_read_event(pty_leader, ParentEvent::ReadablePty),
+        registry.register_write_event(user_tty, ParentEvent::WritableTty),
+    ];
 
     // Check if we are the foreground process
     let mut foreground = user_tty
@@ -167,6 +168,7 @@ pub(crate) fn exec_pty(
         parent_pgrp,
         backchannels.parent,
         tty_pipe,
+        tty_event_ids,
         foreground,
         term_raw,
         signal_manager,
@@ -228,6 +230,7 @@ struct ParentClosure {
     command_pid: Option<ProcessId>,
     backchannel: ParentBackchannel,
     tty_pipe: Pipe<UserTerm, PtyLeader>,
+    tty_event_ids: Option<[EventId; 4]>,
     foreground: bool,
     term_raw: bool,
     message_queue: VecDeque<MonitorMessage>,
@@ -242,6 +245,7 @@ impl ParentClosure {
         parent_pgrp: ProcessId,
         backchannel: ParentBackchannel,
         tty_pipe: Pipe<UserTerm, PtyLeader>,
+        tty_event_ids: [EventId; 4],
         foreground: bool,
         term_raw: bool,
         signal_manager: SignalManager,
@@ -262,6 +266,7 @@ impl ParentClosure {
             command_pid: None,
             backchannel,
             tty_pipe,
+            tty_event_ids: Some(tty_event_ids),
             foreground,
             term_raw,
             message_queue: VecDeque::new(),
@@ -322,13 +327,7 @@ impl ParentClosure {
                                 self.schedule_signal(signal);
                             }
 
-                            let tty = self.tty_pipe.left();
-                            registry.register_read_event(tty, ParentEvent::ReadableTty);
-                            registry.register_write_event(tty, ParentEvent::WritableTty);
-
-                            let pty = self.tty_pipe.right();
-                            registry.register_write_event(pty, ParentEvent::WritablePty);
-                            registry.register_read_event(pty, ParentEvent::ReadablePty);
+                            self.register_terminal_events(registry);
                         }
                     }
                     ParentMessage::IoError(code) => {
@@ -431,17 +430,33 @@ impl ParentClosure {
                 self.schedule_signal(signal);
             }
 
-            let tty = self.tty_pipe.left();
-            registry.register_read_event(tty, ParentEvent::ReadableTty);
-            registry.register_write_event(tty, ParentEvent::WritableTty);
-
-            let pty = self.tty_pipe.right();
-            registry.register_write_event(pty, ParentEvent::WritablePty);
-            registry.register_read_event(pty, ParentEvent::ReadablePty);
+            self.register_terminal_events(registry);
         } else if status.did_continue() {
             dev_info!("monitor ({monitor_pid}) continued execution");
         } else {
             dev_warn!("unexpected wait status for monitor ({monitor_pid})")
+        }
+    }
+
+    fn register_terminal_events(&mut self, registry: &mut EventRegistry<Self>) {
+        let tty = self.tty_pipe.left();
+        let pty = self.tty_pipe.right();
+
+        if self.tty_event_ids.is_none() {
+            self.tty_event_ids = Some([
+                registry.register_read_event(tty, ParentEvent::ReadableTty),
+                registry.register_write_event(tty, ParentEvent::WritableTty),
+                registry.register_read_event(pty, ParentEvent::ReadablePty),
+                registry.register_write_event(pty, ParentEvent::WritablePty),
+            ]);
+        }
+    }
+
+    fn deregister_terminal_events(&mut self, registry: &mut EventRegistry<Self>) {
+        if let Some(ids) = self.tty_event_ids.take() {
+            for id in ids {
+                registry.deregister_event(id);
+            }
         }
     }
 
@@ -483,10 +498,7 @@ impl ParentClosure {
         }
 
         // Stop polling the terminals.
-        registry.deregister_event(ParentEvent::ReadableTty);
-        registry.deregister_event(ParentEvent::WritableTty);
-        registry.deregister_event(ParentEvent::ReadablePty);
-        registry.deregister_event(ParentEvent::WritablePty);
+        self.deregister_terminal_events(registry);
 
         if self.term_raw {
             match self.tty_pipe.left_mut().restore(false) {

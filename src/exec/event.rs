@@ -54,7 +54,7 @@ pub(super) enum StopReason<T: Process> {
 }
 
 #[derive(PartialEq, Eq, Hash, Ord, PartialOrd, Clone, Copy)]
-struct EventId(usize);
+pub struct EventId(usize);
 
 /// A type able to register file descriptors to be polled.
 pub(super) struct EventRegistry<T: Process> {
@@ -83,29 +83,28 @@ impl<T: Process> EventRegistry<T> {
 
     /// Set the `fd` descriptor to be polled for read events and produce `event` when `fd` is
     /// ready.
-    pub(super) fn register_read_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
+    pub(super) fn register_read_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) -> EventId {
         let id = self.next_id();
         self.poll_set.add_fd_read(id, fd);
         self.events.insert(id, event);
+        id
     }
 
     /// Set the `fd` descriptor to be polled for write events and produce `event` when `fd` is
     /// ready.
-    pub(super) fn register_write_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
+    pub(super) fn register_write_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) -> EventId {
         let id = self.next_id();
         self.poll_set.add_fd_write(id, fd);
         self.events.insert(id, event);
+        id
     }
 
-    /// Deregister all the file descriptors associated with `event`, meaning that the file
-    /// descriptors will not be polled anymore.
-    pub(super) fn deregister_event(&mut self, event: T::Event) -> bool {
-        for (&id, &registered_event) in &self.events {
-            if registered_event == event {
-                debug_assert!(self.events.remove(&id).is_some());
-                debug_assert!(self.poll_set.remove_fd(id));
-                return true;
-            }
+    /// Deregister the event associated with the given ID, meaning that the file descriptor for
+    /// this event will not be polled anymore for that specific event.
+    pub(super) fn deregister_event(&mut self, event_id: EventId) -> bool {
+        if self.events.remove(&event_id).is_some() {
+            debug_assert!(self.poll_set.remove_fd(event_id));
+            return true;
         }
 
         false
