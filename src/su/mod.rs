@@ -7,12 +7,12 @@ use crate::system::term::current_tty_name;
 use std::{env, process};
 
 use cli::{SuAction, SuOptions};
-use help::{USAGE_MSG, long_help_message};
 use context::SuContext;
+use help::{long_help_message, USAGE_MSG};
 
 mod cli;
-mod help;
 mod context;
+mod help;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

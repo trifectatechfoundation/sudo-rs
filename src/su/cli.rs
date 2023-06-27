@@ -5,7 +5,7 @@ pub struct SuOptions {
     pub user: String,
     pub command: Option<String>,
     pub group: Option<String>,
-    pub supp_group: Option<String>,
+    pub supp_group: Vec<String>,
     pub pty: bool,
     pub login: bool,
     pub preserve_environment: bool,
@@ -21,7 +21,7 @@ impl Default for SuOptions {
             user: "root".to_owned(),
             command: None,
             group: None,
-            supp_group: None,
+            supp_group: vec![],
             pty: false,
             login: false,
             preserve_environment: false,
@@ -84,8 +84,8 @@ impl SuOptions {
             long: "supp-group",
             takes_argument: true,
             set: &|sudo_options, argument| {
-                if argument.is_some() {
-                    sudo_options.supp_group = argument;
+                if let Some(value) = argument {
+                    sudo_options.supp_group.push(value);
                 } else {
                     Err("no supplementary group provided")?
                 }
@@ -394,13 +394,22 @@ mod tests {
     #[test]
     fn it_parses_supplementary_group() {
         let expected = SuOptions {
-            supp_group: Some("ferris".to_string()),
+            supp_group: vec!["ferris".to_string()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-G", "ferris"]));
         assert_eq!(expected, parse(&["-Gferris"]));
         assert_eq!(expected, parse(&["--supp-group", "ferris"]));
         assert_eq!(expected, parse(&["--supp-group=ferris"]));
+    }
+
+    #[test]
+    fn it_parses_multiple_supplementary_groups() {
+        let expected = SuOptions {
+            supp_group: vec!["ferris".to_string(), "krabbetje".to_string(), "krabbe".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["-G", "ferris", "-G", "krabbetje", "--supp-group", "krabbe"]));
     }
 
     #[test]

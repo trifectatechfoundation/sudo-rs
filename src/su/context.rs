@@ -62,20 +62,16 @@ impl SuContext {
         let is_target_root = options.user == "root";
 
         // only root can set a (additional) group
-        if !is_current_root && (options.supp_group.is_some() || options.group.is_some()) {
-            return Err(Error::Options("only root can specify alternative groups".to_owned()));
+        if !is_current_root && (!options.supp_group.is_empty() || options.group.is_some()) {
+            return Err(Error::Options(
+                "only root can specify alternative groups".to_owned(),
+            ));
         }
 
         // resolve target group
-        let group = match (&options.group, &options.supp_group) {
-            (Some(group), _) | (_, Some(group)) => {
-                if is_current_root {
-                    Group::from_name(group)?.ok_or_else(|| Error::GroupNotFound(group.to_owned()))
-                } else {
-                    Err(Error::Options(
-                        "setting a group is only allowed for root".to_owned(),
-                    ))
-                }
+        let group = match &options.group {
+            Some(group) => {
+                Group::from_name(group)?.ok_or_else(|| Error::GroupNotFound(group.to_owned()))
             }
             _ => {
                 Group::from_gid(user.gid)?.ok_or_else(|| Error::GroupNotFound(user.gid.to_string()))
@@ -83,12 +79,10 @@ impl SuContext {
         }?;
 
         // add additional group if current user is root
-        if let Some(group_name) = &options.supp_group {
-            if is_current_root {
-                let supp_group = Group::from_name(group_name)?
-                    .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
-                user.groups.push(supp_group.gid);
-            }
+        for group_name in &options.supp_group {
+            let supp_group = Group::from_name(group_name)?
+                .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
+            user.groups.push(supp_group.gid);
         }
 
         // the shell specified with --shell
