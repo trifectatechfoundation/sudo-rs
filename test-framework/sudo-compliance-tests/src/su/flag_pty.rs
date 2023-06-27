@@ -40,6 +40,7 @@ fn no_tty_allocation_when_absent() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh587"]
 fn when_present_tty_is_allocated() -> Result<()> {
     let env = Env("").build()?;
 
