@@ -39,14 +39,14 @@ impl Token for Digits {
 pub struct Numeric(pub String);
 
 impl Token for Numeric {
-    const MAX_LEN: usize = 38;
+    const MAX_LEN: usize = 18;
 
     fn construct(s: String) -> Result<Self, String> {
         Ok(Numeric(s))
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_hexdigit()
+        c.is_ascii_hexdigit() || c == '.'
     }
 }
 

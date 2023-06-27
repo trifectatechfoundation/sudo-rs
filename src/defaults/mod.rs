@@ -4,7 +4,7 @@
 // "verifypw" and "logfile"
 pub enum SudoDefault {
     Flag(bool),
-    Integer(OptTuple<i128>, fn(&str) -> Option<i128>),
+    Integer(OptTuple<i64>, fn(&str) -> Option<i64>),
     Text(OptTuple<Option<&'static str>>),
     List(&'static [&'static str]),
     Enum(OptTuple<StrEnum<'static>>),
@@ -40,6 +40,8 @@ defaults! {
     secure_path               = None (!= None)
     verifypw                  = "all" (!= "never") [all, always, any, never]
 
+    timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
+
     env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",
                                  "PS1", "PS2", "XAUTHORITY", "XAUTHORIZATION", "XDG_CURRENT_DESKTOP"]
 
@@ -52,6 +54,16 @@ defaults! {
                                 "PERLLIB", "PERL5LIB", "PERL5OPT", "PERL5DB", "FPATH", "NULLCMD",
                                 "READNULLCMD", "ZDOTDIR", "TMPPREFIX", "PYTHONHOME", "PYTHONPATH",
                                 "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"]
+}
+
+/// A custom parser to parse seconds as fractional "minutes", the format used by
+/// passwd_timeout and timestamp_timeout.
+fn fractional_minutes(input: &str) -> Option<i64> {
+    if input.contains('.') {
+        Some((input.parse::<f64>().ok()? * 60.0).floor() as i64)
+    } else {
+        Some(input.parse::<i64>().ok()? * 60)
+    }
 }
 
 #[cfg(test)]

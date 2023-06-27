@@ -343,7 +343,7 @@ pub struct Settings {
     pub flags: HashSet<String>,
     pub str_value: HashMap<String, Option<Box<str>>>,
     pub enum_value: HashMap<String, TextEnum>,
-    pub int_value: HashMap<String, i128>,
+    pub int_value: HashMap<String, i64>,
     pub list: HashMap<String, HashSet<String>>,
 }
 

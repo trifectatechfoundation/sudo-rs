@@ -3,7 +3,29 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
-#[ignore = "gh394"]
+fn credential_caching_works_with_custom_timeout() -> Result<()> {
+    let env = Env(format!(
+        "{USERNAME} ALL=(ALL:ALL) ALL
+Defaults timestamp_timeout=0.1"
+    ))
+    .user(User(USERNAME).password(PASSWORD))
+    .build()?;
+
+    // input valid credentials
+    // try to sudo without a password
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; sudo true"
+        ))
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
+#[test]
 fn nonzero() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
@@ -37,7 +59,6 @@ Defaults timestamp_timeout=0.1"
 }
 
 #[test]
-#[ignore = "gh394"]
 fn zero_always_prompts_for_password() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL

@@ -56,7 +56,7 @@ macro_rules! optional {
 }
 
 macro_rules! defaults {
-    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])?)*) => {
+    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])? $({$fn: expr})?)*) => {
         pub const ALL_PARAMS: &'static [&'static str] = &[
             $(stringify!($name)),*
         ];
@@ -68,7 +68,7 @@ macro_rules! defaults {
         #[allow(clippy::from_str_radix_10)]
         pub fn sudo_default(var: &str) -> Option<SudoDefault> {
             add_from!(Flag, bool);
-            add_from!(Integer, i128, negatable, |text| i128::from_str_radix(text, 10).ok());
+            add_from!(Integer, i64, negatable, |text| i64::from_str_radix(text, 10).ok());
             add_from!(Text, &'static str, negatable);
             add_from!(Text, Option<&'static str>, negatable);
             add_from!(List, &'static [&'static str]);
@@ -85,7 +85,12 @@ macro_rules! defaults {
                           let mut result = tupleify!(datum$(, restrict($negate))?).into();
                           $(
                               if let SudoDefault::Integer(_, ref mut checker) = &mut result {
-                                  *checker = |text| i128::from_str_radix(text, 10$(*0 + $radix)?).ok().filter(|val| ($first ..= $last).contains(val));
+                                  *checker = |text| i64::from_str_radix(text, 10$(*0 + $radix)?).ok().filter(|val| ($first ..= $last).contains(val));
+                              }
+                          )?
+                          $(
+                              if let SudoDefault::Integer(_, ref mut checker) = &mut result {
+                                  *checker = $fn
                               }
                           )?
                           result
