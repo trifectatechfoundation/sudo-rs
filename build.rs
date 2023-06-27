@@ -18,11 +18,12 @@ fn main() {
         get_first_path(&["/var/mail", "/var/spool/mail", "/usr/spool/mail"]).unwrap_or("/var/mail");
 
     // TODO: use _PATH_STDPATH and _PATH_DEFPATH_ROOT from paths.h
+    println!("cargo:rustc-env=SUDO_PATH_DEFAULT=/usr/bin:/bin:/usr/sbin:/sbin");
     println!(
-        "cargo:rustc-env=PATH_DEFAULT_ROOT=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        "cargo:rustc-env=SU_PATH_DEFAULT_ROOT=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     );
     println!(
-        "cargo:rustc-env=PATH_DEFAULT=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
+        "cargo:rustc-env=SU_PATH_DEFAULT=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
     );
 
     println!("cargo:rustc-env=PATH_MAILDIR={path_maildir}");

@@ -8,8 +8,8 @@ use crate::system::{Group, Process, User};
 use super::cli::SuOptions;
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
-const PATH_DEFAULT: &str = env!("PATH_DEFAULT");
-const PATH_DEFAULT_ROOT: &str = env!("PATH_DEFAULT_ROOT");
+const PATH_DEFAULT: &str = env!("SU_PATH_DEFAULT");
+const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
 
 #[derive(Debug)]
 pub(crate) struct SuContext {
@@ -27,7 +27,7 @@ impl SuContext {
         let process = crate::system::Process::new();
 
         // resolve environment, reset if this is a login
-        let mut environment = if options.login || !options.preserve_environment {
+        let mut environment = if options.login {
             Environment::default()
         } else {
             env::vars_os().collect::<Environment>()
@@ -109,14 +109,6 @@ impl SuContext {
             options.arguments.clone()
         };
 
-        // extend environment with fixed variables
-        environment.insert("HOME".into(), user.home.clone().into_os_string());
-        environment.insert("SHELL".into(), command.clone().into());
-        environment.insert(
-            "MAIL".into(),
-            format!("{PATH_MAILDIR}/{}", user.name).into(),
-        );
-
         if options.login {
             environment.insert(
                 "PATH".into(),
@@ -129,9 +121,19 @@ impl SuContext {
             );
         }
 
-        if !is_target_root || options.login {
-            environment.insert("USER".into(), options.user.clone().into());
-            environment.insert("LOGNAME".into(), options.user.clone().into());
+        if !options.preserve_environment {
+            // extend environment with fixed variables
+            environment.insert("HOME".into(), user.home.clone().into_os_string());
+            environment.insert("SHELL".into(), command.clone().into());
+            environment.insert(
+                "MAIL".into(),
+                format!("{PATH_MAILDIR}/{}", user.name).into(),
+            );
+
+            if !is_target_root || options.login {
+                environment.insert("USER".into(), options.user.clone().into());
+                environment.insert("LOGNAME".into(), options.user.clone().into());
+            }
         }
 
         Ok(SuContext {
