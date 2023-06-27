@@ -8,11 +8,7 @@ use crate::{helpers, Result, ENV_PATH, USERNAME};
 fn it_works() -> Result<()> {
     let env = Env("").build()?;
 
-    let argss = [
-        ["-l", "-c", "echo $0"],
-        ["-", "-c", "echo $0"],
-        ["-c", "echo $0", "-"],
-    ];
+    let argss = [["-c", "echo $0", "-l"], ["-c", "echo $0", "-"]];
 
     for args in argss {
         let actual = Command::new("su").args(args).output(&env)?.stdout()?;
@@ -136,6 +132,68 @@ fn term_var_in_invoking_users_env_is_preserved() -> Result<()> {
     let su_env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(term), su_env.get("TERM").copied());
+
+    Ok(())
+}
+
+#[test]
+fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
+    let env = Env("").build()?;
+
+    let argss = [
+        &["-c", "echo $0", "-l", "-l"],
+        &["-c", "echo $0", "-l", "-"],
+    ];
+
+    for args in argss {
+        dbg!(args);
+
+        let actual = Command::new("su").args(args).output(&env)?.stdout()?;
+
+        // argv[0] is prefixed with '-' to invoke the shell as a login shell
+        assert_eq!("-bash", actual);
+    }
+
+    Ok(())
+}
+
+#[test]
+fn changes_working_directory_to_target_users_home_directory() -> Result<()> {
+    let env = Env("").build()?;
+
+    let initial_workdir = "/tmp";
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!("cd {initial_workdir}; su -l -c pwd"))
+        .output(&env)?
+        .stdout()?;
+
+    let expected = "/root";
+    assert_ne!(initial_workdir, stdout);
+    assert_eq!(expected, stdout);
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh582"]
+fn warning_is_printed_when_home_directory_does_not_exist() -> Result<()> {
+    let env = Env("").user(USERNAME).build()?;
+
+    let initial_workdir = "/tmp";
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("cd {initial_workdir}; su -l -c pwd {USERNAME}"))
+        .output(&env)?;
+
+    assert!(output.status().success());
+    assert_contains!(
+        output.stderr(),
+        format!(
+            "su: warning: cannot change directory to /home/{USERNAME}: No such file or directory"
+        )
+    );
+    assert_eq!(initial_workdir, output.stdout()?);
 
     Ok(())
 }

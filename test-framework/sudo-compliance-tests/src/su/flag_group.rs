@@ -66,3 +66,47 @@ fn invoking_user_must_be_root() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "gh581"]
+fn when_specified_more_than_once_all_groups_are_added_to_group_list() -> Result<()> {
+    let gid1 = 1000;
+    let group_name1 = "rustaceans";
+    let gid2 = 1001;
+    let group_name2 = "crabs";
+    let env = Env("")
+        .group(Group(group_name1).id(gid1))
+        .group(Group(group_name2).id(gid2))
+        .build()?;
+
+    let actual = Command::new("su")
+        .args(["-g", group_name1, "-g", group_name2, "-c", "id -G"])
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(format!("{gid2} {gid1}"), actual);
+
+    Ok(())
+}
+
+#[test]
+fn last_group_argument_becomes_primary_group() -> Result<()> {
+    let gid1 = 1000;
+    let group_name1 = "rustaceans";
+    let gid2 = 1001;
+    let group_name2 = "crabs";
+    let env = Env("")
+        .group(Group(group_name1).id(gid1))
+        .group(Group(group_name2).id(gid2))
+        .build()?;
+
+    let actual = Command::new("su")
+        .args(["-g", group_name1, "-g", group_name2, "-c", "id -g"])
+        .output(&env)?
+        .stdout()?
+        .parse::<u32>()?;
+
+    assert_eq!(gid2, actual);
+
+    Ok(())
+}
