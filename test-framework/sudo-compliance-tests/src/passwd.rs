@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, USERNAME, SUDOERS_NO_LECTURE};
+use crate::{Result, SUDOERS_NO_LECTURE, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -20,15 +20,15 @@ fn explicit_passwd_overrides_nopasswd() -> Result<()> {
         "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/true, PASSWD: /usr/bin/ls",
         SUDOERS_NO_LECTURE,
     ])
-        .user(USERNAME)
-        .build()?;
+    .user(USERNAME)
+    .build()?;
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
         .output(&env)?;
 
-        assert!(output.status().success());
+    assert!(output.status().success());
 
     let second_output = Command::new("sudo")
         .args(["-S", "ls"])
@@ -42,10 +42,7 @@ fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "Maximum 3 incorrect authentication attempts"
-        );
+        assert_contains!(stderr, "Maximum 3 incorrect authentication attempts");
     }
 
     Ok(())

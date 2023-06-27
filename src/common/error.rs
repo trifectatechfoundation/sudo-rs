@@ -24,7 +24,7 @@ impl fmt::Display for Error {
             Error::GroupNotFound(g) => write!(f, "group '{g}' not found"),
             Error::Authentication(e) => write!(f, "authentication failed: {e}"),
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
-            Error::Options(e) => write!(f, "invalid options: {e}"),
+            Error::Options(e) => write!(f, "{e}"),
             Error::Pam(e) => write!(f, "PAM error: {e}"),
             Error::IoError(location, e) => {
                 if let Some(path) = location {

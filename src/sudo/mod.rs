@@ -73,7 +73,7 @@ impl PolicyPlugin for SudoersPolicy {
 }
 
 fn sudo_process() -> Result<(), Error> {
-    crate::log::SudoLogger::new().into_global_logger();
+    crate::log::SudoLogger::new("sudo: ").into_global_logger();
 
     dev_info!("development logs are enabled");
 
