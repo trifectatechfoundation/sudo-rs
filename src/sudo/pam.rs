@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs::File;
 
+use crate::common::context::LaunchType;
 use crate::common::{error::Error, Context};
 use crate::log::{auth_warn, dev_info, user_warn};
 use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
@@ -97,9 +98,14 @@ impl<C: Converser> PamAuthenticator<C> {
 impl PamAuthenticator<CLIConverser> {
     pub fn new_cli() -> PamAuthenticator<CLIConverser> {
         PamAuthenticator::new(|context| {
+            let service_name = if matches!(context.launch, LaunchType::Login) {
+                "sudo-i"
+            } else {
+                "sudo"
+            };
             let mut pam = PamContext::builder_cli("sudo", context.stdin, context.non_interactive)
                 .target_user(&context.current_user.name)
-                .service_name("sudo")
+                .service_name(service_name)
                 .build()?;
             pam.mark_silent(true);
             pam.mark_allow_null_auth_token(false);
