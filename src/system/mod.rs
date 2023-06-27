@@ -415,7 +415,6 @@ pub struct Process {
     pub parent_pid: Option<ProcessId>,
     pub group_id: ProcessId,
     pub session_id: ProcessId,
-    pub term_foreground_group_id: Option<ProcessId>,
     pub name: PathBuf,
 }
 
@@ -432,7 +431,6 @@ impl Process {
             parent_pid: Self::parent_id(),
             group_id: Self::group_id(),
             session_id: Self::session_id(),
-            term_foreground_group_id: Self::term_foreground_group_id(),
             name: Self::process_name().unwrap_or_else(|| PathBuf::from("sudo")),
         }
     }
@@ -464,22 +462,6 @@ impl Process {
     /// Get the session id for the current process
     pub fn session_id() -> ProcessId {
         unsafe { libc::getsid(0) }
-    }
-
-    /// Get the process group id of the process group that is currently in
-    /// the foreground of our terminal
-    pub fn term_foreground_group_id() -> Option<ProcessId> {
-        match OpenOptions::new().read(true).write(true).open("/dev/tty") {
-            Ok(f) => {
-                let res = unsafe { libc::tcgetpgrp(f.as_raw_fd()) };
-                if res == -1 {
-                    None
-                } else {
-                    Some(res)
-                }
-            }
-            Err(_) => None,
-        }
     }
 
     /// Returns the device identifier of the TTY device that is currently
