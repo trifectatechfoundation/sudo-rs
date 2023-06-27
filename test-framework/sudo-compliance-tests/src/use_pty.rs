@@ -163,6 +163,27 @@ fn stdout_pipe() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn stderr_pipe() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+
+    let output = Command::new("sh")
+        .args(["-c", "2>/tmp/stderr.txt sh -c '>&2 echo \"hello world\"'"])
+        .tty(true)
+        .output(&env)?;
+
+    assert!(output.stderr().is_empty());
+
+    let stdout = Command::new("cat")
+        .arg("/tmp/stderr.txt")
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(stdout, "hello world");
+
+    Ok(())
+}
+
 fn parse_ps_aux(ps_aux: &str) -> Vec<PsAuxEntry> {
     let mut entries = vec![];
     for line in ps_aux.lines().skip(1 /* header */) {
