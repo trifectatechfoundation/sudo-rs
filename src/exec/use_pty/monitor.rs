@@ -114,7 +114,7 @@ pub(super) fn exec_monitor(
     if foreground {
         if let Err(err) = closure.pty_follower.tcsetpgrp(closure.command_pgrp) {
             dev_error!(
-                "cannot set foreground progess group to command ({}): {err}",
+                "cannot set foreground progess group to {} (command): {err}",
                 closure.command_pgrp
             );
         }
@@ -141,7 +141,7 @@ pub(super) fn exec_monitor(
     // Take the controlling tty so the command's children don't receive SIGHUP when we exit.
     if let Err(err) = closure.pty_follower.tcsetpgrp(closure.monitor_pgrp) {
         dev_error!(
-            "cannot set foreground process group to monitor ({}): {err}",
+            "cannot set foreground process group to {} (monitor): {err}",
             closure.monitor_pgrp
         );
     }
@@ -159,7 +159,7 @@ pub(super) fn exec_monitor(
         },
         StopReason::Exit(command_status) => {
             if let Err(err) = closure.backchannel.send(&command_status.into()) {
-                dev_warn!("command status cannot be send over backchannel: {err}")
+                dev_warn!("cannot send message over backchannel: {err}")
             }
         }
     }
@@ -253,7 +253,7 @@ impl<'a> MonitorClosure<'a> {
             Err(err) if was_interrupted(&err) => {}
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
-                dev_warn!("monitor could not read from backchannel: {}", err);
+                dev_warn!("cannot read from backchannel: {}", err);
                 registry.set_break(err);
             }
             Ok(event) => {
@@ -274,20 +274,29 @@ impl<'a> MonitorClosure<'a> {
     fn handle_sigchld(&mut self, command_pid: ProcessId, registry: &mut EventRegistry<Self>) {
         let status = loop {
             match command_pid.wait(WaitOptions::new().untraced().no_hang()) {
-                Ok((_pid, status)) => break status,
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
-                Err(_) => return,
+                // This only happens if we receive `SIGCHLD` but there's no status update from the
+                // command.
+                Err(WaitError::Io(err)) => {
+                    dev_info!("cannot wait for {command_pid} (command): {err}")
+                }
+                // This only happens if the command exited and any process already waited for the
+                // command.
+                Err(WaitError::NotReady) => {
+                    dev_info!("{command_pid} (command) has no status report")
+                }
+                Ok((_pid, status)) => break status,
             }
         };
 
         if let Some(exit_code) = status.exit_status() {
-            dev_info!("command ({command_pid}) exited with status code {exit_code}");
+            dev_info!("{command_pid} (command) exited with status code {exit_code}");
             // The command did exit, set it's PID to `None`.
             self.command_pid = None;
             registry.set_exit(status);
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
-                "command ({command_pid}) was terminated by {}",
+                "{command_pid} (command) was terminated by {}",
                 signal_fmt(signal),
             );
             // The command was terminated, set it's PID to `None`.
@@ -295,7 +304,7 @@ impl<'a> MonitorClosure<'a> {
             registry.set_exit(status);
         } else if let Some(signal) = status.stop_signal() {
             dev_info!(
-                "command ({command_pid}) was stopped by {}",
+                "{command_pid} (command) was stopped by {}",
                 signal_fmt(signal),
             );
             // Save the foreground process group ID so we can restore it later.
@@ -308,9 +317,9 @@ impl<'a> MonitorClosure<'a> {
                 .send(&ParentMessage::CommandStatus(status))
                 .ok();
         } else if status.did_continue() {
-            dev_info!("command ({command_pid}) continued execution");
+            dev_info!("{command_pid} (command) continued execution");
         } else {
-            dev_warn!("unexpected wait status for command ({command_pid})")
+            dev_warn!("unexpected wait status for {command_pid} (command)")
         }
     }
 
@@ -345,7 +354,7 @@ impl<'a> MonitorClosure<'a> {
                 // Continue with the command as the foreground process group
                 if let Err(err) = self.pty_follower.tcsetpgrp(self.command_pgrp) {
                     dev_error!(
-                        "cannot set the foreground process group to command ({}): {err}",
+                        "cannot set the foreground process group to {} (command): {err}",
                         self.command_pgrp
                     );
                 }
@@ -355,7 +364,7 @@ impl<'a> MonitorClosure<'a> {
                 // Continue with the monitor as the foreground process group
                 if let Err(err) = self.pty_follower.tcsetpgrp(self.monitor_pgrp) {
                     dev_error!(
-                        "cannot set the foreground process group to monitor ({}): {err}",
+                        "cannot set the foreground process group to {} (monitor): {err}",
                         self.monitor_pgrp
                     );
                 }
