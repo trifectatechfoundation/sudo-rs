@@ -21,8 +21,8 @@ fn no_new_tty_allocation_when_absent() -> Result<()> {
         .expect("`su` process not found");
 
     assert!(!su.has_tty());
-
     assert!(su.is_session_leader());
+    assert!(!su.is_in_the_foreground_process_group());
 
     let command = entries
         .iter()
@@ -30,8 +30,8 @@ fn no_new_tty_allocation_when_absent() -> Result<()> {
         .expect("`ps aux` process not found");
 
     assert!(!command.has_tty());
-
     assert!(!command.is_session_leader());
+    assert!(!command.is_in_the_foreground_process_group());
 
     Ok(())
 }
@@ -57,6 +57,7 @@ fn when_present_tty_is_allocated() -> Result<()> {
 
     assert!(!su.has_tty());
     assert!(su.is_session_leader());
+    assert!(!su.is_in_the_foreground_process_group());
 
     let command = entries
         .iter()
@@ -91,6 +92,7 @@ fn existing_tty_is_shared_when_absent() -> Result<()> {
 
     assert!(su.has_tty());
     assert!(su.is_session_leader());
+    assert!(su.is_in_the_foreground_process_group());
 
     let command = entries
         .iter()
@@ -99,6 +101,43 @@ fn existing_tty_is_shared_when_absent() -> Result<()> {
 
     assert_eq!(su.tty, command.tty);
     assert!(!command.is_session_leader());
+    assert!(command.is_in_the_foreground_process_group());
+
+    Ok(())
+}
+
+#[test]
+fn when_present_a_new_tty_is_allocated_for_exclusive_use_of_the_child() -> Result<()> {
+    let env = Env("").build()?;
+
+    let stdout = Command::new("su")
+        .args(["--pty", "-c", "ps aux"])
+        .tty(true)
+        .output(&env)?
+        .stdout()?;
+
+    let entries = helpers::parse_ps_aux(&stdout);
+
+    dbg!(&entries);
+
+    let su = entries
+        .iter()
+        .find(|entry| entry.command.starts_with("su --pty -c"))
+        .expect("`su` process not found");
+
+    assert!(su.has_tty());
+    assert!(su.is_session_leader());
+    assert!(su.is_in_the_foreground_process_group());
+
+    let command = entries
+        .iter()
+        .find(|entry| entry.command == "ps aux")
+        .expect("`ps aux` process not found");
+
+    assert!(command.has_tty());
+    assert_ne!(su.tty, command.tty);
+    assert!(command.is_session_leader());
+    assert!(command.is_in_the_foreground_process_group());
 
     Ok(())
 }
