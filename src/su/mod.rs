@@ -117,6 +117,8 @@ fn run(options: SuOptions) -> Result<(), Error> {
 }
 
 pub fn main() {
+    crate::log::SudoLogger::new("su: ").into_global_logger();
+
     let su_options = match SuOptions::from_env() {
         Ok(options) => options,
         Err(error) => {

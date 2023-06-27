@@ -175,7 +175,6 @@ fn changes_working_directory_to_target_users_home_directory() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh582"]
 fn warning_is_printed_when_home_directory_does_not_exist() -> Result<()> {
     let env = Env("").user(USERNAME).build()?;
 
@@ -186,12 +185,18 @@ fn warning_is_printed_when_home_directory_does_not_exist() -> Result<()> {
         .output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(
-        output.stderr(),
+
+    dbg!(output.stderr());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
         format!(
             "su: warning: cannot change directory to /home/{USERNAME}: No such file or directory"
         )
-    );
+    } else {
+        format!("su: unable to change directory to /home/{USERNAME}: No such file or directory (os error 2)")
+    };
+
+    assert_contains!(output.stderr(), diagnostic);
     assert_eq!(initial_workdir, output.stdout()?);
 
     Ok(())

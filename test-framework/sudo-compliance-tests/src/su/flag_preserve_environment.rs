@@ -93,7 +93,6 @@ fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh583"]
 fn shell_env_var_is_ignored_when_target_user_has_a_restricted_shell_and_invoking_user_is_not_root(
 ) -> Result<()> {
     let invoking_user = USERNAME;

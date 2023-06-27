@@ -1,13 +1,19 @@
-use std::io;
-use std::{env, ffi::OsString, path::PathBuf};
+use std::{
+    env,
+    ffi::OsString,
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use crate::common::resolve::{is_valid_executable, resolve_current_user};
 use crate::common::{error::Error, Environment};
 use crate::exec::RunOptions;
+use crate::log::user_warn;
 use crate::system::{Group, Process, User};
 
 use super::cli::SuOptions;
 
+const VALID_LOGIN_SHELLS_LIST: &str = "/etc/shells";
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_DEFAULT: &str = env!("SU_PATH_DEFAULT");
 const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
@@ -22,6 +28,19 @@ pub(crate) struct SuContext {
     requesting_user: User,
     group: Group,
     pub(crate) process: Process,
+}
+
+/// check that a shell is not restricted / exists in /etc/shells
+fn is_restricted(shell: &Path) -> bool {
+    if let Some(pattern) = shell.as_os_str().to_str() {
+        if let Ok(contents) = fs::read_to_string(VALID_LOGIN_SHELLS_LIST) {
+            if contents.contains(pattern) {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 impl SuContext {
@@ -101,7 +120,9 @@ impl SuContext {
         // the shell specified with --shell
         // the shell specified in the environment variable SHELL, if the --preserve-environment option is used
         // the shell listed in the passwd entry of the target user
-        let command = options
+        let user_shell = user.shell.clone();
+
+        let mut command = options
             .shell
             .as_ref()
             .cloned()
@@ -112,7 +133,19 @@ impl SuContext {
                     None
                 }
             })
-            .unwrap_or(user.shell.clone());
+            .unwrap_or(user_shell.clone());
+
+        // If the target user has a restricted shell (i.e. the shell field of
+        // this user's entry in /etc/passwd is not listed in /etc/shells),
+        // then the --shell option or the $SHELL environment variable won't be
+        // taken into account, unless su is called by root.
+        if is_restricted(user_shell.as_path()) && !is_current_root {
+            user_warn!(
+                "using restricted shell {}",
+                user_shell.as_os_str().to_string_lossy()
+            );
+            command = user_shell;
+        }
 
         if !command.exists() {
             return Err(Error::CommandNotFound(command));

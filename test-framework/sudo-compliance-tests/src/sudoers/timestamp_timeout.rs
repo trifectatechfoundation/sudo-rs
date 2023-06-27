@@ -15,9 +15,7 @@ Defaults timestamp_timeout=0.1"
     // try to sudo without a password
     Command::new("sh")
         .arg("-c")
-        .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo true"
-        ))
+        .arg(format!("echo {PASSWORD} | sudo -S true; sudo true"))
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()?;

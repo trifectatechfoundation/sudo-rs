@@ -63,12 +63,12 @@ dev_logger_macro!(dev_trace is Trace to "sudo::dev");
 pub struct SudoLogger(Vec<(String, Box<dyn log::Log>)>);
 
 impl SudoLogger {
-    pub fn new() -> Self {
+    pub fn new(prefix: &'static str) -> Self {
         let mut logger: Self = Default::default();
 
         logger.add_logger("sudo::auth", Syslog);
 
-        logger.add_logger("sudo::user", SimpleLogger::to_stderr("sudo: "));
+        logger.add_logger("sudo::user", SimpleLogger::to_stderr(prefix));
 
         #[cfg(feature = "dev")]
         {
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn can_construct_logger() {
-        let logger = SudoLogger::new();
+        let logger = SudoLogger::new("sudo: ");
         let len = if cfg!(feature = "dev") { 3 } else { 2 };
         assert_eq!(logger.0.len(), len);
     }
