@@ -4,7 +4,7 @@ use crate::system::poll::PollSet;
 
 pub(super) trait Process: Sized {
     /// IO Events that this process should handle.
-    type Event: Copy;
+    type Event: Copy + Eq;
     /// Reason why the event loop should break.
     ///
     /// See [`EventDispatcher::set_break`] for more information.
@@ -59,7 +59,7 @@ struct EventId(usize);
 /// A type able to poll file descriptors and run callbacks when the descriptors are ready.
 pub(super) struct EventDispatcher<T: Process> {
     poll_set: PollSet<EventId>,
-    events: Vec<T::Event>,
+    events: Vec<Option<T::Event>>,
     status: Status<T>,
 }
 
@@ -78,7 +78,7 @@ impl<T: Process> EventDispatcher<T> {
     pub(super) fn register_read_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
         let id = EventId(self.events.len());
         self.poll_set.add_fd_read(id, fd);
-        self.events.push(event);
+        self.events.push(Some(event));
     }
 
     /// Set the `fd` descriptor to be polled for write events and set `callback` to be called if
@@ -86,7 +86,22 @@ impl<T: Process> EventDispatcher<T> {
     pub(super) fn register_write_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
         let id = EventId(self.events.len());
         self.poll_set.add_fd_write(id, fd);
-        self.events.push(event);
+        self.events.push(Some(event));
+    }
+
+    pub(super) fn deregister_event(&mut self, event: T::Event) -> bool {
+        for (index, opt_event) in self.events.iter_mut().enumerate() {
+            if opt_event.is_some_and(|ev| ev == event) {
+                let id = EventId(index);
+
+                *opt_event = None;
+                debug_assert!(self.poll_set.remove_fd(id));
+
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Stop the event loop when the current callback is done and set a reason for it.
@@ -119,8 +134,9 @@ impl<T: Process> EventDispatcher<T> {
             // FIXME: maybe we shout return the IO error instead.
             if let Ok(ids) = self.poll_set.poll() {
                 for EventId(id) in ids {
-                    let event = self.events[id];
-                    event_queue.push(event);
+                    if let Some(event) = self.events[id] {
+                        event_queue.push(event);
+                    }
                 }
 
                 for event in event_queue.drain(..) {

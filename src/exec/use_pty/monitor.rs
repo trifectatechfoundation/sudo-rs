@@ -420,7 +420,7 @@ fn is_self_terminating(
     false
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum MonitorEvent {
     Signal(Signal),
     ReadableErrPipe,

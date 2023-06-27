@@ -318,10 +318,17 @@ impl ParentClosure {
                                 signal_fmt(signal)
                             );
                             // Suspend parent and tell monitor how to resume on return
-                            if let Some(signal) = self.suspend_pty(signal) {
+                            if let Some(signal) = self.suspend_pty(signal, dispatcher) {
                                 self.schedule_signal(signal);
                             }
-                            // FIXME: enable IO events here.
+
+                            let tty = self.tty_pipe.left();
+                            dispatcher.register_read_event(tty, ParentEvent::ReadableTty);
+                            dispatcher.register_write_event(tty, ParentEvent::WritableTty);
+
+                            let pty = self.tty_pipe.right();
+                            dispatcher.register_write_event(pty, ParentEvent::WritablePty);
+                            dispatcher.register_read_event(pty, ParentEvent::ReadablePty);
                         }
                     }
                     ParentMessage::IoError(code) => {
@@ -391,7 +398,7 @@ impl ParentClosure {
     }
 
     /// Handle changes to the monitor status.
-    fn handle_sigchld(&mut self, monitor_pid: ProcessId) {
+    fn handle_sigchld(&mut self, monitor_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
@@ -420,10 +427,17 @@ impl ParentClosure {
                 "monitor ({monitor_pid}) was stopped by {}, suspending sudo",
                 signal_fmt(signal)
             );
-            if let Some(signal) = self.suspend_pty(signal) {
+            if let Some(signal) = self.suspend_pty(signal, dispatcher) {
                 self.schedule_signal(signal);
             }
-            // FIXME: Restore IO events here.
+
+            let tty = self.tty_pipe.left();
+            dispatcher.register_read_event(tty, ParentEvent::ReadableTty);
+            dispatcher.register_write_event(tty, ParentEvent::WritableTty);
+
+            let pty = self.tty_pipe.right();
+            dispatcher.register_write_event(pty, ParentEvent::WritablePty);
+            dispatcher.register_read_event(pty, ParentEvent::ReadablePty);
         } else if status.did_continue() {
             dev_info!("monitor ({monitor_pid}) continued execution");
         } else {
@@ -435,7 +449,11 @@ impl ParentClosure {
     ///
     /// Return `SIGCONT_FG` or `SIGCONT_BG` to state whether the command should be resumend in the
     /// foreground or not.
-    fn suspend_pty(&mut self, signal: SignalNumber) -> Option<SignalNumber> {
+    fn suspend_pty(
+        &mut self,
+        signal: SignalNumber,
+        dispatcher: &mut EventDispatcher<Self>,
+    ) -> Option<SignalNumber> {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
         let sigcont_action = self
             .signal_manager
@@ -464,7 +482,11 @@ impl ParentClosure {
             }
         }
 
-        // FIXME: we should stop polling the terminal if we're suspending.
+        // Stop polling the terminals.
+        dispatcher.deregister_event(ParentEvent::ReadableTty);
+        dispatcher.deregister_event(ParentEvent::WritableTty);
+        dispatcher.deregister_event(ParentEvent::ReadablePty);
+        dispatcher.deregister_event(ParentEvent::WritablePty);
 
         if self.term_raw {
             match self.tty_pipe.left_mut().restore(false) {
@@ -551,7 +573,7 @@ impl ParentClosure {
         Ok(())
     }
 
-    fn on_signal(&mut self, signal: Signal) {
+    fn on_signal(&mut self, signal: Signal, dispatcher: &mut EventDispatcher<Self>) {
         let info = match self.signal_manager.recv(signal) {
             Ok(info) => info,
             Err(err) => {
@@ -573,7 +595,7 @@ impl ParentClosure {
         };
 
         match info.signal() {
-            SIGCHLD => self.handle_sigchld(monitor_pid),
+            SIGCHLD => self.handle_sigchld(monitor_pid, dispatcher),
             SIGCONT => {
                 self.resume_terminal().ok();
             }
@@ -606,7 +628,7 @@ impl From<ExitReason> for ParentExit {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum ParentEvent {
     Signal(Signal),
     ReadableTty,
@@ -624,7 +646,7 @@ impl Process for ParentClosure {
 
     fn on_event(&mut self, event: Self::Event, dispatcher: &mut EventDispatcher<Self>) {
         match event {
-            ParentEvent::Signal(signal) => self.on_signal(signal),
+            ParentEvent::Signal(signal) => self.on_signal(signal, dispatcher),
             ParentEvent::ReadableTty => {
                 self.tty_pipe.read_left().ok();
             }

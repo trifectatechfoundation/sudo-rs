@@ -33,7 +33,7 @@ macro_rules! define_signals {
     ($($signal:ident = $index:literal,)*) => {
         #[allow(clippy::upper_case_acronyms)]
         /// Signals that can be handled
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         pub(super) enum Signal {
             $($signal,)*
         }

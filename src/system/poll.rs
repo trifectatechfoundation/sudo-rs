@@ -49,6 +49,11 @@ impl<K: Eq + PartialEq + Hash + Clone> PollSet<K> {
         self.fds.insert(key, (fd.as_raw_fd(), events));
     }
 
+    /// Remove a the file descriptor under the provided key, if any.
+    pub fn remove_fd(&mut self, key: K) -> bool {
+        self.fds.remove(&key).is_some()
+    }
+
     /// Poll the set of file descriptors and return the key of the descriptors that are ready to be
     /// read or written.
     ///
