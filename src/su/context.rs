@@ -77,6 +77,7 @@ impl SuContext {
                 Group::from_gid(user.gid)?.ok_or_else(|| Error::GroupNotFound(user.gid.to_string()))
             }
         }?;
+        user.gid = group.gid;
 
         // add additional group if current user is root
         for group_name in &options.supp_group {
