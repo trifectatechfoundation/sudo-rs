@@ -1,6 +1,9 @@
 use std::io;
 
-use crate::system::signal::{SignalAction, SignalHandler, SignalInfo, SignalNumber};
+use crate::system::{
+    poll::PollEvent,
+    signal::{SignalAction, SignalHandler, SignalInfo, SignalNumber},
+};
 
 use signal_hook::consts::*;
 
@@ -24,7 +27,7 @@ impl SignalManager {
         f: fn(Signal) -> T::Event,
     ) {
         for (&signal, handler) in Signal::ALL.iter().zip(&self.handlers) {
-            registry.register_read_event(handler, f(signal));
+            registry.register_event(handler, PollEvent::Readable, f(signal));
         }
     }
 }

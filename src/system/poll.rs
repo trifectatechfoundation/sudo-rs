@@ -7,6 +7,15 @@ use std::{
 use crate::cutils::cerr;
 use libc::{c_short, pollfd, POLLIN, POLLOUT};
 
+/// The kind of event that will be monitored for a file descriptor.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum PollEvent {
+    /// Data may be read without blocking.
+    Readable,
+    /// Data may be written without blocking.
+    Writable,
+}
+
 /// A set of indexed file descriptors to be polled using the [`poll`](https://manpage.me/?q=poll) system call.
 pub struct PollSet<K> {
     fds: BTreeMap<K, (RawFd, c_short)>,
@@ -20,26 +29,17 @@ impl<K: Eq + PartialEq + Ord + PartialOrd + Clone> PollSet<K> {
         }
     }
 
-    /// Add a file descriptor under the provided key. This descriptor will be checked for read events and return a unique identifier
-    /// for the descriptor inside the set.
+    /// Add a file descriptor under the provided key. This descriptor will be checked for the given
+    /// poll event and return a unique identifier for the descriptor inside the set.
     ///
     /// If the provided key is already in the set, calling this function will overwrite the file
     /// descriptor for that key.
-    pub fn add_fd_read<F: AsRawFd>(&mut self, key: K, fd: &F) {
-        self.add_fd(key, fd, POLLIN)
-    }
-
-    /// Add a file descriptor under the provided key. This descriptor will be checked for write events and return a unique identifier
-    /// for the descriptor inside the set.
-    ///
-    /// If the provided key is already in the set, calling this function will overwrite the file
-    /// descriptor for that key.
-    pub fn add_fd_write<F: AsRawFd>(&mut self, key: K, fd: &F) {
-        self.add_fd(key, fd, POLLOUT)
-    }
-
-    fn add_fd<F: AsRawFd>(&mut self, key: K, fd: &F, events: c_short) {
-        self.fds.insert(key, (fd.as_raw_fd(), events));
+    pub fn add_fd<F: AsRawFd>(&mut self, key: K, fd: &F, event: PollEvent) {
+        let event = match event {
+            PollEvent::Readable => POLLIN,
+            PollEvent::Writable => POLLOUT,
+        };
+        self.fds.insert(key, (fd.as_raw_fd(), event));
     }
 
     /// Remove a the file descriptor under the provided key, if any.

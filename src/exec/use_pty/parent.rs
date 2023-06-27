@@ -5,7 +5,7 @@ use std::process::{exit, Command};
 
 use signal_hook::consts::*;
 
-use crate::exec::event::{EventId, EventRegistry, Process, StopReason};
+use crate::exec::event::{EventRegistry, Process, StopReason};
 use crate::exec::signal_manager::{Signal, SignalManager};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
@@ -16,6 +16,7 @@ use crate::exec::{
     ExitReason,
 };
 use crate::log::{dev_error, dev_info, dev_warn};
+use crate::system::poll::PollEvent;
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
 use crate::system::term::{Pty, PtyLeader, Terminal, UserTerm};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
@@ -71,16 +72,10 @@ pub(crate) fn exec_pty(
 
     let mut tty_pipe = Pipe::new(user_tty, pty.leader);
 
-    let (user_tty, pty_leader) = tty_pipe.both_mut();
+    // Pipe data between both terminals
+    tty_pipe.register_events(&mut registry, ParentEvent::Tty, ParentEvent::Pty);
 
-    let tty_event_ids = [
-        //  Read from `/dev/tty` and write to the leader if not in the background.
-        registry.register_read_event(user_tty, ParentEvent::ReadableTty),
-        registry.register_write_event(pty_leader, ParentEvent::WritablePty),
-        // Read from the leader and write to `/dev/tty`.
-        registry.register_read_event(pty_leader, ParentEvent::ReadablePty),
-        registry.register_write_event(user_tty, ParentEvent::WritableTty),
-    ];
+    let user_tty = tty_pipe.left_mut();
 
     // Check if we are the foreground process
     let mut foreground = user_tty
@@ -168,7 +163,6 @@ pub(crate) fn exec_pty(
         parent_pgrp,
         backchannels.parent,
         tty_pipe,
-        tty_event_ids,
         foreground,
         term_raw,
         signal_manager,
@@ -230,7 +224,6 @@ struct ParentClosure {
     command_pid: Option<ProcessId>,
     backchannel: ParentBackchannel,
     tty_pipe: Pipe<UserTerm, PtyLeader>,
-    tty_event_ids: Option<[EventId; 4]>,
     foreground: bool,
     term_raw: bool,
     message_queue: VecDeque<MonitorMessage>,
@@ -245,18 +238,12 @@ impl ParentClosure {
         parent_pgrp: ProcessId,
         backchannel: ParentBackchannel,
         tty_pipe: Pipe<UserTerm, PtyLeader>,
-        tty_event_ids: [EventId; 4],
         foreground: bool,
         term_raw: bool,
         signal_manager: SignalManager,
         registry: &mut EventRegistry<Self>,
     ) -> Self {
-        registry.register_read_event(&backchannel, ParentEvent::ReadableBackchannel);
-
-        // Check for queued messages only when the backchannel can be written so we can send
-        // messages to the monitor process without blocking.
-        registry.register_write_event(&backchannel, ParentEvent::WritableBackchannel);
-
+        registry.register_rw_event(&backchannel, ParentEvent::Backchannel);
         signal_manager.register_handlers(registry, ParentEvent::Signal);
 
         Self {
@@ -266,7 +253,6 @@ impl ParentClosure {
             command_pid: None,
             backchannel,
             tty_pipe,
-            tty_event_ids: Some(tty_event_ids),
             foreground,
             term_raw,
             message_queue: VecDeque::new(),
@@ -327,7 +313,11 @@ impl ParentClosure {
                                 self.schedule_signal(signal);
                             }
 
-                            self.register_terminal_events(registry);
+                            self.tty_pipe.register_events(
+                                registry,
+                                ParentEvent::Tty,
+                                ParentEvent::Pty,
+                            )
                         }
                     }
                     ParentMessage::IoError(code) => {
@@ -430,33 +420,12 @@ impl ParentClosure {
                 self.schedule_signal(signal);
             }
 
-            self.register_terminal_events(registry);
+            self.tty_pipe
+                .register_events(registry, ParentEvent::Tty, ParentEvent::Pty)
         } else if status.did_continue() {
             dev_info!("monitor ({monitor_pid}) continued execution");
         } else {
             dev_warn!("unexpected wait status for monitor ({monitor_pid})")
-        }
-    }
-
-    fn register_terminal_events(&mut self, registry: &mut EventRegistry<Self>) {
-        let tty = self.tty_pipe.left();
-        let pty = self.tty_pipe.right();
-
-        if self.tty_event_ids.is_none() {
-            self.tty_event_ids = Some([
-                registry.register_read_event(tty, ParentEvent::ReadableTty),
-                registry.register_write_event(tty, ParentEvent::WritableTty),
-                registry.register_read_event(pty, ParentEvent::ReadablePty),
-                registry.register_write_event(pty, ParentEvent::WritablePty),
-            ]);
-        }
-    }
-
-    fn deregister_terminal_events(&mut self, registry: &mut EventRegistry<Self>) {
-        if let Some(ids) = self.tty_event_ids.take() {
-            for id in ids {
-                registry.deregister_event(id);
-            }
         }
     }
 
@@ -498,7 +467,7 @@ impl ParentClosure {
         }
 
         // Stop polling the terminals.
-        self.deregister_terminal_events(registry);
+        self.tty_pipe.deregister_events(registry);
 
         if self.term_raw {
             match self.tty_pipe.left_mut().restore(false) {
@@ -643,12 +612,9 @@ impl From<ExitReason> for ParentExit {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ParentEvent {
     Signal(Signal),
-    ReadableTty,
-    WritableTty,
-    ReadablePty,
-    WritablePty,
-    ReadableBackchannel,
-    WritableBackchannel,
+    Tty(PollEvent),
+    Pty(PollEvent),
+    Backchannel(PollEvent),
 }
 
 impl Process for ParentClosure {
@@ -659,20 +625,16 @@ impl Process for ParentClosure {
     fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>) {
         match event {
             ParentEvent::Signal(signal) => self.on_signal(signal, registry),
-            ParentEvent::ReadableTty => {
-                self.tty_pipe.read_left().ok();
+            ParentEvent::Tty(poll_event) => {
+                self.tty_pipe.on_left_event(poll_event).ok();
             }
-            ParentEvent::WritableTty => {
-                self.tty_pipe.write_left().ok();
+            ParentEvent::Pty(poll_event) => {
+                self.tty_pipe.on_right_event(poll_event).ok();
             }
-            ParentEvent::ReadablePty => {
-                self.tty_pipe.read_right().ok();
-            }
-            ParentEvent::WritablePty => {
-                self.tty_pipe.write_right().ok();
-            }
-            ParentEvent::ReadableBackchannel => self.on_message_received(registry),
-            ParentEvent::WritableBackchannel => self.check_message_queue(registry),
+            ParentEvent::Backchannel(poll_event) => match poll_event {
+                PollEvent::Readable => self.on_message_received(registry),
+                PollEvent::Writable => self.check_message_queue(registry),
+            },
         }
     }
 }

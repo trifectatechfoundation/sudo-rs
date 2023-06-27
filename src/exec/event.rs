@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, os::fd::AsRawFd};
 
-use crate::system::poll::PollSet;
+use crate::system::poll::{PollEvent, PollSet};
 
 pub(super) trait Process: Sized {
     /// IO Events that this process should handle.
@@ -81,22 +81,31 @@ impl<T: Process> EventRegistry<T> {
         id
     }
 
-    /// Set the `fd` descriptor to be polled for read events and produce `event` when `fd` is
+    /// Set the `fd` descriptor to be polled for `poll_event` events and produce `event` when `fd` is
     /// ready.
-    pub(super) fn register_read_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) -> EventId {
+    pub(super) fn register_event<F: AsRawFd>(
+        &mut self,
+        fd: &F,
+        poll_event: PollEvent,
+        event: T::Event,
+    ) -> EventId {
         let id = self.next_id();
-        self.poll_set.add_fd_read(id, fd);
+        self.poll_set.add_fd(id, fd, poll_event);
         self.events.insert(id, event);
         id
     }
 
-    /// Set the `fd` descriptor to be polled for write events and produce `event` when `fd` is
-    /// ready.
-    pub(super) fn register_write_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) -> EventId {
-        let id = self.next_id();
-        self.poll_set.add_fd_write(id, fd);
-        self.events.insert(id, event);
-        id
+    /// Set the `fd` descriptor to be polled for read and write events and produce the event
+    /// returned by `f` when `fd` is ready for the poll event given by parameter.
+    pub(super) fn register_rw_event<F: AsRawFd>(
+        &mut self,
+        fd: &F,
+        f: fn(PollEvent) -> T::Event,
+    ) -> (EventId, EventId) {
+        (
+            self.register_event(fd, PollEvent::Readable, f(PollEvent::Readable)),
+            self.register_event(fd, PollEvent::Writable, f(PollEvent::Writable)),
+        )
     }
 
     /// Deregister the event associated with the given ID, meaning that the file descriptor for

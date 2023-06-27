@@ -12,6 +12,7 @@ use crate::{
         use_pty::{SIGCONT_BG, SIGCONT_FG},
     },
     log::{dev_error, dev_info, dev_warn},
+    system::poll::PollEvent,
 };
 use crate::{
     exec::{signal_manager::Signal, terminate_process},
@@ -217,10 +218,18 @@ impl<'a> MonitorClosure<'a> {
         let monitor_pgrp = getpgrp();
 
         // Register the callback to receive the IO error if the command fails to execute.
-        registry.register_read_event(&errpipe_rx, MonitorEvent::ReadableErrPipe);
+        registry.register_event(
+            &errpipe_rx,
+            PollEvent::Readable,
+            MonitorEvent::ReadableErrPipe,
+        );
 
         // Register the callback to receive events from the backchannel
-        registry.register_read_event(backchannel, MonitorEvent::ReadableBackchannel);
+        registry.register_event(
+            backchannel,
+            PollEvent::Readable,
+            MonitorEvent::ReadableBackchannel,
+        );
 
         signal_manager.register_handlers(registry, MonitorEvent::Signal);
 
