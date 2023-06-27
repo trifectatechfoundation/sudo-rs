@@ -40,6 +40,10 @@ impl SuContext {
         // --login. The whitelist is ignored for the environment
         // variables HOME, SHELL, USER, LOGNAME, and PATH.
         if options.login {
+            if let Some(value) = env::var_os("TERM") {
+                environment.insert("TERM".into(), value);
+            }
+
             for name in options.whitelist_environment.iter() {
                 if let Some(value) = env::var_os(name) {
                     environment.insert(name.into(), value);
@@ -56,6 +60,11 @@ impl SuContext {
         // check the current user is root
         let is_current_root = User::effective_uid() == 0;
         let is_target_root = options.user == "root";
+
+        // only root can set a (additional) group
+        if !is_current_root && (options.supp_group.is_some() || options.group.is_some()) {
+            return Err(Error::Options("only root can specify alternative groups".to_owned()));
+        }
 
         // resolve target group
         let group = match (&options.group, &options.supp_group) {
