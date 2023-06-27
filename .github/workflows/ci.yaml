@@ -365,7 +365,7 @@ jobs:
           command: udeps
           args: --workspace --all-targets
 
-      - uses: tweedegolf/cargo-dependencies-action@v0.1
+      - uses: tweedegolf/cargo-dependencies-action@v0.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           bin: sudo
