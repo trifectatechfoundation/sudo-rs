@@ -162,7 +162,6 @@ fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_set() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh312"]
 fn target_user_has_insufficient_perms() -> Result<()> {
     let path = "/root";
     let env = Env("ALL ALL=(ALL:ALL) CWD=* NOPASSWD: ALL")
@@ -180,7 +179,7 @@ fn target_user_has_insufficient_perms() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to change directory to /root: Permission denied"
     } else {
-        "FIXME"
+        "Permission denied"
     };
     assert_contains!(output.stderr(), diagnostic);
 
