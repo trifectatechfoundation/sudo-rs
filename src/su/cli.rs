@@ -112,6 +112,15 @@ impl SuOptions {
             },
         },
         SuOption {
+            short: 'm',
+            long: "preserve-environment",
+            takes_argument: false,
+            set: &|sudo_options, _| {
+                sudo_options.preserve_environment = true;
+                Ok(())
+            },
+        },
+        SuOption {
             short: 'P',
             long: "pty",
             takes_argument: false,

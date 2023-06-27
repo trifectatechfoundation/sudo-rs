@@ -3,12 +3,15 @@ use crate::exec::{ExitReason, RunOptions};
 use crate::log::user_warn;
 use crate::pam::{CLIConverser, PamContext, PamError, PamErrorType};
 use crate::system::term::current_tty_name;
+
 use std::{env, process};
 
 use cli::{SuAction, SuOptions};
+use help::{USAGE_MSG, long_help_message};
 use context::SuContext;
 
 mod cli;
+mod help;
 mod context;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -114,11 +117,17 @@ fn run(options: SuOptions) -> Result<(), Error> {
 }
 
 pub fn main() {
-    let su_options = SuOptions::from_env().unwrap();
+    let su_options = match SuOptions::from_env() {
+        Ok(options) => options,
+        Err(error) => {
+            println!("su: {error}\n{USAGE_MSG}");
+            std::process::exit(0);
+        }
+    };
 
     match su_options.action {
         SuAction::Help => {
-            println!("Usage: su [options] [-] [<user> [<argument>...]]");
+            println!("{}", long_help_message());
             std::process::exit(0);
         }
         SuAction::Version => {
@@ -134,9 +143,8 @@ pub fn main() {
                 eprintln!("su: {}", Error::InvalidCommand(c));
                 std::process::exit(126);
             }
-            Err(e) => {
-                eprintln!("su: {e}");
-                std::process::exit(1);
+            Err(error) => {
+                eprintln!("su: {error}");
             }
             _ => {}
         },
