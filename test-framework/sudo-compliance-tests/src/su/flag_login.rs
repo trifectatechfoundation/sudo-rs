@@ -130,7 +130,7 @@ fn term_var_in_invoking_users_env_is_preserved() -> Result<()> {
     let term = "my-term";
     let stdout = Command::new("env")
         .arg(format!("TERM={term}"))
-        .args(["su", "-l", USERNAME])
+        .args(["su", "-p", "-l", USERNAME])
         .output(&env)?
         .stdout()?;
     let su_env = helpers::parse_env_output(&stdout)?;
