@@ -75,8 +75,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
 
 fn create_test_context(sudo_options: &SudoOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
-    let command =
-        CommandAndArguments::try_from_args(None, sudo_options.clone().args(), &path).unwrap();
+    let command = CommandAndArguments::build_from_args(None, sudo_options.clone().args(), &path);
 
     let current_user = User {
         uid: 1000,

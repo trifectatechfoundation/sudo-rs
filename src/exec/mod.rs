@@ -38,19 +38,19 @@ use self::use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG};
 /// Returns the [`ExitReason`] of the command and a function that restores the default handler for
 /// signals once its called.
 pub fn run_command(
-    options: impl RunOptions,
+    options: &impl RunOptions,
     env: Environment,
 ) -> io::Result<(ExitReason, impl FnOnce())> {
     // FIXME: should we pipe the stdio streams?
-    let mut command = Command::new(options.command());
+    let qualified_path = options.command()?;
+    let mut command = Command::new(qualified_path);
     // reset env and set filtered environment
     command.args(options.arguments()).env_clear().envs(env);
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
     let path = options.chdir().cloned().or_else(|| {
         options.is_login().then(|| {
             // signal to the operating system that the command is a login shell by prefixing "-"
-            let mut process_name = options
-                .command()
+            let mut process_name = qualified_path
                 .file_name()
                 .map(|osstr| osstr.as_bytes().to_vec())
                 .unwrap_or_else(Vec::new);

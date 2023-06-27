@@ -1,3 +1,4 @@
+use std::io;
 use std::{env, ffi::OsString, path::PathBuf};
 
 use crate::common::resolve::{is_valid_executable, resolve_current_user};
@@ -153,8 +154,8 @@ impl SuContext {
 }
 
 impl RunOptions for SuContext {
-    fn command(&self) -> &PathBuf {
-        &self.command
+    fn command(&self) -> io::Result<&PathBuf> {
+        Ok(&self.command)
     }
 
     fn arguments(&self) -> &Vec<String> {
