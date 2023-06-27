@@ -5,6 +5,7 @@ use std::fs::File;
 use crate::common::{error::Error, Context};
 use crate::log::{auth_warn, dev_info, user_warn};
 use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
+use crate::system::term::current_tty_name;
 use crate::system::{
     time::Duration,
     timestamp::{RecordScope, SessionRecordFile, TouchResult},
@@ -118,6 +119,12 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
             .as_mut()
             .expect("Pam must be initialized before authenticate");
         pam.set_user(&context.current_user.name)?;
+        pam.set_requesting_user(&context.current_user.name)?;
+
+        // attempt to set the TTY this session is communicating on
+        if let Ok(pam_tty) = current_tty_name() {
+            pam.set_tty(&pam_tty)?;
+        }
 
         // determine session limit
         let scope = determine_record_scope(&context.process);

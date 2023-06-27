@@ -2,6 +2,7 @@ use crate::common::error::Error;
 use crate::exec::{ExitReason, RunOptions};
 use crate::log::user_warn;
 use crate::pam::{CLIConverser, PamContext, PamError, PamErrorType};
+use crate::system::term::current_tty_name;
 use std::{env, process};
 
 use cli::{SuAction, SuOptions};
@@ -12,13 +13,23 @@ mod context;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn authenticate(user: &str, login: bool) -> Result<PamContext<CLIConverser>, Error> {
+fn authenticate(
+    requesting_user: &str,
+    user: &str,
+    login: bool,
+) -> Result<PamContext<CLIConverser>, Error> {
     let context = if login { "su-l" } else { "su" };
     let use_stdin = true;
     let mut pam = PamContext::builder_cli("su", use_stdin, Default::default())
         .target_user(user)
         .service_name(context)
         .build()?;
+    pam.set_requesting_user(requesting_user)?;
+
+    // attempt to set the TTY this session is communicating on
+    if let Ok(pam_tty) = current_tty_name() {
+        pam.set_tty(&pam_tty)?;
+    }
 
     pam.mark_silent(true);
     pam.mark_allow_null_auth_token(false);
@@ -67,7 +78,11 @@ fn run(options: SuOptions) -> Result<(), Error> {
     let context = SuContext::from_env(options)?;
 
     // authenticate the target user
-    let mut pam: PamContext<CLIConverser> = authenticate(&context.user().name, context.is_login())?;
+    let mut pam: PamContext<CLIConverser> = authenticate(
+        &context.requesting_user().name,
+        &context.user().name,
+        context.is_login(),
+    )?;
 
     // su in all cases uses PAM (pam_getenvlist(3)) to do the
     // final environment modification. Command-line options such as

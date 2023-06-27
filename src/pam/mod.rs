@@ -203,6 +203,30 @@ impl<C: Converser> PamContext<C> {
         })
     }
 
+    /// Set the TTY path for the current TTY that this PAM session started from.
+    pub fn set_tty<P: AsRef<OsStr>>(&mut self, tty_path: P) -> PamResult<()> {
+        let data = CString::new(tty_path.as_ref().as_bytes())?;
+        pam_err(unsafe {
+            pam_set_item(
+                self.pamh,
+                PAM_TTY as i32,
+                data.as_ptr() as *const libc::c_void,
+            )
+        })
+    }
+
+    // Set the user that requested the actions in this PAM instance.
+    pub fn set_requesting_user(&mut self, user: &str) -> PamResult<()> {
+        let data = CString::new(user.as_bytes())?;
+        pam_err(unsafe {
+            pam_set_item(
+                self.pamh,
+                PAM_RUSER as i32,
+                data.as_ptr() as *const libc::c_void,
+            )
+        })
+    }
+
     /// Re-initialize the credentials stored in PAM
     pub fn credentials_reinitialize(&mut self) -> PamResult<()> {
         self.credentials(PAM_REINITIALIZE_CRED as libc::c_int)

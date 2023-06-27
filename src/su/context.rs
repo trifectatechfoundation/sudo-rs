@@ -1,6 +1,6 @@
 use std::{env, ffi::OsString, path::PathBuf};
 
-use crate::common::resolve::is_valid_executable;
+use crate::common::resolve::{is_valid_executable, resolve_current_user};
 use crate::common::{error::Error, Environment};
 use crate::exec::RunOptions;
 use crate::system::{Group, Process, User};
@@ -18,6 +18,7 @@ pub(crate) struct SuContext {
     options: SuOptions,
     pub(crate) environment: Environment,
     user: User,
+    requesting_user: User,
     group: Group,
     pub(crate) process: Process,
 }
@@ -44,6 +45,8 @@ impl SuContext {
                 }
             }
         }
+
+        let requesting_user = resolve_current_user()?;
 
         // resolve target user
         let mut user = User::from_name(&options.user)?
@@ -142,6 +145,7 @@ impl SuContext {
             options,
             environment,
             user,
+            requesting_user,
             group,
             process,
         })
@@ -167,6 +171,10 @@ impl RunOptions for SuContext {
 
     fn user(&self) -> &crate::system::User {
         &self.user
+    }
+
+    fn requesting_user(&self) -> &User {
+        &self.requesting_user
     }
 
     fn group(&self) -> &crate::system::Group {
