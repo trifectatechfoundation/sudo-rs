@@ -69,7 +69,7 @@ impl SuContext {
         }
 
         // resolve target group
-        let group = match &options.group {
+        let mut group = match &options.group {
             Some(group) => {
                 Group::from_name(group)?.ok_or_else(|| Error::GroupNotFound(group.to_owned()))
             }
@@ -80,10 +80,15 @@ impl SuContext {
         user.gid = group.gid;
 
         // add additional group if current user is root
-        for group_name in &options.supp_group {
+        for (index, group_name) in options.supp_group.iter().enumerate() {
             let supp_group = Group::from_name(group_name)?
                 .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
             user.groups.push(supp_group.gid);
+
+            if options.group.is_none() && index == 0 {
+                user.gid = supp_group.gid;
+                group = supp_group;
+            }
         }
 
         // the shell specified with --shell

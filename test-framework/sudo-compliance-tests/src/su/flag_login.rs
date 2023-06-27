@@ -119,7 +119,6 @@ fn has_precedence_over_flag_preserve_environment() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh532"]
 fn term_var_in_invoking_users_env_is_preserved() -> Result<()> {
     let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
 

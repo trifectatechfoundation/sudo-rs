@@ -3,7 +3,6 @@ use sudo_test::{Command, Env, Group};
 use crate::Result;
 
 #[test]
-#[ignore = "gh555"]
 fn sets_secondary_group_ids() -> Result<()> {
     let gid = 1000;
     let group_name = "rustaceans";
@@ -38,8 +37,7 @@ fn overrides_primary_group_id() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh556"]
-fn when_specified_more_than_once_all_groups_are_added_to_group_list() -> Result<()> {
+fn may_be_specified_more_than_once() -> Result<()> {
     let gid1 = 1000;
     let group_name1 = "rustaceans";
     let gid2 = 1001;
@@ -60,7 +58,6 @@ fn when_specified_more_than_once_all_groups_are_added_to_group_list() -> Result<
 }
 
 #[test]
-#[ignore = "gh556"]
 fn first_supp_group_argument_becomes_primary_group() -> Result<()> {
     let gid1 = 1000;
     let group_name1 = "rustaceans";
@@ -105,7 +102,6 @@ fn flag_group_has_precedence_in_setting_primary_group_id() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh552"]
 fn invoking_user_must_be_root() -> Result<()> {
     let group_name = "rustaceans";
     let invoking_user = "ferris";
