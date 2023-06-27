@@ -62,34 +62,36 @@ impl SuContext {
         let is_target_root = options.user == "root";
 
         // only root can set a (additional) group
-        if !is_current_root && (!options.supp_group.is_empty() || options.group.is_some()) {
+        if !is_current_root && (!options.supp_group.is_empty() || !options.group.is_empty()) {
             return Err(Error::Options(
                 "only root can specify alternative groups".to_owned(),
             ));
-        } else {
-            dbg!()
         }
 
         // resolve target group
-        let mut group = match &options.group {
-            Some(group) => {
-                let group = Group::from_name(group)?
-                    .ok_or_else(|| Error::GroupNotFound(group.to_owned()))?;
-                user.groups = vec![group.gid];
+        let mut group =
+            Group::from_gid(user.gid)?.ok_or_else(|| Error::GroupNotFound(user.gid.to_string()))?;
 
-                group
-            }
-            _ => Group::from_gid(user.gid)?
-                .ok_or_else(|| Error::GroupNotFound(user.gid.to_string()))?,
-        };
+        if !options.supp_group.is_empty() || !options.group.is_empty() {
+            user.groups.clear();
+        }
+
+        for group_name in options.group.iter() {
+            let primary_group = Group::from_name(group_name)?
+                .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
+
+            // last argument is the primary group
+            group = primary_group.clone();
+            user.groups.push(primary_group.gid);
+        }
 
         // add additional group if current user is root
         for (index, group_name) in options.supp_group.iter().enumerate() {
             let supp_group = Group::from_name(group_name)?
                 .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
 
-            if options.group.is_none() && index == 0 {
-                user.groups.clear();
+            // set primary group if none was provided
+            if index == 0 && options.group.is_empty() {
                 group = supp_group.clone();
             }
 
@@ -104,7 +106,7 @@ impl SuContext {
             .as_ref()
             .cloned()
             .or_else(|| {
-                if options.preserve_environment {
+                if options.preserve_environment && is_current_root {
                     environment.get(&OsString::from("SHELL")).map(|v| v.into())
                 } else {
                     None

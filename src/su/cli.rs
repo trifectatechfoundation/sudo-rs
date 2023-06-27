@@ -4,7 +4,7 @@ use std::path::PathBuf;
 pub struct SuOptions {
     pub user: String,
     pub command: Option<String>,
-    pub group: Option<String>,
+    pub group: Vec<String>,
     pub supp_group: Vec<String>,
     pub pty: bool,
     pub login: bool,
@@ -20,7 +20,7 @@ impl Default for SuOptions {
         Self {
             user: "root".to_owned(),
             command: None,
-            group: None,
+            group: vec![],
             supp_group: vec![],
             pty: false,
             login: false,
@@ -70,8 +70,8 @@ impl SuOptions {
             long: "group",
             takes_argument: true,
             set: &|sudo_options, argument| {
-                if argument.is_some() {
-                    sudo_options.group = argument;
+                if let Some(value) = argument {
+                    sudo_options.group.push(value);
                 } else {
                     Err("no group provided")?
                 }
@@ -149,8 +149,8 @@ impl SuOptions {
             takes_argument: true,
             set: &|sudo_options, argument| {
                 if let Some(list) = argument {
-                    sudo_options.whitelist_environment =
-                        list.split(',').map(str::to_string).collect();
+                    let values: Vec<String> = list.split(',').map(str::to_string).collect();
+                    sudo_options.whitelist_environment.extend(values);
                 } else {
                     Err("no enivronment whitelist provided")?
                 }
@@ -275,7 +275,7 @@ mod tests {
 
     fn it_parses_group() {
         let expected = SuOptions {
-            group: Some("ferris".to_string()),
+            group: vec!["ferris".to_string()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-g", "ferris"]));
