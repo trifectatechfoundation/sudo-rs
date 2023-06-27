@@ -44,3 +44,23 @@ pub struct PsAuxEntry {
     pub process_state: String,
     pub tty: String,
 }
+
+impl PsAuxEntry {
+    pub fn has_tty(&self) -> bool {
+        if self.tty == "?" {
+            false
+        } else if self.tty.starts_with("pts/") {
+            true
+        } else {
+            unimplemented!()
+        }
+    }
+
+    pub fn is_session_leader(&self) -> bool {
+        self.process_state.contains('s')
+    }
+
+    pub fn is_in_the_foreground_process_group(&self) -> bool {
+        self.process_state.contains('+')
+    }
+}
