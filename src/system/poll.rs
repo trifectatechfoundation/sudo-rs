@@ -1,6 +1,5 @@
 use std::{
-    collections::HashMap,
-    hash::Hash,
+    collections::{BTreeMap, HashMap},
     io,
     os::fd::{AsRawFd, RawFd},
 };
@@ -10,20 +9,14 @@ use libc::{c_short, pollfd, POLLIN, POLLOUT};
 
 /// A set of indexed file descriptors to be polled using the [`poll`](https://manpage.me/?q=poll) system call.
 pub struct PollSet<K> {
-    fds: HashMap<K, (RawFd, c_short)>,
+    fds: BTreeMap<K, (RawFd, c_short)>,
 }
 
-impl<K: Eq + PartialEq + Hash + Clone> Default for PollSet<K> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<K: Eq + PartialEq + Hash + Clone> PollSet<K> {
+impl<K: Eq + PartialEq + Ord + PartialOrd + Clone> PollSet<K> {
     /// Create an empty set of file descriptors.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
-            fds: HashMap::new(),
+            fds: BTreeMap::new(),
         }
     }
 

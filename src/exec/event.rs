@@ -1,4 +1,4 @@
-use std::os::fd::AsRawFd;
+use std::{collections::BTreeMap, os::fd::AsRawFd};
 
 use crate::system::poll::PollSet;
 
@@ -53,13 +53,14 @@ pub(super) enum StopReason<T: Process> {
     Exit(T::Exit),
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Ord, PartialOrd, Clone, Copy)]
 struct EventId(usize);
 
 /// A type able to register file descriptors to be polled.
 pub(super) struct EventRegistry<T: Process> {
+    seed: usize,
     poll_set: PollSet<EventId>,
-    events: Vec<Option<T::Event>>,
+    events: BTreeMap<EventId, T::Event>,
     status: Status<T>,
 }
 
@@ -67,36 +68,40 @@ impl<T: Process> EventRegistry<T> {
     /// Create a new and empty registry..
     pub(super) fn new() -> Self {
         Self {
+            seed: 0,
             poll_set: PollSet::new(),
-            events: Vec::new(),
+            events: BTreeMap::new(),
             status: Status::Continue,
         }
+    }
+
+    fn next_id(&mut self) -> EventId {
+        let id = EventId(self.seed);
+        self.seed += 1;
+        id
     }
 
     /// Set the `fd` descriptor to be polled for read events and set `callback` to be called if
     /// `fd` is ready.
     pub(super) fn register_read_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
-        let id = EventId(self.events.len());
+        let id = self.next_id();
         self.poll_set.add_fd_read(id, fd);
-        self.events.push(Some(event));
+        self.events.insert(id, event);
     }
 
     /// Set the `fd` descriptor to be polled for write events and set `callback` to be called if
     /// `fd` is ready.
     pub(super) fn register_write_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
-        let id = EventId(self.events.len());
+        let id = self.next_id();
         self.poll_set.add_fd_write(id, fd);
-        self.events.push(Some(event));
+        self.events.insert(id, event);
     }
 
     pub(super) fn deregister_event(&mut self, event: T::Event) -> bool {
-        for (index, opt_event) in self.events.iter_mut().enumerate() {
-            if opt_event.is_some_and(|ev| ev == event) {
-                let id = EventId(index);
-
-                *opt_event = None;
+        for (&id, &registered_event) in &self.events {
+            if registered_event == event {
+                debug_assert!(self.events.remove(&id).is_some());
                 debug_assert!(self.poll_set.remove_fd(id));
-
                 return true;
             }
         }
@@ -133,10 +138,8 @@ impl<T: Process> EventRegistry<T> {
         loop {
             // FIXME: maybe we shout return the IO error instead.
             if let Ok(ids) = self.poll_set.poll() {
-                for EventId(id) in ids {
-                    if let Some(event) = self.events[id] {
-                        event_queue.push(event);
-                    }
+                for id in ids {
+                    event_queue.push(self.events[&id]);
                 }
 
                 for event in event_queue.drain(..) {
