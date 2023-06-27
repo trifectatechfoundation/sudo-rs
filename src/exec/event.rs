@@ -7,14 +7,14 @@ pub(super) trait Process: Sized {
     type Event: Copy + Eq;
     /// Reason why the event loop should break.
     ///
-    /// See [`EventDispatcher::set_break`] for more information.
+    /// See [`EventRegistry::set_break`] for more information.
     type Break;
     /// Reason why the event loop should exit.
     ///
-    /// See [`EventDispatcher::set_exit`] for more information.
+    /// See [`EventRegistry::set_exit`] for more information.
     type Exit;
     /// Handle the corresponding event.
-    fn on_event(&mut self, event: Self::Event, dispatcher: &mut EventDispatcher<Self>);
+    fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>);
 }
 
 enum Status<T: Process> {
@@ -56,15 +56,15 @@ pub(super) enum StopReason<T: Process> {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct EventId(usize);
 
-/// A type able to poll file descriptors and run callbacks when the descriptors are ready.
-pub(super) struct EventDispatcher<T: Process> {
+/// A type able to register file descriptors to be polled.
+pub(super) struct EventRegistry<T: Process> {
     poll_set: PollSet<EventId>,
     events: Vec<Option<T::Event>>,
     status: Status<T>,
 }
 
-impl<T: Process> EventDispatcher<T> {
-    /// Create a new and empty event handler.
+impl<T: Process> EventRegistry<T> {
+    /// Create a new and empty registry..
     pub(super) fn new() -> Self {
         Self {
             poll_set: PollSet::new(),
@@ -118,15 +118,15 @@ impl<T: Process> EventDispatcher<T> {
     }
 
     /// Return whether a break reason has been set already. This function will return `false` after
-    /// [`EventDispatcher::event_loop`] has been called.
+    /// [`EventRegistry::event_loop`] has been called.
     pub(super) fn got_break(&self) -> bool {
         self.status.is_break()
     }
 
     /// Run the event loop for this handler.
     ///
-    /// The event loop will continue indefinitely unless you call [`EventDispatcher::set_break`] or
-    /// [`EventDispatcher::set_exit`].
+    /// The event loop will continue indefinitely unless you call [`EventRegistry::set_break`] or
+    /// [`EventRegistry::set_exit`].
     pub(super) fn event_loop(&mut self, process: &mut T) -> StopReason<T> {
         let mut event_queue = Vec::with_capacity(self.events.len());
 

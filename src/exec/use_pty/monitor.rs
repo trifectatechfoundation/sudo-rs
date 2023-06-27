@@ -28,7 +28,7 @@ use crate::{
 use signal_hook::consts::*;
 
 use crate::exec::{
-    event::{EventDispatcher, Process},
+    event::{EventRegistry, Process},
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
 };
@@ -98,7 +98,7 @@ pub(super) fn exec_monitor(
         dev_warn!("cannot send command PID to parent: {err}");
     }
 
-    let mut dispatcher = EventDispatcher::new();
+    let mut registry = EventRegistry::new();
 
     let mut closure = MonitorClosure::new(
         command_pid,
@@ -106,7 +106,7 @@ pub(super) fn exec_monitor(
         errpipe_rx,
         backchannel,
         signal_manager,
-        &mut dispatcher,
+        &mut registry,
     );
 
     // Set the foreground group for the pty follower.
@@ -123,7 +123,7 @@ pub(super) fn exec_monitor(
     // have been setup after initializing the closure.
 
     // Start the event loop.
-    let reason = dispatcher.event_loop(&mut closure);
+    let reason = registry.event_loop(&mut closure);
 
     // Terminate the command if it's not terminated.
     if let Some(command_pid) = closure.command_pid {
@@ -211,18 +211,18 @@ impl<'a> MonitorClosure<'a> {
         errpipe_rx: UnixStream,
         backchannel: &'a mut MonitorBackchannel,
         signal_manager: SignalManager,
-        dispatcher: &mut EventDispatcher<Self>,
+        registry: &mut EventRegistry<Self>,
     ) -> Self {
         // Store the pgid of the monitor.
         let monitor_pgrp = getpgrp();
 
         // Register the callback to receive the IO error if the command fails to execute.
-        dispatcher.register_read_event(&errpipe_rx, MonitorEvent::ReadableErrPipe);
+        registry.register_read_event(&errpipe_rx, MonitorEvent::ReadableErrPipe);
 
         // Register the callback to receive events from the backchannel
-        dispatcher.register_read_event(backchannel, MonitorEvent::ReadableBackchannel);
+        registry.register_read_event(backchannel, MonitorEvent::ReadableBackchannel);
 
-        signal_manager.register_handlers(dispatcher, MonitorEvent::Signal);
+        signal_manager.register_handlers(registry, MonitorEvent::Signal);
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
@@ -242,14 +242,14 @@ impl<'a> MonitorClosure<'a> {
     }
 
     /// Based on `mon_backchannel_cb`
-    fn read_backchannel(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+    fn read_backchannel(&mut self, registry: &mut EventRegistry<Self>) {
         match self.backchannel.recv() {
             // Read interrupted, we can try again later.
             Err(err) if was_interrupted(&err) => {}
             // There's something wrong with the backchannel, break the event loop
             Err(err) => {
                 dev_warn!("monitor could not read from backchannel: {}", err);
-                dispatcher.set_break(err);
+                registry.set_break(err);
             }
             Ok(event) => {
                 match event {
@@ -266,7 +266,7 @@ impl<'a> MonitorClosure<'a> {
         }
     }
 
-    fn handle_sigchld(&mut self, command_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
+    fn handle_sigchld(&mut self, command_pid: ProcessId, registry: &mut EventRegistry<Self>) {
         let status = loop {
             match command_pid.wait(WaitOptions::new().untraced().no_hang()) {
                 Ok((_pid, status)) => break status,
@@ -279,7 +279,7 @@ impl<'a> MonitorClosure<'a> {
             dev_info!("command ({command_pid}) exited with status code {exit_code}");
             // The command did exit, set it's PID to `None`.
             self.command_pid = None;
-            dispatcher.set_exit(status);
+            registry.set_exit(status);
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
                 "command ({command_pid}) was terminated by {}",
@@ -287,7 +287,7 @@ impl<'a> MonitorClosure<'a> {
             );
             // The command was terminated, set it's PID to `None`.
             self.command_pid = None;
-            dispatcher.set_exit(status);
+            registry.set_exit(status);
         } else if let Some(signal) = status.stop_signal() {
             dev_info!(
                 "command ({command_pid}) was stopped by {}",
@@ -309,11 +309,11 @@ impl<'a> MonitorClosure<'a> {
         }
     }
 
-    fn read_errpipe(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+    fn read_errpipe(&mut self, registry: &mut EventRegistry<Self>) {
         let mut buf = 0i32.to_ne_bytes();
         match self.errpipe_rx.read_exact(&mut buf) {
             Err(err) if was_interrupted(&err) => { /* Retry later */ }
-            Err(err) => dispatcher.set_break(err),
+            Err(err) => registry.set_break(err),
             Ok(_) => {
                 // Received error code from the command, forward it to the parent.
                 let error_code = i32::from_ne_bytes(buf);
@@ -363,7 +363,7 @@ impl<'a> MonitorClosure<'a> {
         }
     }
 
-    fn on_signal(&mut self, signal: Signal, dispatcher: &mut EventDispatcher<Self>) {
+    fn on_signal(&mut self, signal: Signal, registry: &mut EventRegistry<Self>) {
         let info = match self.signal_manager.recv(signal) {
             Ok(info) => info,
             Err(err) => {
@@ -386,7 +386,7 @@ impl<'a> MonitorClosure<'a> {
         };
 
         match info.signal() {
-            SIGCHLD => self.handle_sigchld(command_pid, dispatcher),
+            SIGCHLD => self.handle_sigchld(command_pid, registry),
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
@@ -432,11 +432,11 @@ impl<'a> Process for MonitorClosure<'a> {
     type Break = io::Error;
     type Exit = WaitStatus;
 
-    fn on_event(&mut self, event: Self::Event, dispatcher: &mut EventDispatcher<Self>) {
+    fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>) {
         match event {
-            MonitorEvent::Signal(signal) => self.on_signal(signal, dispatcher),
-            MonitorEvent::ReadableErrPipe => self.read_errpipe(dispatcher),
-            MonitorEvent::ReadableBackchannel => self.read_backchannel(dispatcher),
+            MonitorEvent::Signal(signal) => self.on_signal(signal, registry),
+            MonitorEvent::ReadableErrPipe => self.read_errpipe(registry),
+            MonitorEvent::ReadableBackchannel => self.read_backchannel(registry),
         }
     }
 }

@@ -4,14 +4,14 @@ use crate::system::signal::{SignalAction, SignalHandler, SignalInfo, SignalNumbe
 
 use signal_hook::consts::*;
 
-use super::event::{EventDispatcher, Process};
+use super::event::{EventRegistry, Process};
 
 pub(super) struct SignalManager {
     handlers: [SignalHandler; Signal::ALL.len()],
 }
 
 impl SignalManager {
-    /// Unregister all the handlers created by the dispatcher.
+    /// Unregister all the handlers created by the registry.
     pub(super) fn unregister_handlers(self) {
         for handler in self.handlers {
             handler.unregister();
@@ -20,11 +20,11 @@ impl SignalManager {
 
     pub(super) fn register_handlers<T: Process>(
         &self,
-        dispatcher: &mut EventDispatcher<T>,
+        registry: &mut EventRegistry<T>,
         f: fn(Signal) -> T::Event,
     ) {
         for (&signal, handler) in Signal::ALL.iter().zip(&self.handlers) {
-            dispatcher.register_read_event(handler, f(signal))
+            registry.register_read_event(handler, f(signal))
         }
     }
 }

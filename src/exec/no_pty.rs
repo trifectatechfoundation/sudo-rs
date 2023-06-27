@@ -3,7 +3,7 @@ use std::{io, process::Command};
 use signal_hook::consts::*;
 
 use super::{
-    event::{EventDispatcher, Process, StopReason},
+    event::{EventRegistry, Process, StopReason},
     signal_manager::Signal,
     terminate_process, ExitReason,
 };
@@ -39,18 +39,18 @@ pub(crate) fn exec_no_pty(
     let command_pid = command.id() as ProcessId;
     dev_info!("Executed command with pid {command_pid}");
 
-    let mut dispatcher = EventDispatcher::new();
+    let mut registry = EventRegistry::new();
 
-    let mut closure = ExecClosure::new(command_pid, sudo_pid, signal_manager, &mut dispatcher);
+    let mut closure = ExecClosure::new(command_pid, sudo_pid, signal_manager, &mut registry);
 
     // FIXME: restore signal mask here.
 
-    let exit_reason = match dispatcher.event_loop(&mut closure) {
+    let exit_reason = match registry.event_loop(&mut closure) {
         StopReason::Break(reason) => match reason {},
         StopReason::Exit(reason) => reason,
     };
 
-    Ok((exit_reason, Box::new(move || drop(dispatcher))))
+    Ok((exit_reason, Box::new(move || drop(registry))))
 }
 
 struct ExecClosure {
@@ -65,9 +65,9 @@ impl ExecClosure {
         command_pid: ProcessId,
         sudo_pid: ProcessId,
         signal_manager: SignalManager,
-        dispatcher: &mut EventDispatcher<Self>,
+        registry: &mut EventRegistry<Self>,
     ) -> Self {
-        signal_manager.register_handlers(dispatcher, ExecEvent::Signal);
+        signal_manager.register_handlers(registry, ExecEvent::Signal);
 
         Self {
             command_pid: Some(command_pid),
@@ -98,7 +98,7 @@ impl ExecClosure {
         false
     }
 
-    fn handle_sigchld(&mut self, command_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
+    fn handle_sigchld(&mut self, command_pid: ProcessId, registry: &mut EventRegistry<Self>) {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
@@ -120,11 +120,11 @@ impl ExecClosure {
                 "command ({command_pid}) was terminated by {}",
                 signal_fmt(signal),
             );
-            dispatcher.set_exit(ExitReason::Signal(signal));
+            registry.set_exit(ExitReason::Signal(signal));
             self.command_pid = None;
         } else if let Some(exit_code) = status.exit_status() {
             dev_info!("command ({command_pid}) exited with status code {exit_code}");
-            dispatcher.set_exit(ExitReason::Code(exit_code));
+            registry.set_exit(ExitReason::Code(exit_code));
             self.command_pid = None;
         } else if status.did_continue() {
             dev_info!("command ({command_pid}) continued execution");
@@ -198,7 +198,7 @@ impl ExecClosure {
         }
     }
 
-    fn on_signal(&mut self, signal: Signal, dispatcher: &mut EventDispatcher<Self>) {
+    fn on_signal(&mut self, signal: Signal, registry: &mut EventRegistry<Self>) {
         let info = match self.signal_manager.recv(signal) {
             Ok(info) => info,
             Err(err) => {
@@ -221,7 +221,7 @@ impl ExecClosure {
 
         match info.signal() {
             SIGCHLD => {
-                self.handle_sigchld(command_pid, dispatcher);
+                self.handle_sigchld(command_pid, registry);
             }
             signal => {
                 if signal == SIGWINCH {
@@ -252,9 +252,9 @@ impl Process for ExecClosure {
     type Break = std::convert::Infallible;
     type Exit = ExitReason;
 
-    fn on_event(&mut self, event: Self::Event, dispatcher: &mut EventDispatcher<Self>) {
+    fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>) {
         match event {
-            ExecEvent::Signal(signal) => self.on_signal(signal, dispatcher),
+            ExecEvent::Signal(signal) => self.on_signal(signal, registry),
         }
     }
 }
