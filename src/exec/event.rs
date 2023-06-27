@@ -81,22 +81,24 @@ impl<T: Process> EventRegistry<T> {
         id
     }
 
-    /// Set the `fd` descriptor to be polled for read events and set `callback` to be called if
-    /// `fd` is ready.
+    /// Set the `fd` descriptor to be polled for read events and produce `event` when `fd` is
+    /// ready.
     pub(super) fn register_read_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
         let id = self.next_id();
         self.poll_set.add_fd_read(id, fd);
         self.events.insert(id, event);
     }
 
-    /// Set the `fd` descriptor to be polled for write events and set `callback` to be called if
-    /// `fd` is ready.
+    /// Set the `fd` descriptor to be polled for write events and produce `event` when `fd` is
+    /// ready.
     pub(super) fn register_write_event<F: AsRawFd>(&mut self, fd: &F, event: T::Event) {
         let id = self.next_id();
         self.poll_set.add_fd_write(id, fd);
         self.events.insert(id, event);
     }
 
+    /// Deregister all the file descriptors associated with `event`, meaning that the file
+    /// descriptors will not be polled anymore.
     pub(super) fn deregister_event(&mut self, event: T::Event) -> bool {
         for (&id, &registered_event) in &self.events {
             if registered_event == event {
@@ -109,15 +111,15 @@ impl<T: Process> EventRegistry<T> {
         false
     }
 
-    /// Stop the event loop when the current callback is done and set a reason for it.
+    /// Stop the event loop when the current event has been handled and set a reason for it.
     ///
     /// This means that the event loop will stop even if other events are ready.
     pub(super) fn set_break(&mut self, reason: T::Break) {
         self.status = Status::Stop(StopReason::Break(reason));
     }
 
-    /// Stop the event loop when the callbacks for the events that are ready by now have been
-    /// dispatched and set a reason for it.
+    /// Stop the event loop when the events that are ready by now have been handled and set a
+    /// reason for it.
     pub(super) fn set_exit(&mut self, reason: T::Exit) {
         self.status = Status::Stop(StopReason::Exit(reason));
     }
@@ -128,7 +130,7 @@ impl<T: Process> EventRegistry<T> {
         self.status.is_break()
     }
 
-    /// Run the event loop for this handler.
+    /// Run the event loop over this registry using `process` to handle the produced events.
     ///
     /// The event loop will continue indefinitely unless you call [`EventRegistry::set_break`] or
     /// [`EventRegistry::set_exit`].
