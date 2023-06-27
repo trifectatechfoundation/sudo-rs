@@ -107,7 +107,6 @@ impl WaitOptions {
 }
 
 /// The status of the waited child.
-#[derive(Clone, Copy)]
 pub struct WaitStatus {
     status: c_int,
 }
@@ -137,14 +136,6 @@ impl std::fmt::Debug for WaitStatus {
 }
 
 impl WaitStatus {
-    pub const fn from_raw(status: c_int) -> Self {
-        Self { status }
-    }
-
-    pub const fn into_raw(self) -> c_int {
-        self.status
-    }
-
     /// Return `true` if the child terminated normally, i.e., by calling `exit`.
     pub const fn did_exit(&self) -> bool {
         WIFEXITED(self.status)

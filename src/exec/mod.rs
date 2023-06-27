@@ -9,7 +9,7 @@ mod use_pty;
 
 use std::{
     borrow::Cow,
-    ffi::{CString, OsStr},
+    ffi::{c_int, CString, OsStr},
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
@@ -21,7 +21,12 @@ use signal_hook::consts::*;
 
 use crate::{
     common::Environment,
-    system::{interface::ProcessId, killpg},
+    log::dev_warn,
+    system::{
+        interface::ProcessId,
+        killpg,
+        wait::{Wait, WaitError, WaitOptions},
+    },
 };
 use crate::{
     exec::no_pty::exec_no_pty,
@@ -32,7 +37,11 @@ use crate::{log::user_error, system::kill};
 
 pub use interface::RunOptions;
 
-use self::use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG};
+use self::{
+    event::{EventRegistry, Process},
+    io_util::was_interrupted,
+    use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG},
+};
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
@@ -122,6 +131,58 @@ fn terminate_process(pid: ProcessId, use_killpg: bool) {
     kill_fn(pid, SIGTERM).ok();
     std::thread::sleep(Duration::from_secs(2));
     kill_fn(pid, SIGKILL).ok();
+}
+
+trait HandleSigchld: Process {
+    const OPTIONS: WaitOptions;
+
+    fn on_exit(&mut self, exit_code: c_int, registry: &mut EventRegistry<Self>);
+    fn on_term(&mut self, signal: SignalNumber, registry: &mut EventRegistry<Self>);
+    fn on_stop(&mut self, signal: SignalNumber, registry: &mut EventRegistry<Self>);
+}
+
+fn handle_sigchld<T: HandleSigchld>(
+    handler: &mut T,
+    registry: &mut EventRegistry<T>,
+    child_name: &'static str,
+    child_pid: ProcessId,
+) {
+    let status = loop {
+        match child_pid.wait(T::OPTIONS) {
+            Err(WaitError::Io(err)) if was_interrupted(&err) => {}
+            // This only happens if we receive `SIGCHLD` but there's no status update from the
+            // monitor.
+            Err(WaitError::Io(err)) => {
+                dev_info!("cannot wait for {child_pid} ({child_name}): {err}")
+            }
+            // This only happens if the monitor exited and any process already waited for the
+            // monitor.
+            Err(WaitError::NotReady) => {
+                dev_info!("{child_pid} ({child_name}) has no status report")
+            }
+            Ok((_pid, status)) => break status,
+        }
+    };
+    if let Some(exit_code) = status.exit_status() {
+        dev_info!("{child_pid} ({child_name}) exited with status code {exit_code}");
+        handler.on_exit(exit_code, registry)
+    } else if let Some(signal) = status.stop_signal() {
+        dev_info!(
+            "{child_pid} ({child_name}) was stopped by {}",
+            signal_fmt(signal),
+        );
+        handler.on_stop(signal, registry)
+    } else if let Some(signal) = status.term_signal() {
+        dev_info!(
+            "{child_pid} ({child_name}) was terminated by {}",
+            signal_fmt(signal),
+        );
+        handler.on_term(signal, registry)
+    } else if status.did_continue() {
+        dev_info!("{child_pid} ({child_name}) continued execution");
+    } else {
+        dev_warn!("unexpected wait status for {child_pid} ({child_name})")
+    }
 }
 
 fn signal_fmt(signal: SignalNumber) -> Cow<'static, str> {

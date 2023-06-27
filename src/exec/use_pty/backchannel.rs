@@ -8,8 +8,10 @@ use std::{
     },
 };
 
+use crate::exec::signal_fmt;
 use crate::system::interface::ProcessId;
-use crate::{exec::signal_fmt, system::wait::WaitStatus};
+
+use super::CommandStatus;
 
 type Prefix = u8;
 type ParentData = c_int;
@@ -39,7 +41,7 @@ impl BackchannelPair {
 
 pub(super) enum ParentMessage {
     IoError(c_int),
-    CommandStatus(WaitStatus),
+    CommandStatus(CommandStatus),
     CommandPid(ProcessId),
     ShortRead,
 }
@@ -47,14 +49,18 @@ pub(super) enum ParentMessage {
 impl ParentMessage {
     const LEN: usize = PREFIX_LEN + PARENT_DATA_LEN;
     const IO_ERROR: Prefix = 0;
-    const CMD_STATUS: Prefix = 1;
-    const CMD_PID: Prefix = 2;
-    const SHORT_READ: Prefix = 3;
+    const CMD_STAT_EXIT: Prefix = 1;
+    const CMD_STAT_TERM: Prefix = 2;
+    const CMD_STAT_STOP: Prefix = 3;
+    const CMD_PID: Prefix = 4;
+    const SHORT_READ: Prefix = 5;
 
     fn from_parts(prefix: Prefix, data: ParentData) -> Self {
         match prefix {
             Self::IO_ERROR => Self::IoError(data),
-            Self::CMD_STATUS => Self::CommandStatus(WaitStatus::from_raw(data)),
+            Self::CMD_STAT_EXIT => Self::CommandStatus(CommandStatus::Exit(data)),
+            Self::CMD_STAT_TERM => Self::CommandStatus(CommandStatus::Term(data)),
+            Self::CMD_STAT_STOP => Self::CommandStatus(CommandStatus::Stop(data)),
             Self::CMD_PID => Self::CommandPid(data),
             Self::SHORT_READ => Self::ShortRead,
             _ => unreachable!(),
@@ -64,14 +70,20 @@ impl ParentMessage {
     fn to_parts(&self) -> (Prefix, ParentData) {
         let prefix = match self {
             ParentMessage::IoError(_) => Self::IO_ERROR,
-            ParentMessage::CommandStatus(_) => Self::CMD_STATUS,
+            ParentMessage::CommandStatus(CommandStatus::Exit(_)) => Self::CMD_STAT_EXIT,
+            ParentMessage::CommandStatus(CommandStatus::Term(_)) => Self::CMD_STAT_TERM,
+            ParentMessage::CommandStatus(CommandStatus::Stop(_)) => Self::CMD_STAT_STOP,
             ParentMessage::CommandPid(_) => Self::CMD_PID,
             ParentMessage::ShortRead => Self::SHORT_READ,
         };
 
         let data = match self {
             ParentMessage::IoError(data) | ParentMessage::CommandPid(data) => *data,
-            ParentMessage::CommandStatus(status) => status.into_raw(),
+            ParentMessage::CommandStatus(status) => match status {
+                CommandStatus::Exit(data)
+                | CommandStatus::Term(data)
+                | CommandStatus::Stop(data) => *data,
+            },
             ParentMessage::ShortRead => 0,
         };
 
@@ -90,8 +102,8 @@ impl TryFrom<io::Error> for ParentMessage {
     }
 }
 
-impl From<WaitStatus> for ParentMessage {
-    fn from(status: WaitStatus) -> Self {
+impl From<CommandStatus> for ParentMessage {
+    fn from(status: CommandStatus) -> Self {
         Self::CommandStatus(status)
     }
 }
