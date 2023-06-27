@@ -58,7 +58,7 @@ impl SuContext {
             .ok_or_else(|| Error::UserNotFound(options.user.clone()))?;
 
         // check the current user is root
-        let is_current_root = User::effective_uid() == 0;
+        let is_current_root = User::real_uid() == 0;
         let is_target_root = options.user == "root";
 
         // only root can set a (additional) group
@@ -66,29 +66,34 @@ impl SuContext {
             return Err(Error::Options(
                 "only root can specify alternative groups".to_owned(),
             ));
+        } else {
+            dbg!()
         }
 
         // resolve target group
         let mut group = match &options.group {
             Some(group) => {
-                Group::from_name(group)?.ok_or_else(|| Error::GroupNotFound(group.to_owned()))
+                let group = Group::from_name(group)?
+                    .ok_or_else(|| Error::GroupNotFound(group.to_owned()))?;
+                user.groups = vec![group.gid];
+
+                group
             }
-            _ => {
-                Group::from_gid(user.gid)?.ok_or_else(|| Error::GroupNotFound(user.gid.to_string()))
-            }
-        }?;
-        user.gid = group.gid;
+            _ => Group::from_gid(user.gid)?
+                .ok_or_else(|| Error::GroupNotFound(user.gid.to_string()))?,
+        };
 
         // add additional group if current user is root
         for (index, group_name) in options.supp_group.iter().enumerate() {
             let supp_group = Group::from_name(group_name)?
                 .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
-            user.groups.push(supp_group.gid);
 
             if options.group.is_none() && index == 0 {
-                user.gid = supp_group.gid;
-                group = supp_group;
+                user.groups.clear();
+                group = supp_group.clone();
             }
+
+            user.groups.push(supp_group.gid);
         }
 
         // the shell specified with --shell

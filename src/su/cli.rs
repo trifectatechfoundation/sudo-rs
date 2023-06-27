@@ -406,10 +406,17 @@ mod tests {
     #[test]
     fn it_parses_multiple_supplementary_groups() {
         let expected = SuOptions {
-            supp_group: vec!["ferris".to_string(), "krabbetje".to_string(), "krabbe".to_string()],
+            supp_group: vec![
+                "ferris".to_string(),
+                "krabbetje".to_string(),
+                "krabbe".to_string(),
+            ],
             ..Default::default()
         };
-        assert_eq!(expected, parse(&["-G", "ferris", "-G", "krabbetje", "--supp-group", "krabbe"]));
+        assert_eq!(
+            expected,
+            parse(&["-G", "ferris", "-G", "krabbetje", "--supp-group", "krabbe"])
+        );
     }
 
     #[test]
