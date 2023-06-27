@@ -1,6 +1,9 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{
+    helpers::{self, PsAuxEntry},
+    Result, SUDOERS_ALL_ALL_NOPASSWD,
+};
 
 fn fixture() -> Result<Vec<PsAuxEntry>> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
@@ -20,7 +23,7 @@ fn fixture() -> Result<Vec<PsAuxEntry>> {
 
     child.wait()?.assert_success()?;
 
-    let entries = parse_ps_aux(&ps_aux);
+    let entries = helpers::parse_ps_aux(&ps_aux);
 
     let mut sudo_related_processes = entries
         .into_iter()
@@ -131,30 +134,4 @@ fn pty_owner() -> Result<()> {
     assert_eq!(stdout.trim(), "root tty");
 
     Ok(())
-}
-
-fn parse_ps_aux(ps_aux: &str) -> Vec<PsAuxEntry> {
-    let mut entries = vec![];
-    for line in ps_aux.lines().skip(1 /* header */) {
-        let columns = line.split_ascii_whitespace().collect::<Vec<_>>();
-
-        let entry = PsAuxEntry {
-            command: columns[10..].join(" "),
-            pid: columns[1].parse().expect("invalid PID"),
-            process_state: columns[7].to_owned(),
-            tty: columns[6].to_owned(),
-        };
-
-        entries.push(entry);
-    }
-
-    entries
-}
-
-#[derive(Debug)]
-struct PsAuxEntry {
-    command: String,
-    pid: u32,
-    process_state: String,
-    tty: String,
 }
