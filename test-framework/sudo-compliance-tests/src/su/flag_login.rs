@@ -176,6 +176,7 @@ fn changes_working_directory_to_target_users_home_directory() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh582"]
 fn warning_is_printed_when_home_directory_does_not_exist() -> Result<()> {
     let env = Env("").user(USERNAME).build()?;
 

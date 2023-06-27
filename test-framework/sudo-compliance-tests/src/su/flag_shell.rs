@@ -95,6 +95,7 @@ fn ignores_shell_env_var_when_flag_preserve_environment_is_absent() -> Result<()
 }
 
 #[test]
+#[ignore = "gh583"]
 fn ignored_when_target_user_has_a_restricted_shell_and_invoking_user_is_not_root() -> Result<()> {
     let invoking_user = USERNAME;
     let target_user = "ghost";

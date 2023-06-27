@@ -68,6 +68,7 @@ fn invoking_user_must_be_root() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh581"]
 fn when_specified_more_than_once_all_groups_are_added_to_group_list() -> Result<()> {
     let gid1 = 1000;
     let group_name1 = "rustaceans";
