@@ -6,29 +6,29 @@ use std::{
 };
 
 use crate::{
-    exec::terminate_process,
+    exec::{
+        event::StopReason,
+        signal_manager::SignalManager,
+        use_pty::{SIGCONT_BG, SIGCONT_FG},
+    },
+    log::{dev_error, dev_info, dev_warn},
+};
+use crate::{
+    exec::{signal_manager::Signal, terminate_process},
     system::{
         fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, setpgid, setsid,
-        signal::SignalInfo,
         term::{PtyFollower, Terminal},
         wait::{Wait, WaitError, WaitOptions, WaitStatus},
         ForkResult,
     },
 };
-use crate::{
-    exec::{
-        event::StopReason,
-        use_pty::{SIGCONT_BG, SIGCONT_FG},
-    },
-    log::{dev_error, dev_info, dev_warn},
-};
 
 use signal_hook::consts::*;
 
 use crate::exec::{
-    event::{EventClosure, EventDispatcher},
+    event::{EventDispatcher, Process},
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
 };
@@ -41,7 +41,7 @@ pub(super) fn exec_monitor(
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
 ) -> io::Result<()> {
-    let mut dispatcher = EventDispatcher::<MonitorClosure>::new()?;
+    let signal_manager = SignalManager::new()?;
 
     // FIXME (ogsudo): Any file descriptor not used by the monitor are closed here.
 
@@ -98,11 +98,14 @@ pub(super) fn exec_monitor(
         dev_warn!("cannot send command PID to parent: {err}");
     }
 
+    let mut dispatcher = EventDispatcher::new();
+
     let mut closure = MonitorClosure::new(
         command_pid,
         pty_follower,
         errpipe_rx,
         backchannel,
+        signal_manager,
         &mut dispatcher,
     );
 
@@ -198,6 +201,7 @@ struct MonitorClosure<'a> {
     pty_follower: PtyFollower,
     errpipe_rx: UnixStream,
     backchannel: &'a mut MonitorBackchannel,
+    signal_manager: SignalManager,
 }
 
 impl<'a> MonitorClosure<'a> {
@@ -206,20 +210,21 @@ impl<'a> MonitorClosure<'a> {
         pty_follower: PtyFollower,
         errpipe_rx: UnixStream,
         backchannel: &'a mut MonitorBackchannel,
+        signal_manager: SignalManager,
         dispatcher: &mut EventDispatcher<Self>,
     ) -> Self {
         // Store the pgid of the monitor.
         let monitor_pgrp = getpgrp();
 
         // Register the callback to receive the IO error if the command fails to execute.
-        dispatcher.set_read_callback(&errpipe_rx, |monitor, dispatcher| {
-            monitor.read_errpipe(dispatcher)
-        });
+        dispatcher.register_read_event(&errpipe_rx, MonitorEvent::ReadableErrPipe);
 
         // Register the callback to receive events from the backchannel
-        dispatcher.set_read_callback(backchannel, |monitor, dispatcher| {
-            monitor.read_backchannel(dispatcher)
-        });
+        dispatcher.register_read_event(backchannel, MonitorEvent::ReadableBackchannel);
+
+        for (signal, signal_handler) in signal_manager.handlers() {
+            dispatcher.register_read_event(signal_handler, MonitorEvent::Signal(signal));
+        }
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
@@ -233,6 +238,7 @@ impl<'a> MonitorClosure<'a> {
             monitor_pgrp,
             pty_follower,
             errpipe_rx,
+            signal_manager,
             backchannel,
         }
     }
@@ -358,6 +364,37 @@ impl<'a> MonitorClosure<'a> {
             }
         }
     }
+
+    fn on_signal(&mut self, signal: Signal, dispatcher: &mut EventDispatcher<Self>) {
+        let info = match self.signal_manager.get_handler_mut(signal).recv() {
+            Ok(info) => info,
+            Err(err) => {
+                dev_error!("monitor could not receive signal {signal:?}: {err}");
+                return;
+            }
+        };
+
+        dev_info!(
+            "monitor received{} {} from {}",
+            opt_fmt(info.is_user_signaled(), " user signaled"),
+            signal_fmt(info.signal()),
+            info.pid()
+        );
+
+        // Don't do anything if the command has terminated already
+        let Some(command_pid) = self.command_pid else {
+            dev_info!("command was terminated, ignoring signal");
+            return;
+        };
+
+        match info.signal() {
+            SIGCHLD => self.handle_sigchld(command_pid, dispatcher),
+            // Skip the signal if it was sent by the user and it is self-terminating.
+            _ if info.is_user_signaled()
+                && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
+            signal => self.send_signal(signal, command_pid, false),
+        }
+    }
 }
 
 /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
@@ -385,30 +422,23 @@ fn is_self_terminating(
     false
 }
 
-impl<'a> EventClosure for MonitorClosure<'a> {
+#[derive(Clone, Copy)]
+enum MonitorEvent {
+    Signal(Signal),
+    ReadableErrPipe,
+    ReadableBackchannel,
+}
+
+impl<'a> Process for MonitorClosure<'a> {
+    type Event = MonitorEvent;
     type Break = io::Error;
     type Exit = WaitStatus;
 
-    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
-        dev_info!(
-            "monitor received{} {} from {}",
-            opt_fmt(info.is_user_signaled(), " user signaled"),
-            signal_fmt(info.signal()),
-            info.pid()
-        );
-
-        // Don't do anything if the command has terminated already
-        let Some(command_pid) = self.command_pid else {
-            dev_info!("command was terminated, ignoring signal");
-            return;
-        };
-
-        match info.signal() {
-            SIGCHLD => self.handle_sigchld(command_pid, dispatcher),
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled()
-                && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
-            signal => self.send_signal(signal, command_pid, false),
+    fn on_event(&mut self, event: Self::Event, dispatcher: &mut EventDispatcher<Self>) {
+        match event {
+            MonitorEvent::Signal(signal) => self.on_signal(signal, dispatcher),
+            MonitorEvent::ReadableErrPipe => self.read_errpipe(dispatcher),
+            MonitorEvent::ReadableBackchannel => self.read_backchannel(dispatcher),
         }
     }
 }

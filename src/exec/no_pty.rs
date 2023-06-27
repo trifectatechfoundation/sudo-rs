@@ -3,17 +3,18 @@ use std::{io, process::Command};
 use signal_hook::consts::*;
 
 use super::{
-    event::{EventClosure, EventDispatcher, StopReason},
+    event::{EventDispatcher, Process, StopReason},
+    signal_manager::Signal,
     terminate_process, ExitReason,
 };
 use crate::{
-    exec::{io_util::was_interrupted, opt_fmt, signal_fmt},
+    exec::{io_util::was_interrupted, opt_fmt, signal_fmt, signal_manager::SignalManager},
     log::{dev_error, dev_info, dev_warn},
     system::{
         getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
-        signal::{SignalAction, SignalInfo, SignalNumber},
+        signal::{SignalAction, SignalNumber},
         term::{Terminal, UserTerm},
         wait::{Wait, WaitError, WaitOptions},
     },
@@ -25,8 +26,8 @@ pub(crate) fn exec_no_pty(
 ) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
-    // FIXME: block signals directly instead of using the dispatcher.
-    let mut dispatcher = EventDispatcher::new()?;
+    // FIXME: block signals directly instead of using the manager.
+    let signal_manager = SignalManager::new()?;
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
@@ -38,7 +39,9 @@ pub(crate) fn exec_no_pty(
     let command_pid = command.id() as ProcessId;
     dev_info!("Executed command with pid {command_pid}");
 
-    let mut closure = ExecClosure::new(command_pid, sudo_pid);
+    let mut dispatcher = EventDispatcher::new();
+
+    let mut closure = ExecClosure::new(command_pid, sudo_pid, signal_manager, &mut dispatcher);
 
     // FIXME: restore signal mask here.
 
@@ -54,14 +57,25 @@ struct ExecClosure {
     command_pid: Option<ProcessId>,
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
+    signal_manager: SignalManager,
 }
 
 impl ExecClosure {
-    fn new(command_pid: ProcessId, sudo_pid: ProcessId) -> Self {
+    fn new(
+        command_pid: ProcessId,
+        sudo_pid: ProcessId,
+        signal_manager: SignalManager,
+        dispatcher: &mut EventDispatcher<Self>,
+    ) -> Self {
+        for (signal, handler) in signal_manager.handlers() {
+            dispatcher.register_read_event(handler, ExecEvent::Signal(signal));
+        }
+
         Self {
             command_pid: Some(command_pid),
             sudo_pid,
             parent_pgrp: getpgrp(),
+            signal_manager,
         }
     }
 
@@ -102,7 +116,7 @@ impl ExecClosure {
                 "command ({command_pid}) was stopped by {}",
                 signal_fmt(signal),
             );
-            self.suspend_parent(signal, dispatcher);
+            self.suspend_parent(signal);
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
                 "command ({command_pid}) was terminated by {}",
@@ -122,7 +136,7 @@ impl ExecClosure {
     }
 
     /// Suspend the main process.
-    fn suspend_parent(&self, signal: SignalNumber, dispatcher: &mut EventDispatcher<Self>) {
+    fn suspend_parent(&self, signal: SignalNumber) {
         let mut opt_tty = UserTerm::open().ok();
         let mut opt_pgrp = None;
 
@@ -159,9 +173,11 @@ impl ExecClosure {
             }
         }
 
-        if signal == SIGTSTP {
-            dispatcher.set_signal_action(signal, SignalAction::Default);
-        }
+        let sigtstp_action = (signal == SIGTSTP).then(|| {
+            self.signal_manager
+                .get_handler(Signal::SIGTSTP)
+                .set_action(SignalAction::Default)
+        });
 
         if let Err(err) = kill(self.sudo_pid, signal) {
             dev_warn!(
@@ -171,8 +187,10 @@ impl ExecClosure {
             );
         }
 
-        if signal == SIGTSTP {
-            dispatcher.set_signal_action(signal, SignalAction::Stream);
+        if let Some(action) = sigtstp_action {
+            self.signal_manager
+                .get_handler(Signal::SIGTSTP)
+                .set_action(action);
         }
 
         if let Some(saved_pgrp) = opt_pgrp {
@@ -184,13 +202,16 @@ impl ExecClosure {
             }
         }
     }
-}
 
-impl EventClosure for ExecClosure {
-    type Break = std::convert::Infallible;
-    type Exit = ExitReason;
+    fn on_signal(&mut self, signal: Signal, dispatcher: &mut EventDispatcher<Self>) {
+        let info = match self.signal_manager.get_handler_mut(signal).recv() {
+            Ok(info) => info,
+            Err(err) => {
+                dev_error!("sudo could not receive signal {signal:?}: {err}");
+                return;
+            }
+        };
 
-    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
         dev_info!(
             "sudo received{} {} from {}",
             opt_fmt(info.is_user_signaled(), " user signaled"),
@@ -222,6 +243,23 @@ impl EventClosure for ExecClosure {
                     kill(command_pid, signal).ok();
                 }
             }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ExecEvent {
+    Signal(Signal),
+}
+
+impl Process for ExecClosure {
+    type Event = ExecEvent;
+    type Break = std::convert::Infallible;
+    type Exit = ExitReason;
+
+    fn on_event(&mut self, event: Self::Event, dispatcher: &mut EventDispatcher<Self>) {
+        match event {
+            ExecEvent::Signal(signal) => self.on_signal(signal, dispatcher),
         }
     }
 }
