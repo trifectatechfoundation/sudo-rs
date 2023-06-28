@@ -20,7 +20,6 @@ fn sets_primary_group_id() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh553"]
 fn original_primary_group_id_is_lost() -> Result<()> {
     let gid = 1000;
     let group_name = "rustaceans";
@@ -37,7 +36,6 @@ fn original_primary_group_id_is_lost() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh552"]
 fn invoking_user_must_be_root() -> Result<()> {
     let group_name = "rustaceans";
     let invoking_user = "ferris";
@@ -68,7 +66,6 @@ fn invoking_user_must_be_root() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh581"]
 fn when_specified_more_than_once_all_groups_are_added_to_group_list() -> Result<()> {
     let gid1 = 1000;
     let group_name1 = "rustaceans";

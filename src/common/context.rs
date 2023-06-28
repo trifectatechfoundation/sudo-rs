@@ -41,7 +41,7 @@ impl Context {
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
         let command = match sudo_options.action {
             SudoAction::Run(args) | SudoAction::List(args) => {
-                CommandAndArguments::try_from_args(shell, args, &path)?
+                CommandAndArguments::build_from_args(shell, args, &path)
             }
             _ => Default::default(),
         };

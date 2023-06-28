@@ -169,7 +169,6 @@ fn path_is_file() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh316"]
 fn target_user_has_insufficient_permissions() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=/root NOPASSWD: ALL")
         .user(USERNAME)

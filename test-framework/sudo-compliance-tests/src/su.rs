@@ -8,6 +8,7 @@ mod flag_command;
 mod flag_group;
 mod flag_login;
 mod flag_preserve_environment;
+mod flag_pty;
 mod flag_shell;
 mod flag_supp_group;
 mod flag_whitelist_environment;

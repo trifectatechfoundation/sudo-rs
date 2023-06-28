@@ -4,8 +4,8 @@ use std::path::PathBuf;
 pub struct SuOptions {
     pub user: String,
     pub command: Option<String>,
-    pub group: Option<String>,
-    pub supp_group: Option<String>,
+    pub group: Vec<String>,
+    pub supp_group: Vec<String>,
     pub pty: bool,
     pub login: bool,
     pub preserve_environment: bool,
@@ -20,8 +20,8 @@ impl Default for SuOptions {
         Self {
             user: "root".to_owned(),
             command: None,
-            group: None,
-            supp_group: None,
+            group: vec![],
+            supp_group: vec![],
             pty: false,
             login: false,
             preserve_environment: false,
@@ -70,8 +70,8 @@ impl SuOptions {
             long: "group",
             takes_argument: true,
             set: &|sudo_options, argument| {
-                if argument.is_some() {
-                    sudo_options.group = argument;
+                if let Some(value) = argument {
+                    sudo_options.group.push(value);
                 } else {
                     Err("no group provided")?
                 }
@@ -84,8 +84,8 @@ impl SuOptions {
             long: "supp-group",
             takes_argument: true,
             set: &|sudo_options, argument| {
-                if argument.is_some() {
-                    sudo_options.supp_group = argument;
+                if let Some(value) = argument {
+                    sudo_options.supp_group.push(value);
                 } else {
                     Err("no supplementary group provided")?
                 }
@@ -104,6 +104,15 @@ impl SuOptions {
         },
         SuOption {
             short: 'p',
+            long: "preserve-environment",
+            takes_argument: false,
+            set: &|sudo_options, _| {
+                sudo_options.preserve_environment = true;
+                Ok(())
+            },
+        },
+        SuOption {
+            short: 'm',
             long: "preserve-environment",
             takes_argument: false,
             set: &|sudo_options, _| {
@@ -140,8 +149,8 @@ impl SuOptions {
             takes_argument: true,
             set: &|sudo_options, argument| {
                 if let Some(list) = argument {
-                    sudo_options.whitelist_environment =
-                        list.split(',').map(str::to_string).collect();
+                    let values: Vec<String> = list.split(',').map(str::to_string).collect();
+                    sudo_options.whitelist_environment.extend(values);
                 } else {
                     Err("no enivronment whitelist provided")?
                 }
@@ -176,7 +185,7 @@ impl SuOptions {
     }
 
     /// parse su arguments into SuOptions struct
-    fn parse_arguments(arguments: Vec<String>) -> Result<SuOptions, String> {
+    pub(crate) fn parse_arguments(arguments: Vec<String>) -> Result<SuOptions, String> {
         let mut options: SuOptions = SuOptions::default();
         let mut arg_iter = arguments.into_iter().skip(1);
 
@@ -266,7 +275,7 @@ mod tests {
 
     fn it_parses_group() {
         let expected = SuOptions {
-            group: Some("ferris".to_string()),
+            group: vec!["ferris".to_string()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-g", "ferris"]));
@@ -385,13 +394,29 @@ mod tests {
     #[test]
     fn it_parses_supplementary_group() {
         let expected = SuOptions {
-            supp_group: Some("ferris".to_string()),
+            supp_group: vec!["ferris".to_string()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-G", "ferris"]));
         assert_eq!(expected, parse(&["-Gferris"]));
         assert_eq!(expected, parse(&["--supp-group", "ferris"]));
         assert_eq!(expected, parse(&["--supp-group=ferris"]));
+    }
+
+    #[test]
+    fn it_parses_multiple_supplementary_groups() {
+        let expected = SuOptions {
+            supp_group: vec![
+                "ferris".to_string(),
+                "krabbetje".to_string(),
+                "krabbe".to_string(),
+            ],
+            ..Default::default()
+        };
+        assert_eq!(
+            expected,
+            parse(&["-G", "ferris", "-G", "krabbetje", "--supp-group", "krabbe"])
+        );
     }
 
     #[test]

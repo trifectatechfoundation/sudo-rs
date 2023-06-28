@@ -116,7 +116,6 @@ fn list_syntax_odd_names() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh584"]
 fn when_specified_more_than_once_lists_are_merged() -> Result<()> {
     let varname1 = "FOO";
     let varval1 = "42";

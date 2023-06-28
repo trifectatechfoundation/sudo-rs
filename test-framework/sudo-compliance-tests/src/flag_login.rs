@@ -221,7 +221,7 @@ fn shell_does_not_exist() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(stderr, "IO error: No such file or directory");
+        assert_contains!(stderr, "'/tmp/my-shell': No such file or directory");
     }
 
     Ok(())
@@ -246,7 +246,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(stderr, "IO error: Permission denied");
+        assert_contains!(stderr, "Permission denied");
     }
 
     Ok(())

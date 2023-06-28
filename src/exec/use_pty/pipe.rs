@@ -1,6 +1,12 @@
 use std::{
     io::{self, Read, Write},
     marker::PhantomData,
+    os::fd::AsRawFd,
+};
+
+use crate::{
+    exec::event::{EventHandle, EventRegistry, Process},
+    system::poll::PollEvent,
 };
 
 // A pipe able to stream data bidirectionally between two read-write types.
@@ -9,12 +15,28 @@ pub(super) struct Pipe<L, R> {
     right: R,
     buffer_lr: Buffer<L, R>,
     buffer_rl: Buffer<R, L>,
+    left_handles: (EventHandle, EventHandle),
+    right_handles: (EventHandle, EventHandle),
 }
 
-impl<L: Read + Write, R: Read + Write> Pipe<L, R> {
-    /// Create a new pipe between two read-write types.
-    pub fn new(left: L, right: R) -> Self {
+impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
+    /// Create a new pipe between two read-write types and register them to be polled.
+    pub fn new<T: Process>(
+        left: L,
+        right: R,
+        registry: &mut EventRegistry<T>,
+        f_left: fn(PollEvent) -> T::Event,
+        f_right: fn(PollEvent) -> T::Event,
+    ) -> Self {
         Self {
+            left_handles: (
+                registry.register_event(&left, PollEvent::Readable, f_left),
+                registry.register_event(&left, PollEvent::Writable, f_left),
+            ),
+            right_handles: (
+                registry.register_event(&right, PollEvent::Readable, f_right),
+                registry.register_event(&right, PollEvent::Writable, f_right),
+            ),
             left,
             right,
             buffer_lr: Buffer::new(),
@@ -37,41 +59,40 @@ impl<L: Read + Write, R: Read + Write> Pipe<L, R> {
         &self.right
     }
 
-    /// Get mutable references to both sides of the pipe.
-    pub(crate) fn both_mut(&mut self) -> (&mut L, &mut R) {
-        (&mut self.left, &mut self.right)
+    /// Stop the poll events of this pipe.
+    pub(super) fn ignore_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
+        self.left_handles.0.ignore(registry);
+        self.left_handles.1.ignore(registry);
+        self.right_handles.0.ignore(registry);
+        self.right_handles.1.ignore(registry);
     }
 
-    /// Read from the left side of the pipe.
-    ///
-    /// Calling this function will block until the left side is ready to be read.
-    pub fn read_left(&mut self) -> io::Result<()> {
-        self.buffer_lr.read(&mut self.left)
+    /// Resume the poll events of this pipe
+    pub(super) fn resume_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
+        self.left_handles.0.resume(registry);
+        self.left_handles.1.resume(registry);
+        self.right_handles.0.resume(registry);
+        self.right_handles.1.resume(registry);
     }
 
-    /// Write into the left side of the pipe.
-    ///
-    /// Calling this function will block until the left side is ready to be written.
-    pub fn write_left(&mut self) -> io::Result<()> {
-        self.buffer_rl.write(&mut self.left)
+    /// Handle a poll event for the left side of the pipe.
+    pub(super) fn on_left_event(&mut self, poll_event: PollEvent) -> io::Result<()> {
+        match poll_event {
+            PollEvent::Readable => self.buffer_lr.read(&mut self.left),
+            PollEvent::Writable => self.buffer_rl.write(&mut self.left),
+        }
     }
 
-    /// Read from the right side of the pipe.
-    ///
-    /// Calling this function will block until the right side is ready to be read.
-    pub fn read_right(&mut self) -> io::Result<()> {
-        self.buffer_rl.read(&mut self.right)
-    }
-
-    /// Write into the right side of the pipe.
-    ///
-    /// Calling this function will block until the right side is ready to be written.
-    pub fn write_right(&mut self) -> io::Result<()> {
-        self.buffer_lr.write(&mut self.right)
+    /// Handle a poll event for the right side of the pipe.
+    pub(super) fn on_right_event(&mut self, poll_event: PollEvent) -> io::Result<()> {
+        match poll_event {
+            PollEvent::Readable => self.buffer_rl.read(&mut self.right),
+            PollEvent::Writable => self.buffer_lr.write(&mut self.right),
+        }
     }
 
     /// Ensure that all the contents of the pipe's internal buffer are written to the left side.
-    pub fn flush_left(&mut self) -> io::Result<()> {
+    pub(super) fn flush_left(&mut self) -> io::Result<()> {
         self.buffer_rl.flush(&mut self.left)
     }
 }

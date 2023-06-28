@@ -1,12 +1,13 @@
 use std::path::{Path, PathBuf};
 
-use super::{resolve::resolve_path, Error};
+use super::resolve::resolve_path;
 
 #[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct CommandAndArguments {
-    pub command: PathBuf,
-    pub arguments: Vec<String>,
+    pub(crate) command: PathBuf,
+    pub(crate) arguments: Vec<String>,
+    pub(crate) resolved: bool,
 }
 
 // when -i and -s are used, the arguments given to sudo are escaped "except for alphanumerics, underscores, hyphens, and dollar signs."
@@ -33,11 +34,8 @@ fn is_qualified(path: impl AsRef<Path>) -> bool {
 }
 
 impl CommandAndArguments {
-    pub fn try_from_args(
-        shell: Option<PathBuf>,
-        mut arguments: Vec<String>,
-        path: &str,
-    ) -> Result<Self, Error> {
+    pub fn build_from_args(shell: Option<PathBuf>, mut arguments: Vec<String>, path: &str) -> Self {
+        let mut resolved = true;
         let mut command;
         if let Some(chosen_shell) = shell {
             command = chosen_shell;
@@ -47,21 +45,31 @@ impl CommandAndArguments {
         } else {
             command = arguments
                 .get(0)
-                .ok_or_else(|| Error::InvalidCommand(PathBuf::new()))?
-                .into();
+                .map(|s| s.into())
+                .unwrap_or_else(PathBuf::new);
             arguments.remove(0);
 
-            // FIXME: we leak information here since we throw an error if a file does not exists
+            // resolve the command, remembering errors (but not propagating them)
             if !is_qualified(&command) {
-                command =
-                    resolve_path(&command, path).ok_or_else(|| Error::CommandNotFound(command))?
+                match resolve_path(&command, path) {
+                    Some(qualified_path) => command = qualified_path,
+                    None => resolved = false,
+                }
             }
 
-            // resolve symlinks, even if the command was obtained through a PATH search
-            command = std::fs::canonicalize(&command).unwrap_or(command)
+            // resolve symlinks, even if the command was obtained through a PATH or SHELL
+            // once again, failure to canonicalize should not stop the pipeline
+            match std::fs::canonicalize(&command) {
+                Ok(canon_path) => command = canon_path,
+                Err(_) => resolved = false,
+            }
         }
 
-        Ok(CommandAndArguments { command, arguments })
+        CommandAndArguments {
+            command,
+            arguments,
+            resolved,
+        }
     }
 }
 
@@ -88,40 +96,54 @@ mod test {
     #[test]
     fn test_build_command_and_args() {
         assert_eq!(
-            CommandAndArguments::try_from_args(
+            CommandAndArguments::build_from_args(
                 None,
                 vec!["/usr/bin/fmt".into(), "hello".into()],
                 "/bin"
-            )
-            .unwrap(),
+            ),
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
-                arguments: vec!["hello".into()]
+                arguments: vec!["hello".into()],
+                resolved: true,
             }
         );
 
         assert_eq!(
-            CommandAndArguments::try_from_args(
+            CommandAndArguments::build_from_args(
                 None,
                 vec!["fmt".into(), "hello".into()],
                 "/tmp:/usr/bin:/bin"
-            )
-            .unwrap(),
+            ),
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
-                arguments: vec!["hello".into()]
+                arguments: vec!["hello".into()],
+                resolved: true,
             }
         );
+
         assert_eq!(
-            CommandAndArguments::try_from_args(
+            CommandAndArguments::build_from_args(
+                None,
+                vec!["thisdoesnotexist".into(), "hello".into()],
+                ""
+            ),
+            CommandAndArguments {
+                command: "thisdoesnotexist".into(),
+                arguments: vec!["hello".into()],
+                resolved: false,
+            }
+        );
+
+        assert_eq!(
+            CommandAndArguments::build_from_args(
                 Some("shell".into()),
                 vec!["ls".into(), "hello".into()],
                 "/bin"
-            )
-            .unwrap(),
+            ),
             CommandAndArguments {
                 command: "shell".into(),
-                arguments: vec!["-c".into(), "ls hello".into()]
+                arguments: vec!["-c".into(), "ls hello".into()],
+                resolved: true,
             }
         );
     }
