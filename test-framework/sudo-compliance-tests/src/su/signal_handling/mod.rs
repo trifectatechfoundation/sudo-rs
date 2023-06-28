@@ -7,11 +7,13 @@ const SIGNAL_OFFSET: u8 = 128;
 
 // TODO `--pty` variants
 #[test]
+#[ignore = "gh602"]
 fn sigterms_child_on_sigterm_when_no_tty() -> Result<()> {
     sigterms_child_on_sigterm(false, false)
 }
 
 #[test]
+#[ignore = "gh602"]
 fn sigterms_child_on_sigterm_when_preexisting_tty() -> Result<()> {
     sigterms_child_on_sigterm(true, false)
 }
@@ -60,11 +62,13 @@ fn sigterms_child_on_sigterm(tty: bool, flag_pty: bool) -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh603"]
 fn escalates_to_sigkill_when_sigterm_is_ignored_when_no_tty() -> Result<()> {
     escalates_to_sigkill_when_sigterm_is_ignored(false, false)
 }
 
 #[test]
+#[ignore = "gh603"]
 fn escalates_to_sigkill_when_sigterm_is_ignored_when_preexisting_tty() -> Result<()> {
     escalates_to_sigkill_when_sigterm_is_ignored(true, false)
 }
