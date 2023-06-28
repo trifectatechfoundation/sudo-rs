@@ -149,6 +149,7 @@ impl<T: Process> EventRegistry<T> {
     ///
     /// The event loop will continue indefinitely unless you call [`EventRegistry::set_break`] or
     /// [`EventRegistry::set_exit`].
+    #[track_caller]
     pub(super) fn event_loop(&mut self, process: &mut T) -> StopReason<T> {
         let mut event_queue = Vec::with_capacity(self.events.len());
 
