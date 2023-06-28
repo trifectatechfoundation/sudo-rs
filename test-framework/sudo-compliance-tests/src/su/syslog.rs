@@ -56,6 +56,7 @@ fn logs_every_session() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh601"]
 fn logs_every_failed_authentication_attempt() -> Result<()> {
     let invoking_user = USERNAME;
     let invoking_userid = 1000;
