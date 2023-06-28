@@ -135,3 +135,54 @@ fn pty_owner() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn stdin_pipe() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+
+    let stdout = Command::new("sh")
+        .args(["-c", "echo 'hello world' | sudo grep -o hello"])
+        .tty(true)
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(stdout.trim(), "hello");
+
+    Ok(())
+}
+
+#[test]
+fn stdout_pipe() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+
+    let stdout = Command::new("sh")
+        .args(["-c", "sudo echo 'hello world' | grep -o hello"])
+        .tty(true)
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(stdout.trim(), "hello");
+
+    Ok(())
+}
+
+#[test]
+fn stderr_pipe() -> Result<()> {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+
+    let output = Command::new("sh")
+        .args(["-c", "2>/tmp/stderr.txt sh -c '>&2 echo \"hello world\"'"])
+        .tty(true)
+        .output(&env)?;
+
+    assert!(output.stderr().is_empty());
+
+    let stdout = Command::new("cat")
+        .arg("/tmp/stderr.txt")
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(stdout, "hello world");
+
+    Ok(())
+}

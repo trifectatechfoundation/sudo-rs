@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::io;
-use std::process::{exit, Command};
+use std::io::{self, IsTerminal};
+use std::process::{exit, Command, Stdio};
 
 use signal_hook::consts::*;
 
@@ -93,14 +93,39 @@ pub(crate) fn exec_pty(
     // FIXME: maybe all these boolean flags should be on a dedicated type.
 
     // Whether we're running on a pipeline
-    let pipeline = false;
+    let mut pipeline = false;
     // Whether the command should be executed in the background (this is not the `-b` flag)
-    let exec_bg = false;
+    let mut exec_bg = false;
     // Whether the user's terminal is in raw mode or not.
     let mut term_raw = false;
 
-    // FIXME (ogsudo): Do some extra setup if any of the IO streams are not a tty and logging is
-    // enabled or if sudo is running in background.
+    // Check if we are part of a pipeline.
+    // FIXME: Here's where we should intercept the IO streams if we want to implement IO logging.
+    // FIXME: ogsudo creates pipes for the IO streams and uses events to read from the strams to
+    // the pipes. Investigate why.
+    if !io::stdin().is_terminal() {
+        dev_info!("stdin is not a terminal, command will inherit it");
+        pipeline = true;
+        command.stdin(Stdio::inherit());
+
+        if foreground && parent_pgrp != sudo_pid {
+            // If sudo is not the process group leader and stdin is not a terminal we might be
+            // running as a background job via a shell script. Starting in the foreground would
+            // change the terminal mode.
+            exec_bg = true;
+        }
+    }
+
+    if !io::stdout().is_terminal() {
+        dev_info!("stdout is not a terminal, command will inherit it");
+        pipeline = true;
+        command.stdout(Stdio::inherit());
+    }
+
+    if !io::stderr().is_terminal() {
+        dev_info!("stderr is not a terminal, command will inherit it");
+        command.stderr(Stdio::inherit());
+    }
 
     // Copy terminal settings from `/dev/tty` to the pty.
     if let Err(err) = user_tty.copy_to(&pty.follower) {
