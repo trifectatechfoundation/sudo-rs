@@ -87,11 +87,11 @@ impl<T: Process> EventRegistry<T> {
         &mut self,
         fd: &F,
         poll_event: PollEvent,
-        event: T::Event,
+        event_fn: impl Fn(PollEvent) -> T::Event,
     ) -> EventId {
         let id = self.next_id();
         self.poll_set.add_fd(id, fd, poll_event);
-        self.events.insert(id, event);
+        self.events.insert(id, event_fn(poll_event));
         id
     }
 
@@ -103,8 +103,8 @@ impl<T: Process> EventRegistry<T> {
         f: fn(PollEvent) -> T::Event,
     ) -> (EventId, EventId) {
         (
-            self.register_event(fd, PollEvent::Readable, f(PollEvent::Readable)),
-            self.register_event(fd, PollEvent::Writable, f(PollEvent::Writable)),
+            self.register_event(fd, PollEvent::Readable, f),
+            self.register_event(fd, PollEvent::Writable, f),
         )
     }
 

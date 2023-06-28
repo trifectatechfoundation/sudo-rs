@@ -218,18 +218,14 @@ impl<'a> MonitorClosure<'a> {
         let monitor_pgrp = getpgrp();
 
         // Register the callback to receive the IO error if the command fails to execute.
-        registry.register_event(
-            &errpipe_rx,
-            PollEvent::Readable,
-            MonitorEvent::ReadableErrPipe,
-        );
+        registry.register_event(&errpipe_rx, PollEvent::Readable, |_| {
+            MonitorEvent::ReadableErrPipe
+        });
 
         // Register the callback to receive events from the backchannel
-        registry.register_event(
-            backchannel,
-            PollEvent::Readable,
-            MonitorEvent::ReadableBackchannel,
-        );
+        registry.register_event(backchannel, PollEvent::Readable, |_| {
+            MonitorEvent::ReadableBackchannel
+        });
 
         signal_manager.register_handlers(registry, MonitorEvent::Signal);
 
