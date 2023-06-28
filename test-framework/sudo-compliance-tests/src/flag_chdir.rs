@@ -129,7 +129,6 @@ fn cwd_set_to_non_glob_value_then_cannot_use_that_path_with_chdir_flag() -> Resu
 }
 
 #[test]
-#[ignore = "gh401"]
 fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_unset() -> Result<()> {
     let path = "/root";
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
@@ -144,9 +143,7 @@ fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_unset() -> Result<()> {
     Ok(())
 }
 
-// NOTE unclear if we want to adopt this behavior
 #[test]
-#[ignore = "gh401"]
 fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_set() -> Result<()> {
     let cwd_path = "/root";
     let another_path = "/tmp";
@@ -165,7 +162,6 @@ fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_set() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh312"]
 fn target_user_has_insufficient_perms() -> Result<()> {
     let path = "/root";
     let env = Env("ALL ALL=(ALL:ALL) CWD=* NOPASSWD: ALL")
@@ -183,7 +179,7 @@ fn target_user_has_insufficient_perms() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to change directory to /root: Permission denied"
     } else {
-        "FIXME"
+        "Permission denied"
     };
     assert_contains!(output.stderr(), diagnostic);
 

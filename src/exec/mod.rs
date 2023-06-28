@@ -61,6 +61,13 @@ pub fn run_command(
         })
     });
 
+    // set target user and groups
+    set_target_user(
+        &mut command,
+        options.user().clone(),
+        options.group().clone(),
+    );
+
     // change current directory if necessary.
     if let Some(path) = path {
         let is_chdir = options.chdir().is_some();
@@ -84,13 +91,6 @@ pub fn run_command(
             });
         }
     }
-
-    // set target user and groups
-    set_target_user(
-        &mut command,
-        options.user().clone(),
-        options.group().clone(),
-    );
 
     match UserTerm::open() {
         Ok(user_tty) => exec_pty(options.pid(), command, user_tty),
