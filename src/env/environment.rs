@@ -236,6 +236,10 @@ mod tests {
         fn secure_path(&self) -> Option<String> {
             None
         }
+
+        fn use_pty(&self) -> bool {
+            true
+        }
     }
 
     #[test]

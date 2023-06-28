@@ -23,6 +23,8 @@ pub struct Context {
     pub hostname: String,
     pub current_user: User,
     pub process: Process,
+    // policy
+    pub use_pty: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -58,6 +60,7 @@ impl Context {
             stdin: sudo_options.stdin,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
+            use_pty: true,
         })
     }
 }

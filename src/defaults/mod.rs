@@ -28,7 +28,7 @@ defaults! {
     env_reset                 = true
     mail_badpass              = true
     match_group_by_gid        = false
-    use_pty                   = false
+    use_pty                   = true
     visiblepw                 = false
 
     passwd_tries              = 3                  [0..=1000]
@@ -93,7 +93,7 @@ mod test {
         test! { env_reset => Flag(true) };
         test! { mail_badpass => Flag(true) };
         test! { match_group_by_gid => Flag(false) };
-        test! { use_pty => Flag(false) };
+        test! { use_pty => Flag(true) };
         test! { visiblepw => Flag(false) };
         test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }, _) };
         test! { umask => Integer(OptTuple { default: 18, negated: Some(511) }, _) };

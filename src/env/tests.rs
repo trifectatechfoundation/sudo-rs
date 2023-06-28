@@ -133,6 +133,7 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
         non_interactive: sudo_options.non_interactive,
         process: Process::new(),
         use_session_records: false,
+        use_pty: true,
     }
 }
 

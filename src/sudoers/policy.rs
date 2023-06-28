@@ -23,6 +23,8 @@ pub trait Policy {
     fn env_check(&self) -> &HashSet<String>;
 
     fn secure_path(&self) -> Option<String>;
+
+    fn use_pty(&self) -> bool;
 }
 
 #[must_use]
@@ -78,6 +80,10 @@ impl Policy for Judgement {
         self.settings.str_value["secure_path"]
             .as_ref()
             .map(|s| s.to_string())
+    }
+
+    fn use_pty(&self) -> bool {
+        self.settings.flags.contains("use_pty")
     }
 }
 

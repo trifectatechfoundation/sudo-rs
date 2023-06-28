@@ -232,6 +232,10 @@ impl RunOptions for SuContext {
     fn pid(&self) -> i32 {
         self.process.pid
     }
+
+    fn use_pty(&self) -> bool {
+        self.options.pty
+    }
 }
 
 #[cfg(test)]
