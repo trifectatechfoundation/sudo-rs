@@ -612,7 +612,7 @@ impl From<ExitReason> for ParentExit {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParentEvent {
     Signal(Signal),
     Tty(PollEvent),

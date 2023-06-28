@@ -206,7 +206,7 @@ impl ExecClosure {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ExecEvent {
     Signal(Signal),
 }

@@ -8,7 +8,7 @@ use crate::cutils::cerr;
 use libc::{c_short, pollfd, POLLIN, POLLOUT};
 
 /// The kind of event that will be monitored for a file descriptor.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PollEvent {
     /// Data may be read without blocking.
     Readable,
