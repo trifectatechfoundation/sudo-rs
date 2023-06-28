@@ -171,6 +171,11 @@ impl Output {
         self.assert_success()?;
         Ok(self.stdout)
     }
+
+    /// the collected standard output of the finished `Command`
+    pub fn unchecked_stdout(&self) -> &str {
+        &self.stdout
+    }
 }
 
 impl TryFrom<process::Output> for Output {

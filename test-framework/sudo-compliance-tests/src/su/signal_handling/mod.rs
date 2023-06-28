@@ -5,8 +5,18 @@ use crate::{Result, USERNAME};
 const SIGTERM: u8 = 15;
 const SIGNAL_OFFSET: u8 = 128;
 
+// TODO `--pty` variants
 #[test]
-fn sigterms_child_on_sigterm() -> Result<()> {
+fn sigterms_child_on_sigterm_when_no_tty() -> Result<()> {
+    sigterms_child_on_sigterm(false, false)
+}
+
+#[test]
+fn sigterms_child_on_sigterm_when_preexisting_tty() -> Result<()> {
+    sigterms_child_on_sigterm(true, false)
+}
+
+fn sigterms_child_on_sigterm(tty: bool, flag_pty: bool) -> Result<()> {
     let script_path = "/tmp/script.sh";
     let env = Env("")
         .file(
@@ -16,9 +26,11 @@ fn sigterms_child_on_sigterm() -> Result<()> {
         .user(USERNAME)
         .build()?;
 
-    let child = Command::new("su")
-        .args([USERNAME, script_path])
-        .spawn(&env)?;
+    let mut su = Command::new("su");
+    if flag_pty {
+        su.arg("--pty");
+    }
+    let child = su.args([USERNAME, script_path]).tty(tty).spawn(&env)?;
 
     Command::new("sh")
         .arg("-c")
@@ -27,8 +39,8 @@ fn sigterms_child_on_sigterm() -> Result<()> {
         .assert_success()?;
 
     let output = child.wait()?;
-    let stderr = output.stderr();
-    dbg!(&stderr);
+    let stdout = output.unchecked_stdout();
+    eprintln!("\n--- STDOUT ---\n{stdout}\n--- STDOUT ---\n");
 
     assert!(!output.status().success());
     assert_eq!(
@@ -36,18 +48,27 @@ fn sigterms_child_on_sigterm() -> Result<()> {
         output.status().code()
     );
 
-    assert_contains!(stderr, "received SIGTERM");
+    assert_contains!(stdout, "received SIGTERM");
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(stderr.trim_start(), "Session terminated, killing shell...");
-        assert_contains!(stderr, "...killed");
+        let stream = if tty { stdout } else { output.stderr() };
+        assert_contains!(stream, "Session terminated, killing shell...");
+        assert_contains!(stream, "...killed");
     }
 
     Ok(())
 }
 
 #[test]
-fn escalates_to_sigkill_when_sigterm_is_ignored() -> Result<()> {
+fn escalates_to_sigkill_when_sigterm_is_ignored_when_no_tty() -> Result<()> {
+    escalates_to_sigkill_when_sigterm_is_ignored(false, false)
+}
+
+#[test]
+fn escalates_to_sigkill_when_sigterm_is_ignored_when_preexisting_tty() -> Result<()> {
+    escalates_to_sigkill_when_sigterm_is_ignored(true, false)
+}
+fn escalates_to_sigkill_when_sigterm_is_ignored(tty: bool, flag_pty: bool) -> Result<()> {
     let script_path = "/tmp/script.sh";
     let env = Env("")
         .file(
@@ -57,9 +78,11 @@ fn escalates_to_sigkill_when_sigterm_is_ignored() -> Result<()> {
         .user(USERNAME)
         .build()?;
 
-    let child = Command::new("su")
-        .args([USERNAME, script_path])
-        .spawn(&env)?;
+    let mut su = Command::new("su");
+    if flag_pty {
+        su.arg("--pty");
+    }
+    let child = su.args([USERNAME, script_path]).tty(tty).spawn(&env)?;
 
     Command::new("sh")
         .arg("-c")
@@ -68,23 +91,23 @@ fn escalates_to_sigkill_when_sigterm_is_ignored() -> Result<()> {
         .assert_success()?;
 
     let output = child.wait()?;
-    let stderr = output.stderr();
-    dbg!(&stderr);
+    let stdout = output.unchecked_stdout();
+    eprintln!("\n--- STDOUT ---\n{stdout}\n--- STDOUT ---\n");
 
-    assert!(!output.status().success(), "{stderr}");
+    assert!(!output.status().success(), "{stdout}");
     assert_eq!(
         Some(i32::from(SIGNAL_OFFSET + SIGTERM)),
         output.status().code()
     );
 
     let received_sigterm = "received SIGTERM";
-    assert_contains!(stderr, received_sigterm);
-    assert_not_contains!(stderr, "timeout");
+    assert_contains!(stdout, received_sigterm);
+    assert_not_contains!(stdout, "timeout");
 
     // it's not possible to `trap` SIGKILL so as a way to sanity check that the shell continued
     // executing after SIGTERM,  we check that there is at least one number printed by the for loop
     // after 'received SIGTERM'
-    let (_, after_sigterm) = stderr.split_once(received_sigterm).unwrap();
+    let (_, after_sigterm) = stdout.split_once(received_sigterm).unwrap();
     let numbers = after_sigterm
         .trim()
         .lines()
@@ -98,8 +121,9 @@ fn escalates_to_sigkill_when_sigterm_is_ignored() -> Result<()> {
     assert!((1..=3).contains(&numbers.len()));
 
     if sudo_test::is_original_sudo() {
-        assert_contains!(stderr.trim_start(), "Session terminated, killing shell...");
-        assert_contains!(stderr, "...killed");
+        let stream = if tty { stdout } else { output.stderr() };
+        assert_contains!(stream, "Session terminated, killing shell...");
+        assert_contains!(stream, "...killed");
     }
 
     Ok(())
