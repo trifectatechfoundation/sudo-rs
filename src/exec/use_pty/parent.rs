@@ -36,17 +36,17 @@ pub(crate) fn exec_pty(
 
     // Create backchannels to communicate with the monitor.
     let mut backchannels = BackchannelPair::new().map_err(|err| {
-        dev_error!("unable to create backchannel: {err}");
+        dev_error!("cannot create backchannel: {err}");
         err
     })?;
 
     // We don't want to receive SIGTTIN/SIGTTOU
     // FIXME: why?
     if let Err(err) = SignalHandler::with_action(SIGTTIN, SignalAction::Ignore) {
-        dev_error!("unable to set handler for SIGTTIN: {err}");
+        dev_error!("cannot set handler for SIGTTIN: {err}");
     }
     if let Err(err) = SignalHandler::with_action(SIGTTOU, SignalAction::Ignore) {
-        dev_error!("unable to set handler for SIGTTOU: {err}");
+        dev_error!("cannot set handler for SIGTTOU: {err}");
     }
 
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
@@ -118,7 +118,7 @@ pub(crate) fn exec_pty(
     let signal_manager = SignalManager::new()?;
 
     let ForkResult::Parent(monitor_pid) = fork().map_err(|err| {
-        dev_error!("unable to fork monitor process: {err}");
+        dev_error!("cannot fork monitor process: {err}");
         err
     })? else {
         // Close the file descriptors that we don't access
@@ -139,7 +139,7 @@ pub(crate) fn exec_pty(
             match err.try_into() {
                 Ok(msg) => {
                     if let Err(err) = backchannels.monitor.send(&msg) {
-                        dev_error!("unable to send status to parent: {err}");
+                        dev_error!("cannot send status to parent: {err}");
                     }
                 }
                 Err(err) => dev_warn!("execution error {err:?} cannot be send over backchannel"),
@@ -156,7 +156,7 @@ pub(crate) fn exec_pty(
     // Send green light to the monitor after closing the follower.
     retry_while_interrupted(|| backchannels.parent.send(&MonitorMessage::ExecCommand)).map_err(
         |err| {
-            dev_error!("unable to send green light to monitor: {err}");
+            dev_error!("cannot send green light to monitor: {err}");
             err
         },
     )?;
@@ -206,12 +206,12 @@ fn get_pty() -> io::Result<Pty> {
         .map(|group| group.gid);
 
     let pty = Pty::open().map_err(|err| {
-        dev_error!("unable to allocate pty: {err}");
+        dev_error!("cannot allocate pty: {err}");
         err
     })?;
 
     chown(&pty.path, User::effective_uid(), tty_gid).map_err(|err| {
-        dev_error!("unable to change owner for pty: {err}");
+        dev_error!("cannot change owner for pty: {err}");
         err
     })?;
 
@@ -283,10 +283,10 @@ impl ParentClosure {
             Err(err) => {
                 // If we get EOF the monitor exited or was killed
                 if err.kind() == io::ErrorKind::UnexpectedEof {
-                    dev_info!("parent received EOF from backchannel");
+                    dev_info!("received EOF from backchannel");
                     registry.set_exit(err.into());
                 } else {
-                    dev_error!("could not receive message from monitor: {err}");
+                    dev_error!("cannot receive message from backchannel: {err}");
                     if !registry.got_break() {
                         registry.set_break(err);
                     }
@@ -397,25 +397,30 @@ impl ParentClosure {
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
                 // This only happens if we receive `SIGCHLD` but there's no status update from the
                 // monitor.
-                Err(WaitError::Io(_err)) => dev_info!("parent could not wait for monitor: {_err}"),
-                // This only happens if the monitor exited and any process already waited for the monitor.
-                Err(WaitError::NotReady) => dev_info!("monitor process without status update"),
+                Err(WaitError::Io(err)) => {
+                    dev_info!("cannot wait for {monitor_pid} (monitor): {err}")
+                }
+                // This only happens if the monitor exited and any process already waited for the
+                // monitor.
+                Err(WaitError::NotReady) => {
+                    dev_info!("{monitor_pid} (monitor) has no status report")
+                }
                 Ok((_pid, status)) => break status,
             }
         };
 
-        if let Some(_code) = status.exit_status() {
-            dev_info!("monitor ({monitor_pid}) exited with status code {_code}");
+        if let Some(code) = status.exit_status() {
+            dev_info!("{monitor_pid} (monitor) exited with status code {code}");
             self.monitor_pid = None;
-        } else if let Some(_signal) = status.term_signal() {
+        } else if let Some(signal) = status.term_signal() {
             dev_info!(
-                "monitor ({monitor_pid}) was terminated by {}",
-                signal_fmt(_signal)
+                "{monitor_pid} (monitor) was terminated by {}",
+                signal_fmt(signal)
             );
             self.monitor_pid = None;
         } else if let Some(signal) = status.stop_signal() {
             dev_info!(
-                "monitor ({monitor_pid}) was stopped by {}, suspending sudo",
+                "{monitor_pid} (monitor) was stopped by {}, suspending sudo",
                 signal_fmt(signal)
             );
             if let Some(signal) = self.suspend_pty(signal, registry) {
@@ -424,9 +429,9 @@ impl ParentClosure {
 
             self.tty_pipe.resume_events(registry)
         } else if status.did_continue() {
-            dev_info!("monitor ({monitor_pid}) continued execution");
+            dev_info!("{monitor_pid} (monitor) continued execution");
         } else {
-            dev_warn!("unexpected wait status for monitor ({monitor_pid})")
+            dev_warn!("unexpected wait status for {monitor_pid} (monitor)")
         }
     }
 
@@ -473,7 +478,7 @@ impl ParentClosure {
         if self.term_raw {
             match self.tty_pipe.left_mut().restore(false) {
                 Ok(()) => self.term_raw = false,
-                Err(err) => dev_warn!("unable to restore terminal settings: {err}"),
+                Err(err) => dev_warn!("cannot restore terminal settings: {err}"),
             }
         }
 

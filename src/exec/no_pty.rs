@@ -32,12 +32,12 @@ pub(crate) fn exec_no_pty(
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
     let command = command.spawn().map_err(|err| {
-        dev_error!("Cannot spawn command: {err}");
+        dev_error!("cannot spawn command: {err}");
         err
     })?;
 
     let command_pid = command.id() as ProcessId;
-    dev_info!("Executed command with pid {command_pid}");
+    dev_info!("executed command with pid {command_pid}");
 
     let mut registry = EventRegistry::new();
 
@@ -104,32 +104,41 @@ impl ExecClosure {
         let status = loop {
             match command_pid.wait(OPTS) {
                 Err(WaitError::Io(err)) if was_interrupted(&err) => {}
-                Err(_) => {}
+                // This only happens if we receive `SIGCHLD` but there's no status update from the
+                // command.
+                Err(WaitError::Io(err)) => {
+                    dev_info!("cannot wait for {command_pid} (command): {err}")
+                }
+                // This only happens if the monitor exited and any process already waited for the
+                // command.
+                Err(WaitError::NotReady) => {
+                    dev_info!("{command_pid} (command) has no status report")
+                }
                 Ok((_pid, status)) => break status,
             }
         };
 
         if let Some(signal) = status.stop_signal() {
             dev_info!(
-                "command ({command_pid}) was stopped by {}",
+                "{command_pid} (command) was stopped by {}",
                 signal_fmt(signal),
             );
             self.suspend_parent(signal);
         } else if let Some(signal) = status.term_signal() {
             dev_info!(
-                "command ({command_pid}) was terminated by {}",
+                "{command_pid} (command) was terminated by {}",
                 signal_fmt(signal),
             );
             registry.set_exit(ExitReason::Signal(signal));
             self.command_pid = None;
         } else if let Some(exit_code) = status.exit_status() {
-            dev_info!("command ({command_pid}) exited with status code {exit_code}");
+            dev_info!("{command_pid} (command) exited with status code {exit_code}");
             registry.set_exit(ExitReason::Code(exit_code));
             self.command_pid = None;
         } else if status.did_continue() {
-            dev_info!("command ({command_pid}) continued execution");
+            dev_info!("{command_pid} (command) continued execution");
         } else {
-            dev_warn!("unexpected wait status for command ({command_pid})")
+            dev_warn!("unexpected wait status for {command_pid} (command)")
         }
     }
 
@@ -178,7 +187,7 @@ impl ExecClosure {
 
         if let Err(err) = kill(self.sudo_pid, signal) {
             dev_warn!(
-                "cannot send {} to sudo ({}): {err}",
+                "cannot send {} to {} (sudo): {err}",
                 signal_fmt(signal),
                 self.sudo_pid
             );
@@ -208,7 +217,7 @@ impl ExecClosure {
         };
 
         dev_info!(
-            "sudo received{} {} from {}",
+            "received{} {} from {}",
             opt_fmt(info.is_user_signaled(), " user signaled"),
             signal_fmt(info.signal()),
             info.pid()
