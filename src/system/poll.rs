@@ -56,33 +56,43 @@ impl<K: Eq + PartialEq + Ord + PartialOrd + Clone> PollSet<K> {
         }
     }
 
-    /// Poll the set of file descriptors and return the key of the descriptors that are ready to be
-    /// read or written.
+    /// Poll the file descriptors of the set that are not being ignored and return the key of the
+    /// descriptors that are ready to be read or written.
     ///
     /// Calling this function will block until one of the file descriptors in the set is ready.
     pub fn poll(&mut self) -> io::Result<Vec<K>> {
-        let mut fds: Vec<pollfd> = self
+        let (mut keys, mut fds): (Vec<K>, Vec<pollfd>) = self
             .fds
-            .values()
-            .filter_map(|&(fd, should_poll, events)| {
-                should_poll.then_some(pollfd {
-                    fd,
-                    events,
-                    revents: 0,
+            .iter()
+            .filter_map(|(key, &(fd, should_poll, events))| {
+                should_poll.then(|| {
+                    (
+                        key.clone(),
+                        pollfd {
+                            fd,
+                            events,
+                            revents: 0,
+                        },
+                    )
                 })
             })
-            .collect();
+            .unzip();
+
+        // Don't call poll if there are no file descriptors to be polled.
+        if keys.is_empty() {
+            return Ok(keys);
+        }
 
         // FIXME: we should set either a timeout or use ppoll when available.
         let n = cerr(unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as _, -1) })?;
 
-        let mut keys = Vec::with_capacity(n as usize);
+        // Remove the keys that correspond to file descriptors that were not ready.
+        for i in (0..keys.len()).rev() {
+            let fd = fds[i];
 
-        for (key, fd) in self.fds.keys().zip(fds) {
             let events = fd.events & fd.revents;
-
-            if (events & POLLIN != 0) || (events & POLLOUT != 0) {
-                keys.push(key.clone());
+            if !((events & POLLIN != 0) || (events & POLLOUT != 0)) {
+                keys.remove(i);
             }
         }
 
