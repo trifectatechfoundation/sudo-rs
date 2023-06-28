@@ -54,7 +54,32 @@ pub(super) enum StopReason<T: Process> {
 }
 
 #[derive(PartialEq, Eq, Hash, Ord, PartialOrd, Clone, Copy)]
-pub struct EventId(usize);
+struct EventId(usize);
+
+pub(super) struct EventHandle {
+    id: EventId,
+    should_poll: bool,
+}
+
+impl EventHandle {
+    /// Ignore the event associated with this handle, meaning that the file descriptor for this
+    /// event will not be polled anymore for that specific event.
+    pub(super) fn ignore<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
+        if self.should_poll {
+            registry.poll_set.ignore_fd(self.id);
+            self.should_poll = false;
+        }
+    }
+
+    /// Stop ignoring the event associated with this handle, meaning that the file descriptor for
+    /// this event will be polled for that specific event.
+    pub(super) fn resume<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
+        if !self.should_poll {
+            registry.poll_set.resume_fd(self.id);
+            self.should_poll = true;
+        }
+    }
+}
 
 /// A type able to register file descriptors to be polled.
 pub(super) struct EventRegistry<T: Process> {
@@ -88,22 +113,14 @@ impl<T: Process> EventRegistry<T> {
         fd: &F,
         poll_event: PollEvent,
         event_fn: impl Fn(PollEvent) -> T::Event,
-    ) -> EventId {
+    ) -> EventHandle {
         let id = self.next_id();
         self.poll_set.add_fd(id, fd, poll_event);
         self.events.insert(id, event_fn(poll_event));
-        id
-    }
-
-    /// Deregister the event associated with the given ID, meaning that the file descriptor for
-    /// this event will not be polled anymore for that specific event.
-    pub(super) fn deregister_event(&mut self, event_id: EventId) -> bool {
-        if self.events.remove(&event_id).is_some() {
-            debug_assert!(self.poll_set.remove_fd(event_id));
-            return true;
+        EventHandle {
+            id,
+            should_poll: true,
         }
-
-        false
     }
 
     /// Stop the event loop when the current event has been handled and set a reason for it.

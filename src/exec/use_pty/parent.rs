@@ -70,10 +70,14 @@ pub(crate) fn exec_pty(
 
     let mut registry = EventRegistry::<ParentClosure>::new();
 
-    let mut tty_pipe = Pipe::new(user_tty, pty.leader);
-
     // Pipe data between both terminals
-    tty_pipe.register_events(&mut registry, ParentEvent::Tty, ParentEvent::Pty);
+    let mut tty_pipe = Pipe::new(
+        user_tty,
+        pty.leader,
+        &mut registry,
+        ParentEvent::Tty,
+        ParentEvent::Pty,
+    );
 
     let user_tty = tty_pipe.left_mut();
 
@@ -315,11 +319,7 @@ impl ParentClosure {
                                 self.schedule_signal(signal);
                             }
 
-                            self.tty_pipe.register_events(
-                                registry,
-                                ParentEvent::Tty,
-                                ParentEvent::Pty,
-                            )
+                            self.tty_pipe.resume_events(registry)
                         }
                     }
                     ParentMessage::IoError(code) => {
@@ -422,8 +422,7 @@ impl ParentClosure {
                 self.schedule_signal(signal);
             }
 
-            self.tty_pipe
-                .register_events(registry, ParentEvent::Tty, ParentEvent::Pty)
+            self.tty_pipe.resume_events(registry)
         } else if status.did_continue() {
             dev_info!("monitor ({monitor_pid}) continued execution");
         } else {
@@ -469,7 +468,7 @@ impl ParentClosure {
         }
 
         // Stop polling the terminals.
-        self.tty_pipe.deregister_events(registry);
+        self.tty_pipe.ignore_events(registry);
 
         if self.term_raw {
             match self.tty_pipe.left_mut().restore(false) {

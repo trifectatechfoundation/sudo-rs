@@ -18,7 +18,7 @@ pub enum PollEvent {
 
 /// A set of indexed file descriptors to be polled using the [`poll`](https://manpage.me/?q=poll) system call.
 pub struct PollSet<K> {
-    fds: BTreeMap<K, (RawFd, c_short)>,
+    fds: BTreeMap<K, (RawFd, bool, c_short)>,
 }
 
 impl<K: Eq + PartialEq + Ord + PartialOrd + Clone> PollSet<K> {
@@ -39,12 +39,21 @@ impl<K: Eq + PartialEq + Ord + PartialOrd + Clone> PollSet<K> {
             PollEvent::Readable => POLLIN,
             PollEvent::Writable => POLLOUT,
         };
-        self.fds.insert(key, (fd.as_raw_fd(), event));
+        self.fds.insert(key, (fd.as_raw_fd(), true, event));
     }
 
-    /// Remove a the file descriptor under the provided key, if any.
-    pub fn remove_fd(&mut self, key: K) -> bool {
-        self.fds.remove(&key).is_some()
+    /// Ignore the file descriptor under the provided key, if any.
+    pub fn ignore_fd(&mut self, key: K) {
+        if let Some((_, should_poll, _)) = self.fds.get_mut(&key) {
+            *should_poll = false;
+        }
+    }
+
+    /// Stop ignoring the file descriptor under the provided key, if any.
+    pub fn resume_fd(&mut self, key: K) {
+        if let Some((_, should_poll, _)) = self.fds.get_mut(&key) {
+            *should_poll = true;
+        }
     }
 
     /// Poll the set of file descriptors and return the key of the descriptors that are ready to be
@@ -55,10 +64,12 @@ impl<K: Eq + PartialEq + Ord + PartialOrd + Clone> PollSet<K> {
         let mut fds: Vec<pollfd> = self
             .fds
             .values()
-            .map(|&(fd, events)| pollfd {
-                fd,
-                events,
-                revents: 0,
+            .filter_map(|&(fd, should_poll, events)| {
+                should_poll.then_some(pollfd {
+                    fd,
+                    events,
+                    revents: 0,
+                })
             })
             .collect();
 

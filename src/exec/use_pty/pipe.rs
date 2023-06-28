@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    exec::event::{EventId, EventRegistry, Process},
+    exec::event::{EventHandle, EventRegistry, Process},
     system::poll::PollEvent,
 };
 
@@ -15,20 +15,32 @@ pub(super) struct Pipe<L, R> {
     right: R,
     buffer_lr: Buffer<L, R>,
     buffer_rl: Buffer<R, L>,
-    left_ids: Option<(EventId, EventId)>,
-    right_ids: Option<(EventId, EventId)>,
+    left_handles: (EventHandle, EventHandle),
+    right_handles: (EventHandle, EventHandle),
 }
 
 impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
-    /// Create a new pipe between two read-write types.
-    pub fn new(left: L, right: R) -> Self {
+    /// Create a new pipe between two read-write types and register them to be polled.
+    pub fn new<T: Process>(
+        left: L,
+        right: R,
+        registry: &mut EventRegistry<T>,
+        f_left: fn(PollEvent) -> T::Event,
+        f_right: fn(PollEvent) -> T::Event,
+    ) -> Self {
         Self {
+            left_handles: (
+                registry.register_event(&left, PollEvent::Readable, f_left),
+                registry.register_event(&left, PollEvent::Writable, f_left),
+            ),
+            right_handles: (
+                registry.register_event(&right, PollEvent::Readable, f_right),
+                registry.register_event(&right, PollEvent::Writable, f_right),
+            ),
             left,
             right,
             buffer_lr: Buffer::new(),
             buffer_rl: Buffer::new(),
-            left_ids: None,
-            right_ids: None,
         }
     }
 
@@ -47,39 +59,20 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
         &self.right
     }
 
-    /// Register the poll events of this pipe if they have not been registered yet.
-    pub(super) fn register_events<T: Process>(
-        &mut self,
-        registry: &mut EventRegistry<T>,
-        f_left: fn(PollEvent) -> T::Event,
-        f_right: fn(PollEvent) -> T::Event,
-    ) {
-        if self.left_ids.is_none() {
-            self.left_ids = Some((
-                registry.register_event(&self.left, PollEvent::Readable, f_left),
-                registry.register_event(&self.left, PollEvent::Writable, f_left),
-            ));
-        }
-
-        if self.right_ids.is_none() {
-            self.right_ids = Some((
-                registry.register_event(&self.right, PollEvent::Readable, f_right),
-                registry.register_event(&self.right, PollEvent::Writable, f_right),
-            ));
-        }
+    /// Stop the poll events of this pipe.
+    pub(super) fn ignore_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
+        self.left_handles.0.ignore(registry);
+        self.left_handles.1.ignore(registry);
+        self.right_handles.0.ignore(registry);
+        self.right_handles.1.ignore(registry);
     }
 
-    /// Deregister the poll events of this pipe if they have not been deregistered yet.
-    pub(super) fn deregister_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
-        if let Some((read_id, write_id)) = self.left_ids.take() {
-            registry.deregister_event(read_id);
-            registry.deregister_event(write_id);
-        }
-
-        if let Some((read_id, write_id)) = self.right_ids.take() {
-            registry.deregister_event(read_id);
-            registry.deregister_event(write_id);
-        }
+    /// Resume the poll events of this pipe
+    pub(super) fn resume_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
+        self.left_handles.0.resume(registry);
+        self.left_handles.1.resume(registry);
+        self.right_handles.0.resume(registry);
+        self.right_handles.1.resume(registry);
     }
 
     /// Handle a poll event for the left side of the pipe.
