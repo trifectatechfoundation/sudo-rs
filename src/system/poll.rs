@@ -1,6 +1,5 @@
 use std::{
-    collections::HashMap,
-    hash::Hash,
+    collections::{BTreeMap, HashMap},
     io,
     os::fd::{AsRawFd, RawFd},
 };
@@ -8,45 +7,53 @@ use std::{
 use crate::cutils::cerr;
 use libc::{c_short, pollfd, POLLIN, POLLOUT};
 
+/// The kind of event that will be monitored for a file descriptor.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum PollEvent {
+    /// Data may be read without blocking.
+    Readable,
+    /// Data may be written without blocking.
+    Writable,
+}
+
 /// A set of indexed file descriptors to be polled using the [`poll`](https://manpage.me/?q=poll) system call.
 pub struct PollSet<K> {
-    fds: HashMap<K, (RawFd, c_short)>,
+    fds: BTreeMap<K, (RawFd, bool, c_short)>,
 }
 
-impl<K: Eq + PartialEq + Hash + Clone> Default for PollSet<K> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<K: Eq + PartialEq + Hash + Clone> PollSet<K> {
+impl<K: Eq + PartialEq + Ord + PartialOrd + Clone> PollSet<K> {
     /// Create an empty set of file descriptors.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
-            fds: HashMap::new(),
+            fds: BTreeMap::new(),
         }
     }
 
-    /// Add a file descriptor under the provided key. This descriptor will be checked for read events and return a unique identifier
-    /// for the descriptor inside the set.
+    /// Add a file descriptor under the provided key. This descriptor will be checked for the given
+    /// poll event and return a unique identifier for the descriptor inside the set.
     ///
     /// If the provided key is already in the set, calling this function will overwrite the file
     /// descriptor for that key.
-    pub fn add_fd_read<F: AsRawFd>(&mut self, key: K, fd: &F) {
-        self.add_fd(key, fd, POLLIN)
+    pub fn add_fd<F: AsRawFd>(&mut self, key: K, fd: &F, event: PollEvent) {
+        let event = match event {
+            PollEvent::Readable => POLLIN,
+            PollEvent::Writable => POLLOUT,
+        };
+        self.fds.insert(key, (fd.as_raw_fd(), true, event));
     }
 
-    /// Add a file descriptor under the provided key. This descriptor will be checked for write events and return a unique identifier
-    /// for the descriptor inside the set.
-    ///
-    /// If the provided key is already in the set, calling this function will overwrite the file
-    /// descriptor for that key.
-    pub fn add_fd_write<F: AsRawFd>(&mut self, key: K, fd: &F) {
-        self.add_fd(key, fd, POLLOUT)
+    /// Ignore the file descriptor under the provided key, if any.
+    pub fn ignore_fd(&mut self, key: K) {
+        if let Some((_, should_poll, _)) = self.fds.get_mut(&key) {
+            *should_poll = false;
+        }
     }
 
-    fn add_fd<F: AsRawFd>(&mut self, key: K, fd: &F, events: c_short) {
-        self.fds.insert(key, (fd.as_raw_fd(), events));
+    /// Stop ignoring the file descriptor under the provided key, if any.
+    pub fn resume_fd(&mut self, key: K) {
+        if let Some((_, should_poll, _)) = self.fds.get_mut(&key) {
+            *should_poll = true;
+        }
     }
 
     /// Poll the set of file descriptors and return the key of the descriptors that are ready to be
@@ -57,10 +64,12 @@ impl<K: Eq + PartialEq + Hash + Clone> PollSet<K> {
         let mut fds: Vec<pollfd> = self
             .fds
             .values()
-            .map(|&(fd, events)| pollfd {
-                fd,
-                events,
-                revents: 0,
+            .filter_map(|&(fd, should_poll, events)| {
+                should_poll.then_some(pollfd {
+                    fd,
+                    events,
+                    revents: 0,
+                })
             })
             .collect();
 

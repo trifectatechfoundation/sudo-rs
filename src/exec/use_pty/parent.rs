@@ -5,7 +5,8 @@ use std::process::{exit, Command};
 
 use signal_hook::consts::*;
 
-use crate::exec::event::{EventClosure, EventDispatcher, StopReason};
+use crate::exec::event::{EventRegistry, Process, StopReason};
+use crate::exec::signal_manager::{Signal, SignalManager};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{cond_fmt, opt_fmt, signal_fmt, terminate_process};
@@ -15,11 +16,12 @@ use crate::exec::{
     ExitReason,
 };
 use crate::log::{dev_error, dev_info, dev_warn};
+use crate::system::poll::PollEvent;
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
 use crate::system::term::{Pty, PtyLeader, Terminal, UserTerm};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
 use crate::system::{chown, fork, getpgrp, kill, killpg, ForkResult, Group, User};
-use crate::system::{getpgid, interface::ProcessId, signal::SignalInfo};
+use crate::system::{getpgid, interface::ProcessId};
 
 use super::pipe::Pipe;
 use super::SIGCONT_BG;
@@ -66,27 +68,18 @@ pub(crate) fn exec_pty(
     command.stdout(clone_follower()?);
     command.stderr(clone_follower()?);
 
-    let mut dispatcher = EventDispatcher::<ParentClosure>::new()?;
+    let mut registry = EventRegistry::<ParentClosure>::new();
 
-    let mut tty_pipe = Pipe::new(user_tty, pty.leader);
+    // Pipe data between both terminals
+    let mut tty_pipe = Pipe::new(
+        user_tty,
+        pty.leader,
+        &mut registry,
+        ParentEvent::Tty,
+        ParentEvent::Pty,
+    );
 
-    let (user_tty, pty_leader) = tty_pipe.both_mut();
-
-    //  Read from `/dev/tty` and write to the leader if not in the background.
-    dispatcher.set_read_callback(user_tty, |parent, _| {
-        parent.tty_pipe.read_left().ok();
-    });
-    dispatcher.set_write_callback(pty_leader, |parent, _| {
-        parent.tty_pipe.write_right().ok();
-    });
-
-    // Read from the leader and write to `/dev/tty`.
-    dispatcher.set_read_callback(pty_leader, |parent, _| {
-        parent.tty_pipe.read_right().ok();
-    });
-    dispatcher.set_write_callback(user_tty, |parent, _| {
-        parent.tty_pipe.write_left().ok();
-    });
+    let user_tty = tty_pipe.left_mut();
 
     // Check if we are the foreground process
     let mut foreground = user_tty
@@ -120,8 +113,9 @@ pub(crate) fn exec_pty(
         term_raw = true;
     }
 
-    // FIXME: it would be better if we didn't create the dispatcher before the fork and managed
+    // FIXME: it would be better if we didn't create the manager before the fork and managed
     // to block all the signals here instead.
+    let signal_manager = SignalManager::new()?;
 
     let ForkResult::Parent(monitor_pid) = fork().map_err(|err| {
         dev_error!("unable to fork monitor process: {err}");
@@ -133,7 +127,7 @@ pub(crate) fn exec_pty(
 
         // Unregister all the handlers so `exec_monitor` can register new ones for the monitor
         // process.
-        dispatcher.unregister_handlers();
+        signal_manager.unregister_handlers();
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
         if let Err(err) = exec_monitor(
@@ -175,12 +169,13 @@ pub(crate) fn exec_pty(
         tty_pipe,
         foreground,
         term_raw,
-        &mut dispatcher,
+        signal_manager,
+        &mut registry,
     );
 
     // FIXME (ogsudo): Restore the signal handlers here.
 
-    let exit_reason = closure.run(&mut dispatcher);
+    let exit_reason = closure.run(&mut registry);
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
 
     // Flush the terminal
@@ -200,7 +195,7 @@ pub(crate) fn exec_pty(
     }
 
     match exit_reason {
-        Ok(exit_reason) => Ok((exit_reason, Box::new(move || drop(dispatcher)))),
+        Ok(exit_reason) => Ok((exit_reason, Box::new(move || drop(registry)))),
         Err(err) => Err(err),
     }
 }
@@ -236,6 +231,7 @@ struct ParentClosure {
     foreground: bool,
     term_raw: bool,
     message_queue: VecDeque<MonitorMessage>,
+    signal_manager: SignalManager,
 }
 
 impl ParentClosure {
@@ -248,17 +244,13 @@ impl ParentClosure {
         tty_pipe: Pipe<UserTerm, PtyLeader>,
         foreground: bool,
         term_raw: bool,
-        dispatcher: &mut EventDispatcher<Self>,
+        signal_manager: SignalManager,
+        registry: &mut EventRegistry<Self>,
     ) -> Self {
-        dispatcher.set_read_callback(&backchannel, |parent, dispatcher| {
-            parent.on_message_received(dispatcher)
-        });
+        registry.register_event(&backchannel, PollEvent::Readable, ParentEvent::Backchannel);
+        registry.register_event(&backchannel, PollEvent::Writable, ParentEvent::Backchannel);
 
-        // Check for queued messages only when the backchannel can be written so we can send
-        // messages to the monitor process without blocking.
-        dispatcher.set_write_callback(&backchannel, |parent, dispatcher| {
-            parent.check_message_queue(dispatcher)
-        });
+        signal_manager.register_handlers(registry, ParentEvent::Signal);
 
         Self {
             monitor_pid: Some(monitor_pid),
@@ -270,18 +262,19 @@ impl ParentClosure {
             foreground,
             term_raw,
             message_queue: VecDeque::new(),
+            signal_manager,
         }
     }
 
-    fn run(&mut self, dispatcher: &mut EventDispatcher<Self>) -> io::Result<ExitReason> {
-        match dispatcher.event_loop(self) {
+    fn run(&mut self, registry: &mut EventRegistry<Self>) -> io::Result<ExitReason> {
+        match registry.event_loop(self) {
             StopReason::Break(err) | StopReason::Exit(ParentExit::Backchannel(err)) => Err(err),
             StopReason::Exit(ParentExit::Command(exit_reason)) => Ok(exit_reason),
         }
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
-    fn on_message_received(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+    fn on_message_received(&mut self, registry: &mut EventRegistry<Self>) {
         match self.backchannel.recv() {
             // Not an actual error, we can retry later.
             Err(err) if was_interrupted(&err) => {}
@@ -291,11 +284,11 @@ impl ParentClosure {
                 // If we get EOF the monitor exited or was killed
                 if err.kind() == io::ErrorKind::UnexpectedEof {
                     dev_info!("parent received EOF from backchannel");
-                    dispatcher.set_exit(err.into());
+                    registry.set_exit(err.into());
                 } else {
                     dev_error!("could not receive message from monitor: {err}");
-                    if !dispatcher.got_break() {
-                        dispatcher.set_break(err);
+                    if !registry.got_break() {
+                        registry.set_break(err);
                     }
                 }
             }
@@ -312,30 +305,31 @@ impl ParentClosure {
                         // either way.
                         if let Some(exit_code) = status.exit_status() {
                             dev_info!("command exited with status code {exit_code}");
-                            dispatcher.set_exit(ExitReason::Code(exit_code).into());
+                            registry.set_exit(ExitReason::Code(exit_code).into());
                         } else if let Some(signal) = status.term_signal() {
                             dev_info!("command was terminated by {}", signal_fmt(signal));
-                            dispatcher.set_exit(ExitReason::Signal(signal).into());
+                            registry.set_exit(ExitReason::Signal(signal).into());
                         } else if let Some(signal) = status.stop_signal() {
                             dev_info!(
                                 "command was stopped by {}, suspending parent",
                                 signal_fmt(signal)
                             );
                             // Suspend parent and tell monitor how to resume on return
-                            if let Some(signal) = self.suspend_pty(signal, dispatcher) {
+                            if let Some(signal) = self.suspend_pty(signal, registry) {
                                 self.schedule_signal(signal);
                             }
-                            // FIXME: enable IO events here.
+
+                            self.tty_pipe.resume_events(registry)
                         }
                     }
                     ParentMessage::IoError(code) => {
                         let err = io::Error::from_raw_os_error(code);
                         dev_info!("received error ({code}) for monitor: {err}");
-                        dispatcher.set_break(err);
+                        registry.set_break(err);
                     }
                     ParentMessage::ShortRead => {
                         dev_info!("received short read error for monitor");
-                        dispatcher.set_break(io::ErrorKind::UnexpectedEof.into());
+                        registry.set_break(io::ErrorKind::UnexpectedEof.into());
                     }
                 }
             }
@@ -374,7 +368,7 @@ impl ParentClosure {
     /// Send the first message in the event queue using the backchannel, if any.
     ///
     /// Calling this function will block until the backchannel can be written.
-    fn check_message_queue(&mut self, dispatcher: &mut EventDispatcher<Self>) {
+    fn check_message_queue(&mut self, registry: &mut EventRegistry<Self>) {
         if let Some(msg) = self.message_queue.front() {
             dev_info!("sending message {msg:?} to monitor over backchannel");
             match self.backchannel.send(msg) {
@@ -386,7 +380,7 @@ impl ParentClosure {
                 Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
                     dev_error!("broken pipe while writing to monitor over backchannel");
                     // FIXME: maybe we need a different event for backchannel errors.
-                    dispatcher.set_break(err);
+                    registry.set_break(err);
                 }
                 // Non critical error, we can retry later.
                 Err(_) => {}
@@ -395,7 +389,7 @@ impl ParentClosure {
     }
 
     /// Handle changes to the monitor status.
-    fn handle_sigchld(&mut self, monitor_pid: ProcessId, dispatcher: &mut EventDispatcher<Self>) {
+    fn handle_sigchld(&mut self, monitor_pid: ProcessId, registry: &mut EventRegistry<Self>) {
         const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
 
         let status = loop {
@@ -424,10 +418,11 @@ impl ParentClosure {
                 "monitor ({monitor_pid}) was stopped by {}, suspending sudo",
                 signal_fmt(signal)
             );
-            if let Some(signal) = self.suspend_pty(signal, dispatcher) {
+            if let Some(signal) = self.suspend_pty(signal, registry) {
                 self.schedule_signal(signal);
             }
-            // FIXME: Restore IO events here.
+
+            self.tty_pipe.resume_events(registry)
         } else if status.did_continue() {
             dev_info!("monitor ({monitor_pid}) continued execution");
         } else {
@@ -442,10 +437,12 @@ impl ParentClosure {
     fn suspend_pty(
         &mut self,
         signal: SignalNumber,
-        dispatcher: &mut EventDispatcher<Self>,
+        registry: &mut EventRegistry<Self>,
     ) -> Option<SignalNumber> {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
-        dispatcher.set_signal_action(SIGCONT, SignalAction::Ignore);
+        let sigcont_action = self
+            .signal_manager
+            .set_action(Signal::SIGCONT, SignalAction::Ignore);
 
         if let SIGTTOU | SIGTTIN = signal {
             // If sudo is already the foreground process we can resume the command in the
@@ -470,7 +467,8 @@ impl ParentClosure {
             }
         }
 
-        // FIXME: we should stop polling the terminal if we're suspending.
+        // Stop polling the terminals.
+        self.tty_pipe.ignore_events(registry);
 
         if self.term_raw {
             match self.tty_pipe.left_mut().restore(false) {
@@ -479,9 +477,14 @@ impl ParentClosure {
             }
         }
 
-        if signal != SIGSTOP {
-            dispatcher.set_signal_action(signal, SignalAction::Default);
-        }
+        // FIXME: we should set the action even if we don't have a handler for that signal.
+        let saved_signal_action = (signal != SIGSTOP).then_some(signal).and_then(|number| {
+            let signal = Signal::try_from_number(number)?;
+            let action = self
+                .signal_manager
+                .set_action(signal, SignalAction::Default);
+            Some((signal, action))
+        });
 
         if self.parent_pgrp != self.sudo_pid && kill(self.parent_pgrp, 0).is_err()
             || killpg(self.parent_pgrp, signal).is_err()
@@ -492,8 +495,8 @@ impl ParentClosure {
             }
         }
 
-        if signal != SIGSTOP {
-            dispatcher.set_signal_action(signal, SignalAction::Stream);
+        if let Some((signal, action)) = saved_signal_action {
+            self.signal_manager.set_action(signal, action);
         }
 
         if self.command_pid.is_none() || self.resume_terminal().is_err() {
@@ -506,7 +509,8 @@ impl ParentClosure {
             SIGCONT_BG
         };
 
-        dispatcher.set_signal_action(SIGCONT, SignalAction::Stream);
+        self.signal_manager
+            .set_action(Signal::SIGCONT, sigcont_action);
 
         Some(ret_signal)
     }
@@ -550,6 +554,41 @@ impl ParentClosure {
 
         Ok(())
     }
+
+    fn on_signal(&mut self, signal: Signal, registry: &mut EventRegistry<Self>) {
+        let info = match self.signal_manager.recv(signal) {
+            Ok(info) => info,
+            Err(err) => {
+                dev_error!("parent could not receive signal {signal:?}: {err}");
+                return;
+            }
+        };
+
+        dev_info!(
+            "parent received{} {} from {}",
+            opt_fmt(info.is_user_signaled(), " user signaled"),
+            signal_fmt(info.signal()),
+            info.pid()
+        );
+
+        let Some(monitor_pid) = self.monitor_pid else {
+            dev_info!("monitor was terminated, ignoring signal");
+            return;
+        };
+
+        match info.signal() {
+            SIGCHLD => self.handle_sigchld(monitor_pid, registry),
+            SIGCONT => {
+                self.resume_terminal().ok();
+            }
+            // FIXME: check `sync_ttysize`
+            SIGWINCH => {}
+            // Skip the signal if it was sent by the user and it is self-terminating.
+            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
+            // FIXME: check `send_command_status`
+            signal => self.schedule_signal(signal),
+        }
+    }
 }
 
 enum ParentExit {
@@ -571,34 +610,32 @@ impl From<ExitReason> for ParentExit {
     }
 }
 
-impl EventClosure for ParentClosure {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ParentEvent {
+    Signal(Signal),
+    Tty(PollEvent),
+    Pty(PollEvent),
+    Backchannel(PollEvent),
+}
+
+impl Process for ParentClosure {
+    type Event = ParentEvent;
     type Break = io::Error;
     type Exit = ParentExit;
 
-    fn on_signal(&mut self, info: SignalInfo, dispatcher: &mut EventDispatcher<Self>) {
-        dev_info!(
-            "parent received{} {} from {}",
-            opt_fmt(info.is_user_signaled(), " user signaled"),
-            signal_fmt(info.signal()),
-            info.pid()
-        );
-
-        let Some(monitor_pid) = self.monitor_pid else {
-            dev_info!("monitor was terminated, ignoring signal");
-            return;
-        };
-
-        match info.signal() {
-            SIGCHLD => self.handle_sigchld(monitor_pid, dispatcher),
-            SIGCONT => {
-                self.resume_terminal().ok();
+    fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>) {
+        match event {
+            ParentEvent::Signal(signal) => self.on_signal(signal, registry),
+            ParentEvent::Tty(poll_event) => {
+                self.tty_pipe.on_left_event(poll_event).ok();
             }
-            // FIXME: check `sync_ttysize`
-            SIGWINCH => {}
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            // FIXME: check `send_command_status`
-            signal => self.schedule_signal(signal),
+            ParentEvent::Pty(poll_event) => {
+                self.tty_pipe.on_right_event(poll_event).ok();
+            }
+            ParentEvent::Backchannel(poll_event) => match poll_event {
+                PollEvent::Readable => self.on_message_received(registry),
+                PollEvent::Writable => self.check_message_queue(registry),
+            },
         }
     }
 }
