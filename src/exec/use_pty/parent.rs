@@ -5,7 +5,7 @@ use std::process::{exit, Command, Stdio};
 
 use signal_hook::consts::*;
 
-use crate::exec::event::{EventRegistry, Process, StopReason};
+use crate::exec::event::{EventHandle, EventRegistry, Process, StopReason};
 use crate::exec::signal_manager::{Signal, SignalManager};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
@@ -251,11 +251,12 @@ struct ParentClosure {
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
     command_pid: Option<ProcessId>,
-    backchannel: ParentBackchannel,
     tty_pipe: Pipe<UserTerm, PtyLeader>,
     foreground: bool,
     term_raw: bool,
+    backchannel: ParentBackchannel,
     message_queue: VecDeque<MonitorMessage>,
+    backchannel_write_handle: EventHandle,
     signal_manager: SignalManager,
 }
 
@@ -273,7 +274,11 @@ impl ParentClosure {
         registry: &mut EventRegistry<Self>,
     ) -> Self {
         registry.register_event(&backchannel, PollEvent::Readable, ParentEvent::Backchannel);
-        registry.register_event(&backchannel, PollEvent::Writable, ParentEvent::Backchannel);
+        let mut backchannel_write_handle =
+            registry.register_event(&backchannel, PollEvent::Writable, ParentEvent::Backchannel);
+        // Ignore write events on the backchannel as we don't want to poll it for writing if there
+        // are no messages in the queue.
+        backchannel_write_handle.ignore(registry);
 
         signal_manager.register_handlers(registry, ParentEvent::Signal);
 
@@ -282,11 +287,12 @@ impl ParentClosure {
             sudo_pid,
             parent_pgrp,
             command_pid: None,
-            backchannel,
             tty_pipe,
             foreground,
             term_raw,
+            backchannel,
             message_queue: VecDeque::new(),
+            backchannel_write_handle,
             signal_manager,
         }
     }
@@ -341,7 +347,7 @@ impl ParentClosure {
                             );
                             // Suspend parent and tell monitor how to resume on return
                             if let Some(signal) = self.suspend_pty(signal, registry) {
-                                self.schedule_signal(signal);
+                                self.schedule_signal(signal, registry);
                             }
 
                             self.tty_pipe.resume_events(registry)
@@ -385,9 +391,12 @@ impl ParentClosure {
     /// Schedule sending a signal event to the monitor using the backchannel.
     ///
     /// The signal message will be sent once the backchannel is ready to be written.
-    fn schedule_signal(&mut self, signal: c_int) {
+    fn schedule_signal(&mut self, signal: c_int, registry: &mut EventRegistry<Self>) {
         dev_info!("scheduling message with {} for monitor", signal_fmt(signal));
         self.message_queue.push_back(MonitorMessage::Signal(signal));
+
+        // Start polling the backchannel for writing if not already.
+        self.backchannel_write_handle.resume(registry);
     }
 
     /// Send the first message in the event queue using the backchannel, if any.
@@ -400,6 +409,10 @@ impl ParentClosure {
                 // The event was sent, remove it from the queue
                 Ok(()) => {
                     self.message_queue.pop_front().unwrap();
+                    // Stop polling the backchannel for writing if the queue is empty.
+                    if self.message_queue.is_empty() {
+                        self.backchannel_write_handle.ignore(registry);
+                    }
                 }
                 // The other end of the socket is gone, we should exit.
                 Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
@@ -449,7 +462,7 @@ impl ParentClosure {
                 signal_fmt(signal)
             );
             if let Some(signal) = self.suspend_pty(signal, registry) {
-                self.schedule_signal(signal);
+                self.schedule_signal(signal, registry);
             }
 
             self.tty_pipe.resume_events(registry)
@@ -616,7 +629,7 @@ impl ParentClosure {
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
             // FIXME: check `send_command_status`
-            signal => self.schedule_signal(signal),
+            signal => self.schedule_signal(signal, registry),
         }
     }
 }
