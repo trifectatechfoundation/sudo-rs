@@ -95,19 +95,6 @@ impl<T: Process> EventRegistry<T> {
         id
     }
 
-    /// Set the `fd` descriptor to be polled for read and write events and produce the event
-    /// returned by `f` when `fd` is ready for the poll event given by parameter.
-    pub(super) fn register_rw_event<F: AsRawFd>(
-        &mut self,
-        fd: &F,
-        f: fn(PollEvent) -> T::Event,
-    ) -> (EventId, EventId) {
-        (
-            self.register_event(fd, PollEvent::Readable, f),
-            self.register_event(fd, PollEvent::Writable, f),
-        )
-    }
-
     /// Deregister the event associated with the given ID, meaning that the file descriptor for
     /// this event will not be polled anymore for that specific event.
     pub(super) fn deregister_event(&mut self, event_id: EventId) -> bool {

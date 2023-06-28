@@ -243,7 +243,9 @@ impl ParentClosure {
         signal_manager: SignalManager,
         registry: &mut EventRegistry<Self>,
     ) -> Self {
-        registry.register_rw_event(&backchannel, ParentEvent::Backchannel);
+        registry.register_event(&backchannel, PollEvent::Readable, ParentEvent::Backchannel);
+        registry.register_event(&backchannel, PollEvent::Writable, ParentEvent::Backchannel);
+
         signal_manager.register_handlers(registry, ParentEvent::Signal);
 
         Self {

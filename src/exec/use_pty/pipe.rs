@@ -55,11 +55,17 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
         f_right: fn(PollEvent) -> T::Event,
     ) {
         if self.left_ids.is_none() {
-            self.left_ids = Some(registry.register_rw_event(&self.left, f_left));
+            self.left_ids = Some((
+                registry.register_event(&self.left, PollEvent::Readable, f_left),
+                registry.register_event(&self.left, PollEvent::Writable, f_left),
+            ));
         }
 
         if self.right_ids.is_none() {
-            self.right_ids = Some(registry.register_rw_event(&self.right, f_right));
+            self.right_ids = Some((
+                registry.register_event(&self.right, PollEvent::Readable, f_right),
+                registry.register_event(&self.right, PollEvent::Writable, f_right),
+            ));
         }
     }
 
