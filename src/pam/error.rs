@@ -1,4 +1,4 @@
-use std::{ffi::NulError, fmt};
+use std::{ffi::NulError, fmt, str::Utf8Error};
 
 use crate::cutils::string_from_ptr;
 
@@ -185,6 +185,7 @@ impl PamErrorType {
 #[derive(Debug)]
 pub enum PamError {
     UnexpectedNulByte(NulError),
+    Utf8Error(Utf8Error),
     InvalidState,
     Pam(PamErrorType, String),
     IoError(std::io::Error),
@@ -206,10 +207,17 @@ impl From<NulError> for PamError {
     }
 }
 
+impl From<Utf8Error> for PamError {
+    fn from(err: Utf8Error) -> Self {
+        PamError::Utf8Error(err)
+    }
+}
+
 impl fmt::Display for PamError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PamError::UnexpectedNulByte(_) => write!(f, "Unexpected nul byte in input"),
+            PamError::Utf8Error(_) => write!(f, "Could not read input data as UTF-8 string"),
             PamError::InvalidState => {
                 write!(
                     f,

@@ -89,6 +89,7 @@ impl Policy for Judgement {
 
 pub trait PreJudgementPolicy {
     fn secure_path(&self) -> Option<String>;
+    fn validate_authorization(&self) -> Authorization;
 }
 
 impl PreJudgementPolicy for Sudoers {
@@ -96,6 +97,14 @@ impl PreJudgementPolicy for Sudoers {
         self.settings.str_value["secure_path"]
             .as_ref()
             .map(|s| s.to_string())
+    }
+
+    fn validate_authorization(&self) -> Authorization {
+        Authorization::Allowed {
+            must_authenticate: true,
+            allowed_attempts: self.settings.int_value["passwd_tries"].try_into().unwrap(),
+            prior_validity: Duration::seconds(self.settings.int_value["timestamp_timeout"]),
+        }
     }
 }
 

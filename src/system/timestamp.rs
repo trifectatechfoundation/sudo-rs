@@ -4,13 +4,14 @@ use std::{
     path::PathBuf,
 };
 
-use crate::log::auth_info;
+use crate::log::{auth_info, auth_warn};
 
 use super::{
     audit::secure_open_cookie_file,
     file::Lockable,
     interface::UserId,
     time::{Duration, SystemTime},
+    Process, WithProcess,
 };
 
 /// Truncates or extends the underlying data
@@ -411,6 +412,37 @@ impl RecordScope {
                 io::ErrorKind::InvalidInput,
                 format!("Unexpected scope variant discriminator: {x}"),
             )),
+        }
+    }
+
+    /// Tries to determine a record match scope for the current context.
+    /// This should never produce an error since any actual error should just be
+    /// ignored and no session record file should be used in that case.
+    pub fn for_process(process: &Process) -> Option<RecordScope> {
+        let tty = Process::tty_device_id(WithProcess::Current);
+        if let Ok(Some(tty_device)) = tty {
+            if let Ok(init_time) = Process::starting_time(WithProcess::Other(process.session_id)) {
+                Some(RecordScope::Tty {
+                    tty_device,
+                    session_pid: process.session_id,
+                    init_time,
+                })
+            } else {
+                auth_warn!("Could not get terminal foreground process starting time");
+                None
+            }
+        } else if let Some(parent_pid) = process.parent_pid {
+            if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
+                Some(RecordScope::Ppid {
+                    group_pid: parent_pid,
+                    init_time,
+                })
+            } else {
+                auth_warn!("Could not get parent process starting time");
+                None
+            }
+        } else {
+            None
         }
     }
 }

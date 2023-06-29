@@ -3,8 +3,9 @@
 use crate::cli::{help, SudoAction, SudoOptions};
 use crate::common::{resolve::resolve_current_user, Context, Error};
 use crate::log::dev_info;
+use crate::system::timestamp::RecordScope;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
-use pam::{determine_record_scope, PamAuthenticator};
+use pam::PamAuthenticator;
 use pipeline::{Pipeline, PolicyPlugin};
 use std::env;
 
@@ -77,8 +78,13 @@ fn sudo_process() -> Result<(), Error> {
 
     dev_info!("development logs are enabled");
 
+    let pipeline = Pipeline {
+        policy: SudoersPolicy::default(),
+        authenticator: PamAuthenticator::new_cli(),
+    };
+
     // parse cli options
-    let sudo_options = match SudoOptions::from_env() {
+    match SudoOptions::from_env() {
         Ok(options) => match options.action {
             SudoAction::Help => {
                 eprintln!("{}", help::long_help_message());
@@ -93,26 +99,27 @@ fn sudo_process() -> Result<(), Error> {
                 let mut record_file =
                     SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
                 record_file.reset()?;
-                return Ok(());
+                Ok(())
             }
             SudoAction::ResetTimestamp => {
-                if let Some(scope) = determine_record_scope(&Process::new()) {
+                if let Some(scope) = RecordScope::for_process(&Process::new()) {
                     let user = resolve_current_user()?;
                     let mut record_file =
                         SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
                     record_file.disable(scope, None)?;
                 }
-                return Ok(());
+                Ok(())
             }
-            SudoAction::Validate => {
-                unimplemented!();
-            }
+            SudoAction::Validate => pipeline.run_validate(options),
             SudoAction::Run(ref cmd) => {
+                // special case for when no command is given
                 if cmd.is_empty() && !options.shell && !options.login {
                     eprintln!("{}", help::USAGE_MSG);
                     std::process::exit(1);
                 } else {
-                    options
+                    unstable_warning();
+
+                    pipeline.run(options)
                 }
             }
             SudoAction::List(_) => {
@@ -126,15 +133,7 @@ fn sudo_process() -> Result<(), Error> {
             eprintln!("{e}\n{}", help::USAGE_MSG);
             std::process::exit(1);
         }
-    };
-
-    unstable_warning();
-
-    let mut pipeline = Pipeline {
-        policy: SudoersPolicy::default(),
-        authenticator: PamAuthenticator::new_cli(),
-    };
-    pipeline.run(sudo_options)
+    }
 }
 
 pub fn main() {

@@ -203,6 +203,22 @@ impl<C: Converser> PamContext<C> {
         })
     }
 
+    /// Get the user that is currently active in the PAM handle
+    pub fn get_user(&mut self) -> PamResult<String> {
+        let mut data = std::ptr::null();
+        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER as i32, &mut data) })?;
+
+        // safety check to make sure that we do not ready a null ptr into a cstr
+        if data.is_null() {
+            return Err(PamError::InvalidState);
+        }
+
+        // unsafe conversion to cstr
+        let cstr = unsafe { CStr::from_ptr(data as *const i8) };
+
+        Ok(cstr.to_str()?.to_owned())
+    }
+
     /// Set the TTY path for the current TTY that this PAM session started from.
     pub fn set_tty<P: AsRef<OsStr>>(&mut self, tty_path: P) -> PamResult<()> {
         let data = CString::new(tty_path.as_ref().as_bytes())?;
