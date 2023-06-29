@@ -178,7 +178,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         match policy.chdir() {
             DirChange::Any => {}
             DirChange::Strict(optdir) => {
-                if context.chdir.is_some() && context.chdir != std::env::current_dir().ok() {
+                if context.chdir.is_some() {
                     return Err(Error::auth("no permission")); // TODO better user error messages
                 } else {
                     context.chdir = optdir.map(std::path::PathBuf::from)

@@ -129,6 +129,7 @@ fn cwd_set_to_non_glob_value_then_cannot_use_that_path_with_chdir_flag() -> Resu
 }
 
 #[test]
+#[ignore = "wontfix"]
 fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_unset() -> Result<()> {
     let path = "/root";
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
@@ -143,7 +144,9 @@ fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_unset() -> Result<()> {
     Ok(())
 }
 
+// NOTE unclear if we want to adopt this behavior
 #[test]
+#[ignore = "wontfix"]
 fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_set() -> Result<()> {
     let cwd_path = "/root";
     let another_path = "/tmp";
