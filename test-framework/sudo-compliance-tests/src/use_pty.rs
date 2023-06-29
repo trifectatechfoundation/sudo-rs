@@ -155,7 +155,7 @@ fn stdin_pipe() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_eq!(stdout.trim(), "hello");
+    assert_eq!(filter_profile_errors(&stdout), "hello");
 
     Ok(())
 }
@@ -170,7 +170,7 @@ fn stdout_pipe() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_eq!(stdout.trim(), "hello");
+    assert_eq!(filter_profile_errors(&stdout), "hello");
 
     Ok(())
 }
