@@ -1,4 +1,4 @@
-use std::{ffi::c_int, io, process::Command};
+use std::{ffi::c_int, io, os::unix::process::CommandExt, process::Command};
 
 use signal_hook::consts::*;
 
@@ -10,7 +10,7 @@ use crate::{
     exec::{handle_sigchld, opt_fmt, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        getpgid, getpgrp,
+        close_the_universe, getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
         poll::PollEvent,
@@ -30,6 +30,12 @@ pub(crate) fn exec_no_pty(
     let signal_handler = SignalHandler::new()?;
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
+
+    // Close every file that's not the IO streams before execution.
+    #[allow(unsafe_code)]
+    unsafe {
+        command.pre_exec(close_the_universe)
+    };
 
     let command = command.spawn().map_err(|err| {
         dev_error!("cannot spawn command: {err}");

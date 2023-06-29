@@ -36,7 +36,6 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh308"]
 fn closes_open_file_descriptors() -> Result<()> {
     let script_path = "/tmp/script.bash";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)

@@ -1,7 +1,8 @@
 // TODO: remove unused attribute when system is cleaned up
 #![allow(unused)]
 use std::{
-    ffi::{c_int, CStr, CString},
+    collections::BTreeSet,
+    ffi::{c_int, c_uint, CStr, CString},
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
@@ -33,6 +34,23 @@ pub mod poll;
 pub mod term;
 
 pub mod wait;
+
+/// Mark all the file descriptors that are not the IO streams to be closed when `exec` is called.
+pub(crate) fn close_the_universe() -> io::Result<()> {
+    let min_fd = libc::STDERR_FILENO + 1;
+    let max_fd: c_int = -1;
+
+    cerr(unsafe {
+        libc::syscall(
+            libc::SYS_close_range,
+            min_fd,
+            max_fd,
+            libc::CLOSE_RANGE_CLOEXEC,
+        )
+    })?;
+
+    Ok(())
+}
 
 pub(crate) enum ForkResult {
     // Parent process branch with the child process' PID.
@@ -567,7 +585,7 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
 mod tests {
     use std::{
         io::{Read, Write},
-        os::unix::net::UnixStream,
+        os::{fd::AsRawFd, unix::net::UnixStream},
         process::exit,
     };
 

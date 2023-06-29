@@ -22,7 +22,7 @@ use crate::{
         signal::{Signal, SignalHandler},
         term::{PtyFollower, Terminal},
         wait::{Wait, WaitError, WaitOptions},
-        ForkResult,
+        ForkResult, close_the_universe,
     },
 };
 
@@ -192,6 +192,11 @@ fn exec_command(mut command: Command, foreground: bool, pty_follower: PtyFollowe
 
     // Done with the pty follower.
     drop(pty_follower);
+
+    // Close every file that's not the IO streams before execution.
+    if let Err(err) = close_the_universe() {
+        return err;
+    }
 
     command.exec()
 }
