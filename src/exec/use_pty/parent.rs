@@ -629,10 +629,10 @@ impl Process for ParentClosure {
         match event {
             ParentEvent::Signal(signal) => self.on_signal(signal, registry),
             ParentEvent::Tty(poll_event) => {
-                self.tty_pipe.on_left_event(poll_event).ok();
+                self.tty_pipe.on_left_event(poll_event, registry).ok();
             }
             ParentEvent::Pty(poll_event) => {
-                self.tty_pipe.on_right_event(poll_event).ok();
+                self.tty_pipe.on_right_event(poll_event, registry).ok();
             }
             ParentEvent::Backchannel(poll_event) => match poll_event {
                 PollEvent::Readable => self.on_message_received(registry),

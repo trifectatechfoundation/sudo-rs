@@ -76,19 +76,83 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
     }
 
     /// Handle a poll event for the left side of the pipe.
-    pub(super) fn on_left_event(&mut self, poll_event: PollEvent) -> io::Result<()> {
+    pub(super) fn on_left_event<T: Process>(
+        &mut self,
+        poll_event: PollEvent,
+        registry: &mut EventRegistry<T>,
+    ) -> io::Result<()> {
         match poll_event {
-            PollEvent::Readable => self.buffer_lr.read(&mut self.left),
-            PollEvent::Writable => self.buffer_rl.write(&mut self.left),
+            PollEvent::Readable => {
+                // Don't try to read if the buffer is full.
+                if self.buffer_lr.is_full() {
+                    self.left_handles.0.ignore(registry);
+                    return Ok(());
+                }
+
+                self.buffer_lr.read(&mut self.left)?;
+
+                // We can write again if the buffer is not empty.
+                if !self.buffer_lr.is_empty() {
+                    self.right_handles.1.resume(registry);
+                }
+            }
+            PollEvent::Writable => {
+                // Don't try to write if the buffer is empty.
+                if self.buffer_rl.is_empty() {
+                    self.left_handles.1.ignore(registry);
+                    return Ok(());
+                }
+
+                self.buffer_rl.write(&mut self.left)?;
+
+                // We can read again if the buffer is not full anymore.
+                if !self.buffer_rl.is_full() {
+                    self.right_handles.0.resume(registry);
+                }
+            }
         }
+
+        Ok(())
     }
 
     /// Handle a poll event for the right side of the pipe.
-    pub(super) fn on_right_event(&mut self, poll_event: PollEvent) -> io::Result<()> {
+    pub(super) fn on_right_event<T: Process>(
+        &mut self,
+        poll_event: PollEvent,
+        registry: &mut EventRegistry<T>,
+    ) -> io::Result<()> {
         match poll_event {
-            PollEvent::Readable => self.buffer_rl.read(&mut self.right),
-            PollEvent::Writable => self.buffer_lr.write(&mut self.right),
+            PollEvent::Readable => {
+                // Don't try to read if the buffer is full.
+                if self.buffer_rl.is_full() {
+                    self.right_handles.0.ignore(registry);
+                    return Ok(());
+                }
+
+                self.buffer_rl.read(&mut self.right)?;
+
+                // We can write again if the buffer is not empty.
+                if !self.buffer_rl.is_empty() {
+                    self.left_handles.1.resume(registry);
+                }
+            }
+            PollEvent::Writable => {
+                // If the buffer is empty, don't try to write from it.
+                if self.buffer_lr.is_empty() {
+                    self.right_handles.1.ignore(registry);
+                    return Ok(());
+                }
+
+                self.buffer_lr.write(&mut self.right)?;
+
+                // If the buffer is not full, we can read into it again.
+                if !self.buffer_lr.is_full() {
+                    self.left_handles.0.resume(registry);
+                }
+            }
         }
+
+        Ok(())
     }
 
     /// Ensure that all the contents of the pipe's internal buffer are written to the left side.
@@ -119,6 +183,18 @@ impl<R: Read, W: Write> Buffer<R, W> {
             end: 0,
             marker: PhantomData,
         }
+    }
+
+    /// Return true if the buffer is empty.
+    fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
+
+    /// Return true if the buffer is full.
+    fn is_full(&self) -> bool {
+        // FIXME: This doesn't really mean that the buffer is full but it cannot be used for writes
+        // anyway.
+        self.end == BUFSIZE
     }
 
     /// Read bytes into the buffer.
