@@ -29,8 +29,6 @@ pub(super) struct BackchannelPair {
 impl BackchannelPair {
     pub(super) fn new() -> io::Result<Self> {
         let (sock1, sock2) = UnixStream::pair()?;
-        sock1.set_nonblocking(true)?;
-        sock2.set_nonblocking(true)?;
 
         Ok(Self {
             parent: ParentBackchannel { socket: sock1 },
