@@ -99,7 +99,7 @@ fn sudo_process() -> Result<(), Error> {
                 let mut record_file =
                     SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
                 record_file.reset()?;
-                return Ok(());
+                Ok(())
             }
             SudoAction::ResetTimestamp => {
                 if let Some(scope) = RecordScope::for_process(&Process::new()) {
@@ -108,11 +108,9 @@ fn sudo_process() -> Result<(), Error> {
                         SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
                     record_file.disable(scope, None)?;
                 }
-                return Ok(());
+                Ok(())
             }
-            SudoAction::Validate => {
-                return pipeline.run_validate(options);
-            }
+            SudoAction::Validate => pipeline.run_validate(options),
             SudoAction::Run(ref cmd) => {
                 // special case for when no command is given
                 if cmd.is_empty() && !options.shell && !options.login {
@@ -121,7 +119,7 @@ fn sudo_process() -> Result<(), Error> {
                 } else {
                     unstable_warning();
 
-                    return pipeline.run(options);
+                    pipeline.run(options)
                 }
             }
             SudoAction::List(_) => {
@@ -135,7 +133,7 @@ fn sudo_process() -> Result<(), Error> {
             eprintln!("{e}\n{}", help::USAGE_MSG);
             std::process::exit(1);
         }
-    };
+    }
 }
 
 pub fn main() {

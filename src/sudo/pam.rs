@@ -47,11 +47,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         Ok(())
     }
 
-    fn authenticate(
-        &mut self,
-        non_interactive: bool,
-        max_tries: u16,
-    ) -> Result<(), Error> {
+    fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error> {
         let pam = self
             .pam
             .as_mut()
@@ -75,7 +71,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         let user = pam.get_user()?;
         if user != target_user {
             // switch pam over to the target user
-            pam.set_user(&target_user)?;
+            pam.set_user(target_user)?;
 
             // make sure that credentials are loaded for the target user
             // errors are ignored because not all modules support this functionality
@@ -106,7 +102,13 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
     }
 }
 
-pub fn init_pam(is_login_shell: bool, use_stdin: bool, non_interactive: bool, auth_user: &str, requesting_user: &str) -> PamResult<PamContext<CLIConverser>> {
+pub fn init_pam(
+    is_login_shell: bool,
+    use_stdin: bool,
+    non_interactive: bool,
+    auth_user: &str,
+    requesting_user: &str,
+) -> PamResult<PamContext<CLIConverser>> {
     let service_name = if is_login_shell { "sudo-i" } else { "sudo" };
     let mut pam = PamContext::builder_cli("sudo", use_stdin, non_interactive)
         .service_name(service_name)
@@ -124,7 +126,11 @@ pub fn init_pam(is_login_shell: bool, use_stdin: bool, non_interactive: bool, au
     Ok(pam)
 }
 
-pub fn attempt_authenticate<C: Converser>(pam: &mut PamContext<C>, non_interactive: bool, mut max_tries: u16) -> Result<(), Error> {
+pub fn attempt_authenticate<C: Converser>(
+    pam: &mut PamContext<C>,
+    non_interactive: bool,
+    mut max_tries: u16,
+) -> Result<(), Error> {
     let mut current_try = 0;
     loop {
         current_try += 1;

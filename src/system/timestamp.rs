@@ -10,7 +10,8 @@ use super::{
     audit::secure_open_cookie_file,
     file::Lockable,
     interface::UserId,
-    time::{Duration, SystemTime}, Process, WithProcess,
+    time::{Duration, SystemTime},
+    Process, WithProcess,
 };
 
 /// Truncates or extends the underlying data

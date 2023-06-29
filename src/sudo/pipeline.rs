@@ -8,9 +8,9 @@ use crate::exec::ExitReason;
 use crate::log::auth_warn;
 use crate::sudo::Duration;
 use crate::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
-use crate::system::Process;
 use crate::system::interface::UserId;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
+use crate::system::Process;
 
 pub trait PolicyPlugin {
     type PreJudgementPolicy: PreJudgementPolicy;
@@ -26,11 +26,7 @@ pub trait PolicyPlugin {
 
 pub trait AuthPlugin {
     fn init(&mut self, context: &Context) -> Result<(), Error>;
-    fn authenticate(
-        &mut self,
-        non_interactive: bool,
-        max_tries: u16,
-    ) -> Result<(), Error>;
+    fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error>;
     fn pre_exec(&mut self, target_user: &str) -> Result<Environment, Error>;
     fn cleanup(&mut self);
 }
@@ -48,7 +44,6 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let policy = self.policy.judge(pre, &context)?;
         let authorization = policy.authorization();
         let scope = RecordScope::for_process(&Process::new());
-
 
         match authorization {
             Authorization::Forbidden => {
@@ -70,20 +65,21 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                     scope,
                     context.current_user.uid,
                     &context.current_user.name,
-                    prior_validity
+                    prior_validity,
                 );
 
                 self.authenticator.init(&context)?;
                 if auth_status.must_authenticate {
-                    self.authenticator.authenticate(
-                        context.non_interactive,
-                        allowed_attempts
-                    )?;
-                    if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+                    self.authenticator
+                        .authenticate(context.non_interactive, allowed_attempts)?;
+                    if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope)
+                    {
                         match record_file.create(scope, context.current_user.uid) {
                             Ok(_) => (),
                             Err(e) => {
-                                auth_warn!("Could not update session record file with new record: {e}");
+                                auth_warn!(
+                                    "Could not update session record file with new record: {e}"
+                                );
                             }
                         }
                     }
@@ -148,20 +144,21 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                     scope,
                     context.current_user.uid,
                     &context.current_user.name,
-                    prior_validity
+                    prior_validity,
                 );
 
                 self.authenticator.init(&context)?;
                 if auth_status.must_authenticate {
-                    self.authenticator.authenticate(
-                        context.non_interactive,
-                        allowed_attempts
-                    )?;
-                    if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+                    self.authenticator
+                        .authenticate(context.non_interactive, allowed_attempts)?;
+                    if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope)
+                    {
                         match record_file.create(scope, context.current_user.uid) {
                             Ok(_) => (),
                             Err(e) => {
-                                auth_warn!("Could not update session record file with new record: {e}");
+                                auth_warn!(
+                                    "Could not update session record file with new record: {e}"
+                                );
                             }
                         }
                     }
@@ -199,8 +196,8 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
 fn build_context(cmd_opts: SudoOptions, pre: &dyn PreJudgementPolicy) -> Result<Context, Error> {
     let secure_path: String = pre
-            .secure_path()
-            .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
+        .secure_path()
+        .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
     Context::build_from_options(cmd_opts, secure_path)
 }
 
@@ -222,7 +219,9 @@ fn determine_auth_status(
                 match sr.touch(record_for, auth_uid) {
                     // if a record was found and updated within the timeout, we do not need to authenticate
                     Ok(TouchResult::Updated { .. }) => AuthStatus::new(false, Some(sr)),
-                    Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => AuthStatus::new(true, Some(sr)),
+                    Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => {
+                        AuthStatus::new(true, Some(sr))
+                    }
                     Err(e) => {
                         auth_warn!("Unexpected error while reading session information: {e}");
                         AuthStatus::new(true, None)
@@ -246,7 +245,10 @@ struct AuthStatus<'a> {
 }
 
 impl<'a> AuthStatus<'a> {
-    fn new(must_authenticate: bool, record_file: Option<SessionRecordFile<'a, File>>) -> AuthStatus<'a> {
+    fn new(
+        must_authenticate: bool,
+        record_file: Option<SessionRecordFile<'a, File>>,
+    ) -> AuthStatus<'a> {
         AuthStatus {
             must_authenticate,
             record_file,
