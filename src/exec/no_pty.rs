@@ -1,14 +1,15 @@
-use std::{io, process::Command};
+use std::{ffi::c_int, io, process::Command};
 
 use signal_hook::consts::*;
 
 use super::{
     event::{EventRegistry, Process, StopReason},
     signal_manager::Signal,
-    terminate_process, ExitReason,
+    terminate_process, ExitReason, HandleSigchld,
 };
 use crate::{
-    exec::{io_util::was_interrupted, opt_fmt, signal_fmt, signal_manager::SignalManager},
+    exec::signal_manager::SignalManager,
+    exec::{handle_sigchld, opt_fmt, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
         getpgid, getpgrp,
@@ -16,7 +17,7 @@ use crate::{
         kill, killpg,
         signal::{SignalAction, SignalNumber},
         term::{Terminal, UserTerm},
-        wait::{Wait, WaitError, WaitOptions},
+        wait::WaitOptions,
     },
 };
 
@@ -96,50 +97,6 @@ impl ExecClosure {
         }
 
         false
-    }
-
-    fn handle_sigchld(&mut self, command_pid: ProcessId, registry: &mut EventRegistry<Self>) {
-        const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
-
-        let status = loop {
-            match command_pid.wait(OPTS) {
-                Err(WaitError::Io(err)) if was_interrupted(&err) => {}
-                // This only happens if we receive `SIGCHLD` but there's no status update from the
-                // command.
-                Err(WaitError::Io(err)) => {
-                    dev_info!("cannot wait for {command_pid} (command): {err}")
-                }
-                // This only happens if the monitor exited and any process already waited for the
-                // command.
-                Err(WaitError::NotReady) => {
-                    dev_info!("{command_pid} (command) has no status report")
-                }
-                Ok((_pid, status)) => break status,
-            }
-        };
-
-        if let Some(signal) = status.stop_signal() {
-            dev_info!(
-                "{command_pid} (command) was stopped by {}",
-                signal_fmt(signal),
-            );
-            self.suspend_parent(signal);
-        } else if let Some(signal) = status.term_signal() {
-            dev_info!(
-                "{command_pid} (command) was terminated by {}",
-                signal_fmt(signal),
-            );
-            registry.set_exit(ExitReason::Signal(signal));
-            self.command_pid = None;
-        } else if let Some(exit_code) = status.exit_status() {
-            dev_info!("{command_pid} (command) exited with status code {exit_code}");
-            registry.set_exit(ExitReason::Code(exit_code));
-            self.command_pid = None;
-        } else if status.did_continue() {
-            dev_info!("{command_pid} (command) continued execution");
-        } else {
-            dev_warn!("unexpected wait status for {command_pid} (command)")
-        }
     }
 
     /// Suspend the main process.
@@ -229,9 +186,7 @@ impl ExecClosure {
         };
 
         match info.signal() {
-            SIGCHLD => {
-                self.handle_sigchld(command_pid, registry);
-            }
+            SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
             signal => {
                 if signal == SIGWINCH {
                     // FIXME: check `handle_sigwinch_no_pty`.
@@ -265,5 +220,23 @@ impl Process for ExecClosure {
         match event {
             ExecEvent::Signal(signal) => self.on_signal(signal, registry),
         }
+    }
+}
+
+impl HandleSigchld for ExecClosure {
+    const OPTIONS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
+
+    fn on_exit(&mut self, exit_code: c_int, registry: &mut EventRegistry<Self>) {
+        registry.set_exit(ExitReason::Code(exit_code));
+        self.command_pid = None;
+    }
+
+    fn on_term(&mut self, signal: SignalNumber, registry: &mut EventRegistry<Self>) {
+        registry.set_exit(ExitReason::Signal(signal));
+        self.command_pid = None;
+    }
+
+    fn on_stop(&mut self, signal: SignalNumber, _registry: &mut EventRegistry<Self>) {
+        self.suspend_parent(signal);
     }
 }

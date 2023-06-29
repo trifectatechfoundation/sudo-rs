@@ -9,7 +9,9 @@ use crate::exec::event::{EventHandle, EventRegistry, Process, StopReason};
 use crate::exec::signal_manager::{Signal, SignalManager};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
-use crate::exec::{cond_fmt, opt_fmt, signal_fmt, terminate_process};
+use crate::exec::{
+    cond_fmt, handle_sigchld, opt_fmt, signal_fmt, terminate_process, HandleSigchld,
+};
 use crate::exec::{
     io_util::{retry_while_interrupted, was_interrupted},
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
@@ -19,12 +21,12 @@ use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::poll::PollEvent;
 use crate::system::signal::{SignalAction, SignalHandler, SignalNumber};
 use crate::system::term::{Pty, PtyLeader, Terminal, UserTerm};
-use crate::system::wait::{Wait, WaitError, WaitOptions};
+use crate::system::wait::WaitOptions;
 use crate::system::{chown, fork, getpgrp, kill, killpg, ForkResult, Group, User};
 use crate::system::{getpgid, interface::ProcessId};
 
 use super::pipe::Pipe;
-use super::SIGCONT_BG;
+use super::{CommandStatus, SIGCONT_BG};
 
 pub(crate) fn exec_pty(
     sudo_pid: ProcessId,
@@ -334,23 +336,27 @@ impl ParentClosure {
                     ParentMessage::CommandStatus(status) => {
                         // The command terminated or the monitor was not able to spawn it. We should stop
                         // either way.
-                        if let Some(exit_code) = status.exit_status() {
-                            dev_info!("command exited with status code {exit_code}");
-                            registry.set_exit(ExitReason::Code(exit_code).into());
-                        } else if let Some(signal) = status.term_signal() {
-                            dev_info!("command was terminated by {}", signal_fmt(signal));
-                            registry.set_exit(ExitReason::Signal(signal).into());
-                        } else if let Some(signal) = status.stop_signal() {
-                            dev_info!(
-                                "command was stopped by {}, suspending parent",
-                                signal_fmt(signal)
-                            );
-                            // Suspend parent and tell monitor how to resume on return
-                            if let Some(signal) = self.suspend_pty(signal, registry) {
-                                self.schedule_signal(signal, registry);
+                        match status {
+                            CommandStatus::Exit(exit_code) => {
+                                dev_info!("command exited with status code {exit_code}");
+                                registry.set_exit(ExitReason::Code(exit_code).into());
                             }
+                            CommandStatus::Term(signal) => {
+                                dev_info!("command was terminated by {}", signal_fmt(signal));
+                                registry.set_exit(ExitReason::Signal(signal).into());
+                            }
+                            CommandStatus::Stop(signal) => {
+                                dev_info!(
+                                    "command was stopped by {}, suspending parent",
+                                    signal_fmt(signal)
+                                );
+                                // Suspend parent and tell monitor how to resume on return
+                                if let Some(signal) = self.suspend_pty(signal, registry) {
+                                    self.schedule_signal(signal, registry);
+                                }
 
-                            self.tty_pipe.resume_events(registry)
+                                self.tty_pipe.resume_events(registry);
+                            }
                         }
                     }
                     ParentMessage::IoError(code) => {
@@ -423,53 +429,6 @@ impl ParentClosure {
                 // Non critical error, we can retry later.
                 Err(_) => {}
             }
-        }
-    }
-
-    /// Handle changes to the monitor status.
-    fn handle_sigchld(&mut self, monitor_pid: ProcessId, registry: &mut EventRegistry<Self>) {
-        const OPTS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
-
-        let status = loop {
-            match monitor_pid.wait(OPTS) {
-                Err(WaitError::Io(err)) if was_interrupted(&err) => {}
-                // This only happens if we receive `SIGCHLD` but there's no status update from the
-                // monitor.
-                Err(WaitError::Io(err)) => {
-                    dev_info!("cannot wait for {monitor_pid} (monitor): {err}")
-                }
-                // This only happens if the monitor exited and any process already waited for the
-                // monitor.
-                Err(WaitError::NotReady) => {
-                    dev_info!("{monitor_pid} (monitor) has no status report")
-                }
-                Ok((_pid, status)) => break status,
-            }
-        };
-
-        if let Some(code) = status.exit_status() {
-            dev_info!("{monitor_pid} (monitor) exited with status code {code}");
-            self.monitor_pid = None;
-        } else if let Some(signal) = status.term_signal() {
-            dev_info!(
-                "{monitor_pid} (monitor) was terminated by {}",
-                signal_fmt(signal)
-            );
-            self.monitor_pid = None;
-        } else if let Some(signal) = status.stop_signal() {
-            dev_info!(
-                "{monitor_pid} (monitor) was stopped by {}, suspending sudo",
-                signal_fmt(signal)
-            );
-            if let Some(signal) = self.suspend_pty(signal, registry) {
-                self.schedule_signal(signal, registry);
-            }
-
-            self.tty_pipe.resume_events(registry)
-        } else if status.did_continue() {
-            dev_info!("{monitor_pid} (monitor) continued execution");
-        } else {
-            dev_warn!("unexpected wait status for {monitor_pid} (monitor)")
         }
     }
 
@@ -620,7 +579,7 @@ impl ParentClosure {
         };
 
         match info.signal() {
-            SIGCHLD => self.handle_sigchld(monitor_pid, registry),
+            SIGCHLD => handle_sigchld(self, registry, "monitor", monitor_pid),
             SIGCONT => {
                 self.resume_terminal().ok();
             }
@@ -680,5 +639,24 @@ impl Process for ParentClosure {
                 PollEvent::Writable => self.check_message_queue(registry),
             },
         }
+    }
+}
+
+impl HandleSigchld for ParentClosure {
+    const OPTIONS: WaitOptions = WaitOptions::new().all().untraced().no_hang();
+
+    fn on_exit(&mut self, _exit_code: c_int, _registry: &mut EventRegistry<Self>) {
+        self.monitor_pid = None;
+    }
+
+    fn on_term(&mut self, _signal: SignalNumber, _registry: &mut EventRegistry<Self>) {
+        self.monitor_pid = None;
+    }
+
+    fn on_stop(&mut self, signal: SignalNumber, registry: &mut EventRegistry<Self>) {
+        if let Some(signal) = self.suspend_pty(signal, registry) {
+            self.schedule_signal(signal, registry);
+        }
+        self.tty_pipe.resume_events(registry);
     }
 }

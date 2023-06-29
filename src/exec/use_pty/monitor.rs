@@ -5,6 +5,7 @@ use std::{
     process::{exit, Command},
 };
 
+use crate::exec::signal_manager::Signal;
 use crate::{
     exec::{
         event::StopReason,
@@ -15,13 +16,13 @@ use crate::{
     system::poll::PollEvent,
 };
 use crate::{
-    exec::{signal_manager::Signal, terminate_process},
+    exec::{handle_sigchld, terminate_process, HandleSigchld},
     system::{
         fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, setpgid, setsid,
         term::{PtyFollower, Terminal},
-        wait::{Wait, WaitError, WaitOptions, WaitStatus},
+        wait::{Wait, WaitError, WaitOptions},
         ForkResult,
     },
 };
@@ -34,6 +35,8 @@ use crate::exec::{
     use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
 };
 use crate::exec::{opt_fmt, signal_fmt};
+
+use super::CommandStatus;
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 pub(super) fn exec_monitor(
@@ -271,58 +274,6 @@ impl<'a> MonitorClosure<'a> {
         }
     }
 
-    fn handle_sigchld(&mut self, command_pid: ProcessId, registry: &mut EventRegistry<Self>) {
-        let status = loop {
-            match command_pid.wait(WaitOptions::new().untraced().no_hang()) {
-                Err(WaitError::Io(err)) if was_interrupted(&err) => {}
-                // This only happens if we receive `SIGCHLD` but there's no status update from the
-                // command.
-                Err(WaitError::Io(err)) => {
-                    dev_info!("cannot wait for {command_pid} (command): {err}")
-                }
-                // This only happens if the command exited and any process already waited for the
-                // command.
-                Err(WaitError::NotReady) => {
-                    dev_info!("{command_pid} (command) has no status report")
-                }
-                Ok((_pid, status)) => break status,
-            }
-        };
-
-        if let Some(exit_code) = status.exit_status() {
-            dev_info!("{command_pid} (command) exited with status code {exit_code}");
-            // The command did exit, set it's PID to `None`.
-            self.command_pid = None;
-            registry.set_exit(status);
-        } else if let Some(signal) = status.term_signal() {
-            dev_info!(
-                "{command_pid} (command) was terminated by {}",
-                signal_fmt(signal),
-            );
-            // The command was terminated, set it's PID to `None`.
-            self.command_pid = None;
-            registry.set_exit(status);
-        } else if let Some(signal) = status.stop_signal() {
-            dev_info!(
-                "{command_pid} (command) was stopped by {}",
-                signal_fmt(signal),
-            );
-            // Save the foreground process group ID so we can restore it later.
-            if let Ok(pgrp) = self.pty_follower.tcgetpgrp() {
-                if pgrp != self.monitor_pgrp {
-                    self.command_pgrp = pgrp;
-                }
-            }
-            self.backchannel
-                .send(&ParentMessage::CommandStatus(status))
-                .ok();
-        } else if status.did_continue() {
-            dev_info!("{command_pid} (command) continued execution");
-        } else {
-            dev_warn!("unexpected wait status for {command_pid} (command)")
-        }
-    }
-
     fn read_errpipe(&mut self, registry: &mut EventRegistry<Self>) {
         let mut buf = 0i32.to_ne_bytes();
         match self.errpipe_rx.read_exact(&mut buf) {
@@ -400,7 +351,7 @@ impl<'a> MonitorClosure<'a> {
         };
 
         match info.signal() {
-            SIGCHLD => self.handle_sigchld(command_pid, registry),
+            SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
@@ -444,7 +395,7 @@ enum MonitorEvent {
 impl<'a> Process for MonitorClosure<'a> {
     type Event = MonitorEvent;
     type Break = io::Error;
-    type Exit = WaitStatus;
+    type Exit = CommandStatus;
 
     fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>) {
         match event {
@@ -452,5 +403,31 @@ impl<'a> Process for MonitorClosure<'a> {
             MonitorEvent::ReadableErrPipe => self.read_errpipe(registry),
             MonitorEvent::ReadableBackchannel => self.read_backchannel(registry),
         }
+    }
+}
+
+impl<'a> HandleSigchld for MonitorClosure<'a> {
+    const OPTIONS: WaitOptions = WaitOptions::new().untraced().no_hang();
+
+    fn on_exit(&mut self, exit_code: c_int, registry: &mut EventRegistry<Self>) {
+        registry.set_exit(CommandStatus::Exit(exit_code));
+        self.command_pid = None;
+    }
+
+    fn on_term(&mut self, signal: c_int, registry: &mut EventRegistry<Self>) {
+        registry.set_exit(CommandStatus::Term(signal));
+        self.command_pid = None;
+    }
+
+    fn on_stop(&mut self, signal: c_int, _registry: &mut EventRegistry<Self>) {
+        // Save the foreground process group ID so we can restore it later.
+        if let Ok(pgrp) = self.pty_follower.tcgetpgrp() {
+            if pgrp != self.monitor_pgrp {
+                self.command_pgrp = pgrp;
+            }
+        }
+        self.backchannel
+            .send(&CommandStatus::Stop(signal).into())
+            .ok();
     }
 }
