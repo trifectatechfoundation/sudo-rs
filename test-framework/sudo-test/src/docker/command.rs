@@ -129,6 +129,7 @@ impl Child {
 
 /// the output of a finished `Command`
 #[must_use]
+#[derive(Debug)]
 pub struct Output {
     pub(super) status: ExitStatus,
     pub(super) stderr: String,

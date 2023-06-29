@@ -3,7 +3,6 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
-#[ignore = "gh395"]
 fn revalidation() -> Result<()> {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
@@ -26,7 +25,6 @@ Defaults timestamp_timeout=0.1"
 }
 
 #[test]
-#[ignore = "gh395"]
 fn prompts_for_password() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
