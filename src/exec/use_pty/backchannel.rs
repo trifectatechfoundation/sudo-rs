@@ -130,12 +130,10 @@ impl ParentBackchannel {
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());
 
-        if let Err(err) = self.socket.write_all(&buf) {
+        self.socket.write_all(&buf).map_err(|err| {
             debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
-            return Err(err);
-        }
-
-        Ok(())
+            err
+        })
     }
 
     /// Receive a [`ParentMessage`].
@@ -144,10 +142,10 @@ impl ParentBackchannel {
     pub(super) fn recv(&mut self) -> io::Result<ParentMessage> {
         let mut buf = [0; ParentMessage::LEN];
 
-        if let Err(err) = self.socket.read_exact(&mut buf) {
+        self.socket.read_exact(&mut buf).map_err(|err| {
             debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
-            return Err(err);
-        }
+            err
+        })?;
 
         let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
 
@@ -226,12 +224,10 @@ impl MonitorBackchannel {
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());
 
-        if let Err(err) = self.socket.write_all(&buf) {
+        self.socket.write_all(&buf).map_err(|err| {
             debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
-            return Err(err);
-        }
-
-        Ok(())
+            err
+        })
     }
 
     /// Receive a [`MonitorMessage`].
@@ -240,10 +236,10 @@ impl MonitorBackchannel {
     pub(super) fn recv(&mut self) -> io::Result<MonitorMessage> {
         let mut buf = [0; MonitorMessage::LEN];
 
-        if let Err(err) = self.socket.read_exact(&mut buf) {
+        self.socket.read_exact(&mut buf).map_err(|err| {
             debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
-            return Err(err);
-        }
+            err
+        })?;
 
         let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
 
