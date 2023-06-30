@@ -4,7 +4,6 @@ mod event;
 mod interface;
 mod io_util;
 mod no_pty;
-mod signal_manager;
 mod use_pty;
 
 use std::{
