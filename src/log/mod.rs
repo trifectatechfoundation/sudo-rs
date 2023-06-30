@@ -43,10 +43,8 @@ macro_rules! dev_logger_macro {
                     (::log::log!(
                         target: $target,
                         $crate::log::Level::$rule_level,
-                        "{}:{}:{}: {}",
-                        file!(),
-                        line!(),
-                        column!(),
+                        "{}: {}",
+                        std::panic::Location::caller(),
                         format_args!($d($d arg)+)
                     ));
                 }

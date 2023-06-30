@@ -1,10 +1,13 @@
-use std::{collections::BTreeMap, os::fd::AsRawFd};
+use std::{collections::BTreeMap, fmt::Debug, os::fd::AsRawFd};
 
-use crate::system::poll::{PollEvent, PollSet};
+use crate::{
+    log::dev_debug,
+    system::poll::{PollEvent, PollSet},
+};
 
 pub(super) trait Process: Sized {
     /// IO Events that this process should handle.
-    type Event: Copy + Eq;
+    type Event: Copy + Eq + Debug;
     /// Reason why the event loop should break.
     ///
     /// See [`EventRegistry::set_break`] for more information.
@@ -146,6 +149,7 @@ impl<T: Process> EventRegistry<T> {
     ///
     /// The event loop will continue indefinitely unless you call [`EventRegistry::set_break`] or
     /// [`EventRegistry::set_exit`].
+    #[track_caller]
     pub(super) fn event_loop(&mut self, process: &mut T) -> StopReason<T> {
         let mut event_queue = Vec::with_capacity(self.events.len());
 
@@ -153,7 +157,9 @@ impl<T: Process> EventRegistry<T> {
             // FIXME: maybe we shout return the IO error instead.
             if let Ok(ids) = self.poll_set.poll() {
                 for id in ids {
-                    event_queue.push(self.events[&id]);
+                    let event = self.events[&id];
+                    dev_debug!("event {event:?} is ready");
+                    event_queue.push(event);
                 }
 
                 for event in event_queue.drain(..) {

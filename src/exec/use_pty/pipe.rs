@@ -15,8 +15,6 @@ pub(super) struct Pipe<L, R> {
     right: R,
     buffer_lr: Buffer<L, R>,
     buffer_rl: Buffer<R, L>,
-    left_handles: (EventHandle, EventHandle),
-    right_handles: (EventHandle, EventHandle),
 }
 
 impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
@@ -29,18 +27,18 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
         f_right: fn(PollEvent) -> T::Event,
     ) -> Self {
         Self {
-            left_handles: (
+            buffer_lr: Buffer::new(
                 registry.register_event(&left, PollEvent::Readable, f_left),
-                registry.register_event(&left, PollEvent::Writable, f_left),
-            ),
-            right_handles: (
-                registry.register_event(&right, PollEvent::Readable, f_right),
                 registry.register_event(&right, PollEvent::Writable, f_right),
+                registry,
+            ),
+            buffer_rl: Buffer::new(
+                registry.register_event(&right, PollEvent::Readable, f_right),
+                registry.register_event(&left, PollEvent::Writable, f_left),
+                registry,
             ),
             left,
             right,
-            buffer_lr: Buffer::new(),
-            buffer_rl: Buffer::new(),
         }
     }
 
@@ -61,33 +59,41 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
 
     /// Stop the poll events of this pipe.
     pub(super) fn ignore_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
-        self.left_handles.0.ignore(registry);
-        self.left_handles.1.ignore(registry);
-        self.right_handles.0.ignore(registry);
-        self.right_handles.1.ignore(registry);
+        self.buffer_lr.read_handle.ignore(registry);
+        self.buffer_lr.write_handle.ignore(registry);
+        self.buffer_rl.read_handle.ignore(registry);
+        self.buffer_rl.write_handle.ignore(registry);
     }
 
     /// Resume the poll events of this pipe
     pub(super) fn resume_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
-        self.left_handles.0.resume(registry);
-        self.left_handles.1.resume(registry);
-        self.right_handles.0.resume(registry);
-        self.right_handles.1.resume(registry);
+        self.buffer_lr.read_handle.resume(registry);
+        self.buffer_lr.write_handle.resume(registry);
+        self.buffer_rl.read_handle.resume(registry);
+        self.buffer_rl.write_handle.resume(registry);
     }
 
     /// Handle a poll event for the left side of the pipe.
-    pub(super) fn on_left_event(&mut self, poll_event: PollEvent) -> io::Result<()> {
+    pub(super) fn on_left_event<T: Process>(
+        &mut self,
+        poll_event: PollEvent,
+        registry: &mut EventRegistry<T>,
+    ) -> io::Result<()> {
         match poll_event {
-            PollEvent::Readable => self.buffer_lr.read(&mut self.left),
-            PollEvent::Writable => self.buffer_rl.write(&mut self.left),
+            PollEvent::Readable => self.buffer_lr.read(&mut self.left, registry),
+            PollEvent::Writable => self.buffer_rl.write(&mut self.left, registry),
         }
     }
 
     /// Handle a poll event for the right side of the pipe.
-    pub(super) fn on_right_event(&mut self, poll_event: PollEvent) -> io::Result<()> {
+    pub(super) fn on_right_event<T: Process>(
+        &mut self,
+        poll_event: PollEvent,
+        registry: &mut EventRegistry<T>,
+    ) -> io::Result<()> {
         match poll_event {
-            PollEvent::Readable => self.buffer_rl.read(&mut self.right),
-            PollEvent::Writable => self.buffer_lr.write(&mut self.right),
+            PollEvent::Readable => self.buffer_rl.read(&mut self.right, registry),
+            PollEvent::Writable => self.buffer_lr.write(&mut self.right, registry),
         }
     }
 
@@ -107,28 +113,58 @@ struct Buffer<R, W> {
     start: usize,
     /// The end of the busy section of the buffer.
     end: usize,
+    /// The handle for the event of the reader.
+    read_handle: EventHandle,
+    /// The handle for the event of the writer.
+    write_handle: EventHandle,
     marker: PhantomData<(R, W)>,
 }
 
 impl<R: Read, W: Write> Buffer<R, W> {
     /// Create a new, empty buffer
-    const fn new() -> Self {
+    fn new<T: Process>(
+        read_handle: EventHandle,
+        mut write_handle: EventHandle,
+        registry: &mut EventRegistry<T>,
+    ) -> Self {
+        // The buffer is empty, don't write
+        write_handle.ignore(registry);
+
         Self {
             buffer: [0; BUFSIZE],
             start: 0,
             end: 0,
+            read_handle,
+            write_handle,
             marker: PhantomData,
         }
+    }
+
+    /// Return true if the buffer is empty.
+    fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
+
+    /// Return true if the buffer is full.
+    fn is_full(&self) -> bool {
+        // FIXME: This doesn't really mean that the buffer is full but it cannot be used for writes
+        // anyway.
+        self.end == BUFSIZE
     }
 
     /// Read bytes into the buffer.
     ///
     /// Calling this function will block until `read` is ready to be read.
-    fn read(&mut self, read: &mut R) -> io::Result<()> {
-        // FIXME: This function will try to read even if the buffer is full. Meaning that in the
-        // worst case scenario where `W` is never ready to be written, we will be constantly
-        // calling this function. This could be solved by ignoring the event associated with this
-        // callback in the dispatcher until `W` is ready.
+    fn read<T: Process>(
+        &mut self,
+        read: &mut R,
+        registry: &mut EventRegistry<T>,
+    ) -> io::Result<()> {
+        // Don't read if the buffer is full.
+        if self.is_full() {
+            self.read_handle.ignore(registry);
+            return Ok(());
+        }
 
         // This is the remaining free section that follows the busy section of the buffer.
         let buffer = &mut self.buffer[self.end..];
@@ -139,17 +175,27 @@ impl<R: Read, W: Write> Buffer<R, W> {
         // Mark the `len` bytes after the busy section as busy too.
         self.end += len;
 
+        // If we read something, the buffer is not empty anymore and we can resume writing.
+        if len > 0 {
+            self.write_handle.resume(registry);
+        }
+
         Ok(())
     }
 
     /// Write bytes from the buffer.
     ///
     /// Calling this function will block until `write` is ready to be written.
-    fn write(&mut self, write: &mut W) -> io::Result<()> {
-        // FIXME: This function will try to write even if the buffer is empty. Meaning that in the
-        // worst case scenario where `R` is never ready to be readn, we will be constantly calling
-        // this function. This could be solved by ignoring the event associated with this callback
-        // in the dispatcher until `R` is ready.
+    fn write<T: Process>(
+        &mut self,
+        write: &mut W,
+        registry: &mut EventRegistry<T>,
+    ) -> io::Result<()> {
+        // Don't write if the buffer is empty.
+        if self.is_empty() {
+            self.write_handle.ignore(registry);
+            return Ok(());
+        }
 
         // This is the busy section of the buffer.
         let buffer = &self.buffer[self.start..self.end];
@@ -164,6 +210,11 @@ impl<R: Read, W: Write> Buffer<R, W> {
         } else {
             // Otherwise we just free the first `len` bytes of the busy section.
             self.start += len;
+        }
+
+        // If we wrote something, the buffer is not full anymore and we can resume reading.
+        if len > 0 {
+            self.read_handle.resume(registry);
         }
 
         Ok(())
@@ -182,11 +233,5 @@ impl<R: Read, W: Write> Buffer<R, W> {
         self.end = 0;
 
         write.flush()
-    }
-}
-
-impl<R: Read, W: Write> Default for Buffer<R, W> {
-    fn default() -> Self {
-        Self::new()
     }
 }
