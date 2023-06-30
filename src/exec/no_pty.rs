@@ -4,18 +4,17 @@ use signal_hook::consts::*;
 
 use super::{
     event::{EventRegistry, Process, StopReason},
-    signal_manager::Signal,
     terminate_process, ExitReason, HandleSigchld,
 };
 use crate::{
-    exec::signal_manager::SignalManager,
     exec::{handle_sigchld, opt_fmt, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
         getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
-        signal::{SignalAction, SignalNumber},
+        poll::PollEvent,
+        signal::{Signal, SignalAction, SignalHandler, SignalNumber},
         term::{Terminal, UserTerm},
         wait::WaitOptions,
     },
@@ -28,7 +27,7 @@ pub(crate) fn exec_no_pty(
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // FIXME: block signals directly instead of using the manager.
-    let signal_manager = SignalManager::new()?;
+    let signal_handler = SignalHandler::new()?;
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
@@ -42,7 +41,7 @@ pub(crate) fn exec_no_pty(
 
     let mut registry = EventRegistry::new();
 
-    let mut closure = ExecClosure::new(command_pid, sudo_pid, signal_manager, &mut registry);
+    let mut closure = ExecClosure::new(command_pid, sudo_pid, signal_handler, &mut registry);
 
     // FIXME: restore signal mask here.
 
@@ -58,23 +57,23 @@ struct ExecClosure {
     command_pid: Option<ProcessId>,
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
-    signal_manager: SignalManager,
+    signal_handler: SignalHandler,
 }
 
 impl ExecClosure {
     fn new(
         command_pid: ProcessId,
         sudo_pid: ProcessId,
-        signal_manager: SignalManager,
+        signal_handler: SignalHandler,
         registry: &mut EventRegistry<Self>,
     ) -> Self {
-        signal_manager.register_handlers(registry, ExecEvent::Signal);
+        registry.register_event(&signal_handler, PollEvent::Readable, |_| ExecEvent::Signal);
 
         Self {
             command_pid: Some(command_pid),
             sudo_pid,
             parent_pgrp: getpgrp(),
-            signal_manager,
+            signal_handler,
         }
     }
 
@@ -138,7 +137,7 @@ impl ExecClosure {
         }
 
         let sigtstp_action = (signal == SIGTSTP).then(|| {
-            self.signal_manager
+            self.signal_handler
                 .set_action(Signal::SIGTSTP, SignalAction::Default)
         });
 
@@ -151,7 +150,7 @@ impl ExecClosure {
         }
 
         if let Some(action) = sigtstp_action {
-            self.signal_manager.set_action(Signal::SIGTSTP, action);
+            self.signal_handler.set_action(Signal::SIGTSTP, action);
         }
 
         if let Some(saved_pgrp) = opt_pgrp {
@@ -164,11 +163,11 @@ impl ExecClosure {
         }
     }
 
-    fn on_signal(&mut self, signal: Signal, registry: &mut EventRegistry<Self>) {
-        let info = match self.signal_manager.recv(signal) {
+    fn on_signal(&mut self, registry: &mut EventRegistry<Self>) {
+        let info = match self.signal_handler.recv() {
             Ok(info) => info,
             Err(err) => {
-                dev_error!("sudo could not receive signal {signal:?}: {err}");
+                dev_error!("sudo could not receive signal: {err}");
                 return;
             }
         };
@@ -176,7 +175,7 @@ impl ExecClosure {
         dev_info!(
             "received{} {} from {}",
             opt_fmt(info.is_user_signaled(), " user signaled"),
-            signal_fmt(info.signal()),
+            info.signal(),
             info.pid()
         );
 
@@ -186,9 +185,9 @@ impl ExecClosure {
         };
 
         match info.signal() {
-            SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
+            Signal::SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
             signal => {
-                if signal == SIGWINCH {
+                if signal == Signal::SIGWINCH {
                     // FIXME: check `handle_sigwinch_no_pty`.
                 }
                 // Skip the signal if it was sent by the user and it is self-terminating.
@@ -196,10 +195,10 @@ impl ExecClosure {
                     return;
                 }
 
-                if signal == SIGALRM {
+                if signal == Signal::SIGALRM {
                     terminate_process(command_pid, false);
                 } else {
-                    kill(command_pid, signal).ok();
+                    kill(command_pid, signal.number()).ok();
                 }
             }
         }
@@ -208,7 +207,7 @@ impl ExecClosure {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ExecEvent {
-    Signal(Signal),
+    Signal,
 }
 
 impl Process for ExecClosure {
@@ -218,7 +217,7 @@ impl Process for ExecClosure {
 
     fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>) {
         match event {
-            ExecEvent::Signal(signal) => self.on_signal(signal, registry),
+            ExecEvent::Signal => self.on_signal(registry),
         }
     }
 }
