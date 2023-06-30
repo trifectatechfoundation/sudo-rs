@@ -16,13 +16,13 @@ use crate::{
 use crate::{
     exec::{handle_sigchld, terminate_process, HandleSigchld},
     system::{
-        fork, getpgid, getpgrp,
+        close_the_universe, fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, setpgid, setsid,
         signal::{Signal, SignalHandler},
         term::{PtyFollower, Terminal},
         wait::{Wait, WaitError, WaitOptions},
-        ForkResult, close_the_universe,
+        ForkResult,
     },
 };
 

@@ -35,8 +35,7 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn closes_open_file_descriptors() -> Result<()> {
+fn closes_open_file_descriptors(tty: bool) -> Result<()> {
     let script_path = "/tmp/script.bash";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(
@@ -45,7 +44,10 @@ fn closes_open_file_descriptors() -> Result<()> {
         )
         .build()?;
 
-    let output = Command::new("bash").arg(script_path).output(&env)?;
+    let output = Command::new("bash")
+        .arg(script_path)
+        .tty(tty)
+        .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -53,6 +55,22 @@ fn closes_open_file_descriptors() -> Result<()> {
     assert_contains!(output.stderr(), "42: Bad file descriptor");
 
     Ok(())
+}
+
+#[test]
+#[ignore = "gh622"]
+fn closes_open_file_descriptors_with_tty() -> Result<()> {
+    // FIXME: not clear why ogsudo can't deal with this either
+    if sudo_test::is_original_sudo() {
+        return Ok(());
+    }
+
+    closes_open_file_descriptors(true)
+}
+
+#[test]
+fn closes_open_file_descriptors_without_tty() -> Result<()> {
+    closes_open_file_descriptors(false)
 }
 
 #[test]
