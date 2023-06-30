@@ -29,8 +29,12 @@ pub(super) struct BackchannelPair {
 impl BackchannelPair {
     pub(super) fn new() -> io::Result<Self> {
         let (sock1, sock2) = UnixStream::pair()?;
-        sock1.set_nonblocking(true)?;
-        sock2.set_nonblocking(true)?;
+
+        #[cfg(debug_assertions)]
+        {
+            sock1.set_nonblocking(true)?;
+            sock2.set_nonblocking(true)?;
+        }
 
         Ok(Self {
             parent: ParentBackchannel { socket: sock1 },
@@ -126,7 +130,10 @@ impl ParentBackchannel {
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());
 
-        self.socket.write_all(&buf)
+        self.socket.write_all(&buf).map_err(|err| {
+            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            err
+        })
     }
 
     /// Receive a [`ParentMessage`].
@@ -134,7 +141,11 @@ impl ParentBackchannel {
     /// Calling this method will block until the socket is ready for reading.
     pub(super) fn recv(&mut self) -> io::Result<ParentMessage> {
         let mut buf = [0; ParentMessage::LEN];
-        self.socket.read_exact(&mut buf)?;
+
+        self.socket.read_exact(&mut buf).map_err(|err| {
+            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            err
+        })?;
 
         let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
 
@@ -213,7 +224,10 @@ impl MonitorBackchannel {
         prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
         data_buf.copy_from_slice(&data.to_ne_bytes());
 
-        self.socket.write_all(&buf)
+        self.socket.write_all(&buf).map_err(|err| {
+            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            err
+        })
     }
 
     /// Receive a [`MonitorMessage`].
@@ -221,7 +235,11 @@ impl MonitorBackchannel {
     /// Calling this method will block until the socket is ready for reading.
     pub(super) fn recv(&mut self) -> io::Result<MonitorMessage> {
         let mut buf = [0; MonitorMessage::LEN];
-        self.socket.read_exact(&mut buf)?;
+
+        self.socket.read_exact(&mut buf).map_err(|err| {
+            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            err
+        })?;
 
         let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
 
