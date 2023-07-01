@@ -294,12 +294,16 @@ impl<'a> MonitorClosure<'a> {
     /// Based on `mon_backchannel_cb`
     fn read_backchannel(&mut self, registry: &mut EventRegistry<Self>) {
         match self.backchannel.recv() {
-            // Read interrupted, we can try again later.
-            Err(err) if was_interrupted(&err) => {}
-            // There's something wrong with the backchannel, break the event loop
             Err(err) => {
-                dev_warn!("cannot read from backchannel: {}", err);
-                registry.set_break(err);
+                // We should have polled the backchannel so this receive shouldn't block.
+                debug_assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
+
+                // We can try later if receive is interrupted.
+                if err.kind() != io::ErrorKind::Interrupted {
+                    // There's something wrong with the backchannel, break the event loop.
+                    dev_warn!("cannot read from backchannel: {err}");
+                    registry.set_break(err);
+                }
             }
             Ok(event) => {
                 match event {
@@ -324,9 +328,12 @@ impl<'a> MonitorClosure<'a> {
             Ok(_) => {
                 // Received error code from the command, forward it to the parent.
                 let error_code = i32::from_ne_bytes(buf);
-                self.backchannel
-                    .send(&ParentMessage::IoError(error_code))
-                    .ok();
+
+                if let Err(err) = self.backchannel.send(&ParentMessage::IoError(error_code)) {
+                    // If we are blocking here, we should use a queue to send the messages and poll
+                    // the backchannel instead.
+                    debug_assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
+                }
             }
         }
     }
