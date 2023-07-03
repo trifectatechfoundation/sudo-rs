@@ -624,17 +624,18 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
 #[cfg(test)]
 mod tests {
     use std::{
-        io::{Read, Write},
+        io::{self, Read, Write},
         os::{fd::AsRawFd, unix::net::UnixStream},
         process::exit,
     };
 
     use libc::SIGKILL;
 
-    use crate::system::getpgrp;
-    use crate::system::ForkResult;
-
-    use super::{fork, setpgid, Group, User, WithProcess};
+    use super::{
+        fork, getpgrp, setpgid,
+        wait::{Wait, WaitOptions},
+        ForkResult, Group, User, WithProcess,
+    };
 
     #[test]
     fn test_get_user_and_group_by_id() {
@@ -766,5 +767,37 @@ mod tests {
             rx.read_exact(&mut [0; 2]).unwrap_err().kind(),
             std::io::ErrorKind::UnexpectedEof
         );
+    }
+
+    fn is_closed<F: AsRawFd>(fd: &F) -> bool {
+        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFD) })
+            .is_err_and(|err| err.raw_os_error() == Some(libc::EBADF))
+    }
+
+    #[test]
+    fn close_the_universe() {
+        let ForkResult::Parent(child_pid) = fork().unwrap() else {
+            let should_close =
+                std::fs::File::open(std::env::temp_dir().join("should_close.txt")).unwrap();
+            assert!(!is_closed(&should_close));
+
+            let should_not_close =
+                std::fs::File::open(std::env::temp_dir().join("should_not_close.txt")).unwrap();
+            assert!(!is_closed(&should_not_close));
+
+            super::FileCloser::new().close_the_universe().unwrap();
+
+            assert!(is_closed(&should_close));
+
+            assert!(!is_closed(&io::stdin()));
+            assert!(!is_closed(&io::stdout()));
+            assert!(!is_closed(&io::stderr()));
+            assert!(!is_closed(&should_not_close));
+
+            exit(0)
+        };
+
+        let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
+        assert_eq!(status.exit_status(), Some(0));
     }
 }
