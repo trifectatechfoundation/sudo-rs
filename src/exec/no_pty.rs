@@ -5,7 +5,9 @@ use std::{
     process::{exit, Command},
 };
 
-use crate::system::signal::consts::*;
+use crate::system::signal::{
+    consts::*, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream,
+};
 
 use super::{
     event::{EventRegistry, Process, StopReason},
@@ -20,7 +22,6 @@ use crate::{
         interface::ProcessId,
         kill, killpg,
         poll::PollEvent,
-        signal::{Signal, SignalAction, SignalHandler, SignalNumber},
         term::{Terminal, UserTerm},
         wait::WaitOptions,
         FileCloser, ForkResult,
@@ -33,8 +34,15 @@ pub(crate) fn exec_no_pty(
 ) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
-    // FIXME: block signals directly instead of using the manager.
-    let signal_handler = SignalHandler::new()?;
+    // Block all the signals until we are done setting up the signal handlers so we don't miss
+    // SIGCHLD.
+    let original_set = match SignalSet::full().and_then(|set| set.block()) {
+        Ok(original_set) => Some(original_set),
+        Err(err) => {
+            dev_warn!("cannot block signals: {err}");
+            None
+        }
+    };
 
     let mut file_closer = FileCloser::new();
 
@@ -54,6 +62,13 @@ pub(crate) fn exec_no_pty(
     else {
         file_closer.close_the_universe()?;
 
+        // Restore the signal mask now that the handlers have been setup.
+        if let Some(set) = original_set {
+            if let Err(err) = set.set_mask() {
+                dev_warn!("cannot restore signal mask: {err}");
+            }
+        }
+
         let err = command.exec();
 
         dev_warn!("failed to execute command: {err}");
@@ -71,22 +86,21 @@ pub(crate) fn exec_no_pty(
 
     let mut registry = EventRegistry::new();
 
-    let mut closure = ExecClosure::new(
-        command_pid,
-        sudo_pid,
-        errpipe_rx,
-        signal_handler,
-        &mut registry,
-    );
+    let mut closure = ExecClosure::new(command_pid, sudo_pid, errpipe_rx, &mut registry)?;
 
-    // FIXME: restore signal mask here.
+    // Restore the signal mask now that the handlers have been setup.
+    if let Some(set) = original_set {
+        if let Err(err) = set.set_mask() {
+            dev_warn!("cannot restore signal mask: {err}");
+        }
+    }
 
     let exit_reason = match registry.event_loop(&mut closure) {
         StopReason::Break(err) => return Err(err),
         StopReason::Exit(reason) => reason,
     };
 
-    Ok((exit_reason, Box::new(move || drop(registry))))
+    Ok((exit_reason, Box::new(move || drop(closure.signal_handlers))))
 }
 
 struct ExecClosure {
@@ -94,27 +108,49 @@ struct ExecClosure {
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
     errpipe_rx: UnixStream,
-    signal_handler: SignalHandler,
+    signal_stream: SignalStream,
+    signal_handlers: Vec<SignalHandler>,
 }
 
 impl ExecClosure {
+    const SIGNALS: &[SignalNumber] = &[
+        SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGPIPE, SIGUSR1, SIGUSR2, SIGCHLD,
+        SIGCONT, SIGWINCH,
+    ];
+
     fn new(
         command_pid: ProcessId,
         sudo_pid: ProcessId,
         errpipe_rx: UnixStream,
-        signal_handler: SignalHandler,
         registry: &mut EventRegistry<Self>,
-    ) -> Self {
-        registry.register_event(&signal_handler, PollEvent::Readable, |_| ExecEvent::Signal);
+    ) -> io::Result<Self> {
         registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
 
-        Self {
+        let signal_stream = SignalStream::new().map_err(|err| {
+            dev_error!("cannot create signal stream: {err}");
+            err
+        })?;
+
+        registry.register_event(&signal_stream, PollEvent::Readable, |_| ExecEvent::Signal);
+
+        let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
+        for &signal in Self::SIGNALS {
+            let handler =
+                SignalHandler::new(signal, SignalHandlerBehavior::Stream).map_err(|err| {
+                    dev_error!("cannot setup handler for {}", signal_fmt(signal));
+                    err
+                })?;
+            signal_handlers.push(handler);
+        }
+
+        Ok(Self {
             command_pid: Some(command_pid),
             errpipe_rx,
             sudo_pid,
             parent_pgrp: getpgrp(),
-            signal_handler,
-        }
+            signal_stream,
+            signal_handlers,
+        })
     }
 
     /// Decides if the signal sent by the process with `signaler_pid` PID is self-terminating.
@@ -176,14 +212,13 @@ impl ExecClosure {
             }
         }
 
-        let sigtstp_action = {
-            if signal == SIGTSTP {
-                self.signal_handler
-                    .set_action(Signal::SIGTSTP, SignalAction::default())
-                    .ok()
-            } else {
-                None
-            }
+        let sigtstp_handler = if signal == SIGTSTP {
+            // FIXME: ogsudo uses an empty set here.
+            SignalHandler::new(signal, SignalHandlerBehavior::Default)
+                .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
+                .ok()
+        } else {
+            None
         };
 
         if let Err(err) = kill(self.sudo_pid, signal) {
@@ -194,9 +229,7 @@ impl ExecClosure {
             );
         }
 
-        if let Some(action) = sigtstp_action {
-            self.signal_handler.set_action(Signal::SIGTSTP, action).ok();
-        }
+        drop(sigtstp_handler);
 
         if let Some(saved_pgrp) = opt_pgrp {
             // Restore the foreground process group after resuming.
@@ -209,7 +242,7 @@ impl ExecClosure {
     }
 
     fn on_signal(&mut self, registry: &mut EventRegistry<Self>) {
-        let info = match self.signal_handler.recv() {
+        let info = match self.signal_stream.recv() {
             Ok(info) => info,
             Err(err) => {
                 dev_error!("sudo could not receive signal: {err}");
@@ -230,9 +263,9 @@ impl ExecClosure {
         };
 
         match info.signal() {
-            Signal::SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
+            SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
             signal => {
-                if signal == Signal::SIGWINCH {
+                if signal == SIGWINCH {
                     // FIXME: check `handle_sigwinch_no_pty`.
                 }
                 // Skip the signal if it was sent by the user and it is self-terminating.
@@ -240,10 +273,10 @@ impl ExecClosure {
                     return;
                 }
 
-                if signal == Signal::SIGALRM {
+                if signal == SIGALRM {
                     terminate_process(command_pid, false);
                 } else {
-                    kill(command_pid, signal.into()).ok();
+                    kill(command_pid, signal).ok();
                 }
             }
         }

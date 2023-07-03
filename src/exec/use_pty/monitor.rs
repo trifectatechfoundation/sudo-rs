@@ -11,14 +11,16 @@ use crate::exec::{
     use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
 };
 use crate::exec::{opt_fmt, signal_fmt};
-use crate::system::signal::consts::*;
+use crate::system::signal::{
+    consts::*, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream,
+};
 use crate::{
     exec::{
         event::StopReason,
         use_pty::{SIGCONT_BG, SIGCONT_FG},
     },
     log::{dev_error, dev_info, dev_warn},
-    system::{poll::PollEvent, signal::SignalAction, FileCloser},
+    system::{poll::PollEvent, FileCloser},
 };
 use crate::{
     exec::{handle_sigchld, terminate_process, HandleSigchld},
@@ -26,7 +28,6 @@ use crate::{
         fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, setpgid, setsid,
-        signal::{Signal, SignalHandler},
         term::{PtyFollower, Terminal},
         wait::{Wait, WaitError, WaitOptions},
         ForkResult,
@@ -42,15 +43,18 @@ pub(super) fn exec_monitor(
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
     mut file_closer: FileCloser,
+    original_set: Option<SignalSet>,
 ) -> io::Result<()> {
-    // FIXME (ogsudo): Any file descriptor not used by the monitor are closed here.
-
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
-    let signal_handler = SignalHandler::with_actions(|signal| match signal {
-        Signal::SIGTTIN | Signal::SIGTTOU => SignalAction::ignore(),
-        _ => SignalAction::stream(),
-    })?;
+    match SignalHandler::new(SIGTTIN, SignalHandlerBehavior::Ignore) {
+        Ok(handler) => handler.forget(),
+        Err(err) => dev_warn!("cannot set handler for SIGTTIN: {err}"),
+    }
+    match SignalHandler::new(SIGTTOU, SignalHandlerBehavior::Ignore) {
+        Ok(handler) => handler.forget(),
+        Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
+    }
 
     // Start a new terminal session with the monitor as the leader.
     setsid().map_err(|err| {
@@ -90,7 +94,7 @@ pub(super) fn exec_monitor(
     else {
         drop(errpipe_rx);
 
-        let err = exec_command(command, foreground, pty_follower, file_closer);
+        let err = exec_command(command, foreground, pty_follower, file_closer, original_set);
         dev_warn!("failed to execute command: {err}");
         // If `exec_command` returns, it means that executing the command failed. Send the error to
         // the monitor using the pipe.
@@ -114,9 +118,15 @@ pub(super) fn exec_monitor(
         pty_follower,
         errpipe_rx,
         backchannel,
-        signal_handler,
         &mut registry,
-    );
+    )?;
+
+    // Restore the signal mask now that the handlers have been setup.
+    if let Some(set) = original_set {
+        if let Err(err) = set.set_mask() {
+            dev_warn!("cannot restore signal mask: {err}");
+        }
+    }
 
     // Set the foreground group for the pty follower.
     if foreground {
@@ -185,6 +195,7 @@ fn exec_command(
     foreground: bool,
     pty_follower: PtyFollower,
     file_closer: FileCloser,
+    original_set: Option<SignalSet>,
 ) -> io::Error {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
     let command_pid = std::process::id() as ProcessId;
@@ -206,6 +217,13 @@ fn exec_command(
         return err;
     }
 
+    // Restore the signal mask now that the handlers have been setup.
+    if let Some(set) = original_set {
+        if let Err(err) = set.set_mask() {
+            dev_warn!("cannot restore signal mask: {err}");
+        }
+    }
+
     command.exec()
 }
 
@@ -219,18 +237,22 @@ struct MonitorClosure<'a> {
     pty_follower: PtyFollower,
     errpipe_rx: UnixStream,
     backchannel: &'a mut MonitorBackchannel,
-    signal_handler: SignalHandler,
+    signal_stream: SignalStream,
+    _signal_handlers: Vec<SignalHandler>,
 }
 
 impl<'a> MonitorClosure<'a> {
+    const SIGNALS: &[SignalNumber] = &[
+        SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGUSR1, SIGUSR2, SIGCHLD,
+    ];
+
     fn new(
         command_pid: ProcessId,
         pty_follower: PtyFollower,
         errpipe_rx: UnixStream,
         backchannel: &'a mut MonitorBackchannel,
-        signal_handler: SignalHandler,
         registry: &mut EventRegistry<Self>,
-    ) -> Self {
+    ) -> io::Result<Self> {
         // Store the pgid of the monitor.
         let monitor_pgrp = getpgrp();
 
@@ -244,9 +266,24 @@ impl<'a> MonitorClosure<'a> {
             MonitorEvent::ReadableBackchannel
         });
 
-        registry.register_event(&signal_handler, PollEvent::Readable, |_| {
+        let signal_stream = SignalStream::new().map_err(|err| {
+            dev_error!("cannot create signal stream: {err}");
+            err
+        })?;
+
+        registry.register_event(&signal_stream, PollEvent::Readable, |_| {
             MonitorEvent::Signal
         });
+
+        let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
+        for &signal in Self::SIGNALS {
+            let handler =
+                SignalHandler::new(signal, SignalHandlerBehavior::Stream).map_err(|err| {
+                    dev_error!("cannot setup handler for {}", signal_fmt(signal));
+                    err
+                })?;
+            signal_handlers.push(handler);
+        }
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
@@ -254,15 +291,16 @@ impl<'a> MonitorClosure<'a> {
             dev_warn!("cannot set process group ID for process: {err}");
         };
 
-        Self {
+        Ok(Self {
             command_pid: Some(command_pid),
             command_pgrp,
             monitor_pgrp,
             pty_follower,
             errpipe_rx,
-            signal_handler,
             backchannel,
-        }
+            signal_stream,
+            _signal_handlers: signal_handlers,
+        })
     }
 
     /// Based on `mon_backchannel_cb`
@@ -345,7 +383,7 @@ impl<'a> MonitorClosure<'a> {
     }
 
     fn on_signal(&mut self, registry: &mut EventRegistry<Self>) {
-        let info = match self.signal_handler.recv() {
+        let info = match self.signal_stream.recv() {
             Ok(info) => info,
             Err(err) => {
                 dev_error!("could not receive signal: {err}");
@@ -367,11 +405,11 @@ impl<'a> MonitorClosure<'a> {
         };
 
         match info.signal() {
-            Signal::SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
+            SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
-            signal => self.send_signal(signal.into(), command_pid, false),
+            signal => self.send_signal(signal, command_pid, false),
         }
     }
 }

@@ -119,13 +119,13 @@ impl std::fmt::Debug for WaitStatus {
             write!(
                 f,
                 "TermSignal({})",
-                signal_name(signal).unwrap_or("unknown".into())
+                signal_name(signal).unwrap_or("unknown")
             )
         } else if let Some(signal) = self.stop_signal() {
             write!(
                 f,
                 "StopSignal({})",
-                signal_name(signal).unwrap_or("unknown".into())
+                signal_name(signal).unwrap_or("unknown")
             )
         } else if self.did_continue() {
             write!(f, "Continued")
