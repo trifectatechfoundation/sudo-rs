@@ -785,7 +785,11 @@ mod tests {
                 std::fs::File::open(std::env::temp_dir().join("should_not_close.txt")).unwrap();
             assert!(!is_closed(&should_not_close));
 
-            super::FileCloser::new().close_the_universe().unwrap();
+            let mut closer = super::FileCloser::new();
+
+            closer.except(&should_not_close);
+
+            closer.close_the_universe().unwrap();
 
             assert!(is_closed(&should_close));
 
@@ -793,6 +797,28 @@ mod tests {
             assert!(!is_closed(&io::stdout()));
             assert!(!is_closed(&io::stderr()));
             assert!(!is_closed(&should_not_close));
+
+            exit(0)
+        };
+
+        let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
+        assert_eq!(status.exit_status(), Some(0));
+    }
+
+    #[test]
+    fn except_stdio_is_fine() {
+        let ForkResult::Parent(child_pid) = fork().unwrap() else {
+            let mut closer = super::FileCloser::new();
+
+            closer.except(&io::stdin());
+            closer.except(&io::stdout());
+            closer.except(&io::stderr());
+
+            closer.close_the_universe().unwrap();
+
+            assert!(!is_closed(&io::stdin()));
+            assert!(!is_closed(&io::stdout()));
+            assert!(!is_closed(&io::stderr()));
 
             exit(0)
         };
