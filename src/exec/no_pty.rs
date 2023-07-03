@@ -5,7 +5,7 @@ use std::{
     process::{exit, Command},
 };
 
-use signal_hook::consts::*;
+use crate::system::signal::consts::*;
 
 use super::{
     event::{EventRegistry, Process, StopReason},
@@ -176,10 +176,15 @@ impl ExecClosure {
             }
         }
 
-        let sigtstp_action = (signal == SIGTSTP).then(|| {
-            self.signal_handler
-                .set_action(Signal::SIGTSTP, SignalAction::Default)
-        });
+        let sigtstp_action = {
+            if signal == SIGTSTP {
+                self.signal_handler
+                    .set_action(Signal::SIGTSTP, SignalAction::default())
+                    .ok()
+            } else {
+                None
+            }
+        };
 
         if let Err(err) = kill(self.sudo_pid, signal) {
             dev_warn!(
@@ -190,7 +195,7 @@ impl ExecClosure {
         }
 
         if let Some(action) = sigtstp_action {
-            self.signal_handler.set_action(Signal::SIGTSTP, action);
+            self.signal_handler.set_action(Signal::SIGTSTP, action).ok();
         }
 
         if let Some(saved_pgrp) = opt_pgrp {
@@ -238,7 +243,7 @@ impl ExecClosure {
                 if signal == Signal::SIGALRM {
                     terminate_process(command_pid, false);
                 } else {
-                    kill(command_pid, signal.number()).ok();
+                    kill(command_pid, signal.into()).ok();
                 }
             }
         }

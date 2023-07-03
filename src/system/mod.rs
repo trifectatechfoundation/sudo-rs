@@ -18,6 +18,8 @@ pub use libc::PATH_MAX;
 use libc::STDERR_FILENO;
 use time::SystemTime;
 
+use self::signal::SignalNumber;
+
 mod audit;
 // generalized traits for when we want to hide implementations
 pub mod interface;
@@ -192,14 +194,14 @@ pub fn set_target_user(
 }
 
 /// Send a signal to a process with the specified ID.
-pub fn kill(pid: ProcessId, signal: c_int) -> io::Result<()> {
+pub fn kill(pid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
     cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
 }
 
 /// Send a signal to a process group with the specified ID.
-pub fn killpg(pgid: ProcessId, signal: c_int) -> io::Result<()> {
+pub fn killpg(pgid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
     // `signal` is not a valid signal code.
     cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())

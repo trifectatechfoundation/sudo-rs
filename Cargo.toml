@@ -27,8 +27,6 @@ path = "bin/su.rs"
 [dependencies]
 libc = "0.2.139"
 glob = "0.3.1"
-signal-hook = { version = "0.3.15", features = ["extended-siginfo"] }
-signal-hook-registry = "1.4.1"
 log = { version = "0.4.17", features = ["std"] }
 
 [dev-dependencies]

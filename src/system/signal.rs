@@ -1,26 +1,22 @@
 //! Utilities to handle signals.
-
-// FIXME: It should be possible to implement the same functionality without `signal_hook` and
-// `signal_hook_registry` without much effort. But given that async-signal-safety can be tricky we
-// should keep using those crates unless those dependencies become a concern.
 use std::{
+    borrow::Cow,
+    cell::OnceCell,
     io,
     mem::MaybeUninit,
     os::{
         fd::{AsRawFd, RawFd},
         unix::net::UnixStream,
     },
+    ptr::{null, null_mut},
     sync::{
         atomic::{AtomicU8, Ordering},
-        Arc,
+        Arc, OnceLock,
     },
 };
 
 use crate::cutils::cerr;
-use libc::{c_int, siginfo_t, MSG_DONTWAIT};
-use signal_hook::consts::*;
-use signal_hook::low_level::{emulate_default_handler, signal_name};
-use signal_hook_registry::{register_sigaction, unregister, SigId, FORBIDDEN};
+use libc::{c_int, c_void, siginfo_t, MSG_DONTWAIT};
 
 use super::interface::ProcessId;
 
@@ -48,29 +44,17 @@ impl SignalInfo {
     }
 }
 
-/// The action to be executed by a [`SignalHandler`] when a signal arrives.
-#[repr(u8)]
-pub(crate) enum SignalAction {
-    /// Stream the signal information so it can be received using [`SignalHandler::recv`].
-    Stream = 0,
-    /// Emulate the default handler for the signal (e.g. terminating the process when receiving `SIGTERM` or
-    /// stopping the process when receiving `SIGTSTP`).
-    Default = 1,
-    /// Ignore the incoming signal.
-    Ignore = 2,
-}
+static mut TX: RawFd = -1;
 
-impl SignalAction {
-    fn try_new(val: u8) -> Option<Self> {
-        if val == Self::Stream as u8 {
-            Some(Self::Stream)
-        } else if val == Self::Default as u8 {
-            Some(Self::Default)
-        } else if val == Self::Ignore as u8 {
-            Some(Self::Ignore)
-        } else {
-            None
-        }
+fn send(_signal: SignalNumber, info: &siginfo_t, _context: *const c_void) {
+    let tx = unsafe { TX };
+    unsafe {
+        libc::send(
+            tx,
+            (info as *const siginfo_t).cast(),
+            SIGINFO_SIZE,
+            MSG_DONTWAIT,
+        );
     }
 }
 
@@ -86,29 +70,135 @@ pub(crate) struct SignalHandler {
     ///
     /// It is used so the socket is closed when dropping the handler.
     tx: UnixStream,
-    /// The current actions to be executed when each signal arrives.
-    ///
-    /// The atomic integer used here must match the representation type of [`SignalAction`].
-    actions: [Arc<AtomicU8>; Signal::ALL.len()],
-    /// The identifier under which the action for a signal was registered.
-    ///
-    /// It can be used to unregister or re-register the action if needed.
-    sig_ids: [SigId; Signal::ALL.len()],
+
+    original_actions: [SignalAction; Signal::ALL.len()],
 }
 
-fn send(tx: RawFd, info: &siginfo_t) {
-    unsafe {
-        libc::send(
-            tx,
-            (info as *const siginfo_t).cast(),
-            SIGINFO_SIZE,
-            MSG_DONTWAIT,
-        );
+#[repr(transparent)]
+struct SignalMask {
+    raw: libc::sigset_t,
+}
+
+impl SignalMask {
+    fn new() -> io::Result<Self> {
+        let mut raw = MaybeUninit::<libc::sigset_t>::uninit();
+
+        cerr(unsafe { libc::sigemptyset(raw.as_mut_ptr()) })?;
+
+        Ok(Self {
+            raw: unsafe { raw.assume_init() },
+        })
     }
+
+    fn full() -> io::Result<Self> {
+        let mut raw = MaybeUninit::<libc::sigset_t>::uninit();
+
+        cerr(unsafe { libc::sigfillset(raw.as_mut_ptr()) })?;
+
+        Ok(Self {
+            raw: unsafe { raw.assume_init() },
+        })
+    }
+
+    fn insert(&mut self, signal: SignalNumber) -> io::Result<()> {
+        cerr(unsafe { libc::sigaddset(&mut self.raw, signal) })?;
+
+        Ok(())
+    }
+
+    fn remove(&mut self, signal: SignalNumber) -> io::Result<()> {
+        cerr(unsafe { libc::sigdelset(&mut self.raw, signal) })?;
+
+        Ok(())
+    }
+
+    fn contains(&self, signal: SignalNumber) -> io::Result<bool> {
+        cerr(unsafe { libc::sigismember(&self.raw, signal) }).map(|res| res == 1)
+    }
+}
+
+enum SignalActionHandler {
+    Default,
+    Ignore,
+    Stream,
+}
+
+pub(crate) struct SignalAction {
+    raw: libc::sigaction,
+}
+
+impl SignalAction {
+    pub(crate) fn default() -> io::Result<Self> {
+        Self::new(SignalActionHandler::Default)
+    }
+
+    pub(crate) fn ignore() -> io::Result<Self> {
+        Self::new(SignalActionHandler::Ignore)
+    }
+
+    pub(crate) fn stream() -> io::Result<Self> {
+        Self::new(SignalActionHandler::Stream)
+    }
+
+    fn new(action_handler: SignalActionHandler) -> io::Result<Self> {
+        let sa_mask = SignalMask::full()?;
+        let mut sa_flags = libc::SA_RESTART;
+
+        let sa_sigaction = match action_handler {
+            SignalActionHandler::Default => libc::SIG_DFL,
+            SignalActionHandler::Ignore => libc::SIG_IGN,
+            SignalActionHandler::Stream => {
+                sa_flags |= libc::SA_SIGINFO;
+                send as libc::sighandler_t
+            }
+        };
+
+        Ok(Self {
+            raw: libc::sigaction {
+                sa_sigaction,
+                sa_mask: sa_mask.raw,
+                sa_flags,
+                sa_restorer: None,
+            },
+        })
+    }
+
+    fn register(&self, signal: SignalNumber) -> io::Result<Self> {
+        let mut original_action = MaybeUninit::<libc::sigaction>::zeroed();
+
+        cerr(unsafe { libc::sigaction(signal, &self.raw, original_action.as_mut_ptr()) })?;
+
+        Ok(Self {
+            raw: unsafe { original_action.assume_init() },
+        })
+    }
+}
+
+impl From<SignalAction> for io::Result<SignalAction> {
+    fn from(action: SignalAction) -> Self {
+        Ok(action)
+    }
+}
+
+macro_rules! define_consts {
+    ($($signal:ident,)*) => {
+        pub(crate) mod consts {
+            pub(crate) use libc::{$($signal,)*};
+        }
+
+        pub(crate) fn signal_name(signal: SignalNumber) -> Option<&'static str> {
+            match signal {
+                $(consts::$signal => Some(stringify!($signal)),)*
+                _ => None,
+            }
+        }
+    };
 }
 
 macro_rules! define_signals {
     ($($signal:ident = $index:literal,)*) => {
+        define_consts! { SIGKILL, SIGSTOP, $($signal,)* }
+
         #[allow(clippy::upper_case_acronyms)]
         /// Signals that can be handled by [`SignalHandler`]
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -119,18 +209,19 @@ macro_rules! define_signals {
         impl Signal {
             pub(crate) const ALL: &[Self] = &[$(Self::$signal,)*];
 
-            /// Get the number for this signal.
-            pub(crate) fn number(self) -> SignalNumber {
-                match self {
-                    $(Self::$signal => $signal,)*
-                }
-            }
-
             /// Create a new [`Signal`] from its number.
             pub(crate) fn from_number(number: SignalNumber) -> Option<Self> {
                 match number {
-                    $($signal => Some(Self::$signal),)*
+                    $(consts::$signal => Some(Self::$signal),)*
                     _ => None,
+                }
+            }
+        }
+
+        impl From<Signal> for SignalNumber {
+            fn from(signal: Signal) -> SignalNumber {
+                match signal {
+                    $(Signal::$signal => consts::$signal,)*
                 }
             }
         }
@@ -139,7 +230,7 @@ macro_rules! define_signals {
             /// Gets the signal number.
             pub(crate) fn signal(&self) -> Signal {
                 match self.info.si_signo {
-                    $($signal => Signal::$signal,)*
+                    $(consts::$signal => Signal::$signal,)*
                     _ => unreachable!(),
                 }
             }
@@ -157,53 +248,16 @@ macro_rules! define_signals {
             /// * `SIGILL`
             /// * `SIGFPE`
             /// * `SIGSEGV`
-            pub(crate) fn with_actions<F: Fn(Signal) -> SignalAction>(f: F) -> io::Result<Self> {
+            pub(crate) fn with_actions<F: Fn(Signal) -> io::Result<SignalAction>>(f: F) -> io::Result<Self> {
                 let (rx, tx) = UnixStream::pair()?;
 
-                let actions = [$(Arc::new(AtomicU8::from(f(Signal::$signal) as u8)),)*];
+                unsafe { TX = tx.as_raw_fd() };
 
-                let sig_ids = [$({
-                    let action = Arc::clone(&actions[$index]);
-                    let tx = tx.as_raw_fd();
-                    // SAFETY: The closure passed to `register_sigaction` is run inside a signal handler,
-                    //
-                    // meaning that all the functions called inside it must be async-signal-safe as defined
-                    // by POSIX. This code should be sound because:
-                    //
-                    // - This function does not panic.
-                    // - The `action` atomic value is lock-free.
-                    // - The `send` function only calls the `send` syscall which is async-signal-safe.
-                    // - The `emulate_default_handler` function is async-signal-safe according to
-                    // `signal_hook`.
-                    unsafe {
-                        register_sigaction($signal, move |info| {
-                            if let Some(action) = SignalAction::try_new(action.load(Ordering::SeqCst)) {
-                                match action {
-                                    SignalAction::Stream => send(tx, info),
-                                    SignalAction::Default => {
-                                        emulate_default_handler($signal).ok();
-                                    }
-                                    SignalAction::Ignore => {}
-                                }
-                            }
-                        })
-                    }?
-                },)*];
+                let original_actions = [$({ f(Signal::$signal)?.register(consts::$signal)? },)*];
 
-                Ok(Self { rx, tx, actions, sig_ids })
-            }
-
-            /// Changes the signal action for this handler and returns the previously set action.
-            pub(crate) fn set_action(&self, signal: Signal, action: SignalAction) -> SignalAction {
-                let current_action = match signal {
-                    $(Signal::$signal => &self.actions[$index],)*
-                };
-
-                SignalAction::try_new(current_action.swap(action as u8, Ordering::SeqCst))
-                    .unwrap_or(SignalAction::Ignore)
+                Ok(Self { rx, tx, original_actions })
             }
         }
-
     };
 }
 
@@ -233,8 +287,11 @@ impl std::fmt::Display for Signal {
 /// Set the action to [`SignalAction::Default`] when dropping.
 impl Drop for SignalHandler {
     fn drop(&mut self) {
-        for &signal in Signal::ALL {
-            self.set_action(signal, SignalAction::Default);
+        unsafe { TX = -1 };
+
+        for (&signal, original_action) in Signal::ALL.into_iter().zip(self.original_actions.iter())
+        {
+            original_action.register(signal.into());
         }
     }
 }
@@ -258,7 +315,7 @@ impl SignalHandler {
     /// * `SIGFPE`
     /// * `SIGSEGV`
     pub(crate) fn new() -> io::Result<Self> {
-        Self::with_actions(|_| SignalAction::Stream)
+        Self::with_actions(|_| SignalAction::stream())
     }
 
     /// Receives the information related to the arrival of a signal.
@@ -285,13 +342,12 @@ impl SignalHandler {
         Ok(SignalInfo { info })
     }
 
-    /// Unregister the handler.
-    ///
-    /// This leaves the current process without a handler for the signals handled by this handler.
-    /// Meaning that the process will ignore the signal when receiving it.
-    pub(crate) fn unregister(&self) {
-        for &sig_id in &self.sig_ids {
-            unregister(sig_id);
-        }
+    /// Changes the signal action for this handler and returns the previously set action.
+    pub(crate) fn set_action(
+        &self,
+        signal: Signal,
+        action: impl Into<io::Result<SignalAction>>,
+    ) -> io::Result<SignalAction> {
+        action.into()?.register(signal.into())
     }
 }

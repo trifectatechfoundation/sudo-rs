@@ -5,6 +5,13 @@ use std::{
     process::{exit, Command},
 };
 
+use crate::exec::{
+    event::{EventRegistry, Process},
+    io_util::{retry_while_interrupted, was_interrupted},
+    use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
+};
+use crate::exec::{opt_fmt, signal_fmt};
+use crate::system::signal::consts::*;
 use crate::{
     exec::{
         event::StopReason,
@@ -26,15 +33,6 @@ use crate::{
     },
 };
 
-use signal_hook::consts::*;
-
-use crate::exec::{
-    event::{EventRegistry, Process},
-    io_util::{retry_while_interrupted, was_interrupted},
-    use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
-};
-use crate::exec::{opt_fmt, signal_fmt};
-
 use super::CommandStatus;
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
@@ -50,8 +48,8 @@ pub(super) fn exec_monitor(
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
     let signal_handler = SignalHandler::with_actions(|signal| match signal {
-        Signal::SIGTTIN | Signal::SIGTTOU => SignalAction::Ignore,
-        _ => SignalAction::Stream,
+        Signal::SIGTTIN | Signal::SIGTTOU => SignalAction::ignore(),
+        _ => SignalAction::stream(),
     })?;
 
     // Start a new terminal session with the monitor as the leader.
@@ -373,7 +371,7 @@ impl<'a> MonitorClosure<'a> {
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled()
                 && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
-            signal => self.send_signal(signal.number(), command_pid, false),
+            signal => self.send_signal(signal.into(), command_pid, false),
         }
     }
 }

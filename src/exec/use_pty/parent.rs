@@ -3,8 +3,6 @@ use std::ffi::c_int;
 use std::io::{self, IsTerminal};
 use std::process::{exit, Command, Stdio};
 
-use signal_hook::consts::*;
-
 use crate::exec::event::{EventHandle, EventRegistry, Process, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
@@ -18,6 +16,7 @@ use crate::exec::{
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::poll::PollEvent;
+use crate::system::signal::consts::*;
 use crate::system::signal::{Signal, SignalHandler};
 use crate::system::signal::{SignalAction, SignalNumber};
 use crate::system::term::{Pty, PtyFollower, PtyLeader, Terminal, UserTerm};
@@ -45,8 +44,8 @@ pub(crate) fn exec_pty(
     // We don't want to receive SIGTTIN/SIGTTOU
     // FIXME: why?
     let signal_handler = SignalHandler::with_actions(|signal| match signal {
-        Signal::SIGTTIN | Signal::SIGTTOU => SignalAction::Ignore,
-        _ => SignalAction::Default,
+        Signal::SIGTTIN | Signal::SIGTTOU => SignalAction::ignore(),
+        _ => SignalAction::default(),
     })?;
 
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
@@ -148,7 +147,9 @@ pub(crate) fn exec_pty(
     // to block all the signals here instead.
     for &signal in Signal::ALL {
         if signal != Signal::SIGTTIN && signal != Signal::SIGTTOU {
-            signal_handler.set_action(signal, SignalAction::Stream);
+            signal_handler
+                .set_action(signal, SignalAction::stream())
+                .ok();
         }
     }
 
@@ -163,7 +164,7 @@ pub(crate) fn exec_pty(
 
         // Unregister all the handlers so `exec_monitor` can register new ones for the monitor
         // process.
-        signal_handler.unregister();
+        drop(signal_handler);
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
         if let Err(err) = exec_monitor(
@@ -456,7 +457,7 @@ impl ParentClosure {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
         let sigcont_action = self
             .signal_handler
-            .set_action(Signal::SIGCONT, SignalAction::Ignore);
+            .set_action(Signal::SIGCONT, SignalAction::ignore());
 
         if let SIGTTOU | SIGTTIN = signal {
             // If sudo is already the foreground process we can resume the command in the
@@ -494,10 +495,10 @@ impl ParentClosure {
         // FIXME: we should set the action even if we don't have a handler for that signal.
         let saved_signal_action = (signal != SIGSTOP).then_some(signal).and_then(|number| {
             let signal = Signal::from_number(number)?;
-            let action = self
-                .signal_handler
-                .set_action(signal, SignalAction::Default);
-            Some((signal, action))
+            self.signal_handler
+                .set_action(signal, SignalAction::default())
+                .ok()
+                .map(|action| (signal, action))
         });
 
         if self.parent_pgrp != self.sudo_pid && kill(self.parent_pgrp, 0).is_err()
@@ -510,7 +511,7 @@ impl ParentClosure {
         }
 
         if let Some((signal, action)) = saved_signal_action {
-            self.signal_handler.set_action(signal, action);
+            self.signal_handler.set_action(signal, action).ok();
         }
 
         if self.command_pid.is_none() || self.resume_terminal().is_err() {
@@ -524,7 +525,8 @@ impl ParentClosure {
         };
 
         self.signal_handler
-            .set_action(Signal::SIGCONT, sigcont_action);
+            .set_action(Signal::SIGCONT, sigcont_action)
+            .ok();
 
         Some(ret_signal)
     }
@@ -600,7 +602,7 @@ impl ParentClosure {
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
             // FIXME: check `send_command_status`
-            signal => self.schedule_signal(signal.number(), registry),
+            signal => self.schedule_signal(signal.into(), registry),
         }
     }
 }
