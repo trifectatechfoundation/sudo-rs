@@ -11,7 +11,7 @@ use std::{
     ptr::null_mut,
 };
 
-use crate::cutils::{cerr, os_string_from_ptr};
+use crate::cutils::{cerr, os_string_from_ptr, safe_isatty};
 
 use super::interface::ProcessId;
 
@@ -164,11 +164,22 @@ pub fn current_tty_name() -> io::Result<OsString> {
     std::io::stdin().ttyname()
 }
 
+/// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
+pub trait IsTerminalForSudo {
+    fn is_terminal(&self) -> bool;
+}
+
+impl<F: AsRawFd> IsTerminalForSudo for F {
+    fn is_terminal(&self) -> bool {
+        safe_isatty(self.as_raw_fd())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
         ffi::OsString,
-        io::{IsTerminal, Read, Write},
+        io::{Read, Write},
         os::unix::{net::UnixStream, prelude::OsStringExt},
         path::PathBuf,
         process::exit,

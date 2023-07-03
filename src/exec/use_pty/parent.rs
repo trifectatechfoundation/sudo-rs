@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::io::{self, IsTerminal};
+use std::io;
 use std::process::{exit, Command, Stdio};
 
 use signal_hook::consts::*;
@@ -20,7 +20,7 @@ use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::poll::PollEvent;
 use crate::system::signal::{Signal, SignalHandler};
 use crate::system::signal::{SignalAction, SignalNumber};
-use crate::system::term::{Pty, PtyFollower, PtyLeader, Terminal, UserTerm};
+use crate::system::term::{IsTerminalForSudo, Pty, PtyFollower, PtyLeader, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
 use crate::system::{chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User};
 use crate::system::{getpgid, interface::ProcessId};
