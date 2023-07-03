@@ -1,5 +1,5 @@
 [workspace]
-members = ["sudo-test", "sudo-compliance-tests"]
+members = ["sudo-test", "sudo-compliance-tests", "e2e-tests"]
 
 [profile.dev.package.insta]
 opt-level = 3
