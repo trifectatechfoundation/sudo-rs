@@ -1,22 +1,29 @@
-use std::{ffi::c_int, io, process::Command};
+use std::{
+    ffi::c_int,
+    io::{self, Read, Write},
+    os::unix::{net::UnixStream, process::CommandExt},
+    process::{exit, Command},
+};
 
 use signal_hook::consts::*;
 
 use super::{
     event::{EventRegistry, Process, StopReason},
+    io_util::was_interrupted,
     terminate_process, ExitReason, HandleSigchld,
 };
 use crate::{
     exec::{handle_sigchld, opt_fmt, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        getpgid, getpgrp,
+        fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
         poll::PollEvent,
         signal::{Signal, SignalAction, SignalHandler, SignalNumber},
         term::{Terminal, UserTerm},
         wait::WaitOptions,
+        FileCloser, ForkResult,
     },
 };
 
@@ -29,24 +36,53 @@ pub(crate) fn exec_no_pty(
     // FIXME: block signals directly instead of using the manager.
     let signal_handler = SignalHandler::new()?;
 
+    let mut file_closer = FileCloser::new();
+
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
-    let command = command.spawn().map_err(|err| {
-        dev_error!("cannot spawn command: {err}");
-        err
-    })?;
+    // Use a pipe to get the IO error if `exec` fails.
+    let (mut errpipe_tx, errpipe_rx) = UnixStream::pair()?;
 
-    let command_pid = command.id() as ProcessId;
+    // Don't close the error pipe as we need it to retrieve the error code if the command execution
+    // fails.
+    file_closer.except(&errpipe_tx);
+
+    let ForkResult::Parent(command_pid) = fork().map_err(|err| {
+        dev_warn!("unable to fork command process: {err}");
+        err
+    })?
+    else {
+        file_closer.close_the_universe()?;
+
+        let err = command.exec();
+
+        dev_warn!("failed to execute command: {err}");
+        // If `exec` returns, it means that executing the command failed. Send the error to the
+        // monitor using the pipe.
+        if let Some(error_code) = err.raw_os_error() {
+            errpipe_tx.write_all(&error_code.to_ne_bytes()).ok();
+        }
+        drop(errpipe_tx);
+        // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
+        exit(1)
+    };
+
     dev_info!("executed command with pid {command_pid}");
 
     let mut registry = EventRegistry::new();
 
-    let mut closure = ExecClosure::new(command_pid, sudo_pid, signal_handler, &mut registry);
+    let mut closure = ExecClosure::new(
+        command_pid,
+        sudo_pid,
+        errpipe_rx,
+        signal_handler,
+        &mut registry,
+    );
 
     // FIXME: restore signal mask here.
 
     let exit_reason = match registry.event_loop(&mut closure) {
-        StopReason::Break(reason) => match reason {},
+        StopReason::Break(err) => return Err(err),
         StopReason::Exit(reason) => reason,
     };
 
@@ -57,6 +93,7 @@ struct ExecClosure {
     command_pid: Option<ProcessId>,
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
+    errpipe_rx: UnixStream,
     signal_handler: SignalHandler,
 }
 
@@ -64,13 +101,16 @@ impl ExecClosure {
     fn new(
         command_pid: ProcessId,
         sudo_pid: ProcessId,
+        errpipe_rx: UnixStream,
         signal_handler: SignalHandler,
         registry: &mut EventRegistry<Self>,
     ) -> Self {
         registry.register_event(&signal_handler, PollEvent::Readable, |_| ExecEvent::Signal);
+        registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
 
         Self {
             command_pid: Some(command_pid),
+            errpipe_rx,
             sudo_pid,
             parent_pgrp: getpgrp(),
             signal_handler,
@@ -208,16 +248,29 @@ impl ExecClosure {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ExecEvent {
     Signal,
+    ErrPipe,
 }
 
 impl Process for ExecClosure {
     type Event = ExecEvent;
-    type Break = std::convert::Infallible;
+    type Break = io::Error;
     type Exit = ExitReason;
 
     fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>) {
         match event {
             ExecEvent::Signal => self.on_signal(registry),
+            ExecEvent::ErrPipe => {
+                let mut buf = 0i32.to_ne_bytes();
+                match self.errpipe_rx.read_exact(&mut buf) {
+                    Err(err) if was_interrupted(&err) => { /* Retry later */ }
+                    Err(err) => registry.set_break(err),
+                    Ok(_) => {
+                        // Received error code from the command, forward it to the parent.
+                        let error_code = i32::from_ne_bytes(buf);
+                        registry.set_break(io::Error::from_raw_os_error(error_code));
+                    }
+                }
+            }
         }
     }
 }

@@ -1,7 +1,8 @@
 // TODO: remove unused attribute when system is cleaned up
 #![allow(unused)]
 use std::{
-    ffi::{c_int, CStr, CString},
+    collections::BTreeSet,
+    ffi::{c_int, c_uint, CStr, CString},
     fs::OpenOptions,
     io,
     mem::MaybeUninit,
@@ -14,6 +15,7 @@ use crate::cutils::*;
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
+use libc::STDERR_FILENO;
 use time::SystemTime;
 
 mod audit;
@@ -33,6 +35,62 @@ pub mod poll;
 pub mod term;
 
 pub mod wait;
+
+/// A type able to close every file descriptor except for the ones pased via [`FileCloser::except`]
+/// and the IO streams.
+pub(crate) struct FileCloser {
+    fds: BTreeSet<c_uint>,
+}
+
+impl FileCloser {
+    pub(crate) const fn new() -> Self {
+        Self {
+            fds: BTreeSet::new(),
+        }
+    }
+
+    pub(crate) fn except<F: AsRawFd>(&mut self, fd: &F) {
+        self.fds.insert(fd.as_raw_fd() as c_uint);
+    }
+
+    /// Close every file descriptor that is not one of the IO streams or one of the file
+    /// descriptors passed via [`FileCloser::except`].
+    pub(crate) fn close_the_universe(self) -> io::Result<()> {
+        let mut fds = self.fds.into_iter();
+
+        let Some(mut curr_fd) = fds.next() else {
+            return close_range(STDERR_FILENO as c_uint + 1, c_uint::MAX);
+        };
+
+        if let Some(max_fd) = curr_fd.checked_sub(1) {
+            close_range(STDERR_FILENO as c_uint + 1, max_fd)?;
+        }
+
+        for next_fd in fds {
+            if let Some(min_fd) = curr_fd.checked_add(1) {
+                if let Some(max_fd) = next_fd.checked_sub(1) {
+                    close_range(min_fd, max_fd)?;
+                }
+            }
+
+            curr_fd = next_fd;
+        }
+
+        if let Some(min_fd) = curr_fd.checked_add(1) {
+            close_range(min_fd, c_uint::MAX)?;
+        }
+
+        Ok(())
+    }
+}
+
+fn close_range(min_fd: c_uint, max_fd: c_uint) -> io::Result<()> {
+    if min_fd <= max_fd {
+        cerr(unsafe { libc::syscall(libc::SYS_close_range, min_fd, max_fd, 0 as c_uint) })?;
+    }
+
+    Ok(())
+}
 
 pub(crate) enum ForkResult {
     // Parent process branch with the child process' PID.
@@ -566,17 +624,18 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
 #[cfg(test)]
 mod tests {
     use std::{
-        io::{Read, Write},
-        os::unix::net::UnixStream,
+        io::{self, Read, Write},
+        os::{fd::AsRawFd, unix::net::UnixStream},
         process::exit,
     };
 
     use libc::SIGKILL;
 
-    use crate::system::getpgrp;
-    use crate::system::ForkResult;
-
-    use super::{fork, setpgid, Group, User, WithProcess};
+    use super::{
+        fork, getpgrp, setpgid,
+        wait::{Wait, WaitOptions},
+        ForkResult, Group, User, WithProcess,
+    };
 
     #[test]
     fn test_get_user_and_group_by_id() {
@@ -708,5 +767,63 @@ mod tests {
             rx.read_exact(&mut [0; 2]).unwrap_err().kind(),
             std::io::ErrorKind::UnexpectedEof
         );
+    }
+
+    fn is_closed<F: AsRawFd>(fd: &F) -> bool {
+        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFD) })
+            .is_err_and(|err| err.raw_os_error() == Some(libc::EBADF))
+    }
+
+    #[test]
+    fn close_the_universe() {
+        let ForkResult::Parent(child_pid) = fork().unwrap() else {
+            let should_close =
+                std::fs::File::open(std::env::temp_dir().join("should_close.txt")).unwrap();
+            assert!(!is_closed(&should_close));
+
+            let should_not_close =
+                std::fs::File::open(std::env::temp_dir().join("should_not_close.txt")).unwrap();
+            assert!(!is_closed(&should_not_close));
+
+            let mut closer = super::FileCloser::new();
+
+            closer.except(&should_not_close);
+
+            closer.close_the_universe().unwrap();
+
+            assert!(is_closed(&should_close));
+
+            assert!(!is_closed(&io::stdin()));
+            assert!(!is_closed(&io::stdout()));
+            assert!(!is_closed(&io::stderr()));
+            assert!(!is_closed(&should_not_close));
+
+            exit(0)
+        };
+
+        let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
+        assert_eq!(status.exit_status(), Some(0));
+    }
+
+    #[test]
+    fn except_stdio_is_fine() {
+        let ForkResult::Parent(child_pid) = fork().unwrap() else {
+            let mut closer = super::FileCloser::new();
+
+            closer.except(&io::stdin());
+            closer.except(&io::stdout());
+            closer.except(&io::stderr());
+
+            closer.close_the_universe().unwrap();
+
+            assert!(!is_closed(&io::stdin()));
+            assert!(!is_closed(&io::stdout()));
+            assert!(!is_closed(&io::stderr()));
+
+            exit(0)
+        };
+
+        let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
+        assert_eq!(status.exit_status(), Some(0));
     }
 }

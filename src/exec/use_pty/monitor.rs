@@ -11,7 +11,7 @@ use crate::{
         use_pty::{SIGCONT_BG, SIGCONT_FG},
     },
     log::{dev_error, dev_info, dev_warn},
-    system::{poll::PollEvent, signal::SignalAction},
+    system::{poll::PollEvent, signal::SignalAction, FileCloser},
 };
 use crate::{
     exec::{handle_sigchld, terminate_process, HandleSigchld},
@@ -43,6 +43,7 @@ pub(super) fn exec_monitor(
     command: Command,
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
+    mut file_closer: FileCloser,
 ) -> io::Result<()> {
     // FIXME (ogsudo): Any file descriptor not used by the monitor are closed here.
 
@@ -68,6 +69,10 @@ pub(super) fn exec_monitor(
     // Use a pipe to get the IO error if `exec_command` fails.
     let (mut errpipe_tx, errpipe_rx) = UnixStream::pair()?;
 
+    // Don't close the error pipe as we need it to retrieve the error code if the command execution
+    // fails.
+    file_closer.except(&errpipe_tx);
+
     // Wait for the parent to give us green light before spawning the command. This avoids race
     // conditions when the command exits quickly.
     let event = retry_while_interrupted(|| backchannel.recv()).map_err(|err| {
@@ -83,10 +88,11 @@ pub(super) fn exec_monitor(
     let ForkResult::Parent(command_pid) = fork().map_err(|err| {
         dev_warn!("unable to fork command process: {err}");
         err
-    })? else {
+    })?
+    else {
         drop(errpipe_rx);
 
-        let err = exec_command(command, foreground, pty_follower);
+        let err = exec_command(command, foreground, pty_follower, file_closer);
         dev_warn!("failed to execute command: {err}");
         // If `exec_command` returns, it means that executing the command failed. Send the error to
         // the monitor using the pipe.
@@ -176,7 +182,12 @@ pub(super) fn exec_monitor(
 }
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
-fn exec_command(mut command: Command, foreground: bool, pty_follower: PtyFollower) -> io::Error {
+fn exec_command(
+    mut command: Command,
+    foreground: bool,
+    pty_follower: PtyFollower,
+    file_closer: FileCloser,
+) -> io::Error {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
     let command_pid = std::process::id() as ProcessId;
 
@@ -192,6 +203,10 @@ fn exec_command(mut command: Command, foreground: bool, pty_follower: PtyFollowe
 
     // Done with the pty follower.
     drop(pty_follower);
+
+    if let Err(err) = file_closer.close_the_universe() {
+        return err;
+    }
 
     command.exec()
 }
