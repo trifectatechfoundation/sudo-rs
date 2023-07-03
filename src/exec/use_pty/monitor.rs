@@ -165,6 +165,9 @@ pub(super) fn exec_monitor(
         );
     }
 
+    // Disable nonblocking assetions as we will not poll the backchannel anymore.
+    closure.backchannel.set_nonblocking_assertions(false);
+
     match reason {
         StopReason::Break(err) => match err.try_into() {
             Ok(msg) => {
@@ -262,6 +265,9 @@ impl<'a> MonitorClosure<'a> {
             MonitorEvent::ReadableErrPipe
         });
 
+        // Enable nonblocking assertions as we will poll this inside the event loop.
+        backchannel.set_nonblocking_assertions(true);
+
         // Register the callback to receive events from the backchannel
         registry.register_event(backchannel, PollEvent::Readable, |_| {
             MonitorEvent::ReadableBackchannel
@@ -295,9 +301,6 @@ impl<'a> MonitorClosure<'a> {
     fn read_backchannel(&mut self, registry: &mut EventRegistry<Self>) {
         match self.backchannel.recv() {
             Err(err) => {
-                // We should have polled the backchannel so this receive shouldn't block.
-                debug_assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
-
                 // We can try later if receive is interrupted.
                 if err.kind() != io::ErrorKind::Interrupted {
                     // There's something wrong with the backchannel, break the event loop.
@@ -329,11 +332,9 @@ impl<'a> MonitorClosure<'a> {
                 // Received error code from the command, forward it to the parent.
                 let error_code = i32::from_ne_bytes(buf);
 
-                if let Err(err) = self.backchannel.send(&ParentMessage::IoError(error_code)) {
-                    // If we are blocking here, we should use a queue to send the messages and poll
-                    // the backchannel instead.
-                    debug_assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
-                }
+                self.backchannel
+                    .send(&ParentMessage::IoError(error_code))
+                    .ok();
             }
         }
     }

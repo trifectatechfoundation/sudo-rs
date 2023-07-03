@@ -175,6 +175,9 @@ pub(crate) fn exec_pty(
             file_closer,
             original_set,
         ) {
+            // Disable nonblocking assetions as we will not poll the backchannel anymore.
+            backchannels.monitor.set_nonblocking_assertions(true);
+
             match err.try_into() {
                 Ok(msg) => {
                     if let Err(err) = backchannels.monitor.send(&msg) {
@@ -290,12 +293,15 @@ impl ParentClosure {
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
         parent_pgrp: ProcessId,
-        backchannel: ParentBackchannel,
+        mut backchannel: ParentBackchannel,
         tty_pipe: Pipe<UserTerm, PtyLeader>,
         foreground: bool,
         term_raw: bool,
         registry: &mut EventRegistry<Self>,
     ) -> io::Result<Self> {
+        // Enable nonblocking assertions as we will poll this inside the event loop.
+        backchannel.set_nonblocking_asserts(true);
+
         registry.register_event(&backchannel, PollEvent::Readable, ParentEvent::Backchannel);
         let mut backchannel_write_handle =
             registry.register_event(&backchannel, PollEvent::Writable, ParentEvent::Backchannel);
@@ -336,9 +342,6 @@ impl ParentClosure {
     fn on_message_received(&mut self, registry: &mut EventRegistry<Self>) {
         match self.backchannel.recv() {
             Err(err) => {
-                // We should have polled the backchannel so this receive shouldn't block.
-                debug_assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
-
                 match err.kind() {
                     // If we get EOF the monitor exited or was killed
                     io::ErrorKind::UnexpectedEof => {
@@ -453,9 +456,6 @@ impl ParentClosure {
                     }
                 }
                 Err(err) => {
-                    // We should have polled the backchannel so this send shouldn't block.
-                    debug_assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
-
                     // We can try later if send is interrupted.
                     if err.kind() != io::ErrorKind::Interrupted {
                         // There's something wrong with the backchannel, break the event loop.
