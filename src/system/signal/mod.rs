@@ -1,17 +1,11 @@
 //! Utilities to handle signals.
+#![warn(unused)]
 use std::{
-    borrow::Cow,
-    cell::OnceCell,
     io,
     mem::MaybeUninit,
     os::{
         fd::{AsRawFd, RawFd},
         unix::net::UnixStream,
-    },
-    ptr::{null, null_mut},
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc, OnceLock,
     },
 };
 
@@ -69,7 +63,7 @@ pub(crate) struct SignalHandler {
     /// The writing side of the self-pipe.
     ///
     /// It is used so the socket is closed when dropping the handler.
-    tx: UnixStream,
+    _tx: UnixStream,
 
     original_actions: [SignalAction; Signal::ALL.len()],
 }
@@ -255,7 +249,7 @@ macro_rules! define_signals {
 
                 let original_actions = [$({ f(Signal::$signal)?.register(consts::$signal)? },)*];
 
-                Ok(Self { rx, tx, original_actions })
+                Ok(Self { rx, _tx: tx, original_actions })
             }
         }
     };
