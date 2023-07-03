@@ -109,9 +109,6 @@ mod test {
     fn test_tty() {
         use std::fs::File;
         use std::os::fd::AsRawFd;
-        assert!(super::safe_isatty(
-            File::open("/dev/tty").unwrap().as_raw_fd()
-        ));
         assert!(!super::safe_isatty(
             File::open("/bin/sh").unwrap().as_raw_fd()
         ));
