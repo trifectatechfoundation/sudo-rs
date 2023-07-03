@@ -69,11 +69,11 @@ pub(crate) struct SignalHandler {
 }
 
 #[repr(transparent)]
-struct SignalMask {
+struct SignalSet {
     raw: libc::sigset_t,
 }
 
-impl SignalMask {
+impl SignalSet {
     fn new() -> io::Result<Self> {
         let mut raw = MaybeUninit::<libc::sigset_t>::uninit();
 
@@ -109,6 +109,24 @@ impl SignalMask {
     fn contains(&self, signal: SignalNumber) -> io::Result<bool> {
         cerr(unsafe { libc::sigismember(&self.raw, signal) }).map(|res| res == 1)
     }
+
+    fn sigprocmask(&self, how: c_int) -> io::Result<Self> {
+        let mut original_set = MaybeUninit::<libc::sigset_t>::zeroed();
+
+        cerr(unsafe { libc::sigprocmask(how, &self.raw, original_set.as_mut_ptr()) })?;
+
+        Ok(Self {
+            raw: unsafe { original_set.assume_init() },
+        })
+    }
+
+    fn block(&self) -> io::Result<Self> {
+        self.sigprocmask(libc::SIG_BLOCK)
+    }
+
+    fn set_mask(&self) -> io::Result<Self> {
+        self.sigprocmask(libc::SIG_SETMASK)
+    }
 }
 
 enum SignalActionHandler {
@@ -135,7 +153,7 @@ impl SignalAction {
     }
 
     fn new(action_handler: SignalActionHandler) -> io::Result<Self> {
-        let sa_mask = SignalMask::full()?;
+        let sa_mask = SignalSet::full()?;
         let mut sa_flags = libc::SA_RESTART;
 
         let sa_sigaction = match action_handler {
@@ -285,7 +303,9 @@ impl Drop for SignalHandler {
 
         for (&signal, original_action) in Signal::ALL.into_iter().zip(self.original_actions.iter())
         {
-            original_action.register(signal.into());
+            // We just fire and forget. There's nothing we can do if we cannot restore the original
+            // handler.
+            original_action.register(signal.into()).ok();
         }
     }
 }
