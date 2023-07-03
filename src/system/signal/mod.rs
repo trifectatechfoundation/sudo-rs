@@ -342,3 +342,4 @@ impl SignalHandler {
         action.into()?.register(signal.into())
     }
 }
+
