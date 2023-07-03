@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "sudo-rs"
-version = "0.2.0-dev.20230627"
+version = "0.2.0-dev.20230703"
 dependencies = [
  "glob",
  "libc",
