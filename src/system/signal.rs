@@ -64,7 +64,7 @@ pub(crate) struct SignalHandler {
     /// The reading side of the self-pipe.
     ///
     /// It is used to communicate that a signal was received if the set action is
-    /// [`SignalAction::Stream`].
+    /// [`SignalAction::stream`].
     rx: UnixStream,
     /// The writing side of the self-pipe.
     ///
@@ -284,7 +284,7 @@ impl std::fmt::Display for Signal {
     }
 }
 
-/// Set the action to [`SignalAction::Default`] when dropping.
+/// Restore the original signal handlers before dropping. 
 impl Drop for SignalHandler {
     fn drop(&mut self) {
         unsafe { TX = -1 };
@@ -303,17 +303,8 @@ impl AsRawFd for SignalHandler {
 }
 
 impl SignalHandler {
-    /// Creates a new signal handler that executes the [`SignalAction::Stream`] action.
-    ///
-    /// # Panics
-    ///
-    /// When `signal` is one of:
-    ///
-    /// * `SIGKILL`
-    /// * `SIGSTOP`
-    /// * `SIGILL`
-    /// * `SIGFPE`
-    /// * `SIGSEGV`
+    /// Creates a new signal handler that executes the [`SignalAction::stream`] action for every
+    /// signal in [`Signal`].
     pub(crate) fn new() -> io::Result<Self> {
         Self::with_actions(|_| SignalAction::stream())
     }
@@ -321,7 +312,7 @@ impl SignalHandler {
     /// Receives the information related to the arrival of a signal.
     ///
     /// Calling this function will block until a signal whose action is set to
-    /// [`SignalAction::Stream`] arrives. Otherwise it will block indefinitely.
+    /// [`SignalAction::stream`] arrives. Otherwise it will block indefinitely.
     ///
     /// Note that calling this function will only retrieve the information related to a single
     /// signal arrival even if several signals have been sent to the process.
