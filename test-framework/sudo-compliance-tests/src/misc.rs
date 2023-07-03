@@ -37,7 +37,12 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
 
 fn closes_open_file_descriptors(tty: bool) -> Result<()> {
     let script_path = "/tmp/script.bash";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+    let defaults = if tty {
+        "Defaults use_pty"
+    } else {
+        "Defaults !use_pty"
+    };
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, defaults])
         .file(
             script_path,
             include_str!("misc/read-parents-open-file-descriptor.bash"),
