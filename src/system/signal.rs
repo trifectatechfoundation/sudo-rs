@@ -284,7 +284,7 @@ impl std::fmt::Display for Signal {
     }
 }
 
-/// Restore the original signal handlers before dropping. 
+/// Restore the original signal handlers before dropping.
 impl Drop for SignalHandler {
     fn drop(&mut self) {
         unsafe { TX = -1 };
