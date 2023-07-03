@@ -5,15 +5,15 @@ use std::{
     process::{exit, Command},
 };
 
-use crate::system::signal::{
-    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
-    SignalStream,
-};
-
 use super::{
+    event::PollEvent,
     event::{EventRegistry, Process, StopReason},
     io_util::was_interrupted,
     terminate_process, ExitReason, HandleSigchld,
+};
+use crate::system::signal::{
+    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
+    SignalStream,
 };
 use crate::{
     exec::{handle_sigchld, opt_fmt, signal_fmt},
@@ -22,7 +22,6 @@ use crate::{
         fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
-        poll::PollEvent,
         term::{Terminal, UserTerm},
         wait::WaitOptions,
         FileCloser, ForkResult,

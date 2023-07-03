@@ -3,7 +3,7 @@ use std::ffi::c_int;
 use std::io;
 use std::process::{exit, Command, Stdio};
 
-use crate::exec::event::{EventHandle, EventRegistry, Process, StopReason};
+use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{
@@ -15,7 +15,6 @@ use crate::exec::{
     ExitReason,
 };
 use crate::log::{dev_error, dev_info, dev_warn};
-use crate::system::poll::PollEvent;
 use crate::system::signal::{
     consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
     SignalStream,
