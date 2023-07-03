@@ -154,6 +154,10 @@ impl<F: AsRawFd> Terminal for F {
 
         let mut buf: [libc::c_char; 1024] = [0; 1024];
 
+        if !safe_isatty(self.as_raw_fd()) {
+            return Err(io::ErrorKind::Unsupported.into());
+        }
+
         cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr() as _, buf.len()) })?;
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
     }

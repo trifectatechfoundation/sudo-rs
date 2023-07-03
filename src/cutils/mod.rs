@@ -107,10 +107,14 @@ mod test {
 
     #[test]
     fn test_tty() {
-        use std::os::fd::AsRawFd;
         use std::fs::File;
-        assert!(super::safe_isatty( File::open("/dev/tty").unwrap().as_raw_fd()));
-        assert!(!super::safe_isatty( File::open("/bin/sh").unwrap().as_raw_fd()));
+        use std::os::fd::AsRawFd;
+        assert!(super::safe_isatty(
+            File::open("/dev/tty").unwrap().as_raw_fd()
+        ));
+        assert!(!super::safe_isatty(
+            File::open("/bin/sh").unwrap().as_raw_fd()
+        ));
         assert!(!super::safe_isatty(-837492));
     }
 }
