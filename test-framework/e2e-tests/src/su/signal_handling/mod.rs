@@ -60,7 +60,7 @@ fn child_terminated_by_signal() -> Result<()> {
     // child process sends SIGTERM to itself
     let output = Command::new("su")
         .arg("-c")
-        .arg("sh -c kill $$")
+        .arg("sh -c 'kill $$'")
         .output(&env)?;
 
     assert_eq!(Some(143), output.status().code());
