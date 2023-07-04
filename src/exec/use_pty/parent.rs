@@ -3,8 +3,6 @@ use std::ffi::c_int;
 use std::io;
 use std::process::{exit, Command, Stdio};
 
-use signal_hook::consts::*;
-
 use crate::exec::event::{EventHandle, EventRegistry, Process, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
@@ -18,8 +16,10 @@ use crate::exec::{
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::poll::PollEvent;
-use crate::system::signal::{Signal, SignalHandler};
-use crate::system::signal::{SignalAction, SignalNumber};
+use crate::system::signal::{
+    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
+    SignalStream,
+};
 use crate::system::term::{Pty, PtyFollower, PtyLeader, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
 use crate::system::{chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User};
@@ -43,11 +43,14 @@ pub(crate) fn exec_pty(
     })?;
 
     // We don't want to receive SIGTTIN/SIGTTOU
-    // FIXME: why?
-    let signal_handler = SignalHandler::with_actions(|signal| match signal {
-        Signal::SIGTTIN | Signal::SIGTTOU => SignalAction::Ignore,
-        _ => SignalAction::Default,
-    })?;
+    match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore) {
+        Ok(handler) => handler.forget(),
+        Err(err) => dev_warn!("cannot set handler for SIGTTIN: {err}"),
+    }
+    match SignalHandler::register(SIGTTOU, SignalHandlerBehavior::Ignore) {
+        Ok(handler) => handler.forget(),
+        Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
+    }
 
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
     // `policy_init_session`.
@@ -144,13 +147,15 @@ pub(crate) fn exec_pty(
         term_raw = true;
     }
 
-    // FIXME: it would be better if we didn't create the manager before the fork and managed
-    // to block all the signals here instead.
-    for &signal in Signal::ALL {
-        if signal != Signal::SIGTTIN && signal != Signal::SIGTTOU {
-            signal_handler.set_action(signal, SignalAction::Stream);
+    // Block all the signals until we are done setting up the signal handlers so we don't miss
+    // SIGCHLD.
+    let original_set = match SignalSet::full().and_then(|set| set.block()) {
+        Ok(original_set) => Some(original_set),
+        Err(err) => {
+            dev_warn!("cannot block signals: {err}");
+            None
         }
-    }
+    };
 
     let ForkResult::Parent(monitor_pid) = fork().map_err(|err| {
         dev_error!("cannot fork monitor process: {err}");
@@ -161,10 +166,6 @@ pub(crate) fn exec_pty(
         drop(tty_pipe);
         drop(backchannels.parent);
 
-        // Unregister all the handlers so `exec_monitor` can register new ones for the monitor
-        // process.
-        signal_handler.unregister();
-
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
         if let Err(err) = exec_monitor(
             pty.follower,
@@ -172,6 +173,7 @@ pub(crate) fn exec_pty(
             foreground && !pipeline && !exec_bg,
             &mut backchannels.monitor,
             file_closer,
+            original_set,
         ) {
             match err.try_into() {
                 Ok(msg) => {
@@ -206,11 +208,15 @@ pub(crate) fn exec_pty(
         tty_pipe,
         foreground,
         term_raw,
-        signal_handler,
         &mut registry,
-    );
+    )?;
 
-    // FIXME (ogsudo): Restore the signal handlers here.
+    // Restore the signal mask now that the handlers have been setup.
+    if let Some(set) = original_set {
+        if let Err(err) = set.set_mask() {
+            dev_warn!("cannot restore signal mask: {err}");
+        }
+    }
 
     let exit_reason = closure.run(&mut registry);
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
@@ -232,7 +238,7 @@ pub(crate) fn exec_pty(
     }
 
     match exit_reason {
-        Ok(exit_reason) => Ok((exit_reason, Box::new(move || drop(registry)))),
+        Ok(exit_reason) => Ok((exit_reason, Box::new(move || drop(closure.signal_handlers)))),
         Err(err) => Err(err),
     }
 }
@@ -269,10 +275,16 @@ struct ParentClosure {
     backchannel: ParentBackchannel,
     message_queue: VecDeque<MonitorMessage>,
     backchannel_write_handle: EventHandle,
-    signal_handler: SignalHandler,
+    signal_stream: &'static SignalStream,
+    signal_handlers: [SignalHandler; ParentClosure::SIGNALS.len()],
 }
 
 impl ParentClosure {
+    const SIGNALS: [SignalNumber; 11] = [
+        SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGUSR1, SIGUSR2, SIGCHLD, SIGCONT,
+        SIGWINCH,
+    ];
+
     #[allow(clippy::too_many_arguments)]
     fn new(
         monitor_pid: ProcessId,
@@ -282,9 +294,8 @@ impl ParentClosure {
         tty_pipe: Pipe<UserTerm, PtyLeader>,
         foreground: bool,
         term_raw: bool,
-        signal_handler: SignalHandler,
         registry: &mut EventRegistry<Self>,
-    ) -> Self {
+    ) -> io::Result<Self> {
         registry.register_event(&backchannel, PollEvent::Readable, ParentEvent::Backchannel);
         let mut backchannel_write_handle =
             registry.register_event(&backchannel, PollEvent::Writable, ParentEvent::Backchannel);
@@ -292,11 +303,13 @@ impl ParentClosure {
         // are no messages in the queue.
         backchannel_write_handle.ignore(registry);
 
-        registry.register_event(&signal_handler, PollEvent::Readable, |_| {
-            ParentEvent::Signal
-        });
+        let signal_stream = SignalStream::init()?;
 
-        Self {
+        registry.register_event(signal_stream, PollEvent::Readable, |_| ParentEvent::Signal);
+
+        let signal_handlers = register_handlers(Self::SIGNALS)?;
+
+        Ok(Self {
             monitor_pid: Some(monitor_pid),
             sudo_pid,
             parent_pgrp,
@@ -307,8 +320,9 @@ impl ParentClosure {
             backchannel,
             message_queue: VecDeque::new(),
             backchannel_write_handle,
-            signal_handler,
-        }
+            signal_stream,
+            signal_handlers,
+        })
     }
 
     fn run(&mut self, registry: &mut EventRegistry<Self>) -> io::Result<ExitReason> {
@@ -454,9 +468,9 @@ impl ParentClosure {
         registry: &mut EventRegistry<Self>,
     ) -> Option<SignalNumber> {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
-        let sigcont_action = self
-            .signal_handler
-            .set_action(Signal::SIGCONT, SignalAction::Ignore);
+        let sigcont_handler = SignalHandler::register(SIGCONT, SignalHandlerBehavior::Ignore)
+            .map_err(|err| dev_warn!("cannot set handler for SIGCONT: {err}"))
+            .ok();
 
         if let SIGTTOU | SIGTTIN = signal {
             // If sudo is already the foreground process we can resume the command in the
@@ -491,14 +505,13 @@ impl ParentClosure {
             }
         }
 
-        // FIXME: we should set the action even if we don't have a handler for that signal.
-        let saved_signal_action = (signal != SIGSTOP).then_some(signal).and_then(|number| {
-            let signal = Signal::from_number(number)?;
-            let action = self
-                .signal_handler
-                .set_action(signal, SignalAction::Default);
-            Some((signal, action))
-        });
+        let signal_handler = if signal != SIGSTOP {
+            SignalHandler::register(signal, SignalHandlerBehavior::Default)
+                .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
+                .ok()
+        } else {
+            None
+        };
 
         if self.parent_pgrp != self.sudo_pid && kill(self.parent_pgrp, 0).is_err()
             || killpg(self.parent_pgrp, signal).is_err()
@@ -509,9 +522,7 @@ impl ParentClosure {
             }
         }
 
-        if let Some((signal, action)) = saved_signal_action {
-            self.signal_handler.set_action(signal, action);
-        }
+        drop(signal_handler);
 
         if self.command_pid.is_none() || self.resume_terminal().is_err() {
             return None;
@@ -523,8 +534,8 @@ impl ParentClosure {
             SIGCONT_BG
         };
 
-        self.signal_handler
-            .set_action(Signal::SIGCONT, sigcont_action);
+        // Restore the handler for SIGCONT.
+        drop(sigcont_handler);
 
         Some(ret_signal)
     }
@@ -570,7 +581,7 @@ impl ParentClosure {
     }
 
     fn on_signal(&mut self, registry: &mut EventRegistry<Self>) {
-        let info = match self.signal_handler.recv() {
+        let info = match self.signal_stream.recv() {
             Ok(info) => info,
             Err(err) => {
                 dev_error!("parent could not receive signal: {err}");
@@ -591,16 +602,16 @@ impl ParentClosure {
         };
 
         match info.signal() {
-            Signal::SIGCHLD => handle_sigchld(self, registry, "monitor", monitor_pid),
-            Signal::SIGCONT => {
+            SIGCHLD => handle_sigchld(self, registry, "monitor", monitor_pid),
+            SIGCONT => {
                 self.resume_terminal().ok();
             }
             // FIXME: check `sync_ttysize`
-            Signal::SIGWINCH => {}
+            SIGWINCH => {}
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
             // FIXME: check `send_command_status`
-            signal => self.schedule_signal(signal.number(), registry),
+            signal => self.schedule_signal(signal, registry),
         }
     }
 }

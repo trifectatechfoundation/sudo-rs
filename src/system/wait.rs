@@ -4,9 +4,9 @@ use libc::{
     c_int, WCONTINUED, WEXITSTATUS, WIFCONTINUED, WIFEXITED, WIFSIGNALED, WIFSTOPPED, WNOHANG,
     WSTOPSIG, WTERMSIG, WUNTRACED, __WALL,
 };
-use signal_hook::low_level::signal_name;
 
 use crate::cutils::cerr;
+use crate::system::signal::signal_name;
 use crate::{system::interface::ProcessId, system::signal::SignalNumber};
 
 mod sealed {

@@ -16,14 +16,13 @@ use std::{
     time::Duration,
 };
 
-use signal_hook::consts::*;
-
 use crate::{
     common::Environment,
     log::dev_warn,
     system::{
         interface::ProcessId,
         killpg,
+        signal::{consts::*, signal_name},
         wait::{Wait, WaitError, WaitOptions},
     },
 };
@@ -185,7 +184,7 @@ fn handle_sigchld<T: HandleSigchld>(
 }
 
 fn signal_fmt(signal: SignalNumber) -> Cow<'static, str> {
-    signal_hook::low_level::signal_name(signal)
+    signal_name(signal)
         .or_else(|| (signal == SIGCONT_FG).then_some("SIGCONT_FG"))
         .or_else(|| (signal == SIGCONT_BG).then_some("SIGCONT_BG"))
         .map(|name| name.into())
