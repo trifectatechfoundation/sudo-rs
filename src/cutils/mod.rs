@@ -113,5 +113,23 @@ mod test {
             File::open("/bin/sh").unwrap().as_raw_fd()
         ));
         assert!(!super::safe_isatty(-837492));
+        let (mut leader, mut follower) = Default::default();
+        assert!(
+            unsafe {
+                libc::openpty(
+                    &mut leader,
+                    &mut follower,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            } == 0
+        );
+        assert!(super::safe_isatty(leader));
+        assert!(super::safe_isatty(follower));
+        unsafe {
+            libc::close(follower);
+            libc::close(leader);
+        }
     }
 }
