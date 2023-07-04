@@ -17,5 +17,3 @@ RUN apt-get autoremove -y clang libclang-dev
 RUN ln -s sudoers /etc/sudoers.test
 # set the default working directory to somewhere world writable so sudo / su can create .profraw files there
 WORKDIR /tmp
-# Makes sure our sudo implementation actually runs
-ENV SUDO_RS_IS_UNSTABLE="I accept that my system may break unexpectedly"

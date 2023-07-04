@@ -5,7 +5,7 @@ use sudo_test::{Command, Env, User};
 
 use crate::{
     helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH, SUDO_ENV_DEFAULT_TERM,
-    SUDO_RS_IS_UNSTABLE, USERNAME,
+    USERNAME,
 };
 
 // NOTE if 'env_reset' is not in `/etc/sudoers` it is enabled by default
@@ -24,7 +24,7 @@ fn some_vars_are_set() -> Result<()> {
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
-        .args(["-i", SUDO_RS_IS_UNSTABLE, &sudo_abs_path, &env_abs_path])
+        .args(["-i", &sudo_abs_path, &env_abs_path])
         .output(&env)?
         .stdout()?;
     let mut sudo_env = helpers::parse_env_output(&stdout)?;
@@ -117,7 +117,6 @@ fn user_dependent_vars() -> Result<()> {
     let stdout = Command::new("env")
         .args([
             "-i",
-            SUDO_RS_IS_UNSTABLE,
             &sudo_abs_path,
             "-u",
             USERNAME,
@@ -176,7 +175,6 @@ fn some_vars_are_preserved() -> Result<()> {
     let stdout = Command::new("env")
         .args([
             "-i",
-            SUDO_RS_IS_UNSTABLE,
             &format!("HOME={home}"),
             &format!("MAIL={mail}"),
             &format!("SHELL={shell}"),
@@ -231,7 +229,6 @@ fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
     let stdout = Command::new("env")
         .args([
             "-i",
-            SUDO_RS_IS_UNSTABLE,
             "DISPLAY=() display",
             "PATH=() path",
             "TERM=() term",
