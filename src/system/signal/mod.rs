@@ -1,6 +1,4 @@
 //! Utilities to handle signals.
-#![warn(unused)]
-
 mod handler;
 mod info;
 mod set;
