@@ -1,5 +1,5 @@
 use crate::common::error::Error;
-use crate::exec::{ExitReason, RunOptions};
+use crate::exec::{ExecOutput, ExitReason, RunOptions};
 use crate::log::user_warn;
 use crate::pam::{CLIConverser, PamContext, PamError, PamErrorType};
 use crate::system::term::current_tty_name;
@@ -97,16 +97,19 @@ fn run(options: SuOptions) -> Result<(), Error> {
     let pid = context.process.pid;
 
     // run command and return corresponding exit code
-    let (reason, emulate_default_handler) = crate::exec::run_command(&context, environment)?;
+    let ExecOutput {
+        command_exit_reason,
+        restore_signal_handlers,
+    } = crate::exec::run_command(&context, environment)?;
 
     // closing the pam session is best effort, if any error occurs we cannot
     // do anything with it
     let _ = pam.close_session();
 
     // Run any clean-up code before this line.
-    emulate_default_handler();
+    restore_signal_handlers();
 
-    match reason {
+    match command_exit_reason {
         ExitReason::Code(code) => process::exit(code),
         ExitReason::Signal(signal) => {
             crate::system::kill(pid, signal)?;

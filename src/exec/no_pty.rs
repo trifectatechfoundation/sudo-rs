@@ -2,14 +2,14 @@ use std::{
     ffi::c_int,
     io::{self, Read, Write},
     os::unix::{net::UnixStream, process::CommandExt},
-    process::{exit, Command},
+    process::Command,
 };
 
 use super::{
     event::PollEvent,
     event::{EventRegistry, Process, StopReason},
     io_util::was_interrupted,
-    terminate_process, ExitReason, HandleSigchld,
+    terminate_process, ExitReason, HandleSigchld, ProcessOutput,
 };
 use crate::system::signal::{
     consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
@@ -28,10 +28,7 @@ use crate::{
     },
 };
 
-pub(crate) fn exec_no_pty(
-    sudo_pid: ProcessId,
-    mut command: Command,
-) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
+pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ProcessOutput> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
@@ -77,9 +74,8 @@ pub(crate) fn exec_no_pty(
         if let Some(error_code) = err.raw_os_error() {
             errpipe_tx.write_all(&error_code.to_ne_bytes()).ok();
         }
-        drop(errpipe_tx);
-        // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
-        exit(1)
+
+        return Ok(ProcessOutput::ChildExit);
     };
 
     dev_info!("executed command with pid {command_pid}");
@@ -95,12 +91,17 @@ pub(crate) fn exec_no_pty(
         }
     }
 
-    let exit_reason = match registry.event_loop(&mut closure) {
+    let command_exit_reason = match registry.event_loop(&mut closure) {
         StopReason::Break(err) => return Err(err),
         StopReason::Exit(reason) => reason,
     };
 
-    Ok((exit_reason, Box::new(move || drop(closure.signal_handlers))))
+    Ok(ProcessOutput::SudoExit {
+        output: crate::exec::ExecOutput {
+            command_exit_reason,
+            restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
+        },
+    })
 }
 
 struct ExecClosure {

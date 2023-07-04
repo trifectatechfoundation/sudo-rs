@@ -1,13 +1,14 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::io;
-use std::process::{exit, Command, Stdio};
+use std::process::{Command, Stdio};
 
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{
-    cond_fmt, handle_sigchld, opt_fmt, signal_fmt, terminate_process, HandleSigchld,
+    cond_fmt, handle_sigchld, opt_fmt, signal_fmt, terminate_process, ExecOutput, HandleSigchld,
+    ProcessOutput,
 };
 use crate::exec::{
     io_util::retry_while_interrupted,
@@ -27,11 +28,11 @@ use crate::system::{getpgid, interface::ProcessId};
 use super::pipe::Pipe;
 use super::{CommandStatus, SIGCONT_BG};
 
-pub(crate) fn exec_pty(
+pub(in crate::exec) fn exec_pty(
     sudo_pid: ProcessId,
     mut command: Command,
     user_tty: UserTerm,
-) -> io::Result<(ExitReason, Box<dyn FnOnce()>)> {
+) -> io::Result<ProcessOutput> {
     // Allocate a pseudoterminal.
     let pty = get_pty()?;
 
@@ -166,7 +167,7 @@ pub(crate) fn exec_pty(
         drop(backchannels.parent);
 
         // If `exec_monitor` returns, it means we failed to execute the command somehow.
-        if let Err(err) = exec_monitor(
+        match exec_monitor(
             pty.follower,
             command,
             foreground && !pipeline && !exec_bg,
@@ -174,20 +175,25 @@ pub(crate) fn exec_pty(
             file_closer,
             original_set,
         ) {
-            // Disable nonblocking assetions as we will not poll the backchannel anymore.
-            backchannels.monitor.set_nonblocking_assertions(true);
+            Ok(exec_output) => return Ok(exec_output),
+            Err(err) => {
+                // Disable nonblocking assetions as we will not poll the backchannel anymore.
+                backchannels.monitor.set_nonblocking_assertions(true);
 
-            match err.try_into() {
-                Ok(msg) => {
-                    if let Err(err) = backchannels.monitor.send(&msg) {
-                        dev_error!("cannot send status to parent: {err}");
+                match err.try_into() {
+                    Ok(msg) => {
+                        if let Err(err) = backchannels.monitor.send(&msg) {
+                            dev_error!("cannot send status to parent: {err}");
+                        }
+                    }
+                    Err(err) => {
+                        dev_warn!("execution error {err:?} cannot be send over backchannel")
                     }
                 }
-                Err(err) => dev_warn!("execution error {err:?} cannot be send over backchannel"),
             }
         }
-        // FIXME: drop everything before calling `exit`.
-        exit(1)
+
+        return Ok(ProcessOutput::ChildExit);
     };
 
     // Close the file descriptors that we don't access
@@ -239,10 +245,12 @@ pub(crate) fn exec_pty(
         }
     }
 
-    match exit_reason {
-        Ok(exit_reason) => Ok((exit_reason, Box::new(move || drop(closure.signal_handlers)))),
-        Err(err) => Err(err),
-    }
+    Ok(ProcessOutput::SudoExit {
+        output: ExecOutput {
+            command_exit_reason: exit_reason?,
+            restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
+        },
+    })
 }
 
 fn get_pty() -> io::Result<Pty> {

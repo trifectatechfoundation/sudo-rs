@@ -4,7 +4,7 @@ use std::process::exit;
 use crate::cli::SudoOptions;
 use crate::common::{Context, Environment, Error};
 use crate::env::environment;
-use crate::exec::ExitReason;
+use crate::exec::{ExecOutput, ExitReason};
 use crate::log::auth_warn;
 use crate::sudo::Duration;
 use crate::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
@@ -106,12 +106,15 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         self.authenticator.cleanup();
 
-        let (reason, emulate_default_handler) = exec_result?;
+        let ExecOutput {
+            command_exit_reason,
+            restore_signal_handlers,
+        } = exec_result?;
 
         // Run any clean-up code before this line.
-        emulate_default_handler();
+        restore_signal_handlers();
 
-        match reason {
+        match command_exit_reason {
             ExitReason::Code(code) => exit(code),
             ExitReason::Signal(signal) => {
                 crate::system::kill(pid, signal)?;

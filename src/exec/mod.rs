@@ -10,7 +10,7 @@ use std::{
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
-    process::Command,
+    process::{exit, Command},
     time::Duration,
 };
 
@@ -43,10 +43,14 @@ use self::{
 ///
 /// Returns the [`ExitReason`] of the command and a function that restores the default handler for
 /// signals once its called.
-pub fn run_command(
-    options: &impl RunOptions,
-    env: Environment,
-) -> io::Result<(ExitReason, impl FnOnce())> {
+pub fn run_command(options: &impl RunOptions, env: Environment) -> io::Result<ExecOutput> {
+    match run_command_internal(options, env)? {
+        ProcessOutput::SudoExit { output } => Ok(output),
+        ProcessOutput::ChildExit => exit(1),
+    }
+}
+
+fn run_command_internal(options: &impl RunOptions, env: Environment) -> io::Result<ProcessOutput> {
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command()?;
     let mut command = Command::new(qualified_path);
@@ -108,6 +112,21 @@ pub fn run_command(
     } else {
         exec_no_pty(options.pid(), command)
     }
+}
+
+/// The output of a command's execution.
+pub struct ExecOutput {
+    /// The exit reason of the executed command,
+    pub command_exit_reason: ExitReason,
+    /// A function to restore the signal handlers that were modified to execute the command.
+    pub restore_signal_handlers: Box<dyn FnOnce()>,
+}
+
+enum ProcessOutput {
+    // The main process exited.
+    SudoExit { output: ExecOutput },
+    // A forked child process exited.
+    ChildExit,
 }
 
 /// Exit reason for the command executed by sudo.
