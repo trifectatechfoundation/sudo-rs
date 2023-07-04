@@ -2,7 +2,7 @@ use std::{
     ffi::c_int,
     io::{self, Read, Write},
     os::unix::{net::UnixStream, process::CommandExt},
-    process::{exit, Command},
+    process::Command,
 };
 
 use signal_hook::consts::*;
@@ -23,7 +23,7 @@ use crate::{
         signal::{Signal, SignalAction, SignalHandler, SignalNumber},
         term::{Terminal, UserTerm},
         wait::WaitOptions,
-        FileCloser, ForkResult,
+        FileCloser, ForkResult, _exit,
     },
 };
 
@@ -64,7 +64,7 @@ pub(crate) fn exec_no_pty(
         }
         drop(errpipe_tx);
         // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
-        exit(1)
+        _exit(1)
     };
 
     dev_info!("executed command with pid {command_pid}");

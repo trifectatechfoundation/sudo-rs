@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::io;
-use std::process::{exit, Command, Stdio};
+use std::process::{Command, Stdio};
 
 use signal_hook::consts::*;
 
@@ -22,7 +22,9 @@ use crate::system::signal::{Signal, SignalHandler};
 use crate::system::signal::{SignalAction, SignalNumber};
 use crate::system::term::{Pty, PtyFollower, PtyLeader, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
-use crate::system::{chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User};
+use crate::system::{
+    chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User, _exit,
+};
 use crate::system::{getpgid, interface::ProcessId};
 
 use super::pipe::Pipe;
@@ -183,7 +185,7 @@ pub(crate) fn exec_pty(
             }
         }
         // FIXME: drop everything before calling `exit`.
-        exit(1)
+        _exit(1)
     };
 
     // Close the file descriptors that we don't access

@@ -2,7 +2,7 @@ use std::{
     ffi::c_int,
     io::{self, Read, Write},
     os::unix::{net::UnixStream, process::CommandExt},
-    process::{exit, Command},
+    process::Command,
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         use_pty::{SIGCONT_BG, SIGCONT_FG},
     },
     log::{dev_error, dev_info, dev_warn},
-    system::{poll::PollEvent, signal::SignalAction, FileCloser},
+    system::{poll::PollEvent, signal::SignalAction, FileCloser, _exit},
 };
 use crate::{
     exec::{handle_sigchld, terminate_process, HandleSigchld},
@@ -101,7 +101,7 @@ pub(super) fn exec_monitor(
         }
         drop(errpipe_tx);
         // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
-        exit(1)
+        _exit(1)
     };
 
     // Send the command's PID to the parent.
@@ -178,7 +178,7 @@ pub(super) fn exec_monitor(
 
     drop(closure);
 
-    exit(1)
+    _exit(1)
 }
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.

@@ -36,6 +36,10 @@ pub mod term;
 
 pub mod wait;
 
+pub(crate) fn _exit(status: c_int) -> ! {
+    unsafe { libc::_exit(status) }
+}
+
 /// A type able to close every file descriptor except for the ones pased via [`FileCloser::except`]
 /// and the IO streams.
 pub(crate) struct FileCloser {
