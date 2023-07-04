@@ -13,7 +13,7 @@ A clear and concise description of what the bug is. Please check the issue track
 **To Reproduce**
 Steps to reproduce the behavior:
 1. Compile 'sudo-rs' '....'
-2. Write the following contents to `/etc/sudoers.test`  '....'
+2. Write the following contents to `/etc/sudoers-rs`  '....'
 3. Run the following command '....'
 4. See error
 
