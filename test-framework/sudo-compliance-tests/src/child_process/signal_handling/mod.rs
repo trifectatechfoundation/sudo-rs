@@ -37,6 +37,7 @@ dup! {
     child_terminated_by_signal,
     sigtstp_works,
     sigalrm_terminates_command,
+    sigchld_is_ignored,
 }
 
 // man sudo > Signal handling
@@ -179,3 +180,36 @@ fn sigalrm_terminates_command(tty: bool) -> Result<()> {
 
     Ok(())
 }
+
+fn sigchld_is_ignored(tty: bool) -> Result<()> {
+    let expected = "got signal";
+    let expects_signal = "/root/expects-signal.sh";
+    let kill_sudo = "/root/kill-sudo.sh";
+    let env = Env([SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY])
+        .user(USERNAME)
+        .file(expects_signal, include_str!("expects-signal.sh"))
+        .file(kill_sudo, include_str!("kill-sudo.sh"))
+        .build()?;
+
+    let child = Command::new("sudo")
+        .args(["sh", expects_signal, "HUP", "TERM"])
+        .as_user(USERNAME)
+        .spawn(&env)?;
+
+    Command::new("sh")
+        .args([kill_sudo, "-CHLD"])
+        .tty(tty)
+        .output(&env)?
+        .assert_success()?;
+
+    Command::new("sh")
+        .args([kill_sudo, "-ALRM"])
+        .tty(tty)
+        .output(&env)?
+        .assert_success()?;
+
+    let actual = child.wait()?.stdout()?;
+
+    assert_eq!(expected, actual);
+
+    Ok(())}
