@@ -72,6 +72,7 @@ impl Container {
             docker_exec.arg("--user");
             docker_exec.arg(as_.to_string());
         }
+        docker_exec.args(["-e", "LLVM_PROFILE_FILE='default%c.profraw'"]);
         docker_exec.arg(&self.id);
         docker_exec.args(cmd.get_args());
         docker_exec
