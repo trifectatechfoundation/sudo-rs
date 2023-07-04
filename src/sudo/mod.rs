@@ -8,6 +8,7 @@ use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
 use pam::PamAuthenticator;
 use pipeline::{Pipeline, PolicyPlugin};
 use std::env;
+use std::path::Path;
 
 mod diagnostic;
 use diagnostic::diagnostic;
@@ -15,6 +16,17 @@ mod pam;
 mod pipeline;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+fn candidate_sudoers_file() -> &'static Path {
+    let pb_rs: &'static Path = Path::new("/etc/sudoers-rs");
+    if pb_rs.exists() {
+        dev_info!("Running with /etc/sudoers-rs file");
+        pb_rs
+    } else {
+        dev_info!("Running with /etc/sudoers file");
+        Path::new("/etc/sudoers")
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct SudoersPolicy {}
@@ -24,8 +36,7 @@ impl PolicyPlugin for SudoersPolicy {
     type Policy = crate::sudoers::Judgement;
 
     fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error> {
-        // TODO: move to global configuration
-        let sudoers_path = "/etc/sudoers.test";
+        let sudoers_path = candidate_sudoers_file();
 
         let (sudoers, syntax_errors) = crate::sudoers::Sudoers::new(sudoers_path)
             .map_err(|e| Error::Configuration(format!("{e}")))?;
