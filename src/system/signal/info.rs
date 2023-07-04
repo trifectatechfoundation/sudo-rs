@@ -29,4 +29,3 @@ impl SignalInfo {
         self.info.si_signo
     }
 }
-

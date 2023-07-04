@@ -42,11 +42,11 @@ pub(crate) fn exec_pty(
     })?;
 
     // We don't want to receive SIGTTIN/SIGTTOU
-    match SignalHandler::new(SIGTTIN, SignalHandlerBehavior::Ignore) {
+    match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTIN: {err}"),
     }
-    match SignalHandler::new(SIGTTOU, SignalHandlerBehavior::Ignore) {
+    match SignalHandler::register(SIGTTOU, SignalHandlerBehavior::Ignore) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
     }
@@ -312,7 +312,7 @@ impl ParentClosure {
         let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
         for &signal in Self::SIGNALS {
             let handler =
-                SignalHandler::new(signal, SignalHandlerBehavior::Stream).map_err(|err| {
+                SignalHandler::register(signal, SignalHandlerBehavior::Stream).map_err(|err| {
                     dev_error!("cannot setup handler for {}", signal_fmt(signal));
                     err
                 })?;
@@ -478,8 +478,7 @@ impl ParentClosure {
         registry: &mut EventRegistry<Self>,
     ) -> Option<SignalNumber> {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
-        // FIXME: ogsudo uses an empty set here.
-        let sigcont_handler = SignalHandler::new(SIGCONT, SignalHandlerBehavior::Ignore)
+        let sigcont_handler = SignalHandler::register(SIGCONT, SignalHandlerBehavior::Ignore)
             .map_err(|err| dev_warn!("cannot set handler for SIGCONT: {err}"))
             .ok();
 
@@ -517,8 +516,7 @@ impl ParentClosure {
         }
 
         let signal_handler = if signal != SIGSTOP {
-            // FIXME: ogsudo uses an empty set here.
-            SignalHandler::new(signal, SignalHandlerBehavior::Default)
+            SignalHandler::register(signal, SignalHandlerBehavior::Default)
                 .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
                 .ok()
         } else {

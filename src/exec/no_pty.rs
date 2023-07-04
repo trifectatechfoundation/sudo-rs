@@ -136,7 +136,7 @@ impl ExecClosure {
         let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
         for &signal in Self::SIGNALS {
             let handler =
-                SignalHandler::new(signal, SignalHandlerBehavior::Stream).map_err(|err| {
+                SignalHandler::register(signal, SignalHandlerBehavior::Stream).map_err(|err| {
                     dev_error!("cannot setup handler for {}", signal_fmt(signal));
                     err
                 })?;
@@ -213,8 +213,7 @@ impl ExecClosure {
         }
 
         let sigtstp_handler = if signal == SIGTSTP {
-            // FIXME: ogsudo uses an empty set here.
-            SignalHandler::new(signal, SignalHandlerBehavior::Default)
+            SignalHandler::register(signal, SignalHandlerBehavior::Default)
                 .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
                 .ok()
         } else {

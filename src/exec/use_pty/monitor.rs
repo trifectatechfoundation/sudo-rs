@@ -47,11 +47,11 @@ pub(super) fn exec_monitor(
 ) -> io::Result<()> {
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
-    match SignalHandler::new(SIGTTIN, SignalHandlerBehavior::Ignore) {
+    match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTIN: {err}"),
     }
-    match SignalHandler::new(SIGTTOU, SignalHandlerBehavior::Ignore) {
+    match SignalHandler::register(SIGTTOU, SignalHandlerBehavior::Ignore) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
     }
@@ -278,7 +278,7 @@ impl<'a> MonitorClosure<'a> {
         let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
         for &signal in Self::SIGNALS {
             let handler =
-                SignalHandler::new(signal, SignalHandlerBehavior::Stream).map_err(|err| {
+                SignalHandler::register(signal, SignalHandlerBehavior::Stream).map_err(|err| {
                     dev_error!("cannot setup handler for {}", signal_fmt(signal));
                     err
                 })?;
