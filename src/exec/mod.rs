@@ -10,7 +10,7 @@ use std::{
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
-    process::{exit, Command},
+    process::Command,
     time::Duration,
 };
 
@@ -18,6 +18,7 @@ use crate::{
     common::Environment,
     log::dev_warn,
     system::{
+        _exit,
         interface::ProcessId,
         killpg,
         signal::{consts::*, signal_name},
@@ -46,7 +47,8 @@ use self::{
 pub fn run_command(options: &impl RunOptions, env: Environment) -> io::Result<ExecOutput> {
     match run_command_internal(options, env)? {
         ProcessOutput::SudoExit { output } => Ok(output),
-        ProcessOutput::ChildExit => exit(1),
+        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+        ProcessOutput::ChildExit => _exit(1),
     }
 }
 
