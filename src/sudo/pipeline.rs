@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs::File;
 use std::process::exit;
 
@@ -5,12 +6,13 @@ use crate::cli::SudoOptions;
 use crate::common::{resolve::expand_tilde_in_path, Context, Environment, Error};
 use crate::env::environment;
 use crate::exec::{ExecOutput, ExitReason};
-use crate::log::auth_warn;
+use crate::log::{auth_info, auth_warn};
 use crate::sudo::Duration;
 use crate::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
 use crate::system::interface::UserId;
+use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
-use crate::system::Process;
+use crate::system::{escape_os_str_lossy, Process};
 
 pub trait PolicyPlugin {
     type PreJudgementPolicy: PreJudgementPolicy;
@@ -98,6 +100,8 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         // run command and return corresponding exit code
         let exec_result = if context.command.resolved {
+            log_command_execution(&context);
+
             crate::exec::run_command(&context, target_env)
                 .map_err(|io_error| Error::IoError(Some(context.command.command), io_error))
         } else {
@@ -266,4 +270,27 @@ impl<'a> AuthStatus<'a> {
             record_file,
         }
     }
+}
+
+fn log_command_execution(context: &Context) {
+    let tty_info = if let Ok(tty_name) = current_tty_name() {
+        format!("TTY={} ;", escape_os_str_lossy(&tty_name))
+    } else {
+        String::from("")
+    };
+    let pwd = escape_os_str_lossy(
+        std::env::current_dir()
+            .as_ref()
+            .map(|s| s.as_os_str())
+            .unwrap_or_else(|_| OsStr::new("unknown")),
+    );
+    let user = context.target_user.name.escape_debug().collect::<String>();
+    auth_info!(
+        "{} : {} PWD={} ; USER={} ; COMMAND={}",
+        &context.current_user.name,
+        tty_info,
+        pwd,
+        user,
+        &context.command
+    );
 }
