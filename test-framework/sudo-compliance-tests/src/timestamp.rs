@@ -180,7 +180,7 @@ fn cached_credential_not_shared_with_self_across_ttys() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo -n true"
+            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} sudo -n true"
         ))
         .as_user(USERNAME)
         .tty(true)
