@@ -14,6 +14,8 @@ use crate::system::{Group, Process, User};
 use super::cli::SuOptions;
 
 const VALID_LOGIN_SHELLS_LIST: &str = "/etc/shells";
+const FALLBACK_LOGIN_SHELL: &str = "/bin/sh";
+
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_DEFAULT: &str = env!("SU_PATH_DEFAULT");
 const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
@@ -35,6 +37,8 @@ fn is_restricted(shell: &Path) -> bool {
     if let Some(pattern) = shell.as_os_str().to_str() {
         if let Ok(contents) = fs::read_to_string(VALID_LOGIN_SHELLS_LIST) {
             return !contents.lines().any(|l| l == pattern);
+        } else {
+            return FALLBACK_LOGIN_SHELL != pattern;
         }
     }
 

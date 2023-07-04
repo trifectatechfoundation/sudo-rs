@@ -211,7 +211,6 @@ echo {message}"
 }
 
 #[test]
-#[ignore = "gh615"]
 fn when_no_etc_shells_file_uses_a_default_list() -> Result<()> {
     let default_list = ["/bin/sh"];
     let not_in_list = [
