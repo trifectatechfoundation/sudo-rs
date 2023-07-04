@@ -266,10 +266,7 @@ impl<'a> MonitorClosure<'a> {
             MonitorEvent::ReadableBackchannel
         });
 
-        let signal_stream = SignalStream::init().map_err(|err| {
-            dev_error!("cannot initialize signal stream: {err}");
-            err
-        })?;
+        let signal_stream = SignalStream::init()?;
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| MonitorEvent::Signal);
 

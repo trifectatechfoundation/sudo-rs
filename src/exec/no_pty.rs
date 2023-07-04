@@ -126,10 +126,7 @@ impl ExecClosure {
     ) -> io::Result<Self> {
         registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
 
-        let signal_stream = SignalStream::init().map_err(|err| {
-            dev_error!("cannot initialize signal stream: {err}");
-            err
-        })?;
+        let signal_stream = SignalStream::init()?;
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| ExecEvent::Signal);
 

@@ -8,7 +8,7 @@ use std::{
     sync::OnceLock,
 };
 
-use crate::cutils::cerr;
+use crate::{cutils::cerr, log::dev_error};
 
 use super::{info::SignalInfo, SignalNumber};
 
@@ -40,8 +40,12 @@ impl SignalStream {
     /// # Panics
     ///
     /// If this function has been called before.
+    #[track_caller]
     pub(crate) fn init() -> io::Result<&'static Self> {
-        let (rx, tx) = UnixStream::pair()?;
+        let (rx, tx) = UnixStream::pair().map_err(|err| {
+            dev_error!("cannot create socket pair for `SignalStream`: {err}");
+            err
+        })?;
 
         if STREAM.set(Self { rx, tx }).is_err() {
             panic!("`SignalStream` has already been initialized");
