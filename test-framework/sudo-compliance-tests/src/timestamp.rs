@@ -1,5 +1,3 @@
-use std::{thread, time::Duration};
-
 use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, SUDO_RS_IS_UNSTABLE, USERNAME};
@@ -163,7 +161,7 @@ fn cached_credential_shared_with_target_user_that_is_self_on_the_same_tty() -> R
     Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo true"
+            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo -n true"
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -179,25 +177,17 @@ fn cached_credential_not_shared_with_self_across_ttys() -> Result<()> {
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
-    // this operation should make sudo ask for a password so we use
-    // `spawn` + `try_wait` polling here to avoid blocking forever
-    let mut child = Command::new("sh")
+    let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo true"
+            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo -n true"
         ))
         .as_user(USERNAME)
         .tty(true)
-        .spawn(&env)?;
+        .output(&env)?;
 
-    for _ in 0..5 {
-        if let Some(status) = child.try_wait()? {
-            assert!(!status.success());
-            return Ok(());
-        }
-
-        thread::sleep(Duration::from_secs(1));
-    }
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
 
     Ok(())
 }
