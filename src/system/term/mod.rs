@@ -130,6 +130,7 @@ pub(crate) trait Terminal: sealed::Sealed {
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()>;
     fn make_controlling_terminal(&self) -> io::Result<()>;
     fn ttyname(&self) -> io::Result<OsString>;
+    fn is_terminal(&self) -> bool;
 }
 
 impl<F: AsRawFd> Terminal for F {
@@ -161,22 +162,16 @@ impl<F: AsRawFd> Terminal for F {
         cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr() as _, buf.len()) })?;
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
     }
+
+    /// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
+    fn is_terminal(&self) -> bool {
+        safe_isatty(self.as_raw_fd())
+    }
 }
 
 /// Try to get the path of the current TTY
 pub fn current_tty_name() -> io::Result<OsString> {
     std::io::stdin().ttyname()
-}
-
-/// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
-pub trait IsTerminalForSudo {
-    fn is_terminal(&self) -> bool;
-}
-
-impl<F: AsRawFd> IsTerminalForSudo for F {
-    fn is_terminal(&self) -> bool {
-        safe_isatty(self.as_raw_fd())
-    }
 }
 
 #[cfg(test)]
