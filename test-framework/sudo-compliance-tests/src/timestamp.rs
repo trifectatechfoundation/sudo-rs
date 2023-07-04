@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, SUDO_RS_IS_UNSTABLE, USERNAME};
+use crate::{Result, PASSWORD, USERNAME};
 
 mod remove;
 mod reset;
@@ -132,7 +132,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<(
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -u {second_target_user} -S true; sudo -u {second_target_user} sh -c 'export \"{SUDO_RS_IS_UNSTABLE}\"; sudo -S true'"
+            "echo {PASSWORD} | sudo -u {second_target_user} -S true; sudo -u {second_target_user} sudo -S true"
         ))
         .as_user(USERNAME)
         .output(&env)?;
@@ -161,7 +161,7 @@ fn cached_credential_shared_with_target_user_that_is_self_on_the_same_tty() -> R
     Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo -n true"
+            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} sudo -n true"
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -180,7 +180,7 @@ fn cached_credential_not_shared_with_self_across_ttys() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} env '{SUDO_RS_IS_UNSTABLE}' sudo -n true"
+            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} sudo -n true"
         ))
         .as_user(USERNAME)
         .tty(true)

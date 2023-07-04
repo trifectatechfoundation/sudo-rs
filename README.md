@@ -32,15 +32,14 @@ cargo build --release
 
 This produces a binary `target/release/sudo`. However, this binary must have
 the setuid flag set and must be owned by the root user in order to provide any
-useful functionality. Because we are in such an early stage we also require an
-environment variable `SUDO_RS_IS_UNSTABLE` to be set, and it must have the
-value `I accept that my system may break unexpectedly`. If you are unsure about
-how to set this up, then the current version of sudo is not intended for you.
+useful functionality. If you are unsure about how to set this up, then the
+current version of sudo is not intended for you.
 
-Sudo-rs needs the sudoers configuration file, but it currently reads it at
-`/etc/sudoers.test`, instead of the default location. You must make sure that
-a valid sudoers configuration exists at that location. For an explanation of
-the sudoers syntax you can look at the
+Sudo-rs needs the sudoers configuration file. The sudoers configuration file
+will be loaded from `/etc/sudoers-rs` if that file exists, otherwise the
+original `/etc/sudoers` location will be used. You must make sure that a valid
+sudoers configuration exists at that location. For an explanation of the
+sudoers syntax you can look at the
 [original sudo man page](https://www.sudo.ws/docs/man/sudoers.man/). While most
 syntax should be supported as is, most functionality will currently not be
 implemented. Sudo-rs currently may not always warn about this, so your sudoers
