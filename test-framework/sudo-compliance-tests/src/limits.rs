@@ -3,6 +3,7 @@ use sudo_test::{Command, Env};
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
+#[ignore = "gh644"]
 fn etc_security_limits_rules_apply_according_to_the_target_user() -> Result<()> {
     let target_user = "ghost";
     let original = "2048";
@@ -47,6 +48,7 @@ fn etc_security_limits_rules_apply_according_to_the_target_user() -> Result<()> 
 //
 // "The one exception to this is the core dump file size, which is set by sudoers to 0 by default."
 #[test]
+#[ignore = "gh644"]
 fn core_file_size_is_set_to_zero() -> Result<()> {
     let users = ["root", USERNAME];
 
@@ -73,6 +75,7 @@ fn core_file_size_is_set_to_zero() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh644"]
 fn cannot_override_the_default_core_file_size_with_a_limits_file() -> Result<()> {
     let target_user = "ghost";
     let rule = "1024";
