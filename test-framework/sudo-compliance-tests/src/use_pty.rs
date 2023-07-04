@@ -172,7 +172,10 @@ fn stderr_pipe() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
 
     let output = Command::new("sh")
-        .args(["-c", "2>/tmp/stderr.txt sh -c '>&2 echo \"hello world\"'"])
+        .args([
+            "-c",
+            "2>/tmp/stderr.txt sudo sh -c '>&2 echo \"hello world\"'",
+        ])
         .tty(true)
         .output(&env)?;
 
