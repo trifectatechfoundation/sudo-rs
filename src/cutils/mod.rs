@@ -62,6 +62,29 @@ pub unsafe fn os_string_from_ptr(ptr: *const libc::c_char) -> OsString {
     }
 }
 
+/// Rust's standard library IsTerminal just directly calls isatty, which
+/// we don't want since this performs IOCTL calls on them and file descriptors are under
+/// the control of the user; so this checks if they are a character device first.
+pub fn safe_isatty(fildes: libc::c_int) -> bool {
+    // The Rust standard library doesn't have FileTypeExt on Std{in,out,err}, so we
+    // can't just use FileTypeExt::is_char_device and have to resort to libc::fstat.
+    let mut maybe_stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+    if unsafe { libc::fstat(fildes, maybe_stat.as_mut_ptr()) } == 0 {
+        let mode = unsafe { maybe_stat.assume_init() }.st_mode;
+
+        // To complicate matters further, the S_ISCHR macro isn't in libc as well.
+        let is_char_device = (mode & libc::S_IFMT) == libc::S_IFCHR;
+
+        if is_char_device {
+            unsafe { libc::isatty(fildes) != 0 }
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::{os_string_from_ptr, string_from_ptr};
@@ -80,5 +103,33 @@ mod test {
         assert_eq!(strp(std::ptr::null()), "");
         assert_eq!(strp("\0".as_ptr() as *const libc::c_char), "");
         assert_eq!(strp("hello\0".as_ptr() as *const libc::c_char), "hello");
+    }
+
+    #[test]
+    fn test_tty() {
+        use std::fs::File;
+        use std::os::fd::AsRawFd;
+        assert!(!super::safe_isatty(
+            File::open("/bin/sh").unwrap().as_raw_fd()
+        ));
+        assert!(!super::safe_isatty(-837492));
+        let (mut leader, mut follower) = Default::default();
+        assert!(
+            unsafe {
+                libc::openpty(
+                    &mut leader,
+                    &mut follower,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            } == 0
+        );
+        assert!(super::safe_isatty(leader));
+        assert!(super::safe_isatty(follower));
+        unsafe {
+            libc::close(follower);
+            libc::close(leader);
+        }
     }
 }

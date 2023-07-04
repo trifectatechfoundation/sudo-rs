@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::io::{self, IsTerminal};
+use std::io;
 use std::process::{exit, Command, Stdio};
 
 use signal_hook::consts::*;
