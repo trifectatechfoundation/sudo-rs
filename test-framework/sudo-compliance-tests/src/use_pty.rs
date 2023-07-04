@@ -5,7 +5,14 @@ use sudo_test::{
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
-fn fixture() -> Result<Vec<PsAuxEntry>> {
+#[derive(Debug)]
+struct Processes {
+    original: PsAuxEntry,
+    monitor: PsAuxEntry,
+    command: PsAuxEntry,
+}
+
+fn fixture() -> Result<Processes> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
 
     let child = Command::new("sudo")
@@ -32,37 +39,39 @@ fn fixture() -> Result<Vec<PsAuxEntry>> {
 
     sudo_related_processes.sort_by_key(|entry| entry.pid);
 
-    Ok(sudo_related_processes)
+    let [original, monitor, command]: [PsAuxEntry; 3] = sudo_related_processes
+        .try_into()
+        .map_err(|_| "expected 3 sudo-related processes")?;
+
+    // sanity check
+    let prefix = "sudo ";
+    assert!(original.command.starts_with(prefix));
+    assert!(monitor.command.starts_with(prefix));
+    assert!(!command.command.starts_with(prefix));
+
+    assert!(original.has_tty());
+    assert!(monitor.has_tty());
+    assert!(command.has_tty());
+
+    Ok(Processes {
+        original,
+        monitor,
+        command,
+    })
 }
 
 #[test]
 fn spawns_three_processes() -> Result<()> {
-    let sudo_related_processes = fixture()?;
-
-    assert_eq!(3, sudo_related_processes.len());
-
-    Ok(())
+    fixture().map(drop)
 }
 
 #[test]
 fn allocates_a_second_pty_which_is_assigned_to_the_command_process() -> Result<()> {
-    let sudo_related_processes = fixture()?;
-
-    let original = &sudo_related_processes[0];
-    let monitor = &sudo_related_processes[1];
-    let command = &sudo_related_processes[2];
-
-    dbg!(original);
-    dbg!(monitor);
-    dbg!(command);
-
-    // sanity checks
-    assert!(original.command.starts_with("sudo "));
-    assert!(monitor.command.starts_with("sudo "));
-    assert!(!command.command.starts_with("sudo "));
-    assert_ne!("?", original.tty);
-    assert_ne!("?", monitor.tty);
-    assert_ne!("?", command.tty);
+    let Processes {
+        original,
+        monitor,
+        command,
+    } = fixture()?;
 
     assert_eq!(monitor.tty, command.tty);
     assert_ne!(original.tty, monitor.tty);
@@ -72,33 +81,17 @@ fn allocates_a_second_pty_which_is_assigned_to_the_command_process() -> Result<(
 
 #[test]
 fn process_state() -> Result<()> {
-    const IS_A_SESSION_LEADER: char = 's';
-    const IS_IN_FOREGROUND_PROCESS_GROUP: char = '+';
+    let Processes {
+        original,
+        monitor,
+        command,
+    } = fixture()?;
 
-    let sudo_related_processes = fixture()?;
+    assert!(original.is_in_the_foreground_process_group());
+    assert!(command.is_in_the_foreground_process_group());
 
-    let original = &sudo_related_processes[0];
-    let monitor = &sudo_related_processes[1];
-    let command = &sudo_related_processes[2];
-
-    dbg!(original);
-    dbg!(monitor);
-    dbg!(command);
-
-    // sanity checks
-    assert!(original.command.starts_with("sudo "));
-    assert!(monitor.command.starts_with("sudo "));
-    assert!(!command.command.starts_with("sudo "));
-
-    assert!(original
-        .process_state
-        .contains(IS_IN_FOREGROUND_PROCESS_GROUP));
-    assert!(command
-        .process_state
-        .contains(IS_IN_FOREGROUND_PROCESS_GROUP));
-
-    assert!(original.process_state.contains(IS_A_SESSION_LEADER));
-    assert!(monitor.process_state.contains(IS_A_SESSION_LEADER));
+    assert!(original.is_session_leader());
+    assert!(monitor.is_session_leader());
 
     Ok(())
 }
