@@ -17,7 +17,8 @@ use crate::exec::{
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::poll::PollEvent;
 use crate::system::signal::{
-    consts::*, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream,
+    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
+    SignalStream,
 };
 use crate::system::term::{Pty, PtyFollower, PtyLeader, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
@@ -275,11 +276,11 @@ struct ParentClosure {
     message_queue: VecDeque<MonitorMessage>,
     backchannel_write_handle: EventHandle,
     signal_stream: &'static SignalStream,
-    signal_handlers: Vec<SignalHandler>,
+    signal_handlers: [SignalHandler; ParentClosure::SIGNALS.len()],
 }
 
 impl ParentClosure {
-    const SIGNALS: &[SignalNumber] = &[
+    const SIGNALS: [SignalNumber; 11] = [
         SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGUSR1, SIGUSR2, SIGCHLD, SIGCONT,
         SIGWINCH,
     ];
@@ -306,15 +307,7 @@ impl ParentClosure {
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| ParentEvent::Signal);
 
-        let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
-        for &signal in Self::SIGNALS {
-            let handler =
-                SignalHandler::register(signal, SignalHandlerBehavior::Stream).map_err(|err| {
-                    dev_error!("cannot setup handler for {}", signal_fmt(signal));
-                    err
-                })?;
-            signal_handlers.push(handler);
-        }
+        let signal_handlers = register_handlers(Self::SIGNALS)?;
 
         Ok(Self {
             monitor_pid: Some(monitor_pid),

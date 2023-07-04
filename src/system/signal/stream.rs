@@ -10,7 +10,11 @@ use std::{
 
 use crate::{cutils::cerr, log::dev_error};
 
-use super::{info::SignalInfo, SignalNumber};
+use super::{
+    handler::{SignalHandler, SignalHandlerBehavior},
+    info::SignalInfo,
+    signal_name, SignalNumber,
+};
 
 static STREAM: OnceLock<SignalStream> = OnceLock::new();
 
@@ -70,6 +74,25 @@ impl SignalStream {
         // the value and `siginfo_t` is POD.
         Ok(unsafe { info.assume_init() })
     }
+}
+
+#[track_caller]
+pub(crate) fn register_handlers<const N: usize>(
+    signals: [SignalNumber; N],
+) -> io::Result<[SignalHandler; N]> {
+    let mut handlers = signals.map(|signal| (signal, MaybeUninit::uninit()));
+
+    for (signal, handler) in &mut handlers {
+        *handler = SignalHandler::register(*signal, SignalHandlerBehavior::Stream)
+            .map(MaybeUninit::new)
+            .map_err(|err| {
+                let name = signal_name(*signal).unwrap_or("unknown signal");
+                dev_error!("cannot setup handler for {name}: {err}");
+                err
+            })?;
+    }
+
+    Ok(handlers.map(|(_, handler)| unsafe { handler.assume_init() }))
 }
 
 impl AsRawFd for SignalStream {

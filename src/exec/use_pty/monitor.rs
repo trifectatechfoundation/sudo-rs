@@ -12,7 +12,8 @@ use crate::exec::{
 };
 use crate::exec::{opt_fmt, signal_fmt};
 use crate::system::signal::{
-    consts::*, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream,
+    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
+    SignalStream,
 };
 use crate::{
     exec::{
@@ -238,11 +239,11 @@ struct MonitorClosure<'a> {
     errpipe_rx: UnixStream,
     backchannel: &'a mut MonitorBackchannel,
     signal_stream: &'static SignalStream,
-    _signal_handlers: Vec<SignalHandler>,
+    _signal_handlers: [SignalHandler; MonitorClosure::SIGNALS.len()],
 }
 
 impl<'a> MonitorClosure<'a> {
-    const SIGNALS: &[SignalNumber] = &[
+    const SIGNALS: [SignalNumber; 8] = [
         SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGUSR1, SIGUSR2, SIGCHLD,
     ];
 
@@ -270,15 +271,7 @@ impl<'a> MonitorClosure<'a> {
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| MonitorEvent::Signal);
 
-        let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
-        for &signal in Self::SIGNALS {
-            let handler =
-                SignalHandler::register(signal, SignalHandlerBehavior::Stream).map_err(|err| {
-                    dev_error!("cannot setup handler for {}", signal_fmt(signal));
-                    err
-                })?;
-            signal_handlers.push(handler);
-        }
+        let signal_handlers = register_handlers(Self::SIGNALS)?;
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;

@@ -6,7 +6,8 @@ use std::{
 };
 
 use crate::system::signal::{
-    consts::*, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream,
+    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
+    SignalStream,
 };
 
 use super::{
@@ -109,11 +110,11 @@ struct ExecClosure {
     parent_pgrp: ProcessId,
     errpipe_rx: UnixStream,
     signal_stream: &'static SignalStream,
-    signal_handlers: Vec<SignalHandler>,
+    signal_handlers: [SignalHandler; ExecClosure::SIGNALS.len()],
 }
 
 impl ExecClosure {
-    const SIGNALS: &[SignalNumber] = &[
+    const SIGNALS: [SignalNumber; 12] = [
         SIGINT, SIGQUIT, SIGTSTP, SIGTERM, SIGHUP, SIGALRM, SIGPIPE, SIGUSR1, SIGUSR2, SIGCHLD,
         SIGCONT, SIGWINCH,
     ];
@@ -130,15 +131,7 @@ impl ExecClosure {
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| ExecEvent::Signal);
 
-        let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
-        for &signal in Self::SIGNALS {
-            let handler =
-                SignalHandler::register(signal, SignalHandlerBehavior::Stream).map_err(|err| {
-                    dev_error!("cannot setup handler for {}", signal_fmt(signal));
-                    err
-                })?;
-            signal_handlers.push(handler);
-        }
+        let signal_handlers = register_handlers(Self::SIGNALS)?;
 
         Ok(Self {
             command_pid: Some(command_pid),

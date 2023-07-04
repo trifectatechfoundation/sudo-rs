@@ -8,7 +8,7 @@ mod stream;
 
 pub(crate) use handler::{SignalHandler, SignalHandlerBehavior};
 pub(crate) use set::SignalSet;
-pub(crate) use stream::SignalStream;
+pub(crate) use stream::{register_handlers, SignalStream};
 
 pub(crate) type SignalNumber = libc::c_int;
 
