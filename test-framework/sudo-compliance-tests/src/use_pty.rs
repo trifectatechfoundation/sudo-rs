@@ -1,9 +1,9 @@
-use sudo_test::{Command, Env};
-
-use crate::{
+use sudo_test::{
     helpers::{self, PsAuxEntry},
-    Result, SUDOERS_ALL_ALL_NOPASSWD,
+    Command, Env,
 };
+
+use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
 fn fixture() -> Result<Vec<PsAuxEntry>> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;

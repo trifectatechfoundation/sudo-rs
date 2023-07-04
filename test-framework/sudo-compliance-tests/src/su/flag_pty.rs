@@ -1,9 +1,9 @@
-use sudo_test::{Command, Env};
-
-use crate::{
+use sudo_test::{
     helpers::{self, PsAuxEntry},
-    Result,
+    Command, Env,
 };
+
+use crate::Result;
 
 #[test]
 fn no_new_tty_allocation_when_absent() -> Result<()> {

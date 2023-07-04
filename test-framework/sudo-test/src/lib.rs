@@ -14,10 +14,11 @@ use docker::{As, Container};
 
 pub use docker::{Child, Command, Output};
 
+mod docker;
+pub mod helpers;
+
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;
-
-mod docker;
 
 fn base_image() -> &'static str {
     if is_original_sudo() {
