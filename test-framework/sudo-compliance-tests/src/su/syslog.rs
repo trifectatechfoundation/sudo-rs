@@ -56,7 +56,6 @@ fn logs_every_session() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh601"]
 fn logs_every_failed_authentication_attempt() -> Result<()> {
     let invoking_user = USERNAME;
     let invoking_userid = 1000;
@@ -93,7 +92,7 @@ fn logs_every_failed_authentication_attempt() -> Result<()> {
         );
     } else {
         let tty = "";
-        assert_contains!(auth_log, format!("su: pam_unix(su:auth): authentication failure; logname= uid={invoking_userid} euid={invoking_userid} tty={tty} ruser={invoking_user} rhost=  user={target_user}"));
+        assert_contains!(auth_log, format!("su: pam_unix(su:auth): authentication failure; logname= uid={invoking_userid} euid=0 tty={tty} ruser={invoking_user} rhost=  user={target_user}"));
     }
 
     Ok(())
