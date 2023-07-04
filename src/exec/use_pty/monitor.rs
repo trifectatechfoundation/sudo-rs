@@ -237,7 +237,7 @@ struct MonitorClosure<'a> {
     pty_follower: PtyFollower,
     errpipe_rx: UnixStream,
     backchannel: &'a mut MonitorBackchannel,
-    signal_stream: SignalStream,
+    signal_stream: &'static SignalStream,
     _signal_handlers: Vec<SignalHandler>,
 }
 
@@ -266,14 +266,12 @@ impl<'a> MonitorClosure<'a> {
             MonitorEvent::ReadableBackchannel
         });
 
-        let signal_stream = SignalStream::new().map_err(|err| {
-            dev_error!("cannot create signal stream: {err}");
+        let signal_stream = SignalStream::init().map_err(|err| {
+            dev_error!("cannot initialize signal stream: {err}");
             err
         })?;
 
-        registry.register_event(&signal_stream, PollEvent::Readable, |_| {
-            MonitorEvent::Signal
-        });
+        registry.register_event(signal_stream, PollEvent::Readable, |_| MonitorEvent::Signal);
 
         let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
         for &signal in Self::SIGNALS {

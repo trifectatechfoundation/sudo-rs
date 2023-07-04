@@ -108,7 +108,7 @@ struct ExecClosure {
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
     errpipe_rx: UnixStream,
-    signal_stream: SignalStream,
+    signal_stream: &'static SignalStream,
     signal_handlers: Vec<SignalHandler>,
 }
 
@@ -126,12 +126,12 @@ impl ExecClosure {
     ) -> io::Result<Self> {
         registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
 
-        let signal_stream = SignalStream::new().map_err(|err| {
-            dev_error!("cannot create signal stream: {err}");
+        let signal_stream = SignalStream::init().map_err(|err| {
+            dev_error!("cannot initialize signal stream: {err}");
             err
         })?;
 
-        registry.register_event(&signal_stream, PollEvent::Readable, |_| ExecEvent::Signal);
+        registry.register_event(signal_stream, PollEvent::Readable, |_| ExecEvent::Signal);
 
         let mut signal_handlers = Vec::with_capacity(Self::SIGNALS.len());
         for &signal in Self::SIGNALS {
