@@ -4,10 +4,7 @@ use std::{
     os::fd::AsRawFd,
 };
 
-use crate::{
-    exec::event::{EventHandle, EventRegistry, Process},
-    system::poll::PollEvent,
-};
+use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process};
 
 // A pipe able to stream data bidirectionally between two read-write types.
 pub(super) struct Pipe<L, R> {

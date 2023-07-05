@@ -32,8 +32,6 @@ pub mod timestamp;
 
 pub mod signal;
 
-pub mod poll;
-
 pub mod term;
 
 pub mod wait;

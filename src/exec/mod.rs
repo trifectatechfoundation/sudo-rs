@@ -1,5 +1,3 @@
-#![deny(unsafe_code)]
-
 mod event;
 mod interface;
 mod io_util;
@@ -80,7 +78,6 @@ pub fn run_command(
     if let Some(path) = path {
         let is_chdir = options.chdir().is_some();
 
-        #[allow(unsafe_code)]
         unsafe {
             command.pre_exec(move || {
                 let bytes = path.as_os_str().as_bytes();

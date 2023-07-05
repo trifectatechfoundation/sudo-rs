@@ -17,11 +17,11 @@ use crate::system::signal::{
 };
 use crate::{
     exec::{
-        event::StopReason,
+        event::{PollEvent, StopReason},
         use_pty::{SIGCONT_BG, SIGCONT_FG},
     },
     log::{dev_error, dev_info, dev_warn},
-    system::{poll::PollEvent, FileCloser},
+    system::FileCloser,
 };
 use crate::{
     exec::{handle_sigchld, terminate_process, HandleSigchld},
