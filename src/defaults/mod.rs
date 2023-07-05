@@ -31,12 +31,8 @@ defaults! {
     use_pty                   = true
     visiblepw                 = false
 
-    passwd_tries              = 3                  [0..=1000]
-    umask                     = 0o22 (!= 0o777)    [0..=0o777; radix: 8]
+    passwd_tries              = 3 [0..=1000]
 
-    editor                    = "/usr/bin/editor"
-    lecture_file              = None
-    lecture                   = "once" (!= "never") [once, always, never]
     secure_path               = None (!= None)
     verifypw                  = "all" (!= "never") [all, always, any, never]
 
@@ -96,10 +92,6 @@ mod test {
         test! { use_pty => Flag(true) };
         test! { visiblepw => Flag(false) };
         test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }, _) };
-        test! { umask => Integer(OptTuple { default: 18, negated: Some(511) }, _) };
-        test! { editor => Text(OptTuple { default: Some("/usr/bin/editor"), negated: None }) };
-        test! { lecture_file => Text(_) };
-        test! { lecture => Enum(OptTuple { default: StrEnum { value: "once", possible_values: [_, "always", _] }, negated: Some(StrEnum { value: "never", .. }) }) };
         test! { secure_path => Text(OptTuple { default: None, negated: Some(None) }) };
         test! { env_keep => List(_) };
         test! { env_check => List(["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]) };

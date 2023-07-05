@@ -239,14 +239,12 @@ fn default_bool_test() {
         "Defaults env_reset",
         "Defaults !use_pty",
         "Defaults !env_keep",
-        "Defaults !umask",
         "Defaults !secure_path"
     ]);
     assert!(settings.flags.contains("env_reset"));
     assert!(!settings.flags.contains("use_pty"));
     assert!(settings.list["env_keep"].is_empty());
     assert_eq!(settings.str_value["secure_path"], None);
-    assert_eq!(settings.int_value["umask"], 0o777);
 }
 
 #[test]
@@ -257,9 +255,7 @@ fn default_set_test() {
         "Defaults !env_check",
         "Defaults env_check += \"FOO\"",
         "Defaults env_check += \"XYZZY\"",
-        "Defaults umask = 0123",
         "Defaults passwd_tries = 5",
-        "Defaults lecture_file = \"/etc/sudoers\"",
         "Defaults secure_path = /etc"
     ]);
     assert_eq!(
@@ -273,16 +269,9 @@ fn default_set_test() {
             .map(|x| x.to_string())
             .collect()
     );
-    assert_eq!(
-        settings.str_value["lecture_file"].as_deref(),
-        Some("/etc/sudoers")
-    );
     assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));
-    assert_eq!(settings.int_value["umask"], 0o123);
     assert_eq!(settings.int_value["passwd_tries"], 5);
 
-    assert!(parse_string::<Sudo>("Defaults umask = 789").is_err());
-    assert!(parse_string::<Sudo>("Defaults umask = 1234").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = never").is_ok());
@@ -291,10 +280,10 @@ fn default_set_test() {
 #[test]
 fn default_multi_test() {
     let (Sudoers { settings, .. }, _) = analyze(sudoer![
-        "Defaults env_reset, umask = 0123, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
+        "Defaults env_reset, !use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
     ]);
     assert!(settings.flags.contains("env_reset"));
-    assert_eq!(settings.int_value["umask"], 0o123);
+    assert!(!settings.flags.contains("use_pty"));
     assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));
     assert_eq!(
         settings.list["env_keep"],
