@@ -8,6 +8,8 @@ pub(crate) use handler::{SignalHandler, SignalHandlerBehavior};
 pub(crate) use set::SignalSet;
 pub(crate) use stream::{register_handlers, SignalStream};
 
+use std::borrow::Cow;
+
 pub(crate) type SignalNumber = libc::c_int;
 
 macro_rules! define_consts {
@@ -16,10 +18,10 @@ macro_rules! define_consts {
             pub(crate) use libc::{$($signal,)*};
         }
 
-        pub(crate) fn signal_name(signal: SignalNumber) -> Option<&'static str> {
+        pub(crate) fn signal_name(signal: SignalNumber) -> Cow<'static, str> {
             match signal {
-                $(consts::$signal => Some(stringify!($signal)),)*
-                _ => None,
+                $(consts::$signal => stringify!($signal).into(),)*
+                _ => format!("unknown signal ({signal})").into(),
             }
         }
     };

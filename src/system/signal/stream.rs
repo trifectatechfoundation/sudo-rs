@@ -86,7 +86,7 @@ pub(crate) fn register_handlers<const N: usize>(
         *handler = SignalHandler::register(*signal, SignalHandlerBehavior::Stream)
             .map(MaybeUninit::new)
             .map_err(|err| {
-                let name = signal_name(*signal).unwrap_or("unknown signal");
+                let name = signal_name(*signal);
                 dev_error!("cannot setup handler for {name}: {err}");
                 err
             })?;
