@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     ffi::{CStr, CString, OsStr, OsString},
+    os::raw::c_char,
     os::unix::prelude::OsStrExt,
 };
 
@@ -214,7 +215,7 @@ impl<C: Converser> PamContext<C> {
         }
 
         // unsafe conversion to cstr
-        let cstr = unsafe { CStr::from_ptr(data as *const i8) };
+        let cstr = unsafe { CStr::from_ptr(data as *const c_char) };
 
         Ok(cstr.to_str()?.to_owned())
     }
