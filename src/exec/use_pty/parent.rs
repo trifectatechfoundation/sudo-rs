@@ -10,7 +10,7 @@ use crate::exec::{
     cond_fmt, handle_sigchld, opt_fmt, signal_fmt, terminate_process, HandleSigchld,
 };
 use crate::exec::{
-    io_util::{retry_while_interrupted, was_interrupted},
+    io_util::retry_while_interrupted,
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
     ExitReason,
 };
@@ -175,6 +175,9 @@ pub(crate) fn exec_pty(
             file_closer,
             original_set,
         ) {
+            // Disable nonblocking assetions as we will not poll the backchannel anymore.
+            backchannels.monitor.set_nonblocking_assertions(true);
+
             match err.try_into() {
                 Ok(msg) => {
                     if let Err(err) = backchannels.monitor.send(&msg) {
@@ -290,12 +293,15 @@ impl ParentClosure {
         monitor_pid: ProcessId,
         sudo_pid: ProcessId,
         parent_pgrp: ProcessId,
-        backchannel: ParentBackchannel,
+        mut backchannel: ParentBackchannel,
         tty_pipe: Pipe<UserTerm, PtyLeader>,
         foreground: bool,
         term_raw: bool,
         registry: &mut EventRegistry<Self>,
     ) -> io::Result<Self> {
+        // Enable nonblocking assertions as we will poll this inside the event loop.
+        backchannel.set_nonblocking_asserts(true);
+
         registry.register_event(&backchannel, PollEvent::Readable, ParentEvent::Backchannel);
         let mut backchannel_write_handle =
             registry.register_event(&backchannel, PollEvent::Writable, ParentEvent::Backchannel);
@@ -335,19 +341,22 @@ impl ParentClosure {
     /// Read an event from the backchannel and return the event if it should break the event loop.
     fn on_message_received(&mut self, registry: &mut EventRegistry<Self>) {
         match self.backchannel.recv() {
-            // Not an actual error, we can retry later.
-            Err(err) if was_interrupted(&err) => {}
-            // Failed to read command status. This means that something is wrong with the socket
-            // and we should stop.
             Err(err) => {
-                // If we get EOF the monitor exited or was killed
-                if err.kind() == io::ErrorKind::UnexpectedEof {
-                    dev_info!("received EOF from backchannel");
-                    registry.set_exit(err.into());
-                } else {
-                    dev_error!("cannot receive message from backchannel: {err}");
-                    if !registry.got_break() {
-                        registry.set_break(err);
+                match err.kind() {
+                    // If we get EOF the monitor exited or was killed
+                    io::ErrorKind::UnexpectedEof => {
+                        dev_info!("received EOF from backchannel");
+                        registry.set_exit(err.into());
+                    }
+                    // We can try later if receive is interrupted.
+                    io::ErrorKind::Interrupted => {}
+                    // Failed to read command status. This means that something is wrong with the socket
+                    // and we should stop.
+                    _ => {
+                        dev_error!("cannot receive message from backchannel: {err}");
+                        if !registry.got_break() {
+                            registry.set_break(err);
+                        }
                     }
                 }
             }
@@ -446,14 +455,14 @@ impl ParentClosure {
                         self.backchannel_write_handle.ignore(registry);
                     }
                 }
-                // The other end of the socket is gone, we should exit.
-                Err(err) if err.kind() == io::ErrorKind::BrokenPipe => {
-                    dev_error!("broken pipe while writing to monitor over backchannel");
-                    // FIXME: maybe we need a different event for backchannel errors.
-                    registry.set_break(err);
+                Err(err) => {
+                    // We can try later if send is interrupted.
+                    if err.kind() != io::ErrorKind::Interrupted {
+                        // There's something wrong with the backchannel, break the event loop.
+                        dev_error!("cannot send via backchannel {err}");
+                        registry.set_break(err);
+                    }
                 }
-                // Non critical error, we can retry later.
-                Err(_) => {}
             }
         }
     }

@@ -37,8 +37,16 @@ impl BackchannelPair {
         }
 
         Ok(Self {
-            parent: ParentBackchannel { socket: sock1 },
-            monitor: MonitorBackchannel { socket: sock2 },
+            parent: ParentBackchannel {
+                socket: sock1,
+                #[cfg(debug_assertions)]
+                nonblocking_asserts: false,
+            },
+            monitor: MonitorBackchannel {
+                socket: sock2,
+                #[cfg(debug_assertions)]
+                nonblocking_asserts: false,
+            },
         })
     }
 }
@@ -115,12 +123,15 @@ impl From<CommandStatus> for ParentMessage {
 /// A socket use for commmunication between the monitor and the parent process.
 pub(super) struct ParentBackchannel {
     socket: UnixStream,
+    #[cfg(debug_assertions)]
+    nonblocking_asserts: bool,
 }
 
 impl ParentBackchannel {
     /// Send a [`MonitorMessage`].
     ///
     /// Calling this method will block until the socket is ready for writing.
+    #[track_caller]
     pub(super) fn send(&mut self, event: &MonitorMessage) -> io::Result<()> {
         let mut buf = [0; MonitorMessage::LEN];
 
@@ -131,7 +142,10 @@ impl ParentBackchannel {
         data_buf.copy_from_slice(&data.to_ne_bytes());
 
         self.socket.write_all(&buf).map_err(|err| {
-            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            #[cfg(debug_assertions)]
+            if self.nonblocking_asserts {
+                assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
+            }
             err
         })
     }
@@ -139,11 +153,15 @@ impl ParentBackchannel {
     /// Receive a [`ParentMessage`].
     ///
     /// Calling this method will block until the socket is ready for reading.
+    #[track_caller]
     pub(super) fn recv(&mut self) -> io::Result<ParentMessage> {
         let mut buf = [0; ParentMessage::LEN];
 
         self.socket.read_exact(&mut buf).map_err(|err| {
-            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            #[cfg(debug_assertions)]
+            if self.nonblocking_asserts {
+                assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
+            }
             err
         })?;
 
@@ -153,6 +171,13 @@ impl ParentBackchannel {
         let data = ParentData::from_ne_bytes(data_buf.try_into().unwrap());
 
         Ok(ParentMessage::from_parts(prefix, data))
+    }
+
+    pub(super) fn set_nonblocking_asserts(&mut self, _doit: bool) {
+        #[cfg(debug_assertions)]
+        {
+            self.nonblocking_asserts = _doit;
+        }
     }
 }
 
@@ -209,12 +234,15 @@ impl std::fmt::Debug for MonitorMessage {
 /// A socket use for commmunication between the monitor and the parent process.
 pub(super) struct MonitorBackchannel {
     socket: UnixStream,
+    #[cfg(debug_assertions)]
+    nonblocking_asserts: bool,
 }
 
 impl MonitorBackchannel {
     /// Send a [`ParentMessage`].
     ///
     /// Calling this method will block until the socket is ready for writing.
+    #[track_caller]
     pub(super) fn send(&mut self, event: &ParentMessage) -> io::Result<()> {
         let mut buf = [0; ParentMessage::LEN];
 
@@ -225,7 +253,10 @@ impl MonitorBackchannel {
         data_buf.copy_from_slice(&data.to_ne_bytes());
 
         self.socket.write_all(&buf).map_err(|err| {
-            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            #[cfg(debug_assertions)]
+            if self.nonblocking_asserts {
+                assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
+            }
             err
         })
     }
@@ -233,11 +264,15 @@ impl MonitorBackchannel {
     /// Receive a [`MonitorMessage`].
     ///
     /// Calling this method will block until the socket is ready for reading.
+    #[track_caller]
     pub(super) fn recv(&mut self) -> io::Result<MonitorMessage> {
         let mut buf = [0; MonitorMessage::LEN];
 
         self.socket.read_exact(&mut buf).map_err(|err| {
-            debug_assert!(err.kind() != io::ErrorKind::WouldBlock);
+            #[cfg(debug_assertions)]
+            if self.nonblocking_asserts {
+                assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
+            }
             err
         })?;
 
@@ -247,6 +282,13 @@ impl MonitorBackchannel {
         let data = MonitorData::from_ne_bytes(data_buf.try_into().unwrap());
 
         Ok(MonitorMessage::from_parts(prefix, data))
+    }
+
+    pub(super) fn set_nonblocking_assertions(&mut self, _doit: bool) {
+        #[cfg(debug_assertions)]
+        {
+            self.nonblocking_asserts = _doit;
+        }
     }
 }
 
