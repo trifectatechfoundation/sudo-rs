@@ -32,6 +32,7 @@ impl PamAuthenticator<CLIConverser> {
         PamAuthenticator::new(|context| {
             init_pam(
                 matches!(context.launch, LaunchType::Login),
+                matches!(context.launch, LaunchType::Shell),
                 context.stdin,
                 context.non_interactive,
                 &context.current_user.name,
@@ -104,6 +105,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
 
 pub fn init_pam(
     is_login_shell: bool,
+    is_shell: bool,
     use_stdin: bool,
     non_interactive: bool,
     auth_user: &str,
@@ -113,7 +115,7 @@ pub fn init_pam(
     let mut pam = PamContext::builder_cli("sudo", use_stdin, non_interactive)
         .service_name(service_name)
         .build()?;
-    pam.mark_silent(!is_login_shell);
+    pam.mark_silent(!is_shell && !is_login_shell);
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
     pam.set_user(auth_user)?;
