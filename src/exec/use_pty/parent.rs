@@ -20,7 +20,7 @@ use crate::system::signal::{
     consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
     SignalStream,
 };
-use crate::system::term::{Pty, PtyFollower, PtyLeader, Terminal, UserTerm};
+use crate::system::term::{Pty, PtyFollower, PtyLeader, TermSize, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
 use crate::system::{chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User};
 use crate::system::{getpgid, interface::ProcessId};
@@ -147,6 +147,11 @@ pub(in crate::exec) fn exec_pty(
         term_raw = true;
     }
 
+    let tty_size = tty_pipe.left().get_size().map_err(|err| {
+        dev_error!("cannot get terminal size: {err}");
+        err
+    })?;
+
     // Block all the signals until we are done setting up the signal handlers so we don't miss
     // SIGCHLD.
     let original_set = match SignalSet::full().and_then(|set| set.block()) {
@@ -214,6 +219,7 @@ pub(in crate::exec) fn exec_pty(
         parent_pgrp,
         backchannels.parent,
         tty_pipe,
+        tty_size,
         foreground,
         term_raw,
         &mut registry,
@@ -280,6 +286,7 @@ struct ParentClosure {
     parent_pgrp: ProcessId,
     command_pid: Option<ProcessId>,
     tty_pipe: Pipe<UserTerm, PtyLeader>,
+    tty_size: TermSize,
     foreground: bool,
     term_raw: bool,
     backchannel: ParentBackchannel,
@@ -302,6 +309,7 @@ impl ParentClosure {
         parent_pgrp: ProcessId,
         mut backchannel: ParentBackchannel,
         tty_pipe: Pipe<UserTerm, PtyLeader>,
+        tty_size: TermSize,
         foreground: bool,
         term_raw: bool,
         registry: &mut EventRegistry<Self>,
@@ -328,6 +336,7 @@ impl ParentClosure {
             parent_pgrp,
             command_pid: None,
             tty_pipe,
+            tty_size,
             foreground,
             term_raw,
             backchannel,
@@ -622,13 +631,34 @@ impl ParentClosure {
             SIGCONT => {
                 self.resume_terminal().ok();
             }
-            // FIXME: check `sync_ttysize`
-            SIGWINCH => {}
+            SIGWINCH => {
+                if let Err(err) = self.handle_sigwinch() {
+                    dev_warn!("cannot resize terminal: {}", err);
+                }
+            }
             // Skip the signal if it was sent by the user and it is self-terminating.
             _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
             // FIXME: check `send_command_status`
             signal => self.schedule_signal(signal, registry),
         }
+    }
+
+    fn handle_sigwinch(&mut self) -> io::Result<()> {
+        let new_size = self.tty_pipe.left().get_size()?;
+
+        if new_size != self.tty_size {
+            dev_info!("updating pty size from {} to {new_size}", self.tty_size);
+            // Set the pty size.
+            self.tty_pipe.right().set_size(&new_size)?;
+            // Send SIGWINCH to the command.
+            if let Some(command_pid) = self.command_pid {
+                killpg(command_pid, SIGWINCH).ok();
+            }
+            // Update the terminal size.
+            self.tty_size = new_size;
+        }
+
+        Ok(())
     }
 }
 
