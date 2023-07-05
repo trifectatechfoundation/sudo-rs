@@ -148,12 +148,12 @@ fn handle_sigchld<T: HandleSigchld>(
             // This only happens if we receive `SIGCHLD` but there's no status update from the
             // monitor.
             Err(WaitError::Io(err)) => {
-                dev_info!("cannot wait for {child_pid} ({child_name}): {err}")
+                return dev_info!("cannot wait for {child_pid} ({child_name}): {err}");
             }
             // This only happens if the monitor exited and any process already waited for the
             // monitor.
             Err(WaitError::NotReady) => {
-                dev_info!("{child_pid} ({child_name}) has no status report")
+                return dev_info!("{child_pid} ({child_name}) has no status report");
             }
             Ok((_pid, status)) => break status,
         }
