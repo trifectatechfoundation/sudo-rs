@@ -2,7 +2,7 @@ use std::fs::File;
 use std::process::exit;
 
 use crate::cli::SudoOptions;
-use crate::common::{Context, Environment, Error};
+use crate::common::{resolve::expand_tilde_in_path, Context, Environment, Error};
 use crate::env::environment;
 use crate::exec::ExitReason;
 use crate::log::auth_warn;
@@ -190,27 +190,10 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         }
 
         // expand tildes in the path with the users home directory
-        match &context.chdir {
-            Some(dir) if dir.is_relative() => {
-                let mut iter = dir.iter();
-                if let Some(mut user_name) = iter
-                    .next()
-                    .and_then(|s| s.to_str())
-                    .and_then(|s| s.strip_prefix('~'))
-                {
-                    if user_name.is_empty() {
-                        user_name = &context.target_user.name
-                    }
-                    let home_dir = crate::system::User::from_name(user_name)
-                        .ok()
-                        .flatten()
-                        .ok_or(Error::UserNotFound(user_name.to_string()))?
-                        .home;
-                    context.chdir = Some(home_dir.join(iter.collect::<std::path::PathBuf>()));
-                }
-            }
-            _ => {}
+        if let Some(dir) = context.chdir.take() {
+            context.chdir = Some(expand_tilde_in_path(&context.target_user.name, dir)?)
         }
+
         // override the default pty behaviour if indicated
         if !policy.use_pty() {
             context.use_pty = false

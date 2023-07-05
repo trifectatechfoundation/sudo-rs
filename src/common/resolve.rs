@@ -171,6 +171,31 @@ pub(super) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
         })
 }
 
+/// Resolve the use of a '~' that occurs in a PathBuf; based on the sudoers context
+pub(crate) fn expand_tilde_in_path(
+    default_user: &str,
+    mut path: PathBuf,
+) -> Result<PathBuf, Error> {
+    let mut iter = path.iter();
+    if let Some(mut user_name) = iter
+        .next()
+        .and_then(|s| s.to_str())
+        .and_then(|s| s.strip_prefix('~'))
+    {
+        if user_name.is_empty() {
+            user_name = default_user
+        }
+        let home_dir = crate::system::User::from_name(user_name)
+            .ok()
+            .flatten()
+            .ok_or(Error::UserNotFound(user_name.to_string()))?
+            .home;
+        path = home_dir.join(iter.collect::<std::path::PathBuf>())
+    }
+
+    Ok(path)
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
