@@ -24,6 +24,10 @@ path = "bin/sudo.rs"
 name = "su"
 path = "bin/su.rs"
 
+[[bin]]
+name = "visudo"
+path = "bin/visudo.rs"
+
 [dependencies]
 libc = "0.2.139"
 glob = "0.3.1"
