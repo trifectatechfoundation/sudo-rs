@@ -16,6 +16,7 @@ mod flag_shell;
 mod flag_user;
 mod lecture;
 mod lecture_file;
+mod limits;
 mod misc;
 mod nopasswd;
 mod pam;
