@@ -181,11 +181,14 @@ fn handle_sigchld<T: HandleSigchld>(
 }
 
 fn signal_fmt(signal: SignalNumber) -> Cow<'static, str> {
-    signal_name(signal)
-        .or_else(|| (signal == SIGCONT_FG).then_some("SIGCONT_FG"))
-        .or_else(|| (signal == SIGCONT_BG).then_some("SIGCONT_BG"))
-        .map(|name| name.into())
-        .unwrap_or_else(|| format!("unknown signal #{}", signal).into())
+    match signal_name(signal) {
+        name @ Cow::Owned(_) => match signal {
+            SIGCONT_BG => "SIGCONT_BG".into(),
+            SIGCONT_FG => "SIGCONT_FG".into(),
+            _ => name,
+        },
+        name => name,
+    }
 }
 
 const fn cond_fmt<'a>(cond: bool, true_s: &'a str, false_s: &'a str) -> &'a str {

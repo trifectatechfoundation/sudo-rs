@@ -28,7 +28,7 @@ impl SignalHandler {
         if Self::FORBIDDEN.contains(&signal) {
             panic!(
                 "the {} signal action cannot be overriden",
-                signal_name(signal).unwrap()
+                signal_name(signal)
             );
         }
 
@@ -56,9 +56,7 @@ impl Drop for SignalHandler {
         if let Err(err) = self.original_action.register(signal) {
             dev_warn!(
                 "cannot restore original action for {}: {err}",
-                signal_name(signal)
-                    .map(Cow::Borrowed)
-                    .unwrap_or_else(|| Cow::Owned(format!("unknown signal {signal}"))),
+                signal_name(signal),
             )
         }
     }
