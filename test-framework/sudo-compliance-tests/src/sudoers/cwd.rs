@@ -76,7 +76,6 @@ fn dot_slash_is_rejected() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh315"]
 fn tilde_when_target_user_is_root() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=~ ALL").build()?;
 
@@ -91,7 +90,6 @@ fn tilde_when_target_user_is_root() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh315"]
 fn tilde_when_target_user_is_regular_user() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) CWD=~ NOPASSWD: ALL")
         .user(User(USERNAME).create_home_directory())
@@ -109,7 +107,6 @@ fn tilde_when_target_user_is_regular_user() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh315"]
 fn tilde_username() -> Result<()> {
     let env = Env(format!("ALL ALL=(ALL:ALL) CWD=~{USERNAME} NOPASSWD: ALL"))
         .user(User(USERNAME).create_home_directory())
