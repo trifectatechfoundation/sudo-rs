@@ -198,7 +198,6 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn does_not_save_the_file_if_there_are_syntax_errors() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env(expected)

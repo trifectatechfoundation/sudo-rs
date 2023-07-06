@@ -1,6 +1,6 @@
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufRead, Read, Seek, Write},
+    io::{self, BufRead, IsTerminal, Read, Seek, Write},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -68,6 +68,11 @@ fn visudo_process() -> io::Result<()> {
 
             let stdin = io::stdin();
             let stdout = io::stdout();
+
+            if !stdout.is_terminal() {
+                eprintln!("syntax error");
+                return Ok(());
+            }
 
             let mut stdin_handle = stdin.lock();
             let mut stdout_handle = stdout.lock();
