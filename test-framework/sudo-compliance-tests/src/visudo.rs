@@ -230,3 +230,58 @@ echo 'this is fine' > $2",
 
     Ok(())
 }
+
+#[test]
+fn editor_exits_with_a_nonzero_code() -> Result<()> {
+    let expected = SUDOERS_ALL_ALL_NOPASSWD;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+exit 11",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build()?;
+
+    let output = Command::new("visudo").output(&env)?;
+
+    assert!(output.status().success());
+
+    let actual = Command::new("cat")
+        .arg(ETC_SUDOERS)
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh657"]
+fn temporary_file_is_deleted_during_edition() -> Result<()> {
+    let env = Env("")
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+rm $2",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build()?;
+
+    let output = Command::new("visudo").output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+    let stderr = output.stderr();
+    assert_contains!(
+        stderr,
+        "visudo: unable to re-open temporary file (/etc/sudoers.tmp), /etc/sudoers unchanged"
+    );
+
+    Ok(())
+}
