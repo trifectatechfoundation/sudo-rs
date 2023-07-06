@@ -142,7 +142,6 @@ ls -l /etc/sudoers.tmp > {LOGS_PATH}"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn saves_file_if_no_syntax_errors() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env("")
