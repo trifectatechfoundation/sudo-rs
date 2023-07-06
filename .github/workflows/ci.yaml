@@ -39,7 +39,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'compliance-tests'
+          shared-key: "compliance-tests"
           workspaces: |
             test-framework
 
@@ -85,7 +85,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'compliance-tests'
+          shared-key: "compliance-tests"
           workspaces: |
             test-framework
 
@@ -94,14 +94,6 @@ jobs:
         env:
           SUDO_UNDER_TEST: ours
         run: cargo test -p sudo-compliance-tests
-
-      - name: Prepare code coverage data
-        run: ./make-lcov-info.bash
-
-      - name: Upload code coverage
-        uses: codecov/codecov-action@v3
-        with:
-          files: lcov.info
 
       - name: Check that we didn't forget to gate a passing compliance test
         working-directory: test-framework
@@ -132,7 +124,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'compliance-tests'
+          shared-key: "compliance-tests"
           workspaces: |
             test-framework
 
@@ -148,7 +140,6 @@ jobs:
         working-directory: test-framework/sudo-compliance-tests
         run: |
           grep -r '#\[ignore' ./src | grep -v -e '"gh' -e '"wontfix"' && echo 'found ignored tests not linked to a GitHub issue. please like them using the format #[ignore = "gh123"]' && exit 1; true
-
 
   build-and-test:
     runs-on: ubuntu-latest
@@ -177,7 +168,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'stable'
+          shared-key: "stable"
 
       - name: Build
         uses: actions-rs/cargo@v1
@@ -234,7 +225,7 @@ jobs:
   format:
     runs-on: ubuntu-latest
     env:
-      RUSTDOCFLAGS: '-D warnings'
+      RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v2
 
@@ -249,7 +240,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'stable'
+          shared-key: "stable"
 
       - name: Run rustfmt
         uses: actions-rs/cargo@v1
@@ -261,7 +252,7 @@ jobs:
     needs: format
     runs-on: ubuntu-latest
     env:
-      RUSTDOCFLAGS: '-D warnings'
+      RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v2
 
@@ -282,7 +273,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'stable'
+          shared-key: "stable"
 
       - name: Run clippy
         uses: actions-rs/clippy-check@v1
@@ -295,7 +286,7 @@ jobs:
     needs: clippy
     runs-on: ubuntu-latest
     env:
-      RUSTDOCFLAGS: '-D warnings'
+      RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v2
 
@@ -315,7 +306,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'stable'
+          shared-key: "stable"
 
       - name: Build docs
         uses: actions-rs/cargo@v1
@@ -392,7 +383,7 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: 'audit'
+          shared-key: "audit"
 
       - name: Run audit
         uses: actions-rs/cargo@v1

@@ -103,15 +103,6 @@ fn process_state() -> Result<()> {
     Ok(())
 }
 
-// FIXME: this is a temporary fix. We still need to figure out how to avoid these errors.
-fn filter_profile_errors(stdout: &str) -> String {
-    stdout
-        .lines()
-        .filter(|line| !line.starts_with("LLVM Profile"))
-        .collect::<Vec<_>>()
-        .join("\r\n")
-}
-
 #[test]
 fn terminal_is_restored() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
@@ -125,7 +116,7 @@ fn terminal_is_restored() -> Result<()> {
 
     assert_contains!(stdout, "hello");
     let (before, after) = stdout.split_once("hello").unwrap();
-    assert_eq!(before.trim(), filter_profile_errors(after).trim());
+    assert_eq!(before.trim(), after.trim());
 
     Ok(())
 }
@@ -139,7 +130,7 @@ fn pty_owner() -> Result<()> {
         .tty(true)
         .output(&env)?
         .stdout()?;
-    assert_eq!(filter_profile_errors(&stdout).trim(), "root tty");
+    assert_eq!(stdout.trim(), "root tty");
 
     Ok(())
 }
@@ -154,7 +145,7 @@ fn stdin_pipe() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_eq!(filter_profile_errors(&stdout).trim(), "hello");
+    assert_eq!(stdout.trim(), "hello");
 
     Ok(())
 }
@@ -169,7 +160,7 @@ fn stdout_pipe() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_eq!(filter_profile_errors(&stdout).trim(), "hello");
+    assert_eq!(stdout.trim(), "hello");
 
     Ok(())
 }
