@@ -4,6 +4,8 @@ use sudo_test::{Command, Env, TextFile};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
+mod flag_help;
+mod flag_version;
 mod what_now_prompt;
 
 const ETC_SUDOERS: &str = "/etc/sudoers";
