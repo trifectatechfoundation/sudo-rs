@@ -254,9 +254,9 @@ impl ExecClosure {
         match info.signal() {
             SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
             signal => {
-                if signal == SIGWINCH {
-                    // FIXME: check `handle_sigwinch_no_pty`.
-                }
+                // FIXME: we should handle SIGWINCH here if we want to support I/O plugins that
+                // react on window change events.
+
                 // Skip the signal if it was sent by the user and it is self-terminating.
                 if info.is_user_signaled() && self.is_self_terminating(info.pid()) {
                     return;

@@ -61,6 +61,7 @@ const SUDO_ENV_DEFAULT_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 const SUDO_ENV_DEFAULT_TERM: &str = "unknown";
 
 const SUDOERS_USE_PTY: &str = "Defaults use_pty";
+const SUDOERS_NOT_USE_PTY: &str = "Defaults !use_pty";
 
 const ENV_PATH: &str = "/usr/bin/env";
 

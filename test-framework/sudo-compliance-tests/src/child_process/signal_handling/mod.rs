@@ -2,7 +2,8 @@ use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env};
 
 use crate::{
-    Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY, USERNAME,
+    Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_NOT_USE_PTY, SUDOERS_ROOT_ALL_NOPASSWD,
+    SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY, USERNAME,
 };
 
 macro_rules! dup {
@@ -212,4 +213,50 @@ fn sigchld_is_ignored(tty: bool) -> Result<()> {
 
     assert_eq!(expected, actual);
 
-    Ok(())}
+    Ok(())
+}
+
+fn sigwinch_works(use_pty: bool) -> Result<()> {
+    let print_sizes = "/root/print-sizes.sh";
+    let change_size = "/root/change-size.sh";
+    let env = Env([
+        SUDOERS_ROOT_ALL_NOPASSWD,
+        if use_pty {
+            SUDOERS_USE_PTY
+        } else {
+            SUDOERS_NOT_USE_PTY
+        },
+    ])
+    .file(print_sizes, include_str!("print-sizes.sh"))
+    .file(change_size, include_str!("change-size.sh"))
+    .build()?;
+
+    let child = Command::new("sh").arg(print_sizes).tty(true).spawn(&env)?;
+
+    Command::new("sh")
+        .arg(change_size)
+        .output(&env)?
+        .assert_success()?;
+
+    let output = child.wait()?.stdout()?;
+
+    let lines: Vec<_> = output.lines().collect();
+    assert_eq!(lines.len(), 3);
+    // Assert that the terminal size that sudo sees the first time matches the original terminal size.
+    assert_eq!(lines[0], lines[1]);
+    // ASsert that the terminal size that sudo sees the second time has actually changed to the
+    // value set by `change-size.sh`.
+    assert_eq!(lines[2].trim(), "42 69");
+
+    Ok(())
+}
+
+#[test]
+fn sigwinch_works_pty() -> Result<()> {
+    sigwinch_works(true)
+}
+
+#[test]
+fn sigwinch_works_no_pty() -> Result<()> {
+    sigwinch_works(false)
+}
