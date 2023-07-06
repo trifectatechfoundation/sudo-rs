@@ -2,8 +2,8 @@ use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env};
 
 use crate::{
-    filter_profile_errors, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_NOT_USE_PTY,
-    SUDOERS_ROOT_ALL_NOPASSWD, SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY, USERNAME,
+    Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_NOT_USE_PTY, SUDOERS_ROOT_ALL_NOPASSWD,
+    SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY, USERNAME,
 };
 
 macro_rules! dup {
@@ -238,7 +238,7 @@ fn sigwinch_works(use_pty: bool) -> Result<()> {
         .output(&env)?
         .assert_success()?;
 
-    let output = filter_profile_errors(&child.wait()?.stdout()?);
+    let output = child.wait()?.stdout()?;
 
     let lines: Vec<_> = output.lines().collect();
     assert_eq!(lines.len(), 3);

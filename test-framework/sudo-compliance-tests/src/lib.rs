@@ -79,12 +79,3 @@ impl fmt::Display for EnvList {
         f.write_str(s)
     }
 }
-
-// FIXME: this is a temporary fix. We still need to figure out how to avoid these errors.
-fn filter_profile_errors(stdout: &str) -> String {
-    stdout
-        .lines()
-        .filter(|line| !line.starts_with("LLVM Profile"))
-        .collect::<Vec<_>>()
-        .join("\r\n")
-}

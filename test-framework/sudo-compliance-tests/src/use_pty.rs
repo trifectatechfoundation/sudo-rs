@@ -2,7 +2,7 @@ use sudo_test::{Command, Env};
 
 use crate::{
     helpers::{self, PsAuxEntry},
-    Result, SUDOERS_ALL_ALL_NOPASSWD, filter_profile_errors,
+    Result, SUDOERS_ALL_ALL_NOPASSWD,
 };
 
 fn fixture() -> Result<Vec<PsAuxEntry>> {
