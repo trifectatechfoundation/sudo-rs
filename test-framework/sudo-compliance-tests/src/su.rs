@@ -12,6 +12,7 @@ mod flag_pty;
 mod flag_shell;
 mod flag_supp_group;
 mod flag_whitelist_environment;
+mod pam;
 mod syslog;
 
 #[test]
