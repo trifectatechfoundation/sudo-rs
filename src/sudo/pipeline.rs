@@ -2,7 +2,7 @@ use std::fs::File;
 use std::process::exit;
 
 use crate::cli::SudoOptions;
-use crate::common::{Context, Environment, Error};
+use crate::common::{resolve::expand_tilde_in_path, Context, Environment, Error};
 use crate::env::environment;
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::auth_warn;
@@ -182,12 +182,21 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             DirChange::Any => {}
             DirChange::Strict(optdir) => {
                 if context.chdir.is_some() {
-                    return Err(Error::auth("no permission")); // TODO better user error messages
+                    return Err(Error::ChDirNotAllowed {
+                        chdir: context.chdir.clone().unwrap(),
+                        command: context.command.command.clone(),
+                    });
                 } else {
                     context.chdir = optdir.map(std::path::PathBuf::from)
                 }
             }
         }
+
+        // expand tildes in the path with the users home directory
+        if let Some(dir) = context.chdir.take() {
+            context.chdir = Some(expand_tilde_in_path(&context.target_user.name, dir)?)
+        }
+
         // override the default pty behaviour if indicated
         if !policy.use_pty() {
             context.use_pty = false

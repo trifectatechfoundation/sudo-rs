@@ -5,6 +5,7 @@ use std::{fmt, path::PathBuf};
 pub enum Error {
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
+    ChDirNotAllowed { chdir: PathBuf, command: PathBuf },
     UserNotFound(String),
     GroupNotFound(String),
     Authentication(String),
@@ -36,6 +37,12 @@ impl fmt::Display for Error {
             Error::MaxAuthAttempts(num) => {
                 write!(f, "Maximum {num} incorrect authentication attempts")
             }
+            Error::ChDirNotAllowed { chdir, command } => write!(
+                f,
+                "you are not allowed to use '--chdir {}' with '{}'",
+                chdir.display(),
+                command.display()
+            ),
         }
     }
 }
