@@ -1,6 +1,7 @@
 use std::{
-    fs::{File, OpenOptions},
+    fs::{File, Permissions},
     io::{self, BufRead, IsTerminal, Read, Seek, Write},
+    os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -19,10 +20,17 @@ pub fn main() {
 
 fn visudo_process() -> io::Result<()> {
     let sudoers_path = Path::new("/etc/sudoers");
-    let mut sudoers_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(sudoers_path)?;
+
+    let (mut sudoers_file, existed) = if sudoers_path.exists() {
+        let file = File::options().read(true).write(true).open(sudoers_path)?;
+        (file, true)
+    } else {
+        // Create a sudoers file if it doesn't exist and set the permissions so it can only be read
+        // by the root user and group.
+        let file = File::create(sudoers_path)?;
+        file.set_permissions(Permissions::from_mode(0o440))?;
+        (file, false)
+    };
 
     sudoers_file.lock_exclusive(true).map_err(|err| {
         if err.kind() == io::ErrorKind::WouldBlock {
@@ -38,10 +46,16 @@ fn visudo_process() -> io::Result<()> {
     let result: io::Result<()> = (|| {
         let tmp_path = sudoers_path.with_extension("tmp");
 
-        let mut buf = Vec::new();
-        sudoers_file.read_to_end(&mut buf)?;
+        let mut tmp_file = File::create(&tmp_path)?;
 
-        File::create(&tmp_path)?.write_all(&buf)?;
+        if existed {
+            // If the sudoers file existed, read its contents and write them into the temporary file.
+            let mut buf = Vec::new();
+            sudoers_file.read_to_end(&mut buf)?;
+            // Rewind the sudoers file so it can be written later.
+            sudoers_file.rewind()?;
+            tmp_file.write_all(&buf)?;
+        }
 
         let editor_path = solve_editor_path()?;
 
@@ -92,8 +106,6 @@ fn visudo_process() -> io::Result<()> {
                 }
             }
         }
-
-        sudoers_file.rewind()?;
 
         let buf = std::fs::read(&tmp_path)?;
         sudoers_file.write_all(&buf)?;
