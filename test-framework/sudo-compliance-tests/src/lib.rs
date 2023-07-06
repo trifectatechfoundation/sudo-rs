@@ -31,6 +31,7 @@ mod sudoers;
 mod syslog;
 mod timestamp;
 mod use_pty;
+mod visudo;
 
 mod helpers;
 
