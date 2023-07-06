@@ -171,6 +171,11 @@ impl Output {
         self.assert_success()?;
         Ok(self.stdout)
     }
+
+    /// like `stdout` but does not check the exit code
+    pub fn stdout_unchecked(&self) -> &str {
+        &self.stdout
+    }
 }
 
 impl TryFrom<process::Output> for Output {

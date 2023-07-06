@@ -4,6 +4,8 @@ use sudo_test::{Command, Env, TextFile};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
+mod what_now_prompt;
+
 const ETC_SUDOERS: &str = "/etc/sudoers";
 const DEFAULT_EDITOR: &str = "/usr/bin/editor";
 const LOGS_PATH: &str = "/tmp/logs.txt";
@@ -183,6 +185,37 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
 
     assert!(output.status().success());
     assert_eq!(output.stderr(), "visudo: /etc/sudoers.tmp unchanged");
+
+    let actual = Command::new("cat")
+        .arg(ETC_SUDOERS)
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh657"]
+fn does_not_save_the_file_if_there_are_syntax_errors() -> Result<()> {
+    let expected = SUDOERS_ALL_ALL_NOPASSWD;
+    let env = Env(expected)
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+
+echo 'this is fine' > $2",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build()?;
+
+    let output = Command::new("visudo").output(&env)?;
+
+    assert!(output.status().success());
+    assert_contains!(output.stderr(), "syntax error");
 
     let actual = Command::new("cat")
         .arg(ETC_SUDOERS)
