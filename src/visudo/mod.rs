@@ -49,13 +49,13 @@ fn visudo_process() -> io::Result<()> {
         let mut tmp_file = File::create(&tmp_path)?;
         tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
+        let mut sudoers_contents = Vec::new();
         if existed {
             // If the sudoers file existed, read its contents and write them into the temporary file.
-            let mut buf = Vec::new();
-            sudoers_file.read_to_end(&mut buf)?;
+            sudoers_file.read_to_end(&mut sudoers_contents)?;
             // Rewind the sudoers file so it can be written later.
             sudoers_file.rewind()?;
-            tmp_file.write_all(&buf)?;
+            tmp_file.write_all(&sudoers_contents)?;
         }
 
         let editor_path = solve_editor_path()?;
@@ -117,8 +117,13 @@ fn visudo_process() -> io::Result<()> {
             }
         }
 
-        let buf = std::fs::read(&tmp_path)?;
-        sudoers_file.write_all(&buf)?;
+        let tmp_contents = std::fs::read(&tmp_path)?;
+        // Only write to the sudoers file if the contents changed.
+        if tmp_contents == sudoers_contents {
+            eprintln!("visudo: {} unchanged", tmp_path.display());
+        } else {
+            sudoers_file.write_all(&tmp_contents)?;
+        }
 
         Ok(())
     })();
