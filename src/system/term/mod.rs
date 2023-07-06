@@ -1,14 +1,11 @@
 mod user_term;
 
 use std::{
-    ffi::{c_uchar, CStr, CString, OsStr, OsString},
+    ffi::{c_uchar, CString, OsString},
     fmt,
     fs::File,
     io,
-    os::{
-        fd::{AsRawFd, FromRawFd, OwnedFd},
-        unix::prelude::OsStrExt,
-    },
+    os::fd::{AsRawFd, FromRawFd, OwnedFd},
     ptr::null_mut,
 };
 
@@ -168,8 +165,6 @@ impl<F: AsRawFd> Terminal for F {
 
     /// Get the filename of the tty
     fn ttyname(&self) -> io::Result<OsString> {
-        use std::os::unix::ffi::OsStringExt;
-
         let mut buf: [libc::c_char; 1024] = [0; 1024];
 
         if !safe_isatty(self.as_raw_fd()) {
@@ -236,7 +231,7 @@ mod tests {
         // Create a socket so the child can send us a byte if successful.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        let ForkResult::Parent(child_pid) = fork().unwrap() else {
+        let ForkResult::Parent(_) = fork().unwrap() else {
             // Open a new pseudoterminal.
             let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.

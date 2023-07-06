@@ -1,8 +1,8 @@
 use std::io;
 
 use libc::{
-    c_int, WCONTINUED, WEXITSTATUS, WIFCONTINUED, WIFEXITED, WIFSIGNALED, WIFSTOPPED, WNOHANG,
-    WSTOPSIG, WTERMSIG, WUNTRACED, __WALL,
+    c_int, WEXITSTATUS, WIFCONTINUED, WIFEXITED, WIFSIGNALED, WIFSTOPPED, WNOHANG, WSTOPSIG,
+    WTERMSIG, WUNTRACED, __WALL,
 };
 
 use crate::cutils::cerr;
@@ -10,27 +10,24 @@ use crate::system::signal::signal_name;
 use crate::{system::interface::ProcessId, system::signal::SignalNumber};
 
 mod sealed {
-    use super::WaitPid;
-
     pub(crate) trait Sealed {}
 
-    impl<W: Into<WaitPid>> Sealed for W {}
+    impl Sealed for crate::system::interface::ProcessId {}
 }
 
 pub(crate) trait Wait: sealed::Sealed {
     /// Wait for a process to change state.
     ///
-    /// Calling this function will block until a child specified by [`WaitPid`] has changed state. This
-    /// can be configured further using [`WaitOptions`].
+    /// Calling this function will block until a child specified by the given process ID has
+    /// changed state. This can be configured further using [`WaitOptions`].
     fn wait(self, options: WaitOptions) -> Result<(ProcessId, WaitStatus), WaitError>;
 }
 
-impl<W: Into<WaitPid>> Wait for W {
+impl Wait for ProcessId {
     fn wait(self, options: WaitOptions) -> Result<(ProcessId, WaitStatus), WaitError> {
-        let pid = self.into().pid;
         let mut status: c_int = 0;
 
-        let pid = cerr(unsafe { libc::waitpid(pid, &mut status, options.flags) })
+        let pid = cerr(unsafe { libc::waitpid(self, &mut status, options.flags) })
             .map_err(WaitError::Io)?;
 
         if pid == 0 && options.flags & WNOHANG != 0 {
@@ -50,24 +47,6 @@ pub enum WaitError {
     NotReady,
     // Regular I/O error.
     Io(io::Error),
-}
-
-/// Which child process to wait for.
-pub struct WaitPid {
-    pid: ProcessId,
-}
-
-impl WaitPid {
-    pub const fn any() -> Self {
-        Self { pid: -1 }
-    }
-}
-
-impl From<ProcessId> for WaitPid {
-    fn from(pid: ProcessId) -> Self {
-        assert!(pid > 0, "non-positive PID passed to `waitpid` {pid}");
-        Self { pid }
-    }
 }
 
 /// Options to configure how [`Wait::wait`] waits for children.
@@ -90,12 +69,6 @@ impl WaitOptions {
     /// Return immediately if a child has stopped.
     pub const fn untraced(mut self) -> Self {
         self.flags |= WUNTRACED;
-        self
-    }
-
-    /// Return immediately if a child has been resumed by `SIGCONT`.
-    pub const fn continued(mut self) -> Self {
-        self.flags |= WCONTINUED;
         self
     }
 
@@ -180,16 +153,12 @@ impl WaitStatus {
 
 #[cfg(test)]
 mod tests {
-    use std::process::exit;
-
-    use libc::{SIGCONT, SIGKILL, SIGSTOP};
+    use libc::{SIGKILL, SIGSTOP};
 
     use crate::system::{
-        fork,
         interface::ProcessId,
         kill,
-        wait::{Wait, WaitError, WaitOptions, WaitPid},
-        ForkResult,
+        wait::{Wait, WaitError, WaitOptions},
     };
 
     #[test]
@@ -234,12 +203,6 @@ mod tests {
         assert_eq!(command_pid, pid);
         assert_eq!(status.stop_signal(), Some(SIGSTOP));
 
-        kill(command_pid, SIGCONT).unwrap();
-
-        let (pid, status) = command_pid.wait(WaitOptions::new().continued()).unwrap();
-        assert_eq!(command_pid, pid);
-        assert!(status.did_continue());
-
         kill(command_pid, SIGKILL).unwrap();
 
         let (pid, status) = command_pid.wait(WaitOptions::new()).unwrap();
@@ -276,54 +239,6 @@ mod tests {
         assert!(status.did_exit());
         assert_eq!(status.exit_status(), Some(42));
         assert!(count > 0);
-
-        assert!(!status.was_signaled());
-        assert!(status.term_signal().is_none());
-        assert!(!status.was_stopped());
-        assert!(status.stop_signal().is_none());
-        assert!(!status.did_continue());
-    }
-
-    #[test]
-    fn any() {
-        // We fork so waiting for `WaitPid::Any` doesn't wait for other tests.
-        let ForkResult::Parent(child_pid) = fork().unwrap() else {
-            let cmd1 = std::process::Command::new("sh")
-                .args(["-c", "sleep 0.1; exit 42"])
-                .spawn()
-                .unwrap();
-
-            let cmd2 = std::process::Command::new("sh")
-                .args(["-c", "sleep 0.2; exit 43"])
-                .spawn()
-                .unwrap();
-
-            let (pid, status) = WaitPid::any().wait(WaitOptions::new()).unwrap();
-            assert_eq!(cmd1.id() as ProcessId, pid);
-            assert_eq!(status.exit_status(), Some(42));
-
-            assert!(!status.was_signaled());
-            assert!(status.term_signal().is_none());
-            assert!(!status.was_stopped());
-            assert!(status.stop_signal().is_none());
-            assert!(!status.did_continue());
-
-            let (pid, status) = WaitPid::any().wait(WaitOptions::new()).unwrap();
-            assert_eq!(cmd2.id() as ProcessId, pid);
-            assert_eq!(status.exit_status(), Some(43));
-
-            assert!(!status.was_signaled());
-            assert!(status.term_signal().is_none());
-            assert!(!status.was_stopped());
-            assert!(status.stop_signal().is_none());
-            assert!(!status.did_continue());
-            // Exit with a specific status code so we can check it from the parent.
-            exit(44);
-        };
-
-        let (pid, status) = child_pid.wait(WaitOptions::new()).unwrap();
-        assert_eq!(child_pid, pid);
-        assert_eq!(status.exit_status(), Some(44));
 
         assert!(!status.was_signaled());
         assert!(status.term_signal().is_none());

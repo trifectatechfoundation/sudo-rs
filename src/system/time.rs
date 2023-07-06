@@ -91,10 +91,12 @@ impl Duration {
         Duration::new(secs, 0)
     }
 
+    #[cfg(test)]
     pub fn minutes(minutes: i64) -> Duration {
         Duration::seconds(minutes * 60)
     }
 
+    #[cfg(test)]
     pub fn milliseconds(ms: i64) -> Duration {
         let secs = ms / 1000;
         let ms = ms % 1000;
