@@ -66,7 +66,16 @@ fn visudo_process() -> io::Result<()> {
                 .spawn()?
                 .wait_with_output()?;
 
-            let (_sudoers, errors) = Sudoers::new(&tmp_path)?;
+            let (_sudoers, errors) = Sudoers::new(&tmp_path).map_err(|err| {
+                io::Error::new(
+                    err.kind(),
+                    format!(
+                        "unable to re-open temporary file ({}), {} unchanged",
+                        tmp_path.display(),
+                        sudoers_path.display()
+                    ),
+                )
+            })?;
 
             if errors.is_empty() {
                 break;

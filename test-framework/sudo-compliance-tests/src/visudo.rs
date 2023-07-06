@@ -254,7 +254,6 @@ exit 11",
 }
 
 #[test]
-#[ignore = "gh657"]
 fn temporary_file_is_deleted_during_edition() -> Result<()> {
     let env = Env("")
         .file(
