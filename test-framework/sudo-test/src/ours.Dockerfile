@@ -9,7 +9,7 @@ RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --featur
 # set setuid on install
 RUN install --mode 4755 build/sudo /usr/bin/sudo
 RUN install --mode 4755 build/su /usr/bin/su
-RUN install --mode 755 build/su /usr/sbin/visudo
+RUN install --mode 755 build/visudo /usr/sbin/visudo
 # remove build dependencies
 RUN apt-get autoremove -y clang libclang-dev
 # set the default working directory to somewhere world writable so sudo / su can create .profraw files there
