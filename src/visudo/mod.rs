@@ -47,6 +47,7 @@ fn visudo_process() -> io::Result<()> {
 
         loop {
             Command::new(&editor_path)
+                .arg("--")
                 .arg(&tmp_path)
                 .spawn()?
                 .wait_with_output()?;

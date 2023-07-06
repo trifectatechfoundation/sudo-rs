@@ -98,7 +98,6 @@ sleep 3",
 }
 
 #[test]
-#[ignore = "gh657"]
 fn passes_temporary_file_to_editor() -> Result<()> {
     let env = Env("")
         .file(
