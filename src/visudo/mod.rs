@@ -47,6 +47,7 @@ fn visudo_process() -> io::Result<()> {
         let tmp_path = sudoers_path.with_extension("tmp");
 
         let mut tmp_file = File::create(&tmp_path)?;
+        tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
         if existed {
             // If the sudoers file existed, read its contents and write them into the temporary file.

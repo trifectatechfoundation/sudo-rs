@@ -119,7 +119,6 @@ echo "$@" > {LOGS_PATH}"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn temporary_file_owner_and_perms() -> Result<()> {
     let env = Env("")
         .file(
