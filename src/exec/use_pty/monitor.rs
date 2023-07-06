@@ -2,7 +2,7 @@ use std::{
     ffi::c_int,
     io::{self, Read, Write},
     os::unix::{net::UnixStream, process::CommandExt},
-    process::{exit, Command},
+    process::Command,
 };
 
 use crate::exec::{
@@ -19,6 +19,7 @@ use crate::{
     exec::{
         event::{PollEvent, StopReason},
         use_pty::{SIGCONT_BG, SIGCONT_FG},
+        ProcessOutput,
     },
     log::{dev_error, dev_info, dev_warn},
     system::FileCloser,
@@ -45,7 +46,7 @@ pub(super) fn exec_monitor(
     backchannel: &mut MonitorBackchannel,
     mut file_closer: FileCloser,
     original_set: Option<SignalSet>,
-) -> io::Result<()> {
+) -> io::Result<ProcessOutput> {
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
     match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore) {
@@ -102,9 +103,8 @@ pub(super) fn exec_monitor(
         if let Some(error_code) = err.raw_os_error() {
             errpipe_tx.write_all(&error_code.to_ne_bytes()).ok();
         }
-        drop(errpipe_tx);
-        // FIXME: Calling `exit` doesn't run any destructors, clean everything up.
-        exit(1)
+
+        return Ok(ProcessOutput::ChildExit);
     };
 
     // Send the command's PID to the parent.
@@ -188,9 +188,7 @@ pub(super) fn exec_monitor(
 
     // FIXME (ogsudo): The tty is restored here if selinux is available.
 
-    drop(closure);
-
-    exit(1)
+    Ok(ProcessOutput::ChildExit)
 }
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
