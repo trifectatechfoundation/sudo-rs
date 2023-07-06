@@ -82,21 +82,16 @@ fn visudo_process() -> io::Result<()> {
                 break;
             }
 
-            println!("Come on... you can do better than that.\n");
+            eprintln!("Come on... you can do better than that.\n");
 
             for crate::sudoers::Error(_position, message) in errors {
-                println!("\t{message}");
+                eprintln!("syntax error: {message}");
             }
 
-            println!();
+            eprintln!();
 
             let stdin = io::stdin();
             let stdout = io::stdout();
-
-            if !stdout.is_terminal() {
-                eprintln!("syntax error");
-                return Ok(());
-            }
 
             let mut stdin_handle = stdin.lock();
             let mut stdout_handle = stdout.lock();
@@ -106,13 +101,16 @@ fn visudo_process() -> io::Result<()> {
                     .write_all("What now? e(x)it without saving / (e)dit again: ".as_bytes())?;
                 stdout_handle.flush()?;
 
-                let mut input = String::new();
-                stdin_handle.read_line(&mut input)?;
+                let mut input = [0u8];
+                if let Err(err) = stdin_handle.read_exact(&mut input) {
+                    eprintln!("visudo: cannot read user input: {err}");
+                    return Ok(());
+                }
 
-                match input.trim_end() {
-                    "e" => break,
-                    "x" => return Ok(()),
-                    input => println!("Invalid option: {input:?}\n"),
+                match &input {
+                    b"e" => break,
+                    b"x" => return Ok(()),
+                    input => println!("Invalid option: {:?}\n", std::str::from_utf8(input)),
                 }
             }
         }

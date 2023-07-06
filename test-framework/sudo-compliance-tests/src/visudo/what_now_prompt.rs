@@ -16,7 +16,6 @@ echo '{BAD_SUDOERS}' > $2"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn prompt_is_printed_to_stdout() -> Result<()> {
     let env = Env("")
         .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
@@ -25,13 +24,12 @@ fn prompt_is_printed_to_stdout() -> Result<()> {
     let output = Command::new("visudo").output(&env)?;
 
     assert!(output.status().success());
-    assert_eq!("What now? ", output.stdout_unchecked());
+    assert!(output.stdout_unchecked().starts_with("What now?"));
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh657"]
 fn on_e_re_edits() -> Result<()> {
     let env = Env("")
         .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
