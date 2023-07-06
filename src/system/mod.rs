@@ -157,7 +157,7 @@ pub fn hostname() -> String {
 pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &str) {
     let msg = CString::new(message).unwrap();
     unsafe {
-        libc::syslog(priority | facility, msg.as_ptr());
+        libc::syslog(priority | facility, "%s", msg.as_ptr());
     }
 }
 
