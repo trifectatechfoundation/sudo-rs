@@ -18,7 +18,6 @@ const EDITOR_TRUE: &str = "#!/bin/sh
 true";
 
 #[test]
-#[ignore = "gh657"]
 fn default_editor_is_usr_bin_editor() -> Result<()> {
     let expected = "default editor was called";
     let env = Env("")

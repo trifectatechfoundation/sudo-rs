@@ -1,7 +1,7 @@
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufRead, Read, Seek, Write},
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
 };
 
@@ -43,8 +43,10 @@ fn visudo_process() -> io::Result<()> {
 
         File::create(&tmp_path)?.write_all(&buf)?;
 
+        let editor_path = solve_editor_path()?;
+
         loop {
-            Command::new("vi")
+            Command::new(&editor_path)
                 .arg(&tmp_path)
                 .spawn()?
                 .wait_with_output()?;
@@ -98,4 +100,30 @@ fn visudo_process() -> io::Result<()> {
     result?;
 
     Ok(())
+}
+
+fn solve_editor_path() -> io::Result<PathBuf> {
+    let path = Path::new("/usr/bin/editor");
+    if path.exists() {
+        return Ok(path.to_owned());
+    }
+
+    for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
+        if let Some(var) = std::env::var_os(key) {
+            let path = Path::new(&var);
+            if path.exists() {
+                return Ok(path.to_owned());
+            }
+        }
+    }
+
+    let path = Path::new("/usr/bin/vi");
+    if path.exists() {
+        return Ok(path.to_owned());
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        "cannot find text editor",
+    ))
 }
