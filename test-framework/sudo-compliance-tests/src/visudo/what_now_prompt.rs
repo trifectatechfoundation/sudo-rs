@@ -54,7 +54,6 @@ fn on_e_re_edits() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn on_x_closes_without_saving_changes() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env(expected)
