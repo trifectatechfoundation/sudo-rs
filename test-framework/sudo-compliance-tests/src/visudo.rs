@@ -67,7 +67,6 @@ fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() ->
 }
 
 #[test]
-#[ignore = "gh657"]
 fn errors_if_currently_being_edited() -> Result<()> {
     let env = Env("")
         .file(

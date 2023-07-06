@@ -24,7 +24,16 @@ fn visudo_process() -> io::Result<()> {
         .write(true)
         .open(sudoers_path)?;
 
-    sudoers_file.lock_exclusive()?;
+    sudoers_file.lock_exclusive(true).map_err(|err| {
+        if err.kind() == io::ErrorKind::WouldBlock {
+            io::Error::new(
+                io::ErrorKind::WouldBlock,
+                format!("{} busy, try again later", sudoers_path.display()),
+            )
+        } else {
+            err
+        }
+    })?;
 
     let result: io::Result<()> = (|| {
         let tmp_path = sudoers_path.with_extension("tmp");

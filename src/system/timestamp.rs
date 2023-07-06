@@ -125,7 +125,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     fn init(&mut self, offset: u64, must_lock: bool) -> io::Result<()> {
         // lock the file to indicate that we are currently writing to it
         if must_lock {
-            self.io.lock_exclusive()?;
+            self.io.lock_exclusive(false)?;
         }
         self.io.set_len(0)?;
         self.io.rewind()?;
@@ -194,7 +194,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// valid at this time.
     pub fn touch(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
-        self.io.lock_exclusive()?;
+        self.io.lock_exclusive(false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             // only touch if record is enabled
@@ -232,7 +232,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// given then only records with the given scope that are targetting that
     /// specific user will be disabled.
     pub fn disable(&mut self, scope: RecordScope, auth_user: Option<UserId>) -> io::Result<()> {
-        self.io.lock_exclusive()?;
+        self.io.lock_exclusive(false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             let must_disable = auth_user
@@ -252,7 +252,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// then that record will be updated.
     pub fn create(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<CreateResult> {
         // lock the file to indicate that we are currently writing to it
-        self.io.lock_exclusive()?;
+        self.io.lock_exclusive(false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             if record.matches(&scope, auth_user) {
