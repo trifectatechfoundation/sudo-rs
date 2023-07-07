@@ -38,7 +38,7 @@ pub fn main() {
             eprintln!("check is unimplemented");
             std::process::exit(1);
         }
-        cli::VisudoAction::Run => match run_visudo() {
+        cli::VisudoAction::Run => match run_visudo(options.file.as_deref()) {
             Ok(()) => {}
             Err(error) => {
                 eprintln!("visudo: {error}");
@@ -48,8 +48,8 @@ pub fn main() {
     }
 }
 
-fn run_visudo() -> io::Result<()> {
-    let sudoers_path = Path::new("/etc/sudoers");
+fn run_visudo(file: Option<&str>) -> io::Result<()> {
+    let sudoers_path = Path::new(file.unwrap_or("/etc/sudoers"));
 
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;
