@@ -90,8 +90,8 @@ fn editors_must_be_specified_by_absolute_path() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
     assert_contains!(
-        "values for \"editor\" must start with a '/'",
-        output.stderr()
+        output.stderr(),
+        "values for \"editor\" must start with a '/'"
     );
 
     Ok(())
