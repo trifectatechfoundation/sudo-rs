@@ -5,11 +5,11 @@ use crate::cutils::cerr;
 pub trait Lockable {
     /// Get an exclusive lock on the file, waits if there is currently a lock
     /// on the file
-    fn lock_exclusive(&self) -> Result<()>;
+    fn lock_exclusive(&self, nonblocking: bool) -> Result<()>;
 
     /// Get a shared lock on the file, waits if there is currently an exclusive
     /// lock on the file.
-    fn lock_shared(&self) -> Result<()>;
+    fn lock_shared(&self, nonblocking: bool) -> Result<()>;
 
     /// Release the lock on the file if there is any.
     fn unlock(&self) -> Result<()>;
@@ -32,9 +32,9 @@ impl LockOp {
     }
 }
 
-fn flock(fd: &impl AsRawFd, action: LockOp, blocking: bool) -> Result<()> {
+fn flock(fd: &impl AsRawFd, action: LockOp, nonblocking: bool) -> Result<()> {
     let mut operation = action.as_flock_operation();
-    if !blocking {
+    if nonblocking {
         operation |= libc::LOCK_NB;
     }
 
@@ -43,16 +43,16 @@ fn flock(fd: &impl AsRawFd, action: LockOp, blocking: bool) -> Result<()> {
 }
 
 impl Lockable for File {
-    fn lock_exclusive(&self) -> Result<()> {
-        flock(self, LockOp::LockExclusive, true)
+    fn lock_exclusive(&self, nonblocking: bool) -> Result<()> {
+        flock(self, LockOp::LockExclusive, nonblocking)
     }
 
-    fn lock_shared(&self) -> Result<()> {
-        flock(self, LockOp::LockShared, true)
+    fn lock_shared(&self, nonblocking: bool) -> Result<()> {
+        flock(self, LockOp::LockShared, nonblocking)
     }
 
     fn unlock(&self) -> Result<()> {
-        flock(self, LockOp::Unlock, true)
+        flock(self, LockOp::Unlock, false)
     }
 }
 
@@ -61,11 +61,11 @@ mod tests {
     use super::*;
 
     impl Lockable for std::io::Cursor<Vec<u8>> {
-        fn lock_exclusive(&self) -> Result<()> {
+        fn lock_exclusive(&self, _: bool) -> Result<()> {
             Ok(())
         }
 
-        fn lock_shared(&self) -> Result<()> {
+        fn lock_shared(&self, _: bool) -> Result<()> {
             Ok(())
         }
 
@@ -75,11 +75,11 @@ mod tests {
     }
 
     impl Lockable for std::io::Cursor<&mut Vec<u8>> {
-        fn lock_exclusive(&self) -> Result<()> {
+        fn lock_exclusive(&self, _: bool) -> Result<()> {
             Ok(())
         }
 
-        fn lock_shared(&self) -> Result<()> {
+        fn lock_shared(&self, _: bool) -> Result<()> {
             Ok(())
         }
 
@@ -103,9 +103,9 @@ mod tests {
     #[test]
     fn test_locking_of_tmp_file() {
         let f = tempfile().unwrap();
-        assert!(f.lock_shared().is_ok());
+        assert!(f.lock_shared(false).is_ok());
         assert!(f.unlock().is_ok());
-        assert!(f.lock_exclusive().is_ok());
+        assert!(f.lock_exclusive(false).is_ok());
         assert!(f.unlock().is_ok());
     }
 }
