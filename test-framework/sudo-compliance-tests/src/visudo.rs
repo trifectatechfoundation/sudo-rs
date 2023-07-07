@@ -5,11 +5,16 @@ use sudo_test::{Command, Env, TextFile};
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
 mod flag_check;
+mod flag_file;
 mod flag_help;
+mod flag_owner;
+mod flag_perms;
 mod flag_quiet;
 mod flag_version;
+mod sudoers;
 mod what_now_prompt;
 
+const TMP_SUDOERS: &str = "/tmp/sudoers";
 const ETC_SUDOERS: &str = "/etc/sudoers";
 const DEFAULT_EDITOR: &str = "/usr/bin/editor";
 const LOGS_PATH: &str = "/tmp/logs.txt";
@@ -273,6 +278,29 @@ rm $2",
         stderr,
         "visudo: unable to re-open temporary file (/etc/sudoers.tmp), /etc/sudoers unchanged"
     );
+
+    Ok(())
+}
+
+#[test]
+fn temp_file_initial_contents() -> Result<()> {
+    let expected = SUDOERS_ALL_ALL_NOPASSWD;
+    let env = Env(expected)
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(format!(
+                "#!/bin/sh
+cp $2 {LOGS_PATH}"
+            ))
+            .chmod(CHMOD_EXEC),
+        )
+        .build()?;
+
+    Command::new("visudo").output(&env)?.assert_success()?;
+
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+
+    assert_eq!(expected, actual);
 
     Ok(())
 }
