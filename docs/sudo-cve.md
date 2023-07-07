@@ -7,29 +7,53 @@ also be relevant for sudo-rs.
 
 These CVEs/advisories are possibly relevant to sudo-rs:
 
-| CVE              | Tests | Advisory & notes                                             |
-| ---------------- | ----- | ------------------------------------------------------------ |
-| CVE-1999-0958    |       | Relative path (.. attack)                                    |
-| CVE-1999-1496    |       | Information leakage on which commands exist                  |
-| -                |       | https://www.sudo.ws/security/advisories/heap_corruption/     |
-| CVE-2004-1051    |       | https://www.sudo.ws/security/advisories/bash_functions/      |
-| CVE-2005-1993    |       | https://www.sudo.ws/security/advisories/path_race/           |
-| CVE-2005-4890    |       | use_pty is enabled by default in sudo-rs                     |
-| CVE-2009-0034    |       | https://www.sudo.ws/security/advisories/group_vector/        |
-| -                |       | https://www.sudo.ws/security/advisories/cmnd_alias_negation/ |
-| CVE-2010-1646    |       | https://www.sudo.ws/security/advisories/secure_path/         |
-| CVE-2010-2956    |       | https://www.sudo.ws/security/advisories/runas_group/         |
-| CVE-2011-0010    |       | https://www.sudo.ws/security/advisories/runas_group_pw/      |
-| CVE-2012-0809    |       | https://www.sudo.ws/security/advisories/sudo_debug/          |
-| CVE-2013-1775    |       | https://www.sudo.ws/security/advisories/epoch_ticket/        |
-| CVE-2013-1776    |       | https://www.sudo.ws/security/advisories/tty_tickets/         |
-| CVE-2013-2776    |       | https://www.sudo.ws/security/advisories/tty_tickets/         |
-| CVE-2013-2777    |       | https://www.sudo.ws/security/advisories/tty_tickets/         |
-| CVE-2014-9680    |       | https://www.sudo.ws/security/advisories/tz/                  |
-| CVE-2017-1000367 |       | https://www.sudo.ws/security/advisories/linux_tty/           |
-| CVE-2017-1000368 |       | https://www.sudo.ws/security/advisories/linux_tty/           |
-| CVE-2019-14287   |       | https://www.sudo.ws/security/advisories/minus_1_uid/         |
-| CVE-2023-28486   |       | log message control character escapes                        |
+| CVE                    | Tests | Sudo Advisory / Attack notes                                                |
+| ---------------------- | ----- | --------------------------------------------------------------------------- |
+| CVE-1999-0958 [^1]     |       | Relative path attack (.. attack)                                            |
+| CVE-1999-1496 [^2]     |       | Information leakage on which commands exist                                 |
+| - [^3]                 |       | https://www.sudo.ws/security/advisories/heap_corruption/                    |
+| CVE-2004-1051 [^4]     |       | https://www.sudo.ws/security/advisories/bash_functions/                     |
+| CVE-2005-1119 [^5]     |       | Corrupt arbitrary files via a symlink attack                                |
+| CVE-2005-1993 [^6]     |       | https://www.sudo.ws/security/advisories/path_race/                          |
+| CVE-2005-4890 [^7]     |       | TTY hijacking when a priviliged user uses sudo to run unprivileged commands |
+| CVE-2009-0034 [^8]     |       | https://www.sudo.ws/security/advisories/group_vector/                       |
+| - [^9]                 |       | https://www.sudo.ws/security/advisories/cmnd_alias_negation/                |
+| CVE-2010-1646 [^10]    |       | https://www.sudo.ws/security/advisories/secure_path/                        |
+| CVE-2010-2956 [^11]    |       | https://www.sudo.ws/security/advisories/runas_group/                        |
+| CVE-2011-0010 [^12]    |       | https://www.sudo.ws/security/advisories/runas_group_pw/                     |
+| CVE-2012-0809 [^13]    |       | https://www.sudo.ws/security/advisories/sudo_debug/                         |
+| CVE-2013-1775 [^14]    |       | https://www.sudo.ws/security/advisories/epoch_ticket/                       |
+| CVE-2013-1776 [^15]    |       | https://www.sudo.ws/security/advisories/tty_tickets/                        |
+| CVE-2013-2776 [^15]    |       | https://www.sudo.ws/security/advisories/tty_tickets/                        |
+| CVE-2013-2777 [^15]    |       | https://www.sudo.ws/security/advisories/tty_tickets/                        |
+| CVE-2014-9680 [^16]    |       | https://www.sudo.ws/security/advisories/tz/                                 |
+| CVE-2017-1000367 [^17] |       | https://www.sudo.ws/security/advisories/linux_tty/                          |
+| CVE-2017-1000368 [^17] |       | https://www.sudo.ws/security/advisories/linux_tty/                          |
+| CVE-2019-14287 [^18]   |       | https://www.sudo.ws/security/advisories/minus_1_uid/                        |
+| CVE-2023-28486 [^19]   |       | Syslog messages do not escape control characters                            |
+
+[^1]: All our path checks should only ever be done with absolute paths
+[^2]: We try to take care to only expose relevant information to the user
+[^3]: Our usage of Rust should mostly prevent heap corruption bugs from occuring
+[^4]: env_reset is always enabled in sudo-rs, additionally we apply filtering to
+      several variables to prevent any additional attack paths
+[^5]: -
+[^6]: Sudo-rs uses the suggested realpath function, as it is considered available
+      enough for our target systems
+[^7]: To prevent attacks, a PTY must be used when running commands within a TTY,
+      which is enabled by default in sudo-rs
+[^8]: -
+[^9]: -
+[^10]: -
+[^11]: -
+[^12]: -
+[^13]: -
+[^14]: -
+[^15]: -
+[^16]: -
+[^17]: -
+[^18]: -
+[^19]: -
 
 ## Non-applicable CVEs
 
@@ -44,7 +68,6 @@ relevant at that time.
 | CVE-2002-0043  | mail functionality is not implemented, https://www.sudo.ws/security/advisories/postfix/                     |
 | CVE-2002-0184  | setting a custom prompt via `-p` is not implemented, https://www.sudo.ws/security/advisories/prompt/        |
 | CVE-2004-1689  | `sudoedit`/`sudo -e` is not implemented, https://www.sudo.ws/security/advisories/sudoedit/                  |
-| CVE-2005-1119  | `visudo` functionality is currently not implemented                                                         |
 | CVE-2005-2959  | env_reset is always enabled / blacklist is not supported, https://www.sudo.ws/security/advisories/bash_env/ |
 | CVE-2005-4158  | env_reset is always enabled / blacklist is not supported, https://www.sudo.ws/security/advisories/perl_env/ |
 | CVE-2006-0151  | env_reset is always enabled / blacklist is not supported                                                    |
