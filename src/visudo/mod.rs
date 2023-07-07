@@ -16,6 +16,12 @@ use self::help::{long_help_message, USAGE_MSG};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+macro_rules! io_msg {
+    ($err:expr, $($tt:tt)*) => {
+        io::Error::new($err.kind(), format!("{}: {}", format_args!($($tt)*), $err))
+    };
+}
+
 pub fn main() {
     let options = match VisudoOptions::from_env() {
         Ok(options) => options,
@@ -64,10 +70,7 @@ fn run_visudo(file: Option<&str>) -> io::Result<()> {
 
     sudoers_file.lock_exclusive(true).map_err(|err| {
         if err.kind() == io::ErrorKind::WouldBlock {
-            io::Error::new(
-                io::ErrorKind::WouldBlock,
-                format!("{} busy, try again later", sudoers_path.display()),
-            )
+            io_msg!(err, "{} busy, try again later", sudoers_path.display())
         } else {
             err
         }
@@ -98,13 +101,11 @@ fn run_visudo(file: Option<&str>) -> io::Result<()> {
                 .wait_with_output()?;
 
             let (_sudoers, errors) = Sudoers::new(&tmp_path).map_err(|err| {
-                io::Error::new(
-                    err.kind(),
-                    format!(
-                        "unable to re-open temporary file ({}), {} unchanged",
-                        tmp_path.display(),
-                        sudoers_path.display()
-                    ),
+                io_msg!(
+                    err,
+                    "unable to re-open temporary file ({}), {} unchanged",
+                    tmp_path.display(),
+                    sudoers_path.display()
                 )
             })?;
 
