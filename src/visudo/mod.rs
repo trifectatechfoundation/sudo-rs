@@ -2,7 +2,9 @@ mod cli;
 mod help;
 
 use std::{
+    collections::hash_map::DefaultHasher,
     fs::{File, Permissions},
+    hash::{Hash, Hasher},
     io::{self, Read, Seek, Write},
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
@@ -77,8 +79,7 @@ fn run_visudo(file: Option<&str>) -> io::Result<()> {
     })?;
 
     let result: io::Result<()> = (|| {
-        let tmp_path = sudoers_path.with_extension("tmp");
-
+        let tmp_path = generate_tmp_path();
         let mut tmp_file = File::create(&tmp_path)?;
         tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
@@ -188,4 +189,12 @@ fn solve_editor_path() -> io::Result<PathBuf> {
         io::ErrorKind::NotFound,
         "cannot find text editor",
     ))
+}
+
+fn generate_tmp_path() -> PathBuf {
+    let mut hasher = DefaultHasher::new();
+    std::time::Instant::now().hash(&mut hasher);
+    let now = hasher.finish();
+
+    std::env::temp_dir().join(format!("sudoers-{:x}.tmp", now))
 }
