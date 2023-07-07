@@ -8,6 +8,7 @@ mod flag_check;
 mod flag_help;
 mod flag_quiet;
 mod flag_version;
+mod sudoers;
 mod what_now_prompt;
 
 const ETC_SUDOERS: &str = "/etc/sudoers";

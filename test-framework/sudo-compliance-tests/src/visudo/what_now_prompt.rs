@@ -109,3 +109,37 @@ fn on_uppercase_q_closes_while_saving_changes() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "gh657"]
+fn on_invalid_option_prompts_again() -> Result<()> {
+    let expected = SUDOERS_ALL_ALL_NOPASSWD;
+    let env = Env(expected)
+        .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
+        .build()?;
+
+    let cases = [
+        (2, "?"),
+        (2, "abc"),
+        (2, "\n"),
+        (2, "\r\n"),
+        (3, "a\nb"),
+        (3, "\n\r"),
+        (2, "a\rb"),
+    ];
+    for (expected, input) in cases {
+        dbg!(input);
+
+        let output = Command::new("visudo").stdin(input).output(&env)?;
+
+        let num_prompts = output
+            .stdout()?
+            .lines()
+            .filter(|line| line.starts_with("What now?"))
+            .count();
+
+        assert_eq!(expected, num_prompts);
+    }
+
+    Ok(())
+}
