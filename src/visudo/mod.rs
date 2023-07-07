@@ -1,3 +1,6 @@
+mod cli;
+mod help;
+
 use std::{
     fs::{File, Permissions},
     io::{self, BufRead, IsTerminal, Read, Seek, Write},
@@ -8,17 +11,44 @@ use std::{
 
 use crate::{sudoers::Sudoers, system::file::Lockable};
 
+use self::cli::VisudoOptions;
+use self::help::{long_help_message, USAGE_MSG};
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub fn main() {
-    match visudo_process() {
-        Ok(()) => {}
+    let options = match VisudoOptions::from_env() {
+        Ok(options) => options,
         Err(error) => {
-            eprintln!("visudo: {error}");
+            println!("visudo: {error}\n{USAGE_MSG}");
             std::process::exit(1);
         }
+    };
+
+    match options.action {
+        cli::VisudoAction::Help => {
+            println!("{}", long_help_message());
+            std::process::exit(0);
+        }
+        cli::VisudoAction::Version => {
+            println!("visudo version {VERSION}");
+            std::process::exit(0);
+        }
+        cli::VisudoAction::Check => {
+            eprintln!("check is unimplemented");
+            std::process::exit(1);
+        }
+        cli::VisudoAction::Run => match run_visudo() {
+            Ok(()) => {}
+            Err(error) => {
+                eprintln!("visudo: {error}");
+                std::process::exit(1);
+            }
+        },
     }
 }
 
-fn visudo_process() -> io::Result<()> {
+fn run_visudo() -> io::Result<()> {
     let sudoers_path = Path::new("/etc/sudoers");
 
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
