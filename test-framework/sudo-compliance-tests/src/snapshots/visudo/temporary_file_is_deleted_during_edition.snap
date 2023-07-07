@@ -1,0 +1,5 @@
+---
+source: sudo-compliance-tests/src/visudo.rs
+expression: stderr
+---
+visudo: unable to re-open temporary file (/tmp/sudoers-[hex].tmp), /etc/sudoers unchanged
