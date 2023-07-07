@@ -1,6 +1,8 @@
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{visudo::ETC_SUDOERS, Result, USERNAME};
+use crate::{visudo::ETC_SUDOERS, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+
+use super::TMP_SUDOERS;
 
 const DEFAULT_CHMOD: &str = "440";
 
@@ -144,6 +146,89 @@ fn flag_quiet_bad_syntax() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
     assert!(output.stderr().is_empty());
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh657"]
+fn flag_file() -> Result<()> {
+    let file_path = TMP_SUDOERS;
+    let env = Env("this is fine")
+        .file(file_path, "")
+        .user(USERNAME)
+        .build()?;
+
+    Command::new("visudo")
+        .args(["--check", "--file", file_path])
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+#[ignore = "gh657"]
+fn flag_file_bad_syntax() -> Result<()> {
+    let file_path = TMP_SUDOERS;
+    let env = Env("")
+        .file(file_path, "this is fine")
+        .user(USERNAME)
+        .build()?;
+
+    let output = Command::new("visudo")
+        .args(["--check", "--file", file_path])
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    assert_contains!(output.stderr(), "syntax error");
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh657"]
+fn flag_file_does_not_check_perms_nor_ownership() -> Result<()> {
+    let file_path = TMP_SUDOERS;
+    let env = Env("")
+        .file(
+            file_path,
+            TextFile("").chown(format!("{USERNAME}:users")).chmod("777"),
+        )
+        .user(USERNAME)
+        .build()?;
+
+    Command::new("visudo")
+        .args(["--check", "--file", file_path])
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+#[ignore = "gh657"]
+fn stdin() -> Result<()> {
+    let env = Env("").build()?;
+
+    Command::new("visudo")
+        .args(["-c", "-"])
+        .stdin(SUDOERS_ALL_ALL_NOPASSWD)
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+#[ignore = "gh657"]
+fn stdin_bad_syntax() -> Result<()> {
+    let env = Env("").build()?;
+
+    let output = Command::new("visudo")
+        .args(["-c", "-"])
+        .stdin("this is fine")
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+    assert_contains!(output.stderr(), "syntax error");
 
     Ok(())
 }
