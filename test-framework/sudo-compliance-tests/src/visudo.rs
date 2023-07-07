@@ -119,7 +119,6 @@ echo "$@" > {LOGS_PATH}"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn temporary_file_owner_and_perms() -> Result<()> {
     let env = Env("")
         .file(
@@ -173,7 +172,6 @@ echo '{expected}' >> $2"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn stderr_message_when_file_is_not_modified() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env(expected)
