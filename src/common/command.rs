@@ -1,4 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    path::{Path, PathBuf},
+};
+
+use crate::system::escape_os_str_lossy;
 
 use super::resolve::resolve_path;
 
@@ -8,6 +13,19 @@ pub struct CommandAndArguments {
     pub(crate) command: PathBuf,
     pub(crate) arguments: Vec<String>,
     pub(crate) resolved: bool,
+}
+
+impl Display for CommandAndArguments {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cmd = escape_os_str_lossy(self.command.as_os_str());
+        let args = self
+            .arguments
+            .iter()
+            .map(|a| a.escape_default().collect::<String>())
+            .collect::<Vec<_>>()
+            .join(" ");
+        write!(f, "{} {}", cmd, args)
+    }
 }
 
 // when -i and -s are used, the arguments given to sudo are escaped "except for alphanumerics, underscores, hyphens, and dollar signs."

@@ -3,7 +3,6 @@ use sudo_test::{Command, Env};
 use crate::{helpers::Rsyslogd, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_ALL, USERNAME};
 
 #[test]
-#[ignore = "gh421"]
 fn sudo_logs_every_executed_command() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
     let rsyslog = Rsyslogd::start(&env)?;

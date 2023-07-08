@@ -609,6 +609,10 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
     })
 }
 
+pub fn escape_os_str_lossy(s: &std::ffi::OsStr) -> String {
+    s.to_string_lossy().escape_default().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
