@@ -1,4 +1,4 @@
-pub const USAGE_MSG: &str = "usage: visudo [-chqsV] [[-f] sudoers ]";
+pub(crate) const USAGE_MSG: &str = "usage: visudo [-chqsV] [[-f] sudoers ]";
 
 const DESCRIPTOR: &str = "visudo - safely edit the sudoers file";
 
@@ -12,6 +12,6 @@ const HELP_MSG: &str = "Options:
   -V, --version            display version information and exit
 ";
 
-pub fn long_help_message() -> String {
+pub(crate) fn long_help_message() -> String {
     format!("{USAGE_MSG}\n\n{DESCRIPTOR}\n\n{HELP_MSG}")
 }

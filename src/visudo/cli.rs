@@ -1,10 +1,10 @@
 #[derive(Debug, PartialEq)]
-pub struct VisudoOptions {
-    pub file: Option<String>,
-    pub includes: bool,
-    pub quiet: bool,
-    pub strict: bool,
-    pub action: VisudoAction,
+pub(crate) struct VisudoOptions {
+    pub(crate) file: Option<String>,
+    pub(crate) includes: bool,
+    pub(crate) quiet: bool,
+    pub(crate) strict: bool,
+    pub(crate) action: VisudoAction,
 }
 
 impl Default for VisudoOptions {
@@ -20,7 +20,7 @@ impl Default for VisudoOptions {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum VisudoAction {
+pub(crate) enum VisudoAction {
     Help,
     Version,
     Check,
@@ -103,7 +103,7 @@ impl VisudoOptions {
         },
     ];
 
-    pub fn from_env() -> Result<VisudoOptions, String> {
+    pub(crate) fn from_env() -> Result<VisudoOptions, String> {
         let args = std::env::args().collect();
 
         Self::parse_arguments(args)
