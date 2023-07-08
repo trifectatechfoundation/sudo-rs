@@ -199,7 +199,6 @@ fn regular_user_can_create_file() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn regular_user_can_update_a_file_they_own() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;

@@ -38,7 +38,7 @@ impl PolicyPlugin for SudoersPolicy {
     fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error> {
         let sudoers_path = candidate_sudoers_file();
 
-        let (sudoers, syntax_errors) = crate::sudoers::Sudoers::new(sudoers_path)
+        let (sudoers, syntax_errors) = crate::sudoers::Sudoers::open(sudoers_path)
             .map_err(|e| Error::Configuration(format!("{e}")))?;
 
         for crate::sudoers::Error(pos, error) in syntax_errors {

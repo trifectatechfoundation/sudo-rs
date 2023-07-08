@@ -84,7 +84,11 @@ fn run_visudo(file_arg: Option<&str>) -> io::Result<()> {
     let result: io::Result<()> = (|| {
         let tmp_path = sudoers_path.with_extension("tmp");
 
-        let mut tmp_file = File::create(&tmp_path)?;
+        let mut tmp_file = File::options()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&tmp_path)?;
         tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
         let mut sudoers_contents = Vec::new();
@@ -93,6 +97,7 @@ fn run_visudo(file_arg: Option<&str>) -> io::Result<()> {
             sudoers_file.read_to_end(&mut sudoers_contents)?;
             // Rewind the sudoers file so it can be written later.
             sudoers_file.rewind()?;
+            // Write to the temporary file.
             tmp_file.write_all(&sudoers_contents)?;
         }
 
@@ -105,14 +110,17 @@ fn run_visudo(file_arg: Option<&str>) -> io::Result<()> {
                 .spawn()?
                 .wait_with_output()?;
 
-            let (_sudoers, errors) = Sudoers::new(&tmp_path).map_err(|err| {
-                io_msg!(
-                    err,
-                    "unable to re-open temporary file ({}), {} unchanged",
-                    tmp_path.display(),
-                    sudoers_path.display()
-                )
-            })?;
+            let (_sudoers, errors) =
+                File::open(&tmp_path)
+                    .and_then(Sudoers::read)
+                    .map_err(|err| {
+                        io_msg!(
+                            err,
+                            "unable to re-open temporary file ({}), {} unchanged",
+                            tmp_path.display(),
+                            sudoers_path.display()
+                        )
+                    })?;
 
             if errors.is_empty() {
                 break;
