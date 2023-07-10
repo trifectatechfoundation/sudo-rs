@@ -2,4 +2,4 @@
 source: sudo-compliance-tests/src/visudo.rs
 expression: args
 ---
--- /tmp/sudoers-[hex].tmp
+-- /tmp/[mkdtemp]/sudoers

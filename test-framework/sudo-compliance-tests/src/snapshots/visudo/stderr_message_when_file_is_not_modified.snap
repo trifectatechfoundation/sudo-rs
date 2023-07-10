@@ -2,4 +2,4 @@
 source: sudo-compliance-tests/src/visudo.rs
 expression: stderr
 ---
-visudo: /tmp/sudoers-[hex].tmp unchanged
+visudo: /tmp/[mkdtemp]/sudoers unchanged

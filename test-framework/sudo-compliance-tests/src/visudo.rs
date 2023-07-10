@@ -17,7 +17,7 @@ mod what_now_prompt;
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
-            filters => vec![(r"[a-f0-9]{16}", "[hex]")],
+            filters => vec![(r"sudoers-[a-zA-Z0-9]{6}", "[mkdtemp]")],
             prepend_module_to_snapshot => false,
             snapshot_path => "snapshots/visudo",
         }, {
@@ -149,7 +149,7 @@ ls -l /etc/sudoers.tmp > {LOGS_PATH}"#
     } else {
         format!(
             r#"#!/bin/sh
-ls -l /tmp/sudoers-*.tmp > {LOGS_PATH}"#
+ls -l /tmp/sudoers-*/sudoers > {LOGS_PATH}"#
         )
     };
 

@@ -3,15 +3,16 @@ mod help;
 
 use std::{
     collections::hash_map::DefaultHasher,
+    ffi::{CStr, CString, OsStr, OsString},
     fs::{File, Permissions},
     hash::{Hash, Hasher},
     io::{self, Read, Seek, Write},
-    os::unix::prelude::PermissionsExt,
+    os::unix::prelude::{OsStrExt, OsStringExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
 
-use crate::{sudoers::Sudoers, system::file::Lockable};
+use crate::{cutils::cerr, sudoers::Sudoers, system::file::Lockable};
 
 use self::cli::VisudoOptions;
 use self::help::{long_help_message, USAGE_MSG};
@@ -79,7 +80,8 @@ fn run_visudo(file: Option<&str>) -> io::Result<()> {
     })?;
 
     let result: io::Result<()> = (|| {
-        let tmp_path = generate_tmp_path();
+        let tmp_path = create_temporary_dir()?.join("sudoers");
+
         let mut tmp_file = File::create(&tmp_path)?;
         tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
@@ -191,10 +193,17 @@ fn solve_editor_path() -> io::Result<PathBuf> {
     ))
 }
 
-fn generate_tmp_path() -> PathBuf {
-    let mut hasher = DefaultHasher::new();
-    std::time::Instant::now().hash(&mut hasher);
-    let now = hasher.finish();
+fn create_temporary_dir() -> io::Result<PathBuf> {
+    let template = CString::from_vec_with_nul(b"/tmp/sudoers-XXXXXX\0".as_slice().into())
+        .expect("Template for `mkdtemp` is not a valid C-string");
 
-    std::env::temp_dir().join(format!("sudoers-{:x}.tmp", now))
+    let ptr = unsafe { libc::mkdtemp(template.into_raw()) };
+
+    if ptr.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+
+    let path = OsString::from_vec(unsafe { CString::from_raw(ptr) }.into_bytes()).into();
+
+    Ok(path)
 }
