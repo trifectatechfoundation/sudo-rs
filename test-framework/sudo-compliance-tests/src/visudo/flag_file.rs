@@ -84,7 +84,6 @@ echo '{expected}' > $2"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_has_precedence_over_positional_argument() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let original = SUDOERS_ROOT_ALL;
