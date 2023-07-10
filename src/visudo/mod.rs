@@ -54,17 +54,22 @@ pub fn main() {
     }
 }
 
-fn run_visudo(file: Option<&str>) -> io::Result<()> {
-    let sudoers_path = Path::new(file.unwrap_or("/etc/sudoers"));
+fn run_visudo(file_arg: Option<&str>) -> io::Result<()> {
+    let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;
         (file, true)
     } else {
-        // Create a sudoers file if it doesn't exist and set the permissions so it can only be read
-        // by the root user and group.
+        // Create a sudoers file if it doesn't exist.
         let file = File::create(sudoers_path)?;
-        file.set_permissions(Permissions::from_mode(0o440))?;
+        // ogvisudo sets the permissions of the file based on whether the `-f` argument was passed
+        // or not:
+        // - If `-f` was passed, the file can be read and written by the user.
+        // - If `-f` was not passed, the file can only be read by the user.
+        // In both cases, the file can be read by the group.
+        let mode = if file_arg.is_some() { 0o640 } else { 0o440 };
+        file.set_permissions(Permissions::from_mode(mode))?;
         (file, false)
     };
 

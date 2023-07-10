@@ -6,7 +6,6 @@ use crate::{
 };
 
 #[test]
-#[ignore = "gh657"]
 fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
     let env = Env("")
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
