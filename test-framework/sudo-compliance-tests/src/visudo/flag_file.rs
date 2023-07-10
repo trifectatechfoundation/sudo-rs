@@ -174,10 +174,9 @@ echo "$@" > {LOGS_PATH}"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn regular_user_can_create_file() -> Result<()> {
     let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod("111"))
         .user(USERNAME)
         .build()?;
 
