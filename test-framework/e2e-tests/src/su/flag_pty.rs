@@ -3,7 +3,7 @@ use sudo_test::{
     Command, Env,
 };
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::Result;
 
 #[derive(Debug)]
 struct Processes {
@@ -13,10 +13,11 @@ struct Processes {
 }
 
 fn fixture() -> Result<Processes> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+    let env = Env("").build()?;
 
-    let child = Command::new("sudo")
-        .args(["sh", "-c", "touch /tmp/barrier; sleep 3"])
+    let child = Command::new("su")
+        .args(["--pty", "-c"])
+        .arg("sh -c 'touch /tmp/barrier; sleep 3'")
         .tty(true)
         .spawn(&env)?;
 
@@ -32,19 +33,21 @@ fn fixture() -> Result<Processes> {
 
     let entries = helpers::parse_ps_aux(&ps_aux);
 
-    let mut sudo_related_processes = entries
+    let mut su_related_processes = entries
         .into_iter()
-        .filter(|entry| entry.command.contains("sh -c touch"))
+        .filter(|entry| {
+            entry.command.contains("sh -c 'touch") | entry.command.starts_with("sh -c touch")
+        })
         .collect::<Vec<_>>();
 
-    sudo_related_processes.sort_by_key(|entry| entry.pid);
+    su_related_processes.sort_by_key(|entry| entry.pid);
 
-    let [original, monitor, command]: [PsAuxEntry; 3] = sudo_related_processes
+    let [original, monitor, command]: [PsAuxEntry; 3] = su_related_processes
         .try_into()
-        .map_err(|_| "expected 3 sudo-related processes")?;
+        .map_err(|_| "expected 3 su-related processes")?;
 
     // sanity check
-    let prefix = "sudo ";
+    let prefix = "su ";
     assert!(original.command.starts_with(prefix));
     assert!(monitor.command.starts_with(prefix));
     assert!(!command.command.starts_with(prefix));
@@ -98,16 +101,15 @@ fn process_state() -> Result<()> {
 
 #[test]
 fn terminal_is_restored() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+    let env = Env("").build()?;
     // Run `stty` before and after running sudo to check that the terminal configuration is
     // restored before sudo exits.
     let stdout = Command::new("sh")
-        .args(["-c", "stty; sudo echo 'hello'; stty"])
+        .args(["-c", "stty; su --pty -c 'echo hello'; stty"])
         .tty(true)
         .output(&env)?
         .stdout()?;
 
-    assert_contains!(stdout, "hello");
     let (before, after) = stdout.split_once("hello").unwrap();
     assert_eq!(before.trim(), after.trim());
 
@@ -116,10 +118,11 @@ fn terminal_is_restored() -> Result<()> {
 
 #[test]
 fn pty_owner() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+    let env = Env("").build()?;
 
-    let stdout = Command::new("sudo")
-        .args(["sh", "-c", "stat $(tty) --format '%U %G'"])
+    let stdout = Command::new("su")
+        .args(["--pty", "-c"])
+        .arg("stat $(tty) --format '%U %G'")
         .tty(true)
         .output(&env)?
         .stdout()?;
@@ -130,10 +133,10 @@ fn pty_owner() -> Result<()> {
 
 #[test]
 fn stdin_pipe() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+    let env = Env("").build()?;
 
     let stdout = Command::new("sh")
-        .args(["-c", "echo 'hello world' | sudo grep -o hello"])
+        .args(["-c", "echo 'hello world' | su --pty -c 'grep -o hello'"])
         .tty(true)
         .output(&env)?
         .stdout()?;
@@ -145,10 +148,10 @@ fn stdin_pipe() -> Result<()> {
 
 #[test]
 fn stdout_pipe() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+    let env = Env("").build()?;
 
     let stdout = Command::new("sh")
-        .args(["-c", "sudo echo 'hello world' | grep -o hello"])
+        .args(["-c", "su --pty -c 'echo hello world' | grep -o hello"])
         .tty(true)
         .output(&env)?
         .stdout()?;
@@ -160,12 +163,12 @@ fn stdout_pipe() -> Result<()> {
 
 #[test]
 fn stderr_pipe() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
+    let env = Env("").build()?;
 
     let output = Command::new("sh")
         .args([
             "-c",
-            "2>/tmp/stderr.txt sudo sh -c '>&2 echo \"hello world\"'",
+            "2>/tmp/stderr.txt su --pty -c '>&2 echo \"hello world\"'",
         ])
         .tty(true)
         .output(&env)?;

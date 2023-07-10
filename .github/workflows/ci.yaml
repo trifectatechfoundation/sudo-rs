@@ -12,6 +12,47 @@ on:
       - main
 
 jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    env:
+      SUDO_UNDER_TEST: ours
+      SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
+      CI: true
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: set up docker buildx
+        run: docker buildx create --name builder --use
+
+      - name: cache docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-buildx-rs-${{ github.sha }}
+          restore-keys: docker-buildx-rs-
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "compliance-tests"
+          workspaces: |
+            test-framework
+
+      - name: Run all E2E tests
+        working-directory: test-framework
+        run: cargo test -p e2e-tests
+
+      - name: prevent the cache from growing too large
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
   compliance-tests-og:
     runs-on: ubuntu-latest
     env:
