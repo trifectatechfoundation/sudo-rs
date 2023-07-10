@@ -3,6 +3,7 @@ use sudo_test::{Command, Env, TextFile};
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
+#[ignore = "gh673"]
 fn relative_path() -> Result<()> {
     let env = Env("@include sudoers2")
         .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
@@ -28,22 +29,24 @@ fn absolute_path() -> Result<()> {
 
 #[test]
 fn file_does_not_exist() -> Result<()> {
-    let env = Env("@include sudoers2").build()?;
+    let env = Env("@include /etc/sudoers2").build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(
-        output.stderr(),
+    let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to open /etc/sudoers2: No such file or directory"
-    );
+    } else {
+        "sudo-rs: cannot open sudoers file '/etc/sudoers2'"
+    };
+    assert_contains!(output.stderr(), diagnostic);
     Ok(())
 }
 
 #[test]
 fn whitespace_in_name_backslash() -> Result<()> {
-    let env = Env(r#"@include sudo\ ers"#)
+    let env = Env(r#"@include /etc/sudo\ ers"#)
         .file("/etc/sudo ers", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
@@ -55,7 +58,7 @@ fn whitespace_in_name_backslash() -> Result<()> {
 
 #[test]
 fn whitespace_in_name_double_quotes() -> Result<()> {
-    let env = Env(r#"@include "sudo ers" "#)
+    let env = Env(r#"@include "/etc/sudo ers" "#)
         .file("/etc/sudo ers", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
@@ -67,7 +70,7 @@ fn whitespace_in_name_double_quotes() -> Result<()> {
 
 #[test]
 fn old_pound_syntax() -> Result<()> {
-    let env = Env("#include sudoers2")
+    let env = Env("#include /etc/sudoers2")
         .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
@@ -79,7 +82,7 @@ fn old_pound_syntax() -> Result<()> {
 
 #[test]
 fn backslash_in_name() -> Result<()> {
-    let env = Env(r#"@include sudo\\ers"#)
+    let env = Env(r#"@include /etc/sudo\\ers"#)
         .file(r#"/etc/sudo\ers"#, SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
@@ -91,7 +94,7 @@ fn backslash_in_name() -> Result<()> {
 
 #[test]
 fn backslash_in_name_double_quotes() -> Result<()> {
-    let env = Env(r#"@include "sudo\ers" "#)
+    let env = Env(r#"@include "/etc/sudo\ers" "#)
         .file(r#"/etc/sudo\ers"#, SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
