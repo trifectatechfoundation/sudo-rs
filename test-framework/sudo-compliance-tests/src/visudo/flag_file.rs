@@ -29,7 +29,6 @@ fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() ->
 }
 
 #[test]
-#[ignore = "gh657"]
 fn saves_file_if_no_syntax_errors() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
@@ -58,7 +57,6 @@ echo '{expected}' > $2"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn positional_argument() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
@@ -122,7 +120,6 @@ echo '{expected}' > $2"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn etc_sudoers_is_not_modified() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
@@ -153,7 +150,6 @@ echo '{unexpected}' > $2"
 }
 
 #[test]
-#[ignore = "gh657"]
 fn passes_temporary_file_to_editor() -> Result<()> {
     let env = Env("")
         .file(

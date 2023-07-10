@@ -1,6 +1,9 @@
+mod cli;
+mod help;
+
 use std::{
     fs::{File, Permissions},
-    io::{self, BufRead, IsTerminal, Read, Seek, Write},
+    io::{self, Read, Seek, Write},
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
     process::Command,
@@ -8,18 +11,51 @@ use std::{
 
 use crate::{sudoers::Sudoers, system::file::Lockable};
 
+use self::cli::VisudoOptions;
+use self::help::{long_help_message, USAGE_MSG};
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+macro_rules! io_msg {
+    ($err:expr, $($tt:tt)*) => {
+        io::Error::new($err.kind(), format!("{}: {}", format_args!($($tt)*), $err))
+    };
+}
+
 pub fn main() {
-    match visudo_process() {
-        Ok(()) => {}
+    let options = match VisudoOptions::from_env() {
+        Ok(options) => options,
         Err(error) => {
-            eprintln!("visudo: {error}");
+            println!("visudo: {error}\n{USAGE_MSG}");
             std::process::exit(1);
         }
+    };
+
+    match options.action {
+        cli::VisudoAction::Help => {
+            println!("{}", long_help_message());
+            std::process::exit(0);
+        }
+        cli::VisudoAction::Version => {
+            println!("visudo version {VERSION}");
+            std::process::exit(0);
+        }
+        cli::VisudoAction::Check => {
+            eprintln!("check is unimplemented");
+            std::process::exit(1);
+        }
+        cli::VisudoAction::Run => match run_visudo(options.file.as_deref()) {
+            Ok(()) => {}
+            Err(error) => {
+                eprintln!("visudo: {error}");
+                std::process::exit(1);
+            }
+        },
     }
 }
 
-fn visudo_process() -> io::Result<()> {
-    let sudoers_path = Path::new("/etc/sudoers");
+fn run_visudo(file: Option<&str>) -> io::Result<()> {
+    let sudoers_path = Path::new(file.unwrap_or("/etc/sudoers"));
 
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;
@@ -34,10 +70,7 @@ fn visudo_process() -> io::Result<()> {
 
     sudoers_file.lock_exclusive(true).map_err(|err| {
         if err.kind() == io::ErrorKind::WouldBlock {
-            io::Error::new(
-                io::ErrorKind::WouldBlock,
-                format!("{} busy, try again later", sudoers_path.display()),
-            )
+            io_msg!(err, "{} busy, try again later", sudoers_path.display())
         } else {
             err
         }
@@ -68,13 +101,11 @@ fn visudo_process() -> io::Result<()> {
                 .wait_with_output()?;
 
             let (_sudoers, errors) = Sudoers::new(&tmp_path).map_err(|err| {
-                io::Error::new(
-                    err.kind(),
-                    format!(
-                        "unable to re-open temporary file ({}), {} unchanged",
-                        tmp_path.display(),
-                        sudoers_path.display()
-                    ),
+                io_msg!(
+                    err,
+                    "unable to re-open temporary file ({}), {} unchanged",
+                    tmp_path.display(),
+                    sudoers_path.display()
                 )
             })?;
 
