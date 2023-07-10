@@ -3,7 +3,7 @@ mod help;
 
 use std::{
     fs::{File, Permissions},
-    io::{self, BufRead, IsTerminal, Read, Seek, Write},
+    io::{self, Read, Seek, Write},
     os::unix::prelude::PermissionsExt,
     path::{Path, PathBuf},
     process::Command,
