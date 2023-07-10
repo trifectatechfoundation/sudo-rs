@@ -118,7 +118,7 @@ fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
 #[ignore = "gh658"]
 #[test]
 fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true"))
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true")
         .user(USERNAME)
         .build()?;
 
@@ -129,7 +129,7 @@ fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<(
 
     assert!(output.status().success());
 
-    let expected = format!("/usr/bin/true");
+    let expected = "/usr/bin/true";
     let actual = output.stdout()?;
 
     assert_eq!(actual, expected);
@@ -140,7 +140,7 @@ fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<(
 #[ignore = "gh658"]
 #[test]
 fn when_command_is_forbidden_exit_with_status_1_no_stderr() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true"))
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true")
         .user(USERNAME)
         .build()?;
 
