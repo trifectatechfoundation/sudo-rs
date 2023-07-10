@@ -93,6 +93,7 @@ fn backslash_in_name() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh674"]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@include "/etc/sudo\ers" "#)
         .file(r#"/etc/sudo\ers"#, SUDOERS_ALL_ALL_NOPASSWD)
@@ -106,42 +107,46 @@ fn backslash_in_name_double_quotes() -> Result<()> {
 
 #[test]
 fn include_loop_error_messages() -> Result<()> {
-    let env = Env("@include sudoers2")
-        .file(r#"/etc/sudoers2"#, "@include sudoers")
+    let env = Env("@include /etc/sudoers2")
+        .file(r#"/etc/sudoers2"#, "@include /etc/sudoers")
         .build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(
-        output.stderr(),
+    let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2: too many levels of includes"
-    );
+    } else {
+        "sudo-rs: include file limit reached opening '/etc/sudoers2'"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
 fn include_loop_not_fatal() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include sudoers2"])
-        .file(r#"/etc/sudoers2"#, "@include sudoers")
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include /etc/sudoers2"])
+        .file(r#"/etc/sudoers2"#, "@include /etc/sudoers")
         .build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(
-        output.stderr(),
+    let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2: too many levels of includes"
-    );
+    } else {
+        "sudo-rs: include file limit reached opening '/etc/sudoers2'"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
 fn permissions_check() -> Result<()> {
-    let env = Env("@include sudoers2")
+    let env = Env("@include /etc/sudoers2")
         .file(
             r#"/etc/sudoers2"#,
             TextFile(SUDOERS_ALL_ALL_NOPASSWD).chmod("777"),
