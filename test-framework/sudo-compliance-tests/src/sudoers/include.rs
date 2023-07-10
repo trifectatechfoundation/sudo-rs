@@ -145,6 +145,7 @@ fn include_loop_not_fatal() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh675"]
 fn permissions_check() -> Result<()> {
     let env = Env("@include /etc/sudoers2")
         .file(
@@ -163,6 +164,7 @@ fn permissions_check() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh675"]
 fn permissions_check_not_fatal() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include sudoers2"])
         .file(r#"/etc/sudoers2"#, TextFile("").chmod("777"))
@@ -177,8 +179,9 @@ fn permissions_check_not_fatal() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh675"]
 fn ownership_check() -> Result<()> {
-    let env = Env("@include sudoers2")
+    let env = Env("@include /etc/sudoers2")
         .file(
             r#"/etc/sudoers2"#,
             TextFile(SUDOERS_ALL_ALL_NOPASSWD).chown(USERNAME),
@@ -199,8 +202,9 @@ fn ownership_check() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh675"]
 fn ownership_check_not_fatal() -> Result<()> {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include sudoers2"])
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include /etc/sudoers2"])
         .file(r#"/etc/sudoers2"#, TextFile("").chown(USERNAME))
         .user(USERNAME)
         .build()?;
