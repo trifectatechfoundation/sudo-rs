@@ -38,7 +38,7 @@ fn root_can_become_another_user_by_name() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh"]
+#[ignore = "gh680"]
 #[test]
 fn uppercase_u_flag_fails() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(USERNAME).build()?;
