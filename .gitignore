@@ -8,3 +8,11 @@
 
 # Code coverage in lcov format
 /lcov.info
+
+# Generated man pages
+/docs/man/*.1
+/docs/man/*.1.gz
+/docs/man/*.5
+/docs/man/*.5.gz
+/docs/man/*.8
+/docs/man/*.8.gz
