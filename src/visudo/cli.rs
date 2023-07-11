@@ -172,8 +172,11 @@ impl VisudoOptions {
                     }
                 }
             } else {
-                // If the arg doesn't start with a `-` it must be a file argument.
-                options.file = Some(arg);
+                // If the arg doesn't start with a `-` it must be a file argument. However `-f`
+                // must take precedence
+                if options.file.is_none() {
+                    options.file = Some(arg);
+                }
             }
         }
 

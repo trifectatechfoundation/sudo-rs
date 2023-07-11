@@ -6,7 +6,6 @@ use crate::{
 };
 
 #[test]
-#[ignore = "gh657"]
 fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
     let env = Env("")
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
@@ -85,7 +84,6 @@ echo '{expected}' > $2"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_has_precedence_over_positional_argument() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let original = SUDOERS_ROOT_ALL;
@@ -176,10 +174,9 @@ echo "$@" > {LOGS_PATH}"#
 }
 
 #[test]
-#[ignore = "gh657"]
 fn regular_user_can_create_file() -> Result<()> {
     let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod("111"))
         .user(USERNAME)
         .build()?;
 
@@ -201,7 +198,6 @@ fn regular_user_can_create_file() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn regular_user_can_update_a_file_they_own() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;

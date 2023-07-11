@@ -54,17 +54,22 @@ pub fn main() {
     }
 }
 
-fn run_visudo(file: Option<&str>) -> io::Result<()> {
-    let sudoers_path = Path::new(file.unwrap_or("/etc/sudoers"));
+fn run_visudo(file_arg: Option<&str>) -> io::Result<()> {
+    let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;
         (file, true)
     } else {
-        // Create a sudoers file if it doesn't exist and set the permissions so it can only be read
-        // by the root user and group.
+        // Create a sudoers file if it doesn't exist.
         let file = File::create(sudoers_path)?;
-        file.set_permissions(Permissions::from_mode(0o440))?;
+        // ogvisudo sets the permissions of the file based on whether the `-f` argument was passed
+        // or not:
+        // - If `-f` was passed, the file can be read and written by the user.
+        // - If `-f` was not passed, the file can only be read by the user.
+        // In both cases, the file can be read by the group.
+        let mode = if file_arg.is_some() { 0o640 } else { 0o440 };
+        file.set_permissions(Permissions::from_mode(mode))?;
         (file, false)
     };
 
@@ -79,7 +84,11 @@ fn run_visudo(file: Option<&str>) -> io::Result<()> {
     let result: io::Result<()> = (|| {
         let tmp_path = sudoers_path.with_extension("tmp");
 
-        let mut tmp_file = File::create(&tmp_path)?;
+        let mut tmp_file = File::options()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&tmp_path)?;
         tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
         let mut sudoers_contents = Vec::new();
@@ -88,6 +97,7 @@ fn run_visudo(file: Option<&str>) -> io::Result<()> {
             sudoers_file.read_to_end(&mut sudoers_contents)?;
             // Rewind the sudoers file so it can be written later.
             sudoers_file.rewind()?;
+            // Write to the temporary file.
             tmp_file.write_all(&sudoers_contents)?;
         }
 
@@ -100,14 +110,17 @@ fn run_visudo(file: Option<&str>) -> io::Result<()> {
                 .spawn()?
                 .wait_with_output()?;
 
-            let (_sudoers, errors) = Sudoers::new(&tmp_path).map_err(|err| {
-                io_msg!(
-                    err,
-                    "unable to re-open temporary file ({}), {} unchanged",
-                    tmp_path.display(),
-                    sudoers_path.display()
-                )
-            })?;
+            let (_sudoers, errors) =
+                File::open(&tmp_path)
+                    .and_then(Sudoers::read)
+                    .map_err(|err| {
+                        io_msg!(
+                            err,
+                            "unable to re-open temporary file ({}), {} unchanged",
+                            tmp_path.display(),
+                            sudoers_path.display()
+                        )
+                    })?;
 
             if errors.is_empty() {
                 break;

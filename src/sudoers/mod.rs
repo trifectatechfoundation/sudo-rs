@@ -9,6 +9,7 @@ mod char_stream;
 mod tokens;
 
 use std::collections::{HashMap, HashSet};
+use std::io;
 use std::path::Path;
 
 use crate::log::auth_warn;
@@ -50,8 +51,13 @@ pub use policy::{Authorization, DirChange, Policy, PreJudgementPolicy};
 
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
-    pub fn new(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), std::io::Error> {
-        let sudoers = read_sudoers(path.as_ref())?;
+    pub fn open(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), io::Error> {
+        let sudoers = open_sudoers(path.as_ref())?;
+        Ok(analyze(sudoers))
+    }
+
+    pub fn read<R: io::Read>(reader: R) -> Result<(Sudoers, Vec<Error>), io::Error> {
+        let sudoers = read_sudoers(reader)?;
         Ok(analyze(sudoers))
     }
 
@@ -79,17 +85,19 @@ impl Sudoers {
     }
 }
 
-fn read_sudoers(path: &Path) -> Result<Vec<basic_parser::Parsed<Sudo>>, std::io::Error> {
-    use std::io::Read;
-    let mut source = crate::system::secure_open(path)?;
-
+fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
     // it's a bit frustrating that BufReader.chars() does not exist
     let mut buffer = String::new();
-    source.read_to_string(&mut buffer)?;
+    reader.read_to_string(&mut buffer)?;
 
     use basic_parser::parse_lines;
     use char_stream::*;
     Ok(parse_lines(&mut PeekableWithPos::new(buffer.chars())))
+}
+
+fn open_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
+    let source = crate::system::secure_open(path)?;
+    read_sudoers(source)
 }
 
 #[derive(Default)]
@@ -402,7 +410,9 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                     None,
                     format!("include file limit reached opening '{}'", path.display()),
                 ))
-            } else if let Ok(subsudoer) = read_sudoers(path) {
+            // FIXME: this will cause an error in `visudo` if we open a non-privileged sudoers file
+            // that includes another non-privileged sudoer files.
+            } else if let Ok(subsudoer) = open_sudoers(path) {
                 *count += 1;
                 self.process(subsudoer, diagnostics, count)
             } else {
