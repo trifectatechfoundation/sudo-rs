@@ -1,4 +1,4 @@
-% SUDO(8) sudo-rs 0.2.0
+% SUDO(8) sudo-rs 0.2.0-dev.20230711
 %
 % July 10, 2023
 

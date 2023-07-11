@@ -1,14 +1,24 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0-dev.20230711] - 2023-07-11
+
+### Added
+- Add initial `visudo` implementation
+- Add support for `~` in `--chdir`
+- Log commands that will be executed in the auth syslog
+- Add a manpage for the `sudo` command
 
 ### Changed
 - The SUDO_RS_IS_UNSTABLE environment variable is no longer required
 - Sudo-rs will now read `/etc/sudoers-rs` or `/etc/sudoers` if the former is
   not available. We no longer read `/etc/sudoers.test`
+- Removed signal-hook and signal-hook-registry dependencies
+- Improved error handling when `--chdir` is passed but not allowed
+- Properly handle `SIGWINCH` when running commands with a PTY
 
 ### Fixed
 - Only call ttyname and isatty on character devices
+- Fixed a bug in syslog FFI
 
 ## [0.2.0-dev.20230703] - 2023-07-03
 
@@ -42,6 +52,6 @@
 - Use canonicalized paths for the executed binaries
 - Simplified CLI help to only display supported actions
 
-[Unreleased]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230703...HEAD
+[0.2.0-dev.20230711]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230703...v0.2.0-dev.20230711
 [0.2.0-dev.20230703]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230627...v0.2.0-dev.20230703
 [0.2.0-dev.20230627]: https://github.com/memorysafety/sudo-rs/compare/v0.1.0-dev.20230620...v0.2.0-dev.20230627
