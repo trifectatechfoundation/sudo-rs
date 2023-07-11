@@ -2,17 +2,15 @@ mod cli;
 mod help;
 
 use std::{
-    collections::hash_map::DefaultHasher,
-    ffi::{CStr, CString, OsStr, OsString},
+    ffi::{CStr, CString, OsString},
     fs::{File, Permissions},
-    hash::{Hash, Hasher},
     io::{self, Read, Seek, Write},
-    os::unix::prelude::{OsStrExt, OsStringExt, PermissionsExt},
+    os::unix::prelude::{OsStringExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
 
-use crate::{cutils::cerr, sudoers::Sudoers, system::file::Lockable};
+use crate::{sudoers::Sudoers, system::file::Lockable};
 
 use self::cli::VisudoOptions;
 use self::help::{long_help_message, USAGE_MSG};
@@ -193,9 +191,17 @@ fn solve_editor_path() -> io::Result<PathBuf> {
     ))
 }
 
+macro_rules! cstr {
+    ($expr:expr) => {{
+        let _: &'static [u8] = $expr;
+        debug_assert!(std::ffi::CStr::from_bytes_with_nul($expr).is_ok());
+        // SAFETY: see `debug_assert!` above
+        unsafe { CStr::from_bytes_with_nul_unchecked($expr) }
+    }};
+}
+
 fn create_temporary_dir() -> io::Result<PathBuf> {
-    let template = CString::from_vec_with_nul(b"/tmp/sudoers-XXXXXX\0".as_slice().into())
-        .expect("Template for `mkdtemp` is not a valid C-string");
+    let template = cstr!(b"/tmp/sudoers-XXXXXX\0").to_owned();
 
     let ptr = unsafe { libc::mkdtemp(template.into_raw()) };
 
