@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[test]
+#[ignore = "gh657"]
 fn prompt() -> Result<()> {
     let env = Env("@include sudoers2")
         .file("/etc/sudoers2", "")
@@ -20,6 +21,7 @@ fn prompt() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh657"]
 fn calls_editor_on_included_files() -> Result<()> {
     let env = Env("@include sudoers2")
         .file("/etc/sudoers2", "")
@@ -47,6 +49,7 @@ echo $@ >> {LOGS_PATH}"
 }
 
 #[test]
+#[ignore = "gh657"]
 fn closing_stdin_is_understood_as_yes_to_all() -> Result<()> {
     let env = Env("@include sudoers2
 @include sudoers3")
@@ -73,6 +76,7 @@ echo $@ >> {LOGS_PATH}"
 }
 
 #[test]
+#[ignore = "gh657"]
 fn edit_order_follows_include_order() -> Result<()> {
     let env = Env("# 1
 @include sudoers2
@@ -108,6 +112,7 @@ cat $2 >> {LOGS_PATH}"
 }
 
 #[test]
+#[ignore = "gh657"]
 fn include_cycle_does_not_edit_the_same_files_many_times() -> Result<()> {
     let env = Env("# 1
 @include sudoers2")
@@ -148,6 +153,7 @@ cat $2 >> {LOGS_PATH}"
 }
 
 #[test]
+#[ignore = "gh657"]
 fn does_edit_at_include_added_in_last_edit() -> Result<()> {
     let env = Env("# 1")
         .file("/etc/sudoers2", "# 2")
@@ -178,6 +184,7 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
 }
 
 #[test]
+#[ignore = "gh657"]
 fn does_edit_at_include_removed_in_last_edit() -> Result<()> {
     let env = Env("# 1
 @include sudoers2")
@@ -209,6 +216,7 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
 }
 
 #[test]
+#[ignore = "gh657"]
 fn edits_existing_at_includes_first_then_newly_added_at_includes() -> Result<()> {
     let env = Env("# 1
 @include sudoers2")
