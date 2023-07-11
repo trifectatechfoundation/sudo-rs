@@ -326,3 +326,46 @@ fn ignores_directory_with_bad_ownership() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "gh682"]
+fn relative_path_parent_directory() -> Result<()> {
+    let env = Env("@includedir ../sudoers.d")
+        .directory("/sudoers.d")
+        .file("/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+#[ignore = "gh682"]
+fn relative_path_grandparent_directory() -> Result<()> {
+    // base path is `/etc/` so grandparent does not exist
+    let env = Env("@includedir ../../sudoers.d")
+        .directory("/sudoers.d")
+        .file("/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+#[ignore = "gh682"]
+fn relative_path_dot_slash() -> Result<()> {
+    // base path is `/etc/` so grandparent does not exist
+    let env = Env("@includedir ./sudoers.d")
+        .file("/etc/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .output(&env)?
+        .assert_success()
+}
