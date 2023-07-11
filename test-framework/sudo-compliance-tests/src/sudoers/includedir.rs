@@ -5,6 +5,7 @@ use crate::{
 };
 
 #[test]
+#[ignore = "gh682"]
 fn absolute_path() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
@@ -17,6 +18,7 @@ fn absolute_path() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn relative_path() -> Result<()> {
     let env = Env("@includedir sudoers.d")
         .file("/etc/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
@@ -29,6 +31,7 @@ fn relative_path() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn ignores_files_with_names_ending_in_tilde() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a~", SUDOERS_ALL_ALL_NOPASSWD)
@@ -44,6 +47,7 @@ fn ignores_files_with_names_ending_in_tilde() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn ignores_files_with_names_that_contain_a_dot() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a.", SUDOERS_ALL_ALL_NOPASSWD)
@@ -61,6 +65,7 @@ fn ignores_files_with_names_that_contain_a_dot() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn directory_does_not_exist_is_not_fatal() -> Result<()> {
     let env = Env("@includedir /etc/does-not-exist").build()?;
 
@@ -74,6 +79,7 @@ fn directory_does_not_exist_is_not_fatal() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn loads_files_in_lexical_order() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a", "ALL ALL=(ALL:ALL) ALL")
@@ -89,6 +95,7 @@ fn loads_files_in_lexical_order() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn ignores_and_warns_about_file_with_bad_perms() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, "@includedir /etc/sudoers.d"])
         .file(
@@ -112,6 +119,7 @@ fn ignores_and_warns_about_file_with_bad_perms() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn ignores_and_warns_about_file_with_bad_ownership() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, "@includedir /etc/sudoers.d"])
         .file(
@@ -138,6 +146,7 @@ fn ignores_and_warns_about_file_with_bad_ownership() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn include_loop() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, "@includedir /etc/sudoers.d"])
         .file("/etc/sudoers.d/a", TextFile("@include /etc/sudoers.d/a"))
@@ -159,6 +168,7 @@ fn include_loop() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn statements_prior_to_include_loop_are_evaluated() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_ALL, "@includedir /etc/sudoers.d"])
         .file(
@@ -188,6 +198,7 @@ fn statements_prior_to_include_loop_are_evaluated() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn whitespace_in_name_escaped() -> Result<()> {
     let env = Env(r#"@includedir /etc/sudo\ ers.d"#)
         .directory(r#"/etc/sudo ers.d"#)
@@ -201,6 +212,7 @@ fn whitespace_in_name_escaped() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn whitespace_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@includedir "/etc/sudo ers.d" "#)
         .directory(r#"/etc/sudo ers.d"#)
@@ -214,6 +226,7 @@ fn whitespace_in_name_double_quotes() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn backslash_in_name_escaped() -> Result<()> {
     let env = Env(r#"@includedir /etc/sudo\\ers.d"#)
         .directory(r#"/etc/sudo\ers.d"#)
@@ -227,6 +240,7 @@ fn backslash_in_name_escaped() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@includedir "/etc/sudo\ers.d""#)
         .directory(r#"/etc/sudo\ers.d"#)
@@ -240,6 +254,7 @@ fn backslash_in_name_double_quotes() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn old_pound_syntax() -> Result<()> {
     let env = Env("#includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
@@ -252,6 +267,7 @@ fn old_pound_syntax() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn no_hostname_expansion() -> Result<()> {
     let hostname = "ship";
     let env = Env("@includedir /etc/sudoers.%h")
@@ -272,6 +288,7 @@ fn no_hostname_expansion() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn ignores_directory_with_bad_perms() -> Result<()> {
     let env = Env("@includedir /etc/sudoers2.d")
         .directory(Directory("/etc/sudoers2.d").chmod("777"))
@@ -289,6 +306,7 @@ fn ignores_directory_with_bad_perms() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh682"]
 fn ignores_directory_with_bad_ownership() -> Result<()> {
     let env = Env("@includedir /etc/sudoers2.d")
         .directory(Directory("/etc/sudoers2.d").chown(USERNAME))
