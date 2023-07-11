@@ -234,3 +234,46 @@ fn hostname_expansion() -> Result<()> {
         .output(&env)?
         .assert_success()
 }
+
+#[test]
+fn relative_path_parent_directory() -> Result<()> {
+    let env = Env("@include ../sudoers2")
+        .file("/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+fn relative_path_grandparent_directory() -> Result<()> {
+    // base path is `/etc/sudoers` so grandparent does not exist
+    let env = Env("@include ../../sudoers2").build()?;
+
+    let output = Command::new("sudo").arg("true").output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: unable to open /etc/../../sudoers2: No such file or directory"
+    } else {
+        "sudo-rs: cannot open sudoers file '../../sudoers2'"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh673"]
+fn relative_path_dot_slash() -> Result<()> {
+    let env = Env("@include ./sudoers2")
+        .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .output(&env)?
+        .assert_success()
+}
