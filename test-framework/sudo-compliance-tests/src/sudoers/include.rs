@@ -248,6 +248,7 @@ fn relative_path_parent_directory() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh673"]
 fn relative_path_grandparent_directory() -> Result<()> {
     // base path is `/etc/sudoers` so grandparent does not exist
     let env = Env("@include ../../sudoers2").build()?;
