@@ -6,7 +6,6 @@ use crate::{
 };
 
 #[test]
-#[ignore = "gh657"]
 fn when_present_changes_perms_of_existing_file() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
