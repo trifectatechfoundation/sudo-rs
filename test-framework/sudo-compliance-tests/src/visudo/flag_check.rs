@@ -161,7 +161,6 @@ fn flag_file() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_file_bad_syntax() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
