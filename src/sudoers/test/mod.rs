@@ -353,6 +353,12 @@ fn hashsign_test() {
 }
 
 #[test]
+fn gh674_at_include_quoted_backslash() {
+    let Sudo::Include(_) = parse_line(r#"@include "/etc/sudo\ers" "#) else { panic!() };
+    let Sudo::IncludeDir(_) = parse_line(r#"@includedir "/etc/sudo\ers.d" "#) else { panic!() };
+}
+
+#[test]
 #[should_panic]
 fn hashsign_error() {
     let Sudo::Include(_) = parse_line("#include foo bar") else { todo!() };

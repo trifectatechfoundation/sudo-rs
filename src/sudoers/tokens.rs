@@ -246,6 +246,27 @@ impl Token for QuotedText {
     }
 }
 
+// `@include "some/path"`
+//           ^^^^^^^^^^^
+pub struct QuotedInclude(pub String);
+
+impl Token for QuotedInclude {
+    const MAX_LEN: usize = 1024;
+
+    fn construct(s: String) -> Result<Self, String> {
+        Ok(QuotedInclude(s))
+    }
+
+    fn accept(c: char) -> bool {
+        !Self::escaped(c)
+    }
+
+    const ESCAPE: char = '\\';
+    fn escaped(c: char) -> bool {
+        matches!(c, '"') || c.is_control()
+    }
+}
+
 pub struct IncludePath(pub String);
 
 impl Token for IncludePath {
