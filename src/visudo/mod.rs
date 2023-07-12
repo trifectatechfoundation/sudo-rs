@@ -94,7 +94,7 @@ fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()
         sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
     }
 
-    if owner {
+    if owner || file_arg.is_none() {
         sudoers_file.chown(User::real_uid(), User::real_gid())?;
     }
 

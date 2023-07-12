@@ -52,7 +52,6 @@ fn when_absent_ownership_is_preserved() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn etc_sudoers_ownership_is_always_changed() -> Result<()> {
     let file_path = ETC_SUDOERS;
     let env = Env(TextFile("").chown(format!("{USERNAME}:users")).chmod("777"))
