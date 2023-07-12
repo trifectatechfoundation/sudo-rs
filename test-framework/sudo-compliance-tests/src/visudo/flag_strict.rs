@@ -55,7 +55,12 @@ fn alias_cycle() -> Result<()> {
 
     assert!(output.status().success());
     assert_contains!(output.stderr(), diagnostic);
-    assert_not_contains!(output.stdout()?, prompt);
+    if sudo_test::is_original_sudo() {
+        assert_not_contains!(output.stdout()?, prompt);
+    } else {
+        // visudo-rs is always strict
+        assert_contains!(output.stdout()?, prompt);
+    }
 
     Ok(())
 }
