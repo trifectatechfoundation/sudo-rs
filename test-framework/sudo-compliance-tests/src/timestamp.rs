@@ -154,9 +154,12 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<(
 
 #[test]
 fn cached_credential_shared_with_target_user_that_is_self_on_the_same_tty() -> Result<()> {
-    let env = Env(["Defaults !use_pty".to_string(), format!("{USERNAME} ALL=(ALL:ALL) ALL")])
-        .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+    let env = Env([
+        "Defaults !use_pty".to_string(),
+        format!("{USERNAME} ALL=(ALL:ALL) ALL"),
+    ])
+    .user(User(USERNAME).password(PASSWORD))
+    .build()?;
 
     Command::new("sh")
         .arg("-c")
@@ -173,9 +176,12 @@ fn cached_credential_shared_with_target_user_that_is_self_on_the_same_tty() -> R
 
 #[test]
 fn cached_credential_not_shared_with_self_across_ttys() -> Result<()> {
-    let env = Env(["Defaults use_pty".to_string(), format!("{USERNAME} ALL=(ALL:ALL) ALL")])
-        .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+    let env = Env([
+        "Defaults use_pty".to_string(),
+        format!("{USERNAME} ALL=(ALL:ALL) ALL"),
+    ])
+    .user(User(USERNAME).password(PASSWORD))
+    .build()?;
 
     let output = Command::new("sh")
         .arg("-c")
