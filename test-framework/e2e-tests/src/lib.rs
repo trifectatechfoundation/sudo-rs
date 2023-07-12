@@ -1,5 +1,6 @@
 #![cfg(test)]
 
+mod pty;
 mod su;
 
 type Error = Box<dyn std::error::Error>;
