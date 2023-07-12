@@ -11,6 +11,7 @@ mod flag_owner;
 mod flag_perms;
 mod flag_quiet;
 mod flag_version;
+mod include;
 mod sudoers;
 mod what_now_prompt;
 
