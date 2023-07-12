@@ -331,6 +331,10 @@ impl User {
         unsafe { libc::getuid() }
     }
 
+    pub fn real_gid() -> GroupId {
+        unsafe { libc::getgid() }
+    }
+
     pub fn real() -> std::io::Result<Option<User>> {
         Self::from_uid(Self::real_uid())
     }
