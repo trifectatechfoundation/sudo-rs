@@ -307,7 +307,6 @@ mod tests {
     fn it_parses_combined_options() {
         let expected = SuOptions {
             login: true,
-            pty: true,
             ..Default::default()
         };
 
@@ -319,7 +318,6 @@ mod tests {
     fn it_parses_combined_options_and_arguments() {
         let expected = SuOptions {
             login: true,
-            pty: true,
             shell: Some("/bin/bash".into()),
             ..Default::default()
         };
@@ -337,7 +335,6 @@ mod tests {
         assert_eq!(
             SuOptions {
                 user: "ferris".to_string(),
-                pty: true,
                 ..Default::default()
             },
             parse(&["-P", "ferris"])
@@ -357,7 +354,6 @@ mod tests {
     fn it_parses_arguments() {
         let expected = SuOptions {
             user: "ferris".to_string(),
-            pty: true,
             arguments: vec!["script.sh".to_string()],
             ..Default::default()
         };
@@ -427,10 +423,7 @@ mod tests {
 
     #[test]
     fn it_parses_pty() {
-        let expected = SuOptions {
-            pty: true,
-            ..Default::default()
-        };
+        let expected = SuOptions::default();
         assert_eq!(expected, parse(&["-P"]));
         assert_eq!(expected, parse(&["--pty"]));
     }
