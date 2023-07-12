@@ -238,7 +238,7 @@ impl RunOptions for SuContext {
     }
 
     fn use_pty(&self) -> bool {
-        self.options.pty
+        true
     }
 }
 

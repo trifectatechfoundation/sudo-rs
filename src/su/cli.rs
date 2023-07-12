@@ -6,7 +6,6 @@ pub struct SuOptions {
     pub command: Option<String>,
     pub group: Vec<String>,
     pub supp_group: Vec<String>,
-    pub pty: bool,
     pub login: bool,
     pub preserve_environment: bool,
     pub shell: Option<PathBuf>,
@@ -22,7 +21,6 @@ impl Default for SuOptions {
             command: None,
             group: vec![],
             supp_group: vec![],
-            pty: false,
             login: false,
             preserve_environment: false,
             shell: None,
@@ -124,10 +122,7 @@ impl SuOptions {
             short: 'P',
             long: "pty",
             takes_argument: false,
-            set: &|sudo_options, _| {
-                sudo_options.pty = true;
-                Ok(())
-            },
+            set: &|_sudo_options, _| Ok(()),
         },
         SuOption {
             short: 's',
@@ -312,7 +307,6 @@ mod tests {
     fn it_parses_combined_options() {
         let expected = SuOptions {
             login: true,
-            pty: true,
             ..Default::default()
         };
 
@@ -324,7 +318,6 @@ mod tests {
     fn it_parses_combined_options_and_arguments() {
         let expected = SuOptions {
             login: true,
-            pty: true,
             shell: Some("/bin/bash".into()),
             ..Default::default()
         };
@@ -342,7 +335,6 @@ mod tests {
         assert_eq!(
             SuOptions {
                 user: "ferris".to_string(),
-                pty: true,
                 ..Default::default()
             },
             parse(&["-P", "ferris"])
@@ -362,7 +354,6 @@ mod tests {
     fn it_parses_arguments() {
         let expected = SuOptions {
             user: "ferris".to_string(),
-            pty: true,
             arguments: vec!["script.sh".to_string()],
             ..Default::default()
         };
@@ -432,10 +423,7 @@ mod tests {
 
     #[test]
     fn it_parses_pty() {
-        let expected = SuOptions {
-            pty: true,
-            ..Default::default()
-        };
+        let expected = SuOptions::default();
         assert_eq!(expected, parse(&["-P"]));
         assert_eq!(expected, parse(&["--pty"]));
     }
