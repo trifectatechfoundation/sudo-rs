@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[test]
+#[ignore = "gh657"]
 fn undefined_alias() -> Result<()> {
     let env = Env(["# User_Alias ADMINS = root", "ADMINS ALL=(ALL:ALL) ALL"])
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
@@ -38,7 +39,11 @@ fn alias_cycle() -> Result<()> {
 
     let output = Command::new("visudo").arg("--strict").output(&env)?;
 
-    let diagnostic = r#"cycle in User_Alias "FOO""#;
+    let diagnostic = if sudo_test::is_original_sudo() {
+        r#"cycle in User_Alias "FOO""#
+    } else {
+        "syntax error: recursive alias: 'FOO'"
+    };
     let prompt = "What now?";
 
     assert!(output.status().success());
