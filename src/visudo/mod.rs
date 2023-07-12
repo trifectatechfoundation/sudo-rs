@@ -2,9 +2,10 @@ mod cli;
 mod help;
 
 use std::{
+    ffi::{CStr, CString, OsString},
     fs::{File, Permissions},
     io::{self, Read, Seek, Write},
-    os::unix::prelude::PermissionsExt,
+    os::unix::prelude::{OsStringExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -82,7 +83,7 @@ fn run_visudo(file_arg: Option<&str>) -> io::Result<()> {
     })?;
 
     let result: io::Result<()> = (|| {
-        let tmp_path = sudoers_path.with_extension("tmp");
+        let tmp_path = create_temporary_dir()?.join("sudoers");
 
         let mut tmp_file = File::options()
             .read(true)
@@ -201,4 +202,27 @@ fn solve_editor_path() -> io::Result<PathBuf> {
         io::ErrorKind::NotFound,
         "cannot find text editor",
     ))
+}
+
+macro_rules! cstr {
+    ($expr:expr) => {{
+        let _: &'static [u8] = $expr;
+        debug_assert!(std::ffi::CStr::from_bytes_with_nul($expr).is_ok());
+        // SAFETY: see `debug_assert!` above
+        unsafe { CStr::from_bytes_with_nul_unchecked($expr) }
+    }};
+}
+
+fn create_temporary_dir() -> io::Result<PathBuf> {
+    let template = cstr!(b"/tmp/sudoers-XXXXXX\0").to_owned();
+
+    let ptr = unsafe { libc::mkdtemp(template.into_raw()) };
+
+    if ptr.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+
+    let path = OsString::from_vec(unsafe { CString::from_raw(ptr) }.into_bytes()).into();
+
+    Ok(path)
 }

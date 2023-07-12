@@ -5,6 +5,18 @@ use crate::{
     Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL, USERNAME,
 };
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            filters => vec![(r"sudoers-[a-zA-Z0-9]{6}", "[mkdtemp]")],
+            prepend_module_to_snapshot => false,
+            snapshot_path => "../snapshots/visudo/flag_file",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 #[test]
 fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
     let env = Env("")
@@ -168,7 +180,11 @@ echo "$@" > {LOGS_PATH}"#
 
     let args = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
 
-    assert_eq!(format!("-- {file_path}.tmp"), args);
+    if sudo_test::is_original_sudo() {
+        assert_eq!(format!("-- {file_path}.tmp"), args);
+    } else {
+        assert_snapshot!(args);
+    }
 
     Ok(())
 }

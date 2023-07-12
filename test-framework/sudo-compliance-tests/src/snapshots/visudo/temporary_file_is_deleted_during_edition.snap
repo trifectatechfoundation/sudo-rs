@@ -1,0 +1,5 @@
+---
+source: sudo-compliance-tests/src/visudo.rs
+expression: stderr
+---
+visudo: unable to re-open temporary file (/tmp/[mkdtemp]/sudoers), /etc/sudoers unchanged: No such file or directory (os error 2)

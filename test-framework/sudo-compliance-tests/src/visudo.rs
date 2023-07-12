@@ -14,6 +14,18 @@ mod flag_version;
 mod sudoers;
 mod what_now_prompt;
 
+macro_rules! assert_snapshot {
+    ($($tt:tt)*) => {
+        insta::with_settings!({
+            filters => vec![(r"sudoers-[a-zA-Z0-9]{6}", "[mkdtemp]")],
+            prepend_module_to_snapshot => false,
+            snapshot_path => "snapshots/visudo",
+        }, {
+            insta::assert_snapshot!($($tt)*)
+        });
+    };
+}
+
 const TMP_SUDOERS: &str = "/tmp/sudoers";
 const ETC_SUDOERS: &str = "/etc/sudoers";
 const DEFAULT_EDITOR: &str = "/usr/bin/editor";
@@ -118,22 +130,31 @@ echo "$@" > {LOGS_PATH}"#
 
     let args = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
 
-    assert_eq!("-- /etc/sudoers.tmp", args);
+    if sudo_test::is_original_sudo() {
+        assert_eq!("-- /etc/sudoers.tmp", args);
+    } else {
+        assert_snapshot!(args);
+    }
 
     Ok(())
 }
 
 #[test]
 fn temporary_file_owner_and_perms() -> Result<()> {
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let editor_script = if sudo_test::is_original_sudo() {
+        format!(
+            r#"#!/bin/sh
 ls -l /etc/sudoers.tmp > {LOGS_PATH}"#
-            ))
-            .chmod(CHMOD_EXEC),
         )
+    } else {
+        format!(
+            r#"#!/bin/sh
+ls -l /tmp/sudoers-*/sudoers > {LOGS_PATH}"#
+        )
+    };
+
+    let env = Env("")
+        .file(DEFAULT_EDITOR, TextFile(editor_script).chmod(CHMOD_EXEC))
         .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
@@ -186,7 +207,12 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
     let output = Command::new("visudo").output(&env)?;
 
     assert!(output.status().success());
-    assert_eq!(output.stderr(), "visudo: /etc/sudoers.tmp unchanged");
+    let stderr = output.stderr();
+    if sudo_test::is_original_sudo() {
+        assert_eq!(output.stderr(), "visudo: /etc/sudoers.tmp unchanged");
+    } else {
+        assert_snapshot!(stderr);
+    }
 
     let actual = Command::new("cat")
         .arg(ETC_SUDOERS)
@@ -274,10 +300,14 @@ rm $2",
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
     let stderr = output.stderr();
-    assert_contains!(
-        stderr,
-        "visudo: unable to re-open temporary file (/etc/sudoers.tmp), /etc/sudoers unchanged"
-    );
+    if sudo_test::is_original_sudo() {
+        assert_contains!(
+            stderr,
+            "visudo: unable to re-open temporary file (/etc/sudoers.tmp), /etc/sudoers unchanged"
+        );
+    } else {
+        assert_snapshot!(stderr);
+    }
 
     Ok(())
 }
