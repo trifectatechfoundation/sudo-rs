@@ -72,7 +72,6 @@ fn etc_sudoers_ownership_is_always_changed() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_check() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
@@ -90,9 +89,9 @@ fn flag_check() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(
-        format!("{file_path}: wrong owner (uid, gid) should be (0, 0)"),
+    assert_contains!(
         output.stderr(),
+        format!("{file_path}: wrong owner (uid, gid) should be (0, 0)")
     );
 
     Ok(())

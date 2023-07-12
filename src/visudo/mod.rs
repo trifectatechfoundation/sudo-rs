@@ -60,7 +60,7 @@ pub fn main() {
     }
 }
 
-fn check(file_arg: Option<&str>, _perms: bool, _owner: bool) -> io::Result<()> {
+fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
     let sudoers_file = File::open(sudoers_path)
@@ -68,7 +68,7 @@ fn check(file_arg: Option<&str>, _perms: bool, _owner: bool) -> io::Result<()> {
 
     let metadata = sudoers_file.metadata()?;
 
-    if file_arg.is_none() {
+    if file_arg.is_none() || perms {
         // For some reason, the MSB of the mode is on so we need to mask it.
         let mode = metadata.permissions().mode() & 0o777;
 
@@ -81,7 +81,9 @@ fn check(file_arg: Option<&str>, _perms: bool, _owner: bool) -> io::Result<()> {
                 ),
             ));
         }
+    }
 
+    if file_arg.is_none() || owner {
         let owner = (metadata.uid(), metadata.gid());
 
         if owner != (0, 0) {
