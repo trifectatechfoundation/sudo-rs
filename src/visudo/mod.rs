@@ -69,7 +69,7 @@ fn check(file_arg: Option<&str>, _perms: bool, _owner: bool) -> io::Result<()> {
     // For some reason, the MSB of the mode is on so we need to mask it.
     let mode = sudoers_file.metadata()?.permissions().mode() & 0o777;
 
-    if mode != 0o440 {
+    if file_arg.is_none() && mode != 0o440 {
         return Err(io::Error::new(
             io::ErrorKind::Other,
             format!(
