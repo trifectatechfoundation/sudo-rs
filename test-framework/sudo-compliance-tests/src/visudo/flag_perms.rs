@@ -52,7 +52,6 @@ fn when_absent_perms_are_preserved() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn etc_sudoers_perms_are_always_changed() -> Result<()> {
     let file_path = ETC_SUDOERS;
     let env = Env(TextFile("").chmod("777"))

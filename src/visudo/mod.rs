@@ -82,7 +82,7 @@ fn run_visudo(file_arg: Option<&str>, perms: bool) -> io::Result<()> {
         }
     })?;
 
-    if perms {
+    if perms || file_arg.is_none() {
         sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
     }
 
