@@ -433,7 +433,7 @@ impl Parse for Sudo {
 fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
     fn get_path(stream: &mut impl CharStream) -> Parsed<String> {
         if accept_if(|c| c == '"', stream).is_ok() {
-            let QuotedText(path) = expect_nonterminal(stream)?;
+            let QuotedInclude(path) = expect_nonterminal(stream)?;
             expect_syntax('"', stream)?;
             make(path)
         } else {

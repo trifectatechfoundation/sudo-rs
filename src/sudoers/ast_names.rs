@@ -69,6 +69,10 @@ mod names {
         const DESCRIPTION: &'static str = "non-empty string";
     }
 
+    impl UserFriendly for tokens::QuotedInclude {
+        const DESCRIPTION: &'static str = "non-empty string";
+    }
+
     impl UserFriendly for tokens::StringParameter {
         const DESCRIPTION: &'static str = tokens::QuotedText::DESCRIPTION;
     }

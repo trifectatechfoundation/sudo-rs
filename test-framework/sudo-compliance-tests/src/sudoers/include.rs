@@ -93,7 +93,6 @@ fn backslash_in_name() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh674"]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@include "/etc/sudo\ers" "#)
         .file(r#"/etc/sudo\ers"#, SUDOERS_ALL_ALL_NOPASSWD)
