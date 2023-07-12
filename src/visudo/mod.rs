@@ -67,6 +67,23 @@ pub fn main() {
 fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool, check: bool) -> io::Result<()> {
     let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
+    if check {
+        let sudoers_file = File::open(sudoers_path)
+            .map_err(|err| io_msg!(err, "unable to open {}", sudoers_path.display()))?;
+
+        let (_sudoers, errors) = Sudoers::read(&sudoers_file)?;
+
+        return if errors.is_empty() {
+            println!("{}: parsed OK", sudoers_path.display());
+            Ok(())
+        } else {
+            for crate::sudoers::Error(_position, message) in errors {
+                eprintln!("syntax error: {message}");
+            }
+            Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
+        };
+    }
+
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;
 
@@ -91,20 +108,6 @@ fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool, check: bool) -> 
     })?;
 
     let result: io::Result<()> = (|| {
-        if check {
-            let (_sudoers, errors) = Sudoers::read(&sudoers_file)?;
-
-            return if errors.is_empty() {
-                println!("{}: parsed OK", sudoers_path.display());
-                Ok(())
-            } else {
-                for crate::sudoers::Error(_position, message) in errors {
-                    eprintln!("syntax error: {message}");
-                }
-                Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
-            };
-        }
-
         if perms || file_arg.is_none() {
             sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
         }

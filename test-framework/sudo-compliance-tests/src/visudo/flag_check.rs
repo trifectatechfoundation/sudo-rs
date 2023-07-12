@@ -69,7 +69,6 @@ fn bad_syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn file_does_not_exist() -> Result<()> {
     let env = Env("").build()?;
 
@@ -82,9 +81,9 @@ fn file_does_not_exist() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(
-        "visudo: unable to open /etc/sudoers: No such file or directory",
-        output.stderr()
+    assert_contains!(
+        output.stderr(),
+        "visudo: unable to open /etc/sudoers: No such file or directory"
     );
 
     Ok(())
