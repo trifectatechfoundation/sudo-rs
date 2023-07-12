@@ -5,7 +5,7 @@ use std::{
     ffi::{CStr, CString, OsString},
     fs::{File, Permissions},
     io::{self, Read, Seek, Write},
-    os::unix::prelude::{OsStringExt, PermissionsExt},
+    os::unix::prelude::{MetadataExt, OsStringExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -66,17 +66,33 @@ fn check(file_arg: Option<&str>, _perms: bool, _owner: bool) -> io::Result<()> {
     let sudoers_file = File::open(sudoers_path)
         .map_err(|err| io_msg!(err, "unable to open {}", sudoers_path.display()))?;
 
-    // For some reason, the MSB of the mode is on so we need to mask it.
-    let mode = sudoers_file.metadata()?.permissions().mode() & 0o777;
+    let metadata = sudoers_file.metadata()?;
 
-    if file_arg.is_none() && mode != 0o440 {
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!(
-                "{}: bad permissions, should be mode 0440, but found {mode:04o}",
-                sudoers_path.display()
-            ),
-        ));
+    if file_arg.is_none() {
+        // For some reason, the MSB of the mode is on so we need to mask it.
+        let mode = metadata.permissions().mode() & 0o777;
+
+        if mode != 0o440 {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "{}: bad permissions, should be mode 0440, but found {mode:04o}",
+                    sudoers_path.display()
+                ),
+            ));
+        }
+
+        let owner = (metadata.uid(), metadata.gid());
+
+        if owner != (0, 0) {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "{}: wrong owner (uid, gid) should be (0, 0), but found {owner:?}",
+                    sudoers_path.display()
+                ),
+            ));
+        }
     }
 
     let (_sudoers, errors) = Sudoers::read(&sudoers_file)?;

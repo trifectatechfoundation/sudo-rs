@@ -36,7 +36,6 @@ fn bad_perms() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn bad_ownership() -> Result<()> {
     let env = Env(TextFile("").chown(USERNAME).chmod(DEFAULT_CHMOD))
         .user(USERNAME)
@@ -46,9 +45,9 @@ fn bad_ownership() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(
-        "/etc/sudoers: wrong owner (uid, gid) should be (0, 0)",
-        output.stderr()
+    assert_contains!(
+        output.stderr(),
+        "/etc/sudoers: wrong owner (uid, gid) should be (0, 0)"
     );
 
     Ok(())
@@ -181,7 +180,6 @@ fn flag_file_bad_syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_file_does_not_check_perms_nor_ownership() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
