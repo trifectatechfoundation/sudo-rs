@@ -10,7 +10,13 @@ use std::{
     process::Command,
 };
 
-use crate::{sudoers::Sudoers, system::file::Lockable};
+use crate::{
+    sudoers::Sudoers,
+    system::{
+        file::{Chown, Lockable},
+        User,
+    },
+};
 
 use self::cli::VisudoOptions;
 use self::help::{long_help_message, USAGE_MSG};
@@ -45,17 +51,19 @@ pub fn main() {
             eprintln!("check is unimplemented");
             std::process::exit(1);
         }
-        cli::VisudoAction::Run => match run_visudo(options.file.as_deref(), options.perms) {
-            Ok(()) => {}
-            Err(error) => {
-                eprintln!("visudo: {error}");
-                std::process::exit(1);
+        cli::VisudoAction::Run => {
+            match run_visudo(options.file.as_deref(), options.perms, options.owner) {
+                Ok(()) => {}
+                Err(error) => {
+                    eprintln!("visudo: {error}");
+                    std::process::exit(1);
+                }
             }
-        },
+        }
     }
 }
 
-fn run_visudo(file_arg: Option<&str>, perms: bool) -> io::Result<()> {
+fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
@@ -84,6 +92,10 @@ fn run_visudo(file_arg: Option<&str>, perms: bool) -> io::Result<()> {
 
     if perms || file_arg.is_none() {
         sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
+    }
+
+    if owner {
+        sudoers_file.chown(User::real_uid(), User::real_gid())?;
     }
 
     let result: io::Result<()> = (|| {
