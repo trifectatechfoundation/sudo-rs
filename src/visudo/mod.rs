@@ -88,15 +88,15 @@ fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()
         }
     })?;
 
-    if perms || file_arg.is_none() {
-        sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
-    }
-
-    if owner || file_arg.is_none() {
-        sudoers_file.chown(User::real_uid(), User::real_gid())?;
-    }
-
     let result: io::Result<()> = (|| {
+        if perms || file_arg.is_none() {
+            sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
+        }
+
+        if owner || file_arg.is_none() {
+            sudoers_file.chown(User::real_uid(), User::real_gid())?;
+        }
+
         let tmp_path = create_temporary_dir()?.join("sudoers");
 
         let mut tmp_file = File::options()
