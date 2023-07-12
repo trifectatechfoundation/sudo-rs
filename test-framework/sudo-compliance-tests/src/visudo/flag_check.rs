@@ -7,7 +7,6 @@ use super::TMP_SUDOERS;
 const DEFAULT_CHMOD: &str = "440";
 
 #[test]
-#[ignore = "gh657"]
 fn no_syntax_errors_and_ok_ownership_and_perms() -> Result<()> {
     let env = Env(TextFile("").chmod(DEFAULT_CHMOD)).build()?;
 
@@ -57,7 +56,6 @@ fn bad_ownership() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn bad_syntax() -> Result<()> {
     let env = Env(TextFile("this is fine").chmod(DEFAULT_CHMOD)).build()?;
 

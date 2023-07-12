@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-use self::cli::VisudoOptions;
+use self::cli::{VisudoAction, VisudoOptions};
 use self::help::{long_help_message, USAGE_MSG};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -39,20 +39,21 @@ pub fn main() {
     };
 
     match options.action {
-        cli::VisudoAction::Help => {
+        VisudoAction::Help => {
             println!("{}", long_help_message());
             std::process::exit(0);
         }
-        cli::VisudoAction::Version => {
+        VisudoAction::Version => {
             println!("visudo version {VERSION}");
             std::process::exit(0);
         }
-        cli::VisudoAction::Check => {
-            eprintln!("check is unimplemented");
-            std::process::exit(1);
-        }
-        cli::VisudoAction::Run => {
-            match run_visudo(options.file.as_deref(), options.perms, options.owner) {
+        action @ (VisudoAction::Run | VisudoAction::Check) => {
+            match run_visudo(
+                options.file.as_deref(),
+                options.perms,
+                options.owner,
+                matches!(action, VisudoAction::Check),
+            ) {
                 Ok(()) => {}
                 Err(error) => {
                     eprintln!("visudo: {error}");
@@ -63,11 +64,12 @@ pub fn main() {
     }
 }
 
-fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
+fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool, check: bool) -> io::Result<()> {
     let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
     let (mut sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;
+
         (file, true)
     } else {
         // Create a sudoers file if it doesn't exist.
@@ -89,6 +91,20 @@ fn run_visudo(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()
     })?;
 
     let result: io::Result<()> = (|| {
+        if check {
+            let (_sudoers, errors) = Sudoers::read(&sudoers_file)?;
+
+            return if errors.is_empty() {
+                println!("{}: parsed OK", sudoers_path.display());
+                Ok(())
+            } else {
+                for crate::sudoers::Error(_position, message) in errors {
+                    eprintln!("syntax error: {message}");
+                }
+                Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
+            };
+        }
+
         if perms || file_arg.is_none() {
             sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
         }
