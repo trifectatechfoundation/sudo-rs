@@ -6,7 +6,6 @@ pub struct SuOptions {
     pub command: Option<String>,
     pub group: Vec<String>,
     pub supp_group: Vec<String>,
-    pub pty: bool,
     pub login: bool,
     pub preserve_environment: bool,
     pub shell: Option<PathBuf>,
@@ -22,7 +21,6 @@ impl Default for SuOptions {
             command: None,
             group: vec![],
             supp_group: vec![],
-            pty: false,
             login: false,
             preserve_environment: false,
             shell: None,
@@ -124,10 +122,7 @@ impl SuOptions {
             short: 'P',
             long: "pty",
             takes_argument: false,
-            set: &|sudo_options, _| {
-                sudo_options.pty = true;
-                Ok(())
-            },
+            set: &|_sudo_options, _| Ok(()),
         },
         SuOption {
             short: 's',
