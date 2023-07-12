@@ -5,7 +5,6 @@ use crate::{
 };
 
 #[test]
-#[ignore = "gh682"]
 fn absolute_path() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
@@ -18,7 +17,6 @@ fn absolute_path() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn relative_path() -> Result<()> {
     let env = Env("@includedir sudoers.d")
         .file("/etc/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
@@ -79,7 +77,6 @@ fn directory_does_not_exist_is_not_fatal() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn loads_files_in_lexical_order() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a", "ALL ALL=(ALL:ALL) ALL")
@@ -198,7 +195,6 @@ fn statements_prior_to_include_loop_are_evaluated() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn whitespace_in_name_escaped() -> Result<()> {
     let env = Env(r#"@includedir /etc/sudo\ ers.d"#)
         .directory(r#"/etc/sudo ers.d"#)
@@ -212,7 +208,6 @@ fn whitespace_in_name_escaped() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn whitespace_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@includedir "/etc/sudo ers.d" "#)
         .directory(r#"/etc/sudo ers.d"#)
@@ -226,7 +221,6 @@ fn whitespace_in_name_double_quotes() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn backslash_in_name_escaped() -> Result<()> {
     let env = Env(r#"@includedir /etc/sudo\\ers.d"#)
         .directory(r#"/etc/sudo\ers.d"#)
@@ -240,7 +234,6 @@ fn backslash_in_name_escaped() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@includedir "/etc/sudo\ers.d""#)
         .directory(r#"/etc/sudo\ers.d"#)
@@ -254,7 +247,6 @@ fn backslash_in_name_double_quotes() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn old_pound_syntax() -> Result<()> {
     let env = Env("#includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
@@ -328,7 +320,6 @@ fn ignores_directory_with_bad_ownership() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn relative_path_parent_directory() -> Result<()> {
     let env = Env("@includedir ../sudoers.d")
         .directory("/sudoers.d")
@@ -342,7 +333,6 @@ fn relative_path_parent_directory() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn relative_path_grandparent_directory() -> Result<()> {
     // base path is `/etc/` so grandparent does not exist
     let env = Env("@includedir ../../sudoers.d")
@@ -357,7 +347,6 @@ fn relative_path_grandparent_directory() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn relative_path_dot_slash() -> Result<()> {
     // base path is `/etc/` so grandparent does not exist
     let env = Env("@includedir ./sudoers.d")
