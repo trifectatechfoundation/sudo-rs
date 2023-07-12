@@ -12,7 +12,7 @@ fn no_syntax_errors_and_ok_ownership_and_perms() -> Result<()> {
 
     let output = Command::new("visudo").arg("-c").output(&env)?;
 
-    assert!(output.status().success());
+    assert!(output.status().success(), "{}", output.stderr());
     assert!(output.stderr().is_empty());
     assert_eq!("/etc/sudoers: parsed OK", output.stdout()?);
 
@@ -20,7 +20,6 @@ fn no_syntax_errors_and_ok_ownership_and_perms() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn bad_perms() -> Result<()> {
     let env = Env(TextFile("").chmod("444")).build()?;
 
@@ -28,9 +27,9 @@ fn bad_perms() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(
-        "/etc/sudoers: bad permissions, should be mode 0440",
-        output.stderr()
+    assert_contains!(
+        output.stderr(),
+        "/etc/sudoers: bad permissions, should be mode 0440"
     );
 
     Ok(())
