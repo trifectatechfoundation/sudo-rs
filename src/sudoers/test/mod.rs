@@ -79,7 +79,7 @@ fn permission_test() {
 
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-            let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
+            let (Sudoers { rules,aliases,settings }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
             assert_eq!(Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags, None);
@@ -88,7 +88,7 @@ fn permission_test() {
 
     macro_rules! pass {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
-            let (Sudoers { rules,aliases,settings }, _) = analyze(sudoer![$($sudo),*]);
+            let (Sudoers { rules,aliases,settings }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
             let result = Sudoers { rules, aliases, settings }.check(&Named($user), $server, req).flags;
@@ -235,12 +235,15 @@ fn permission_test() {
 
 #[test]
 fn default_bool_test() {
-    let (Sudoers { settings, .. }, _) = analyze(sudoer![
-        "Defaults env_reset",
-        "Defaults !use_pty",
-        "Defaults !env_keep",
-        "Defaults !secure_path"
-    ]);
+    let (Sudoers { settings, .. }, _) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer![
+            "Defaults env_reset",
+            "Defaults !use_pty",
+            "Defaults !env_keep",
+            "Defaults !secure_path"
+        ],
+    );
     assert!(settings.flags.contains("env_reset"));
     assert!(!settings.flags.contains("use_pty"));
     assert!(settings.list["env_keep"].is_empty());
@@ -249,15 +252,18 @@ fn default_bool_test() {
 
 #[test]
 fn default_set_test() {
-    let (Sudoers { settings, .. }, _) = analyze(sudoer![
-        "Defaults env_keep = \"FOO HUK BAR\"",
-        "Defaults env_keep -= HUK",
-        "Defaults !env_check",
-        "Defaults env_check += \"FOO\"",
-        "Defaults env_check += \"XYZZY\"",
-        "Defaults passwd_tries = 5",
-        "Defaults secure_path = /etc"
-    ]);
+    let (Sudoers { settings, .. }, _) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer![
+            "Defaults env_keep = \"FOO HUK BAR\"",
+            "Defaults env_keep -= HUK",
+            "Defaults !env_check",
+            "Defaults env_check += \"FOO\"",
+            "Defaults env_check += \"XYZZY\"",
+            "Defaults passwd_tries = 5",
+            "Defaults secure_path = /etc"
+        ],
+    );
     assert_eq!(
         settings.list["env_keep"],
         ["FOO", "BAR"].into_iter().map(|x| x.to_string()).collect()
@@ -279,9 +285,12 @@ fn default_set_test() {
 
 #[test]
 fn default_multi_test() {
-    let (Sudoers { settings, .. }, _) = analyze(sudoer![
+    let (Sudoers { settings, .. }, _) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer![
         "Defaults env_reset, !use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
-    ]);
+    ],
+    );
     assert!(settings.flags.contains("env_reset"));
     assert!(!settings.flags.contains("use_pty"));
     assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));

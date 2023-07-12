@@ -10,7 +10,7 @@ mod tokens;
 
 use std::collections::{HashMap, HashSet};
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::log::auth_warn;
 use crate::system::interface::{UnixGroup, UnixUser};
@@ -53,12 +53,15 @@ pub use policy::{Authorization, DirChange, Policy, PreJudgementPolicy};
 impl Sudoers {
     pub fn open(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), io::Error> {
         let sudoers = open_sudoers(path.as_ref())?;
-        Ok(analyze(sudoers))
+        Ok(analyze(path.as_ref(), sudoers))
     }
 
-    pub fn read<R: io::Read>(reader: R) -> Result<(Sudoers, Vec<Error>), io::Error> {
+    pub fn read<R: io::Read, P: AsRef<Path>>(
+        reader: R,
+        path: &P,
+    ) -> Result<(Sudoers, Vec<Error>), io::Error> {
         let sudoers = read_sudoers(reader)?;
-        Ok(analyze(sudoers))
+        Ok(analyze(path.as_ref(), sudoers))
     }
 
     pub fn check<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
@@ -397,11 +400,26 @@ impl Default for Settings {
 }
 
 /// Process a sudoers-parsing file into a workable AST
-fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Sudoers, Vec<Error>) {
+fn analyze(
+    path: &Path,
+    sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
+) -> (Sudoers, Vec<Error>) {
     use ConfigValue::*;
     use Directive::*;
 
     let mut result: Sudoers = Default::default();
+
+    fn resolve_relative(base: &Path, path: impl AsRef<Path>) -> PathBuf {
+        if path.as_ref().is_relative() {
+            // there should always be a parent since we start with /etc/sudoers, and make every other path
+            // absolute based on previous inputs; not having a parent is therefore a serious bug
+            base.parent()
+                .expect("invalid hardcoded path in sudo-rs")
+                .join(path)
+        } else {
+            path.as_ref().into()
+        }
+    }
 
     impl Sudoers {
         fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>, count: &mut u8) {
@@ -414,7 +432,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
             // that includes another non-privileged sudoer files.
             } else if let Ok(subsudoer) = open_sudoers(path) {
                 *count += 1;
-                self.process(subsudoer, diagnostics, count)
+                self.process(path, subsudoer, diagnostics, count)
             } else {
                 diagnostics.push(Error(
                     None,
@@ -425,6 +443,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
 
         fn process(
             &mut self,
+            cur_path: &Path,
             sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
             diagnostics: &mut Vec<Error>,
             safety_count: &mut u8,
@@ -447,19 +466,22 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
                             }
                         }
 
-                        Sudo::Include(path) => {
-                            self.include(path.as_ref(), diagnostics, safety_count)
-                        }
+                        Sudo::Include(path) => self.include(
+                            &resolve_relative(cur_path, path),
+                            diagnostics,
+                            safety_count,
+                        ),
 
                         Sudo::IncludeDir(path) => {
+                            let path = resolve_relative(cur_path, path);
                             let Ok(files) = std::fs::read_dir(&path) else {
-                                diagnostics.push(Error(None, format!("cannot open sudoers file {path}")));
+                                diagnostics.push(Error(None, format!("cannot open sudoers file {}", path.display())));
                                 continue;
                             };
                             let mut safe_files = files
                                 .filter_map(|direntry| {
                                     let path = direntry.ok()?.path();
-                                    let text = path.to_str()?;
+                                    let text = path.file_name()?.to_str()?;
                                     if text.ends_with('~') || text.contains('.') {
                                         None
                                     } else {
@@ -517,7 +539,7 @@ fn analyze(sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>) -> (Su
     }
 
     let mut diagnostics = vec![];
-    result.process(sudoers, &mut diagnostics, &mut 0);
+    result.process(path, sudoers, &mut diagnostics, &mut 0);
 
     let alias = &mut result.aliases;
     alias.user.0 = sanitize_alias_table(&alias.user.1, &mut diagnostics);

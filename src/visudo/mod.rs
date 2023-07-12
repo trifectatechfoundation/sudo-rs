@@ -111,17 +111,16 @@ fn run_visudo(file_arg: Option<&str>) -> io::Result<()> {
                 .spawn()?
                 .wait_with_output()?;
 
-            let (_sudoers, errors) =
-                File::open(&tmp_path)
-                    .and_then(Sudoers::read)
-                    .map_err(|err| {
-                        io_msg!(
-                            err,
-                            "unable to re-open temporary file ({}), {} unchanged",
-                            tmp_path.display(),
-                            sudoers_path.display()
-                        )
-                    })?;
+            let (_sudoers, errors) = File::open(&tmp_path)
+                .and_then(|reader| Sudoers::read(reader, &tmp_path))
+                .map_err(|err| {
+                    io_msg!(
+                        err,
+                        "unable to re-open temporary file ({}), {} unchanged",
+                        tmp_path.display(),
+                        sudoers_path.display()
+                    )
+                })?;
 
             if errors.is_empty() {
                 break;

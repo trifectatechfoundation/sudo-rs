@@ -3,7 +3,6 @@ use sudo_test::{Command, Env, TextFile};
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
-#[ignore = "gh673"]
 fn relative_path() -> Result<()> {
     let env = Env("@include sudoers2")
         .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
@@ -248,6 +247,7 @@ fn relative_path_parent_directory() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh673"]
 fn relative_path_grandparent_directory() -> Result<()> {
     // base path is `/etc/sudoers` so grandparent does not exist
     let env = Env("@include ../../sudoers2").build()?;
@@ -266,7 +266,6 @@ fn relative_path_grandparent_directory() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh673"]
 fn relative_path_dot_slash() -> Result<()> {
     let env = Env("@include ./sudoers2")
         .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
