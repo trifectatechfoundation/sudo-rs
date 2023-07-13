@@ -13,7 +13,7 @@ use std::{
 use crate::{
     sudoers::Sudoers,
     system::{
-        file::{Chown, Lockable},
+        file::{Chown, FileLock},
         User,
     },
 };
@@ -129,7 +129,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         (file, false)
     };
 
-    sudoers_file.lock_exclusive(true).map_err(|err| {
+    let lock = FileLock::exclusive(&sudoers_file, true).map_err(|err| {
         if err.kind() == io::ErrorKind::WouldBlock {
             io_msg!(err, "{} busy, try again later", sudoers_path.display())
         } else {
@@ -137,105 +137,99 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         }
     })?;
 
-    let result: io::Result<()> = (|| {
-        if perms || file_arg.is_none() {
-            sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
+    if perms || file_arg.is_none() {
+        sudoers_file.set_permissions(Permissions::from_mode(0o440))?;
+    }
+
+    if owner || file_arg.is_none() {
+        sudoers_file.chown(User::real_uid(), User::real_gid())?;
+    }
+
+    let tmp_path = create_temporary_dir()?.join("sudoers");
+
+    let mut tmp_file = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&tmp_path)?;
+    tmp_file.set_permissions(Permissions::from_mode(0o700))?;
+
+    let mut sudoers_contents = Vec::new();
+    if existed {
+        // If the sudoers file existed, read its contents and write them into the temporary file.
+        sudoers_file.read_to_end(&mut sudoers_contents)?;
+        // Rewind the sudoers file so it can be written later.
+        sudoers_file.rewind()?;
+        // Write to the temporary file.
+        tmp_file.write_all(&sudoers_contents)?;
+    }
+
+    let editor_path = solve_editor_path()?;
+
+    loop {
+        Command::new(&editor_path)
+            .arg("--")
+            .arg(&tmp_path)
+            .spawn()?
+            .wait_with_output()?;
+
+        let (_sudoers, errors) = File::open(&tmp_path)
+            .and_then(|reader| Sudoers::read(reader, &tmp_path))
+            .map_err(|err| {
+                io_msg!(
+                    err,
+                    "unable to re-open temporary file ({}), {} unchanged",
+                    tmp_path.display(),
+                    sudoers_path.display()
+                )
+            })?;
+
+        if errors.is_empty() {
+            break;
         }
 
-        if owner || file_arg.is_none() {
-            sudoers_file.chown(User::real_uid(), User::real_gid())?;
+        eprintln!("Come on... you can do better than that.\n");
+
+        for crate::sudoers::Error(_position, message) in errors {
+            eprintln!("syntax error: {message}");
         }
 
-        let tmp_path = create_temporary_dir()?.join("sudoers");
+        eprintln!();
 
-        let mut tmp_file = File::options()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&tmp_path)?;
-        tmp_file.set_permissions(Permissions::from_mode(0o700))?;
+        let stdin = io::stdin();
+        let stdout = io::stdout();
 
-        let mut sudoers_contents = Vec::new();
-        if existed {
-            // If the sudoers file existed, read its contents and write them into the temporary file.
-            sudoers_file.read_to_end(&mut sudoers_contents)?;
-            // Rewind the sudoers file so it can be written later.
-            sudoers_file.rewind()?;
-            // Write to the temporary file.
-            tmp_file.write_all(&sudoers_contents)?;
-        }
-
-        let editor_path = solve_editor_path()?;
+        let mut stdin_handle = stdin.lock();
+        let mut stdout_handle = stdout.lock();
 
         loop {
-            Command::new(&editor_path)
-                .arg("--")
-                .arg(&tmp_path)
-                .spawn()?
-                .wait_with_output()?;
+            stdout_handle
+                .write_all("What now? e(x)it without saving / (e)dit again: ".as_bytes())?;
+            stdout_handle.flush()?;
 
-            let (_sudoers, errors) = File::open(&tmp_path)
-                .and_then(|reader| Sudoers::read(reader, &tmp_path))
-                .map_err(|err| {
-                    io_msg!(
-                        err,
-                        "unable to re-open temporary file ({}), {} unchanged",
-                        tmp_path.display(),
-                        sudoers_path.display()
-                    )
-                })?;
-
-            if errors.is_empty() {
-                break;
+            let mut input = [0u8];
+            if let Err(err) = stdin_handle.read_exact(&mut input) {
+                eprintln!("visudo: cannot read user input: {err}");
+                return Ok(());
             }
 
-            eprintln!("Come on... you can do better than that.\n");
-
-            for crate::sudoers::Error(_position, message) in errors {
-                eprintln!("syntax error: {message}");
-            }
-
-            eprintln!();
-
-            let stdin = io::stdin();
-            let stdout = io::stdout();
-
-            let mut stdin_handle = stdin.lock();
-            let mut stdout_handle = stdout.lock();
-
-            loop {
-                stdout_handle
-                    .write_all("What now? e(x)it without saving / (e)dit again: ".as_bytes())?;
-                stdout_handle.flush()?;
-
-                let mut input = [0u8];
-                if let Err(err) = stdin_handle.read_exact(&mut input) {
-                    eprintln!("visudo: cannot read user input: {err}");
-                    return Ok(());
-                }
-
-                match &input {
-                    b"e" => break,
-                    b"x" => return Ok(()),
-                    input => println!("Invalid option: {:?}\n", std::str::from_utf8(input)),
-                }
+            match &input {
+                b"e" => break,
+                b"x" => return Ok(()),
+                input => println!("Invalid option: {:?}\n", std::str::from_utf8(input)),
             }
         }
+    }
 
-        let tmp_contents = std::fs::read(&tmp_path)?;
-        // Only write to the sudoers file if the contents changed.
-        if tmp_contents == sudoers_contents {
-            eprintln!("visudo: {} unchanged", tmp_path.display());
-        } else {
-            sudoers_file.write_all(&tmp_contents)?;
-        }
+    let tmp_contents = std::fs::read(&tmp_path)?;
+    // Only write to the sudoers file if the contents changed.
+    if tmp_contents == sudoers_contents {
+        eprintln!("visudo: {} unchanged", tmp_path.display());
+    } else {
+        sudoers_file.write_all(&tmp_contents)?;
+    }
 
-        Ok(())
-    })();
-
-    sudoers_file.unlock()?;
-
-    result?;
+    lock.unlock()?;
 
     Ok(())
 }
