@@ -268,7 +268,6 @@ fn relative_path_parent_directory() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh673"]
 fn relative_path_grandparent_directory() -> Result<()> {
     // base path is `/etc/sudoers` so grandparent does not exist
     let env = Env("@include ../../sudoers2").build()?;
@@ -280,7 +279,7 @@ fn relative_path_grandparent_directory() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to open /etc/../../sudoers2: No such file or directory"
     } else {
-        "sudo-rs: cannot open sudoers file '../../sudoers2'"
+        "sudo-rs: cannot open sudoers file '/etc/../../sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
     Ok(())
