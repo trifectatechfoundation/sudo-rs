@@ -71,3 +71,33 @@ fn nopasswd_in_sudoers_has_precedence_over_pam() -> Result<()> {
         .output(&env)?
         .assert_success()
 }
+
+#[test]
+fn sudo_uses_correct_service_file() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) ALL")
+        .file("/etc/pam.d/sudo", "auth sufficient pam_permit.so")
+        .file("/etc/pam.d/sudo-i", "auth requisite pam_deny.so")
+        .user(USERNAME)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+fn sudo_dash_i_uses_correct_service_file() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) ALL")
+        .file("/etc/pam.d/sudo-i", "auth sufficient pam_permit.so")
+        .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
+        .user(USERNAME)
+        .build()?;
+
+    Command::new("sudo")
+        .args(["-i", "true"])
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()
+}
