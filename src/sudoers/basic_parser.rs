@@ -235,14 +235,16 @@ impl<T: Token> Parse for T {
             pred: fn(char) -> bool,
             stream: &mut impl CharStream,
         ) -> Parsed<char> {
-            if let Ok(c) = accept_if(pred, stream) {
-                Ok(c)
-            } else if accept_if(|c| c == T::ESCAPE, stream).is_ok() {
+            if accept_if(|c| c == T::ESCAPE, stream).is_ok() {
                 if let Ok(c) = accept_if(T::escaped, stream) {
                     Ok(c)
+                } else if pred(T::ESCAPE) {
+                    Ok(T::ESCAPE)
                 } else {
                     unrecoverable!(stream, "illegal escape sequence")
                 }
+            } else if let Ok(c) = accept_if(pred, stream) {
+                Ok(c)
             } else {
                 reject()
             }
