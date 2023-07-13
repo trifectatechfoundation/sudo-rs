@@ -238,6 +238,8 @@ impl<T: Token> Parse for T {
             if accept_if(|c| c == T::ESCAPE, stream).is_ok() {
                 if let Ok(c) = accept_if(T::escaped, stream) {
                     Ok(c)
+                } else if pred(T::ESCAPE) {
+                    Ok(T::ESCAPE)
                 } else {
                     unrecoverable!(stream, "illegal escape sequence")
                 }
