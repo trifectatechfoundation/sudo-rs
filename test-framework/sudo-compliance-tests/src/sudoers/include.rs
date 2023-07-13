@@ -104,6 +104,18 @@ fn backslash_in_name_double_quotes() -> Result<()> {
 }
 
 #[test]
+fn double_quote_in_name_double_quotes() -> Result<()> {
+    let env = Env(r#"@include "/etc/sudo\"ers" "#)
+        .file(r#"/etc/sudo"ers"#, SUDOERS_ALL_ALL_NOPASSWD)
+        .build()?;
+
+    Command::new("sudo")
+        .arg("true")
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
 fn include_loop_error_messages() -> Result<()> {
     let env = Env("@include /etc/sudoers2")
         .file(r#"/etc/sudoers2"#, "@include /etc/sudoers")
