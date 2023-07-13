@@ -5,15 +5,7 @@ use crate::{
     system::interface::{GroupId, UserId},
 };
 
-mod sealed {
-    use std::fs::File;
-
-    pub(crate) trait Sealed {}
-
-    impl Sealed for File {}
-}
-
-pub(crate) trait Chown: sealed::Sealed {
+pub(crate) trait Chown {
     fn chown(&self, uid: UserId, gid: GroupId) -> io::Result<()>;
 }
 
