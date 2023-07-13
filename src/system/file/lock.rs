@@ -58,26 +58,14 @@ fn flock(fd: RawFd, action: LockOp, nonblocking: bool) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use crate::system::tests::tempfile;
+
     use super::*;
-
-    fn tempfile() -> std::io::Result<std::fs::File> {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("Failed to get system time")
-            .as_nanos();
-        let pid = std::process::id();
-
-        let filename = format!("sudo_rs_test_{}_{}", pid, timestamp);
-        let path = std::path::PathBuf::from("/tmp").join(filename);
-        std::fs::File::create(path)
-    }
 
     #[test]
     fn test_locking_of_tmp_file() {
         let f = tempfile().unwrap();
-        assert!(f.lock_shared(false).is_ok());
-        assert!(f.unlock().is_ok());
-        assert!(f.lock_exclusive(false).is_ok());
-        assert!(f.unlock().is_ok());
+
+        FileLock::exclusive(&f, false).unwrap().unlock().unwrap();
     }
 }

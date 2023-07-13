@@ -576,6 +576,8 @@ impl SessionRecord {
 mod tests {
     use super::*;
 
+    use crate::system::tests::tempfile;
+
     impl SetLength for Cursor<Vec<u8>> {
         fn set_len(&mut self, new_len: usize) -> io::Result<()> {
             self.get_mut().truncate(new_len);
@@ -693,40 +695,53 @@ mod tests {
         assert!(!sample.written_between(some_time - dur - dur, some_time - dur));
     }
 
+    fn tempfile_with_data(data: &[u8]) -> io::Result<File> {
+        let mut file = tempfile()?;
+        file.write_all(data)?;
+        file.rewind()?;
+        Ok(file)
+    }
+
+    fn data_from_tempfile(mut f: File) -> io::Result<Vec<u8>> {
+        let mut v = vec![];
+        f.rewind()?;
+        f.read_to_end(&mut v)?;
+        Ok(v)
+    }
+
     #[test]
     fn session_record_file_header_checks() {
         // valid header should remain valid
-        let mut v = vec![0xD0, 0x50, 0x01, 0x00];
-        let c = Cursor::new(&mut v);
+        let c = tempfile_with_data(&[0xD0, 0x50, 0x01, 0x00]).unwrap();
         let timeout = Duration::seconds(30);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid headers should be corrected
-        let mut v = vec![0xAB, 0xBA];
-        let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        let c = tempfile_with_data(&[0xAB, 0xBA]).unwrap();
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // empty header should be filled in
-        let mut v = vec![];
-        let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        let c = tempfile_with_data(&[]).unwrap();
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid version should reset file
-        let mut v = vec![0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0];
-        let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        let c = tempfile_with_data(&[0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0]).unwrap();
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
     }
 
     #[test]
     fn can_create_and_update_valid_file() {
         let timeout = Duration::seconds(30);
-        let mut data = vec![];
-        let c = Cursor::new(&mut data);
-        let mut srf = SessionRecordFile::new("test", c, timeout).unwrap();
+        let c = tempfile_with_data(&[]).unwrap();
+        let mut srf = SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).unwrap();
         let tty_scope = RecordScope::Tty {
             tty_device: 0,
             session_pid: 0,
@@ -756,6 +771,7 @@ mod tests {
         assert!(srf.reset().is_ok());
 
         // after all this the data should be just an empty header
+        let data = data_from_tempfile(c).unwrap();
         assert_eq!(&data, &[0xD0, 0x50, 0x01, 0x00]);
     }
 }

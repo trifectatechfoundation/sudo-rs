@@ -633,6 +633,22 @@ mod tests {
         ForkResult, Group, User, WithProcess,
     };
 
+    pub(super) fn tempfile() -> std::io::Result<std::fs::File> {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Failed to get system time")
+            .as_nanos();
+        let pid = std::process::id();
+
+        let filename = format!("sudo_rs_test_{}_{}", pid, timestamp);
+        let path = std::path::PathBuf::from("/tmp").join(filename);
+        std::fs::File::options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path)
+    }
+
     #[test]
     fn test_get_user_and_group_by_id() {
         let fixed_users = &[(0, "root"), (1, "daemon")];
