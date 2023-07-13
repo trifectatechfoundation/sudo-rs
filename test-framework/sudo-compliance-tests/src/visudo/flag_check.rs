@@ -7,13 +7,12 @@ use super::TMP_SUDOERS;
 const DEFAULT_CHMOD: &str = "440";
 
 #[test]
-#[ignore = "gh657"]
 fn no_syntax_errors_and_ok_ownership_and_perms() -> Result<()> {
     let env = Env(TextFile("").chmod(DEFAULT_CHMOD)).build()?;
 
     let output = Command::new("visudo").arg("-c").output(&env)?;
 
-    assert!(output.status().success());
+    assert!(output.status().success(), "{}", output.stderr());
     assert!(output.stderr().is_empty());
     assert_eq!("/etc/sudoers: parsed OK", output.stdout()?);
 
@@ -21,7 +20,6 @@ fn no_syntax_errors_and_ok_ownership_and_perms() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn bad_perms() -> Result<()> {
     let env = Env(TextFile("").chmod("444")).build()?;
 
@@ -29,16 +27,15 @@ fn bad_perms() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(
-        "/etc/sudoers: bad permissions, should be mode 0440",
-        output.stderr()
+    assert_contains!(
+        output.stderr(),
+        "/etc/sudoers: bad permissions, should be mode 0440"
     );
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh657"]
 fn bad_ownership() -> Result<()> {
     let env = Env(TextFile("").chown(USERNAME).chmod(DEFAULT_CHMOD))
         .user(USERNAME)
@@ -48,16 +45,15 @@ fn bad_ownership() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(
-        "/etc/sudoers: wrong owner (uid, gid) should be (0, 0)",
-        output.stderr()
+    assert_contains!(
+        output.stderr(),
+        "/etc/sudoers: wrong owner (uid, gid) should be (0, 0)"
     );
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh657"]
 fn bad_syntax() -> Result<()> {
     let env = Env(TextFile("this is fine").chmod(DEFAULT_CHMOD)).build()?;
 
@@ -71,7 +67,6 @@ fn bad_syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn file_does_not_exist() -> Result<()> {
     let env = Env("").build()?;
 
@@ -84,9 +79,9 @@ fn file_does_not_exist() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(
-        "visudo: unable to open /etc/sudoers: No such file or directory",
-        output.stderr()
+    assert_contains!(
+        output.stderr(),
+        "visudo: unable to open /etc/sudoers: No such file or directory"
     );
 
     Ok(())
@@ -151,7 +146,6 @@ fn flag_quiet_bad_syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_file() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("this is fine")
@@ -166,7 +160,6 @@ fn flag_file() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_file_bad_syntax() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
@@ -187,7 +180,6 @@ fn flag_file_bad_syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn flag_file_does_not_check_perms_nor_ownership() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
