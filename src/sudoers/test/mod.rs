@@ -241,13 +241,15 @@ fn default_bool_test() {
             "Defaults env_reset",
             "Defaults !use_pty",
             "Defaults !env_keep",
-            "Defaults !secure_path"
+            "Defaults !secure_path",
+            "Defaults !env_editor"
         ],
     );
     assert!(settings.flags.contains("env_reset"));
     assert!(!settings.flags.contains("use_pty"));
     assert!(settings.list["env_keep"].is_empty());
     assert_eq!(settings.str_value["secure_path"], None);
+    assert!(!settings.flags.contains("env_editor"));
 }
 
 #[test]

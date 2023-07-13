@@ -30,6 +30,7 @@ defaults! {
     match_group_by_gid        = false
     use_pty                   = true
     visiblepw                 = false
+    env_editor                = true
 
     passwd_tries              = 3 [0..=1000]
 
@@ -91,6 +92,7 @@ mod test {
         test! { match_group_by_gid => Flag(false) };
         test! { use_pty => Flag(true) };
         test! { visiblepw => Flag(false) };
+        test! { env_editor => Flag(true) };
         test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }, _) };
         test! { secure_path => Text(OptTuple { default: None, negated: Some(None) }) };
         test! { env_keep => List(_) };
