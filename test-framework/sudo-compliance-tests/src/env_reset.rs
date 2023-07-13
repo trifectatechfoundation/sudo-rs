@@ -115,13 +115,7 @@ fn user_dependent_vars() -> Result<()> {
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
-        .args([
-            "-i",
-            &sudo_abs_path,
-            "-u",
-            USERNAME,
-            &env_abs_path,
-        ])
+        .args(["-i", &sudo_abs_path, "-u", USERNAME, &env_abs_path])
         .output(&env)?
         .stdout()?;
     let mut sudo_env = helpers::parse_env_output(&stdout)?;

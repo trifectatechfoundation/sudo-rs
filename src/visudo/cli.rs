@@ -4,6 +4,8 @@ pub(crate) struct VisudoOptions {
     pub(crate) includes: bool,
     pub(crate) quiet: bool,
     pub(crate) strict: bool,
+    pub(crate) owner: bool,
+    pub(crate) perms: bool,
     pub(crate) action: VisudoAction,
 }
 
@@ -14,6 +16,8 @@ impl Default for VisudoOptions {
             includes: true,
             quiet: false,
             strict: false,
+            owner: false,
+            perms: false,
             action: VisudoAction::Run,
         }
     }
@@ -98,6 +102,24 @@ impl VisudoOptions {
             takes_argument: false,
             set: |options, _| {
                 options.action = VisudoAction::Version;
+                Ok(())
+            },
+        },
+        VisudoOption {
+            short: 'O',
+            long: "owner",
+            takes_argument: false,
+            set: |options, _| {
+                options.owner = true;
+                Ok(())
+            },
+        },
+        VisudoOption {
+            short: 'P',
+            long: "perms",
+            takes_argument: false,
+            set: |options, _| {
+                options.perms = true;
                 Ok(())
             },
         },

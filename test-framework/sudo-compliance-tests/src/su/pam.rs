@@ -35,28 +35,24 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
         .stdin(PASSWORD)
         .output(&env)?;
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
-    
-        let diagnostic = if sudo_test::is_original_sudo() {
-            "su: Authentication failure"
-        } else {
-            "3 incorrect authentication attempts"
-        };
-        assert_contains!(output.stderr(), diagnostic);
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "su: Authentication failure"
+    } else {
+        "3 incorrect authentication attempts"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
-
 #[test]
 fn being_root_has_precedence_over_missing_pam_file() -> Result<()> {
-    let env = Env("")
-        .build()?;
+    let env = Env("").build()?;
 
-    Command::new("su")
-        .output(&env)?
-        .assert_success()
+    Command::new("su").output(&env)?.assert_success()
 }
 
 #[test]
@@ -69,15 +65,15 @@ fn being_root_has_no_precedence_over_pam_deny() -> Result<()> {
         .args(["-c", "/usr/bin/true"])
         .output(&env)?;
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
-    
-        let diagnostic = if sudo_test::is_original_sudo() {
-            "su: Authentication failure"
-        } else {
-            "3 incorrect authentication attempts"
-        };
-        assert_contains!(output.stderr(), diagnostic);
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "su: Authentication failure"
+    } else {
+        "3 incorrect authentication attempts"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

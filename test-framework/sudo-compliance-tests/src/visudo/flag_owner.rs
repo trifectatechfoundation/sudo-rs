@@ -6,7 +6,6 @@ use crate::{
 };
 
 #[test]
-#[ignore = "gh657"]
 fn when_present_changes_ownership_of_existing_file() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
@@ -53,7 +52,6 @@ fn when_absent_ownership_is_preserved() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn etc_sudoers_ownership_is_always_changed() -> Result<()> {
     let file_path = ETC_SUDOERS;
     let env = Env(TextFile("").chown(format!("{USERNAME}:users")).chmod("777"))
