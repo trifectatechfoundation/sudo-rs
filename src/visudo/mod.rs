@@ -97,7 +97,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         }
     }
 
-    let (_sudoers, errors) = Sudoers::read(&sudoers_file)?;
+    let (_sudoers, errors) = Sudoers::read(&sudoers_file, &sudoers_path)?;
 
     if errors.is_empty() {
         println!("{}: parsed OK", sudoers_path.display());
