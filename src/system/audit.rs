@@ -20,10 +20,10 @@ fn mode(who: Category, what: Op) -> u32 {
     (what as u32) << (3 * who as u32)
 }
 
-pub fn secure_open(path: impl AsRef<Path>) -> io::Result<File> {
+pub fn secure_open(path: impl AsRef<Path>, check_parent_dir: bool) -> io::Result<File> {
     let mut open_options = OpenOptions::new();
     open_options.read(true);
-    secure_open_impl(path.as_ref(), &mut open_options, false, false)
+    secure_open_impl(path.as_ref(), &mut open_options, check_parent_dir, false)
 }
 
 pub fn secure_open_cookie_file(path: impl AsRef<Path>) -> io::Result<File> {
