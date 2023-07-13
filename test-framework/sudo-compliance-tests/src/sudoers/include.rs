@@ -155,7 +155,6 @@ fn include_loop_not_fatal() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh675"]
 fn permissions_check() -> Result<()> {
     let env = Env("@include /etc/sudoers2")
         .file(
@@ -168,13 +167,17 @@ fn permissions_check() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(output.stderr(), "sudo: /etc/sudoers2 is world writable");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: /etc/sudoers2 is world writable"
+    } else {
+        "sudo-rs: /etc/sudoers2 cannot be world-writable"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh675"]
 fn permissions_check_not_fatal() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include sudoers2"])
         .file(r#"/etc/sudoers2"#, TextFile("").chmod("777"))
@@ -183,13 +186,17 @@ fn permissions_check_not_fatal() -> Result<()> {
     let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(output.stderr(), "sudo: /etc/sudoers2 is world writable");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: /etc/sudoers2 is world writable"
+    } else {
+        "sudo-rs: /etc/sudoers2 cannot be world-writable"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh675"]
 fn ownership_check() -> Result<()> {
     let env = Env("@include /etc/sudoers2")
         .file(
@@ -203,16 +210,17 @@ fn ownership_check() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(
-        output.stderr(),
+    let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
-    );
+    } else {
+        "sudo-rs: /etc/sudoers2 must be owned by root"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh675"]
 fn ownership_check_not_fatal() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include /etc/sudoers2"])
         .file(r#"/etc/sudoers2"#, TextFile("").chown(USERNAME))
@@ -222,10 +230,12 @@ fn ownership_check_not_fatal() -> Result<()> {
     let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(
-        output.stderr(),
+    let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
-    );
+    } else {
+        "sudo-rs: /etc/sudoers2 must be owned by root"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -258,7 +268,6 @@ fn relative_path_parent_directory() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh673"]
 fn relative_path_grandparent_directory() -> Result<()> {
     // base path is `/etc/sudoers` so grandparent does not exist
     let env = Env("@include ../../sudoers2").build()?;
@@ -270,7 +279,7 @@ fn relative_path_grandparent_directory() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to open /etc/../../sudoers2: No such file or directory"
     } else {
-        "sudo-rs: cannot open sudoers file '../../sudoers2'"
+        "sudo-rs: cannot open sudoers file '/etc/../../sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
     Ok(())

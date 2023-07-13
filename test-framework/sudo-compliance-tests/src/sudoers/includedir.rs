@@ -29,7 +29,6 @@ fn relative_path() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn ignores_files_with_names_ending_in_tilde() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a~", SUDOERS_ALL_ALL_NOPASSWD)
@@ -39,13 +38,17 @@ fn ignores_files_with_names_ending_in_tilde() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(output.stderr(), "root is not in the sudoers file");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "root is not in the sudoers file"
+    } else {
+        "authentication failed"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh682"]
 fn ignores_files_with_names_that_contain_a_dot() -> Result<()> {
     let env = Env("@includedir /etc/sudoers.d")
         .file("/etc/sudoers.d/a.", SUDOERS_ALL_ALL_NOPASSWD)
@@ -57,21 +60,32 @@ fn ignores_files_with_names_that_contain_a_dot() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(output.stderr(), "root is not in the sudoers file");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "root is not in the sudoers file"
+    } else {
+        "authentication failed"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh682"]
 fn directory_does_not_exist_is_not_fatal() -> Result<()> {
-    let env = Env("@includedir /etc/does-not-exist").build()?;
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@includedir /etc/does-not-exist"]).build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
-    assert_contains!(output.stderr(), "root is not in the sudoers file");
+    assert!(output.status().success());
+    let stderr = output.stderr();
+    if sudo_test::is_original_sudo() {
+        assert!(stderr.is_empty());
+    } else {
+        assert_contains!(
+            stderr,
+            "sudo-rs: cannot open sudoers file /etc/does-not-exist"
+        );
+    }
 
     Ok(())
 }
@@ -92,7 +106,6 @@ fn loads_files_in_lexical_order() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn ignores_and_warns_about_file_with_bad_perms() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, "@includedir /etc/sudoers.d"])
         .file(
@@ -110,13 +123,17 @@ fn ignores_and_warns_about_file_with_bad_perms() -> Result<()> {
         .output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(output.stderr(), "/etc/sudoers.d/a is world writable");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "/etc/sudoers.d/a is world writable"
+    } else {
+        "/etc/sudoers.d/a cannot be world-writable"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh682"]
 fn ignores_and_warns_about_file_with_bad_ownership() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, "@includedir /etc/sudoers.d"])
         .file(
@@ -134,16 +151,17 @@ fn ignores_and_warns_about_file_with_bad_ownership() -> Result<()> {
         .output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(
-        output.stderr(),
+    let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers.d/a is owned by uid 1000, should be 0"
-    );
+    } else {
+        "/etc/sudoers.d/a must be owned by root"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh682"]
 fn include_loop() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, "@includedir /etc/sudoers.d"])
         .file("/etc/sudoers.d/a", TextFile("@include /etc/sudoers.d/a"))
@@ -156,16 +174,17 @@ fn include_loop() -> Result<()> {
         .output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(
-        output.stderr(),
+    let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers.d/a: too many levels of includes"
-    );
+    } else {
+        "sudo-rs: include file limit reached opening '/etc/sudoers.d/a'"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh682"]
 fn statements_prior_to_include_loop_are_evaluated() -> Result<()> {
     let env = Env([SUDOERS_USER_ALL_ALL, "@includedir /etc/sudoers.d"])
         .file(
@@ -186,10 +205,14 @@ fn statements_prior_to_include_loop_are_evaluated() -> Result<()> {
         .output(&env)?;
 
     assert!(output.status().success());
-    assert_contains!(
-        output.stderr(),
+
+    let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers.d/a: too many levels of includes"
-    );
+    } else {
+        "sudo-rs: include file limit reached opening '/etc/sudoers.d/a'"
+    };
+
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
@@ -259,7 +282,6 @@ fn old_pound_syntax() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh682"]
 fn no_hostname_expansion() -> Result<()> {
     let hostname = "ship";
     let env = Env("@includedir /etc/sudoers.%h")
@@ -274,13 +296,17 @@ fn no_hostname_expansion() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(output.stderr(), "root is not in the sudoers file");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "root is not in the sudoers file"
+    } else {
+        "authentication failed"
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh682"]
 fn ignores_directory_with_bad_perms() -> Result<()> {
     let env = Env("@includedir /etc/sudoers2.d")
         .directory(Directory("/etc/sudoers2.d").chmod("777"))
@@ -291,14 +317,25 @@ fn ignores_directory_with_bad_perms() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(output.stderr(), "sudo: /etc/sudoers2.d is world writable");
-    assert_contains!(output.stderr(), "root is not in the sudoers file");
+    let diagnostics = if sudo_test::is_original_sudo() {
+        [
+            "sudo: /etc/sudoers2.d is world writable",
+            "root is not in the sudoers file",
+        ]
+    } else {
+        [
+            "sudo-rs: /etc/sudoers2.d cannot be world-writable",
+            "authentication failed",
+        ]
+    };
+    for diagnostic in diagnostics {
+        assert_contains!(output.stderr(), diagnostic);
+    }
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh682"]
 fn ignores_directory_with_bad_ownership() -> Result<()> {
     let env = Env("@includedir /etc/sudoers2.d")
         .directory(Directory("/etc/sudoers2.d").chown(USERNAME))
@@ -310,11 +347,21 @@ fn ignores_directory_with_bad_ownership() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(
-        output.stderr(),
-        "sudo: /etc/sudoers2.d is owned by uid 1000, should be 0"
-    );
-    assert_contains!(output.stderr(), "root is not in the sudoers file");
+    let diagnostics = if sudo_test::is_original_sudo() {
+        [
+            "sudo: /etc/sudoers2.d is owned by uid 1000, should be 0",
+            "root is not in the sudoers file",
+        ]
+    } else {
+        [
+            "sudo-rs: /etc/sudoers2.d must be owned by root",
+            "authentication failed",
+        ]
+    };
+
+    for diagnostic in diagnostics {
+        assert_contains!(output.stderr(), diagnostic);
+    }
 
     Ok(())
 }

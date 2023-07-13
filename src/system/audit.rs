@@ -20,10 +20,10 @@ fn mode(who: Category, what: Op) -> u32 {
     (what as u32) << (3 * who as u32)
 }
 
-pub fn secure_open(path: impl AsRef<Path>) -> io::Result<File> {
+pub fn secure_open(path: impl AsRef<Path>, check_parent_dir: bool) -> io::Result<File> {
     let mut open_options = OpenOptions::new();
     open_options.read(true);
-    secure_open_impl(path.as_ref(), &mut open_options, false, false)
+    secure_open_impl(path.as_ref(), &mut open_options, check_parent_dir, false)
 }
 
 pub fn secure_open_cookie_file(path: impl AsRef<Path>) -> io::Result<File> {
@@ -111,13 +111,13 @@ mod test {
     fn secure_open_is_predictable() {
         // /etc/hosts should be readable and "secure" (if this test fails, you have been compromised)
         assert!(std::fs::File::open("/etc/hosts").is_ok());
-        assert!(secure_open("/etc/hosts").is_ok());
+        assert!(secure_open("/etc/hosts", false).is_ok());
         // /var/log/utmp should be readable, but not secure (writeable by group other than root)
         assert!(std::fs::File::open("/var/log/wtmp").is_ok());
-        assert!(secure_open("/var/log/wtmp").is_err());
+        assert!(secure_open("/var/log/wtmp", false).is_err());
         // /etc/shadow should not be readable
         assert!(std::fs::File::open("/etc/shadow").is_err());
-        assert!(secure_open("/etc/shadow").is_err());
+        assert!(secure_open("/etc/shadow", false).is_err());
     }
 
     #[test]

@@ -99,7 +99,12 @@ fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Pars
 }
 
 fn open_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
-    let source = crate::system::secure_open(path)?;
+    let source = crate::system::secure_open(path, false)?;
+    read_sudoers(source)
+}
+
+fn open_subsudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
+    let source = crate::system::secure_open(path, true)?;
     read_sudoers(source)
 }
 
@@ -430,14 +435,23 @@ fn analyze(
                 ))
             // FIXME: this will cause an error in `visudo` if we open a non-privileged sudoers file
             // that includes another non-privileged sudoer files.
-            } else if let Ok(subsudoer) = open_sudoers(path) {
-                *count += 1;
-                self.process(path, subsudoer, diagnostics, count)
             } else {
-                diagnostics.push(Error(
-                    None,
-                    format!("cannot open sudoers file '{}'", path.display()),
-                ))
+                match open_subsudoers(path) {
+                    Ok(subsudoer) => {
+                        *count += 1;
+                        self.process(path, subsudoer, diagnostics, count)
+                    }
+                    Err(e) => {
+                        let message = if e.kind() == io::ErrorKind::NotFound {
+                            // improve the error message in this case
+                            format!("cannot open sudoers file '{}'", path.display())
+                        } else {
+                            e.to_string()
+                        };
+
+                        diagnostics.push(Error(None, message))
+                    }
+                }
             }
         }
 
