@@ -338,11 +338,30 @@ fn conflicting_arguments() {
 
 #[test]
 fn list() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-l"]).unwrap();
-    assert_eq!(cmd.action, SudoAction::List(vec![]));
+    let valid: &[&[_]] = &[
+        &["sudo", "--list"],
+        &["sudo", "-l"],
+        &["sudo", "-l", "true"],
+        &["sudo", "-l", "-U", "ferris"],
+        &["sudo", "-l", "-U", "ferris", "true"],
+        &["sudo", "-l", "-u", "ferris", "true"],
+        &["sudo", "-l", "-u", "ferris", "-U", "root", "true"],
+    ];
 
-    let cmd = SudoOptions::try_parse_from(["sudo", "--list"]).unwrap();
-    assert_eq!(cmd.action, SudoAction::List(vec![]));
+    for args in valid {
+        let cmd = SudoOptions::try_parse_from(args.iter().copied()).unwrap();
+        assert!(matches!(cmd.action, SudoAction::List(_)))
+    }
+
+    let invalid: &[&[_]] = &[
+        &["sudo", "-l", "-u", "ferris"],
+        &["sudo", "-l", "-u", "ferris", "-U", "root"],
+    ];
+
+    for args in invalid {
+        let res = SudoOptions::try_parse_from(args.iter().copied());
+        assert!(res.is_err())
+    }
 }
 
 #[test]
