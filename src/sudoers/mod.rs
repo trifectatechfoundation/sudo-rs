@@ -86,6 +86,10 @@ impl Sudoers {
             settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
         }
     }
+
+    pub(crate) fn flag_is_enabled(&self, flag: &str) -> bool {
+        self.settings.flags.contains(flag)
+    }
 }
 
 fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {

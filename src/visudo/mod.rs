@@ -5,7 +5,7 @@ use std::{
     ffi::{CStr, CString, OsString},
     fs::{File, Permissions},
     io::{self, Read, Seek, Write},
-    os::unix::prelude::{MetadataExt, OsStringExt, PermissionsExt},
+    os::unix::prelude::{MetadataExt, OsStrExt, OsStringExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -154,6 +154,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         .open(&tmp_path)?;
     tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
+    let mut env_editor = false;
     let mut sudoers_contents = Vec::new();
     if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
@@ -162,9 +163,15 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         sudoers_file.rewind()?;
         // Write to the temporary file.
         tmp_file.write_all(&sudoers_contents)?;
+
+        let (sudoers, errors) = Sudoers::read(sudoers_contents.as_slice(), &sudoers_path)?;
+
+        if errors.is_empty() {
+            env_editor = sudoers.flag_is_enabled("env_editor");
+        }
     }
 
-    let editor_path = solve_editor_path()?;
+    let editor_path = solve_editor_path(env_editor)?;
 
     loop {
         Command::new(&editor_path)
@@ -234,23 +241,28 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     Ok(())
 }
 
-fn solve_editor_path() -> io::Result<PathBuf> {
-    let path = Path::new("/usr/bin/editor");
-    if path.exists() {
-        return Ok(path.to_owned());
-    }
+fn can_execute(path: &Path) -> bool {
+    let Ok(path) = CString::new(path.as_os_str().as_bytes()) else {
+        return false;
+    };
 
-    for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
-        if let Some(var) = std::env::var_os(key) {
-            let path = Path::new(&var);
-            if path.exists() {
-                return Ok(path.to_owned());
+    unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 }
+}
+
+fn solve_editor_path(env_editor: bool) -> io::Result<PathBuf> {
+    if env_editor {
+        for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
+            if let Some(var) = std::env::var_os(key) {
+                let path = Path::new(&var);
+                if can_execute(path) {
+                    return Ok(path.to_owned());
+                }
             }
         }
     }
 
-    let path = Path::new("/usr/bin/vi");
-    if path.exists() {
+    let path = Path::new("/usr/bin/editor");
+    if can_execute(path) {
         return Ok(path.to_owned());
     }
 

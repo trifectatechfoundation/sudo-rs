@@ -87,7 +87,6 @@ echo {unexpected} >> {LOGS_PATH}"
 }
 
 #[test]
-#[ignore = "gh657"]
 fn uses_editor() -> Result<()> {
     let Fixture {
         env,
@@ -110,7 +109,6 @@ fn uses_editor() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn visual_has_precedence_over_editor() -> Result<()> {
     let Fixture {
         env,
@@ -134,7 +132,6 @@ fn visual_has_precedence_over_editor() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn sudo_editor_has_precedence_over_visual() -> Result<()> {
     let Fixture {
         env,
