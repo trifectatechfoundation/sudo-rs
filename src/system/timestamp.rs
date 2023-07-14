@@ -8,7 +8,7 @@ use crate::log::{auth_info, auth_warn};
 
 use super::{
     audit::secure_open_cookie_file,
-    file::Lockable,
+    file::FileLock,
     interface::UserId,
     time::{Duration, SystemTime},
     Process, WithProcess,
@@ -35,23 +35,21 @@ const SIZE_OF_BOOL: i64 = std::mem::size_of::<BoolStorage>() as i64;
 const MOD_OFFSET: i64 = SIZE_OF_TS + SIZE_OF_BOOL;
 
 #[derive(Debug)]
-pub struct SessionRecordFile<'u, IO> {
-    io: IO,
+pub struct SessionRecordFile<'u> {
+    file: File,
     timeout: Duration,
     for_user: &'u str,
 }
 
-impl<'u> SessionRecordFile<'u, File> {
+impl<'u> SessionRecordFile<'u> {
     const BASE_PATH: &str = "/var/run/sudo-rs/ts";
 
-    pub fn open_for_user(user: &'u str, timeout: Duration) -> io::Result<SessionRecordFile<File>> {
+    pub fn open_for_user(user: &'u str, timeout: Duration) -> io::Result<Self> {
         let mut path = PathBuf::from(Self::BASE_PATH);
         path.push(user);
         SessionRecordFile::new(user, secure_open_cookie_file(&path)?, timeout)
     }
-}
 
-impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, IO> {
     const FILE_VERSION: u16 = 1;
     const MAGIC_NUM: u16 = 0x50D0;
     const VERSION_OFFSET: u64 = Self::MAGIC_NUM.to_le_bytes().len() as u64;
@@ -61,9 +59,9 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// Create a new SessionRecordFile from the given i/o stream.
     /// Timestamps in this file are considered valid if they were created or
     /// updated at most `timeout` time ago.
-    pub fn new(for_user: &'u str, io: IO, timeout: Duration) -> io::Result<SessionRecordFile<IO>> {
+    pub fn new(for_user: &'u str, io: File, timeout: Duration) -> io::Result<Self> {
         let mut session_records = SessionRecordFile {
-            io,
+            file: io,
             timeout,
             for_user,
         };
@@ -76,7 +74,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
                     auth_info!("Session records file for user '{for_user}' is invalid, resetting");
                 }
 
-                session_records.init(Self::VERSION_OFFSET, true)?;
+                session_records.init(Self::VERSION_OFFSET)?;
             }
         }
 
@@ -92,7 +90,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
                     );
                 }
 
-                session_records.init(Self::FIRST_RECORD_OFFSET, true)?;
+                session_records.init(Self::FIRST_RECORD_OFFSET)?;
             }
         }
 
@@ -103,7 +101,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// Read the magic number from the input stream
     fn read_magic(&mut self) -> io::Result<Option<u16>> {
         let mut magic_bytes = [0; std::mem::size_of::<u16>()];
-        match self.io.read_exact(&mut magic_bytes) {
+        match self.file.read_exact(&mut magic_bytes) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(None),
             Err(e) => Err(e),
             Ok(()) => Ok(Some(u16::from_le_bytes(magic_bytes))),
@@ -113,7 +111,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// Read the version number from the input stream
     fn read_version(&mut self) -> io::Result<Option<u16>> {
         let mut version_bytes = [0; std::mem::size_of::<u16>()];
-        match self.io.read_exact(&mut version_bytes) {
+        match self.file.read_exact(&mut version_bytes) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => Ok(None),
             Err(e) => Err(e),
             Ok(()) => Ok(Some(u16::from_le_bytes(version_bytes))),
@@ -122,19 +120,18 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
 
     /// Initialize a new empty stream. If the stream/file was already filled
     /// before it will be truncated.
-    fn init(&mut self, offset: u64, must_lock: bool) -> io::Result<()> {
+    fn init(&mut self, offset: u64) -> io::Result<()> {
         // lock the file to indicate that we are currently writing to it
-        if must_lock {
-            self.io.lock_exclusive(false)?;
-        }
-        self.io.set_len(0)?;
-        self.io.rewind()?;
-        self.io.write_all(&Self::MAGIC_NUM.to_le_bytes())?;
-        self.io.write_all(&Self::FILE_VERSION.to_le_bytes())?;
-        self.io.seek(io::SeekFrom::Start(offset))?;
-        if must_lock {
-            self.io.unlock()?;
-        }
+        let lock = FileLock::exclusive(&self.file, false)?;
+
+        self.file.set_len(0)?;
+        self.file.rewind()?;
+        self.file.write_all(&Self::MAGIC_NUM.to_le_bytes())?;
+        self.file.write_all(&Self::FILE_VERSION.to_le_bytes())?;
+        self.file.seek(io::SeekFrom::Start(offset))?;
+
+        lock.unlock()?;
+
         Ok(())
     }
 
@@ -145,10 +142,10 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         // record the position at which this record starts (including size bytes)
         let mut record_length_bytes = [0; std::mem::size_of::<u16>()];
 
-        let curr_pos = self.io.stream_position()?;
+        let curr_pos = self.file.stream_position()?;
 
         // if eof occurs here we assume we reached the end of the file
-        let record_length = match self.io.read_exact(&mut record_length_bytes) {
+        let record_length = match self.file.read_exact(&mut record_length_bytes) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
             Err(e) => return Err(e),
             Ok(()) => u16::from_le_bytes(record_length_bytes),
@@ -163,11 +160,11 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         }
 
         let mut buf = vec![0; record_length as usize];
-        match self.io.read_exact(&mut buf) {
+        match self.file.read_exact(&mut buf) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
                 // there was half a record here, we clear the rest of the file
                 auth_info!("Found incomplete record in session records file for {}, clearing rest of the file", self.for_user);
-                self.io.set_len(curr_pos as usize)?;
+                self.file.set_len(curr_pos)?;
                 return Ok(None);
             }
             Err(e) => return Err(e),
@@ -181,7 +178,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
                 // onwards, so we clear the file up to the start of this record
                 auth_info!("Found invalid record in session records file for {}, clearing rest of the file", self.for_user);
 
-                self.io.set_len(curr_pos as usize)?;
+                self.file.set_len(curr_pos)?;
                 Ok(None)
             }
             Ok(record) => Ok(Some(record)),
@@ -194,7 +191,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// valid at this time.
     pub fn touch(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
-        self.io.lock_exclusive(false)?;
+        let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             // only touch if record is enabled
@@ -202,21 +199,21 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
                 let now = SystemTime::now()?;
                 if record.written_between(now - self.timeout, now) {
                     // move back to where the timestamp is and overwrite with the latest time
-                    self.io.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
+                    self.file.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
                     let new_time = SystemTime::now()?;
-                    new_time.encode(&mut self.io)?;
+                    new_time.encode(&mut self.file)?;
 
                     // make sure we can still go to the end of the record
-                    self.io.seek(io::SeekFrom::Current(SIZE_OF_BOOL))?;
+                    self.file.seek(io::SeekFrom::Current(SIZE_OF_BOOL))?;
 
                     // writing is done, unlock and return
-                    self.io.unlock()?;
+                    lock.unlock()?;
                     return Ok(TouchResult::Updated {
                         old_time: record.timestamp,
                         new_time,
                     });
                 } else {
-                    self.io.unlock()?;
+                    lock.unlock()?;
                     return Ok(TouchResult::Outdated {
                         time: record.timestamp,
                     });
@@ -224,7 +221,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
             }
         }
 
-        self.io.unlock()?;
+        lock.unlock()?;
         Ok(TouchResult::NotFound)
     }
 
@@ -232,18 +229,18 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// given then only records with the given scope that are targetting that
     /// specific user will be disabled.
     pub fn disable(&mut self, scope: RecordScope, auth_user: Option<UserId>) -> io::Result<()> {
-        self.io.lock_exclusive(false)?;
+        let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             let must_disable = auth_user
                 .map(|tu| record.matches(&scope, tu))
                 .unwrap_or_else(|| record.scope == scope);
             if must_disable {
-                self.io.seek(io::SeekFrom::Current(-SIZE_OF_BOOL))?;
-                write_bool(false, &mut self.io)?;
+                self.file.seek(io::SeekFrom::Current(-SIZE_OF_BOOL))?;
+                write_bool(false, &mut self.file)?;
             }
         }
-        self.io.unlock()?;
+        lock.unlock()?;
         Ok(())
     }
 
@@ -252,15 +249,15 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
     /// then that record will be updated.
     pub fn create(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<CreateResult> {
         // lock the file to indicate that we are currently writing to it
-        self.io.lock_exclusive(false)?;
+        let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
             if record.matches(&scope, auth_user) {
-                self.io.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
+                self.file.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
                 let new_time = SystemTime::now()?;
-                new_time.encode(&mut self.io)?;
-                write_bool(true, &mut self.io)?;
-                self.io.unlock()?;
+                new_time.encode(&mut self.file)?;
+                write_bool(true, &mut self.file)?;
+                lock.unlock()?;
                 return Ok(CreateResult::Updated {
                     old_time: record.timestamp,
                     new_time,
@@ -272,10 +269,10 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         let record = SessionRecord::new(scope, auth_user)?;
 
         // make sure we really are at the end of the file
-        self.io.seek(io::SeekFrom::End(0))?;
+        self.file.seek(io::SeekFrom::End(0))?;
 
         self.write_record(&record)?;
-        self.io.unlock()?;
+        lock.unlock()?;
 
         Ok(CreateResult::Created {
             time: record.timestamp,
@@ -284,7 +281,7 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
 
     /// Completely resets the entire file and removes all records.
     pub fn reset(&mut self) -> io::Result<()> {
-        self.init(0, true)
+        self.init(0)
     }
 
     /// Write a new record at the current position in the file.
@@ -301,15 +298,15 @@ impl<'u, IO: Read + Write + Seek + SetLength + Lockable> SessionRecordFile<'u, I
         let record_length = record_length as u16; // store as u16
 
         // write the record
-        self.io.write_all(&record_length.to_le_bytes())?;
-        self.io.write_all(&bytes)?;
+        self.file.write_all(&record_length.to_le_bytes())?;
+        self.file.write_all(&bytes)?;
 
         Ok(())
     }
 
     /// Move to where the first record starts.
     fn seek_to_first_record(&mut self) -> io::Result<()> {
-        self.io
+        self.file
             .seek(io::SeekFrom::Start(Self::FIRST_RECORD_OFFSET))?;
         Ok(())
     }
@@ -579,6 +576,8 @@ impl SessionRecord {
 mod tests {
     use super::*;
 
+    use crate::system::tests::tempfile;
+
     impl SetLength for Cursor<Vec<u8>> {
         fn set_len(&mut self, new_len: usize) -> io::Result<()> {
             self.get_mut().truncate(new_len);
@@ -696,40 +695,53 @@ mod tests {
         assert!(!sample.written_between(some_time - dur - dur, some_time - dur));
     }
 
+    fn tempfile_with_data(data: &[u8]) -> io::Result<File> {
+        let mut file = tempfile()?;
+        file.write_all(data)?;
+        file.rewind()?;
+        Ok(file)
+    }
+
+    fn data_from_tempfile(mut f: File) -> io::Result<Vec<u8>> {
+        let mut v = vec![];
+        f.rewind()?;
+        f.read_to_end(&mut v)?;
+        Ok(v)
+    }
+
     #[test]
     fn session_record_file_header_checks() {
         // valid header should remain valid
-        let mut v = vec![0xD0, 0x50, 0x01, 0x00];
-        let c = Cursor::new(&mut v);
+        let c = tempfile_with_data(&[0xD0, 0x50, 0x01, 0x00]).unwrap();
         let timeout = Duration::seconds(30);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid headers should be corrected
-        let mut v = vec![0xAB, 0xBA];
-        let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        let c = tempfile_with_data(&[0xAB, 0xBA]).unwrap();
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // empty header should be filled in
-        let mut v = vec![];
-        let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        let c = tempfile_with_data(&[]).unwrap();
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid version should reset file
-        let mut v = vec![0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0];
-        let c = Cursor::new(&mut v);
-        assert!(SessionRecordFile::new("test", c, timeout).is_ok());
+        let c = tempfile_with_data(&[0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0]).unwrap();
+        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
     }
 
     #[test]
     fn can_create_and_update_valid_file() {
         let timeout = Duration::seconds(30);
-        let mut data = vec![];
-        let c = Cursor::new(&mut data);
-        let mut srf = SessionRecordFile::new("test", c, timeout).unwrap();
+        let c = tempfile_with_data(&[]).unwrap();
+        let mut srf = SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).unwrap();
         let tty_scope = RecordScope::Tty {
             tty_device: 0,
             session_pid: 0,
@@ -759,6 +771,7 @@ mod tests {
         assert!(srf.reset().is_ok());
 
         // after all this the data should be just an empty header
+        let data = data_from_tempfile(c).unwrap();
         assert_eq!(&data, &[0xD0, 0x50, 0x01, 0x00]);
     }
 }

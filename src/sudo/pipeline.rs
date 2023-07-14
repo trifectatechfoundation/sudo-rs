@@ -1,5 +1,4 @@
 use std::ffi::OsStr;
-use std::fs::File;
 use std::process::exit;
 
 use crate::cli::SudoOptions;
@@ -257,14 +256,11 @@ fn determine_auth_status(
 
 struct AuthStatus<'a> {
     must_authenticate: bool,
-    record_file: Option<SessionRecordFile<'a, File>>,
+    record_file: Option<SessionRecordFile<'a>>,
 }
 
 impl<'a> AuthStatus<'a> {
-    fn new(
-        must_authenticate: bool,
-        record_file: Option<SessionRecordFile<'a, File>>,
-    ) -> AuthStatus<'a> {
+    fn new(must_authenticate: bool, record_file: Option<SessionRecordFile<'a>>) -> AuthStatus<'a> {
         AuthStatus {
             must_authenticate,
             record_file,

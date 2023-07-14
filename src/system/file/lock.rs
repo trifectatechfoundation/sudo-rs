@@ -1,24 +1,39 @@
-use std::{fs::File, io::Result, os::fd::AsRawFd};
+use std::{
+    fs::File,
+    io::Result,
+    os::fd::{AsRawFd, RawFd},
+};
 
 use crate::cutils::cerr;
 
-pub trait Lockable {
+pub(crate) struct FileLock {
+    fd: RawFd,
+}
+
+impl FileLock {
     /// Get an exclusive lock on the file, waits if there is currently a lock
-    /// on the file
-    fn lock_exclusive(&self, nonblocking: bool) -> Result<()>;
+    /// on the file if `nonblocking` is true.
+    pub(crate) fn exclusive(file: &File, nonblocking: bool) -> Result<Self> {
+        let fd = file.as_raw_fd();
+        flock(fd, LockOp::LockExclusive, nonblocking)?;
+        Ok(Self { fd })
+    }
 
-    /// Get a shared lock on the file, waits if there is currently an exclusive
-    /// lock on the file.
-    fn lock_shared(&self, nonblocking: bool) -> Result<()>;
+    /// Release the lock on the file.
+    pub(crate) fn unlock(self) -> Result<()> {
+        flock(self.fd, LockOp::Unlock, false)
+    }
+}
 
-    /// Release the lock on the file if there is any.
-    fn unlock(&self) -> Result<()>;
+impl Drop for FileLock {
+    fn drop(&mut self) {
+        flock(self.fd, LockOp::Unlock, false).ok();
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
 enum LockOp {
     LockExclusive,
-    LockShared,
     Unlock,
 }
 
@@ -26,86 +41,31 @@ impl LockOp {
     fn as_flock_operation(self) -> libc::c_int {
         match self {
             LockOp::LockExclusive => libc::LOCK_EX,
-            LockOp::LockShared => libc::LOCK_SH,
             LockOp::Unlock => libc::LOCK_UN,
         }
     }
 }
 
-fn flock(fd: &impl AsRawFd, action: LockOp, nonblocking: bool) -> Result<()> {
+fn flock(fd: RawFd, action: LockOp, nonblocking: bool) -> Result<()> {
     let mut operation = action.as_flock_operation();
     if nonblocking {
         operation |= libc::LOCK_NB;
     }
 
-    cerr(unsafe { libc::flock(fd.as_raw_fd(), operation) })?;
+    cerr(unsafe { libc::flock(fd, operation) })?;
     Ok(())
-}
-
-impl Lockable for File {
-    fn lock_exclusive(&self, nonblocking: bool) -> Result<()> {
-        flock(self, LockOp::LockExclusive, nonblocking)
-    }
-
-    fn lock_shared(&self, nonblocking: bool) -> Result<()> {
-        flock(self, LockOp::LockShared, nonblocking)
-    }
-
-    fn unlock(&self) -> Result<()> {
-        flock(self, LockOp::Unlock, false)
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::system::tests::tempfile;
+
     use super::*;
-
-    impl Lockable for std::io::Cursor<Vec<u8>> {
-        fn lock_exclusive(&self, _: bool) -> Result<()> {
-            Ok(())
-        }
-
-        fn lock_shared(&self, _: bool) -> Result<()> {
-            Ok(())
-        }
-
-        fn unlock(&self) -> Result<()> {
-            Ok(())
-        }
-    }
-
-    impl Lockable for std::io::Cursor<&mut Vec<u8>> {
-        fn lock_exclusive(&self, _: bool) -> Result<()> {
-            Ok(())
-        }
-
-        fn lock_shared(&self, _: bool) -> Result<()> {
-            Ok(())
-        }
-
-        fn unlock(&self) -> Result<()> {
-            Ok(())
-        }
-    }
-
-    fn tempfile() -> std::io::Result<std::fs::File> {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("Failed to get system time")
-            .as_nanos();
-        let pid = std::process::id();
-
-        let filename = format!("sudo_rs_test_{}_{}", pid, timestamp);
-        let path = std::path::PathBuf::from("/tmp").join(filename);
-        std::fs::File::create(path)
-    }
 
     #[test]
     fn test_locking_of_tmp_file() {
         let f = tempfile().unwrap();
-        assert!(f.lock_shared(false).is_ok());
-        assert!(f.unlock().is_ok());
-        assert!(f.lock_exclusive(false).is_ok());
-        assert!(f.unlock().is_ok());
+
+        FileLock::exclusive(&f, false).unwrap().unlock().unwrap();
     }
 }
