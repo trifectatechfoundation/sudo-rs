@@ -5,7 +5,7 @@ use std::{
     ffi::{CStr, CString, OsString},
     fs::{File, Permissions},
     io::{self, Read, Seek, Write},
-    os::unix::prelude::{MetadataExt, OsStrExt, OsStringExt, PermissionsExt},
+    os::unix::prelude::{MetadataExt, OsStringExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -13,6 +13,7 @@ use std::{
 use crate::{
     sudoers::Sudoers,
     system::{
+        can_execute,
         file::{Chown, FileLock},
         User,
     },
@@ -154,7 +155,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         .open(&tmp_path)?;
     tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
-    let mut env_editor = false;
+    let mut editor_path = None;
     let mut sudoers_contents = Vec::new();
     if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
@@ -167,11 +168,14 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         let (sudoers, errors) = Sudoers::read(sudoers_contents.as_slice(), &sudoers_path)?;
 
         if errors.is_empty() {
-            env_editor = sudoers.flag_is_enabled("env_editor");
+            editor_path = sudoers.solve_editor_path();
         }
     }
 
-    let editor_path = solve_editor_path(env_editor)?;
+    let editor_path = match editor_path {
+        Some(path) => path,
+        None => editor_path_fallback()?,
+    };
 
     loop {
         Command::new(&editor_path)
@@ -241,26 +245,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     Ok(())
 }
 
-fn can_execute(path: &Path) -> bool {
-    let Ok(path) = CString::new(path.as_os_str().as_bytes()) else {
-        return false;
-    };
-
-    unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 }
-}
-
-fn solve_editor_path(env_editor: bool) -> io::Result<PathBuf> {
-    if env_editor {
-        for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
-            if let Some(var) = std::env::var_os(key) {
-                let path = Path::new(&var);
-                if can_execute(path) {
-                    return Ok(path.to_owned());
-                }
-            }
-        }
-    }
-
+fn editor_path_fallback() -> io::Result<PathBuf> {
     let path = Path::new("/usr/bin/editor");
     if can_execute(path) {
         return Ok(path.to_owned());

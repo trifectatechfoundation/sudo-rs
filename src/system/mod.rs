@@ -4,8 +4,8 @@ use std::{
     ffi::{c_uint, CStr, CString},
     io,
     mem::MaybeUninit,
-    os::fd::AsRawFd,
-    path::PathBuf,
+    os::{fd::AsRawFd, unix::prelude::OsStrExt},
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -33,6 +33,14 @@ pub mod signal;
 pub mod term;
 
 pub mod wait;
+
+pub(crate) fn can_execute<P: AsRef<Path>>(path: P) -> bool {
+    let Ok(path) = CString::new(path.as_ref().as_os_str().as_bytes()) else {
+        return false;
+    };
+
+    unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 }
+}
 
 pub(crate) fn _exit(status: libc::c_int) -> ! {
     unsafe { libc::_exit(status) }
