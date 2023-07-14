@@ -56,9 +56,10 @@ let rec function assoc (key: int) (xs: list (int, 'a)): 'a
 
 function alias_defs (alias_id 'a): spec_list 'a
 
-let function as_list (items: seq 'a): list 'a
+let function as_list (items: seq 'a) (max: int): list 'a
+  requires { max < length items }
   = let built = ref Nil in
-    for i = items.length - 1 downto 0 do
+    for i = max downto 0 do
       built := Cons items[i] !built
     done;
     !built
@@ -99,8 +100,8 @@ let find_item (items: seq (spec 'tag 'a)) (pred: 'a -> bool) (aliases: alias_map
 
   for i = 0 to items.length - 1 do
     invariant { forall tag. !result = Some tag <->
-                  exists j.  0 <= j < i /\ matched_by pred items[j] /\ Some tag = condition items[j] /\
-                  forall k. j < k < i -> not matched_by pred items[k] }
+                  exists j.  0 <= j < i /\ for_some (matched_by pred) (as_list items j) /\ Some tag = condition items[j] /\
+                  forall k. j < k < i -> not for_some (matched_by pred) (as_list items k) }
     let (judgement, who) = match items[i].inner with
       | No x -> (false, x)
       | Yes x -> (true, x)
