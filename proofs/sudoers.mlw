@@ -38,7 +38,7 @@ let function bool_then (b: bool) (x: 'a): option 'a
   = if b then Some x else None
 
 predicate final_match (pred: 'a -> bool) (a: array 'a) (f: 'a -> 'b) (x: 'b)
-  = exists i. 0 <= i < length a /\ pred a[i] /\ f a[i] = x /\ forall k. i < k < length a -> not pred a[k]
+  = exists i. 0 <= i < length a /\ pred a[i] /\ f a[i] = x /\ not exists k. i < k < length a /\ pred a[k]
 
 (* Why3 model of the sudoers::find_item function *)
 let find_item (items: array (spec 'tag 'a)) (pred: 'a -> bool): option 'tag
