@@ -3,17 +3,19 @@
 
 module Sudoers
 
-use array.Array
+use seq.Seq
 use option.Option
 use ref.Ref
 use int.Int
 
+type alias_id 'a = int
+
 (* loose models for the types in sudoers::Ast *)
-type metavar 'a = All | Only 'a
+type metavar 'a = All | Only 'a | Alias (alias_id 'a)
 type qualified 'a = Yes 'a | No 'a
 type spec 'tag 'a = { inner: qualified (metavar 'a); info: 'tag }
 
-predicate contains (pred: 'a -> bool) (a: array 'a)
+predicate contains (pred: 'a -> bool) (a: seq 'a)
   = exists i. 0 <= i < length a /\ pred a[i]
 
 function who (item: spec 'tag 'a): metavar 'a
@@ -28,20 +30,66 @@ function condition (item: spec 'tag 'a): option 'tag
     | _ -> None
     end
 
+let function bool_then (b: bool) (x: 'a): option 'a
+  = if b then Some x else None
+
+predicate final_match (pred: 'a -> bool) (a: seq 'a) (f: 'a -> 'b) (x: 'b)
+  = exists i. 0 <= i < length a /\ pred a[i] /\ f a[i] = x /\ not exists k. i < k < length a /\ pred a[k]
+
+(* stuff to manipulate association lists, to model a Rust Map *)
+use list.List
+use list.Map
+use list.Quant
+use list.Append
+
+type spec_list 'a = list (qualified (metavar 'a))
+type alias_map 'a = list (alias_id 'a, bool)
+
+let predicate has_key (key: int) (xs: list (int, 'a))
+  = for_some (fun item -> let (y, _) = item in y = key) xs
+
+let rec function assoc (key: int) (xs: list (int, 'a)): 'a
+  requires { has_key key xs }
+  variant { xs }
+  = let Cons (y, value) ys = xs in
+    if y = key then value else assoc key ys
+
+function alias_defs (alias_id 'a): spec_list 'a
+
+let function as_list (items: seq 'a): list 'a
+  = let built = ref Nil in
+    for i = items.length - 1 downto 0 do
+      built := Cons items[i] !built
+    done;
+    !built
+
+function neg (x: qualified 'a): qualified 'a
+  = match x with
+    | Yes x -> No x
+    | No x  -> Yes x
+    end
+
+(* formal spec for element-wise match *)
+function expand (items: list (spec 'tag 'a)): list (spec 'tag 'a)
+  = match items with
+    | Cons { inner = Yes (Alias id); info = tag } tail -> map (fun x -> { inner = x; info = tag })     (alias_defs id) ++ expand tail
+    | Cons { inner = No  (Alias id); info = tag } tail -> map (fun x -> { inner = neg x; info = tag }) (alias_defs id) ++ expand tail
+    | Cons direct tail                                 -> Cons direct (expand tail)
+    | Nil -> Nil
+    end
+
+constant undefined: bool
+
 function matched_by (pred: 'a -> bool) (item: spec 'tag 'a): bool
   = match who item with
     | All -> true
     | Only x -> pred x
+    | Alias id -> undefined
     end
 
-let function bool_then (b: bool) (x: 'a): option 'a
-  = if b then Some x else None
-
-predicate final_match (pred: 'a -> bool) (a: array 'a) (f: 'a -> 'b) (x: 'b)
-  = exists i. 0 <= i < length a /\ pred a[i] /\ f a[i] = x /\ not exists k. i < k < length a /\ pred a[k]
-
 (* Why3 model of the sudoers::find_item function *)
-let find_item (items: array (spec 'tag 'a)) (pred: 'a -> bool): option 'tag
+let find_item (items: seq (spec 'tag 'a)) (pred: 'a -> bool) (aliases: alias_map 'a): option 'tag
+    requires { forall i. 0 <= i < length items -> match who items[i] with | Alias _ -> false | _ -> true end }
     returns {
       | Some tag -> final_match (matched_by pred) items condition (Some tag)
       | None     -> not contains (matched_by pred) items \/ final_match (matched_by pred) items condition None
@@ -61,6 +109,11 @@ let find_item (items: array (spec 'tag 'a)) (pred: 'a -> bool): option 'tag
     match who with
       | All -> result := judgement.bool_then(info)
       | Only id -> if pred id then result := judgement.bool_then(info);
+      | Alias id -> if has_key id aliases then
+                    result := if assoc id aliases then
+                      judgement.bool_then(info)
+                    else
+                      (not judgement).bool_then(info)
     end;
   done;
 
