@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use sudo_test::{Command, Env, User};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME, PASSWORD};
@@ -14,6 +12,28 @@ fn lists_privileges_for_root() -> Result<()> {
 
     let output = Command::new("sudo")
         .arg("-l")
+        .output(&env)?;
+
+    assert!(output.status().success());
+
+    let expected = format!("User root may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL");
+    let actual = output.stdout()?;
+    assert_eq!(actual, expected);
+
+    Ok(())
+}
+
+#[ignore = "gh658"]
+#[test]
+fn works_with_long_form_list_flag() -> Result<()> {
+    let hostname = "container";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .hostname(hostname)
+        .build()?;
+
+    let output = Command::new("sudo")
+        .arg("--list")
         .output(&env)?;
 
     assert!(output.status().success());
