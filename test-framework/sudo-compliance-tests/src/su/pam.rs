@@ -77,3 +77,33 @@ fn being_root_has_no_precedence_over_pam_deny() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn su_uses_correct_service_file() -> Result<()> {
+    let env = Env("")
+        .file("/etc/pam.d/su", "auth sufficient pam_permit.so")
+        .file("/etc/pam.d/su-l", "auth requisite pam_deny.so")
+        .user(USERNAME)
+        .build()?;
+
+    Command::new("su")
+        .args(["-c", "true"])
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+fn su_dash_l_uses_correct_service_file() -> Result<()> {
+    let env = Env("")
+        .file("/etc/pam.d/su-l", "auth sufficient pam_permit.so")
+        .file("/etc/pam.d/su", "auth requisite pam_deny.so")
+        .user(USERNAME)
+        .build()?;
+
+    Command::new("su")
+        .args(["-l", "-c", "true"])
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()
+}
