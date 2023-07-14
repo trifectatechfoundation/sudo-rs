@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{Result, PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
@@ -15,6 +17,75 @@ mod runas_alias;
 mod secure_path;
 mod timestamp_timeout;
 mod user_list;
+
+const KEYWORDS: &[&str] = &[
+    "ALL",
+    "CHROOT",
+    "CWD",
+    "Cmnd_Alias",
+    "Defaults",
+    "FOLLOW",
+    "Host_Alias",
+    "INTERCEPT",
+    "LOG_INPUT",
+    "LOG_OUTPUT",
+    "MAIL",
+    "NOEXEC",
+    "NOFOLLOW",
+    "NOINTERCEPT",
+    "NOLOG_INPUT",
+    "NOLOG_OUTPUT",
+    "NOMAIL",
+    "NOPASSWD",
+    "NOSETENV",
+    "NOTAFTER",
+    "NOTBEFORE",
+    "PASSWD",
+    "Runas_Alias",
+    "SETENV",
+    "TIMEOUT",
+    "User_Alias",
+    "env_check",
+    "env_delete",
+    "env_editor",
+    "env_keep",
+    "include",
+    "includedir",
+    "secure_path",
+    "timestamp_timeout",
+    "use_pty",
+];
+
+const KEYWORDS_ALIAS_BAD: &[&str] = &[
+    "ALL",
+    "CHROOT",
+    "CWD",
+    "Cmnd_Alias",
+    "Defaults",
+    "Host_Alias",
+    "NOTAFTER",
+    "NOTBEFORE",
+    "Runas_Alias",
+    "TIMEOUT",
+    "User_Alias",
+    "env_check",
+    "env_delete",
+    "env_editor",
+    "env_keep",
+    "include",
+    "includedir",
+    "secure_path",
+    "timestamp_timeout",
+    "use_pty",
+];
+
+fn keywords_alias_good() -> HashSet<&'static str> {
+    KEYWORDS
+        .iter()
+        .filter(|keyword| !KEYWORDS_ALIAS_BAD.contains(keyword))
+        .copied()
+        .collect()
+}
 
 #[test]
 fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
