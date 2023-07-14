@@ -1,6 +1,8 @@
-use sudo_test::{Command, Env};
+use std::fmt::format;
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use sudo_test::{Command, Env, User};
+
+use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME, PASSWORD};
 
 #[ignore = "gh658"]
 #[test]
@@ -16,7 +18,8 @@ fn lists_privileges_for_root() -> Result<()> {
 
     assert!(output.status().success());
 
-    let expected = format!("User root may run the following commands on {hostname}:\n    (ALL : ALL) NOPASSWD: ALL");
+    let expected = format!("User root may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL");
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -40,7 +43,8 @@ fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
 
-    let expected = format!("User {USERNAME} may run the following commands on {hostname}:\n    (ALL : ALL) NOPASSWD: ALL");
+    let expected = format!("User {USERNAME} may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL");
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -63,9 +67,57 @@ fn works_with_uppercase_u_flag() -> Result<()> {
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
 
-    let expected = format!("User {USERNAME} may run the following commands on {hostname}:\n    (ALL : ALL) NOPASSWD: ALL");
+    let expected = format!("User {USERNAME} may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL");
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
+
+    Ok(())
+}
+
+#[ignore = "gh658"]
+#[test]
+fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
+    let hostname = "container";
+    let env = Env(format!("{USERNAME} otherhost=(ALL:ALL) NOPASSWD: ALL"))
+        .user(USERNAME)
+        .hostname(hostname)
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-U", USERNAME, "-l"])
+        .output(&env)?;
+
+    assert!(output.status().success());
+    assert!(output.stderr().is_empty());
+
+    let expected = format!("User {USERNAME} is not allowed to run sudo on container.");
+    let actual = output.stdout()?;
+    assert_eq!(actual, expected);
+
+    Ok(())
+}
+
+#[ignore = "gh658"]
+#[test]
+fn fails_when_user_is_not_allowed_in_sudoers() -> Result<()> {
+    let hostname = "container";
+    let env = Env(format!("{USERNAME} otherhost=(ALL:ALL) NOPASSWD: ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .hostname(hostname)
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-S", "true"])
+        .as_user(USERNAME)
+        .stdin(PASSWORD)
+        .output(&env)?;
+
+    assert!(!output.status().success());
+
+    let expected = format!("password for {USERNAME}: {USERNAME} is not allowed to run sudo on container");
+    let actual = output.stderr();
+    assert_contains!(actual, expected);
 
     Ok(())
 }
@@ -108,7 +160,13 @@ fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
 
-    let expected = format!("User {USERNAME} may run the following commands on {hostname}:\n\nSudoers entry:\n    RunAsUsers: ALL\n    RunAsGroups: ALL\n    Options: !authenticate\n    Commands:\n\tALL");
+    let expected = format!("User {USERNAME} may run the following commands on {hostname}:\n
+Sudoers entry:
+    RunAsUsers: ALL
+    RunAsGroups: ALL
+    Options: !authenticate
+    Commands:
+\tALL");
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
