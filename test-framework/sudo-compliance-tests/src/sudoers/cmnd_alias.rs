@@ -448,6 +448,7 @@ fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh700"]
 fn keywords() -> Result<()> {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);

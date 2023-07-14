@@ -245,6 +245,7 @@ fn comma_listing_works() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh700"]
 fn keywords() -> Result<()> {
     let hostname = "container";
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {

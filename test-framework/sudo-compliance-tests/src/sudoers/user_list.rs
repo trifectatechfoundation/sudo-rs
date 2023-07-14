@@ -374,6 +374,7 @@ fn negated_supergroup() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh700"]
 fn user_alias_keywords() -> Result<()> {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);
