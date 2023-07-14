@@ -10,22 +10,22 @@ use int.Int
 
 (* loose models for the types in sudoers::Ast *)
 type metavar 'a = All | Only 'a
-type qualified 'tag 'a = Yes 'a 'tag | No 'a
-type spec 'tag 'a = (qualified 'tag (metavar 'a))
+type qualified 'a = Yes 'a | No 'a
+type spec 'tag 'a = { inner: qualified (metavar 'a); info: 'tag }
 
 predicate contains (pred: 'a -> bool) (a: array 'a)
   = exists i. 0 <= i < length a /\ pred a[i]
 
 function who (item: spec 'tag 'a): metavar 'a
-  = match item with
-    | Yes x _ -> x
+  = match item.inner with
+    | Yes x -> x
     | No x -> x
     end
 
 function condition (item: spec 'tag 'a): option 'tag
   = match item with
-    | Yes _ tag -> Some tag
-    | No _ -> None
+    | { inner = Yes _; info = tag } -> Some tag
+    | _ -> None
     end
 
 function matched_by (pred: 'a -> bool) (item: spec 'tag 'a): bool
@@ -33,6 +33,9 @@ function matched_by (pred: 'a -> bool) (item: spec 'tag 'a): bool
     | All -> true
     | Only x -> pred x
     end
+
+let function bool_then (b: bool) (x: 'a): option 'a
+  = if b then Some x else None
 
 predicate final_match (pred: 'a -> bool) (a: array 'a) (f: 'a -> 'b) (x: 'b)
   = exists i. 0 <= i < length a /\ pred a[i] /\ f a[i] = x /\ forall k. i < k < length a -> not pred a[k]
@@ -50,13 +53,14 @@ let find_item (items: array (spec 'tag 'a)) (pred: 'a -> bool): option 'tag
     invariant { forall tag. !result = Some tag <->
                   exists j.  0 <= j < i /\ matched_by pred items[j] /\ Some tag = condition items[j] /\
                   forall k. j < k < i -> not matched_by pred items[k] }
-    let (qualifiedment, who) = match items[i] with
-      | No x -> (None, x)
-      | Yes x tag -> (Some tag, x)
+    let (judgement, who) = match items[i].inner with
+      | No x -> (false, x)
+      | Yes x -> (true, x)
     end in
+    let info = items[i].info in
     match who with
-      | All -> result := qualifiedment
-      | Only id -> if pred id then result := qualifiedment;
+      | All -> result := judgement.bool_then(info)
+      | Only id -> if pred id then result := judgement.bool_then(info);
     end;
   done;
 
