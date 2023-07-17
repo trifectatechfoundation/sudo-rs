@@ -16,7 +16,6 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 | CVE-2005-1119 [^5]     |       | Corrupt arbitrary files via a symlink attack                                |
 | CVE-2005-1993 [^6]     |       | https://www.sudo.ws/security/advisories/path_race/                          |
 | CVE-2005-4890 [^7]     |       | TTY hijacking when a priviliged user uses sudo to run unprivileged commands |
-| CVE-2009-0034 [^8]     |       | https://www.sudo.ws/security/advisories/group_vector/                       |
 | - [^9]                 |       | https://www.sudo.ws/security/advisories/cmnd_alias_negation/                |
 | CVE-2010-1646 [^10]    |       | https://www.sudo.ws/security/advisories/secure_path/                        |
 | CVE-2010-2956 [^11]    |       | https://www.sudo.ws/security/advisories/runas_group/                        |
@@ -42,7 +41,6 @@ These CVEs/advisories are possibly relevant to sudo-rs:
       enough for our target systems
 [^7]: To prevent attacks, a PTY must be used when running commands within a TTY,
       which is enabled by default in sudo-rs
-[^8]: -
 [^9]: -
 [^10]: -
 [^11]: -
@@ -72,6 +70,7 @@ relevant at that time.
 | CVE-2005-4158  | env_reset is always enabled / blacklist is not supported, https://www.sudo.ws/security/advisories/perl_env/ |
 | CVE-2006-0151  | env_reset is always enabled / blacklist is not supported                                                    |
 | CVE-2007-3149  | Kerberos functionality is not implemented, https://www.sudo.ws/security/advisories/kerberos5/               |
+| CVE-2009-0034  | The group matching logic does not have this bug, https://www.sudo.ws/security/advisories/group_vector/      |
 | CVE-2010-0426  | `sudoedit`/`sudo -e` is not implemented, https://www.sudo.ws/security/advisories/sudoedit_escalate/         |
 | CVE-2010-0427  | runas_default is not implemented                                                                            |
 | CVE-2010-1163  | `sudoedit`/`sudo -e` is not implemented, https://www.sudo.ws/security/advisories/sudoedit_escalate2/        |
