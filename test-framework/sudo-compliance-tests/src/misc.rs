@@ -79,7 +79,6 @@ fn closes_open_file_descriptors_without_tty() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh331"]
 fn sudo_binary_lacks_setuid_flag() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
@@ -105,7 +104,6 @@ fn sudo_binary_lacks_setuid_flag() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh331"]
 fn sudo_binary_is_not_owned_by_root() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
@@ -128,4 +126,42 @@ fn sudo_binary_is_not_owned_by_root() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[test]
+fn works_when_invoked_through_a_symlink() -> Result<()> {
+    let symlink_path = "/tmp/sudo";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+
+    Command::new("ln")
+        .args(["-s", "/usr/bin/sudo", symlink_path])
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()?;
+
+    // symlink is not owned by root
+    let ls_output = Command::new("ls")
+        .args(["-ahl", symlink_path])
+        .output(&env)?
+        .stdout()?;
+
+    // lrwxrwxrwx 1 ferris users
+    eprintln!("{ls_output}");
+
+    // symlink has not the setuid bit set
+    let stat_output = Command::new("stat")
+        .args(["-c", "%a", symlink_path])
+        .output(&env)?
+        .stdout()?;
+
+    // 777
+    eprintln!("{stat_output}");
+
+    // still, we expect sudo to work because the executable behind the symlink has the right
+    // ownership and permissions
+    Command::new(symlink_path)
+        .arg("true")
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()
 }

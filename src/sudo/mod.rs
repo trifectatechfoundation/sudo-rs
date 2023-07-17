@@ -7,8 +7,9 @@ use crate::system::timestamp::RecordScope;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
 use pam::PamAuthenticator;
 use pipeline::{Pipeline, PolicyPlugin};
-use std::env;
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
+use std::{env, fs};
 
 mod diagnostic;
 use diagnostic::diagnostic;
@@ -71,6 +72,8 @@ fn sudo_process() -> Result<(), Error> {
 
     dev_info!("development logs are enabled");
 
+    self_check()?;
+
     let pipeline = Pipeline {
         policy: SudoersPolicy::default(),
         authenticator: PamAuthenticator::new_cli(),
@@ -124,6 +127,22 @@ fn sudo_process() -> Result<(), Error> {
             eprintln!("{e}\n{}", help::USAGE_MSG);
             std::process::exit(1);
         }
+    }
+}
+
+fn self_check() -> Result<(), Error> {
+    const ROOT: u32 = 0;
+    const SETUID_BIT: u32 = 0o4000;
+
+    let path = env::current_exe().map_err(|e| Error::IoError(None, e))?;
+    let metadata = fs::metadata(path).map_err(|e| Error::IoError(None, e))?;
+
+    let owned_by_root = metadata.uid() == ROOT;
+    let setuid_bit_is_set = metadata.mode() & SETUID_BIT != 0;
+    if owned_by_root && setuid_bit_is_set {
+        Ok(())
+    } else {
+        Err(Error::SelfCheck)
     }
 }
 
