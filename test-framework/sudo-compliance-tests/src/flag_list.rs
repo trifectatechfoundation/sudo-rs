@@ -99,7 +99,7 @@ fn works_with_uppercase_u_flag() -> Result<()> {
 #[test]
 fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
     let hostname = "container";
-    let env = Env(format!("{USERNAME} otherhost=(ALL:ALL) NOPASSWD: ALL"))
+    let env = Env("")
         .user(USERNAME)
         .hostname(hostname)
         .build()?;
@@ -110,6 +110,7 @@ fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
 
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
+    assert_eq!(Some(0), output.status().code());
 
     let expected = format!("User {USERNAME} is not allowed to run sudo on container.");
     let actual = output.stdout()?;
@@ -122,20 +123,21 @@ fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
 #[test]
 fn fails_when_user_is_not_allowed_in_sudoers() -> Result<()> {
     let hostname = "container";
-    let env = Env(format!("{USERNAME} otherhost=(ALL:ALL) NOPASSWD: ALL"))
+    let env = Env("")
         .user(User(USERNAME).password(PASSWORD))
         .hostname(hostname)
         .build()?;
 
     let output = Command::new("sudo")
-        .args(["-S", "true"])
+        .args(["-S", "-l"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
         .output(&env)?;
 
     assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
 
-    let expected = format!("password for {USERNAME}: {USERNAME} is not allowed to run sudo on container");
+    let expected = format!("password for {USERNAME}: Sorry, user {USERNAME} may not run sudo on container.");
     let actual = output.stderr();
     assert_contains!(actual, expected);
 
