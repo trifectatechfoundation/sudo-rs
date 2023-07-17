@@ -446,3 +446,38 @@ fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "gh700"]
+fn keywords() -> Result<()> {
+    for bad_keyword in super::KEYWORDS_ALIAS_BAD {
+        dbg!(bad_keyword);
+        let env = Env([
+            format!("Cmnd_Alias {bad_keyword} = /usr/bin/true"),
+            format!("ALL ALL=(ALL:ALL) {bad_keyword}"),
+        ])
+        .build()?;
+
+        let output = Command::new("sudo").arg("true").output(&env)?;
+
+        assert_contains!(output.stderr(), "syntax error");
+        assert_eq!(*bad_keyword == "ALL", output.status().success());
+    }
+
+    for good_keyword in super::keywords_alias_good() {
+        dbg!(good_keyword);
+        let env = Env([
+            format!("Cmnd_Alias {good_keyword} = /usr/bin/true"),
+            format!("ALL ALL=(ALL:ALL) {good_keyword}"),
+        ])
+        .build()?;
+
+        let output = Command::new("sudo").arg("true").output(&env)?;
+
+        let stderr = output.stderr();
+        assert!(stderr.is_empty(), "{}", stderr);
+        assert!(output.status().success());
+    }
+
+    Ok(())
+}

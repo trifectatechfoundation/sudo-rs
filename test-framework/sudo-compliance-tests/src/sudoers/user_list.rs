@@ -372,3 +372,38 @@ fn negated_supergroup() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "gh700"]
+fn user_alias_keywords() -> Result<()> {
+    for bad_keyword in super::KEYWORDS_ALIAS_BAD {
+        dbg!(bad_keyword);
+        let env = Env([
+            format!("User_Alias {bad_keyword} = root"),
+            format!("{bad_keyword} ALL=(ALL:ALL) ALL"),
+        ])
+        .build()?;
+
+        let output = Command::new("sudo").arg("true").output(&env)?;
+
+        assert_contains!(output.stderr(), "syntax error");
+        assert_eq!(*bad_keyword == "ALL", output.status().success());
+    }
+
+    for good_keyword in super::keywords_alias_good() {
+        dbg!(good_keyword);
+        let env = Env([
+            format!("User_Alias {good_keyword} = root"),
+            format!("{good_keyword} ALL=(ALL:ALL) ALL"),
+        ])
+        .build()?;
+
+        let output = Command::new("sudo").arg("true").output(&env)?;
+
+        let stderr = output.stderr();
+        assert!(stderr.is_empty(), "{}", stderr);
+        assert!(output.status().success());
+    }
+
+    Ok(())
+}

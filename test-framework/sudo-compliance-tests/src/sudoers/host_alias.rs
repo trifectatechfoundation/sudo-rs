@@ -243,3 +243,41 @@ fn comma_listing_works() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[ignore = "gh700"]
+fn keywords() -> Result<()> {
+    let hostname = "container";
+    for bad_keyword in super::KEYWORDS_ALIAS_BAD {
+        dbg!(bad_keyword);
+        let env = Env([
+            format!("Host_Alias {bad_keyword} = {hostname}"),
+            format!("ALL {bad_keyword}=(ALL:ALL) ALL"),
+        ])
+        .hostname(hostname)
+        .build()?;
+
+        let output = Command::new("sudo").arg("true").output(&env)?;
+
+        assert_contains!(output.stderr(), "syntax error");
+        assert_eq!(*bad_keyword == "ALL", output.status().success());
+    }
+
+    for good_keyword in super::keywords_alias_good() {
+        dbg!(good_keyword);
+        let env = Env([
+            format!("Host_Alias {good_keyword} = {hostname}"),
+            format!("ALL {good_keyword}=(ALL:ALL) ALL"),
+        ])
+        .hostname(hostname)
+        .build()?;
+
+        let output = Command::new("sudo").arg("true").output(&env)?;
+
+        let stderr = output.stderr();
+        assert!(stderr.is_empty(), "{}", stderr);
+        assert!(output.status().success());
+    }
+
+    Ok(())
+}
