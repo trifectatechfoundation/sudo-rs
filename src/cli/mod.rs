@@ -210,16 +210,22 @@ impl SudoOptions {
         }
 
         // check arguments for list action
-        if matches!(self.action, SudoAction::List(_))
-            && (self.background
+        if let SudoAction::List(command_args) = &self.action {
+            // when present, `-u` must be accompanied by a command
+            let has_command = !command_args.is_empty();
+            let valid_user_flag = self.user.is_none() || has_command;
+
+            if self.background
                 || self.preserve_groups
                 || self.login
+                || !valid_user_flag
                 || self.shell
                 || !self.preserve_env.is_empty()
                 || self.directory.is_some()
-                || self.chroot.is_some())
-        {
-            Err("invalid argument found for '--list'")?;
+                || self.chroot.is_some()
+            {
+                Err("invalid argument found for '--list'")?;
+            }
         }
 
         // check arguments for edit action
