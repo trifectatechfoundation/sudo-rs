@@ -13,6 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use crate::log::auth_warn;
+use crate::system::can_execute;
 use crate::system::interface::{UnixGroup, UnixUser};
 use ast::*;
 use tokens::*;
@@ -87,8 +88,19 @@ impl Sudoers {
         }
     }
 
-    pub(crate) fn flag_is_enabled(&self, flag: &str) -> bool {
-        self.settings.flags.contains(flag)
+    pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
+        if self.settings.flags.contains("env_editor") {
+            for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
+                if let Some(var) = std::env::var_os(key) {
+                    let path = Path::new(&var);
+                    if can_execute(path) {
+                        return Some(path.to_owned());
+                    }
+                }
+            }
+        }
+
+        None
     }
 }
 
