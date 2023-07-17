@@ -14,6 +14,7 @@ mod flag_login;
 mod flag_non_interactive;
 mod flag_shell;
 mod flag_user;
+mod flag_list;
 mod lecture;
 mod lecture_file;
 mod limits;

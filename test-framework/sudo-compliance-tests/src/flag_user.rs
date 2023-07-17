@@ -38,6 +38,23 @@ fn root_can_become_another_user_by_name() -> Result<()> {
     Ok(())
 }
 
+#[ignore = "gh680"]
+#[test]
+fn uppercase_u_flag_fails() -> Result<()> {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(USERNAME).build()?;
+
+    let output = Command::new("sudo")
+        .args(["-U", USERNAME, "id"])
+        .output(&env)?;
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let stderr = output.stderr();
+    assert_contains!(stderr, "sudo: the -U option may only be used with the -l option");
+
+    Ok(())
+}
+
 #[test]
 fn root_can_become_another_user_by_uid() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(USERNAME).build()?;
