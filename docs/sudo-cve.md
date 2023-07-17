@@ -23,9 +23,6 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 | CVE-2011-0010 [^12]    |       | https://www.sudo.ws/security/advisories/runas_group_pw/                     |
 | CVE-2012-0809 [^13]    |       | https://www.sudo.ws/security/advisories/sudo_debug/                         |
 | CVE-2013-1775 [^14]    |       | https://www.sudo.ws/security/advisories/epoch_ticket/                       |
-| CVE-2013-1776 [^15]    |       | https://www.sudo.ws/security/advisories/tty_tickets/                        |
-| CVE-2013-2776 [^15]    |       | https://www.sudo.ws/security/advisories/tty_tickets/                        |
-| CVE-2013-2777 [^15]    |       | https://www.sudo.ws/security/advisories/tty_tickets/                        |
 | CVE-2014-9680 [^16]    |       | https://www.sudo.ws/security/advisories/tz/                                 |
 | CVE-2017-1000367 [^17] |       | https://www.sudo.ws/security/advisories/linux_tty/                          |
 | CVE-2017-1000368 [^17] |       | https://www.sudo.ws/security/advisories/linux_tty/                          |
@@ -49,7 +46,6 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 [^12]: -
 [^13]: -
 [^14]: -
-[^15]: -
 [^16]: -
 [^17]: -
 [^18]: -
@@ -77,6 +73,9 @@ relevant at that time.
 | CVE-2010-1163  | `sudoedit`/`sudo -e` is not implemented, https://www.sudo.ws/security/advisories/sudoedit_escalate2/        |
 | CVE-2012-2337  | No host-based rule matching is currently implemented, https://www.sudo.ws/security/advisories/netmask/      |
 | CVE-2012-3440  | Related to Red Hat specific script and not sudo directly                                                    |
+| CVE-2013-1776  | `tty_tickets` is not implemented, https://www.sudo.ws/security/advisories/tty_tickets/                      |
+| CVE-2013-2776  | `tty_tickets` is not implemented, https://www.sudo.ws/security/advisories/tty_tickets/                      |
+| CVE-2013-2777  | `tty_tickets` is not implemented, https://www.sudo.ws/security/advisories/tty_tickets/                      |
 | CVE-2014-0106  | Disabling env_reset is not supported, https://www.sudo.ws/security/advisories/env_add/                      |
 | CVE-2015-5602  | `sudoedit`/`sudo -e` is not implemented                                                                     |
 | CVE-2015-8239  | The sha2 digest feature is not implemented                                                                  |
