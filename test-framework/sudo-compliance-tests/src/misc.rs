@@ -79,7 +79,6 @@ fn closes_open_file_descriptors_without_tty() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh331"]
 fn sudo_binary_lacks_setuid_flag() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
@@ -105,7 +104,6 @@ fn sudo_binary_lacks_setuid_flag() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh331"]
 fn sudo_binary_is_not_owned_by_root() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 

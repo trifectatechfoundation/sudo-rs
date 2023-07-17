@@ -3,6 +3,7 @@ use std::{fmt, path::PathBuf};
 
 #[derive(Debug)]
 pub enum Error {
+    SelfCheck,
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
     ChDirNotAllowed { chdir: PathBuf, command: PathBuf },
@@ -19,6 +20,9 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Error::SelfCheck => {
+                write!(f, "sudo must be owned by uid 0 and have the setuid bit set")
+            }
             Error::CommandNotFound(p) => write!(f, "'{}': command not found", p.display()),
             Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
             Error::UserNotFound(u) => write!(f, "user '{u}' not found"),
