@@ -112,7 +112,7 @@ fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
     assert!(output.stderr().is_empty());
     assert_eq!(Some(0), output.status().code());
 
-    let expected = format!("User {USERNAME} is not allowed to run sudo on container.");
+    let expected = format!("User {USERNAME} is not allowed to run sudo on {hostname}.");
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -137,7 +137,7 @@ fn fails_when_user_is_not_allowed_in_sudoers() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    let expected = format!("password for {USERNAME}: Sorry, user {USERNAME} may not run sudo on container.");
+    let expected = format!("password for {USERNAME}: Sorry, user {USERNAME} may not run sudo on {hostname}.");
     let actual = output.stderr();
     assert_contains!(actual, expected);
 
