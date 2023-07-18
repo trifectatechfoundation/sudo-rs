@@ -6,7 +6,7 @@ macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
             prepend_module_to_snapshot => false,
-            snapshot_path => "snapshots/secure_path",
+            snapshot_path => "../snapshots/secure_path",
         }, {
             insta::assert_snapshot!($($tt)*)
         });

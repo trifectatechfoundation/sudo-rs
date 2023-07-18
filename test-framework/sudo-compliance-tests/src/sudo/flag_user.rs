@@ -10,7 +10,7 @@ macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
             prepend_module_to_snapshot => false,
-            snapshot_path => "snapshots/flag_user",
+            snapshot_path => "../snapshots/flag_user",
         }, {
             insta::assert_snapshot!($($tt)*)
         });
@@ -50,7 +50,10 @@ fn uppercase_u_flag_fails() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let stderr = output.stderr();
-    assert_contains!(stderr, "sudo: the -U option may only be used with the -l option");
+    assert_contains!(
+        stderr,
+        "sudo: the -U option may only be used with the -l option"
+    );
 
     Ok(())
 }
