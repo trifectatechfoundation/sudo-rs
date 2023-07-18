@@ -1,23 +1,21 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME, PASSWORD};
+use crate::{Result, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[ignore = "gh658"]
 #[test]
 fn lists_privileges_for_root() -> Result<()> {
     let hostname = "container";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-        .hostname(hostname)
-        .build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).hostname(hostname).build()?;
 
-    let output = Command::new("sudo")
-        .arg("-l")
-        .output(&env)?;
+    let output = Command::new("sudo").arg("-l").output(&env)?;
 
     assert!(output.status().success());
 
-    let expected = format!("User root may run the following commands on {hostname}:
-    (ALL : ALL) NOPASSWD: ALL");
+    let expected = format!(
+        "User root may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL"
+    );
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -28,18 +26,16 @@ fn lists_privileges_for_root() -> Result<()> {
 #[test]
 fn works_with_long_form_list_flag() -> Result<()> {
     let hostname = "container";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-        .hostname(hostname)
-        .build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).hostname(hostname).build()?;
 
-    let output = Command::new("sudo")
-        .arg("--list")
-        .output(&env)?;
+    let output = Command::new("sudo").arg("--list").output(&env)?;
 
     assert!(output.status().success());
 
-    let expected = format!("User root may run the following commands on {hostname}:
-    (ALL : ALL) NOPASSWD: ALL");
+    let expected = format!(
+        "User root may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL"
+    );
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -63,8 +59,10 @@ fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
 
-    let expected = format!("User {USERNAME} may run the following commands on {hostname}:
-    (ALL : ALL) NOPASSWD: ALL");
+    let expected = format!(
+        "User {USERNAME} may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL"
+    );
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -87,8 +85,10 @@ fn works_with_uppercase_u_flag() -> Result<()> {
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
 
-    let expected = format!("User {USERNAME} may run the following commands on {hostname}:
-    (ALL : ALL) NOPASSWD: ALL");
+    let expected = format!(
+        "User {USERNAME} may run the following commands on {hostname}:
+    (ALL : ALL) NOPASSWD: ALL"
+    );
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -99,10 +99,7 @@ fn works_with_uppercase_u_flag() -> Result<()> {
 #[test]
 fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
     let hostname = "container";
-    let env = Env("")
-        .user(USERNAME)
-        .hostname(hostname)
-        .build()?;
+    let env = Env("").user(USERNAME).hostname(hostname).build()?;
 
     let output = Command::new("sudo")
         .args(["-U", USERNAME, "-l"])
@@ -137,7 +134,8 @@ fn fails_when_user_is_not_allowed_in_sudoers() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    let expected = format!("password for {USERNAME}: Sorry, user {USERNAME} may not run sudo on {hostname}.");
+    let expected =
+        format!("password for {USERNAME}: Sorry, user {USERNAME} may not run sudo on {hostname}.");
     let actual = output.stderr();
     assert_contains!(actual, expected);
 
@@ -182,13 +180,15 @@ fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
 
-    let expected = format!("User {USERNAME} may run the following commands on {hostname}:\n
+    let expected = format!(
+        "User {USERNAME} may run the following commands on {hostname}:\n
 Sudoers entry:
     RunAsUsers: ALL
     RunAsGroups: ALL
     Options: !authenticate
     Commands:
-\tALL");
+\tALL"
+    );
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -203,7 +203,7 @@ fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<(
         .build()?;
 
     let output = Command::new("sudo")
-    .args(["-l", "true"])
+        .args(["-l", "true"])
         .as_user(USERNAME)
         .output(&env)?;
 
@@ -247,7 +247,7 @@ fn when_command_is_forbidden_exit_with_status_1_no_stderr() -> Result<()> {
         .build()?;
 
     let output = Command::new("sudo")
-    .args(["-l", "ls"])
+        .args(["-l", "ls"])
         .as_user(USERNAME)
         .output(&env)?;
 
