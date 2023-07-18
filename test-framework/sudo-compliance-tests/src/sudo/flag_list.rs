@@ -1,6 +1,73 @@
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{Result, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+
+mod flag_other_user;
+mod needs_auth;
+mod nopasswd;
+
+#[test]
+#[ignore = "gh658"]
+fn root_cannot_use_list_when_empty_sudoers() -> Result<()> {
+    let hostname = "container";
+    let env = Env("").hostname(hostname).build()?;
+
+    let output = Command::new("sudo").arg("-l").output(&env)?;
+
+    assert!(output.status().success());
+
+    let expected = format!("User root is not allowed to run sudo on {hostname}.");
+    let actual = output.stdout()?;
+    assert_contains!(actual, expected);
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh658"]
+fn regular_user_can_use_list_regardless_of_which_command_is_allowed_by_sudoers() -> Result<()> {
+    let hostname = "container";
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) /command/does/not/matter"))
+        .user(User(USERNAME).password(PASSWORD))
+        .hostname(hostname)
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-S", "-l"])
+        .as_user(USERNAME)
+        .stdin(PASSWORD)
+        .output(&env)?;
+
+    assert_contains!(
+        output.stdout()?,
+        format!("User {USERNAME} may run the following commands on {hostname}:")
+    );
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh658"]
+fn regular_user_can_use_list_regardless_of_which_target_user_is_allowed_by_sudoers() -> Result<()> {
+    let hostname = "container";
+    let env = Env(format!("{USERNAME} ALL=(doesnt:matter) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .hostname(hostname)
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-S", "-l"])
+        .as_user(USERNAME)
+        .stdin(PASSWORD)
+        .output(&env)?;
+
+    assert_contains!(
+        output.stdout()?,
+        format!("User {USERNAME} may run the following commands on {hostname}:")
+    );
+
+    Ok(())
+}
 
 #[ignore = "gh658"]
 #[test]
@@ -269,10 +336,11 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
         root ALL=(ALL:ALL) /usr/bin/ls
         root ALL=({USERNAME}:ALL) /usr/bin/date
         ALL ALL=(root:ALL) /usr/bin/whoami
-    "))
-        .user(USERNAME)
-        .hostname(hostname)
-        .build()?;
+    "
+    ))
+    .user(USERNAME)
+    .hostname(hostname)
+    .build()?;
 
     let output = Command::new("sudo")
         .args(["-l", "-U", USERNAME])
@@ -282,11 +350,12 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-    "User {USERNAME} may run the following commands on {hostname}:
+        "User {USERNAME} may run the following commands on {hostname}:
     ({USERNAME} : ALL) /usr/bin/true
     (ALL : ALL) /usr/bin/pwd
     (root : ALL) /usr/bin/false
-    (root : ALL) /usr/bin/whoami");
+    (root : ALL) /usr/bin/whoami"
+    );
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
 
@@ -303,10 +372,9 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Resul
         root ALL=(ALL:ALL)     /usr/bin/pwd
         ALL ALL=({another_user}:ALL)    /usr/bin/whoami"
     ))
-
-        .user(another_user)
-        .hostname(hostname)
-        .build()?;
+    .user(another_user)
+    .hostname(hostname)
+    .build()?;
 
     let actual = Command::new("sudo")
         .args(["-l", "-u", another_user, "false", "pwd", "whoami"])
@@ -335,6 +403,76 @@ fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() -> Result
     assert!(!actual.status().success());
     assert_eq!(Some(1), actual.status().code());
     assert!(actual.stderr().is_empty());
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh658"]
+fn resolves_command_in_invoking_users_path_fail() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) ALL").build()?;
+
+    let output = Command::new("env")
+        .args(["-i", "sudo", "-l", "true"])
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+    assert_eq!(output.stderr(), "sudo: true: command not found");
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh658"]
+fn resolves_command_in_invoking_users_path_pass() -> Result<()> {
+    let expected = "/tmp/true";
+    let env = Env("ALL ALL=(ALL:ALL) ALL")
+        .file(expected, TextFile("").chmod("100"))
+        .build()?;
+
+    let output = Command::new("env")
+        .args(["-i", "PATH=/tmp", "/usr/bin/sudo", "-l", "true"])
+        .output(&env)?;
+
+    let actual = output.stdout()?;
+    assert_eq!(actual, expected);
+
+    Ok(())
+}
+
+#[test]
+fn relative_path_pass() -> Result<()> {
+    let prog_abs_path = "/tmp/true";
+    let prog_rel_path = "./true";
+    let env = Env("ALL ALL=(ALL:ALL) ALL")
+        .file(prog_abs_path, TextFile("").chmod("100"))
+        .build()?;
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("cd /tmp; sudo -l {prog_rel_path}"))
+        .output(&env)?;
+
+    let actual = output.stdout()?;
+    assert_eq!(actual, prog_rel_path);
+
+    Ok(())
+}
+
+#[test]
+fn relative_path_does_not_exist() -> Result<()> {
+    let prog_rel_path = "./true";
+    let env = Env("ALL ALL=(ALL:ALL) ALL").build()?;
+
+    let output = Command::new("sudo").args(["-l", "./true"]).output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+    assert_contains!(
+        output.stderr(),
+        format!("sudo: {prog_rel_path}: command not found")
+    );
 
     Ok(())
 }
