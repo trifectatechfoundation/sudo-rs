@@ -9,7 +9,7 @@ macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
             prepend_module_to_snapshot => false,
-            snapshot_path => "../snapshots/sudoers/user_list",
+            snapshot_path => "../../snapshots/sudoers/user_list",
         }, {
             insta::assert_snapshot!($($tt)*)
         });

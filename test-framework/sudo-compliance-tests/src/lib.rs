@@ -5,36 +5,10 @@ use core::fmt;
 #[macro_use]
 mod macros;
 
-mod child_process;
-mod cli;
-mod env_reset;
-mod flag_chdir;
-mod flag_group;
-mod flag_login;
-mod flag_non_interactive;
-mod flag_shell;
-mod flag_user;
-mod flag_list;
-mod lecture;
-mod lecture_file;
-mod limits;
-mod misc;
-mod nopasswd;
-mod pam;
-mod pass_auth;
-mod passwd;
-mod password_retry;
-mod path_search;
-mod perms;
-mod su;
-mod sudo_ps1;
-mod sudoers;
-mod syslog;
-mod timestamp;
-mod use_pty;
-mod visudo;
-
 mod helpers;
+mod su;
+mod sudo;
+mod visudo;
 
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;

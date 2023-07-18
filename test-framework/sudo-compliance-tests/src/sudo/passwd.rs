@@ -7,7 +7,7 @@ macro_rules! assert_snapshot {
         insta::with_settings!({
             filters => vec![(r"[[:xdigit:]]{12}", "[host]")],
             prepend_module_to_snapshot => false,
-            snapshot_path => "snapshots/passwd",
+            snapshot_path => "../snapshots/passwd",
         }, {
             insta::assert_snapshot!($($tt)*)
         });
