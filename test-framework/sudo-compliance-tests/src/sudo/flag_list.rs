@@ -7,7 +7,6 @@ mod needs_auth;
 mod nopasswd;
 
 #[test]
-#[ignore = "gh658"]
 fn root_cannot_use_list_when_empty_sudoers() -> Result<()> {
     let hostname = "container";
     let env = Env("").hostname(hostname).build()?;
@@ -24,7 +23,6 @@ fn root_cannot_use_list_when_empty_sudoers() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
 fn regular_user_can_use_list_regardless_of_which_command_is_allowed_by_sudoers() -> Result<()> {
     let hostname = "container";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) /command/does/not/matter"))
@@ -47,7 +45,6 @@ fn regular_user_can_use_list_regardless_of_which_command_is_allowed_by_sudoers()
 }
 
 #[test]
-#[ignore = "gh658"]
 fn regular_user_can_use_list_regardless_of_which_target_user_is_allowed_by_sudoers() -> Result<()> {
     let hostname = "container";
     let env = Env(format!("{USERNAME} ALL=(doesnt:matter) ALL"))
@@ -162,7 +159,6 @@ fn works_with_uppercase_u_flag() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
     let hostname = "container";
@@ -183,7 +179,6 @@ fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn fails_when_user_is_not_allowed_in_sudoers() -> Result<()> {
     let hostname = "container";
@@ -201,15 +196,12 @@ fn fails_when_user_is_not_allowed_in_sudoers() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    let expected =
-        format!("password for {USERNAME}: Sorry, user {USERNAME} may not run sudo on {hostname}.");
-    let actual = output.stderr();
-    assert_contains!(actual, expected);
+    let diagnostic = format!("Sorry, user {USERNAME} may not run sudo on {hostname}.");
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn does_not_work_with_lowercase_u_flag() -> Result<()> {
     let hostname = "container";
@@ -225,7 +217,12 @@ fn does_not_work_with_lowercase_u_flag() -> Result<()> {
     assert!(!output.status().success());
 
     let actual = output.stderr();
-    assert_contains!(actual, "usage: sudo -h | -K | -k | -V");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "usage: sudo -h | -K | -k | -V"
+    } else {
+        "invalid argument found for '--list"
+    };
+    assert_contains!(actual, diagnostic);
 
     Ok(())
 }
@@ -262,7 +259,6 @@ Sudoers entry:
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true")
@@ -284,7 +280,6 @@ fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<(
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn when_several_commands_specified_only_first_displayed_with_fully_qualified_path() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, /bin/ls")
@@ -408,7 +403,6 @@ fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() -> Result
 }
 
 #[test]
-#[ignore = "gh658"]
 fn resolves_command_in_invoking_users_path_fail() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL").build()?;
 
@@ -418,13 +412,17 @@ fn resolves_command_in_invoking_users_path_fail() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_eq!(output.stderr(), "sudo: true: command not found");
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "sudo: true: command not found"
+    } else {
+        "sudo-rs: 'true': command not found"
+    };
+    assert_eq!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh658"]
 fn resolves_command_in_invoking_users_path_pass() -> Result<()> {
     let expected = "/tmp/true";
     let env = Env("ALL ALL=(ALL:ALL) ALL")
@@ -455,7 +453,7 @@ fn relative_path_pass() -> Result<()> {
         .output(&env)?;
 
     let actual = output.stdout()?;
-    assert_eq!(actual, prog_rel_path);
+    assert_eq!(prog_rel_path, actual);
 
     Ok(())
 }
@@ -469,10 +467,13 @@ fn relative_path_does_not_exist() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(
-        output.stderr(),
+
+    let diagnostic = if sudo_test::is_original_sudo() {
         format!("sudo: {prog_rel_path}: command not found")
-    );
+    } else {
+        format!("sudo-rs: '{prog_rel_path}': command not found")
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

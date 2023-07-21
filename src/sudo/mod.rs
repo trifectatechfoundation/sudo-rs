@@ -116,9 +116,7 @@ fn sudo_process() -> Result<(), Error> {
                     pipeline.run(options)
                 }
             }
-            SudoAction::List(_) => {
-                unimplemented!();
-            }
+            SudoAction::List(_) => pipeline.run_list(options).map(|exit| exit.execute()),
             SudoAction::Edit(_) => {
                 unimplemented!();
             }

@@ -51,7 +51,7 @@ pub(super) fn resolve_launch_and_shell(
     }
 }
 
-pub(super) fn resolve_target_user_and_group(
+pub(crate) fn resolve_target_user_and_group(
     target_user_name_or_id: &Option<String>,
     target_group_name_or_id: &Option<String>,
     current_user: &User,

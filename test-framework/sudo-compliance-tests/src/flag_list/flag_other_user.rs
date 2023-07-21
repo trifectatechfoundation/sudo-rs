@@ -14,7 +14,12 @@ fn other_user_does_not_exist() -> Result<()> {
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-    assert_contains!(output.stderr(), format!("sudo: unknown user {USERNAME}"));
+    let diagnostic = if sudo_test::is_original_sudo() {
+        format!("sudo: unknown user {USERNAME}")
+    } else {
+        format!("sudo-rs: user '{USERNAME}' not found")
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }

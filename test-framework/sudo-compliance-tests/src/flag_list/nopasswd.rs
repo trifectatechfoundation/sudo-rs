@@ -3,7 +3,6 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, GROUPNAME, USERNAME};
 
 #[test]
-#[ignore = "gh658"]
 fn when_invoking_user_is_root() -> Result<()> {
     let argss: &[&[&str]] = &[
         &[],
@@ -40,7 +39,6 @@ fn when_invoking_user_is_root() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
 fn when_target_user_is_self() -> Result<()> {
     let other_user = "ghost";
     let argss: &[&[&str]] = &[
@@ -70,7 +68,6 @@ fn when_target_user_is_self() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
 fn when_invoking_user_belongs_to_target_group() -> Result<()> {
     let other_user = "ghost";
     let argss: &[&[&str]] = &[
@@ -102,7 +99,6 @@ fn when_invoking_user_belongs_to_target_group() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
 fn nopasswd_tag() -> Result<()> {
     let hostname = "container";
     let env = Env(format!(

@@ -40,6 +40,11 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub arguments: &'a [String],
 }
 
+pub struct ListRequest<'a, User: UnixUser, Group: UnixGroup> {
+    pub target_user: &'a User,
+    pub target_group: &'a Group,
+}
+
 #[derive(Default)]
 pub struct Judgement {
     flags: Option<Tag>,
@@ -76,6 +81,29 @@ impl Sudoers {
             am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));
 
         let mut flags = check_permission(self, am_user, on_host, request);
+        if let Some(Tag { passwd, .. }) = flags.as_mut() {
+            if skip_passwd {
+                *passwd = false
+            }
+        }
+
+        Judgement {
+            flags,
+            settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
+        }
+    }
+
+    pub fn check_list_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
+        &self,
+        am_user: &User,
+        on_host: &str,
+        request: ListRequest<User, Group>,
+    ) -> Judgement {
+        // exception: if user is root or does not switch users, NOPASSWD is implied
+        let skip_passwd = am_user.is_root()
+            || (request.target_user == am_user && in_group(am_user, request.target_group));
+
+        let mut flags = check_list_permission(self, am_user, on_host);
         if let Some(Tag { passwd, .. }) = flags.as_mut() {
             if skip_passwd {
                 *passwd = false
@@ -190,6 +218,37 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         });
 
     find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases)
+}
+
+fn check_list_permission<User: UnixUser + PartialEq<User>>(
+    Sudoers { rules, aliases, .. }: &Sudoers,
+    am_user: &User,
+    on_host: &str,
+) -> Option<Tag> {
+    let user_aliases = get_aliases(&aliases.user, &match_user(am_user));
+    let host_aliases = get_aliases(&aliases.host, &match_token(on_host));
+
+    rules
+        .iter()
+        .filter_map(|sudo| {
+            find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
+            Some(&sudo.permissions)
+        })
+        .flatten()
+        .filter_map(|(hosts, runas_cmds)| {
+            find_item(hosts, &match_token(on_host), &host_aliases)?;
+            Some(distribute_tags(runas_cmds))
+        })
+        .flatten()
+        .fold(None::<Tag>, |outcome, (_, (tag, _))| {
+            if let Some(outcome) = outcome {
+                let new_outcome = if !outcome.passwd { outcome } else { tag };
+
+                Some(new_outcome)
+            } else {
+                Some(tag)
+            }
+        })
 }
 
 /// Process a raw parsed AST bit of RunAs + Command specifications:

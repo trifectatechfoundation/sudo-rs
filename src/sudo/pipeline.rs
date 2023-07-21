@@ -13,6 +13,22 @@ use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{escape_os_str_lossy, Process};
 
+mod list;
+
+pub(super) enum ExitError {
+    Yes,
+    No,
+}
+
+impl ExitError {
+    pub fn execute(self) {
+        match self {
+            ExitError::Yes => std::process::exit(1),
+            ExitError::No => {}
+        }
+    }
+}
+
 pub trait PolicyPlugin {
     type PreJudgementPolicy: PreJudgementPolicy;
     type Policy: Policy;
@@ -265,6 +281,10 @@ impl<'a> AuthStatus<'a> {
             must_authenticate,
             record_file,
         }
+    }
+
+    fn must_authenticate(&self) -> bool {
+        self.must_authenticate
     }
 }
 

@@ -3,10 +3,18 @@ use std::{fmt, path::PathBuf};
 
 #[derive(Debug)]
 pub enum Error {
+    NotAllowed {
+        username: String,
+        command: String,
+        hostname: String,
+    },
     SelfCheck,
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
-    ChDirNotAllowed { chdir: PathBuf, command: PathBuf },
+    ChDirNotAllowed {
+        chdir: PathBuf,
+        command: PathBuf,
+    },
     UserNotFound(String),
     GroupNotFound(String),
     Authentication(String),
@@ -20,6 +28,16 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Error::NotAllowed {
+                username,
+                command,
+                hostname,
+            } => {
+                write!(
+                    f,
+                    "Sorry, user {username} may not run {command} on {hostname}.",
+                )
+            }
             Error::SelfCheck => {
                 write!(f, "sudo must be owned by uid 0 and have the setuid bit set")
             }
