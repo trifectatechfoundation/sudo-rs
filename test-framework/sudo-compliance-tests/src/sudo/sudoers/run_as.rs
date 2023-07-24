@@ -418,3 +418,36 @@ fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_a
 
     Ok(())
 }
+
+#[test]
+/// This test tracks [CVE-2009-0034](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2009-0034)
+/// which is explained in more detail [here](https://www.sudo.ws/security/advisories/group_vector/).
+fn supplemental_group_matching() -> Result<()> {
+    let other_user = "corro";
+
+    let env = Env([&format!("{USERNAME} ALL=(%{GROUPNAME}) NOPASSWD: ALL")])
+        .user(User(USERNAME).secondary_group(GROUPNAME))
+        .user(User(other_user))
+        .group(GROUPNAME)
+        .build()?;
+
+    let output = Command::new("sudo")
+        .args(["-u", other_user, "true"])
+        .as_user(USERNAME)
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let stderr = output.stderr();
+    if sudo_test::is_original_sudo() {
+        assert_snapshot!(stderr);
+    } else {
+        assert_contains!(
+            stderr,
+            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
+        );
+    }
+
+    Ok(())
+}
