@@ -3,7 +3,7 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, HOSTNAME, OTHER_USERNAME, PASSWORD, USERNAME};
 
 #[test]
-#[ignore = "gh658"]
+#[ignore = "gh709"]
 fn invoking_user_has_list_perms() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) list"))
         .user(User(USERNAME).password(PASSWORD))
@@ -25,7 +25,7 @@ fn invoking_user_has_list_perms() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
+#[ignore = "gh709"]
 fn invoking_user_has_list_perms_nopasswd() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) NOPASSWD: list"))
         .user(USERNAME)
@@ -49,7 +49,7 @@ fn invoking_user_has_list_perms_nopasswd() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
+#[ignore = "gh709"]
 fn other_user_has_list_perms_but_invoking_user_has_not() -> Result<()> {
     let env = Env(format!("{OTHER_USERNAME} ALL=(ALL:ALL) list"))
         .user(User(USERNAME).password(PASSWORD))
@@ -75,7 +75,7 @@ fn other_user_has_list_perms_but_invoking_user_has_not() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
+#[ignore = "gh709"]
 fn invoking_user_has_list_perms_but_other_user_does_not_have_sudo_perms() -> Result<()> {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) NOPASSWD: list"))
         .user(User(USERNAME).password(PASSWORD))

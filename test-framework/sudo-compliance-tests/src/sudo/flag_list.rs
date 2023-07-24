@@ -69,7 +69,7 @@ fn regular_user_can_use_list_regardless_of_which_target_user_is_allowed_by_sudoe
     Ok(())
 }
 
-#[ignore = "gh658"]
+#[ignore = "gh710"]
 #[test]
 fn lists_privileges_for_root() -> Result<()> {
     let hostname = "container";
@@ -89,7 +89,7 @@ fn lists_privileges_for_root() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh658"]
+#[ignore = "gh710"]
 #[test]
 fn works_with_long_form_list_flag() -> Result<()> {
     let hostname = "container";
@@ -109,7 +109,7 @@ fn works_with_long_form_list_flag() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh658"]
+#[ignore = "gh710"]
 #[test]
 fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     let hostname = "container";
@@ -136,7 +136,7 @@ fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh658"]
+#[ignore = "gh710"]
 #[test]
 fn works_with_uppercase_u_flag() -> Result<()> {
     let hostname = "container";
@@ -230,7 +230,7 @@ fn does_not_work_with_lowercase_u_flag() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh658"]
+#[ignore = "gh710"]
 #[test]
 fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
     let hostname = "container";
