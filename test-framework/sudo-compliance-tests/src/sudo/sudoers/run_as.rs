@@ -454,6 +454,7 @@ fn supplemental_group_matching() -> Result<()> {
 
 /// This test tracks [CVE-2019-14287](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-14287)
 /// which is explained in more detail [here](https://www.sudo.ws/security/advisories/minus_1_uid/).
+#[test]
 fn minus_1_uid() -> Result<()> {
     let host = "myhost";
 
