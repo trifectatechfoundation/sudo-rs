@@ -471,7 +471,11 @@ fn minus_1_uid() -> Result<()> {
             .output(&env)?;
 
         assert!(!output.status().success());
-        assert_contains!(output.stderr(), "unknown user");
+        if sudo_test::is_original_sudo() {
+            assert_contains!(output.stderr(), "unknown user");
+        } else {
+            assert_contains!(output.stderr(), "not found");
+        }
     }
 
     Ok(())
