@@ -451,3 +451,28 @@ fn supplemental_group_matching() -> Result<()> {
 
     Ok(())
 }
+
+/// This test tracks [CVE-2019-14287](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-14287)
+/// which is explained in more detail [here](https://www.sudo.ws/security/advisories/minus_1_uid/).
+fn minus_1_uid() -> Result<()> {
+    let host = "myhost";
+
+    let env = Env(format!(
+        "{USERNAME} {host} = (ALL, !root) NOPASSWD: /usr/bin/id"
+    ))
+    .user(User(USERNAME))
+    .group(GROUPNAME)
+    .hostname(host)
+    .build()?;
+
+    for uid in [(-1).to_string(), u32::MAX.to_string()] {
+        let output = Command::new("sudo")
+            .args(["-u", &format!("#{uid}"), "id", "-u"])
+            .output(&env)?;
+
+        assert!(!output.status().success());
+        assert_contains!(output.stderr(), "unknown user");
+    }
+
+    Ok(())
+}
