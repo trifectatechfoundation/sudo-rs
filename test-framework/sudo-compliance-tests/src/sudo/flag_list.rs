@@ -6,6 +6,8 @@ mod credential_caching;
 mod flag_other_user;
 mod needs_auth;
 mod nopasswd;
+mod not_allowed;
+mod sudoers_list;
 
 #[test]
 fn root_cannot_use_list_when_empty_sudoers() -> Result<()> {
@@ -181,7 +183,7 @@ fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
 }
 
 #[test]
-fn fails_when_user_is_not_allowed_in_sudoers() -> Result<()> {
+fn fails_when_user_is_not_allowed_in_sudoers_no_command() -> Result<()> {
     let hostname = "container";
     let env = Env("")
         .user(User(USERNAME).password(PASSWORD))
