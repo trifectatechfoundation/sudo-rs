@@ -297,6 +297,8 @@ impl Parse for CommandSpec {
             if keyword == "sudoedit" {
                 // note: special behaviour of forward slashes in wildcards, tread carefully
                 unrecoverable!(pos = start_pos, stream, "sudoedit is not yet supported");
+            } else if keyword == "list" {
+                unrecoverable!(pos = start_pos, stream, "list is not yet supported");
             } else if keyword.starts_with("sha") {
                 unrecoverable!(
                     pos = start_pos,
