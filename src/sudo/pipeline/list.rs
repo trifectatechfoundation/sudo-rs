@@ -79,9 +79,11 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             }
 
             Authorization::Forbidden => {
-                if original_command.is_some() {
-                    return Err(Error::Silent);
-                } else if context.current_user.uid == 0 {
+                if context.current_user.uid == 0 {
+                    if original_command.is_some() {
+                        return Err(Error::Silent);
+                    }
+
                     println!(
                         "User {} is not allowed to run sudo on {}.",
                         other_user.as_ref().unwrap_or(&context.current_user).name,
@@ -89,12 +91,44 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
                     );
                     return Ok(());
                 } else {
+                    let command = if other_user.is_none() {
+                        "sudo".to_string()
+                    } else if original_command.is_none() {
+                        "list".to_string()
+                    } else {
+                        format!("list{}", context.command.command.display())
+                    };
+
                     return Err(Error::NotAllowed {
                         username: context.current_user.name,
-                        command: "sudo".to_string(),
+                        command,
                         hostname: context.hostname,
+                        other_user: other_user.map(|user| user.name),
                     });
                 }
+            }
+        }
+
+        if let Some(other_user) = &other_user {
+            let list_request = ListRequest {
+                target_user: &context.target_user,
+                target_group: &context.target_group,
+            };
+            let judgement = pre.check_list_permission(other_user, &context.hostname, list_request);
+
+            if let Authorization::Forbidden = judgement.authorization() {
+                let command = if original_command.is_none() {
+                    "list".to_string()
+                } else {
+                    format!("list{}", context.command.command.display())
+                };
+
+                return Err(Error::NotAllowed {
+                    username: context.current_user.name,
+                    command,
+                    hostname: context.hostname,
+                    other_user: Some(other_user.name.clone()),
+                });
             }
         }
 

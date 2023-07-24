@@ -3,7 +3,6 @@ use sudo_test::{Command, Env, User};
 use crate::{Result, PASSWORD, USERNAME};
 
 #[test]
-#[ignore = "gh658"]
 fn flag_uppercase_u() -> Result<()> {
     let other_user = "ghost";
     let hostname = "container";
@@ -38,7 +37,6 @@ fn flag_uppercase_u() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
 fn flag_uppercase_u_plus_command() -> Result<()> {
     let other_user = "ghost";
     let hostname = "container";
@@ -80,7 +78,6 @@ fn flag_uppercase_u_plus_command() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh658"]
 fn other_cases() -> Result<()> {
     let other_user = "ghost";
     let hostname = "container";

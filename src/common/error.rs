@@ -8,6 +8,7 @@ pub enum Error {
         username: String,
         command: String,
         hostname: String,
+        other_user: Option<String>,
     },
     SelfCheck,
     CommandNotFound(PathBuf),
@@ -34,11 +35,19 @@ impl fmt::Display for Error {
                 username,
                 command,
                 hostname,
+                other_user,
             } => {
-                write!(
-                    f,
-                    "Sorry, user {username} may not run {command} on {hostname}.",
-                )
+                if let Some(other_user) = other_user {
+                    write!(
+                        f,
+                        "Sorry, user {username} is not allowed to execute '{command}' as {other_user} on {hostname}.",
+                    )
+                } else {
+                    write!(
+                        f,
+                        "Sorry, user {username} may not run {command} on {hostname}.",
+                    )
+                }
             }
             Error::SelfCheck => {
                 write!(f, "sudo must be owned by uid 0 and have the setuid bit set")
