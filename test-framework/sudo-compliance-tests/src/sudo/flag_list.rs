@@ -2,6 +2,7 @@ use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{Result, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
+mod credential_caching;
 mod flag_other_user;
 mod needs_auth;
 mod nopasswd;
