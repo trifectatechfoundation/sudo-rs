@@ -116,7 +116,7 @@ fn sudo_process() -> Result<(), Error> {
                     pipeline.run(options)
                 }
             }
-            SudoAction::List(_) => pipeline.run_list(options).map(|exit| exit.execute()),
+            SudoAction::List(_) => pipeline.run_list(options),
             SudoAction::Edit(_) => {
                 unimplemented!();
             }
@@ -148,7 +148,9 @@ pub fn main() {
     match sudo_process() {
         Ok(()) => (),
         Err(error) => {
-            diagnostic!("{error}");
+            if !error.is_silent() {
+                diagnostic!("{error}");
+            }
             std::process::exit(1);
         }
     }

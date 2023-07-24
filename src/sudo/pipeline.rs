@@ -15,20 +15,6 @@ use crate::system::{escape_os_str_lossy, Process};
 
 mod list;
 
-pub(super) enum ExitError {
-    Yes,
-    No,
-}
-
-impl ExitError {
-    pub fn execute(self) {
-        match self {
-            ExitError::Yes => std::process::exit(1),
-            ExitError::No => {}
-        }
-    }
-}
-
 pub trait PolicyPlugin {
     type PreJudgementPolicy: PreJudgementPolicy;
     type Policy: Policy;

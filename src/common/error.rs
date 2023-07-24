@@ -3,6 +3,7 @@ use std::{fmt, path::PathBuf};
 
 #[derive(Debug)]
 pub enum Error {
+    Silent,
     NotAllowed {
         username: String,
         command: String,
@@ -28,6 +29,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Error::Silent => Ok(()),
             Error::NotAllowed {
                 username,
                 command,
@@ -84,5 +86,13 @@ impl From<std::io::Error> for Error {
 impl Error {
     pub fn auth(message: &str) -> Self {
         Self::Authentication(message.to_string())
+    }
+
+    /// Returns `true` if the error is [`Silent`].
+    ///
+    /// [`Silent`]: Error::Silent
+    #[must_use]
+    pub fn is_silent(&self) -> bool {
+        matches!(self, Self::Silent)
     }
 }

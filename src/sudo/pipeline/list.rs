@@ -10,10 +10,10 @@ use crate::{
     system::{timestamp::RecordScope, Process, User},
 };
 
-use super::{AuthPlugin, ExitError, Pipeline, PolicyPlugin};
+use super::{AuthPlugin, Pipeline, PolicyPlugin};
 
 impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
-    pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoOptions) -> Result<ExitError, Error> {
+    pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
         let other_user = if let Some(other_user) = &cmd_opts.other_user {
             Some(
                 User::from_name(other_user)?
@@ -80,14 +80,14 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
 
             Authorization::Forbidden => {
                 if original_command.is_some() {
-                    return Ok(ExitError::Yes);
+                    return Err(Error::Silent);
                 } else if context.current_user.uid == 0 {
                     println!(
                         "User {} is not allowed to run sudo on {}.",
                         other_user.as_ref().unwrap_or(&context.current_user).name,
                         context.hostname
                     );
-                    return Ok(ExitError::No);
+                    return Ok(());
                 } else {
                     return Err(Error::NotAllowed {
                         username: context.current_user.name,
@@ -111,7 +111,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             let judgement = pre.check(user, &context.hostname, request);
 
             if let Authorization::Forbidden = judgement.authorization() {
-                return Ok(ExitError::Yes);
+                return Err(Error::Silent);
             } else {
                 let command = if original_command.contains('/')
                     && !Path::new(&original_command).is_absolute()
@@ -137,6 +137,6 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             // TODO print sudoers policies
         }
 
-        Ok(ExitError::No)
+        Ok(())
     }
 }
