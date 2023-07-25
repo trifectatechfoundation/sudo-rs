@@ -304,7 +304,6 @@ fn when_several_commands_specified_only_first_displayed_with_fully_qualified_pat
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn when_command_is_forbidden_exit_with_status_1_no_stderr() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true")
@@ -360,7 +359,6 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Result<()> {
     let another_user = "another_user";
@@ -384,7 +382,6 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Resul
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() -> Result<()> {
     let another_user = "another_user";
