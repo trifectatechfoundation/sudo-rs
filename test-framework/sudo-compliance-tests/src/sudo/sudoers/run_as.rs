@@ -466,7 +466,7 @@ fn minus_1_uid() -> Result<()> {
     .hostname(host)
     .build()?;
 
-    for uid in [(-1).to_string(), u32::MAX.to_string()] {
+    for uid in [-1i64, u32::MAX.into()] {
         let output = Command::new("sudo")
             .args(["-u", &format!("#{uid}"), "id", "-u"])
             .output(&env)?;
