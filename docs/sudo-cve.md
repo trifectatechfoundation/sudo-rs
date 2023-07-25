@@ -28,7 +28,6 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 | CVE-2014-9680 [^16]    |       | https://www.sudo.ws/security/advisories/tz/                                 |
 | CVE-2017-1000367 [^17] |       | https://www.sudo.ws/security/advisories/linux_tty/                          |
 | CVE-2017-1000368 [^17] |       | https://www.sudo.ws/security/advisories/linux_tty/                          |
-| CVE-2019-14287 [^18]   |       | https://www.sudo.ws/security/advisories/minus_1_uid/                        |
 | CVE-2023-28486 [^19]   |       | Syslog messages do not escape control characters                            |
 
 [^1]: All our path checks should only ever be done with absolute paths
@@ -50,7 +49,6 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 [^15]: -
 [^16]: -
 [^17]: -
-[^18]: -
 [^19]: -
 
 ## Non-applicable CVEs
@@ -81,6 +79,7 @@ relevant at that time.
 | CVE-2015-8239  | The sha2 digest feature is not implemented                                                                  |
 | CVE-2016-7032  | The noexec functionality is not implemented, https://www.sudo.ws/security/advisories/noexec_bypass/         |
 | CVE-2016-7076  | The noexec functionality is not implemented, https://www.sudo.ws/security/advisories/noexec_wordexp/        |
+| CVE-2019-14287 | This bug is not present, https://www.sudo.ws/security/advisories/minus_1_uid/                               |
 | CVE-2019-18634 | The pwfeedback functionality is not implemented, https://www.sudo.ws/security/advisories/pwfeedback/        |
 | CVE-2021-3156  | `sudoedit`/`sudo -e` is not implemented, https://www.sudo.ws/security/advisories/unescape_overflow/         |
 | CVE-2021-23239 | `sudoedit`/`sudo -e` is not implemented                                                                     |
