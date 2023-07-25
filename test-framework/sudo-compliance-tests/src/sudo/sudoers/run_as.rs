@@ -466,17 +466,19 @@ fn minus_1_uid() -> Result<()> {
     .hostname(host)
     .build()?;
 
+    let needle = if sudo_test::is_original_sudo() {
+        "unknown user"
+    } else {
+        "not found"
+    };
+
     for uid in [-1i64, u32::MAX.into()] {
         let output = Command::new("sudo")
             .args(["-u", &format!("#{uid}"), "id", "-u"])
             .output(&env)?;
 
         assert!(!output.status().success());
-        if sudo_test::is_original_sudo() {
-            assert_contains!(output.stderr(), "unknown user");
-        } else {
-            assert_contains!(output.stderr(), "not found");
-        }
+        assert_contains!(output.stderr(), needle);
     }
 
     Ok(())
