@@ -1,12 +1,12 @@
-use std::path::Path;
+use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
     cli::{SudoAction, SudoOptions},
-    common::Error,
+    common::{Context, Error},
     log::auth_warn,
     pam::CLIConverser,
     sudo::{pam::PamAuthenticator, SudoersPolicy},
-    sudoers::{Authorization, ListRequest, Policy, Request},
+    sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
     system::{timestamp::RecordScope, Process, User},
 };
 
@@ -14,33 +14,66 @@ use super::{AuthPlugin, Pipeline, PolicyPlugin};
 
 impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
     pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
-        let other_user = if let Some(other_user) = &cmd_opts.other_user {
-            Some(
-                User::from_name(other_user)?
-                    .ok_or_else(|| Error::UserNotFound(other_user.to_string()))?,
-            )
+        let other_user = cmd_opts
+            .other_user
+            .as_ref()
+            .map(|username| {
+                User::from_name(username)?.ok_or_else(|| Error::UserNotFound(username.clone()))
+            })
+            .transpose()?;
+
+        let original_command = if let SudoAction::List(args) = &cmd_opts.action {
+            args.first().cloned()
         } else {
-            None
+            panic!("called `Pipeline::run_list` with a SudoAction other than `List`")
         };
 
-        let pre = self.policy.init()?;
-        let original_command = match &cmd_opts.action {
-            SudoAction::List(args) => args.first().cloned(),
-            _ => panic!("called `Pipeline::run_list` with a SudoAction other than `List`"),
-        };
-
-        let context = super::build_context(cmd_opts, &pre)?;
+        let sudoers = self.policy.init()?;
+        let context = super::build_context(cmd_opts, &sudoers)?;
 
         if original_command.is_some() && !context.command.resolved {
             return Err(Error::CommandNotFound(context.command.command));
         }
 
+        if self
+            .auth_invoking_user(&context, &sudoers, &original_command, &other_user)?
+            .is_break()
+        {
+            return Ok(());
+        }
+
+        if let Some(other_user) = &other_user {
+            check_other_users_list_perms(other_user, &context, &sudoers, &original_command)?;
+        }
+
+        if let Some(original_command) = original_command {
+            check_sudo_command_perms(&original_command, &context, &other_user, &sudoers)?;
+        } else {
+            println!(
+                "User {} may run the following commands on {}:",
+                other_user.as_ref().unwrap_or(&context.current_user).name,
+                context.hostname
+            );
+
+            // TODO print sudoers policies
+        }
+
+        Ok(())
+    }
+
+    fn auth_invoking_user(
+        &mut self,
+        context: &Context,
+        sudoers: &Sudoers,
+        original_command: &Option<String>,
+        other_user: &Option<User>,
+    ) -> Result<ControlFlow<(), ()>, Error> {
         let list_request = ListRequest {
             target_user: &context.target_user,
             target_group: &context.target_group,
         };
         let judgement =
-            pre.check_list_permission(&context.current_user, &context.hostname, list_request);
+            sudoers.check_list_permission(&context.current_user, &context.hostname, list_request);
         match judgement.authorization() {
             Authorization::Allowed {
                 must_authenticate,
@@ -58,7 +91,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
                         prior_validity,
                     );
 
-                    self.authenticator.init(&context)?;
+                    self.authenticator.init(context)?;
                     if auth_status.must_authenticate() {
                         self.authenticator
                             .authenticate(context.non_interactive, allowed_attempts)?;
@@ -76,6 +109,8 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
                         }
                     }
                 }
+
+                Ok(ControlFlow::Continue(()))
             }
 
             Authorization::Forbidden => {
@@ -89,88 +124,96 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
                         other_user.as_ref().unwrap_or(&context.current_user).name,
                         context.hostname
                     );
-                    return Ok(());
+
+                    // this branch does not result in exit code 1 but no further information should
+                    // be printed in this case
+                    Ok(ControlFlow::Break(()))
                 } else {
                     let command = if other_user.is_none() {
-                        "sudo".to_string()
+                        "sudo".into()
                     } else if original_command.is_none() {
-                        "list".to_string()
+                        "list".into()
                     } else {
-                        format!("list{}", context.command.command.display())
+                        format!("list{}", context.command.command.display()).into()
                     };
 
-                    return Err(Error::NotAllowed {
-                        username: context.current_user.name,
+                    Err(Error::NotAllowed {
+                        username: context.current_user.name.clone(),
                         command,
-                        hostname: context.hostname,
-                        other_user: other_user.map(|user| user.name),
-                    });
+                        hostname: context.hostname.clone(),
+                        other_user: other_user.as_ref().map(|user| &user.name).cloned(),
+                    })
                 }
             }
         }
-
-        if let Some(other_user) = &other_user {
-            let list_request = ListRequest {
-                target_user: &context.target_user,
-                target_group: &context.target_group,
-            };
-            let judgement = pre.check_list_permission(other_user, &context.hostname, list_request);
-
-            if let Authorization::Forbidden = judgement.authorization() {
-                let command = if original_command.is_none() {
-                    "list".to_string()
-                } else {
-                    format!("list{}", context.command.command.display())
-                };
-
-                return Err(Error::NotAllowed {
-                    username: context.current_user.name,
-                    command,
-                    hostname: context.hostname,
-                    other_user: Some(other_user.name.clone()),
-                });
-            }
-        }
-
-        if let Some(original_command) = original_command {
-            let user = other_user.as_ref().unwrap_or(&context.current_user);
-
-            let request = Request {
-                user: &context.target_user,
-                group: &context.target_group,
-                command: &context.command.command,
-                arguments: &context.command.arguments,
-            };
-
-            let judgement = pre.check(user, &context.hostname, request);
-
-            if let Authorization::Forbidden = judgement.authorization() {
-                return Err(Error::Silent);
-            } else {
-                let command = if original_command.contains('/')
-                    && !Path::new(&original_command).is_absolute()
-                {
-                    original_command
-                } else {
-                    context.command.command.display().to_string()
-                };
-
-                if context.command.arguments.is_empty() {
-                    println!("{command}")
-                } else {
-                    println!("{command} {}", context.command.arguments.join(" "))
-                }
-            }
-        } else {
-            println!(
-                "User {} may run the following commands on {}:",
-                other_user.as_ref().unwrap_or(&context.current_user).name,
-                context.hostname
-            );
-
-            // TODO print sudoers policies
-        }
-
-        Ok(())
     }
+}
+
+fn check_other_users_list_perms(
+    other_user: &User,
+    context: &Context,
+    sudoers: &Sudoers,
+    original_command: &Option<String>,
+) -> Result<(), Error> {
+    let list_request = ListRequest {
+        target_user: &context.target_user,
+        target_group: &context.target_group,
+    };
+    let judgement = sudoers.check_list_permission(other_user, &context.hostname, list_request);
+
+    if let Authorization::Forbidden = judgement.authorization() {
+        let command = if original_command.is_none() {
+            "list".into()
+        } else {
+            format!("list{}", context.command.command.display()).into()
+        };
+
+        return Err(Error::NotAllowed {
+            username: context.current_user.name.clone(),
+            command,
+            hostname: context.hostname.clone(),
+            other_user: Some(other_user.name.clone()),
+        });
+    }
+
+    Ok(())
+}
+
+fn check_sudo_command_perms(
+    original_command: &str,
+    context: &Context,
+    other_user: &Option<User>,
+    sudoers: &Sudoers,
+) -> Result<(), Error> {
+    let user = other_user.as_ref().unwrap_or(&context.current_user);
+
+    let request = Request {
+        user: &context.target_user,
+        group: &context.target_group,
+        command: &context.command.command,
+        arguments: &context.command.arguments,
+    };
+
+    let judgement = sudoers.check(user, &context.hostname, request);
+
+    if let Authorization::Forbidden = judgement.authorization() {
+        return Err(Error::Silent);
+    } else {
+        let command_is_relative_path =
+            original_command.contains('/') && !Path::new(&original_command).is_absolute();
+        let command: Cow<_> = if command_is_relative_path {
+            original_command.into()
+        } else {
+            let resolved_command = &context.command.command;
+            resolved_command.display().to_string().into()
+        };
+
+        if context.command.arguments.is_empty() {
+            println!("{command}")
+        } else {
+            println!("{command} {}", context.command.arguments.join(" "))
+        }
+    }
+
+    Ok(())
 }

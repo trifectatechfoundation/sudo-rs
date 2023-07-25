@@ -1,12 +1,12 @@
 use crate::pam::PamError;
-use std::{fmt, path::PathBuf};
+use std::{borrow::Cow, fmt, path::PathBuf};
 
 #[derive(Debug)]
 pub enum Error {
     Silent,
     NotAllowed {
         username: String,
-        command: String,
+        command: Cow<'static, str>,
         hostname: String,
         other_user: Option<String>,
     },
