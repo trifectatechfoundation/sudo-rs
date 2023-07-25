@@ -3,14 +3,13 @@ use std::{borrow::Cow, ops::ControlFlow, path::Path};
 use crate::{
     cli::{SudoAction, SudoOptions},
     common::{Context, Error},
-    log::auth_warn,
     pam::CLIConverser,
     sudo::{pam::PamAuthenticator, SudoersPolicy},
     sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
-    system::{timestamp::RecordScope, Process, User},
+    system::User,
 };
 
-use super::{AuthPlugin, Pipeline, PolicyPlugin};
+use super::{Pipeline, PolicyPlugin};
 
 impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
     pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
@@ -80,35 +79,12 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
                 allowed_attempts,
                 prior_validity,
             } => {
-                if must_authenticate {
-                    let scope = RecordScope::for_process(&Process::new());
-                    let mut auth_status = super::determine_auth_status(
-                        must_authenticate,
-                        context.use_session_records,
-                        scope,
-                        context.current_user.uid,
-                        &context.current_user.name,
-                        prior_validity,
-                    );
-
-                    self.authenticator.init(context)?;
-                    if auth_status.must_authenticate() {
-                        self.authenticator
-                            .authenticate(context.non_interactive, allowed_attempts)?;
-                        if let (Some(record_file), Some(scope)) =
-                            (&mut auth_status.record_file, scope)
-                        {
-                            match record_file.create(scope, context.current_user.uid) {
-                                Ok(_) => (),
-                                Err(e) => {
-                                    auth_warn!(
-                                        "Could not update session record file with new record: {e}"
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
+                self.auth_and_update_record_file(
+                    must_authenticate,
+                    context,
+                    prior_validity,
+                    allowed_attempts,
+                )?;
 
                 Ok(ControlFlow::Continue(()))
             }
