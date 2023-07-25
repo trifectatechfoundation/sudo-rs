@@ -15,6 +15,7 @@ use crate::{
     system::{
         can_execute,
         file::{Chown, FileLock},
+        signal::{consts::*, register_handlers, SignalStream},
         User,
     },
 };
@@ -146,7 +147,25 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         sudoers_file.chown(User::real_uid(), User::real_gid())?;
     }
 
-    let tmp_path = create_temporary_dir()?.join("sudoers");
+    let signal_stream = SignalStream::init()?;
+
+    let handlers = register_handlers([SIGTERM, SIGHUP, SIGINT, SIGQUIT])?;
+
+    let tmp_dir = create_temporary_dir()?;
+    let tmp_path = tmp_dir.join("sudoers");
+
+    {
+        let tmp_dir = tmp_dir.clone();
+        std::thread::spawn(|| -> io::Result<()> {
+            signal_stream.recv()?;
+
+            let _ = std::fs::remove_dir_all(tmp_dir);
+
+            drop(handlers);
+
+            std::process::exit(1)
+        });
+    }
 
     let mut tmp_file = File::options()
         .read(true)
@@ -239,6 +258,8 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     } else {
         sudoers_file.write_all(&tmp_contents)?;
     }
+
+    std::fs::remove_dir_all(tmp_dir)?;
 
     lock.unlock()?;
 
