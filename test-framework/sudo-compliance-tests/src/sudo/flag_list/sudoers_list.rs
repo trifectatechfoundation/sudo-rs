@@ -49,7 +49,6 @@ fn invoking_user_has_list_perms_nopasswd() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh709"]
 fn other_user_has_list_perms_but_invoking_user_has_not() -> Result<()> {
     let env = Env(format!("{OTHER_USERNAME} ALL=(ALL:ALL) list"))
         .user(User(USERNAME).password(PASSWORD))
