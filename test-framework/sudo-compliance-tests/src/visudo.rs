@@ -381,7 +381,7 @@ sleep 2",
         .output(&env)?
         .assert_success()?;
 
-    assert!(child.wait()?.status().success());
+    assert!(!child.wait()?.status().success());
 
     let output = Command::new("find")
         .args(["/tmp", "-name", "sudoers-*"])

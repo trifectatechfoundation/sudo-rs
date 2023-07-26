@@ -163,7 +163,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
 
             drop(handlers);
 
-            std::process::exit(0)
+            std::process::exit(1)
         });
     }
 
