@@ -107,10 +107,8 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
                 } else {
                     let command = if other_user.is_none() {
                         "sudo".into()
-                    } else if original_command.is_none() {
-                        "list".into()
                     } else {
-                        format!("list{}", context.command.command.display()).into()
+                        format_list_command(original_command)
                     };
 
                     Err(Error::NotAllowed {
@@ -138,15 +136,9 @@ fn check_other_users_list_perms(
     let judgement = sudoers.check_list_permission(other_user, &context.hostname, list_request);
 
     if let Authorization::Forbidden = judgement.authorization() {
-        let command = if original_command.is_none() {
-            "list".into()
-        } else {
-            format!("list{}", context.command.command.display()).into()
-        };
-
         return Err(Error::NotAllowed {
             username: context.current_user.name.clone(),
-            command,
+            command: format_list_command(original_command),
             hostname: context.hostname.clone(),
             other_user: Some(other_user.name.clone()),
         });
@@ -192,4 +184,12 @@ fn check_sudo_command_perms(
     }
 
     Ok(())
+}
+
+fn format_list_command(original_command: &Option<String>) -> Cow<'static, str> {
+    if let Some(original_command) = original_command {
+        format!("list {original_command}").into()
+    } else {
+        "list".into()
+    }
 }
