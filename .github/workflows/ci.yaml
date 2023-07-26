@@ -259,7 +259,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: miri
-          args: test --workspace --all-features miri
+          args: test --workspace --all-features miri -- --include-ignored
 
   format:
     runs-on: ubuntu-latest
