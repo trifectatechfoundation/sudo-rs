@@ -64,7 +64,7 @@ impl Sudoers {
 
     pub fn read<R: io::Read, P: AsRef<Path>>(
         reader: R,
-        path: &P,
+        path: P,
     ) -> Result<(Sudoers, Vec<Error>), io::Error> {
         let sudoers = read_sudoers(reader)?;
         Ok(analyze(path.as_ref(), sudoers))

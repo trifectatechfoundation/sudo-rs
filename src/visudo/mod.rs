@@ -15,6 +15,7 @@ use crate::{
     system::{
         can_execute,
         file::{Chown, FileLock},
+        signal::{consts::*, register_handlers, SignalStream},
         User,
     },
 };
@@ -98,7 +99,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         }
     }
 
-    let (_sudoers, errors) = Sudoers::read(&sudoers_file, &sudoers_path)?;
+    let (_sudoers, errors) = Sudoers::read(&sudoers_file, sudoers_path)?;
 
     if errors.is_empty() {
         println!("{}: parsed OK", sudoers_path.display());
@@ -115,7 +116,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
 fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
-    let (mut sudoers_file, existed) = if sudoers_path.exists() {
+    let (sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;
 
         (file, true)
@@ -146,15 +147,56 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         sudoers_file.chown(User::real_uid(), User::real_gid())?;
     }
 
-    let tmp_path = create_temporary_dir()?.join("sudoers");
+    let signal_stream = SignalStream::init()?;
 
-    let mut tmp_file = File::options()
+    let handlers = register_handlers([SIGTERM, SIGHUP, SIGINT, SIGQUIT])?;
+
+    let tmp_dir = create_temporary_dir()?;
+    let tmp_path = tmp_dir.join("sudoers");
+
+    {
+        let tmp_dir = tmp_dir.clone();
+        std::thread::spawn(|| -> io::Result<()> {
+            signal_stream.recv()?;
+
+            let _ = std::fs::remove_dir_all(tmp_dir);
+
+            drop(handlers);
+
+            std::process::exit(1)
+        });
+    }
+
+    let tmp_file = File::options()
         .read(true)
         .write(true)
         .create(true)
         .open(&tmp_path)?;
+
     tmp_file.set_permissions(Permissions::from_mode(0o700))?;
 
+    let result = edit_sudoers_file(
+        existed,
+        sudoers_file,
+        sudoers_path,
+        lock,
+        tmp_file,
+        &tmp_path,
+    );
+
+    std::fs::remove_dir_all(tmp_dir)?;
+
+    result
+}
+
+fn edit_sudoers_file(
+    existed: bool,
+    mut sudoers_file: File,
+    sudoers_path: &Path,
+    lock: FileLock,
+    mut tmp_file: File,
+    tmp_path: &Path,
+) -> io::Result<()> {
     let mut editor_path = None;
     let mut sudoers_contents = Vec::new();
     if existed {
@@ -165,7 +207,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         // Write to the temporary file.
         tmp_file.write_all(&sudoers_contents)?;
 
-        let (sudoers, errors) = Sudoers::read(sudoers_contents.as_slice(), &sudoers_path)?;
+        let (sudoers, errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
 
         if errors.is_empty() {
             editor_path = sudoers.solve_editor_path();
@@ -180,12 +222,12 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     loop {
         Command::new(&editor_path)
             .arg("--")
-            .arg(&tmp_path)
+            .arg(tmp_path)
             .spawn()?
             .wait_with_output()?;
 
-        let (_sudoers, errors) = File::open(&tmp_path)
-            .and_then(|reader| Sudoers::read(reader, &tmp_path))
+        let (_sudoers, errors) = File::open(tmp_path)
+            .and_then(|reader| Sudoers::read(reader, tmp_path))
             .map_err(|err| {
                 io_msg!(
                     err,
@@ -232,7 +274,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         }
     }
 
-    let tmp_contents = std::fs::read(&tmp_path)?;
+    let tmp_contents = std::fs::read(tmp_path)?;
     // Only write to the sudoers file if the contents changed.
     if tmp_contents == sudoers_contents {
         eprintln!("visudo: {} unchanged", tmp_path.display());

@@ -337,3 +337,58 @@ cp $2 {LOGS_PATH}"
 
     Ok(())
 }
+
+#[test]
+fn temporary_file_is_deleted_when_done() -> Result<()> {
+    let expected = SUDOERS_ALL_ALL_NOPASSWD;
+    let env = Env(expected)
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .build()?;
+
+    Command::new("visudo").output(&env)?.assert_success()?;
+
+    let output = Command::new("find")
+        .args(["/tmp", "-name", "sudoers-*"])
+        .output(&env)?
+        .stdout()?;
+
+    assert!(output.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn temporary_file_is_deleted_when_terminated_by_signal() -> Result<()> {
+    let kill_visudo = "/root/kill-visudo.sh";
+    let expected = SUDOERS_ALL_ALL_NOPASSWD;
+    let env = Env(expected)
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+touch /tmp/barrier
+sleep 2",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .file(kill_visudo, include_str!("visudo/kill-visudo.sh"))
+        .build()?;
+
+    let child = Command::new("visudo").spawn(&env)?;
+
+    Command::new("sh")
+        .args([kill_visudo, "-TERM"])
+        .output(&env)?
+        .assert_success()?;
+
+    assert!(!child.wait()?.status().success());
+
+    let output = Command::new("find")
+        .args(["/tmp", "-name", "sudoers-*"])
+        .output(&env)?
+        .stdout()?;
+
+    assert!(output.is_empty());
+
+    Ok(())
+}
