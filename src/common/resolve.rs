@@ -205,6 +205,7 @@ mod tests {
 
     // this test is platform specific -> should be changed when targetting different platforms
     #[test]
+    #[ignore = "ci"]
     fn test_resolve_path() {
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
         assert_eq!(
