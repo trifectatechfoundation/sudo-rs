@@ -13,6 +13,8 @@ use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{escape_os_str_lossy, Process};
 
+mod list;
+
 pub trait PolicyPlugin {
     type PreJudgementPolicy: PreJudgementPolicy;
     type Policy: Policy;
@@ -44,7 +46,6 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         let policy = self.policy.judge(pre, &context)?;
         let authorization = policy.authorization();
-        let scope = RecordScope::for_process(&Process::new());
 
         match authorization {
             Authorization::Forbidden => {
@@ -60,31 +61,12 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             } => {
                 self.apply_policy_to_context(&mut context, &policy)?;
 
-                let mut auth_status = determine_auth_status(
+                self.auth_and_update_record_file(
                     must_authenticate,
-                    context.use_session_records,
-                    scope,
-                    context.current_user.uid,
-                    &context.current_user.name,
+                    &context,
                     prior_validity,
-                );
-
-                self.authenticator.init(&context)?;
-                if auth_status.must_authenticate {
-                    self.authenticator
-                        .authenticate(context.non_interactive, allowed_attempts)?;
-                    if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope)
-                    {
-                        match record_file.create(scope, context.current_user.uid) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                auth_warn!(
-                                    "Could not update session record file with new record: {e}"
-                                );
-                            }
-                        }
-                    }
-                }
+                    allowed_attempts,
+                )?;
             }
         }
 
@@ -128,7 +110,6 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     }
 
     pub fn run_validate(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
-        let scope = RecordScope::for_process(&Process::new());
         let pre = self.policy.init()?;
         let context = build_context(cmd_opts, &pre)?;
 
@@ -144,29 +125,43 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                 allowed_attempts,
                 prior_validity,
             } => {
-                let mut auth_status = determine_auth_status(
+                self.auth_and_update_record_file(
                     must_authenticate,
-                    context.use_session_records,
-                    scope,
-                    context.current_user.uid,
-                    &context.current_user.name,
+                    &context,
                     prior_validity,
-                );
+                    allowed_attempts,
+                )?;
+            }
+        }
 
-                self.authenticator.init(&context)?;
-                if auth_status.must_authenticate {
-                    self.authenticator
-                        .authenticate(context.non_interactive, allowed_attempts)?;
-                    if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope)
-                    {
-                        match record_file.create(scope, context.current_user.uid) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                auth_warn!(
-                                    "Could not update session record file with new record: {e}"
-                                );
-                            }
-                        }
+        Ok(())
+    }
+
+    fn auth_and_update_record_file(
+        &mut self,
+        must_authenticate: bool,
+        context: &Context,
+        prior_validity: Duration,
+        allowed_attempts: u16,
+    ) -> Result<(), Error> {
+        let scope = RecordScope::for_process(&Process::new());
+        let mut auth_status = determine_auth_status(
+            must_authenticate,
+            context.use_session_records,
+            scope,
+            context.current_user.uid,
+            &context.current_user.name,
+            prior_validity,
+        );
+        self.authenticator.init(context)?;
+        if auth_status.must_authenticate {
+            self.authenticator
+                .authenticate(context.non_interactive, allowed_attempts)?;
+            if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+                match record_file.create(scope, context.current_user.uid) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        auth_warn!("Could not update session record file with new record: {e}");
                     }
                 }
             }

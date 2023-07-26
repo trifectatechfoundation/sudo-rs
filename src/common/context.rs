@@ -42,8 +42,14 @@ impl Context {
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
         let command = match sudo_options.action {
-            SudoAction::Run(args) | SudoAction::List(args) => {
-                CommandAndArguments::build_from_args(shell, args, &path)
+            SudoAction::Run(args) => CommandAndArguments::build_from_args(shell, args, &path),
+            SudoAction::List(args) => {
+                if args.is_empty() {
+                    // FIXME here and in the `_` arm, `Default` is being used as `Option::None`
+                    Default::default()
+                } else {
+                    CommandAndArguments::build_from_args(shell, args, &path)
+                }
             }
             _ => Default::default(),
         };

@@ -13,9 +13,11 @@ mod visudo;
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;
 
+const OTHER_USERNAME: &str = "ghost";
 const USERNAME: &str = "ferris";
 const GROUPNAME: &str = "rustaceans";
 const PASSWORD: &str = "strong-password";
+const HOSTNAME: &str = "container";
 // 64 characters
 const LONGEST_HOSTNAME: &str = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
 
