@@ -68,8 +68,13 @@ fn flag_uppercase_u_plus_command() -> Result<()> {
             assert!(!output.status().success());
             assert_eq!(Some(1), output.status().code());
 
+            let command = if sudo_test::is_original_sudo() {
+                "list/usr/bin/true"
+            } else {
+                "list true"
+            };
             let diagnostic =
-        format!("Sorry, user {USERNAME} is not allowed to execute 'list/usr/bin/true' as {other_user} on {hostname}.");
+        format!("Sorry, user {USERNAME} is not allowed to execute '{command}' as {other_user} on {hostname}.");
             assert_contains!(output.stderr(), diagnostic);
         }
     }
