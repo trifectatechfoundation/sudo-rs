@@ -1,6 +1,8 @@
 visudopid=$(pidof visudo | sort -gr | cut -f 1 -d ' ')
 
 if [ -n "$visudopid" ]; then
-    sleep 1
+    until [ -f /tmp/barrier ]; do 
+        sleep 0.1
+    done
     kill $1 "$visudopid"
 fi

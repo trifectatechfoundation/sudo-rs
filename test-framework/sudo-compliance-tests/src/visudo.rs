@@ -366,6 +366,7 @@ fn temporary_file_is_deleted_when_terminated_by_signal() -> Result<()> {
             DEFAULT_EDITOR,
             TextFile(
                 "#!/bin/sh
+touch /tmp/barrier
 sleep 2",
             )
             .chmod(CHMOD_EXEC),
