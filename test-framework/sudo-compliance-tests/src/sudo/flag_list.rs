@@ -7,6 +7,7 @@ mod flag_other_user;
 mod needs_auth;
 mod nopasswd;
 mod not_allowed;
+mod short_format;
 mod sudoers_list;
 
 #[test]

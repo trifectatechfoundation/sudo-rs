@@ -1,0 +1,8 @@
+---
+source: sudo-compliance-tests/src/sudo/flag_list/short_format/mod.rs
+assertion_line: 160
+expression: stdout
+---
+User root may run the following commands on container:
+    (root) CWD=* /usr/bin/true
+    (ferris) CWD=* /usr/bin/false

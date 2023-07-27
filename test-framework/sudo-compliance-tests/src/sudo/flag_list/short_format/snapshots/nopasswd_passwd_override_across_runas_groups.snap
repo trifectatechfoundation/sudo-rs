@@ -1,0 +1,8 @@
+---
+source: sudo-compliance-tests/src/sudo/flag_list/short_format/mod.rs
+assertion_line: 212
+expression: stdout
+---
+User root may run the following commands on container:
+    (root) NOPASSWD: /usr/bin/true
+    (ferris) NOPASSWD: /usr/bin/false, PASSWD: /usr/bin/ls
