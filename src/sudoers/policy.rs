@@ -51,7 +51,7 @@ impl Policy for Judgement {
             let allowed_attempts = self.settings.int_value["passwd_tries"].try_into().unwrap();
             let valid_seconds = self.settings.int_value["timestamp_timeout"];
             Authorization::Allowed {
-                must_authenticate: tag.passwd,
+                must_authenticate: tag.passwd.unwrap_or(true),
                 allowed_attempts,
                 prior_validity: Duration::seconds(valid_seconds),
             }

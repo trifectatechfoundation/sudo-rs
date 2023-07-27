@@ -83,7 +83,7 @@ impl Sudoers {
         let mut flags = check_permission(self, am_user, on_host, request);
         if let Some(Tag { passwd, .. }) = flags.as_mut() {
             if skip_passwd {
-                *passwd = false
+                *passwd = Some(false)
             }
         }
 
@@ -106,7 +106,7 @@ impl Sudoers {
         let mut flags = check_list_permission(self, am_user, on_host);
         if let Some(Tag { passwd, .. }) = flags.as_mut() {
             if skip_passwd {
-                *passwd = false
+                *passwd = Some(false);
             }
         }
 
@@ -242,7 +242,11 @@ fn check_list_permission<User: UnixUser + PartialEq<User>>(
         .flatten()
         .fold(None::<Tag>, |outcome, (_, (tag, _))| {
             if let Some(outcome) = outcome {
-                let new_outcome = if !outcome.passwd { outcome } else { tag };
+                let new_outcome = if !outcome.passwd.unwrap_or(true) {
+                    outcome
+                } else {
+                    tag
+                };
 
                 Some(new_outcome)
             } else {
