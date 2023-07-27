@@ -39,11 +39,7 @@ impl Log for Syslog {
             syslog(priority, libc::LOG_AUTH, &message[x_prev..x]);
 
             x_prev = x;
-            x = if x + 960 > message_len {
-                x + 960
-            } else {
-                message_len
-            };
+            x += 960;
 
             if x_prev >= message_len {
                 break;
