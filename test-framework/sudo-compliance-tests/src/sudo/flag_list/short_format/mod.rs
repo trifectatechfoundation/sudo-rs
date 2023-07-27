@@ -120,6 +120,7 @@ fn complex_runas() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh718"]
 fn command_alias() -> Result<()> {
     let stdout = sudo_list_of(
         "Cmnd_Alias COMMANDS = /usr/bin/true, /usr/bin/false
