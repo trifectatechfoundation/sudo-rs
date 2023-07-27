@@ -6,11 +6,12 @@ mod ast;
 mod ast_names;
 mod basic_parser;
 mod char_stream;
+mod entry;
 mod tokens;
 
 use std::collections::{HashMap, HashSet};
-use std::io;
 use std::path::{Path, PathBuf};
+use std::{io, mem};
 
 use crate::log::auth_warn;
 use crate::system::can_execute;
@@ -54,6 +55,8 @@ pub struct Judgement {
 mod policy;
 
 pub use policy::{Authorization, DirChange, Policy, PreJudgementPolicy};
+
+pub use self::entry::Entry;
 
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
@@ -116,6 +119,36 @@ impl Sudoers {
         }
     }
 
+    pub fn matching_entries<'a, User: UnixUser + PartialEq<User>>(
+        &'a self,
+        invoking_user: &User,
+        hostname: &str,
+    ) -> Vec<Entry<'a>> {
+        let Sudoers { rules, aliases, .. } = self;
+
+        let user_aliases = get_aliases(&aliases.user, &match_user(invoking_user));
+        let host_aliases = get_aliases(&aliases.host, &match_token(hostname));
+
+        let matching_lines = rules
+            .iter()
+            .filter_map(|sudo| {
+                find_item(&sudo.users, &match_user(invoking_user), &user_aliases)?;
+                Some(&sudo.permissions)
+            })
+            .flatten()
+            .filter_map(|(hosts, runas_cmds)| {
+                find_item(hosts, &match_token(hostname), &host_aliases)?;
+                Some(distribute_tags(runas_cmds))
+            });
+
+        let mut entries = vec![];
+        for list in matching_lines {
+            group_cmd_specs_per_runas(list, &mut entries);
+        }
+
+        entries
+    }
+
     pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
         if self.settings.flags.contains("env_editor") {
             for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
@@ -129,6 +162,38 @@ impl Sudoers {
         }
 
         None
+    }
+}
+
+fn group_cmd_specs_per_runas<'a>(
+    list: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
+    entries: &mut Vec<Entry<'a>>,
+) {
+    static EMPTY_RUNAS: RunAs = RunAs {
+        users: Vec::new(),
+        groups: Vec::new(),
+    };
+
+    let mut runas = None;
+    let mut collected_specs = vec![];
+
+    for (new_runas, (tag, spec)) in list {
+        if let Some(new_runas) = new_runas {
+            if !collected_specs.is_empty() {
+                entries.push(Entry::new(
+                    runas.take().unwrap_or(&EMPTY_RUNAS),
+                    mem::take(&mut collected_specs),
+                ));
+            }
+
+            runas = Some(new_runas);
+        }
+
+        collected_specs.push((tag, spec));
+    }
+
+    if !collected_specs.is_empty() {
+        entries.push(Entry::new(runas.unwrap_or(&EMPTY_RUNAS), collected_specs));
     }
 }
 

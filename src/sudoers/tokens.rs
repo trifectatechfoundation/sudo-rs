@@ -307,8 +307,8 @@ impl Token for StringParameter {
 }
 
 // a path used for in CWD and CHROOT specs
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Clone, PartialEq)]
+#[cfg_attr(test, derive(Debug, Eq))]
 pub enum ChDir {
     Path(std::path::PathBuf),
     Any,
