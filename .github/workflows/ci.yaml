@@ -99,7 +99,7 @@ jobs:
 
   compliance-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       SUDO_TEST_PROFRAW_DIR: /tmp/profraw
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
