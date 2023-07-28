@@ -130,6 +130,17 @@ fn command_alias() -> Result<()> {
 }
 
 #[test]
+#[ignore]
+fn negated_command_alias() -> Result<()> {
+    let stdout = sudo_list_of(
+        "Cmnd_Alias COMMANDS = /usr/bin/true, !/usr/bin/false
+ ALL  ALL  = /usr/bin/ls, !COMMANDS ",
+    )?;
+    assert_snapshot!(stdout);
+    Ok(())
+}
+
+#[test]
 fn command_arguments() -> Result<()> {
     let stdout = sudo_list_of(" ALL  ALL  = /usr/bin/true  a  b  c  ,  /usr/bin/false ")?;
     assert_snapshot!(stdout);
