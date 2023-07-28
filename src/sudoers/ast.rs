@@ -35,8 +35,8 @@ pub struct RunAs {
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Clone, PartialEq)]
+#[cfg_attr(test, derive(Debug, Eq))]
 pub struct Tag {
     pub passwd: Option<bool>,
     pub cwd: Option<ChDir>,
