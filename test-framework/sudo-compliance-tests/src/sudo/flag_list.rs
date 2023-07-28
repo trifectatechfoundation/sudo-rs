@@ -228,7 +228,6 @@ fn does_not_work_with_lowercase_u_flag() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh710"]
 #[test]
 fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
     let hostname = "container";
