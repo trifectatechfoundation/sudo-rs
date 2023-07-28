@@ -4,6 +4,7 @@ use crate::{Result, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 mod credential_caching;
 mod flag_other_user;
+mod long_format;
 mod needs_auth;
 mod nopasswd;
 mod not_allowed;
