@@ -83,13 +83,19 @@ pub enum Meta<T> {
 }
 
 impl<T: Token> Token for Meta<T> {
-    fn construct(s: String) -> Result<Self, String> {
-        Ok(if s == "ALL" {
+    fn construct(raw: String) -> Result<Self, String> {
+        // `T` may accept whitespace resulting in `raw` having trailing whitespace which would make
+        // the first two checks below fail. this `cooked` version has no trailing whitespace
+        let cooked = raw.trim_end().to_string();
+
+        Ok(if cooked == "ALL" {
             Meta::All
-        } else if s.starts_with(AliasName::accept_1st) && s.chars().skip(1).all(AliasName::accept) {
-            Meta::Alias(s)
+        } else if cooked.starts_with(AliasName::accept_1st)
+            && cooked.chars().skip(1).all(AliasName::accept)
+        {
+            Meta::Alias(cooked)
         } else {
-            Meta::Only(T::construct(s)?)
+            Meta::Only(T::construct(raw)?)
         })
     }
 

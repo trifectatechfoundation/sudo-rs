@@ -130,7 +130,6 @@ fn command_alias() -> Result<()> {
 }
 
 #[test]
-#[ignore]
 fn negated_command_alias() -> Result<()> {
     let stdout = sudo_list_of(
         "Cmnd_Alias COMMANDS = /usr/bin/true, !/usr/bin/false
