@@ -6,11 +6,12 @@ mod ast;
 mod ast_names;
 mod basic_parser;
 mod char_stream;
+mod entry;
 mod tokens;
 
 use std::collections::{HashMap, HashSet};
-use std::io;
 use std::path::{Path, PathBuf};
+use std::{io, mem};
 
 use crate::log::auth_warn;
 use crate::system::can_execute;
@@ -55,6 +56,8 @@ mod policy;
 
 pub use policy::{Authorization, DirChange, Policy, PreJudgementPolicy};
 
+pub use self::entry::Entry;
+
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
     pub fn open(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), io::Error> {
@@ -83,7 +86,7 @@ impl Sudoers {
         let mut flags = check_permission(self, am_user, on_host, request);
         if let Some(Tag { passwd, .. }) = flags.as_mut() {
             if skip_passwd {
-                *passwd = false
+                *passwd = Some(false)
             }
         }
 
@@ -106,7 +109,7 @@ impl Sudoers {
         let mut flags = check_list_permission(self, am_user, on_host);
         if let Some(Tag { passwd, .. }) = flags.as_mut() {
             if skip_passwd {
-                *passwd = false
+                *passwd = Some(false);
             }
         }
 
@@ -114,6 +117,36 @@ impl Sudoers {
             flags,
             settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
         }
+    }
+
+    pub fn matching_entries<'a, User: UnixUser + PartialEq<User>>(
+        &'a self,
+        invoking_user: &User,
+        hostname: &str,
+    ) -> Vec<Entry<'a>> {
+        let Sudoers { rules, aliases, .. } = self;
+
+        let user_aliases = get_aliases(&aliases.user, &match_user(invoking_user));
+        let host_aliases = get_aliases(&aliases.host, &match_token(hostname));
+
+        let matching_lines = rules
+            .iter()
+            .filter_map(|sudo| {
+                find_item(&sudo.users, &match_user(invoking_user), &user_aliases)?;
+                Some(&sudo.permissions)
+            })
+            .flatten()
+            .filter_map(|(hosts, runas_cmds)| {
+                find_item(hosts, &match_token(hostname), &host_aliases)?;
+                Some(distribute_tags(runas_cmds))
+            });
+
+        let mut entries = vec![];
+        for list in matching_lines {
+            group_cmd_specs_per_runas(list, &mut entries);
+        }
+
+        entries
     }
 
     pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
@@ -129,6 +162,38 @@ impl Sudoers {
         }
 
         None
+    }
+}
+
+fn group_cmd_specs_per_runas<'a>(
+    list: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
+    entries: &mut Vec<Entry<'a>>,
+) {
+    static EMPTY_RUNAS: RunAs = RunAs {
+        users: Vec::new(),
+        groups: Vec::new(),
+    };
+
+    let mut runas = None;
+    let mut collected_specs = vec![];
+
+    for (new_runas, (tag, spec)) in list {
+        if let Some(new_runas) = new_runas {
+            if !collected_specs.is_empty() {
+                entries.push(Entry::new(
+                    runas.take().unwrap_or(&EMPTY_RUNAS),
+                    mem::take(&mut collected_specs),
+                ));
+            }
+
+            runas = Some(new_runas);
+        }
+
+        collected_specs.push((tag, spec));
+    }
+
+    if !collected_specs.is_empty() {
+        entries.push(Entry::new(runas.unwrap_or(&EMPTY_RUNAS), collected_specs));
     }
 }
 
@@ -242,7 +307,7 @@ fn check_list_permission<User: UnixUser + PartialEq<User>>(
         .flatten()
         .fold(None::<Tag>, |outcome, (_, (tag, _))| {
             if let Some(outcome) = outcome {
-                let new_outcome = if !outcome.passwd { outcome } else { tag };
+                let new_outcome = if outcome.needs_passwd() { tag } else { outcome };
 
                 Some(new_outcome)
             } else {

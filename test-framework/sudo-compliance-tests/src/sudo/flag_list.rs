@@ -7,6 +7,7 @@ mod flag_other_user;
 mod needs_auth;
 mod nopasswd;
 mod not_allowed;
+mod short_format;
 mod sudoers_list;
 
 #[test]
@@ -69,7 +70,6 @@ fn regular_user_can_use_list_regardless_of_which_target_user_is_allowed_by_sudoe
     Ok(())
 }
 
-#[ignore = "gh710"]
 #[test]
 fn lists_privileges_for_root() -> Result<()> {
     let hostname = "container";
@@ -89,7 +89,6 @@ fn lists_privileges_for_root() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh710"]
 #[test]
 fn works_with_long_form_list_flag() -> Result<()> {
     let hostname = "container";
@@ -109,7 +108,6 @@ fn works_with_long_form_list_flag() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh710"]
 #[test]
 fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     let hostname = "container";
@@ -136,7 +134,6 @@ fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh710"]
 #[test]
 fn works_with_uppercase_u_flag() -> Result<()> {
     let hostname = "container";
@@ -322,7 +319,6 @@ fn when_command_is_forbidden_exit_with_status_1_no_stderr() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh658"]
 #[test]
 fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> {
     let hostname = "container";

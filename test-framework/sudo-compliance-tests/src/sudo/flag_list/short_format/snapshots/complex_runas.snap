@@ -1,0 +1,7 @@
+---
+source: sudo-compliance-tests/src/sudo/flag_list/short_format/mod.rs
+assertion_line: 83
+expression: stdout
+---
+User root may run the following commands on container:
+    (!ferris, root : crabs, !root) ALL

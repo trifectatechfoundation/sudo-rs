@@ -38,14 +38,20 @@ pub struct RunAs {
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Tag {
-    pub passwd: bool,
+    pub passwd: Option<bool>,
     pub cwd: Option<ChDir>,
+}
+
+impl Tag {
+    pub fn needs_passwd(&self) -> bool {
+        self.passwd.unwrap_or(true)
+    }
 }
 
 impl Default for Tag {
     fn default() -> Tag {
         Tag {
-            passwd: true,
+            passwd: None,
             cwd: None,
         }
     }
@@ -257,8 +263,8 @@ impl Parse for MetaOrTag {
         };
 
         let result: Modifier = match keyword.as_str() {
-            "PASSWD" => switch(|tag| tag.passwd = true)?,
-            "NOPASSWD" => switch(|tag| tag.passwd = false)?,
+            "PASSWD" => switch(|tag| tag.passwd = Some(true))?,
+            "NOPASSWD" => switch(|tag| tag.passwd = Some(false))?,
             "CWD" => {
                 expect_syntax('=', stream)?;
                 let path: ChDir = expect_nonterminal(stream)?;

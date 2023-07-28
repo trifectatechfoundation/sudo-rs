@@ -51,7 +51,7 @@ impl Policy for Judgement {
             let allowed_attempts = self.settings.int_value["passwd_tries"].try_into().unwrap();
             let valid_seconds = self.settings.int_value["timestamp_timeout"];
             Authorization::Allowed {
-                must_authenticate: tag.passwd,
+                must_authenticate: tag.needs_passwd(),
                 allowed_attempts,
                 prior_validity: Duration::seconds(valid_seconds),
             }
@@ -126,7 +126,7 @@ mod test {
     fn authority_xlat_test() {
         let mut judge: Judgement = Default::default();
         assert_eq!(judge.authorization(), Authorization::Forbidden);
-        judge.mod_flag(|tag| tag.passwd = true);
+        judge.mod_flag(|tag| tag.passwd = Some(true));
         assert_eq!(
             judge.authorization(),
             Authorization::Allowed {
@@ -135,7 +135,7 @@ mod test {
                 prior_validity: Duration::minutes(15),
             }
         );
-        judge.mod_flag(|tag| tag.passwd = false);
+        judge.mod_flag(|tag| tag.passwd = Some(false));
         assert_eq!(
             judge.authorization(),
             Authorization::Allowed {

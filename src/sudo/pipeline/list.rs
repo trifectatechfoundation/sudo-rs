@@ -48,13 +48,17 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
         if let Some(original_command) = original_command {
             check_sudo_command_perms(&original_command, &context, &other_user, &sudoers)?;
         } else {
+            let invoking_user = other_user.as_ref().unwrap_or(&context.current_user);
             println!(
                 "User {} may run the following commands on {}:",
-                other_user.as_ref().unwrap_or(&context.current_user).name,
-                context.hostname
+                invoking_user.name, context.hostname
             );
 
-            // TODO print sudoers policies
+            let matching_entries = sudoers.matching_entries(invoking_user, &context.hostname);
+
+            for entry in matching_entries {
+                println!("{entry}")
+            }
         }
 
         Ok(())
