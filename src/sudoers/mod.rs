@@ -307,11 +307,7 @@ fn check_list_permission<User: UnixUser + PartialEq<User>>(
         .flatten()
         .fold(None::<Tag>, |outcome, (_, (tag, _))| {
             if let Some(outcome) = outcome {
-                let new_outcome = if outcome.passwd.unwrap_or(true) {
-                    tag
-                } else {
-                    outcome
-                };
+                let new_outcome = if outcome.needs_passwd() { tag } else { outcome };
 
                 Some(new_outcome)
             } else {

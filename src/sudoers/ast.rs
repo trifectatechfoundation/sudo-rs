@@ -42,6 +42,12 @@ pub struct Tag {
     pub cwd: Option<ChDir>,
 }
 
+impl Tag {
+    pub fn needs_passwd(&self) -> bool {
+        self.passwd.unwrap_or(true)
+    }
+}
+
 impl Default for Tag {
     fn default() -> Tag {
         Tag {
