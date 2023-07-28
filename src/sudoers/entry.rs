@@ -6,17 +6,20 @@ use crate::sudoers::{
 };
 
 use super::{
-    ast::{RunAs, Spec, Tag},
+    ast::{RunAs, Tag},
     tokens::Command,
 };
 
 pub struct Entry<'a> {
     run_as: &'a RunAs,
-    cmd_specs: Vec<(Tag, &'a Spec<Command>)>,
+    cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
 }
 
 impl<'a> Entry<'a> {
-    pub(super) fn new(run_as: &'a RunAs, cmd_specs: Vec<(Tag, &'a Spec<Command>)>) -> Self {
+    pub(super) fn new(
+        run_as: &'a RunAs,
+        cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+    ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
 
         Self { run_as, cmd_specs }
@@ -167,7 +170,7 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
     Ok(())
 }
 
-fn write_spec(f: &mut fmt::Formatter, spec: &Spec<Command>) -> fmt::Result {
+fn write_spec(f: &mut fmt::Formatter, spec: &Qualified<&Meta<Command>>) -> fmt::Result {
     let meta = match spec {
         Qualified::Allow(meta) => meta,
         Qualified::Forbid(meta) => {
