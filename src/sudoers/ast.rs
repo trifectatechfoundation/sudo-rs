@@ -35,7 +35,7 @@ pub struct RunAs {
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
-#[derive(Clone, PartialEq)]
+#[derive(Default, Clone, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
 pub struct Tag {
     pub passwd: Option<bool>,
@@ -45,15 +45,6 @@ pub struct Tag {
 impl Tag {
     pub fn needs_passwd(&self) -> bool {
         self.passwd.unwrap_or(true)
-    }
-}
-
-impl Default for Tag {
-    fn default() -> Tag {
-        Tag {
-            passwd: None,
-            cwd: None,
-        }
     }
 }
 

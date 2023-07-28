@@ -51,17 +51,12 @@ pub struct SudoOptions {
     external_args: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 enum List {
+    #[default]
     None,
     Once,
     Verbose,
-}
-
-impl Default for List {
-    fn default() -> Self {
-        List::None
-    }
 }
 
 enum SudoArg {
