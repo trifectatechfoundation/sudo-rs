@@ -12,7 +12,6 @@ use std::path::Path;
 use std::{env, fs};
 
 mod diagnostic;
-use diagnostic::diagnostic;
 mod pam;
 mod pipeline;
 
@@ -43,7 +42,7 @@ impl PolicyPlugin for SudoersPolicy {
             .map_err(|e| Error::Configuration(format!("{e}")))?;
 
         for crate::sudoers::Error(pos, error) in syntax_errors {
-            diagnostic!("{error}", sudoers_path @ pos);
+            diagnostic::diagnostic!("{error}", sudoers_path @ pos);
         }
 
         Ok(sudoers)
@@ -149,7 +148,7 @@ pub fn main() {
         Ok(()) => (),
         Err(error) => {
             if !error.is_silent() {
-                diagnostic!("{error}");
+                diagnostic::diagnostic!("{error}");
             }
             std::process::exit(1);
         }
