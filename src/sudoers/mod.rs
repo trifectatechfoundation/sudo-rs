@@ -200,27 +200,13 @@ fn group_cmd_specs_per_runas<'a>(
             if let Some(specs) = cmnd_aliases.get(alias_name) {
                 // expand Cmnd_Alias
                 for spec in specs.iter() {
-                    let (allow, meta) = match spec {
-                        Qualified::Allow(meta) => (true, meta),
-                        Qualified::Forbid(meta) => (false, meta),
-                    };
+                    let new_spec = if negate { spec.negate() } else { spec.as_ref() };
 
-                    let spec = if allow ^ negate {
-                        Qualified::Allow(meta)
-                    } else {
-                        Qualified::Forbid(meta)
-                    };
-
-                    collected_specs.push((tag.clone(), spec))
+                    collected_specs.push((tag.clone(), new_spec))
                 }
             }
         } else {
-            let spec = match spec {
-                Qualified::Allow(meta) => Qualified::Allow(meta),
-                Qualified::Forbid(meta) => Qualified::Forbid(meta),
-            };
-
-            collected_specs.push((tag, spec));
+            collected_specs.push((tag, spec.as_ref()));
         }
     }
 

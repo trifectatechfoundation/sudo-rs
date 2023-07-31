@@ -9,6 +9,22 @@ pub enum Qualified<T> {
     Forbid(T),
 }
 
+impl<T> Qualified<T> {
+    pub fn as_ref(&self) -> Qualified<&T> {
+        match self {
+            Qualified::Allow(item) => Qualified::Allow(item),
+            Qualified::Forbid(item) => Qualified::Forbid(item),
+        }
+    }
+
+    pub fn negate(&self) -> Qualified<&T> {
+        match self {
+            Qualified::Allow(item) => Qualified::Forbid(item),
+            Qualified::Forbid(item) => Qualified::Allow(item),
+        }
+    }
+}
+
 /// Type aliases; many items can be replaced by ALL, aliases, and negated.
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
