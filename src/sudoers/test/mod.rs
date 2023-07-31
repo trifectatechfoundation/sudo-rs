@@ -108,20 +108,20 @@ fn permission_test() {
     SYNTAX!(["ALL ALL = (;) ALL"]);
     FAIL!(["user ALL=(ALL:ALL) ALL"], "nobody"    => root(), "server"; "/bin/hello");
     pass!(["user ALL=(ALL:ALL) ALL"], "user"      => root(), "server"; "/bin/hello");
-    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: None]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::None]);
     FAIL!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/hello");
-    pass!(["user ALL=(ALL:ALL) PASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: Some(true)]);
-    pass!(["user ALL=(ALL:ALL) NOPASSWD: PASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: Some(true)]);
-    pass!(["user ALL=(ALL:ALL) PASSWD: NOPASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: Some(false)]);
-    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo" => [passwd: None]);
-    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: Some(false)]);
-    pass!(["user ALL=(ALL:ALL) NOPASSWD: /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [passwd: Some(false)]);
+    pass!(["user ALL=(ALL:ALL) PASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Passwd]);
+    pass!(["user ALL=(ALL:ALL) NOPASSWD: PASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Passwd]);
+    pass!(["user ALL=(ALL:ALL) PASSWD: NOPASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Nopasswd]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::None]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo, NOPASSWD: /bin/bar"], "user" => root(), "server"; "/bin/bar" => [authenticate: Authenticate::Nopasswd]);
+    pass!(["user ALL=(ALL:ALL) NOPASSWD: /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [authenticate: Authenticate::Nopasswd]);
     pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, /bin/bar"], "user" => root(), "server"; "/bin/bar" => [cwd: Some(ChDir::Path("/".into()))]);
     pass!(["user ALL=(ALL:ALL) CWD=/ /bin/foo, CWD=* /bin/bar"], "user" => root(), "server"; "/bin/bar" => [cwd: Some(ChDir::Any)]);
     pass!(["user ALL=(ALL:ALL) CWD=/bin CWD=* /bin/foo"], "user" => root(), "server"; "/bin/foo" => [cwd: Some(ChDir::Any)]);
-    pass!(["user ALL=(ALL:ALL) CWD=/usr/bin NOPASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: Some(false), cwd: Some(ChDir::Path("/usr/bin".into()))]);
+    pass!(["user ALL=(ALL:ALL) CWD=/usr/bin NOPASSWD: /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Nopasswd, cwd: Some(ChDir::Path("/usr/bin".into()))]);
     //note: original sudo does not allow the below
-    pass!(["user ALL=(ALL:ALL) NOPASSWD: CWD=/usr/bin /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: Some(false), cwd: Some(ChDir::Path("/usr/bin".into()))]);
+    pass!(["user ALL=(ALL:ALL) NOPASSWD: CWD=/usr/bin /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Nopasswd, cwd: Some(ChDir::Path("/usr/bin".into()))]);
 
     pass!(["user ALL=/bin/e##o"], "user" => root(), "vm"; "/bin/e");
     SYNTAX!(["ALL ALL=(ALL) /bin/\n/echo"]);
@@ -158,10 +158,10 @@ fn permission_test() {
     pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");
 
-    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [passwd: None]);
-    pass!(["root ALL=(ALL:ALL) /bin/foo"], "root" => root(), "server"; "/bin/foo" => [passwd: Some(false)]);
-    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => request! { user, user }, "server"; "/bin/foo" => [passwd: Some(false)]);
-    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => request! { user, root }, "server"; "/bin/foo" => [passwd: None]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::None]);
+    pass!(["root ALL=(ALL:ALL) /bin/foo"], "root" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Nopasswd]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => request! { user, user }, "server"; "/bin/foo" => [authenticate: Authenticate::Nopasswd]);
+    pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => request! { user, root }, "server"; "/bin/foo" => [authenticate: Authenticate::None]);
 
     assert_eq!(Named("user").as_gid(), 1466);
     pass!(["#1466 server=(ALL:ALL) ALL"], "user" => root(), "server"; "/bin/hello");
@@ -199,7 +199,7 @@ fn permission_test() {
 
     // tests with multiple runas specs
     pass!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/ls");
-    pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/true" => [passwd: Some(false)]);
+    pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/true" => [authenticate: Authenticate::Nopasswd]);
     FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/ls");
     FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/true");
 

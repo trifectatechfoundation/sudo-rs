@@ -8,7 +8,7 @@ use crate::sudoers::{
 use self::verbose::Verbose;
 
 use super::{
-    ast::{RunAs, Tag},
+    ast::{Authenticate, RunAs, Tag},
     tokens::Command,
 };
 
@@ -141,22 +141,22 @@ fn write_groups(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::E
 }
 
 fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::Result {
-    let (cwd, passwd) = if let Some(last_tag) = last_tag {
+    let (cwd, auth) = if let Some(last_tag) = last_tag {
         let cwd = if last_tag.cwd == tag.cwd {
             None
         } else {
             tag.cwd.as_ref()
         };
 
-        let passwd = if last_tag.passwd == tag.passwd {
+        let auth = if last_tag.authenticate == tag.authenticate {
             None
         } else {
-            tag.passwd
+            Some(tag.authenticate)
         };
 
-        (cwd, passwd)
+        (cwd, auth)
     } else {
-        (tag.cwd.as_ref(), tag.passwd)
+        (tag.cwd.as_ref(), Some(tag.authenticate))
     };
 
     if let Some(cwd) = cwd {
@@ -168,10 +168,16 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
         f.write_str(" ")?;
     }
 
-    if let Some(passwd) = passwd {
-        let tag = if passwd { "PASSWD" } else { "NOPASSWD" };
-        f.write_str(tag)?;
-        f.write_str(": ")?;
+    if let Some(auth) = auth {
+        if auth != Authenticate::None {
+            let tag = if auth == Authenticate::Passwd {
+                "PASSWD"
+            } else {
+                "NOPASSWD"
+            };
+            f.write_str(tag)?;
+            f.write_str(": ")?;
+        }
     }
 
     Ok(())

@@ -84,9 +84,13 @@ impl Sudoers {
             am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));
 
         let mut flags = check_permission(self, am_user, on_host, request);
-        if let Some(Tag { passwd, .. }) = flags.as_mut() {
+        if let Some(Tag {
+            authenticate: passwd,
+            ..
+        }) = flags.as_mut()
+        {
             if skip_passwd {
-                *passwd = Some(false)
+                *passwd = Authenticate::Nopasswd;
             }
         }
 
@@ -107,9 +111,13 @@ impl Sudoers {
             || (request.target_user == am_user && in_group(am_user, request.target_group));
 
         let mut flags = check_list_permission(self, am_user, on_host);
-        if let Some(Tag { passwd, .. }) = flags.as_mut() {
+        if let Some(Tag {
+            authenticate: passwd,
+            ..
+        }) = flags.as_mut()
+        {
             if skip_passwd {
-                *passwd = Some(false);
+                *passwd = Authenticate::Nopasswd;
             }
         }
 
