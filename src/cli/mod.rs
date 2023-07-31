@@ -185,7 +185,7 @@ impl SudoOptions {
             self.action = SudoAction::ResetTimestamp;
         } else if self.validate {
             self.action = SudoAction::Validate;
-        } else if !matches!(self.list, List::None) {
+        } else if self.list != List::None {
             self.action = SudoAction::List(std::mem::take(self.external_args.as_mut()));
         } else if self.edit {
             let args: Vec<String> = std::mem::take(self.external_args.as_mut());
