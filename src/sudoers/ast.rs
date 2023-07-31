@@ -9,6 +9,22 @@ pub enum Qualified<T> {
     Forbid(T),
 }
 
+impl<T> Qualified<T> {
+    pub fn as_ref(&self) -> Qualified<&T> {
+        match self {
+            Qualified::Allow(item) => Qualified::Allow(item),
+            Qualified::Forbid(item) => Qualified::Forbid(item),
+        }
+    }
+
+    pub fn negate(&self) -> Qualified<&T> {
+        match self {
+            Qualified::Allow(item) => Qualified::Forbid(item),
+            Qualified::Forbid(item) => Qualified::Allow(item),
+        }
+    }
+}
+
 /// Type aliases; many items can be replaced by ALL, aliases, and negated.
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
@@ -35,8 +51,8 @@ pub struct RunAs {
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Default, Clone, PartialEq)]
+#[cfg_attr(test, derive(Debug, Eq))]
 pub struct Tag {
     pub passwd: Option<bool>,
     pub cwd: Option<ChDir>,
@@ -45,15 +61,6 @@ pub struct Tag {
 impl Tag {
     pub fn needs_passwd(&self) -> bool {
         self.passwd.unwrap_or(true)
-    }
-}
-
-impl Default for Tag {
-    fn default() -> Tag {
-        Tag {
-            passwd: None,
-            cwd: None,
-        }
     }
 }
 

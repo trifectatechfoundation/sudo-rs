@@ -13,6 +13,7 @@ use super::{Pipeline, PolicyPlugin};
 
 impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
     pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
+        let verbose_list_mode = cmd_opts.verbose_list_mode();
         let other_user = cmd_opts
             .other_user
             .as_ref()
@@ -57,7 +58,12 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             let matching_entries = sudoers.matching_entries(invoking_user, &context.hostname);
 
             for entry in matching_entries {
-                println!("{entry}")
+                if verbose_list_mode {
+                    let entry = entry.verbose();
+                    println!("{entry}")
+                } else {
+                    println!("{entry}")
+                }
             }
         }
 

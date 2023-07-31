@@ -128,6 +128,7 @@ impl Sudoers {
 
         let user_aliases = get_aliases(&aliases.user, &match_user(invoking_user));
         let host_aliases = get_aliases(&aliases.host, &match_token(hostname));
+        let cmnd_aliases = unfold_alias_table(&aliases.cmnd);
 
         let matching_lines = rules
             .iter()
@@ -143,7 +144,7 @@ impl Sudoers {
 
         let mut entries = vec![];
         for list in matching_lines {
-            group_cmd_specs_per_runas(list, &mut entries);
+            group_cmd_specs_per_runas(list, &mut entries, &cmnd_aliases);
         }
 
         entries
@@ -168,6 +169,7 @@ impl Sudoers {
 fn group_cmd_specs_per_runas<'a>(
     list: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
     entries: &mut Vec<Entry<'a>>,
+    cmnd_aliases: &HashMap<&String, &'a Vec<Spec<Command>>>,
 ) {
     static EMPTY_RUNAS: RunAs = RunAs {
         users: Vec::new(),
@@ -189,7 +191,23 @@ fn group_cmd_specs_per_runas<'a>(
             runas = Some(new_runas);
         }
 
-        collected_specs.push((tag, spec));
+        let (negate, meta) = match spec {
+            Qualified::Allow(meta) => (false, meta),
+            Qualified::Forbid(meta) => (true, meta),
+        };
+
+        if let Meta::Alias(alias_name) = meta {
+            if let Some(specs) = cmnd_aliases.get(alias_name) {
+                // expand Cmnd_Alias
+                for spec in specs.iter() {
+                    let new_spec = if negate { spec.negate() } else { spec.as_ref() };
+
+                    collected_specs.push((tag.clone(), new_spec))
+                }
+            }
+        } else {
+            collected_specs.push((tag, spec.as_ref()));
+        }
     }
 
     if !collected_specs.is_empty() {
@@ -459,6 +477,10 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command
         cmdpat.matches_path_with(cmd, opts)
             && argpat.as_ref().map_or(true, |vec| args == vec.as_ref())
     }
+}
+
+fn unfold_alias_table<T>(table: &VecOrd<Def<T>>) -> HashMap<&String, &Vec<Qualified<Meta<T>>>> {
+    elems(table).map(|Def(id, list)| (id, list)).collect()
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;

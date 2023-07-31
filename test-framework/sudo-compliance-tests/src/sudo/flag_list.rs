@@ -4,6 +4,7 @@ use crate::{Result, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 mod credential_caching;
 mod flag_other_user;
+mod long_format;
 mod needs_auth;
 mod nopasswd;
 mod not_allowed;
@@ -227,7 +228,6 @@ fn does_not_work_with_lowercase_u_flag() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh710"]
 #[test]
 fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
     let hostname = "container";

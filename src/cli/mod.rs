@@ -42,13 +42,21 @@ pub struct SudoOptions {
     // actions
     edit: bool,
     help: bool,
-    list: bool,
+    list: List,
     remove_timestamp: bool,
     pub reset_timestamp: bool,
     validate: bool,
     version: bool,
     // arguments passed straight through, either seperated by -- or just trailing.
     external_args: Vec<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq)]
+enum List {
+    #[default]
+    None,
+    Once,
+    Verbose,
 }
 
 enum SudoArg {
@@ -177,7 +185,7 @@ impl SudoOptions {
             self.action = SudoAction::ResetTimestamp;
         } else if self.validate {
             self.action = SudoAction::Validate;
-        } else if self.list {
+        } else if self.list != List::None {
             self.action = SudoAction::List(std::mem::take(self.external_args.as_mut()));
         } else if self.edit {
             let args: Vec<String> = std::mem::take(self.external_args.as_mut());
@@ -279,9 +287,11 @@ impl SudoOptions {
                     "-k" | "--reset-timestamp" => {
                         options.reset_timestamp = true;
                     }
-                    "-l" | "--list" => {
-                        options.list = true;
-                    }
+                    "-l" | "--list" => match options.list {
+                        List::None => options.list = List::Once,
+                        List::Once => options.list = List::Verbose,
+                        List::Verbose => {}
+                    },
                     "-n" | "--non-interactive" => {
                         options.non_interactive = true;
                     }
@@ -343,6 +353,10 @@ impl SudoOptions {
         options.validate()?;
 
         Ok(options)
+    }
+
+    pub fn verbose_list_mode(&self) -> bool {
+        matches!(self.list, List::Verbose)
     }
 
     #[cfg(test)]

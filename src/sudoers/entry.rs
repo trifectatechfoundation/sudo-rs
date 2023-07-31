@@ -5,21 +5,32 @@ use crate::sudoers::{
     tokens::{ChDir, Meta},
 };
 
+use self::verbose::Verbose;
+
 use super::{
-    ast::{RunAs, Spec, Tag},
+    ast::{RunAs, Tag},
     tokens::Command,
 };
 
+mod verbose;
+
 pub struct Entry<'a> {
     run_as: &'a RunAs,
-    cmd_specs: Vec<(Tag, &'a Spec<Command>)>,
+    cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
 }
 
 impl<'a> Entry<'a> {
-    pub(super) fn new(run_as: &'a RunAs, cmd_specs: Vec<(Tag, &'a Spec<Command>)>) -> Self {
+    pub(super) fn new(
+        run_as: &'a RunAs,
+        cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+    ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
 
         Self { run_as, cmd_specs }
+    }
+
+    pub fn verbose(self) -> impl fmt::Display + 'a {
+        Verbose(self)
     }
 }
 
@@ -29,6 +40,9 @@ impl fmt::Display for Entry<'_> {
 
         f.write_str("    (")?;
         write_users(run_as, f)?;
+        if !run_as.groups.is_empty() {
+            f.write_str(" : ")?;
+        }
         write_groups(run_as, f)?;
         f.write_str(") ")?;
 
@@ -98,10 +112,6 @@ fn write_users(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Er
 }
 
 fn write_groups(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-    if !run_as.groups.is_empty() {
-        f.write_str(" : ")?;
-    }
-
     let mut is_first_group = true;
     for group in &run_as.groups {
         if !is_first_group {
@@ -167,7 +177,7 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
     Ok(())
 }
 
-fn write_spec(f: &mut fmt::Formatter, spec: &Spec<Command>) -> fmt::Result {
+fn write_spec(f: &mut fmt::Formatter, spec: &Qualified<&Meta<Command>>) -> fmt::Result {
     let meta = match spec {
         Qualified::Allow(meta) => meta,
         Qualified::Forbid(meta) => {
@@ -186,7 +196,7 @@ fn write_spec(f: &mut fmt::Formatter, spec: &Spec<Command>) -> fmt::Result {
                 }
             }
         }
-        Meta::Alias(alias) => f.write_str(&alias)?,
+        Meta::Alias(alias) => f.write_str(alias)?,
     }
 
     Ok(())

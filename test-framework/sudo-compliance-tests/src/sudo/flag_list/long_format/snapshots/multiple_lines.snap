@@ -1,0 +1,17 @@
+---
+source: sudo-compliance-tests/src/sudo/flag_list/long_format/mod.rs
+assertion_line: 302
+expression: stdout
+---
+User root may run the following commands on container:
+
+Sudoers entry:
+    RunAsUsers: root
+    Commands:
+	/usr/bin/true
+	/usr/bin/false
+
+Sudoers entry:
+    RunAsUsers: root
+    Commands:
+	/usr/bin/ls
