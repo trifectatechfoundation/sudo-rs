@@ -37,7 +37,11 @@ impl Log for Syslog {
 
             if end < message_len {
                 // end index of last whitespace before byte cutoff
-                end = message[start..end].rfind(char::is_whitespace).unwrap_or(end) + start + 1;
+                end = message[start..end]
+                    .rfind(char::is_whitespace)
+                    .unwrap_or(end)
+                    + start
+                    + 1;
             } else {
                 end = message_len
             }
