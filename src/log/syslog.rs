@@ -18,32 +18,44 @@ impl Log for Syslog {
             Level::Trace => libc::LOG_DEBUG,
         };
 
-        let message = format!("{}", record.args());
-        let message_len = message.bytes().len();
+        let mut message = format!("{}", record.args());
+        let mut message_len = message.bytes().len();
 
-        let mut x: usize = 960;
-        let mut x_prev: usize = 0;
+        let mut end: usize = 960;
+        let mut start: usize = 0;
 
-        loop {
+        if message_len <= 960 {
+            syslog(priority, libc::LOG_AUTH, &message);
+            return;
+        }
+
+        while start <= message_len {
             // floor_char_boundary is currently unstable
-            while !message.is_char_boundary(x) {
-                x -= 1;
+            while !message.is_char_boundary(end) {
+                end -= 1;
             }
 
-            if x < message_len {
-                x = message[x_prev..x].rfind(char::is_whitespace).unwrap_or(x) + x_prev + 1;
+            if end < message_len {
+                // end index of last whitespace before byte cutoff
+                end = message[start..end].rfind(char::is_whitespace).unwrap_or(end) + start + 1;
             } else {
-                x = message_len
+                end = message_len
             }
 
-            syslog(priority, libc::LOG_AUTH, &message[x_prev..x]);
-
-            x_prev = x;
-            x += 960;
-
-            if x_prev >= message_len {
-                break;
+            if end != message_len {
+                message.insert_str(end, "[...]");
+                end += 5;
+                message_len += 5;
             }
+            if start != 0 {
+                message.insert_str(start, "[...] ");
+                end += 6;
+            }
+
+            syslog(priority, libc::LOG_AUTH, &message[start..end]);
+
+            start = end;
+            end += 960;
         }
     }
 
