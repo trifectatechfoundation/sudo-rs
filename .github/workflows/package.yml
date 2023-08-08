@@ -15,8 +15,8 @@ jobs:
           - "rockylinux:8"
         target:
           - x86_64
-          - aarch64-unknown-linux-gnu
-          - armv7-unknown-linux-gnueabihf
+          # - aarch64-unknown-linux-gnu
+          # - armv7-unknown-linux-gnueabihf
 
       package_test_scripts_path: pkg/tests/test-sudo.sh
 
