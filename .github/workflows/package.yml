@@ -1,0 +1,31 @@
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  package:
+    uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@v7
+    with:
+      package_build_rules: |
+        pkg: sudo
+        image:
+          - "debian:bullseye"
+          - "debian:bookworm"
+          - "debian:trixie"
+          - "ubuntu:jammy"
+          - "ubuntu:lunar"
+          - "ubuntu:mantic"
+          - "fedora:37"
+          - "fedora:38"
+          - "fedora:39"
+          - "rockylinux:8"
+          - "rockylinux:9"
+          - "opensuse/leap:15"
+
+      package_test_scripts_path: pkg/tests/test-sudo.sh
+
+      deb_extra_build_packages: libpam-dev
+      rpm_extra_build_packages: pam-devel
+      rpm_scriptlets_path: pkg/rpm/scriptlets.toml
+
+
