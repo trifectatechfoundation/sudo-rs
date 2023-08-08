@@ -111,7 +111,10 @@ impl PreJudgementPolicy for Sudoers {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::sudoers::{ast::Tag, tokens::ChDir};
+    use crate::sudoers::{
+        ast::{Authenticate, Tag},
+        tokens::ChDir,
+    };
 
     impl Judgement {
         fn mod_flag(&mut self, mut modify: impl FnMut(&mut Tag)) {
@@ -126,7 +129,7 @@ mod test {
     fn authority_xlat_test() {
         let mut judge: Judgement = Default::default();
         assert_eq!(judge.authorization(), Authorization::Forbidden);
-        judge.mod_flag(|tag| tag.passwd = Some(true));
+        judge.mod_flag(|tag| tag.authenticate = Authenticate::Passwd);
         assert_eq!(
             judge.authorization(),
             Authorization::Allowed {
@@ -135,7 +138,7 @@ mod test {
                 prior_validity: Duration::minutes(15),
             }
         );
-        judge.mod_flag(|tag| tag.passwd = Some(false));
+        judge.mod_flag(|tag| tag.authenticate = Authenticate::Nopasswd);
         assert_eq!(
             judge.authorization(),
             Authorization::Allowed {

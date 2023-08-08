@@ -1,7 +1,7 @@
 use core::fmt;
 
 use crate::sudoers::{
-    ast::{RunAs, Tag},
+    ast::{Authenticate, RunAs, Tag},
     tokens::ChDir,
 };
 
@@ -57,9 +57,9 @@ fn write_groups(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 }
 
 fn write_tag(f: &mut fmt::Formatter, tag: &Tag) -> fmt::Result {
-    if let Some(passwd) = &tag.passwd {
+    if tag.authenticate != Authenticate::None {
         f.write_str("\n    Options: ")?;
-        if !passwd {
+        if tag.authenticate != Authenticate::Passwd {
             f.write_str("!")?;
         }
         f.write_str("authenticate")?;

@@ -50,17 +50,29 @@ pub struct RunAs {
     pub groups: SpecList<Identifier>,
 }
 
+// `sudo -l l` calls this the `authenticate` option
+#[derive(Copy, Clone, Default, PartialEq)]
+#[cfg_attr(test, derive(Debug, Eq))]
+pub enum Authenticate {
+    #[default]
+    None,
+    // PASSWD:
+    Passwd,
+    // NOPASSWD:
+    Nopasswd,
+}
+
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[derive(Default, Clone, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
 pub struct Tag {
-    pub passwd: Option<bool>,
+    pub authenticate: Authenticate,
     pub cwd: Option<ChDir>,
 }
 
 impl Tag {
     pub fn needs_passwd(&self) -> bool {
-        self.passwd.unwrap_or(true)
+        matches!(self.authenticate, Authenticate::None | Authenticate::Passwd)
     }
 }
 
@@ -270,8 +282,8 @@ impl Parse for MetaOrTag {
         };
 
         let result: Modifier = match keyword.as_str() {
-            "PASSWD" => switch(|tag| tag.passwd = Some(true))?,
-            "NOPASSWD" => switch(|tag| tag.passwd = Some(false))?,
+            "PASSWD" => switch(|tag| tag.authenticate = Authenticate::Passwd)?,
+            "NOPASSWD" => switch(|tag| tag.authenticate = Authenticate::Nopasswd)?,
             "CWD" => {
                 expect_syntax('=', stream)?;
                 let path: ChDir = expect_nonterminal(stream)?;
