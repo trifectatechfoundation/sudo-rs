@@ -9,18 +9,8 @@ jobs:
       package_build_rules: |
         pkg: sudo
         image:
-          - "debian:bullseye"
-          - "debian:bookworm"
-          - "debian:trixie"
           - "ubuntu:jammy"
-          - "ubuntu:lunar"
-          - "ubuntu:mantic"
-          - "fedora:37"
-          - "fedora:38"
-          - "fedora:39"
           - "rockylinux:8"
-          - "rockylinux:9"
-          - "opensuse/leap:15"
         target:
           - x86_64
           - aarch64
