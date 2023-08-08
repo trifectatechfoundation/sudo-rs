@@ -204,7 +204,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -248,7 +248,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -282,14 +282,14 @@ jobs:
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.70
+          toolchain: "1.70"
           override: true
 
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -330,7 +330,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -389,7 +389,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -422,7 +422,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -464,7 +464,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
