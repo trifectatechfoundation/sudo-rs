@@ -21,6 +21,10 @@ jobs:
           - "rockylinux:8"
           - "rockylinux:9"
           - "opensuse/leap:15"
+        target:
+          - x86_64
+          - aarch64
+          - armv7
 
       package_test_scripts_path: pkg/tests/test-sudo.sh
 
