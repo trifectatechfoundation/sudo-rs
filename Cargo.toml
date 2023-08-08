@@ -1,6 +1,6 @@
 [package]
 name = "sudo-rs"
-description = "A memory safe implementation of sudo and su"
+description = "Memory safe implementation of sudo and su"
 readme = "README.md"
 version = "0.2.0-dev.20230711"
 license = "Apache-2.0 OR MIT"
@@ -56,9 +56,12 @@ replaces = "sudo"
 provides = "sudo"
 maintainer = "Ruben Nijveld <ruben@tweedegolf.com>"
 maintainer-scripts = "../pkg/deb"
+changelog = "pkg/deb/changelog"
 assets = [
-    ["target/release/sudo", "/usr/bin/sudo", "755"],
-    ["target/release/visudo", "/usr/bin/visudo", "755"],
+    ["target/release/sudo", "usr/bin/sudo", "755"],
+    ["target/release/visudo", "usr/bin/visudo", "755"],
+    ["docs/man/sudo.8", "usr/share/man/man8/sudo.8", "644"],
+    ["docs/man/visudo.8", "usr/share/man/man8/visudo.8", "644"],
 ]
 
 [package.metadata.generate-rpm]
@@ -66,6 +69,8 @@ license = "ASL 2.0 OR MIT"
 assets = [
     { source = "target/release/sudo", dest = "/usr/bin/sudo", mode = "755" },
     { source = "target/release/visudo", dest = "/usr/bin/visudo", mode = "755" },
+    { source = "docs/man/sudo.8", dest = "/usr/share/man/man8/sudo.8", mode = "644", doc = true },
+    { source = "docs/man/visudo.8", dest = "/usr/share/man/man8/visudo.8", mode = "644", doc = true },
 ]
-conflicts = ["sudo"]
-provides = ["sudo"]
+conflicts = "sudo"
+provides = "sudo"
