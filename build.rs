@@ -31,4 +31,6 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     println!("cargo:rustc-link-lib=pam");
+
+    println!("cargo:rustc-env=DEFAULT_PATH=\"/bin/:/usr/bin/:/usr/local/bin:/sbin/:/usr/sbin\"")
 }
