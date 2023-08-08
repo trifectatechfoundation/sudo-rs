@@ -204,7 +204,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -228,6 +228,86 @@ jobs:
         with:
           files: lcov.info
 
+  build-and-test-minimal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set rust nightly version
+        run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustc)" >> $GITHUB_ENV
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-${{ env.NIGHTLY_VERSION }}
+          override: true
+
+      - name: Install dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev
+          version: "1.0"
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "nightly"
+
+      - name: Update to minimal direct dependencies
+        uses: actions-rs/cargo@v1
+        with:
+          command: update
+          args: -Zdirect-minimal-versions
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --workspace --all-targets --all-features --release
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace --all-features --all-targets --release
+
+  build-and-test-msrv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: "1.70"
+          override: true
+
+      - name: Install dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev
+          version: "1.0"
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "msrv"
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --workspace --all-targets --all-features --release
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace --all-features --all-targets --release
+
   miri:
     needs: build-and-test
     runs-on: ubuntu-latest
@@ -250,7 +330,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -309,7 +389,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -342,7 +422,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -384,7 +464,7 @@ jobs:
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: libpam0g-dev
-          version: 1.0
+          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
