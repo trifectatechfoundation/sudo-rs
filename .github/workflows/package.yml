@@ -18,8 +18,8 @@ jobs:
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: binutils-x86_64-linux-gnu bintuils-arm-linux-gnu binutils-aarch64-linux-gnu
-          version: "package"
+          packages: binutils-x86_64-linux-gnu binutils-arm-linux-gnu binutils-aarch64-linux-gnu
+          version: "1.0"
       - name: Add cargo-deb
         uses: taiki-e/install-action@v2
         with:
