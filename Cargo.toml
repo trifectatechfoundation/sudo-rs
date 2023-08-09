@@ -49,7 +49,13 @@ lto = true
 opt-level = "s"
 
 [package.metadata.cross.build]
-pre-build = ["apt-get install libpam-dev"]
+pre-build = ["apt-get update && apt-get install --assume-yes libpam-dev"]
+
+[package.metadata.cross.target.aarch64-unknown-linux-gnu]
+pre-build = ["dpkg --add-architecture arm64 && apt-get update && apt-get install --assume-yes libpam-dev:arm64"]
+
+[package.metadata.cross.target.armv7-unknown-linux-gnueabihf]
+pre-build = ["dpkg --add-architecture armhf && apt-get update && apt-get install --assume-yes libpam-dev:armhf"]
 
 [package.metadata.deb]
 name = "sudo-rs"
