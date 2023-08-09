@@ -39,7 +39,7 @@ jobs:
       - name: Build
         run: cross build --release --locked --target ${{matrix.target}}
       - name: Create deb package
-        run: cargo deb --no-build --target ${{matrix.target}}
+        run: cargo deb --no-build --no-strip --target ${{matrix.target}}
       - uses: actions/upload-artifact@v3
         with:
           name: deb-${{matrix.target}}

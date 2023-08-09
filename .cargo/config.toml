@@ -1,7 +1,0 @@
-[target.aarch64-unknown-linux-gnu]
-objcopy = { path ="aarch64-linux-gnu-objcopy" }
-strip = { path ="aarch64-linux-gnu-strip" }
-
-[target.armv7-unknown-linux-gnueabihf]
-objcopy = { path ="arm-linux-gnueabihf-objcopy" }
-strip = { path ="arm-linux-gnueabihf-strip" }
