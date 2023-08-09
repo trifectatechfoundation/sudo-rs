@@ -25,6 +25,8 @@ jobs:
           tool: cargo-generate-rpm
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: "${{matrix.target}}"
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
