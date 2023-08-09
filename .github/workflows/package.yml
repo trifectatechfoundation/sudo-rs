@@ -23,18 +23,17 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-generate-rpm
+      - name: Add cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
           target: "${{matrix.target}}"
-      - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "stable"
       - name: Build
-        run: cargo build --release --locked
+        run: cross build --release --locked
