@@ -48,7 +48,7 @@ strip = "debuginfo"
 lto = true
 opt-level = "s"
 
-[package.metadata.cross]
+[package.metadata.cross.build]
 pre-build = ["apt-get install libpam-dev"]
 
 [package.metadata.deb]
