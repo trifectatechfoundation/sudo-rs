@@ -6,23 +6,15 @@ on:
 
 jobs:
   package:
-    uses: NLnetLabs/ploutos/.github/workflows/pkg-rust.yml@v7
-    with:
-      package_build_rules: |
-        pkg: sudo
-        image:
-          - "ubuntu:jammy"
-          - "rockylinux:8"
-        target:
-          - x86_64
-          # - aarch64-unknown-linux-gnu
-          # - armv7-unknown-linux-gnueabihf
-      package_test_rules: none
-
-      package_test_scripts_path: pkg/tests/test-sudo.sh
-
-      deb_extra_build_packages: libpam-dev
-      rpm_extra_build_packages: pam-devel
-      rpm_scriptlets_path: pkg/rpm/scriptlets.toml
-
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Add cargo-deb
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb
+      - name: Add cargo-generate-rpm
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-generate-rpm
 
