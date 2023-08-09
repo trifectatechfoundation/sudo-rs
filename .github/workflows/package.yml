@@ -27,13 +27,15 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cross
-      - name: Install cross-compilation tools
-        uses: taiki-e/setup-cross-toolchain-action@v1
-        with:
-          target: "${{matrix.target}}"
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "stable"
       - name: Build
-        run: cross build --release --locked
+        run: cross build --release --locked --target ${{matrix.target}}
+      - name: Create deb package
+        run: cargo deb --no-build --target ${{matrix.target}}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: debs
+          path: target/debian/
