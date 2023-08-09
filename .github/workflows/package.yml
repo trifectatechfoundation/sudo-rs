@@ -27,6 +27,11 @@ jobs:
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
           target: "${{matrix.target}}"
+      - name: Install dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libpam0g-dev
+          version: "1.0"
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
