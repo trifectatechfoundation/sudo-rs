@@ -72,5 +72,5 @@ assets = [
     { source = "docs/man/sudo.8", dest = "/usr/share/man/man8/sudo.8", mode = "644", doc = true },
     { source = "docs/man/visudo.8", dest = "/usr/share/man/man8/visudo.8", mode = "644", doc = true },
 ]
-conflicts = "sudo"
-provides = "sudo"
+conflicts = { "sudo" = "*" }
+provides = { "sudo" = "*" }
