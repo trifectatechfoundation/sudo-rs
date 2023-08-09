@@ -15,6 +15,11 @@ jobs:
           - armv7-unknown-linux-gnueabihf
     steps:
       - uses: actions/checkout@v2
+      - name: Install dependencies
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: binutils-x86_64-linux-gnu bintuils-arm-linux-gnu binutils-aarch64-linux-gnu
+          version: "1.0"
       - name: Add cargo-deb
         uses: taiki-e/install-action@v2
         with:
@@ -37,5 +42,5 @@ jobs:
         run: cargo deb --no-build --target ${{matrix.target}}
       - uses: actions/upload-artifact@v3
         with:
-          name: debs
-          path: target/debian/
+          name: deb-${{matrix.target}}
+          path: target/${{matrix.target}}/debian/
