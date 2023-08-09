@@ -48,6 +48,9 @@ strip = "debuginfo"
 lto = true
 opt-level = "s"
 
+[package.metadata.cross]
+pre-build = ["apt-get install libpam-dev"]
+
 [package.metadata.deb]
 name = "sudo-rs"
 copyright = "Copyright (c) 2022-2023 Internet Security Research Group"
