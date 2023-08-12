@@ -71,6 +71,7 @@ assets = [
     ["target/release/visudo", "usr/bin/visudo", "755"],
     ["docs/man/sudo.8", "usr/share/man/man8/sudo.8", "644"],
     ["docs/man/visudo.8", "usr/share/man/man8/visudo.8", "644"],
+    ["pkg/deb/sudoers.default", "usr/share/doc/sudo-rs/sudoers.default", "600"],
 ]
 
 [package.metadata.generate-rpm]

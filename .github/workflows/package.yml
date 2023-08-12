@@ -14,33 +14,29 @@ jobs:
           - aarch64-unknown-linux-gnu
           - armv7-unknown-linux-gnueabihf
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
           packages: binutils-x86-64-linux-gnu binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu
           version: "1.0"
-      - name: Add cargo-deb
+      - name: Add cargo-deb, cargo-generate-rpm and cross
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deb
-      - name: Add cargo-generate-rpm
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-generate-rpm
-      - name: Add cross
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cross
-      - name: Rust Cache
+          tool: cargo-deb,cargo-generate-rpm,cross
+      - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "stable"
-      - name: Build
+      - name: Build release
         run: cross build --release --locked --target ${{matrix.target}}
       - name: Create deb package
         run: cargo deb --no-build --no-strip --target ${{matrix.target}}
-      - uses: actions/upload-artifact@v3
+      - name: Determine deb package name
+        id: deb_filename
+        run: echo "deb_filename=$(find target/${{matrix.target}}/debian/ -type f -name 'sudo-rs_*')" >> "$GITHUB_OUTPUT"
+      - name: Upload resulting deb file
+        uses: actions/upload-artifact@v3
         with:
-          name: deb-${{matrix.target}}
-          path: target/${{matrix.target}}/debian/
+          name: "deb-${{matrix.target}}"
+          path: "${{steps.deb_filename.outputs.deb_filename}}"

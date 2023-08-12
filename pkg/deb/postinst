@@ -1,3 +1,8 @@
 #!/bin/bash -e
 
 chmod +s /usr/bin/sudo
+
+if [ ! -f "/etc/sudoers" ]; then
+    cp /usr/share/doc/sudo-rs/sudoers.default /etc/sudoers
+    chmod 0600 /etc/sudoers
+fi

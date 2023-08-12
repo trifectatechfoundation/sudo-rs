@@ -1,0 +1,35 @@
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# Please consider adding local content in /etc/sudoers.d/ instead of
+# directly modifying this file.
+#
+Defaults	secure_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults	use_pty
+
+# This preserves proxy settings from user environments of root
+# equivalent users (group sudo)
+#Defaults:%sudo env_keep += "http_proxy https_proxy ftp_proxy all_proxy no_proxy"
+
+# Completely harmless preservation of a user preference.
+#Defaults:%sudo env_keep += "GREP_COLOR"
+
+# "sudo scp" or "sudo rsync" should be able to use your SSH agent.
+#Defaults:%sudo env_keep += "SSH_AGENT_PID SSH_AUTH_SOCK"
+
+# Ditto for GPG agent
+#Defaults:%sudo env_keep += "GPG_AGENT_INFO"
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+
+# User privilege specification
+root	ALL=(ALL:ALL) ALL
+
+# Allow members of group sudo to execute any command
+%sudo	ALL=(ALL:ALL) ALL
+
+@includedir /etc/sudoers.d
