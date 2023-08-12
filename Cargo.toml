@@ -71,7 +71,7 @@ assets = [
     ["target/release/visudo", "usr/bin/visudo", "755"],
     ["docs/man/sudo.8", "usr/share/man/man8/sudo.8", "644"],
     ["docs/man/visudo.8", "usr/share/man/man8/visudo.8", "644"],
-    ["pkg/deb/sudoers.default", "usr/share/doc/sudo-rs/sudoers.default", "600"],
+    ["pkg/deb/sudoers.default", "usr/share/doc/sudo-rs/sudoers.default", "600"]
 ]
 
 [package.metadata.generate-rpm]
@@ -80,7 +80,7 @@ assets = [
     { source = "target/release/sudo", dest = "/usr/bin/sudo", mode = "755" },
     { source = "target/release/visudo", dest = "/usr/bin/visudo", mode = "755" },
     { source = "docs/man/sudo.8", dest = "/usr/share/man/man8/sudo.8", mode = "644", doc = true },
-    { source = "docs/man/visudo.8", dest = "/usr/share/man/man8/visudo.8", mode = "644", doc = true },
+    { source = "docs/man/visudo.8", dest = "/usr/share/man/man8/visudo.8", mode = "644", doc = true }
 ]
 conflicts = { "sudo" = "*" }
 provides = { "sudo" = "*" }
