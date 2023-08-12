@@ -24,10 +24,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-deb,cargo-generate-rpm,cross
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "stable"
       - name: Build release
         run: cross build --release --locked --target ${{matrix.target}}
       - name: Create deb package
