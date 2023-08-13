@@ -57,19 +57,21 @@ fn closes_open_file_descriptors(tty: bool) -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
-    assert_contains!(output.stderr(), "42: Bad file descriptor");
+    assert_contains!(
+        if tty {
+            // Docker merges stderr into stdout with "--tty". See gh622
+            output.stdout_unchecked()
+        } else {
+            output.stderr()
+        },
+        "42: Bad file descriptor"
+    );
 
     Ok(())
 }
 
 #[test]
-#[ignore = "gh622"]
 fn closes_open_file_descriptors_with_tty() -> Result<()> {
-    // FIXME: not clear why ogsudo can't deal with this either
-    if sudo_test::is_original_sudo() {
-        return Ok(());
-    }
-
     closes_open_file_descriptors(true)
 }
 
