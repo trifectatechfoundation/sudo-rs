@@ -8,6 +8,12 @@ use super::{
     Error,
 };
 
+#[cfg_attr(test, derive(Debug))]
+pub struct SystemContext {
+    pub hostname: String,
+    pub current_user: User,
+}
+
 #[derive(Debug)]
 pub struct Context {
     // cli options
@@ -34,10 +40,24 @@ pub enum LaunchType {
     Login,
 }
 
+impl SystemContext {
+    pub fn new() -> Result<Self, Error> {
+        Ok(Self {
+            hostname: hostname(),
+            current_user: resolve_current_user()?,
+        })
+    }
+}
+
 impl Context {
-    pub fn build_from_options(sudo_options: SudoOptions, path: String) -> Result<Context, Error> {
-        let hostname = hostname();
-        let current_user = resolve_current_user()?;
+    pub fn build_from_options(
+        SystemContext {
+            hostname,
+            current_user,
+        }: SystemContext,
+        sudo_options: SudoOptions,
+        path: String,
+    ) -> Result<Context, Error> {
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
@@ -76,13 +96,15 @@ mod tests {
     use crate::{cli::SudoOptions, system::hostname};
     use std::collections::HashMap;
 
-    use super::Context;
+    use super::{Context, SystemContext};
 
     #[test]
     fn test_build_context() {
         let options = SudoOptions::try_parse_from(["sudo", "echo", "hello"]).unwrap();
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-        let context = Context::build_from_options(options, path.to_string()).unwrap();
+        let context =
+            Context::build_from_options(SystemContext::new().unwrap(), options, path.to_string())
+                .unwrap();
 
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());

@@ -2,7 +2,7 @@ use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
     cli::{SudoAction, SudoOptions},
-    common::{Context, Error},
+    common::{Context, Error, SystemContext},
     pam::CLIConverser,
     sudo::{pam::PamAuthenticator, SudoersPolicy},
     sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
@@ -28,8 +28,9 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             panic!("called `Pipeline::run_list` with a SudoAction other than `List`")
         };
 
-        let sudoers = self.policy.init()?;
-        let context = super::build_context(cmd_opts, &sudoers)?;
+        let system_context = SystemContext::new()?;
+        let sudoers = self.policy.init(&system_context)?;
+        let context = super::build_context(system_context, cmd_opts, &sudoers)?;
 
         if original_command.is_some() && !context.command.resolved {
             return Err(Error::CommandNotFound(context.command.command));

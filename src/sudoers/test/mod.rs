@@ -13,6 +13,29 @@ fn dummy_cksum(name: &str) -> u32 {
     }
 }
 
+fn analyze(
+    path: &Path,
+    sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
+) -> (Sudoers, Vec<Error>) {
+    super::analyze(
+        &SystemContext {
+            hostname: String::from("host"),
+            current_user: crate::system::User {
+                uid: 1,
+                gid: 1,
+                name: String::from("ferris"),
+                gecos: String::from("gecos"),
+                home: PathBuf::from("/home/ferris"),
+                shell: PathBuf::from("/bin/bash"),
+                passwd: String::from("passwd"),
+                groups: vec![0],
+            },
+        },
+        path,
+        sudoers,
+    )
+}
+
 impl UnixUser for Named {
     fn has_name(&self, name: &str) -> bool {
         self.0 == name

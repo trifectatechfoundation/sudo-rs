@@ -2,7 +2,7 @@
 use std::{collections::HashMap, ffi::OsString};
 
 pub use command::CommandAndArguments;
-pub use context::Context;
+pub use context::{Context, SystemContext};
 pub use error::Error;
 
 pub mod command;

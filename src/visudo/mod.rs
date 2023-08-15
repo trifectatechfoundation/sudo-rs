@@ -11,6 +11,7 @@ use std::{
 };
 
 use crate::{
+    common::{Error, SystemContext},
     sudoers::Sudoers,
     system::{
         can_execute,
@@ -56,13 +57,17 @@ pub fn main() {
     match cmd(options.file.as_deref(), options.perms, options.owner) {
         Ok(()) => {}
         Err(error) => {
-            eprintln!("visudo: {error}");
+            match error {
+                // Don't include "IO error" message in output
+                Error::IoError(_, error) => eprintln!("visudo: {error}"),
+                error => eprintln!("visudo: {error}"),
+            }
             std::process::exit(1);
         }
     }
 }
 
-fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
+fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> Result<(), Error> {
     let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
     let sudoers_file = File::open(sudoers_path)
@@ -81,7 +86,8 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
                     "{}: bad permissions, should be mode 0440, but found {mode:04o}",
                     sudoers_path.display()
                 ),
-            ));
+            )
+            .into());
         }
     }
 
@@ -95,11 +101,12 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
                     "{}: wrong owner (uid, gid) should be (0, 0), but found {owner:?}",
                     sudoers_path.display()
                 ),
-            ));
+            )
+            .into());
         }
     }
 
-    let (_sudoers, errors) = Sudoers::read(&sudoers_file, sudoers_path)?;
+    let (_sudoers, errors) = Sudoers::read(&SystemContext::new()?, &sudoers_file, sudoers_path)?;
 
     if errors.is_empty() {
         println!("{}: parsed OK", sudoers_path.display());
@@ -110,10 +117,10 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         eprintln!("syntax error: {message}");
     }
 
-    Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
+    Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file").into())
 }
 
-fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
+fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> Result<(), Error> {
     let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
 
     let (sudoers_file, existed) = if sudoers_path.exists() {
@@ -196,9 +203,11 @@ fn edit_sudoers_file(
     lock: FileLock,
     mut tmp_file: File,
     tmp_path: &Path,
-) -> io::Result<()> {
+) -> Result<(), Error> {
     let mut editor_path = None;
     let mut sudoers_contents = Vec::new();
+    let context = SystemContext::new()?;
+
     if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
         sudoers_file.read_to_end(&mut sudoers_contents)?;
@@ -207,7 +216,7 @@ fn edit_sudoers_file(
         // Write to the temporary file.
         tmp_file.write_all(&sudoers_contents)?;
 
-        let (sudoers, errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
+        let (sudoers, errors) = Sudoers::read(&context, sudoers_contents.as_slice(), sudoers_path)?;
 
         if errors.is_empty() {
             editor_path = sudoers.solve_editor_path();
@@ -227,7 +236,7 @@ fn edit_sudoers_file(
             .wait_with_output()?;
 
         let (_sudoers, errors) = File::open(tmp_path)
-            .and_then(|reader| Sudoers::read(reader, tmp_path))
+            .and_then(|reader| Sudoers::read(&context, reader, tmp_path))
             .map_err(|err| {
                 io_msg!(
                     err,

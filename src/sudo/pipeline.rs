@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::process::exit;
 
 use crate::cli::SudoOptions;
-use crate::common::{resolve::expand_tilde_in_path, Context, Environment, Error};
+use crate::common::{resolve::expand_tilde_in_path, Context, Environment, Error, SystemContext};
 use crate::env::environment;
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
@@ -19,7 +19,7 @@ pub trait PolicyPlugin {
     type PreJudgementPolicy: PreJudgementPolicy;
     type Policy: Policy;
 
-    fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error>;
+    fn init(&mut self, system_context: &SystemContext) -> Result<Self::PreJudgementPolicy, Error>;
     fn judge(
         &mut self,
         pre: Self::PreJudgementPolicy,
@@ -41,8 +41,9 @@ pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
 
 impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     pub fn run(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
-        let pre = self.policy.init()?;
-        let mut context = build_context(cmd_opts, &pre)?;
+        let system_context = SystemContext::new()?;
+        let pre = self.policy.init(&system_context)?;
+        let mut context = build_context(system_context, cmd_opts, &pre)?;
 
         let policy = self.policy.judge(pre, &context)?;
         let authorization = policy.authorization();
@@ -100,8 +101,9 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     }
 
     pub fn run_validate(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
-        let pre = self.policy.init()?;
-        let context = build_context(cmd_opts, &pre)?;
+        let system_context = SystemContext::new()?;
+        let pre = self.policy.init(&system_context)?;
+        let context = build_context(system_context, cmd_opts, &pre)?;
 
         match pre.validate_authorization() {
             Authorization::Forbidden => {
@@ -187,11 +189,15 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     }
 }
 
-fn build_context(cmd_opts: SudoOptions, pre: &dyn PreJudgementPolicy) -> Result<Context, Error> {
+fn build_context(
+    system_context: SystemContext,
+    cmd_opts: SudoOptions,
+    pre: &dyn PreJudgementPolicy,
+) -> Result<Context, Error> {
     let secure_path: String = pre
         .secure_path()
         .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
-    Context::build_from_options(cmd_opts, secure_path)
+    Context::build_from_options(system_context, cmd_opts, secure_path)
 }
 
 /// This should determine what the authentication status for the given record

@@ -241,7 +241,6 @@ fn ownership_check_not_fatal() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh676"]
 fn hostname_expansion() -> Result<()> {
     let hostname = "ship";
     let env = Env("@include /etc/sudoers.%h")

@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::{io, mem};
 
+use crate::common::SystemContext;
 use crate::log::auth_warn;
 use crate::system::can_execute;
 use crate::system::interface::{UnixGroup, UnixUser};
@@ -60,17 +61,21 @@ pub use self::entry::Entry;
 
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
-    pub fn open(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), io::Error> {
+    pub fn open(
+        context: &SystemContext,
+        path: impl AsRef<Path>,
+    ) -> Result<(Sudoers, Vec<Error>), io::Error> {
         let sudoers = open_sudoers(path.as_ref())?;
-        Ok(analyze(path.as_ref(), sudoers))
+        Ok(analyze(context, path.as_ref(), sudoers))
     }
 
     pub fn read<R: io::Read, P: AsRef<Path>>(
+        context: &SystemContext,
         reader: R,
         path: P,
     ) -> Result<(Sudoers, Vec<Error>), io::Error> {
         let sudoers = read_sudoers(reader)?;
-        Ok(analyze(path.as_ref(), sudoers))
+        Ok(analyze(context, path.as_ref(), sudoers))
     }
 
     pub fn check<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
@@ -568,6 +573,7 @@ impl Default for Settings {
 
 /// Process a sudoers-parsing file into a workable AST
 fn analyze(
+    context: &SystemContext,
     path: &Path,
     sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
 ) -> (Sudoers, Vec<Error>) {
@@ -589,7 +595,13 @@ fn analyze(
     }
 
     impl Sudoers {
-        fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>, count: &mut u8) {
+        fn include(
+            &mut self,
+            context: &SystemContext,
+            path: &Path,
+            diagnostics: &mut Vec<Error>,
+            count: &mut u8,
+        ) {
             if *count >= INCLUDE_LIMIT {
                 diagnostics.push(Error(
                     None,
@@ -601,7 +613,7 @@ fn analyze(
                 match open_subsudoers(path) {
                     Ok(subsudoer) => {
                         *count += 1;
-                        self.process(path, subsudoer, diagnostics, count)
+                        self.process(context, path, subsudoer, diagnostics, count)
                     }
                     Err(e) => {
                         let message = if e.kind() == io::ErrorKind::NotFound {
@@ -619,6 +631,7 @@ fn analyze(
 
         fn process(
             &mut self,
+            context: &SystemContext,
             cur_path: &Path,
             sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
             diagnostics: &mut Vec<Error>,
@@ -642,11 +655,15 @@ fn analyze(
                             }
                         }
 
-                        Sudo::Include(path) => self.include(
-                            &resolve_relative(cur_path, path),
-                            diagnostics,
-                            safety_count,
-                        ),
+                        Sudo::Include(path) => {
+                            let path = path.replace("%h", &context.hostname);
+                            self.include(
+                                context,
+                                &resolve_relative(cur_path, path),
+                                diagnostics,
+                                safety_count,
+                            )
+                        }
 
                         Sudo::IncludeDir(path) => {
                             let path = resolve_relative(cur_path, path);
@@ -667,7 +684,7 @@ fn analyze(
                                 .collect::<Vec<_>>();
                             safe_files.sort();
                             for file in safe_files {
-                                self.include(file.as_ref(), diagnostics, safety_count)
+                                self.include(context, file.as_ref(), diagnostics, safety_count)
                             }
                         }
                     },
@@ -715,7 +732,7 @@ fn analyze(
     }
 
     let mut diagnostics = vec![];
-    result.process(path, sudoers, &mut diagnostics, &mut 0);
+    result.process(context, path, sudoers, &mut diagnostics, &mut 0);
 
     let alias = &mut result.aliases;
     alias.user.0 = sanitize_alias_table(&alias.user.1, &mut diagnostics);

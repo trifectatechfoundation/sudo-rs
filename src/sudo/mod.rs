@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::cli::{help, SudoAction, SudoOptions};
-use crate::common::{resolve::resolve_current_user, Context, Error};
+use crate::common::{resolve::resolve_current_user, Context, Error, SystemContext};
 use crate::log::dev_info;
 use crate::system::timestamp::RecordScope;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
@@ -35,10 +35,10 @@ impl PolicyPlugin for SudoersPolicy {
     type PreJudgementPolicy = crate::sudoers::Sudoers;
     type Policy = crate::sudoers::Judgement;
 
-    fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error> {
+    fn init(&mut self, system_context: &SystemContext) -> Result<Self::PreJudgementPolicy, Error> {
         let sudoers_path = candidate_sudoers_file();
 
-        let (sudoers, syntax_errors) = crate::sudoers::Sudoers::open(sudoers_path)
+        let (sudoers, syntax_errors) = crate::sudoers::Sudoers::open(system_context, sudoers_path)
             .map_err(|e| Error::Configuration(format!("{e}")))?;
 
         for crate::sudoers::Error(pos, error) in syntax_errors {
