@@ -213,6 +213,10 @@ impl RunOptions for SuContext {
         &self.arguments
     }
 
+    fn arg0(&self) -> Option<&PathBuf> {
+        None
+    }
+
     fn chdir(&self) -> Option<&std::path::PathBuf> {
         None
     }

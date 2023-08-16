@@ -7,6 +7,7 @@ use crate::system::{Group, User};
 pub trait RunOptions {
     fn command(&self) -> io::Result<&PathBuf>;
     fn arguments(&self) -> &Vec<String>;
+    fn arg0(&self) -> Option<&PathBuf>;
     fn chdir(&self) -> Option<&PathBuf>;
     fn is_login(&self) -> bool;
     fn user(&self) -> &User;
@@ -27,6 +28,10 @@ impl RunOptions for Context {
 
     fn arguments(&self) -> &Vec<String> {
         &self.command.arguments
+    }
+
+    fn arg0(&self) -> Option<&PathBuf> {
+        self.command.arg0.as_ref()
     }
 
     fn chdir(&self) -> Option<&PathBuf> {
