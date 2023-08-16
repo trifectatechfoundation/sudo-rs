@@ -112,3 +112,37 @@ fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn arg0_is_passed_from_commandline() -> Result<()> {
+    let path = "/bin/my-script";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .file(path, TextFile("#!/bin/sh\necho $0").chmod("777"))
+        .build()?;
+
+    let output = Command::new("sh")
+        .args(["-c", &format!("ln -s {path} /bin/foo; sudo /bin/foo")])
+        .output(&env)?;
+
+    let stdout = output.stdout()?;
+    assert_eq!(stdout, "/bin/foo");
+
+    Ok(())
+}
+
+#[test]
+fn arg0_is_resolved_from_commandline() -> Result<()> {
+    let path = "/bin/my-script";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .file(path, TextFile("#!/bin/sh\necho $0").chmod("777"))
+        .build()?;
+
+    let output = Command::new("sh")
+        .args(["-c", &format!("ln -s {path} /bin/foo; sudo foo")])
+        .output(&env)?;
+
+    let stdout = output.stdout()?;
+    assert_eq!(stdout, "/usr/bin/foo");
+
+    Ok(())
+}
