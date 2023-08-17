@@ -1,7 +1,7 @@
 use crate::cli::SudoOptions;
 use crate::system::{Group, User};
 use std::{
-    env, fs,
+    env, fs, io,
     os::unix::prelude::MetadataExt,
     path::{Path, PathBuf},
     str::FromStr,
@@ -276,4 +276,28 @@ mod tests {
         assert_eq!(user.name, current_user.name);
         assert_eq!(group.gid, current_user.gid);
     }
+}
+
+/// Resolve symlinks in all the directories leading up to a file, but
+/// not the file itself; this alles sudo to specify a precise policy with
+/// tools like busybox or pgrep (which is a symlink to pgrep on systems)
+pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
+    let path = path.as_ref();
+    let Some(parent) = path.parent() else {
+        // path is "/" or a prefix
+        return Ok(path.to_path_buf());
+    };
+
+    let canon_path = fs::canonicalize(parent)?;
+
+    let reconstructed_path = if let Some(file_name) = path.file_name() {
+        canon_path.join(file_name)
+    } else {
+        canon_path
+    };
+
+    // access the object to generate the regular error if it does not exist
+    let _ = fs::metadata(&reconstructed_path)?;
+
+    Ok(reconstructed_path)
 }

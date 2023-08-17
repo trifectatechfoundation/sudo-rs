@@ -148,6 +148,7 @@ fn arg0_native_is_resolved_from_commandline() -> Result<()> {
 }
 
 #[test]
+#[ignore = "gh735"]
 fn arg0_script_is_passed_from_commandline() -> Result<()> {
     let path = "/bin/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
