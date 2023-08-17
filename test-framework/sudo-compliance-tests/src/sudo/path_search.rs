@@ -114,7 +114,41 @@ fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
 }
 
 #[test]
-fn arg0_is_passed_from_commandline() -> Result<()> {
+fn arg0_native_is_passed_from_commandline() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "ln -s /bin/ls /bin/foo; sudo /bin/foo --invalid-flag; true",
+        ])
+        .output(&env)?;
+
+    let stderr = output.stderr();
+    assert_starts_with!(stderr, "/bin/foo: unrecognized option");
+
+    Ok(())
+}
+
+#[test]
+fn arg0_native_is_resolved_from_commandline() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "ln -s /bin/ls /bin/foo; sudo foo --invalid-flag; true",
+        ])
+        .output(&env)?;
+
+    let stderr = output.stderr();
+    assert_starts_with!(stderr, "foo: unrecognized option");
+
+    Ok(())
+}
+
+#[test]
+fn arg0_script_is_passed_from_commandline() -> Result<()> {
     let path = "/bin/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(path, TextFile("#!/bin/sh\necho $0").chmod("777"))
@@ -131,7 +165,7 @@ fn arg0_is_passed_from_commandline() -> Result<()> {
 }
 
 #[test]
-fn arg0_is_resolved_from_commandline() -> Result<()> {
+fn arg0_script_is_resolved_from_commandline() -> Result<()> {
     let path = "/bin/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(path, TextFile("#!/bin/sh\necho $0").chmod("777"))
