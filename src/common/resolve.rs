@@ -301,3 +301,24 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
 
     Ok(reconstructed_path)
 }
+
+#[cfg(test)]
+mod test {
+    use super::canonicalize;
+    use std::path::Path;
+
+    #[test]
+    fn canonicalization() {
+        assert_eq!(canonicalize("/").unwrap(), Path::new("/"));
+        assert_eq!(canonicalize("").unwrap(), Path::new(""));
+        assert_eq!(
+            canonicalize("/usr/bin/pkill").unwrap(),
+            Path::new("/usr/bin/pkill")
+        );
+        // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
+        assert_eq!(
+            canonicalize("/bin/pkill").unwrap(),
+            Path::new("/usr/bin/pkill")
+        );
+    }
+}
