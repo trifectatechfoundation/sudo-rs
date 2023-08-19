@@ -7,7 +7,7 @@ use crate::env::environment;
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
 use crate::sudo::Duration;
-use crate::sudoers::{Authorization, DirChange, Policy, PreJudgementPolicy};
+use crate::sudoers::{Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy};
 use crate::system::interface::UserId;
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
@@ -54,19 +54,9 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                     context.current_user.name
                 )));
             }
-            Authorization::Allowed {
-                must_authenticate,
-                prior_validity,
-                allowed_attempts,
-            } => {
+            Authorization::Allowed(auth) => {
                 self.apply_policy_to_context(&mut context, &policy)?;
-
-                self.auth_and_update_record_file(
-                    must_authenticate,
-                    &context,
-                    prior_validity,
-                    allowed_attempts,
-                )?;
+                self.auth_and_update_record_file(&context, auth)?;
             }
         }
 
@@ -120,17 +110,8 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                     context.current_user.name
                 )));
             }
-            Authorization::Allowed {
-                must_authenticate,
-                allowed_attempts,
-                prior_validity,
-            } => {
-                self.auth_and_update_record_file(
-                    must_authenticate,
-                    &context,
-                    prior_validity,
-                    allowed_attempts,
-                )?;
+            Authorization::Allowed(auth) => {
+                self.auth_and_update_record_file(&context, auth)?;
             }
         }
 
@@ -139,10 +120,12 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
     fn auth_and_update_record_file(
         &mut self,
-        must_authenticate: bool,
         context: &Context,
-        prior_validity: Duration,
-        allowed_attempts: u16,
+        AuthorizationAllowed {
+            must_authenticate,
+            prior_validity,
+            allowed_attempts,
+        }: AuthorizationAllowed,
     ) -> Result<(), Error> {
         let scope = RecordScope::for_process(&Process::new());
         let mut auth_status = determine_auth_status(

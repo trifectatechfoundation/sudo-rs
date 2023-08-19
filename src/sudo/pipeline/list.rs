@@ -84,18 +84,8 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
         let judgement =
             sudoers.check_list_permission(&context.current_user, &context.hostname, list_request);
         match judgement.authorization() {
-            Authorization::Allowed {
-                must_authenticate,
-                allowed_attempts,
-                prior_validity,
-            } => {
-                self.auth_and_update_record_file(
-                    must_authenticate,
-                    context,
-                    prior_validity,
-                    allowed_attempts,
-                )?;
-
+            Authorization::Allowed(auth) => {
+                self.auth_and_update_record_file(context, auth)?;
                 Ok(ControlFlow::Continue(()))
             }
 

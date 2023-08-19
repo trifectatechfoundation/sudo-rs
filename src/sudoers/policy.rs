@@ -30,12 +30,15 @@ pub trait Policy {
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum Authorization {
-    Allowed {
-        must_authenticate: bool,
-        allowed_attempts: u16,
-        prior_validity: Duration,
-    },
+    Allowed(AuthorizationAllowed),
     Forbidden,
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct AuthorizationAllowed {
+    pub must_authenticate: bool,
+    pub allowed_attempts: u16,
+    pub prior_validity: Duration,
 }
 
 #[must_use]
@@ -50,11 +53,11 @@ impl Policy for Judgement {
         if let Some(tag) = &self.flags {
             let allowed_attempts = self.settings.int_value["passwd_tries"].try_into().unwrap();
             let valid_seconds = self.settings.int_value["timestamp_timeout"];
-            Authorization::Allowed {
+            Authorization::Allowed(AuthorizationAllowed {
                 must_authenticate: tag.needs_passwd(),
                 allowed_attempts,
                 prior_validity: Duration::seconds(valid_seconds),
-            }
+            })
         } else {
             Authorization::Forbidden
         }
@@ -100,11 +103,11 @@ impl PreJudgementPolicy for Sudoers {
     }
 
     fn validate_authorization(&self) -> Authorization {
-        Authorization::Allowed {
+        Authorization::Allowed(AuthorizationAllowed {
             must_authenticate: true,
             allowed_attempts: self.settings.int_value["passwd_tries"].try_into().unwrap(),
             prior_validity: Duration::seconds(self.settings.int_value["timestamp_timeout"]),
-        }
+        })
     }
 }
 
@@ -132,20 +135,20 @@ mod test {
         judge.mod_flag(|tag| tag.authenticate = Authenticate::Passwd);
         assert_eq!(
             judge.authorization(),
-            Authorization::Allowed {
+            Authorization::Allowed(AuthorizationAllowed {
                 must_authenticate: true,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
-            }
+            })
         );
         judge.mod_flag(|tag| tag.authenticate = Authenticate::Nopasswd);
         assert_eq!(
             judge.authorization(),
-            Authorization::Allowed {
+            Authorization::Allowed(AuthorizationAllowed {
                 must_authenticate: false,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
-            }
+            })
         );
     }
 
