@@ -172,7 +172,7 @@ impl Token for Command {
         };
 
         // canonicalize path (if possible)
-        if let Ok(real_cmd) = std::fs::canonicalize(&cmd) {
+        if let Ok(real_cmd) = crate::common::resolve::canonicalize(&cmd) {
             cmd = real_cmd
                 .to_str()
                 .ok_or("non-UTF8 characters in filesystem")?

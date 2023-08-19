@@ -75,7 +75,8 @@ fn ambiguous_spec() {
 fn permission_test() {
     let root = || (&Named("root"), &Named("root"));
 
-    let realpath = |path: &Path| std::fs::canonicalize(path).unwrap_or(path.to_path_buf());
+    let realpath =
+        |path: &Path| crate::common::resolve::canonicalize(path).unwrap_or(path.to_path_buf());
 
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {

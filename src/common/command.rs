@@ -5,7 +5,7 @@ use std::{
 
 use crate::system::escape_os_str_lossy;
 
-use super::resolve::resolve_path;
+use super::resolve::{canonicalize, resolve_path};
 
 #[derive(Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -13,6 +13,7 @@ pub struct CommandAndArguments {
     pub(crate) command: PathBuf,
     pub(crate) arguments: Vec<String>,
     pub(crate) resolved: bool,
+    pub(crate) arg0: Option<PathBuf>,
 }
 
 impl Display for CommandAndArguments {
@@ -55,6 +56,7 @@ impl CommandAndArguments {
     pub fn build_from_args(shell: Option<PathBuf>, mut arguments: Vec<String>, path: &str) -> Self {
         let mut resolved = true;
         let mut command;
+        let mut arg0 = None;
         if let Some(chosen_shell) = shell {
             command = chosen_shell;
             if !arguments.is_empty() {
@@ -67,6 +69,10 @@ impl CommandAndArguments {
                 .unwrap_or_else(PathBuf::new);
             arguments.remove(0);
 
+            // remember the original binary name before resolving symlinks; this is not
+            // to be used except for setting the `arg0`
+            arg0 = Some(command.clone());
+
             // resolve the command, remembering errors (but not propagating them)
             if !is_qualified(&command) {
                 match resolve_path(&command, path) {
@@ -77,7 +83,7 @@ impl CommandAndArguments {
 
             // resolve symlinks, even if the command was obtained through a PATH or SHELL
             // once again, failure to canonicalize should not stop the pipeline
-            match std::fs::canonicalize(&command) {
+            match canonicalize(&command) {
                 Ok(canon_path) => command = canon_path,
                 Err(_) => resolved = false,
             }
@@ -87,6 +93,7 @@ impl CommandAndArguments {
             command,
             arguments,
             resolved,
+            arg0,
         }
     }
 }
@@ -123,6 +130,7 @@ mod test {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()],
                 resolved: true,
+                arg0: Some("/usr/bin/fmt".into()),
             }
         );
 
@@ -136,6 +144,7 @@ mod test {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()],
                 resolved: true,
+                arg0: Some("fmt".into()),
             }
         );
 
@@ -149,6 +158,7 @@ mod test {
                 command: "thisdoesnotexist".into(),
                 arguments: vec!["hello".into()],
                 resolved: false,
+                arg0: Some("thisdoesnotexist".into()),
             }
         );
 
@@ -162,6 +172,7 @@ mod test {
                 command: "shell".into(),
                 arguments: vec!["-c".into(), "ls hello".into()],
                 resolved: true,
+                arg0: None,
             }
         );
     }

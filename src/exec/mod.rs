@@ -58,6 +58,11 @@ fn run_command_internal(options: &impl RunOptions, env: Environment) -> io::Resu
     let mut command = Command::new(qualified_path);
     // reset env and set filtered environment
     command.args(options.arguments()).env_clear().envs(env);
+    // set the arg0 to the requested string
+    // TODO: this mechanism could perhaps also be used to set the arg0 for login shells, as below
+    if let Some(arg0) = options.arg0() {
+        command.arg0(arg0);
+    }
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
     let path = options.chdir().cloned().or_else(|| {
         options.is_login().then(|| {
