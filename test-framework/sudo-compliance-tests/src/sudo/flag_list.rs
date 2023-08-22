@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, TextFile, User};
 
-use crate::{Result, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{Result, PANIC_EXIT_CODE, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 mod credential_caching;
 mod flag_other_user;
@@ -470,6 +470,24 @@ fn relative_path_does_not_exist() -> Result<()> {
         format!("sudo-rs: '{prog_rel_path}': command not found")
     };
     assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+fn does_not_panic_on_io_errors() -> Result<()> {
+    let env = Env("ALL ALL=(ALL:ALL) ALL").build()?;
+    let output = Command::new("bash")
+        .args(["-c", "sudo --list | true; echo \"${PIPESTATUS[0]}\""])
+        .output(&env)?;
+
+    let stderr = output.stderr();
+
+    assert!(stderr.is_empty());
+
+    let stdout = output.stdout()?.parse()?;
+    assert_ne!(PANIC_EXIT_CODE, stdout);
+    assert_eq!(0, stdout);
 
     Ok(())
 }

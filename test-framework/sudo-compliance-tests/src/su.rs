@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{Result, PANIC_EXIT_CODE, PASSWORD, USERNAME};
 
 mod cli;
 mod env;
@@ -143,6 +143,26 @@ fn password_is_required_when_target_user_is_self() -> Result<()> {
         "Maximum 3 incorrect authentication attempts"
     };
     assert_contains!(output.stderr(), diagnostic);
+
+    Ok(())
+}
+
+#[test]
+fn does_not_panic_on_io_errors() -> Result<()> {
+    let env = Env("").build()?;
+
+    let output = Command::new("bash")
+        .args(["-c", "su --help | true; echo \"${PIPESTATUS[0]}\""])
+        .output(&env)?;
+
+    let stderr = output.stderr();
+    assert!(stderr.is_empty());
+
+    let exit_code = output.stdout()?.parse()?;
+    assert_ne!(PANIC_EXIT_CODE, exit_code);
+    // ogsu exits with 141 = SIGPIPE; su-rs exits with code 1 but the difference is not
+    // relevant to this test
+    // assert_eq!(141, exit_code);
 
     Ok(())
 }
