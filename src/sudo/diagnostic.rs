@@ -9,7 +9,7 @@ pub(crate) fn cited_error(message: &str, range: Range<(usize, usize)>, path: imp
         start: (line, col),
         end: (end_line, mut end_col),
     } = range;
-    eprintln!("{path_str}:{line}:{col}: {message}");
+    eprintln_ignore_io_error!("{path_str}:{line}:{col}: {message}");
 
     // we won't try to "span" errors across multiple lines
     if line != end_line {
@@ -28,8 +28,8 @@ pub(crate) fn cited_error(message: &str, range: Range<(usize, usize)>, path: imp
             .take(end_col - col)
             .skip(1)
             .collect::<String>();
-        eprintln!("{line}");
-        eprintln!("{padding}^{lineunder}");
+        eprintln_ignore_io_error!("{line}");
+        eprintln_ignore_io_error!("{padding}^{lineunder}");
         Some(())
     };
 
@@ -42,12 +42,12 @@ macro_rules! diagnostic {
         if let Some(range) = $pos {
             $crate::sudo::diagnostic::cited_error(&format!($str), range, $path);
         } else {
-            eprintln!("sudo-rs: {}", format!($str));
+            eprintln_ignore_io_error!("sudo-rs: {}", format!($str));
         }
     };
-    ($str:expr) => {
-        eprintln!("sudo-rs: {}", format!($str));
-    };
+    ($str:expr) => {{
+        eprintln_ignore_io_error!("sudo-rs: {}", format!($str));
+    }};
 }
 
 pub(crate) use diagnostic;

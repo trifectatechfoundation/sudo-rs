@@ -1,3 +1,5 @@
+#[macro_use]
+mod macros;
 pub(crate) mod cli;
 pub(crate) mod common;
 pub(crate) mod cutils;
