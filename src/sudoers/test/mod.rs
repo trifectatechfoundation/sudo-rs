@@ -400,6 +400,19 @@ fn gh674_at_include_quoted_backslash() {
 }
 
 #[test]
+fn gh676_percent_h_escape_unsupported() {
+    let (_, errs) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer!(r#"@includedir "/etc/%h" "#),
+    );
+    assert_eq!(errs.len(), 1);
+    assert_eq!(
+        errs[0].1,
+        "cannot open sudoers file /etc/%h: percent escape %h in includedir is unsupported"
+    )
+}
+
+#[test]
 #[should_panic]
 fn hashsign_error() {
     let Sudo::Include(_) = parse_line("#include foo bar") else {
