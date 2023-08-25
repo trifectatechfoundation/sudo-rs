@@ -1,15 +1,15 @@
 use std::{
     ffi::c_int,
-    io::{self, Read, Write},
+    io,
     mem::size_of,
-    os::{
-        fd::{AsRawFd, RawFd},
-        unix::net::UnixStream,
-    },
+    os::fd::{AsRawFd, RawFd},
 };
 
-use crate::exec::signal_fmt;
-use crate::system::interface::ProcessId;
+use crate::{
+    common::bin_serde::{BinPipe, DeSerialize},
+    exec::signal_fmt,
+    system::interface::ProcessId,
+};
 
 use super::CommandStatus;
 
@@ -28,7 +28,7 @@ pub(super) struct BackchannelPair {
 
 impl BackchannelPair {
     pub(super) fn new() -> io::Result<Self> {
-        let (sock1, sock2) = UnixStream::pair()?;
+        let (sock1, sock2) = BinPipe::pair()?;
 
         #[cfg(debug_assertions)]
         {
@@ -120,9 +120,33 @@ impl From<CommandStatus> for ParentMessage {
     }
 }
 
+impl DeSerialize for ParentMessage {
+    type Bytes = [u8; ParentMessage::LEN];
+
+    fn serialize(&self) -> Self::Bytes {
+        let mut buf = [0; ParentMessage::LEN];
+
+        let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
+        let (prefix, data) = self.to_parts();
+
+        prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
+        data_buf.copy_from_slice(&data.to_ne_bytes());
+        buf
+    }
+
+    fn deserialize(buf: Self::Bytes) -> Self {
+        let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
+
+        let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
+        let data = MonitorData::from_ne_bytes(data_buf.try_into().unwrap());
+
+        ParentMessage::from_parts(prefix, data)
+    }
+}
+
 /// A socket use for commmunication between the monitor and the parent process.
 pub(super) struct ParentBackchannel {
-    socket: UnixStream,
+    socket: BinPipe<ParentMessage, MonitorMessage>,
     #[cfg(debug_assertions)]
     nonblocking_asserts: bool,
 }
@@ -133,15 +157,7 @@ impl ParentBackchannel {
     /// Calling this method will block until the socket is ready for writing.
     #[track_caller]
     pub(super) fn send(&mut self, event: &MonitorMessage) -> io::Result<()> {
-        let mut buf = [0; MonitorMessage::LEN];
-
-        let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
-        let (prefix, data) = event.to_parts();
-
-        prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
-        data_buf.copy_from_slice(&data.to_ne_bytes());
-
-        self.socket.write_all(&buf).map_err(|err| {
+        self.socket.write(event).map_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
@@ -155,22 +171,14 @@ impl ParentBackchannel {
     /// Calling this method will block until the socket is ready for reading.
     #[track_caller]
     pub(super) fn recv(&mut self) -> io::Result<ParentMessage> {
-        let mut buf = [0; ParentMessage::LEN];
-
-        self.socket.read_exact(&mut buf).map_err(|err| {
+        let msg = self.socket.read().map_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
             }
             err
         })?;
-
-        let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
-
-        let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
-        let data = ParentData::from_ne_bytes(data_buf.try_into().unwrap());
-
-        Ok(ParentMessage::from_parts(prefix, data))
+        Ok(msg)
     }
 
     pub(super) fn set_nonblocking_asserts(&mut self, _doit: bool) {
@@ -231,9 +239,33 @@ impl std::fmt::Debug for MonitorMessage {
     }
 }
 
+impl DeSerialize for MonitorMessage {
+    type Bytes = [u8; MonitorMessage::LEN];
+
+    fn serialize(&self) -> Self::Bytes {
+        let mut buf = [0; MonitorMessage::LEN];
+
+        let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
+        let (prefix, data) = self.to_parts();
+
+        prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
+        data_buf.copy_from_slice(&data.to_ne_bytes());
+        buf
+    }
+
+    fn deserialize(bytes: Self::Bytes) -> Self {
+        let (prefix_buf, data_buf) = bytes.split_at(PREFIX_LEN);
+
+        let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
+        let data = MonitorData::from_ne_bytes(data_buf.try_into().unwrap());
+
+        MonitorMessage::from_parts(prefix, data)
+    }
+}
+
 /// A socket use for commmunication between the monitor and the parent process.
 pub(super) struct MonitorBackchannel {
-    socket: UnixStream,
+    socket: BinPipe<MonitorMessage, ParentMessage>,
     #[cfg(debug_assertions)]
     nonblocking_asserts: bool,
 }
@@ -244,15 +276,7 @@ impl MonitorBackchannel {
     /// Calling this method will block until the socket is ready for writing.
     #[track_caller]
     pub(super) fn send(&mut self, event: &ParentMessage) -> io::Result<()> {
-        let mut buf = [0; ParentMessage::LEN];
-
-        let (prefix_buf, data_buf) = buf.split_at_mut(PREFIX_LEN);
-        let (prefix, data) = event.to_parts();
-
-        prefix_buf.copy_from_slice(&prefix.to_ne_bytes());
-        data_buf.copy_from_slice(&data.to_ne_bytes());
-
-        self.socket.write_all(&buf).map_err(|err| {
+        self.socket.write(event).map_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
@@ -266,22 +290,14 @@ impl MonitorBackchannel {
     /// Calling this method will block until the socket is ready for reading.
     #[track_caller]
     pub(super) fn recv(&mut self) -> io::Result<MonitorMessage> {
-        let mut buf = [0; MonitorMessage::LEN];
-
-        self.socket.read_exact(&mut buf).map_err(|err| {
+        let msg = self.socket.read().map_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
             }
             err
         })?;
-
-        let (prefix_buf, data_buf) = buf.split_at(PREFIX_LEN);
-
-        let prefix = Prefix::from_ne_bytes(prefix_buf.try_into().unwrap());
-        let data = MonitorData::from_ne_bytes(data_buf.try_into().unwrap());
-
-        Ok(MonitorMessage::from_parts(prefix, data))
+        Ok(msg)
     }
 
     pub(super) fn set_nonblocking_assertions(&mut self, _doit: bool) {

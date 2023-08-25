@@ -5,6 +5,7 @@ pub use command::CommandAndArguments;
 pub use context::Context;
 pub use error::Error;
 
+pub mod bin_serde;
 pub mod command;
 pub mod context;
 pub mod error;
