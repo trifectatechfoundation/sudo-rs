@@ -2,19 +2,21 @@
 
 A safety oriented and memory safe implementation of sudo and su written in Rust.
 
-## ⚠️ WARNING
+## Status of this project
 
-**Sudo-rs is currently under active development and is not suited for any
-production environment. Using sudo-rs is only recommended for development and
-testing purposes, but you should expect any system that has sudo-rs installed to
-break easily and to not be secure.**
+Sudo-rs is being developed further; features you might expect form original sudo
+may still be unimplemented or not planned. If there is an important one you need,
+please request it using the issue tracker. If you encounter any usability bugs,
+also please report them on the [issue tracker](https://github.com/memorysafety/sudo-rs/issues).
+Suspected vulnerabilities can be reported on our [security page](https://github.com/memorysafety/sudo-rs/security).
 
-Sudo-rs currently only supports Linux-based operating systems, even if it compiles
-on a different system, it will not run properly.
+An audit of sudo-rs will take place in September 2023, the next stable release will
+incorporate its results.
 
-## Quick start
+Sudo-rs currently is targeted for Linux-based operating systems only; Linux kernel 5.9
+or newer is necessary to run sudo-rs.
 
-**We do not offer binary packages yet**
+## Building it yourself
 
 Sudo-rs is written in Rust. The minimum required Rust version is 1.70. If your
 Linux distribution does not package that version (or a later one), you can always
@@ -28,8 +30,7 @@ cargo build --release
 
 This produces a binary `target/release/sudo`. However, this binary must have
 the setuid flag set and must be owned by the root user in order to provide any
-useful functionality. If you are unsure about how to set this up, then the
-current version of sudo is not intended for you.
+useful functionality. Consult your operating system manual for details.
 
 Sudo-rs needs the sudoers configuration file. The sudoers configuration file
 will be loaded from `/etc/sudoers-rs` if that file exists, otherwise the
@@ -59,14 +60,15 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 
 Some other notable restrictions to be aware of:
 
-* Some functionality is not yet supported; in particular `sudoedit`, `sudo --list`,
-  and we also do not yet provide our own `visudo`.
+* Some functionality is not yet supported; in particular `sudoedit` and preventing shell
+  escapes using `NOEXEC` and `NOINTERCEPT`.
+* Per-user, per-command, per-host `Defaults` sudoers entries for finer-grained control
+  are not (yet) supported.
 * Sudo-rs always uses PAM for authentication at this time, your system must be
   set up for PAM. Sudo-rs will use the `sudo` service configuration. This also means
   that resource limits, umasks, etc have to be configured via PAM and not through
   the sudoers file.
 * sudo-rs will not include the sendmail support of original sudo.
-* Per-user, per-command, per-host `Defaults` sudoers entries are not supported.
 * The sudoers file must be valid UTF-8.
 
 If you find a common use case for original sudo missing, please create a feature

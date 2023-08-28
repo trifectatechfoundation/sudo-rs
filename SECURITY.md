@@ -25,21 +25,17 @@ also follow the steps at https://www.sudo.ws/security/policy/
 We prefer to receive reports in English. If necessary, we also understand Spanish, German and Dutch.
 
 ## Disclosure Policy
-Like original sudo, we adhere to the principle of [responsible disclosure](https://vuls.cert.org/confluence/display/CVD/Executive+Summary).
+Like original sudo, we adhere to the principle of [Coordinated Vulnerability Disclosure](https://vuls.cert.org/confluence/display/CVD/Executive+Summary).
 
 Security Advisories
 ===================
-`sudo-rs` is currently in an alpha stage, and does not have any releases yet, nor do we offer support. Therefore we strongly recommend not
-using it for anything else than experiments.
-
-Once we offer official releases, security advisories will  be published [on GitHub](https://github.com/memorysafety/sudo-rs/security/advisories)
+Security advisories will  be published [on GitHub](https://github.com/memorysafety/sudo-rs/security/advisories)
 and possibly through other channels.
-
 -----BEGIN PGP SIGNATURE-----
 
-iHUEARYIAB0WIQTC5MrEsSIl3hw7sckonQggA9AelQUCZEe6XAAKCRAonQggA9Ae
-lRa9AQC0KKLxA09UdSHdR4mhle0zyq411sVPbtNo03achQ05yQD/dBi8aqcF3+s7
-vdQpPgv8CHf+7YdrZh8uVIzr+ToDZwQ=
-=RPT9
-
+iJMEARYIADsWIQTC5MrEsSIl3hw7sckonQggA9AelQUCZOxufR0cc2VjdXJpdHkr
+c3Vkb0B0d2VlZGVnb2xmLmNvbQAKCRAonQggA9AelYxBAQCXNaMcO9IUr8u4RT8j
+6ifxmca+MM9nyobBVdAAPaTwKQEA38XwSrRj/TApoZvDPchq8Weszk6Ke1arNQ/a
+wZD+KAI=
+=oRsJ
 -----END PGP SIGNATURE-----
