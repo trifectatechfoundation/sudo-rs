@@ -528,7 +528,9 @@ fn get_directive(
     use super::ast::Meta::*;
     use super::ast::Qualified::*;
     use super::ast::UserSpecifier::*;
-    let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else { return reject() };
+    let Allow(Only(User(Identifier::Name(keyword)))) = perhaps_keyword else {
+        return reject();
+    };
 
     match keyword.as_str() {
         "User_Alias" => make(UserAlias(expect_nonterminal(stream)?)),

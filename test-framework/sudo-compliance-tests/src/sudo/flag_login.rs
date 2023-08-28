@@ -180,7 +180,7 @@ echo $@";
         .output(&env)?
         .stdout()?;
 
-    assert_eq!(r#"-c a 1 _ - $ $VAR $\{VAR\}"#, output);
+    assert_eq!(r"-c a 1 _ - $ $VAR $\{VAR\}", output);
 
     Ok(())
 }
