@@ -45,7 +45,7 @@ fn file_does_not_exist() -> Result<()> {
 
 #[test]
 fn whitespace_in_name_backslash() -> Result<()> {
-    let env = Env(r#"@include /etc/sudo\ ers"#)
+    let env = Env(r"@include /etc/sudo\ ers")
         .file("/etc/sudo ers", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
@@ -81,8 +81,8 @@ fn old_pound_syntax() -> Result<()> {
 
 #[test]
 fn backslash_in_name() -> Result<()> {
-    let env = Env(r#"@include /etc/sudo\\ers"#)
-        .file(r#"/etc/sudo\ers"#, SUDOERS_ALL_ALL_NOPASSWD)
+    let env = Env(r"@include /etc/sudo\\ers")
+        .file(r"/etc/sudo\ers", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
     Command::new("sudo")
@@ -94,7 +94,7 @@ fn backslash_in_name() -> Result<()> {
 #[test]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@include "/etc/sudo\ers" "#)
-        .file(r#"/etc/sudo\ers"#, SUDOERS_ALL_ALL_NOPASSWD)
+        .file(r"/etc/sudo\ers", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
     Command::new("sudo")

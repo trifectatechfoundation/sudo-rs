@@ -219,7 +219,7 @@ fn statements_prior_to_include_loop_are_evaluated() -> Result<()> {
 
 #[test]
 fn whitespace_in_name_escaped() -> Result<()> {
-    let env = Env(r#"@includedir /etc/sudo\ ers.d"#)
+    let env = Env(r"@includedir /etc/sudo\ ers.d")
         .directory(r#"/etc/sudo ers.d"#)
         .file(r#"/etc/sudo ers.d/a"#, SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
@@ -245,9 +245,9 @@ fn whitespace_in_name_double_quotes() -> Result<()> {
 
 #[test]
 fn backslash_in_name_escaped() -> Result<()> {
-    let env = Env(r#"@includedir /etc/sudo\\ers.d"#)
-        .directory(r#"/etc/sudo\ers.d"#)
-        .file(r#"/etc/sudo\ers.d/a"#, SUDOERS_ALL_ALL_NOPASSWD)
+    let env = Env(r"@includedir /etc/sudo\\ers.d")
+        .directory(r"/etc/sudo\ers.d")
+        .file(r"/etc/sudo\ers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
     Command::new("sudo")
@@ -259,8 +259,8 @@ fn backslash_in_name_escaped() -> Result<()> {
 #[test]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@includedir "/etc/sudo\ers.d""#)
-        .directory(r#"/etc/sudo\ers.d"#)
-        .file(r#"/etc/sudo\ers.d/a"#, SUDOERS_ALL_ALL_NOPASSWD)
+        .directory(r"/etc/sudo\ers.d")
+        .file(r"/etc/sudo\ers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
     Command::new("sudo")
