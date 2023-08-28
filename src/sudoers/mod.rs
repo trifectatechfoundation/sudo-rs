@@ -98,15 +98,28 @@ impl Sudoers {
 
     pub fn check_list_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         &self,
-        am_user: &User,
-        on_host: &str,
+        invoking_user: &User,
+        hostname: &str,
         request: ListRequest<User, Group>,
     ) -> Judgement {
         // exception: if user is root or does not switch users, NOPASSWD is implied
-        let skip_passwd = am_user.is_root()
-            || (request.target_user == am_user && in_group(am_user, request.target_group));
+        let skip_passwd = invoking_user.is_root()
+            || (request.target_user == invoking_user
+                && in_group(invoking_user, request.target_group));
 
-        let mut flags = check_list_permission(self, am_user, on_host);
+        let mut flags = self
+            .matching_user_specs(invoking_user, hostname)
+            .flatten()
+            .fold(None::<Tag>, |outcome, (_, (tag, _))| {
+                if let Some(outcome) = outcome {
+                    let new_outcome = if outcome.needs_passwd() { tag } else { outcome };
+
+                    Some(new_outcome)
+                } else {
+                    Some(tag)
+                }
+            });
+
         if let Some(Tag { authenticate, .. }) = flags.as_mut() {
             if skip_passwd {
                 *authenticate = Authenticate::Nopasswd;
@@ -119,32 +132,49 @@ impl Sudoers {
         }
     }
 
+    /// returns `User_Spec`s that match `invoking_user` and `hostname`
+    ///
+    /// it also distributes `Tag_Spec`s across the `Cmnd_Spec` list of each `User_Spec`
+    ///
+    /// the outer iterator are the `User_Spec`s; the inner iterator are the `Cmnd_Spec`s of
+    /// said `User_Spec`s
+    fn matching_user_specs<'a: 'b + 'c, 'b: 'c, 'c, User: UnixUser + PartialEq<User>>(
+        &'a self,
+        invoking_user: &'b User,
+        hostname: &'c str,
+    ) -> impl Iterator<Item = impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))> + 'b>
+           + 'c {
+        let Self { rules, aliases, .. } = self;
+        let user_aliases = get_aliases(&aliases.user, &match_user(invoking_user));
+        let host_aliases = get_aliases(&aliases.host, &match_token(hostname));
+
+        rules
+            .iter()
+            .filter_map(move |sudo| {
+                find_item(&sudo.users, &match_user(invoking_user), &user_aliases)?;
+                Some(&sudo.permissions)
+            })
+            .flatten()
+            .filter_map(move |(hosts, runas_cmds)| {
+                find_item(hosts, &match_token(hostname), &host_aliases)?;
+                Some(distribute_tags(runas_cmds))
+            })
+    }
+
+    /// returns `User_Spec`s that match `invoking_user` and `hostname` in a print-able format
     pub fn matching_entries<'a, User: UnixUser + PartialEq<User>>(
         &'a self,
         invoking_user: &User,
         hostname: &str,
     ) -> Vec<Entry<'a>> {
-        let Sudoers { rules, aliases, .. } = self;
+        // NOTE this method MUST NOT perform any filtering that `Self::check` does not do to
+        // ensure `sudo $command` and `sudo --list` use the same permission checking logic
+        let user_specs = self.matching_user_specs(invoking_user, hostname);
 
-        let user_aliases = get_aliases(&aliases.user, &match_user(invoking_user));
-        let host_aliases = get_aliases(&aliases.host, &match_token(hostname));
-        let cmnd_aliases = unfold_alias_table(&aliases.cmnd);
-
-        let matching_lines = rules
-            .iter()
-            .filter_map(|sudo| {
-                find_item(&sudo.users, &match_user(invoking_user), &user_aliases)?;
-                Some(&sudo.permissions)
-            })
-            .flatten()
-            .filter_map(|(hosts, runas_cmds)| {
-                find_item(hosts, &match_token(hostname), &host_aliases)?;
-                Some(distribute_tags(runas_cmds))
-            });
-
+        let cmnd_aliases = unfold_alias_table(&self.aliases.cmnd);
         let mut entries = vec![];
-        for list in matching_lines {
-            group_cmd_specs_per_runas(list, &mut entries, &cmnd_aliases);
+        for cmd_specs in user_specs {
+            group_cmd_specs_per_runas(cmd_specs, &mut entries, &cmnd_aliases);
         }
 
         entries
@@ -167,7 +197,7 @@ impl Sudoers {
 }
 
 fn group_cmd_specs_per_runas<'a>(
-    list: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
+    cmnd_specs: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
     entries: &mut Vec<Entry<'a>>,
     cmnd_aliases: &HashMap<&String, &'a Vec<Spec<Command>>>,
 ) {
@@ -179,7 +209,7 @@ fn group_cmd_specs_per_runas<'a>(
     let mut runas = None;
     let mut collected_specs = vec![];
 
-    for (new_runas, (tag, spec)) in list {
+    for (new_runas, (tag, spec)) in cmnd_specs {
         if let Some(new_runas) = new_runas {
             if !collected_specs.is_empty() {
                 entries.push(Entry::new(
@@ -259,79 +289,39 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
 fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
-    Sudoers { rules, aliases, .. }: &Sudoers,
+    sudoers: &Sudoers,
     am_user: &User,
     on_host: &str,
     request: Request<User, Group>,
 ) -> Option<Tag> {
     let cmdline = (request.command, request.arguments);
 
-    let user_aliases = get_aliases(&aliases.user, &match_user(am_user));
-    let host_aliases = get_aliases(&aliases.host, &match_token(on_host));
+    let aliases = &sudoers.aliases;
     let cmnd_aliases = get_aliases(&aliases.cmnd, &match_command(cmdline));
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
     let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
-    let allowed_commands = rules
-        .iter()
-        .filter_map(|sudo| {
-            find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
-            Some(&sudo.permissions)
-        })
-        .flatten()
-        .filter_map(|(hosts, runas_cmds)| {
-            find_item(hosts, &match_token(on_host), &host_aliases)?;
-            Some(distribute_tags(runas_cmds))
-        })
-        .flatten()
-        .filter_map(|(runas, cmdspec)| {
-            if let Some(RunAs { users, groups }) = runas {
-                let stays_in_group = in_group(request.user, request.group);
-                if request.user != am_user || (stays_in_group && !users.is_empty()) {
-                    find_item(users, &match_user(request.user), &runas_user_aliases)?
-                }
-                if !stays_in_group {
-                    find_item(groups, &match_group(request.group), &runas_group_aliases)?
-                }
-            } else if !(request.user.is_root() && in_group(request.user, request.group)) {
-                None?;
-            }
+    // NOTE to ensure `sudo $command` and `sudo --list` behave the same, both this function and
+    // `Sudoers::matching_entries` must call this `matching_user_specs` method
+    let matching_user_specs = sudoers.matching_user_specs(am_user, on_host).flatten();
 
-            Some(cmdspec)
-        });
+    let allowed_commands = matching_user_specs.filter_map(|(runas, cmdspec)| {
+        if let Some(RunAs { users, groups }) = runas {
+            let stays_in_group = in_group(request.user, request.group);
+            if request.user != am_user || (stays_in_group && !users.is_empty()) {
+                find_item(users, &match_user(request.user), &runas_user_aliases)?
+            }
+            if !stays_in_group {
+                find_item(groups, &match_group(request.group), &runas_group_aliases)?
+            }
+        } else if !(request.user.is_root() && in_group(request.user, request.group)) {
+            None?;
+        }
+
+        Some(cmdspec)
+    });
 
     find_item(allowed_commands, &match_command(cmdline), &cmnd_aliases)
-}
-
-fn check_list_permission<User: UnixUser + PartialEq<User>>(
-    Sudoers { rules, aliases, .. }: &Sudoers,
-    am_user: &User,
-    on_host: &str,
-) -> Option<Tag> {
-    let user_aliases = get_aliases(&aliases.user, &match_user(am_user));
-    let host_aliases = get_aliases(&aliases.host, &match_token(on_host));
-
-    rules
-        .iter()
-        .filter_map(|sudo| {
-            find_item(&sudo.users, &match_user(am_user), &user_aliases)?;
-            Some(&sudo.permissions)
-        })
-        .flatten()
-        .filter_map(|(hosts, runas_cmds)| {
-            find_item(hosts, &match_token(on_host), &host_aliases)?;
-            Some(distribute_tags(runas_cmds))
-        })
-        .flatten()
-        .fold(None::<Tag>, |outcome, (_, (tag, _))| {
-            if let Some(outcome) = outcome {
-                let new_outcome = if outcome.needs_passwd() { tag } else { outcome };
-
-                Some(new_outcome)
-            } else {
-                Some(tag)
-            }
-        })
 }
 
 /// Process a raw parsed AST bit of RunAs + Command specifications:
