@@ -249,8 +249,12 @@ fn parse_getent_passwd_output(passwd: &str) -> Result<UserToShell> {
     const ERROR: &str = "malformed `getent passwd` output";
     let mut map = HashMap::new();
     for line in passwd.lines() {
-        let Some((user, _)) = line.split_once(':')  else { return Err(ERROR.into())};
-        let Some((_, shell)) = line.rsplit_once(':')  else { return Err(ERROR.into())};
+        let Some((user, _)) = line.split_once(':') else {
+            return Err(ERROR.into());
+        };
+        let Some((_, shell)) = line.rsplit_once(':') else {
+            return Err(ERROR.into());
+        };
 
         map.insert(user, shell);
     }

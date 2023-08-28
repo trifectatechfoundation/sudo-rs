@@ -68,7 +68,9 @@ fn parse_line(s: &str) -> Sudo {
 
 #[test]
 fn ambiguous_spec() {
-    let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else { todo!() };
+    let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else {
+        todo!()
+    };
 }
 
 #[test]
@@ -314,7 +316,9 @@ fn directive_test() {
     let y = parse_eval::<Spec<UserSpecifier>>;
     match parse_eval::<ast::Sudo>("User_Alias HENK = user1, user2") {
         Sudo::Decl(Directive::UserAlias(defs)) => {
-            let [Def(name, list)] = &defs[..] else { panic!("incorrectly parsed") };
+            let [Def(name, list)] = &defs[..] else {
+                panic!("incorrectly parsed")
+            };
             assert_eq!(name, "HENK");
             assert_eq!(*list, vec![y("user1"), y("user2")]);
         }
@@ -323,7 +327,9 @@ fn directive_test() {
 
     match parse_eval::<ast::Sudo>("Runas_Alias FOO = foo : BAR = bar") {
         Sudo::Decl(Directive::RunasAlias(defs)) => {
-            let [Def(name1, list1), Def(name2, list2)] = &defs[..] else { panic!("incorrectly parsed") };
+            let [Def(name1, list1), Def(name2, list2)] = &defs[..] else {
+                panic!("incorrectly parsed")
+            };
             assert_eq!(name1, "FOO");
             assert_eq!(*list1, vec![y("foo")]);
             assert_eq!(name2, "BAR");
@@ -336,41 +342,77 @@ fn directive_test() {
 #[test]
 // the overloading of '#' causes a lot of issues
 fn hashsign_test() {
-    let Sudo::Spec(_) = parse_line("#42 ALL=ALL") else { panic!() };
-    let Sudo::Spec(_) = parse_line("ALL ALL=(#42) ALL") else { panic!() };
-    let Sudo::Spec(_) = parse_line("ALL ALL=(%#42) ALL") else { panic!() };
-    let Sudo::Spec(_) = parse_line("ALL ALL=(:#42) ALL") else { panic!() };
-    let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else { panic!() };
-    let Sudo::LineComment = parse_line("") else { panic!() };
-    let Sudo::LineComment = parse_line("#this is a comment") else { panic!() };
-    let Sudo::Include(_) = parse_line("#include foo") else { panic!() };
-    let Sudo::IncludeDir(_) = parse_line("#includedir foo") else { panic!() };
-    let Sudo::Include(x) = parse_line("#include \"foo bar\"") else { panic!() };
+    let Sudo::Spec(_) = parse_line("#42 ALL=ALL") else {
+        panic!()
+    };
+    let Sudo::Spec(_) = parse_line("ALL ALL=(#42) ALL") else {
+        panic!()
+    };
+    let Sudo::Spec(_) = parse_line("ALL ALL=(%#42) ALL") else {
+        panic!()
+    };
+    let Sudo::Spec(_) = parse_line("ALL ALL=(:#42) ALL") else {
+        panic!()
+    };
+    let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else {
+        panic!()
+    };
+    let Sudo::LineComment = parse_line("") else {
+        panic!()
+    };
+    let Sudo::LineComment = parse_line("#this is a comment") else {
+        panic!()
+    };
+    let Sudo::Include(_) = parse_line("#include foo") else {
+        panic!()
+    };
+    let Sudo::IncludeDir(_) = parse_line("#includedir foo") else {
+        panic!()
+    };
+    let Sudo::Include(x) = parse_line("#include \"foo bar\"") else {
+        panic!()
+    };
     assert_eq!(x, "foo bar");
     // this is fine
-    let Sudo::LineComment = parse_line("#inlcudedir foo") else { panic!() };
-    let Sudo::Include(_) = parse_line("@include foo") else { panic!() };
-    let Sudo::IncludeDir(_) = parse_line("@includedir foo") else { panic!() };
-    let Sudo::Include(x) = parse_line("@include \"foo bar\"") else { panic!() };
+    let Sudo::LineComment = parse_line("#inlcudedir foo") else {
+        panic!()
+    };
+    let Sudo::Include(_) = parse_line("@include foo") else {
+        panic!()
+    };
+    let Sudo::IncludeDir(_) = parse_line("@includedir foo") else {
+        panic!()
+    };
+    let Sudo::Include(x) = parse_line("@include \"foo bar\"") else {
+        panic!()
+    };
     assert_eq!(x, "foo bar");
 }
 
 #[test]
 fn gh674_at_include_quoted_backslash() {
-    let Sudo::Include(_) = parse_line(r#"@include "/etc/sudo\ers" "#) else { panic!() };
-    let Sudo::IncludeDir(_) = parse_line(r#"@includedir "/etc/sudo\ers.d" "#) else { panic!() };
+    let Sudo::Include(_) = parse_line(r#"@include "/etc/sudo\ers" "#) else {
+        panic!()
+    };
+    let Sudo::IncludeDir(_) = parse_line(r#"@includedir "/etc/sudo\ers.d" "#) else {
+        panic!()
+    };
 }
 
 #[test]
 #[should_panic]
 fn hashsign_error() {
-    let Sudo::Include(_) = parse_line("#include foo bar") else { todo!() };
+    let Sudo::Include(_) = parse_line("#include foo bar") else {
+        todo!()
+    };
 }
 
 #[test]
 #[should_panic]
 fn include_regression() {
-    let Sudo::Include(_) = parse_line("#4,#include foo") else { todo!() };
+    let Sudo::Include(_) = parse_line("#4,#include foo") else {
+        todo!()
+    };
 }
 
 #[test]
@@ -387,8 +429,12 @@ fn defaults_regression() {
 
 #[test]
 fn useralias_underscore_regression() {
-    let Sudo::Spec(x) = parse_line("FOO_BAR ALL=ALL") else { todo!() };
-    let Qualified::Allow(Meta::Alias(_)) = x.users[0] else { panic!() };
+    let Sudo::Spec(x) = parse_line("FOO_BAR ALL=ALL") else {
+        todo!()
+    };
+    let Qualified::Allow(Meta::Alias(_)) = x.users[0] else {
+        panic!()
+    };
 }
 
 fn test_topo_sort(n: usize) {
@@ -407,7 +453,9 @@ fn test_topo_sort(n: usize) {
         let mut seen = HashSet::new();
         for Def(id, defns) in order.iter().map(|&i| &table[i]) {
             if defns.iter().any(|spec| {
-                let Qualified::Allow(Meta::Alias(id2)) = spec else { return false };
+                let Qualified::Allow(Meta::Alias(id2)) = spec else {
+                    return false;
+                };
                 !seen.contains(id2)
             }) {
                 panic!("forward reference encountered after sorting");
@@ -484,7 +532,9 @@ fn fuzz_topo_sort(siz: usize) {
         let mut seen = HashSet::new();
         for Def(id, defns) in order.iter().map(|&i| &table[i]) {
             if defns.iter().any(|spec| {
-                let Qualified::Allow(Meta::Alias(id2)) = spec else { return false };
+                let Qualified::Allow(Meta::Alias(id2)) = spec else {
+                    return false;
+                };
                 !seen.contains(id2)
             }) {
                 panic!("forward reference encountered after sorting");

@@ -71,7 +71,9 @@ mod test {
     fn check() {
         macro_rules! test {
             ($name:ident => $value:pat) => {
-                let Some(foo@$value) = sudo_default(stringify!($name)) else { unreachable!() };
+                let Some(foo @ $value) = sudo_default(stringify!($name)) else {
+                    unreachable!()
+                };
                 if let SudoDefault::Enum(OptTuple { default, negated }) = foo {
                     assert!(default
                         .possible_values

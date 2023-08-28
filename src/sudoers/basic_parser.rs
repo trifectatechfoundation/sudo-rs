@@ -401,8 +401,12 @@ mod test {
         assert_eq!(input("hello\n   world\n"), vec![s("hello"), s("world")]);
         assert_eq!(input("hello\nworld  \n"), vec![s("hello"), s("world")]);
         assert_eq!(input("hello\nworld")[0..2], vec![s("hello"), s("world")]);
-        let Err(_) = input("hello\nworld")[2] else { panic!() };
-        let Err(_) = input("hello\nworld:\n")[2] else { panic!() };
+        let Err(_) = input("hello\nworld")[2] else {
+            panic!()
+        };
+        let Err(_) = input("hello\nworld:\n")[2] else {
+            panic!()
+        };
     }
     #[test]
     fn whitespace_test() {

@@ -651,7 +651,10 @@ fn analyze(
                         Sudo::IncludeDir(path) => {
                             let path = resolve_relative(cur_path, path);
                             let Ok(files) = std::fs::read_dir(&path) else {
-                                diagnostics.push(Error(None, format!("cannot open sudoers file {}", path.display())));
+                                diagnostics.push(Error(
+                                    None,
+                                    format!("cannot open sudoers file {}", path.display()),
+                                ));
                                 continue;
                             };
                             let mut safe_files = files
@@ -755,8 +758,11 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
             if self.seen.insert(pos) {
                 let Def(_, members) = &self.table[pos];
                 for elem in members {
-                    let Meta::Alias(name) = remqualify(elem) else { break };
-                    let Some(dependency) = self.table.iter().position(|Def(id,_)| id==name) else {
+                    let Meta::Alias(name) = remqualify(elem) else {
+                        break;
+                    };
+                    let Some(dependency) = self.table.iter().position(|Def(id, _)| id == name)
+                    else {
                         self.complain(format!("undefined alias: '{name}'"));
                         continue;
                     };
