@@ -13,7 +13,8 @@ Suspected vulnerabilities can be reported on our [security page](https://github.
 An audit of sudo-rs will take place in September 2023, the next stable release will
 incorporate its results.
 
-Sudo-rs currently is targeted for Linux-based operating systems only.
+Sudo-rs currently is targeted for Linux-based operating systems only; Linux kernel 5.9
+or newer is necessary to run sudo-rs.
 
 ## Building it yourself
 
