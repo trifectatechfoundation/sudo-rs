@@ -1,5 +1,5 @@
 <!-- ---
-title: SU(1) sudo-rs 0.2.0-dev.20230711 | sudo-rs
+title: SU(1) sudo-rs 0.2.0 | sudo-rs
 --- -->
 
 # NAME
