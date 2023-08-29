@@ -1,6 +1,6 @@
-% SUDO(8) sudo-rs 0.2.0-dev.20230711
-%
-% July 10, 2023
+<!-- ---
+title: SUDO(8) sudo-rs 0.2.0-dev.20230711 | sudo-rs
+--- -->
 
 # NAME
 
@@ -8,7 +8,7 @@
 
 # SYNOPSIS
 
-`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-knS`] [`-i` | `-s`] [*command*] \
+`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-knS`] [`-i` | `-s`] [<*command*>] \
 `sudo` `-h` | `-K` | `-k` | `-V`
 
 # DESCRIPTION
@@ -39,7 +39,7 @@ even if that process runs in its own pseudo terminal.
     specified in the password database for the target user.
 
 `-h`, `--help`
-:   Show this help message.
+:   Show a help message.
 
 `-i`, `--login`
 :   Run the shell specified by the target user's password database entry as a
@@ -91,4 +91,5 @@ even if that process runs in its own pseudo terminal.
 :   Indicates the end of the sudo-rs options and start of the *command*.
 
 # SEE ALSO
-su(1), sudoers(5), visudo(8)
+
+[su(1)](su.1.md), sudoers(5), [visudo(8)](visudo.8.md)
