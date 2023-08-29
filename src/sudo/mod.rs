@@ -82,11 +82,11 @@ fn sudo_process() -> Result<(), Error> {
     match SudoOptions::from_env() {
         Ok(options) => match options.action {
             SudoAction::Help => {
-                eprintln!("{}", help::long_help_message());
+                eprintln_ignore_io_error!("{}", help::long_help_message());
                 std::process::exit(0);
             }
             SudoAction::Version => {
-                eprintln!("sudo-rs {VERSION}");
+                eprintln_ignore_io_error!("sudo-rs {VERSION}");
                 std::process::exit(0);
             }
             SudoAction::RemoveTimestamp => {
@@ -109,7 +109,7 @@ fn sudo_process() -> Result<(), Error> {
             SudoAction::Run(ref cmd) => {
                 // special case for when no command is given
                 if cmd.is_empty() && !options.shell && !options.login {
-                    eprintln!("{}", help::USAGE_MSG);
+                    eprintln_ignore_io_error!("{}", help::USAGE_MSG);
                     std::process::exit(1);
                 } else {
                     pipeline.run(options)
@@ -121,7 +121,7 @@ fn sudo_process() -> Result<(), Error> {
             }
         },
         Err(e) => {
-            eprintln!("{e}\n{}", help::USAGE_MSG);
+            eprintln_ignore_io_error!("{e}\n{}", help::USAGE_MSG);
             std::process::exit(1);
         }
     }

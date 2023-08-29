@@ -125,31 +125,31 @@ pub fn main() {
     let su_options = match SuOptions::from_env() {
         Ok(options) => options,
         Err(error) => {
-            println!("su: {error}\n{USAGE_MSG}");
+            println_ignore_io_error!("su: {error}\n{USAGE_MSG}");
             std::process::exit(1);
         }
     };
 
     match su_options.action {
         SuAction::Help => {
-            println!("{}", long_help_message());
+            println_ignore_io_error!("{}", long_help_message());
             std::process::exit(0);
         }
         SuAction::Version => {
-            eprintln!("su-rs {VERSION}");
+            eprintln_ignore_io_error!("su-rs {VERSION}");
             std::process::exit(0);
         }
         SuAction::Run => match run(su_options) {
             Err(Error::CommandNotFound(c)) => {
-                eprintln!("su: {}", Error::CommandNotFound(c));
+                eprintln_ignore_io_error!("su: {}", Error::CommandNotFound(c));
                 std::process::exit(127);
             }
             Err(Error::InvalidCommand(c)) => {
-                eprintln!("su: {}", Error::InvalidCommand(c));
+                eprintln_ignore_io_error!("su: {}", Error::InvalidCommand(c));
                 std::process::exit(126);
             }
             Err(error) => {
-                eprintln!("su: {error}");
+                eprintln_ignore_io_error!("su: {error}");
                 std::process::exit(1);
             }
             _ => {}

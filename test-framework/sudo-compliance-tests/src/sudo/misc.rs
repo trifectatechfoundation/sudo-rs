@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -166,4 +166,37 @@ fn works_when_invoked_through_a_symlink() -> Result<()> {
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()
+}
+
+#[test]
+fn does_not_panic_on_io_errors_no_command() -> Result<()> {
+    let env = Env("").build()?;
+
+    let output = Command::new("bash")
+        .args(["-c", "sudo 2>&1 | true; echo \"${PIPESTATUS[0]}\""])
+        .output(&env)?;
+
+    let exit_code = output.stdout()?.parse()?;
+    assert_ne!(PANIC_EXIT_CODE, exit_code);
+    assert_eq!(1, exit_code);
+
+    Ok(())
+}
+
+#[test]
+fn does_not_panic_on_io_errors_cli_error() -> Result<()> {
+    let env = Env("").build()?;
+
+    let output = Command::new("bash")
+        .args([
+            "-c",
+            "sudo --bad-flag 2>&1 | true; echo \"${PIPESTATUS[0]}\"",
+        ])
+        .output(&env)?;
+
+    let exit_code = output.stdout()?.parse()?;
+    assert_ne!(PANIC_EXIT_CODE, exit_code);
+    assert_eq!(1, exit_code);
+
+    Ok(())
 }

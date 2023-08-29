@@ -50,9 +50,10 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             check_sudo_command_perms(&original_command, &context, &other_user, &sudoers)?;
         } else {
             let invoking_user = other_user.as_ref().unwrap_or(&context.current_user);
-            println!(
+            println_ignore_io_error!(
                 "User {} may run the following commands on {}:",
-                invoking_user.name, context.hostname
+                invoking_user.name,
+                context.hostname
             );
 
             let matching_entries = sudoers.matching_entries(invoking_user, &context.hostname);
@@ -60,9 +61,9 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             for entry in matching_entries {
                 if verbose_list_mode {
                     let entry = entry.verbose();
-                    println!("{entry}")
+                    println_ignore_io_error!("{entry}");
                 } else {
-                    println!("{entry}")
+                    println_ignore_io_error!("{entry}");
                 }
             }
         }
@@ -95,7 +96,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
                         return Err(Error::Silent);
                     }
 
-                    println!(
+                    println_ignore_io_error!(
                         "User {} is not allowed to run sudo on {}.",
                         other_user.as_ref().unwrap_or(&context.current_user).name,
                         context.hostname
@@ -177,9 +178,9 @@ fn check_sudo_command_perms(
         };
 
         if context.command.arguments.is_empty() {
-            println!("{command}")
+            println_ignore_io_error!("{command}");
         } else {
-            println!("{command} {}", context.command.arguments.join(" "))
+            println_ignore_io_error!("{command} {}", context.command.arguments.join(" "));
         }
     }
 

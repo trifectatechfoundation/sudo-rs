@@ -2,7 +2,7 @@ use std::{thread, time::Duration};
 
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
 
 mod flag_check;
 mod flag_file;
@@ -389,6 +389,65 @@ sleep 2",
         .stdout()?;
 
     assert!(output.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn does_not_panic_on_io_errors_parse_ok() -> Result<()> {
+    let env = Env("")
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+
+echo ' ' >> $2",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build()?;
+
+    let output = Command::new("bash")
+        .args(["-c", "visudo | true; echo \"${PIPESTATUS[0]}\""])
+        .output(&env)?;
+
+    let stderr = output.stderr();
+    assert!(stderr.is_empty());
+
+    let exit_code = output.stdout()?.parse()?;
+    assert_ne!(PANIC_EXIT_CODE, exit_code);
+    assert_eq!(0, exit_code);
+
+    Ok(())
+}
+
+#[test]
+fn does_not_panic_on_io_errors_parse_error() -> Result<()> {
+    let env = Env("")
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+
+echo 'bad syntax' >> $2",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build()?;
+
+    let output = Command::new("bash")
+        .args(["-c", "visudo | true; echo \"${PIPESTATUS[0]}\""])
+        .output(&env)?;
+
+    let stderr = output.stderr();
+    assert_not_contains!(stderr, "panicked");
+    assert_not_contains!(stderr, "IO error");
+
+    let exit_code = output.stdout()?.parse()?;
+    assert_ne!(PANIC_EXIT_CODE, exit_code);
+    // ogvisudo exits with 141 = SIGPIPE; visudo-rs exits with code 1 but the difference is not
+    // relevant to this test
+    // assert_eq!(141, exit_code);
 
     Ok(())
 }

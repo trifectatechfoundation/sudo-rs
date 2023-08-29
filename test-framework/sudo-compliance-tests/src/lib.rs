@@ -43,6 +43,8 @@ const SUDOERS_NOT_USE_PTY: &str = "Defaults !use_pty";
 
 const ENV_PATH: &str = "/usr/bin/env";
 
+const PANIC_EXIT_CODE: i32 = 101;
+
 enum EnvList {
     Check,
     Keep,

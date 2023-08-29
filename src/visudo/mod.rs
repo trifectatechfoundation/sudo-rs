@@ -35,18 +35,18 @@ pub fn main() {
     let options = match VisudoOptions::from_env() {
         Ok(options) => options,
         Err(error) => {
-            println!("visudo: {error}\n{USAGE_MSG}");
+            println_ignore_io_error!("visudo: {error}\n{USAGE_MSG}");
             std::process::exit(1);
         }
     };
 
     let cmd = match options.action {
         VisudoAction::Help => {
-            println!("{}", long_help_message());
+            println_ignore_io_error!("{}", long_help_message());
             std::process::exit(0);
         }
         VisudoAction::Version => {
-            println!("visudo version {VERSION}");
+            println_ignore_io_error!("visudo version {VERSION}");
             std::process::exit(0);
         }
         VisudoAction::Check => check,
@@ -56,7 +56,7 @@ pub fn main() {
     match cmd(options.file.as_deref(), options.perms, options.owner) {
         Ok(()) => {}
         Err(error) => {
-            eprintln!("visudo: {error}");
+            eprintln_ignore_io_error!("visudo: {error}");
             std::process::exit(1);
         }
     }
@@ -102,12 +102,13 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     let (_sudoers, errors) = Sudoers::read(&sudoers_file, sudoers_path)?;
 
     if errors.is_empty() {
-        println!("{}: parsed OK", sudoers_path.display());
+        writeln!(io::stdout(), "{}: parsed OK", sudoers_path.display())?;
         return Ok(());
     }
 
+    let mut stderr = io::stderr();
     for crate::sudoers::Error(_position, message) in errors {
-        eprintln!("syntax error: {message}");
+        writeln!(stderr, "syntax error: {message}")?;
     }
 
     Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
@@ -219,6 +220,7 @@ fn edit_sudoers_file(
         None => editor_path_fallback()?,
     };
 
+    let mut stderr = io::stderr();
     loop {
         Command::new(&editor_path)
             .arg("--")
@@ -241,13 +243,13 @@ fn edit_sudoers_file(
             break;
         }
 
-        eprintln!("Come on... you can do better than that.\n");
+        writeln!(stderr, "Come on... you can do better than that.\n")?;
 
         for crate::sudoers::Error(_position, message) in errors {
-            eprintln!("syntax error: {message}");
+            writeln!(stderr, "syntax error: {message}")?;
         }
 
-        eprintln!();
+        writeln!(stderr)?;
 
         let stdin = io::stdin();
         let stdout = io::stdout();
@@ -262,14 +264,14 @@ fn edit_sudoers_file(
 
             let mut input = [0u8];
             if let Err(err) = stdin_handle.read_exact(&mut input) {
-                eprintln!("visudo: cannot read user input: {err}");
+                writeln!(stderr, "visudo: cannot read user input: {err}")?;
                 return Ok(());
             }
 
             match &input {
                 b"e" => break,
                 b"x" => return Ok(()),
-                input => println!("Invalid option: {:?}\n", std::str::from_utf8(input)),
+                input => writeln!(stderr, "Invalid option: {:?}\n", std::str::from_utf8(input))?,
             }
         }
     }
@@ -277,7 +279,7 @@ fn edit_sudoers_file(
     let tmp_contents = std::fs::read(tmp_path)?;
     // Only write to the sudoers file if the contents changed.
     if tmp_contents == sudoers_contents {
-        eprintln!("visudo: {} unchanged", tmp_path.display());
+        writeln!(stderr, "visudo: {} unchanged", tmp_path.display())?;
     } else {
         sudoers_file.write_all(&tmp_contents)?;
     }
