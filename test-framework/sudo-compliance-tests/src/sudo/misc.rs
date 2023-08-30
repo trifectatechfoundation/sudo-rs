@@ -131,6 +131,27 @@ fn sudo_binary_is_not_owned_by_root() -> Result<()> {
 }
 
 #[test]
+fn sudo_binary_is_not_owned_by_root_and_ran_as_root() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+
+    Command::new("chmod")
+        .args(["0755", "/usr/bin/sudo"])
+        .output(&env)?
+        .assert_success()?;
+
+    Command::new("chown")
+        .args([USERNAME, "/usr/bin/sudo"])
+        .output(&env)?
+        .assert_success()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user("root")
+        .output(&env)?
+        .assert_success();
+}
+
+#[test]
 fn works_when_invoked_through_a_symlink() -> Result<()> {
     let symlink_path = "/tmp/sudo";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
