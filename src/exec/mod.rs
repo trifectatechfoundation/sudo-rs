@@ -89,15 +89,12 @@ fn run_command_internal(options: &impl RunOptions, env: Environment) -> io::Resu
     if let Some(path) = path {
         let is_chdir = options.chdir().is_some();
 
+        let bytes = path.as_os_str().as_bytes();
+        let c_path = CString::new(bytes).expect("nul byte found in provided directory path");
+
         unsafe {
             command.pre_exec(move || {
-                let bytes = path.as_os_str().as_bytes();
-
-                let c_path =
-                    CString::new(bytes).expect("nul byte found in provided directory path");
-
                 if let Err(err) = crate::system::chdir(&c_path) {
-                    user_error!("unable to change directory to {}: {}", path.display(), err);
                     if is_chdir {
                         return Err(err);
                     }
