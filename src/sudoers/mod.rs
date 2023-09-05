@@ -639,6 +639,13 @@ fn analyze(
                         ),
 
                         Sudo::IncludeDir(path) => {
+                            if path.contains("%h") {
+                                diagnostics.push(Error(
+                                    None,
+                                    format!("cannot open sudoers file {path}: percent escape %h in includedir is unsupported")));
+                                continue;
+                            }
+
                             let path = resolve_relative(cur_path, path);
                             let Ok(files) = std::fs::read_dir(&path) else {
                                 diagnostics.push(Error(
