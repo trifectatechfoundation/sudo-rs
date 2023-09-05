@@ -14,7 +14,7 @@ pub(crate) struct SignalHandler {
 }
 
 impl SignalHandler {
-    const FORBIDDEN: &[SignalNumber] = &[SIGKILL, SIGSTOP];
+    const FORBIDDEN: &'static [SignalNumber] = &[SIGKILL, SIGSTOP];
 
     /// Register a new handler for the given signal with the provided behavior.
     ///

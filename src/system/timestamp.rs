@@ -42,7 +42,7 @@ pub struct SessionRecordFile<'u> {
 }
 
 impl<'u> SessionRecordFile<'u> {
-    const BASE_PATH: &str = "/var/run/sudo-rs/ts";
+    const BASE_PATH: &'static str = "/var/run/sudo-rs/ts";
 
     pub fn open_for_user(user: &'u str, timeout: Duration) -> io::Result<Self> {
         let mut path = PathBuf::from(Self::BASE_PATH);

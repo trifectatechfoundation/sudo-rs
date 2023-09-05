@@ -67,8 +67,8 @@ enum SudoArg {
 }
 
 impl SudoOptions {
-    const TAKES_ARGUMENT_SHORT: &[char] = &['D', 'E', 'g', 'h', 'R', 'U', 'u'];
-    const TAKES_ARGUMENT: &[&'static str] = &[
+    const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'E', 'g', 'h', 'R', 'U', 'u'];
+    const TAKES_ARGUMENT: &'static [&'static str] = &[
         "chdir",
         "preserve-env",
         "group",

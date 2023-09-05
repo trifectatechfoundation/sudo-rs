@@ -41,7 +41,7 @@ struct VisudoOption {
 }
 
 impl VisudoOptions {
-    const VISUDO_OPTIONS: &[VisudoOption] = &[
+    const VISUDO_OPTIONS: &'static [VisudoOption] = &[
         VisudoOption {
             short: 'c',
             long: "check",
