@@ -416,6 +416,11 @@ fn include_regression() {
 }
 
 #[test]
+fn nullbyte_regression() {
+    if let Sudo::Spec(PermissionSpec { .. }) = parse_line("ferris ALL=(ALL:ferris\0) ALL") {};
+}
+
+#[test]
 #[should_panic]
 fn alias_all_regression() {
     parse_line("User_Alias ALL = sudouser");

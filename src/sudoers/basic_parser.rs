@@ -252,7 +252,7 @@ impl<T: Token> Parse for T {
 
         let start_pos = stream.get_pos();
         let mut str = accept_escaped::<T>(T::accept_1st, stream)?.to_string();
-        while let Ok(c) = accept_escaped::<T>(T::accept, stream) {
+        while let Some(c) = maybe(accept_escaped::<T>(T::accept, stream))? {
             if str.len() >= T::MAX_LEN {
                 unrecoverable!(stream, "token exceeds maximum length")
             }
