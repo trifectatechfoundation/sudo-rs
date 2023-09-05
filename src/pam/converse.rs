@@ -247,7 +247,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             let response: &mut pam_response = unsafe { &mut *(temp_resp.add(i)) };
 
             if let Some(secbuf) = msg.response {
-                response.resp = secbuf.leak() as *mut _;
+                response.resp = secbuf.leak().as_ptr().cast();
             }
         }
 

@@ -1,19 +1,30 @@
 //! Routines for "secure" memory operations; i.e. data that we need to send to Linux-PAM and don't
 //! want any copies to leak (that we would then need to zeroize).
-use std::slice;
+use std::{
+    alloc::{self, Layout},
+    mem,
+    ptr::NonNull,
+    slice,
+};
 
-pub struct PamBuffer(*mut u8);
+const SIZE: usize = super::sys::PAM_MAX_RESP_SIZE as usize;
+const ALIGN: usize = mem::align_of::<u8>();
+
+pub struct PamBuffer(NonNull<[u8; SIZE]>);
+
+fn layout() -> Layout {
+    // does not panic with the given arguments; also see unit test at the bottom
+    Layout::from_size_align(SIZE, ALIGN).unwrap()
+}
 
 impl PamBuffer {
-    const SIZE: usize = super::sys::PAM_MAX_RESP_SIZE as usize;
-
     // consume this buffer and return its internal pointer
     // (ending the type-level security, but guaranteeing you need unsafe code to access the data)
-    pub fn leak(self) -> *const u8 {
+    pub fn leak(self) -> NonNull<u8> {
         let result = self.0;
         std::mem::forget(self);
 
-        result
+        result.cast()
     }
 
     // initialize the buffer with already existing data (otherwise populating it is a bit hairy)
@@ -31,7 +42,12 @@ impl PamBuffer {
 
 impl Default for PamBuffer {
     fn default() -> Self {
-        PamBuffer(unsafe { libc::calloc(1, Self::SIZE) as *mut u8 })
+        let res = unsafe { libc::calloc(1, SIZE) };
+        if let Some(nn) = NonNull::new(res) {
+            PamBuffer(nn.cast())
+        } else {
+            alloc::handle_alloc_error(layout())
+        }
     }
 }
 
@@ -40,22 +56,20 @@ impl std::ops::Deref for PamBuffer {
 
     fn deref(&self) -> &[u8] {
         // make the slice one less in size to guarantee the existence of a terminating NUL
-        unsafe { slice::from_raw_parts(self.0, Self::SIZE - 1) }
+        unsafe { slice::from_raw_parts(self.0.as_ptr().cast(), SIZE - 1) }
     }
 }
 
 impl std::ops::DerefMut for PamBuffer {
     fn deref_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.0, Self::SIZE - 1) }
+        unsafe { slice::from_raw_parts_mut(self.0.as_ptr().cast(), SIZE - 1) }
     }
 }
 
 impl Drop for PamBuffer {
     fn drop(&mut self) {
-        if !self.0.is_null() {
-            wipe_memory(unsafe { &mut *(self.0 as *mut [u8; Self::SIZE]) });
-            unsafe { libc::free(self.0 as *mut _) }
-        }
+        wipe_memory(unsafe { self.0.as_mut() });
+        unsafe { libc::free(self.0.as_ptr().cast()) }
     }
 }
 
@@ -82,9 +96,9 @@ mod test {
         let test = |text: &str| unsafe {
             let buf = PamBuffer::new(text.to_string().as_bytes_mut());
             assert_eq!(&buf[..text.len()], text.as_bytes());
-            let ptr = buf.leak();
-            let result = crate::cutils::string_from_ptr(ptr as *mut _);
-            libc::free(ptr as *mut libc::c_void);
+            let nn = buf.leak();
+            let result = crate::cutils::string_from_ptr(nn.as_ptr().cast());
+            libc::free(nn.as_ptr().cast());
             result
         };
         assert_eq!(test(""), "");
@@ -99,5 +113,10 @@ mod test {
         assert_eq!(fix[0..=2], [1, 2, 3]);
         assert!(fix[3..].iter().all(|&x| x == 0));
         std::mem::drop(fix);
+    }
+
+    #[test]
+    fn layout_does_not_panic() {
+        let _ = super::layout();
     }
 }
