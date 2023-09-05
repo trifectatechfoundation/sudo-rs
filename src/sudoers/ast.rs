@@ -132,7 +132,7 @@ pub enum Sudo {
 
 impl Parse for Identifier {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        if accept_if(|c| c == '#', stream).is_ok() {
+        if accept_if(|c| c == '#', stream).is_some() {
             let Digits(guid) = expect_nonterminal(stream)?;
             make(Identifier::ID(guid))
         } else {
@@ -211,15 +211,15 @@ impl Parse for Meta<Identifier> {
 /// ```
 impl Parse for UserSpecifier {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        let userspec = if accept_if(|c| c == '%', stream).is_ok() {
-            let ctor = if accept_if(|c| c == ':', stream).is_ok() {
+        let userspec = if accept_if(|c| c == '%', stream).is_some() {
+            let ctor = if accept_if(|c| c == ':', stream).is_some() {
                 UserSpecifier::NonunixGroup
             } else {
                 UserSpecifier::Group
             };
             // in this case we must fail 'hard', since input has been consumed
             ctor(expect_nonterminal(stream)?)
-        } else if accept_if(|c| c == '+', stream).is_ok() {
+        } else if accept_if(|c| c == '+', stream).is_some() {
             // TODO Netgroups
             unrecoverable!(stream, "netgroups are not supported yet");
         } else {
@@ -406,7 +406,7 @@ impl Parse for Sudo {
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
     fn parse(stream: &mut impl CharStream) -> Parsed<Sudo> {
-        if accept_if(|c| c == '@', stream).is_ok() {
+        if accept_if(|c| c == '@', stream).is_some() {
             return parse_include(stream);
         }
 
@@ -429,7 +429,7 @@ impl Parse for Sudo {
                 // the failed "try_nonterminal::<Identifier>" will have consumed the '#'
                 // the most ignominious part of sudoers: having to parse bits of comments
                 parse_include(stream).or_else(|_| {
-                    while accept_if(|c| c != '\n', stream).is_ok() {}
+                    while accept_if(|c| c != '\n', stream).is_some() {}
                     make(Sudo::LineComment)
                 })
             };
@@ -459,7 +459,7 @@ impl Parse for Sudo {
 
 fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
     fn get_path(stream: &mut impl CharStream) -> Parsed<String> {
-        if accept_if(|c| c == '"', stream).is_ok() {
+        if accept_if(|c| c == '"', stream).is_some() {
             let QuotedInclude(path) = expect_nonterminal(stream)?;
             expect_syntax('"', stream)?;
             make(path)
@@ -552,7 +552,7 @@ impl Parse for (String, ConfigValue) {
 
         // Parse multiple entries enclosed in quotes (for list-like Defaults-settings)
         let parse_vars = |stream: &mut _| -> Parsed<Vec<String>> {
-            if accept_if(|c| c == '"', stream).is_ok() {
+            if accept_if(|c| c == '"', stream).is_some() {
                 let mut result = Vec::new();
                 while let Some(EnvVar(name)) = try_nonterminal(stream)? {
                     result.push(name);
@@ -589,7 +589,7 @@ impl Parse for (String, ConfigValue) {
 
         // Parse a text parameter
         let text_item = |stream: &mut _| {
-            if accept_if(|c| c == '"', stream).is_ok() {
+            if accept_if(|c| c == '"', stream).is_some() {
                 let QuotedText(text) = expect_nonterminal(stream)?;
                 expect_syntax('"', stream)?;
                 make(text)

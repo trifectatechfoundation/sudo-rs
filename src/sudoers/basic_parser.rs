@@ -83,19 +83,18 @@ pub trait Parse {
         Self: Sized;
 }
 
-/// Primitive function (that also adheres to the Parse trait contract): accepts one character
-/// that satisfies `predicate`. This is used in the majority of all the other `Parse`
-/// implementations instead of interfacing with the iterator directly (this can facilitate an easy
-/// switch to a different method of stream representation in the future). Unlike most `Parse`
-/// implementations this *does not* consume trailing whitespace.
-/// NOTE: Guaranteed not to give an unrecoverable error.
-pub fn accept_if(predicate: impl Fn(char) -> bool, stream: &mut impl CharStream) -> Parsed<char> {
-    let c = stream.peek().ok_or(Status::Reject)?;
+/// Primitive function: accepts one character that satisfies `predicate`. This is used in the majority
+/// of all the other `Parse` implementations instead of interfacing with the iterator directly
+/// (this can facilitate an easy switch to a different method of stream representation in the future).
+/// Unlike `Parse` implementations this *does not* consume trailing whitespace.
+/// This function is modelled on `next_if` on `std::Peekable`.
+pub fn accept_if(predicate: impl Fn(char) -> bool, stream: &mut impl CharStream) -> Option<char> {
+    let c = stream.peek()?;
     if predicate(c) {
         stream.advance();
-        make(c)
+        Some(c)
     } else {
-        reject()
+        None
     }
 }
 
@@ -114,7 +113,7 @@ struct Comment;
 impl Parse for LeadingWhitespace {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let eat_space = |stream: &mut _| accept_if(|c| "\t ".contains(c), stream);
-        while eat_space(stream).is_ok() {}
+        while eat_space(stream).is_some() {}
 
         if stream.peek().is_some() {
             make(LeadingWhitespace {})
@@ -133,9 +132,9 @@ impl Parse for TrailingWhitespace {
             let _ = LeadingWhitespace::parse(stream); // don't propagate any errors
 
             // line continuations
-            if accept_if(|c| c == '\\', stream).is_ok() {
+            if accept_if(|c| c == '\\', stream).is_some() {
                 // do the equivalent of expect_syntax('\n', stream)?, without recursion
-                if accept_if(|c| c == '\n', stream).is_err() {
+                if accept_if(|c| c == '\n', stream).is_none() {
                     unrecoverable!(stream, "stray escape sequence")
                 }
             } else {
@@ -150,8 +149,8 @@ impl Parse for TrailingWhitespace {
 /// Parses a comment
 impl Parse for Comment {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
-        accept_if(|c| c == '#', stream)?;
-        while accept_if(|c| c != '\n', stream).is_ok() {}
+        accept_if(|c| c == '#', stream).ok_or(Status::Reject)?;
+        while accept_if(|c| c != '\n', stream).is_some() {}
         make(Comment {})
     }
 }
@@ -163,7 +162,7 @@ fn skip_trailing_whitespace(stream: &mut impl CharStream) -> Parsed<()> {
 
 /// Adheres to the contract of the [Parse] trait, accepts one character and consumes trailing whitespace.
 pub fn try_syntax(syntax: char, stream: &mut impl CharStream) -> Parsed<()> {
-    accept_if(|c| c == syntax, stream)?;
+    accept_if(|c| c == syntax, stream).ok_or(Status::Reject)?;
     skip_trailing_whitespace(stream)?;
     make(())
 }
@@ -196,7 +195,7 @@ pub fn try_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 }
 
 /// Interface for working with types that implement the [Parse] trait; this expects to parse
-/// the given type or aborts parsing if not.
+/// the given type or gives a fatal parse error if this did not succeed.
 use super::ast_names::UserFriendly;
 
 pub fn expect_nonterminal<T: Parse + UserFriendly>(stream: &mut impl CharStream) -> Parsed<T> {
@@ -222,7 +221,7 @@ pub trait Token: Sized {
         Self::accept(c)
     }
 
-    const ESCAPE: char = '\0';
+    const ALLOW_ESCAPE: bool = false;
     fn escaped(_: char) -> bool {
         false
     }
@@ -235,15 +234,16 @@ impl<T: Token> Parse for T {
             pred: fn(char) -> bool,
             stream: &mut impl CharStream,
         ) -> Parsed<char> {
-            if accept_if(|c| c == T::ESCAPE, stream).is_ok() {
-                if let Ok(c) = accept_if(T::escaped, stream) {
+            const ESCAPE: char = '\\';
+            if T::ALLOW_ESCAPE && accept_if(|c| c == ESCAPE, stream).is_some() {
+                if let Some(c) = accept_if(T::escaped, stream) {
                     Ok(c)
-                } else if pred(T::ESCAPE) {
-                    Ok(T::ESCAPE)
+                } else if pred(ESCAPE) {
+                    Ok(ESCAPE)
                 } else {
                     unrecoverable!(stream, "illegal escape sequence")
                 }
-            } else if let Ok(c) = accept_if(pred, stream) {
+            } else if let Some(c) = accept_if(pred, stream) {
                 Ok(c)
             } else {
                 reject()
@@ -252,7 +252,7 @@ impl<T: Token> Parse for T {
 
         let start_pos = stream.get_pos();
         let mut str = accept_escaped::<T>(T::accept_1st, stream)?.to_string();
-        while let Ok(c) = accept_escaped::<T>(T::accept, stream) {
+        while let Some(c) = maybe(accept_escaped::<T>(T::accept, stream))? {
             if str.len() >= T::MAX_LEN {
                 unrecoverable!(stream, "token exceeds maximum length")
             }
@@ -326,7 +326,7 @@ where
         result.push(item);
 
         let _ = maybe(Comment::parse(stream));
-        if accept_if(|c| c == '\n', stream).is_err() {
+        if accept_if(|c| c == '\n', stream).is_none() {
             if parsed_item_ok {
                 let msg = if stream.peek().is_none() {
                     "missing line terminator at end of file"
@@ -336,7 +336,7 @@ where
                 let error = |stream: &mut Stream| unrecoverable!(stream, "{msg}");
                 result.push(error(stream));
             }
-            while accept_if(|c| c != '\n', stream).is_ok() {}
+            while accept_if(|c| c != '\n', stream).is_some() {}
         }
     }
 
