@@ -484,7 +484,6 @@ fn minus_1_uid() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh749"]
 #[test]
 fn null_byte_terminated_username() -> Result<()> {
     let env = Env("ferris ALL=(root\0:ALL) NOPASSWD: ALL")
@@ -502,7 +501,6 @@ fn null_byte_terminated_username() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh749"]
 #[test]
 fn null_byte_terminated_groupname() -> Result<()> {
     let env = Env("ferris ALL=(ALL:root\0) NOPASSWD: ALL")

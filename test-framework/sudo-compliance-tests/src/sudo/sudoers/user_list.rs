@@ -408,7 +408,6 @@ fn user_alias_keywords() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh749"]
 #[test]
 fn null_byte_terminated_username() -> Result<()> {
     let env = Env("ferris\0 ALL=(ALL:ALL) NOPASSWD: ALL")
