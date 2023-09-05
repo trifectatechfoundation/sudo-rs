@@ -301,17 +301,13 @@ fn editor_path_fallback() -> io::Result<PathBuf> {
     ))
 }
 
-macro_rules! cstr {
-    ($expr:expr) => {{
-        let _: &'static [u8] = $expr;
-        debug_assert!(std::ffi::CStr::from_bytes_with_nul($expr).is_ok());
-        // SAFETY: see `debug_assert!` above
-        unsafe { CStr::from_bytes_with_nul_unchecked($expr) }
-    }};
-}
-
 fn create_temporary_dir() -> io::Result<PathBuf> {
-    let template = cstr!(b"/tmp/sudoers-XXXXXX\0").to_owned();
+    // SAFETY: the required safety checks (last byte is NULL; no inner NULLs) are performed at
+    // compile time by the const-constructor
+    const TEMPLATE: &CStr =
+        unsafe { CStr::from_bytes_with_nul_unchecked(b"/tmp/sudoers-XXXXXX\0") };
+
+    let template = TEMPLATE.to_owned();
 
     let ptr = unsafe { libc::mkdtemp(template.into_raw()) };
 
