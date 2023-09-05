@@ -407,3 +407,21 @@ fn user_alias_keywords() -> Result<()> {
 
     Ok(())
 }
+
+#[ignore = "gh749"]
+#[test]
+fn null_byte_terminated_username() -> Result<()> {
+    let env = Env("ferris\0 ALL=(ALL:ALL) NOPASSWD: ALL")
+        .user("ferris")
+        .build()?;
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user("ferris")
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_contains!(output.stderr(), "syntax error");
+
+    Ok(())
+}
