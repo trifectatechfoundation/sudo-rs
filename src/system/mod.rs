@@ -4,7 +4,10 @@ use std::{
     ffi::{c_uint, CStr, CString},
     io,
     mem::MaybeUninit,
-    os::{fd::AsRawFd, unix::prelude::OsStrExt},
+    os::{
+        fd::AsRawFd,
+        unix::{self, prelude::OsStrExt},
+    },
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -499,12 +502,16 @@ impl Process {
 
     /// Return the process identifier for the current process
     pub fn process_id() -> ProcessId {
-        unsafe { libc::getpid() }
+        // NOTE libstd casts the `i32` that `libc::getpid` returns into `u32`
+        // here we cast it back into `i32` (`ProcessId`)
+        std::process::id() as ProcessId
     }
 
     /// Return the parent process identifier for the current process
     pub fn parent_id() -> Option<ProcessId> {
-        let pid = unsafe { libc::getppid() };
+        // NOTE libstd casts the `i32` that `libc::getppid` returns into `u32`
+        // here we cast it back into `i32` (`ProcessId`)
+        let pid = unix::process::parent_id() as ProcessId;
         if pid == 0 {
             None
         } else {
