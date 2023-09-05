@@ -237,10 +237,6 @@ pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
     cerr(unsafe { libc::setpgid(pid, pgid) }).map(|_| ())
 }
 
-pub fn chdir<S: AsRef<CStr>>(path: &S) -> io::Result<()> {
-    cerr(unsafe { libc::chdir(path.as_ref().as_ptr()) }).map(|_| ())
-}
-
 pub fn chown<S: AsRef<CStr>>(
     path: &S,
     uid: impl Into<Option<UserId>>,

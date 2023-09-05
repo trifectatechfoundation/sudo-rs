@@ -6,7 +6,8 @@ mod use_pty;
 
 use std::{
     borrow::Cow,
-    ffi::{c_int, CString, OsStr},
+    env,
+    ffi::{c_int, OsStr},
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
@@ -91,12 +92,7 @@ fn run_command_internal(options: &impl RunOptions, env: Environment) -> io::Resu
 
         unsafe {
             command.pre_exec(move || {
-                let bytes = path.as_os_str().as_bytes();
-
-                let c_path =
-                    CString::new(bytes).expect("nul byte found in provided directory path");
-
-                if let Err(err) = crate::system::chdir(&c_path) {
+                if let Err(err) = env::set_current_dir(&path) {
                     user_error!("unable to change directory to {}: {}", path.display(), err);
                     if is_chdir {
                         return Err(err);
