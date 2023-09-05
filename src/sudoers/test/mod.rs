@@ -416,6 +416,7 @@ fn include_regression() {
 }
 
 #[test]
+#[should_panic]
 fn nullbyte_regression() {
     if let Sudo::Spec(PermissionSpec { .. }) = parse_line("ferris ALL=(ALL:ferris\0) ALL") {};
 }

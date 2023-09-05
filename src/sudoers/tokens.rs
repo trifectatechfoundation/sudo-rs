@@ -108,7 +108,7 @@ impl<T: Token> Token for Meta<T> {
         T::accept_1st(c) || c.is_uppercase()
     }
 
-    const ESCAPE: char = T::ESCAPE;
+    const ALLOW_ESCAPE: bool = T::ALLOW_ESCAPE;
 
     fn escaped(c: char) -> bool {
         T::escaped(c)
@@ -196,7 +196,7 @@ impl Token for Command {
         !Self::escaped(c) && !c.is_control()
     }
 
-    const ESCAPE: char = '\\';
+    const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
         matches!(c, '\\' | ',' | ':' | '=' | '#')
     }
@@ -227,7 +227,7 @@ impl Token for EnvVar {
         !c.is_control() && !c.is_whitespace() && !Self::escaped(c)
     }
 
-    const ESCAPE: char = '\\';
+    const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
         matches!(c, '\\' | '=' | '#' | '"')
     }
@@ -246,7 +246,7 @@ impl Token for QuotedText {
         !Self::escaped(c)
     }
 
-    const ESCAPE: char = '\\';
+    const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
         matches!(c, '\\' | '"') || c.is_control()
     }
@@ -267,7 +267,7 @@ impl Token for QuotedInclude {
         !Self::escaped(c)
     }
 
-    const ESCAPE: char = '\\';
+    const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
         matches!(c, '"') || c.is_control()
     }
@@ -286,7 +286,7 @@ impl Token for IncludePath {
         !c.is_control() && !Self::escaped(c)
     }
 
-    const ESCAPE: char = '\\';
+    const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
         matches!(c, '\\' | '"' | ' ')
     }
@@ -306,7 +306,7 @@ impl Token for StringParameter {
         !c.is_control() && !Self::escaped(c)
     }
 
-    const ESCAPE: char = '\\';
+    const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
         matches!(c, '\\' | '"' | ' ' | '#' | ',')
     }
@@ -341,7 +341,7 @@ impl Token for ChDir {
         "~/*".contains(c)
     }
 
-    const ESCAPE: char = '\\';
+    const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
         matches!(c, '\\' | '"' | ' ')
     }

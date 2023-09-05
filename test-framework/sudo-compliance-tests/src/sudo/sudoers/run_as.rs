@@ -496,7 +496,11 @@ fn null_byte_terminated_username() -> Result<()> {
         .output(&env)?;
 
     assert!(!output.status().success());
-    assert_contains!(output.stderr(), "syntax error");
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "syntax error");
+    } else {
+        assert_contains!(output.stderr(), "expecting ')' but found '\0'");
+    }
 
     Ok(())
 }
@@ -513,7 +517,11 @@ fn null_byte_terminated_groupname() -> Result<()> {
         .output(&env)?;
 
     assert!(!output.status().success());
-    assert_contains!(output.stderr(), "syntax error");
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "syntax error");
+    } else {
+        assert_contains!(output.stderr(), "expecting ')' but found '\0'");
+    }
 
     Ok(())
 }
