@@ -48,7 +48,7 @@ struct SuOption {
 }
 
 impl SuOptions {
-    const SU_OPTIONS: &[SuOption] = &[
+    const SU_OPTIONS: &'static [SuOption] = &[
         SuOption {
             short: 'c',
             long: "command",
