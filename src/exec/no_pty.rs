@@ -1,9 +1,4 @@
-use std::{
-    ffi::c_int,
-    io::{self, Read, Write},
-    os::unix::{net::UnixStream, process::CommandExt},
-    process::Command,
-};
+use std::{ffi::c_int, io, os::unix::process::CommandExt, process::Command};
 
 use super::{
     event::PollEvent,
@@ -11,9 +6,12 @@ use super::{
     io_util::was_interrupted,
     terminate_process, ExitReason, HandleSigchld, ProcessOutput,
 };
-use crate::system::signal::{
-    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
-    SignalStream,
+use crate::{
+    common::bin_serde::BinPipe,
+    system::signal::{
+        consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber,
+        SignalSet, SignalStream,
+    },
 };
 use crate::{
     exec::{handle_sigchld, opt_fmt, signal_fmt},
@@ -46,7 +44,7 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
     // Use a pipe to get the IO error if `exec` fails.
-    let (mut errpipe_tx, errpipe_rx) = UnixStream::pair()?;
+    let (mut errpipe_tx, errpipe_rx) = BinPipe::pair()?;
 
     // Don't close the error pipe as we need it to retrieve the error code if the command execution
     // fails.
@@ -72,7 +70,7 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         // If `exec` returns, it means that executing the command failed. Send the error to the
         // monitor using the pipe.
         if let Some(error_code) = err.raw_os_error() {
-            errpipe_tx.write_all(&error_code.to_ne_bytes()).ok();
+            errpipe_tx.write(&error_code).ok();
         }
 
         return Ok(ProcessOutput::ChildExit);
@@ -108,7 +106,7 @@ struct ExecClosure {
     command_pid: Option<ProcessId>,
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
-    errpipe_rx: UnixStream,
+    errpipe_rx: BinPipe<i32>,
     signal_stream: &'static SignalStream,
     signal_handlers: [SignalHandler; ExecClosure::SIGNALS.len()],
 }
@@ -122,7 +120,7 @@ impl ExecClosure {
     fn new(
         command_pid: ProcessId,
         sudo_pid: ProcessId,
-        errpipe_rx: UnixStream,
+        errpipe_rx: BinPipe<i32>,
         registry: &mut EventRegistry<Self>,
     ) -> io::Result<Self> {
         registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
@@ -287,13 +285,11 @@ impl Process for ExecClosure {
         match event {
             ExecEvent::Signal => self.on_signal(registry),
             ExecEvent::ErrPipe => {
-                let mut buf = 0i32.to_ne_bytes();
-                match self.errpipe_rx.read_exact(&mut buf) {
+                match self.errpipe_rx.read() {
                     Err(err) if was_interrupted(&err) => { /* Retry later */ }
                     Err(err) => registry.set_break(err),
-                    Ok(_) => {
+                    Ok(error_code) => {
                         // Received error code from the command, forward it to the parent.
-                        let error_code = i32::from_ne_bytes(buf);
                         registry.set_break(io::Error::from_raw_os_error(error_code));
                     }
                 }

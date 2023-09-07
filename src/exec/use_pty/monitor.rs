@@ -1,19 +1,17 @@
-use std::{
-    ffi::c_int,
-    io::{self, Read, Write},
-    os::unix::{net::UnixStream, process::CommandExt},
-    process::Command,
-};
+use std::{ffi::c_int, io, os::unix::process::CommandExt, process::Command};
 
-use crate::exec::{
-    event::{EventRegistry, Process},
-    io_util::{retry_while_interrupted, was_interrupted},
-    use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
-};
 use crate::exec::{opt_fmt, signal_fmt};
 use crate::system::signal::{
     consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
     SignalStream,
+};
+use crate::{
+    common::bin_serde::BinPipe,
+    exec::{
+        event::{EventRegistry, Process},
+        io_util::{retry_while_interrupted, was_interrupted},
+        use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
+    },
 };
 use crate::{
     exec::{
@@ -71,7 +69,7 @@ pub(super) fn exec_monitor(
     })?;
 
     // Use a pipe to get the IO error if `exec_command` fails.
-    let (mut errpipe_tx, errpipe_rx) = UnixStream::pair()?;
+    let (mut errpipe_tx, errpipe_rx) = BinPipe::pair()?;
 
     // Don't close the error pipe as we need it to retrieve the error code if the command execution
     // fails.
@@ -101,7 +99,7 @@ pub(super) fn exec_monitor(
         // If `exec_command` returns, it means that executing the command failed. Send the error to
         // the monitor using the pipe.
         if let Some(error_code) = err.raw_os_error() {
-            errpipe_tx.write_all(&error_code.to_ne_bytes()).ok();
+            errpipe_tx.write(&error_code).ok();
         }
 
         return Ok(ProcessOutput::ChildExit);
@@ -237,7 +235,7 @@ struct MonitorClosure<'a> {
     command_pgrp: ProcessId,
     monitor_pgrp: ProcessId,
     pty_follower: PtyFollower,
-    errpipe_rx: UnixStream,
+    errpipe_rx: BinPipe<i32>,
     backchannel: &'a mut MonitorBackchannel,
     signal_stream: &'static SignalStream,
     _signal_handlers: [SignalHandler; MonitorClosure::SIGNALS.len()],
@@ -251,7 +249,7 @@ impl<'a> MonitorClosure<'a> {
     fn new(
         command_pid: ProcessId,
         pty_follower: PtyFollower,
-        errpipe_rx: UnixStream,
+        errpipe_rx: BinPipe<i32>,
         backchannel: &'a mut MonitorBackchannel,
         registry: &mut EventRegistry<Self>,
     ) -> io::Result<Self> {
@@ -322,14 +320,11 @@ impl<'a> MonitorClosure<'a> {
     }
 
     fn read_errpipe(&mut self, registry: &mut EventRegistry<Self>) {
-        let mut buf = 0i32.to_ne_bytes();
-        match self.errpipe_rx.read_exact(&mut buf) {
+        match self.errpipe_rx.read() {
             Err(err) if was_interrupted(&err) => { /* Retry later */ }
             Err(err) => registry.set_break(err),
-            Ok(_) => {
+            Ok(error_code) => {
                 // Received error code from the command, forward it to the parent.
-                let error_code = i32::from_ne_bytes(buf);
-
                 self.backchannel
                     .send(&ParentMessage::IoError(error_code))
                     .ok();
