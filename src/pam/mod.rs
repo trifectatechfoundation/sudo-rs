@@ -3,6 +3,7 @@ use std::{
     ffi::{CStr, CString, OsStr, OsString},
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
+    ptr::NonNull,
 };
 
 use converse::ConverserData;
@@ -301,10 +302,9 @@ impl<C: Converser> PamContext<C> {
             return Err(PamError::EnvListFailure);
         }
         let mut curr_env = envs;
-        while unsafe { !(*curr_env).is_null() } {
-            let curr_str = unsafe { *curr_env };
+        while let Some(curr_str) = NonNull::new(unsafe { curr_env.read() }) {
             let data = {
-                let cstr = unsafe { CStr::from_ptr(curr_str) };
+                let cstr = unsafe { CStr::from_ptr(curr_str.as_ptr()) };
                 let bytes = cstr.to_bytes();
                 if let Some(pos) = bytes.iter().position(|b| *b == b'=') {
                     let key = OsStr::from_bytes(&bytes[..pos]).to_owned();
@@ -319,12 +319,12 @@ impl<C: Converser> PamContext<C> {
             }
 
             // free the current string and move to the next one
-            unsafe { libc::free(curr_str as *mut libc::c_void) };
+            unsafe { libc::free(curr_str.as_ptr().cast()) };
             curr_env = unsafe { curr_env.offset(1) };
         }
 
         // free the entire array
-        unsafe { libc::free(envs as *mut libc::c_void) };
+        unsafe { libc::free(envs.cast()) };
 
         Ok(res)
     }
