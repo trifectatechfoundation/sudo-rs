@@ -242,7 +242,7 @@ impl SuOptions {
                     }
                 }
             } else {
-                // when no option is provided (styarting with - or --) the next argument is interpreted as an username
+                // when no option is provided (starting with - or --) the next argument is interpreted as a username
                 options.user = arg;
                 // the rest of the arguments are passed to the shell
                 options.arguments = arg_iter.collect();
