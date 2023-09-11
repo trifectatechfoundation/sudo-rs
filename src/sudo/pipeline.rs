@@ -133,7 +133,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             context.use_session_records,
             scope,
             context.current_user.uid,
-            &context.current_user.name,
+            context.current_user.uid,
             prior_validity,
         );
         self.authenticator.init(context)?;
@@ -201,7 +201,7 @@ fn determine_auth_status(
     use_session_records: bool,
     record_for: Option<RecordScope>,
     auth_uid: UserId,
-    current_user: &str,
+    current_user: UserId,
     prior_validity: Duration,
 ) -> AuthStatus {
     if !must_policy_authenticate {
@@ -232,13 +232,13 @@ fn determine_auth_status(
     }
 }
 
-struct AuthStatus<'a> {
+struct AuthStatus {
     must_authenticate: bool,
-    record_file: Option<SessionRecordFile<'a>>,
+    record_file: Option<SessionRecordFile>,
 }
 
-impl<'a> AuthStatus<'a> {
-    fn new(must_authenticate: bool, record_file: Option<SessionRecordFile<'a>>) -> AuthStatus<'a> {
+impl AuthStatus {
+    fn new(must_authenticate: bool, record_file: Option<SessionRecordFile>) -> AuthStatus {
         AuthStatus {
             must_authenticate,
             record_file,

@@ -92,7 +92,7 @@ fn sudo_process() -> Result<(), Error> {
             SudoAction::RemoveTimestamp => {
                 let user = resolve_current_user()?;
                 let mut record_file =
-                    SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
+                    SessionRecordFile::open_for_user(user.uid, Duration::seconds(0))?;
                 record_file.reset()?;
                 Ok(())
             }
@@ -100,7 +100,7 @@ fn sudo_process() -> Result<(), Error> {
                 if let Some(scope) = RecordScope::for_process(&Process::new()) {
                     let user = resolve_current_user()?;
                     let mut record_file =
-                        SessionRecordFile::open_for_user(&user.name, Duration::seconds(0))?;
+                        SessionRecordFile::open_for_user(user.uid, Duration::seconds(0))?;
                     record_file.disable(scope, None)?;
                 }
                 Ok(())
