@@ -1,4 +1,5 @@
 use crate::cli::{SudoAction, SudoOptions};
+use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::system::{hostname, Group, Process, User};
 use std::path::PathBuf;
 
@@ -28,10 +29,11 @@ pub struct Context {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+#[repr(u32)]
 pub enum LaunchType {
-    Direct,
-    Shell,
-    Login,
+    Direct = HARDENED_ENUM_VALUE_0,
+    Shell = HARDENED_ENUM_VALUE_1,
+    Login = HARDENED_ENUM_VALUE_2,
 }
 
 impl Context {

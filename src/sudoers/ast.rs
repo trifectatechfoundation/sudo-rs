@@ -1,12 +1,17 @@
 use super::ast_names::UserFriendly;
 use super::basic_parser::*;
 use super::tokens::*;
+use crate::common::{
+    HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, HARDENED_ENUM_VALUE_3,
+    HARDENED_ENUM_VALUE_4,
+};
 
 /// The Sudoers file allows negating items with the exclamation mark.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[repr(u32)]
 pub enum Qualified<T> {
-    Allow(T),
-    Forbid(T),
+    Allow(T) = HARDENED_ENUM_VALUE_0,
+    Forbid(T) = HARDENED_ENUM_VALUE_1,
 }
 
 impl<T> Qualified<T> {
@@ -53,13 +58,14 @@ pub struct RunAs {
 // `sudo -l l` calls this the `authenticate` option
 #[derive(Copy, Clone, Default, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
+#[repr(u32)]
 pub enum Authenticate {
     #[default]
-    None,
+    None = HARDENED_ENUM_VALUE_0,
     // PASSWD:
-    Passwd,
+    Passwd = HARDENED_ENUM_VALUE_1,
     // NOPASSWD:
-    Nopasswd,
+    Nopasswd = HARDENED_ENUM_VALUE_2,
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
@@ -91,12 +97,13 @@ pub type Defs<T> = Vec<Def<T>>;
 pub struct Def<T>(pub String, pub SpecList<T>);
 
 /// AST object for directive specifications (aliases, arguments, etc)
+#[repr(u32)]
 pub enum Directive {
-    UserAlias(Defs<UserSpecifier>),
-    HostAlias(Defs<Hostname>),
-    CmndAlias(Defs<Command>),
-    RunasAlias(Defs<UserSpecifier>),
-    Defaults(Vec<(String, ConfigValue)>),
+    UserAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_0,
+    HostAlias(Defs<Hostname>) = HARDENED_ENUM_VALUE_1,
+    CmndAlias(Defs<Command>) = HARDENED_ENUM_VALUE_2,
+    RunasAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
+    Defaults(Vec<(String, ConfigValue)>) = HARDENED_ENUM_VALUE_4,
 }
 
 pub type TextEnum = crate::defaults::StrEnum<'static>;
@@ -109,19 +116,21 @@ pub enum ConfigValue {
     Enum(TextEnum),
 }
 
+#[repr(u32)]
 pub enum Mode {
-    Add,
-    Set,
-    Del,
+    Add = HARDENED_ENUM_VALUE_0,
+    Set = HARDENED_ENUM_VALUE_1,
+    Del = HARDENED_ENUM_VALUE_2,
 }
 
 /// The Sudoers file can contain permissions and directives
+#[repr(u32)]
 pub enum Sudo {
-    Spec(PermissionSpec),
-    Decl(Directive),
-    Include(String),
-    IncludeDir(String),
-    LineComment,
+    Spec(PermissionSpec) = HARDENED_ENUM_VALUE_0,
+    Decl(Directive) = HARDENED_ENUM_VALUE_1,
+    Include(String) = HARDENED_ENUM_VALUE_2,
+    IncludeDir(String) = HARDENED_ENUM_VALUE_3,
+    LineComment = HARDENED_ENUM_VALUE_4,
 }
 
 /// grammar:
