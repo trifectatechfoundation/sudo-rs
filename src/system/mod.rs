@@ -334,7 +334,7 @@ impl User {
         unsafe { libc::geteuid() }
     }
 
-    pub fn effective_gid() -> UserId {
+    pub fn effective_gid() -> GroupId {
         unsafe { libc::getegid() }
     }
 
