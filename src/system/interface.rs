@@ -1,3 +1,5 @@
+use std::ffi::CStr;
+
 pub type GroupId = libc::gid_t;
 pub type UserId = libc::uid_t;
 pub type ProcessId = libc::pid_t;
@@ -16,7 +18,7 @@ pub trait UnixUser {
     fn is_root(&self) -> bool {
         false
     }
-    fn in_group_by_name(&self, _name: &str) -> bool {
+    fn in_group_by_name(&self, _name: &CStr) -> bool {
         false
     }
     fn in_group_by_gid(&self, _gid: GroupId) -> bool {
@@ -39,8 +41,8 @@ impl UnixUser for super::User {
     fn is_root(&self) -> bool {
         self.has_uid(0)
     }
-    fn in_group_by_name(&self, name: &str) -> bool {
-        if let Ok(Some(group)) = super::Group::from_name(name) {
+    fn in_group_by_name(&self, name_c: &CStr) -> bool {
+        if let Ok(Some(group)) = super::Group::from_name(name_c) {
             self.in_group_by_gid(group.gid)
         } else {
             false
@@ -67,10 +69,11 @@ mod test {
 
     use super::*;
 
-    fn test_user(user: impl UnixUser, name: &str, uid: libc::uid_t) {
+    fn test_user(user: impl UnixUser, name_c: &CStr, uid: libc::uid_t) {
+        let name = name_c.to_str().unwrap();
         assert!(user.has_name(name));
         assert!(user.has_uid(uid));
-        assert!(user.in_group_by_name(name));
+        assert!(user.in_group_by_name(name_c));
         assert_eq!(user.is_root(), name == "root");
     }
 
@@ -82,15 +85,15 @@ mod test {
     #[test]
     fn test_unix_user() {
         let user = |name| User::from_name(name).unwrap().unwrap();
-        test_user(user("root"), "root", 0);
-        test_user(user("daemon"), "daemon", 1);
+        test_user(user(cstr!("root")), cstr!("root"), 0);
+        test_user(user(cstr!("daemon")), cstr!("daemon"), 1);
     }
 
     #[test]
     fn test_unix_group() {
         let group = |name| Group::from_name(name).unwrap().unwrap();
-        test_group(group("root"), "root", 0);
-        test_group(group("daemon"), "daemon", 1);
+        test_group(group(cstr!("root")), "root", 0);
+        test_group(group(cstr!("daemon")), "daemon", 1);
     }
 
     #[test]
@@ -99,6 +102,6 @@ mod test {
         assert!(!().has_name("root"));
         assert!(!().has_uid(0));
         assert!(!().is_root());
-        assert!(!().in_group_by_name("root"));
+        assert!(!().in_group_by_name(cstr!("root")));
     }
 }

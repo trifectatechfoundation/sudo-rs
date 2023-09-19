@@ -1,3 +1,5 @@
+use std::ffi::CStr;
+
 use super::ast;
 use super::*;
 use basic_parser::{parse_eval, parse_lines, parse_string};
@@ -22,8 +24,8 @@ impl UnixUser for Named {
         dummy_cksum(self.0) == uid
     }
 
-    fn in_group_by_name(&self, name: &str) -> bool {
-        self.has_name(name)
+    fn in_group_by_name(&self, name: &CStr) -> bool {
+        self.has_name(name.to_str().unwrap())
     }
 
     fn in_group_by_gid(&self, gid: u32) -> bool {

@@ -1,14 +1,17 @@
 use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 
-use crate::common::{context::LaunchType, Context};
-use crate::system::{Group, User};
+use crate::common::SudoPath;
+use crate::{
+    common::{context::LaunchType, Context},
+    system::{Group, User},
+};
 
 pub trait RunOptions {
     fn command(&self) -> io::Result<&PathBuf>;
     fn arguments(&self) -> &Vec<String>;
     fn arg0(&self) -> Option<&PathBuf>;
-    fn chdir(&self) -> Option<&PathBuf>;
+    fn chdir(&self) -> Option<&SudoPath>;
     fn is_login(&self) -> bool;
     fn user(&self) -> &User;
     fn requesting_user(&self) -> &User;
@@ -34,7 +37,7 @@ impl RunOptions for Context {
         self.command.arg0.as_ref()
     }
 
-    fn chdir(&self) -> Option<&PathBuf> {
+    fn chdir(&self) -> Option<&SudoPath> {
         self.chdir.as_ref()
     }
 

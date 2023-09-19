@@ -1,15 +1,19 @@
 //! Various tokens
 
+use crate::common::{SudoPath, SudoString};
+
 use super::basic_parser::{Many, Token};
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 
 #[cfg_attr(test, derive(Clone, PartialEq, Eq))]
-pub struct Username(pub String);
+pub struct Username(pub SudoString);
 
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
 impl Token for Username {
     fn construct(text: String) -> Result<Self, String> {
-        Ok(Username(text))
+        SudoString::new(text)
+            .map_err(|e| e.to_string())
+            .map(Username)
     }
 
     fn accept(c: char) -> bool {
@@ -318,7 +322,7 @@ impl Token for StringParameter {
 #[derive(Clone, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
 pub enum ChDir {
-    Path(std::path::PathBuf),
+    Path(SudoPath),
     Any,
 }
 
@@ -331,7 +335,9 @@ impl Token for ChDir {
         } else if s.contains('*') {
             Err("path cannot contain '*'".to_string())
         } else {
-            Ok(ChDir::Path(s.into()))
+            Ok(ChDir::Path(
+                SudoPath::try_from(s).map_err(|e| e.to_string())?,
+            ))
         }
     }
 

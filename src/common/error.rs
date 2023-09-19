@@ -1,20 +1,22 @@
 use crate::pam::PamError;
 use std::{borrow::Cow, fmt, path::PathBuf};
 
+use super::{SudoPath, SudoString};
+
 #[derive(Debug)]
 pub enum Error {
     Silent,
     NotAllowed {
-        username: String,
+        username: SudoString,
         command: Cow<'static, str>,
         hostname: String,
-        other_user: Option<String>,
+        other_user: Option<SudoString>,
     },
     SelfCheck,
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
     ChDirNotAllowed {
-        chdir: PathBuf,
+        chdir: SudoPath,
         command: PathBuf,
     },
     UserNotFound(String),
@@ -25,6 +27,8 @@ pub enum Error {
     Pam(PamError),
     IoError(Option<PathBuf>, std::io::Error),
     MaxAuthAttempts(usize),
+    PathValidation(PathBuf),
+    StringValidation(String),
 }
 
 impl fmt::Display for Error {
@@ -76,6 +80,12 @@ impl fmt::Display for Error {
                 chdir.display(),
                 command.display()
             ),
+            Error::StringValidation(string) => {
+                write!(f, "invalid string: {string:?}")
+            }
+            Error::PathValidation(path) => {
+                write!(f, "invalid path: {path:?}")
+            }
         }
     }
 }

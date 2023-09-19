@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+use crate::common::{SudoPath, SudoString};
+
 pub mod help;
 
 #[cfg(test)]
@@ -24,17 +26,17 @@ pub enum SudoAction {
 pub struct SudoOptions {
     pub background: bool,
     pub chroot: Option<PathBuf>,
-    pub directory: Option<PathBuf>,
-    pub group: Option<String>,
+    pub directory: Option<SudoPath>,
+    pub group: Option<SudoString>,
     pub host: Option<String>,
     pub login: bool,
     pub non_interactive: bool,
-    pub other_user: Option<String>,
+    pub other_user: Option<SudoString>,
     pub preserve_env: Vec<String>,
     pub preserve_groups: bool,
     pub shell: bool,
     pub stdin: bool,
-    pub user: Option<String>,
+    pub user: Option<SudoString>,
     // additional environment
     pub env_var_list: Vec<(String, String)>,
     // resulting action enum
@@ -316,13 +318,13 @@ impl SudoOptions {
                 },
                 SudoArg::Argument(option, value) => match option.as_str() {
                     "-D" | "--chdir" => {
-                        options.directory = Some(PathBuf::from(value));
+                        options.directory = Some(SudoPath::from_cli_string(value));
                     }
                     "-E" | "--preserve-env" => {
                         options.preserve_env = value.split(',').map(str::to_string).collect()
                     }
                     "-g" | "--group" => {
-                        options.group = Some(value);
+                        options.group = Some(SudoString::from_cli_string(value));
                     }
                     "-h" | "--host" => {
                         options.host = Some(value);
@@ -331,10 +333,10 @@ impl SudoOptions {
                         options.chroot = Some(PathBuf::from(value));
                     }
                     "-U" | "--other-user" => {
-                        options.other_user = Some(value);
+                        options.other_user = Some(SudoString::from_cli_string(value));
                     }
                     "-u" | "--user" => {
-                        options.user = Some(value);
+                        options.user = Some(SudoString::from_cli_string(value));
                     }
                     _option => {
                         Err("invalid option provided")?;

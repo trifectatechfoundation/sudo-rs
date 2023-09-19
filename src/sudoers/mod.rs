@@ -431,7 +431,7 @@ impl<'a> WithInfo for (Tag, &'a Spec<Command>) {
 fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(id) => match_identifier(user, id),
-        UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name),
+        UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name.as_cstr()),
         UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(*num),
         _ => todo!(), // nonunix-groups, netgroups, etc.
     }
@@ -444,7 +444,7 @@ fn in_group(user: &impl UnixUser, group: &impl UnixGroup) -> bool {
 fn match_group(group: &impl UnixGroup) -> impl Fn(&Identifier) -> bool + '_ {
     move |id| match id {
         Identifier::ID(num) => group.as_gid() == *num,
-        Identifier::Name(name) => group.try_as_name().map_or(false, |s| s == name),
+        Identifier::Name(name) => group.try_as_name().map_or(false, |s| name == s),
     }
 }
 

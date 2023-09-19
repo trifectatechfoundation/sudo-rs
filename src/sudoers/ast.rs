@@ -1,6 +1,7 @@
 use super::ast_names::UserFriendly;
 use super::basic_parser::*;
 use super::tokens::*;
+use crate::common::SudoString;
 use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, HARDENED_ENUM_VALUE_3,
     HARDENED_ENUM_VALUE_4,
@@ -37,7 +38,7 @@ pub type SpecList<T> = Vec<Spec<T>>;
 /// An identifier is a name or a #number
 #[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 pub enum Identifier {
-    Name(String),
+    Name(SudoString),
     ID(u32),
 }
 
@@ -190,7 +191,7 @@ impl<T: Many> Many for Qualified<T> {
 
 fn parse_meta<T: Parse>(
     stream: &mut impl CharStream,
-    embed: impl FnOnce(String) -> T,
+    embed: impl FnOnce(SudoString) -> T,
 ) -> Parsed<Meta<T>> {
     if let Some(meta) = try_nonterminal(stream)? {
         make(match meta {

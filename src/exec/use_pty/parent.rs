@@ -260,7 +260,7 @@ pub(in crate::exec) fn exec_pty(
 }
 
 fn get_pty() -> io::Result<Pty> {
-    let tty_gid = Group::from_name("tty")
+    let tty_gid = Group::from_name(cstr!("tty"))
         .unwrap_or(None)
         .map(|group| group.gid);
 

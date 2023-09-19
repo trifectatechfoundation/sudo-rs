@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 
+use crate::common::SudoString;
+
 #[derive(Debug, PartialEq)]
 pub struct SuOptions {
-    pub user: String,
+    pub user: SudoString,
     pub command: Option<String>,
-    pub group: Vec<String>,
-    pub supp_group: Vec<String>,
+    pub group: Vec<SudoString>,
+    pub supp_group: Vec<SudoString>,
     pub login: bool,
     pub preserve_environment: bool,
     pub shell: Option<PathBuf>,
@@ -17,7 +19,7 @@ pub struct SuOptions {
 impl Default for SuOptions {
     fn default() -> Self {
         Self {
-            user: "root".to_owned(),
+            user: SudoString::new("root".to_owned()).unwrap(),
             command: None,
             group: vec![],
             supp_group: vec![],
@@ -69,7 +71,7 @@ impl SuOptions {
             takes_argument: true,
             set: &|sudo_options, argument| {
                 if let Some(value) = argument {
-                    sudo_options.group.push(value);
+                    sudo_options.group.push(SudoString::from_cli_string(value));
                 } else {
                     Err("no group provided")?
                 }
@@ -83,7 +85,9 @@ impl SuOptions {
             takes_argument: true,
             set: &|sudo_options, argument| {
                 if let Some(value) = argument {
-                    sudo_options.supp_group.push(value);
+                    sudo_options
+                        .supp_group
+                        .push(SudoString::from_cli_string(value));
                 } else {
                     Err("no supplementary group provided")?
                 }
@@ -243,7 +247,7 @@ impl SuOptions {
                 }
             } else {
                 // when no option is provided (starting with - or --) the next argument is interpreted as a username
-                options.user = arg;
+                options.user = SudoString::from_cli_string(arg);
                 // the rest of the arguments are passed to the shell
                 options.arguments = arg_iter.collect();
                 break;
@@ -267,10 +271,9 @@ mod tests {
     }
 
     #[test]
-
     fn it_parses_group() {
         let expected = SuOptions {
-            group: vec!["ferris".to_string()],
+            group: vec!["ferris".into()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-g", "ferris"]));
@@ -334,7 +337,7 @@ mod tests {
     fn it_parses_an_user() {
         assert_eq!(
             SuOptions {
-                user: "ferris".to_string(),
+                user: "ferris".into(),
                 ..Default::default()
             },
             parse(&["-P", "ferris"])
@@ -342,7 +345,7 @@ mod tests {
 
         assert_eq!(
             SuOptions {
-                user: "ferris".to_string(),
+                user: "ferris".into(),
                 arguments: vec!["-P".to_string()],
                 ..Default::default()
             },
@@ -353,7 +356,7 @@ mod tests {
     #[test]
     fn it_parses_arguments() {
         let expected = SuOptions {
-            user: "ferris".to_string(),
+            user: "ferris".into(),
             arguments: vec!["script.sh".to_string()],
             ..Default::default()
         };
@@ -385,7 +388,7 @@ mod tests {
     #[test]
     fn it_parses_supplementary_group() {
         let expected = SuOptions {
-            supp_group: vec!["ferris".to_string()],
+            supp_group: vec!["ferris".into()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-G", "ferris"]));
@@ -397,11 +400,7 @@ mod tests {
     #[test]
     fn it_parses_multiple_supplementary_groups() {
         let expected = SuOptions {
-            supp_group: vec![
-                "ferris".to_string(),
-                "krabbetje".to_string(),
-                "krabbe".to_string(),
-            ],
+            supp_group: vec!["ferris".into(), "krabbetje".into(), "krabbe".into()],
             ..Default::default()
         };
         assert_eq!(

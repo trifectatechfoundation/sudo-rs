@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::common::SudoPath;
+
 use super::{SudoAction, SudoOptions};
 use pretty_assertions::assert_eq;
 
@@ -216,13 +218,13 @@ fn shell() {
 #[test]
 fn directory() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-D/some/path"]).unwrap();
-    assert_eq!(cmd.directory, Some(PathBuf::from("/some/path")));
+    assert_eq!(cmd.directory, Some(SudoPath::from("/some/path")));
 
     let cmd = SudoOptions::try_parse_from(["sudo", "--chdir", "/some/path"]).unwrap();
-    assert_eq!(cmd.directory, Some(PathBuf::from("/some/path")));
+    assert_eq!(cmd.directory, Some(SudoPath::from("/some/path")));
 
     let cmd = SudoOptions::try_parse_from(["sudo", "--chdir=/some/path"]).unwrap();
-    assert_eq!(cmd.directory, Some(PathBuf::from("/some/path")));
+    assert_eq!(cmd.directory, Some(SudoPath::from("/some/path")));
 }
 
 #[test]

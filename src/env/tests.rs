@@ -80,7 +80,8 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
     let current_user = User {
         uid: 1000,
         gid: 1000,
-        name: "test".to_string(),
+
+        name: "test".into(),
         gecos: String::new(),
         home: "/home/test".into(),
         shell: "/bin/sh".into(),
@@ -98,7 +99,7 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
     let root_user = User {
         uid: 0,
         gid: 0,
-        name: "root".to_string(),
+        name: "root".into(),
         gecos: String::new(),
         home: "/root".into(),
         shell: "/bin/bash".into(),
