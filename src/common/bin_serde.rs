@@ -77,6 +77,7 @@ impl<R: DeSerialize, W: DeSerialize> BinPipe<R, W> {
     }
 
     /// Calls [std::net::TcpStream::set_nonblocking] on the underlying socket.
+    #[cfg(debug_assertions)]
     pub fn set_nonblocking(&self, nonblocking: bool) -> io::Result<()> {
         self.sock.set_nonblocking(nonblocking)
     }
