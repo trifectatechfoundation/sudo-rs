@@ -269,7 +269,9 @@ fn get_pty() -> io::Result<Pty> {
         err
     })?;
 
-    chown(&pty.path, User::effective_uid(), tty_gid).map_err(|err| {
+    let euid = User::effective_uid();
+    let gid = tty_gid.unwrap_or(User::effective_gid());
+    chown(&pty.path, euid, gid).map_err(|err| {
         dev_error!("cannot change owner for pty: {err}");
         err
     })?;

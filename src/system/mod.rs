@@ -242,12 +242,12 @@ pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
 
 pub fn chown<S: AsRef<CStr>>(
     path: &S,
-    uid: impl Into<Option<UserId>>,
-    gid: impl Into<Option<GroupId>>,
+    uid: impl Into<UserId>,
+    gid: impl Into<GroupId>,
 ) -> io::Result<()> {
     let path = path.as_ref().as_ptr();
-    let uid = uid.into().unwrap_or(UserId::MAX);
-    let gid = gid.into().unwrap_or(GroupId::MAX);
+    let uid = uid.into();
+    let gid = gid.into();
 
     cerr(unsafe { libc::chown(path, uid, gid) }).map(|_| ())
 }
@@ -332,6 +332,10 @@ impl User {
 
     pub fn effective_uid() -> UserId {
         unsafe { libc::geteuid() }
+    }
+
+    pub fn effective_gid() -> GroupId {
+        unsafe { libc::getegid() }
     }
 
     pub fn real_uid() -> UserId {
