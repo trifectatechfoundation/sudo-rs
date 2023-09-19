@@ -171,11 +171,11 @@ jobs:
 
       - name: clippy sudo-test
         working-directory: test-framework
-        run: cargo clippy -p sudo-test --no-deps -- --deny clippy::all
+        run: cargo clippy -p sudo-test --no-deps -- --deny warnings
 
       - name: clippy compliance-tests
         working-directory: test-framework
-        run: cargo clippy -p sudo-compliance-tests --tests --no-deps -- --deny clippy::all
+        run: cargo clippy -p sudo-compliance-tests --tests --no-deps -- --deny warnings
 
       - name: Check that all ignored tests are linked to a GH issue
         working-directory: test-framework/sudo-compliance-tests
@@ -401,7 +401,7 @@ jobs:
         with:
           name: clippy-result
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --no-deps
+          args: --no-deps -- --deny warnings
 
   docs:
     needs: clippy
