@@ -13,6 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::{io, mem};
 
+use crate::common::resolve::resolve_path;
 use crate::log::auth_warn;
 use crate::system::can_execute;
 use crate::system::interface::{UnixGroup, UnixUser};
@@ -187,6 +188,13 @@ impl Sudoers {
                     let path = Path::new(&var);
                     if can_execute(path) {
                         return Some(path.to_owned());
+                    }
+                    let path = resolve_path(
+                        path,
+                        &std::env::var("PATH").unwrap_or(env!("DEFAULT_PATH").to_string()),
+                    );
+                    if let Some(path) = path {
+                        return Some(path);
                     }
                 }
             }

@@ -129,7 +129,7 @@ pub(crate) fn is_valid_executable(path: &PathBuf) -> bool {
 /// When resolving a path, this code checks whether the target file is
 /// a regular file and has any executable bits set. It does not specifically
 /// check for user, group, or others' executable bit.
-pub(super) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
     // To prevent command spoofing, sudo checks "." and "" (both denoting current directory)
     // last when searching for a command in the user's PATH (if one or both are in the PATH).
     // Depending on the security policy, the user's PATH environment variable may be modified,
@@ -200,25 +200,27 @@ pub(crate) fn expand_tilde_in_path(
 mod tests {
     use std::path::PathBuf;
 
-    use super::resolve_path;
-    use super::{resolve_current_user, resolve_target_user_and_group, NameOrId};
+    use super::{
+        is_valid_executable, resolve_current_user, resolve_path, resolve_target_user_and_group,
+        NameOrId,
+    };
 
-    // this test is platform specific -> should be changed when targetting different platforms
     #[test]
     fn test_resolve_path() {
+        // Assume any linux distro has utilities in this PATH
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-        assert_eq!(
-            resolve_path(&PathBuf::from("yes"), path),
-            Some(PathBuf::from("/usr/bin/yes"))
-        );
-        assert_eq!(
-            resolve_path(&PathBuf::from("whoami"), path),
-            Some(PathBuf::from("/usr/bin/whoami"))
-        );
-        assert_eq!(
-            resolve_path(&PathBuf::from("env"), path),
-            Some(PathBuf::from("/usr/bin/env"))
-        );
+
+        assert!(is_valid_executable(
+            &resolve_path(&PathBuf::from("yes"), path).unwrap()
+        ));
+
+        assert!(is_valid_executable(
+            &resolve_path(&PathBuf::from("whoami"), path).unwrap()
+        ));
+
+        assert!(is_valid_executable(
+            &resolve_path(&PathBuf::from("env"), path).unwrap()
+        ));
         assert_eq!(
             resolve_path(&PathBuf::from("thisisnotonyourfs"), path),
             None
