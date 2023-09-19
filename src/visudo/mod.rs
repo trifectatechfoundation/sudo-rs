@@ -243,7 +243,7 @@ fn edit_sudoers_file(
             break;
         }
 
-        writeln!(stderr, "Come on... you can do better than that.\n")?;
+        writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
 
         for crate::sudoers::Error(_position, message) in errors {
             writeln!(stderr, "syntax error: {message}")?;
