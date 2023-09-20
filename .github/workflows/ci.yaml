@@ -435,54 +435,6 @@ jobs:
           command: doc
           args: --no-deps --document-private-items --all-features
 
-  track-dependencies:
-    needs: clippy
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Set rust nightly version
-        run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustc)" >> $GITHUB_ENV
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-${{ env.NIGHTLY_VERSION }}
-          override: true
-
-      - name: Install cargo-udeps
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-udeps
-
-      - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: deps
-
-      - name: Check udeps
-        uses: actions-rs/cargo@v1
-        with:
-          command: udeps
-          args: --workspace --all-targets
-
-      - uses: tweedegolf/cargo-dependencies-action@v0.2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          bin: sudo
-          mainBranchName: main
-
   audit:
     needs: clippy
     runs-on: ubuntu-latest
