@@ -167,16 +167,14 @@ pub fn hostname() -> String {
     }
 }
 
-pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &str) {
+pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &CStr) {
     const MSG: *const libc::c_char = match CStr::from_bytes_until_nul(b"%s\0") {
         Ok(cstr) => cstr.as_ptr(),
         Err(_) => panic!("syslog formatting string is not null-terminated"),
     };
 
-    let msg = CString::new(message).expect("message should not have interior null bytes");
-
     unsafe {
-        libc::syslog(priority | facility, MSG, msg.as_ptr());
+        libc::syslog(priority | facility, MSG, message.as_ptr());
     }
 }
 
