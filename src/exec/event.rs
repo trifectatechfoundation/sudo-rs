@@ -6,6 +6,7 @@ use std::{
 
 use libc::{c_short, pollfd, POLLIN, POLLOUT};
 
+use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
 use crate::{cutils::cerr, log::dev_debug};
 
 pub(super) trait Process: Sized {
@@ -23,9 +24,10 @@ pub(super) trait Process: Sized {
     fn on_event(&mut self, event: Self::Event, registry: &mut EventRegistry<Self>);
 }
 
+#[repr(u32)]
 enum Status<T: Process> {
-    Continue,
-    Stop(StopReason<T>),
+    Continue = HARDENED_ENUM_VALUE_0,
+    Stop(StopReason<T>) = HARDENED_ENUM_VALUE_1,
 }
 
 impl<T: Process> Status<T> {

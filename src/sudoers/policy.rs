@@ -1,6 +1,7 @@
 use super::Sudoers;
 
 use super::Judgement;
+use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
 use crate::system::time::Duration;
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
 /// permission check.
@@ -29,9 +30,10 @@ pub trait Policy {
 
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
 pub enum Authorization {
-    Allowed(AuthorizationAllowed),
-    Forbidden,
+    Allowed(AuthorizationAllowed) = HARDENED_ENUM_VALUE_0,
+    Forbidden = HARDENED_ENUM_VALUE_1,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -43,9 +45,10 @@ pub struct AuthorizationAllowed {
 
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
 pub enum DirChange<'a> {
-    Strict(Option<&'a Path>),
-    Any,
+    Strict(Option<&'a Path>) = HARDENED_ENUM_VALUE_0,
+    Any = HARDENED_ENUM_VALUE_1,
 }
 
 impl Policy for Judgement {
