@@ -1,5 +1,6 @@
 [workspace]
 members = ["sudo-test", "sudo-compliance-tests", "e2e-tests"]
+resolver = "2"
 
 [profile.dev.package.insta]
 opt-level = 3

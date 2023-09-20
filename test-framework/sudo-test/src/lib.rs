@@ -477,8 +477,8 @@ pub fn TextFile(contents: impl AsRef<str>) -> TextFile {
 }
 
 impl TextFile {
-    const DEFAULT_CHMOD: &str = "000";
-    const DEFAULT_CHOWN: &str = "root:root";
+    const DEFAULT_CHMOD: &'static str = "000";
+    const DEFAULT_CHOWN: &'static str = "root:root";
 
     /// chmod string to apply to the file
     ///
@@ -567,8 +567,8 @@ pub struct Directory {
 }
 
 impl Directory {
-    const DEFAULT_CHMOD: &str = "100";
-    const DEFAULT_CHOWN: &str = "root:root";
+    const DEFAULT_CHMOD: &'static str = "100";
+    const DEFAULT_CHOWN: &'static str = "root:root";
 
     /// chmod string to apply to the file
     ///
