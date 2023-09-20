@@ -11,8 +11,6 @@ categories = ["command-line-interface"]
 
 rust-version = "1.70"
 
-resolver = "2"
-
 default-run = "sudo"
 
 [lib]
