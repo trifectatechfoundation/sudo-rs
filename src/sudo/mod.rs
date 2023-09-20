@@ -4,13 +4,12 @@ use crate::cli::{help, SudoAction, SudoOptions};
 use crate::common::{resolve::resolve_current_user, Context, Error};
 use crate::log::dev_info;
 use crate::system::timestamp::RecordScope;
-use crate::system::{self, User};
+use crate::system::User;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
 use pam::PamAuthenticator;
 use pipeline::{Pipeline, PolicyPlugin};
-use std::os::unix::fs::MetadataExt;
+use std::env;
 use std::path::Path;
-use std::{env, fs};
 
 mod diagnostic;
 mod pam;
