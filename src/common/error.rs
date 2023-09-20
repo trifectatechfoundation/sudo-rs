@@ -50,7 +50,7 @@ impl fmt::Display for Error {
                 }
             }
             Error::SelfCheck => {
-                write!(f, "sudo must be owned by uid 0 and have the setuid bit set")
+                f.write_str("sudo must be owned by uid 0 and have the setuid bit set")
             }
             Error::CommandNotFound(p) => write!(f, "'{}': command not found", p.display()),
             Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
