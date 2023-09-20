@@ -41,6 +41,6 @@ default = []
 dev = []
 
 [profile.release]
-strip = "debuginfo"
+strip = "symbols"
 lto = true
 opt-level = "s"
