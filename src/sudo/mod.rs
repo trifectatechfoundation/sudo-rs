@@ -3,8 +3,8 @@
 use crate::cli::{help, SudoAction, SudoOptions};
 use crate::common::{resolve::resolve_current_user, Context, Error};
 use crate::log::dev_info;
-use crate::system;
 use crate::system::timestamp::RecordScope;
+use crate::system::{self, User};
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
 use pam::PamAuthenticator;
 use pipeline::{Pipeline, PolicyPlugin};
@@ -130,19 +130,9 @@ fn sudo_process() -> Result<(), Error> {
 
 fn self_check() -> Result<(), Error> {
     const ROOT: u32 = 0;
-    const SETUID_BIT: u32 = 0o4000;
 
-    let euid = system::geteuid()?;
+    let euid = User::effective_uid();
     if euid == ROOT {
-        return Ok(());
-    }
-
-    let path = env::current_exe().map_err(|e| Error::IoError(None, e))?;
-    let metadata = fs::metadata(path).map_err(|e| Error::IoError(None, e))?;
-
-    let owned_by_root = metadata.uid() == ROOT;
-    let setuid_bit_is_set = metadata.mode() & SETUID_BIT != 0;
-    if owned_by_root && setuid_bit_is_set {
         Ok(())
     } else {
         Err(Error::SelfCheck)

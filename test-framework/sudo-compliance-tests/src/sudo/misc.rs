@@ -144,11 +144,11 @@ fn sudo_binary_is_not_owned_by_root_and_ran_as_root() -> Result<()> {
         .output(&env)?
         .assert_success()?;
 
-    let output = Command::new("sudo")
+    Command::new("sudo")
         .arg("true")
         .as_user("root")
         .output(&env)?
-        .assert_success();
+        .assert_success()
 }
 
 #[test]

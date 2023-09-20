@@ -144,10 +144,6 @@ pub fn setsid() -> io::Result<ProcessId> {
     cerr(unsafe { libc::setsid() })
 }
 
-pub fn geteuid() -> io::Result<u32> {
-    cerr(unsafe { libc::geteuid() })
-}
-
 pub fn hostname() -> String {
     // see `man 2 gethostname`
     const MAX_HOST_NAME_SIZE_ACCORDING_TO_SUSV2: libc::c_long = 255;
