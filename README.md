@@ -70,6 +70,11 @@ Some other notable restrictions to be aware of:
   the sudoers file.
 * sudo-rs will not include the sendmail support of original sudo.
 * The sudoers file must be valid UTF-8.
+* To prevent a common configuration mistake in the sudoers file, wildcards
+  are not supported in *argument positions* for a command.
+  E.g., `%sudoers ALL = /sbin/fsck*` will allow `sudo fsck` and `sudo fsck_exfat` as expected,
+  but `%sudoers ALL = /bin/rm *.txt` will not allow an operator to run `sudo rm README.txt`,
+  nor `sudo rm -rf /home .txt`, as with original sudo.
 
 If you find a common use case for original sudo missing, please create a feature
 request for it in our issue tracker.
