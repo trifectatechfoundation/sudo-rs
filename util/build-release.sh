@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DATE="2023-08-29"
+DATE="2023-09-21"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 PROJECT_DIR=$(dirname "$SCRIPT_DIR")
 SUDO_RS_VERSION="$(cargo metadata --format-version 1 --manifest-path "$PROJECT_DIR/Cargo.toml" | jq '.packages[] | select(.name=="sudo-rs") | .version' -r)"

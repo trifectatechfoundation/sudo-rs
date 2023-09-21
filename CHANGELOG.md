@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.2.1] - 2023-09-21
+
+### Changed
+- Session records/timestamps are now stored in files with uids instead of
+  usernames, fixing a security bug (CVE-2023-42456)
+- `visudo` will now resolve `EDITOR` via `PATH`
+- Input/output errors while writing text to the terminal no longer cause sudo to
+  exit immediately
+- Switched several internal API calls from libc to Rust's std library
+- The `%h` escape sequence in sudoers includes directives is not supported in
+  sudo-rs, this now gives a better diagnostic and no longer tries to include the
+  file
+- Our PAM integration was hardened against allocation failures
+- An attempt was made to harden against rowhammer type attacks
+- Release builds no longer include debugging symbols
+
+### Fixed
+- Fixed an invalid parsing when an escaped null byte was present in the sudoers
+  file
+- Replaced informal error message in `visudo` with a proper error message
+
+
 ## [0.2.0] - 2023-08-29
 
 ### Added
@@ -76,6 +98,7 @@
 - Use canonicalized paths for the executed binaries
 - Simplified CLI help to only display supported actions
 
+[0.2.1]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230711...v0.2.0
 [0.2.0-dev.20230711]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230703...v0.2.0-dev.20230711
 [0.2.0-dev.20230703]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230627...v0.2.0-dev.20230703
