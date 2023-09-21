@@ -2,7 +2,7 @@ mod cli;
 mod help;
 
 use std::{
-    ffi::{CStr, CString, OsString},
+    ffi::{CString, OsString},
     fs::{File, Permissions},
     io::{self, Read, Seek, Write},
     os::unix::prelude::{MetadataExt, OsStringExt, PermissionsExt},
@@ -302,12 +302,7 @@ fn editor_path_fallback() -> io::Result<PathBuf> {
 }
 
 fn create_temporary_dir() -> io::Result<PathBuf> {
-    // SAFETY: the required safety checks (last byte is NULL; no inner NULLs) are performed at
-    // compile time by the const-constructor
-    const TEMPLATE: &CStr =
-        unsafe { CStr::from_bytes_with_nul_unchecked(b"/tmp/sudoers-XXXXXX\0") };
-
-    let template = TEMPLATE.to_owned();
+    let template = cstr!("/tmp/sudoers-XXXXXX").to_owned();
 
     let ptr = unsafe { libc::mkdtemp(template.into_raw()) };
 
