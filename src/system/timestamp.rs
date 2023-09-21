@@ -35,18 +35,18 @@ const SIZE_OF_BOOL: i64 = std::mem::size_of::<BoolStorage>() as i64;
 const MOD_OFFSET: i64 = SIZE_OF_TS + SIZE_OF_BOOL;
 
 #[derive(Debug)]
-pub struct SessionRecordFile<'u> {
+pub struct SessionRecordFile {
     file: File,
     timeout: Duration,
-    for_user: &'u str,
+    for_user: UserId,
 }
 
-impl<'u> SessionRecordFile<'u> {
+impl SessionRecordFile {
     const BASE_PATH: &'static str = "/var/run/sudo-rs/ts";
 
-    pub fn open_for_user(user: &'u str, timeout: Duration) -> io::Result<Self> {
+    pub fn open_for_user(user: UserId, timeout: Duration) -> io::Result<Self> {
         let mut path = PathBuf::from(Self::BASE_PATH);
-        path.push(user);
+        path.push(user.to_string());
         SessionRecordFile::new(user, secure_open_cookie_file(&path)?, timeout)
     }
 
@@ -59,7 +59,7 @@ impl<'u> SessionRecordFile<'u> {
     /// Create a new SessionRecordFile from the given i/o stream.
     /// Timestamps in this file are considered valid if they were created or
     /// updated at most `timeout` time ago.
-    pub fn new(for_user: &'u str, io: File, timeout: Duration) -> io::Result<Self> {
+    pub fn new(for_user: UserId, io: File, timeout: Duration) -> io::Result<Self> {
         let mut session_records = SessionRecordFile {
             file: io,
             timeout,
@@ -578,6 +578,8 @@ mod tests {
 
     use crate::system::tests::tempfile;
 
+    const TEST_USER_ID: UserId = 1000;
+
     impl SetLength for Cursor<Vec<u8>> {
         fn set_len(&mut self, new_len: usize) -> io::Result<()> {
             self.get_mut().truncate(new_len);
@@ -714,25 +716,25 @@ mod tests {
         // valid header should remain valid
         let c = tempfile_with_data(&[0xD0, 0x50, 0x01, 0x00]).unwrap();
         let timeout = Duration::seconds(30);
-        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid headers should be corrected
         let c = tempfile_with_data(&[0xAB, 0xBA]).unwrap();
-        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // empty header should be filled in
         let c = tempfile_with_data(&[]).unwrap();
-        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid version should reset file
         let c = tempfile_with_data(&[0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0]).unwrap();
-        assert!(SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
     }
@@ -741,7 +743,8 @@ mod tests {
     fn can_create_and_update_valid_file() {
         let timeout = Duration::seconds(30);
         let c = tempfile_with_data(&[]).unwrap();
-        let mut srf = SessionRecordFile::new("test", c.try_clone().unwrap(), timeout).unwrap();
+        let mut srf =
+            SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).unwrap();
         let tty_scope = RecordScope::Tty {
             tty_device: 0,
             session_pid: 0,
