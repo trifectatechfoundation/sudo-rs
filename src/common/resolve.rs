@@ -1,5 +1,6 @@
 use crate::cli::SudoOptions;
 use crate::system::{Group, User};
+use std::ffi::CStr;
 use std::{
     env, fs, io,
     os::unix::prelude::MetadataExt,
@@ -58,28 +59,12 @@ pub(crate) fn resolve_target_user_and_group(
     current_user: &User,
 ) -> Result<(User, Group), Error> {
     // resolve user name or #<id> to a user
-    let mut target_user = target_user_name_or_id
-        .as_ref()
-        .and_then(|input| {
-            match NameOrId::parse(input)? {
-                NameOrId::Name(name) => User::from_name(name.as_cstr()),
-                NameOrId::Id(uid) => User::from_uid(uid),
-            }
-            .transpose()
-        })
-        .transpose()?;
+    let mut target_user =
+        resolve_from_name_or_id(target_user_name_or_id, User::from_name, User::from_uid)?;
 
     // resolve group name or #<id> to a group
-    let mut target_group = target_group_name_or_id
-        .as_ref()
-        .and_then(|input| {
-            match NameOrId::parse(input)? {
-                NameOrId::Name(name) => Group::from_name(name.as_cstr()),
-                NameOrId::Id(gid) => Group::from_gid(gid),
-            }
-            .transpose()
-        })
-        .transpose()?;
+    let mut target_group =
+        resolve_from_name_or_id(target_group_name_or_id, Group::from_name, Group::from_gid)?;
 
     match (&target_user_name_or_id, &target_group_name_or_id) {
         // when -g is specified, but -u is not specified default -u to the current user
@@ -119,6 +104,21 @@ pub(crate) fn resolve_target_user_and_group(
                 .unwrap_or_default()
                 .to_string(),
         )),
+    }
+}
+
+fn resolve_from_name_or_id<T, I, E>(
+    input: &Option<SudoString>,
+    from_name: impl FnOnce(&CStr) -> Result<Option<T>, E>,
+    from_id: impl FnOnce(I) -> Result<Option<T>, E>,
+) -> Result<Option<T>, E>
+where
+    I: FromStr,
+{
+    match input.as_ref().and_then(NameOrId::parse) {
+        Some(NameOrId::Name(name)) => from_name(name.as_cstr()),
+        Some(NameOrId::Id(id)) => from_id(id),
+        None => Ok(None),
     }
 }
 
