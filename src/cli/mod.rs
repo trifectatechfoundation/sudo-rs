@@ -87,70 +87,67 @@ impl SudoOptions {
     {
         // the first argument is the sudo command - so we can skip it
         let mut arg_iter = iter.into_iter().skip(1);
-        let mut processed: Vec<SudoArg> = vec![];
+        let mut processed = vec![];
 
         while let Some(arg) = arg_iter.next() {
-            match arg.as_str() {
-                "--" => {
-                    processed.push(SudoArg::Rest(arg_iter.collect()));
-                    break;
-                }
-                long_arg if long_arg.starts_with("--") => {
-                    if long_arg.contains('=') {
-                        // convert assignment to normal tokens
-                        let (key, value) = long_arg.split_once('=').unwrap();
-                        // only accept arguments when one is expected
-                        if !Self::TAKES_ARGUMENT.contains(&&key[2..]) {
-                            Err(format!("'{}' does not take any arguments", key))?;
-                        }
-                        processed.push(SudoArg::Argument(key.to_string(), value.to_string()));
-                    } else if Self::TAKES_ARGUMENT.contains(&&long_arg[2..]) {
-                        if let Some(next) = arg_iter.next() {
-                            processed.push(SudoArg::Argument(arg, next));
-                        } else {
-                            Err(format!("'{}' expects an argument", &long_arg))?;
-                        }
+            if arg == "--" {
+                processed.push(SudoArg::Rest(arg_iter.collect()));
+                break;
+            } else if arg.starts_with("--") {
+                let long_arg = arg;
+
+                if long_arg.contains('=') {
+                    // convert assignment to normal tokens
+                    let (key, value) = long_arg.split_once('=').unwrap();
+                    // only accept arguments when one is expected
+                    if !Self::TAKES_ARGUMENT.contains(&&key[2..]) {
+                        Err(format!("'{}' does not take any arguments", key))?;
+                    }
+                    processed.push(SudoArg::Argument(key.to_string(), value.to_string()));
+                } else if Self::TAKES_ARGUMENT.contains(&&long_arg[2..]) {
+                    if let Some(next) = arg_iter.next() {
+                        processed.push(SudoArg::Argument(arg, next));
                     } else {
-                        processed.push(SudoArg::Flag(arg));
+                        Err(format!("'{}' expects an argument", &long_arg))?;
                     }
+                } else {
+                    processed.push(SudoArg::Flag(arg));
                 }
-                short_arg if short_arg.starts_with('-') => {
-                    // split combined shorthand options
-                    for (n, char) in short_arg.trim_start_matches('-').chars().enumerate() {
-                        let flag = format!("-{char}");
-                        // convert option argument to seperate segment
-                        if Self::TAKES_ARGUMENT_SHORT.contains(&char) {
-                            let rest = short_arg[(n + 2)..].trim().to_string();
-                            // assignment syntax is not accepted for shorthand arguments
-                            if rest.starts_with('=') {
-                                Err("invalid option '='")?;
-                            }
-                            if !rest.is_empty() {
-                                processed.push(SudoArg::Argument(flag, rest));
-                            } else if let Some(next) = arg_iter.next() {
-                                processed.push(SudoArg::Argument(flag, next));
-                            } else if char == 'h' {
-                                // short version of --help has no arguments
-                                processed.push(SudoArg::Flag(flag));
-                            } else {
-                                Err(format!("'-{}' expects an argument", char))?;
-                            }
-                            break;
-                        } else {
-                            processed.push(SudoArg::Flag(flag));
+            } else if arg.starts_with('-') {
+                let short_arg = arg;
+
+                // split combined shorthand options
+                for (n, char) in short_arg.trim_start_matches('-').chars().enumerate() {
+                    let flag = format!("-{char}");
+                    // convert option argument to seperate segment
+                    if Self::TAKES_ARGUMENT_SHORT.contains(&char) {
+                        let rest = short_arg[(n + 2)..].trim().to_string();
+                        // assignment syntax is not accepted for shorthand arguments
+                        if rest.starts_with('=') {
+                            Err("invalid option '='")?;
                         }
+                        if !rest.is_empty() {
+                            processed.push(SudoArg::Argument(flag, rest));
+                        } else if let Some(next) = arg_iter.next() {
+                            processed.push(SudoArg::Argument(flag, next));
+                        } else if char == 'h' {
+                            // short version of --help has no arguments
+                            processed.push(SudoArg::Flag(flag));
+                        } else {
+                            Err(format!("'-{}' expects an argument", char))?;
+                        }
+                        break;
+                    } else {
+                        processed.push(SudoArg::Flag(flag));
                     }
                 }
-                env_var if SudoOptions::try_to_env_var(env_var).is_some() => {
-                    let (key, value) = SudoOptions::try_to_env_var(env_var).unwrap();
-                    processed.push(SudoArg::Environment(key, value));
-                }
-                _argument => {
-                    let mut rest = vec![arg];
-                    rest.extend(arg_iter);
-                    processed.push(SudoArg::Rest(rest));
-                    break;
-                }
+            } else if let Some((key, value)) = SudoOptions::try_to_env_var(&arg) {
+                processed.push(SudoArg::Environment(key, value));
+            } else {
+                let mut rest = vec![arg];
+                rest.extend(arg_iter);
+                processed.push(SudoArg::Rest(rest));
+                break;
             }
         }
 
