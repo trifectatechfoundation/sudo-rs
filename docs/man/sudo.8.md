@@ -58,10 +58,10 @@ even if that process runs in its own pseudo terminal.
     the current session. The next time sudo-rs is run, authentication will take
     place if the policy requires it.
 
-    When used in conjuction with a *command* or an option that may require a
+    When used in conjunction with a *command* or an option that may require a
     password, this option will cause sudo-rs to ignore the user's session
     record. As a result, authentication will take place if the policy requires
-    it. When used in conjuction with a *command* no invalidation of existing
+    it. When used in conjunction with a *command* no invalidation of existing
     session records will take place.
 
 `-n`, `--non-interactive`

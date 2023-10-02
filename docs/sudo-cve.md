@@ -15,7 +15,7 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 | CVE-2004-1051 [^4]     |       | https://www.sudo.ws/security/advisories/bash_functions/                     |
 | CVE-2005-1119 [^5]     |       | Corrupt arbitrary files via a symlink attack                                |
 | CVE-2005-1993 [^6]     |       | https://www.sudo.ws/security/advisories/path_race/                          |
-| CVE-2005-4890 [^7]     |       | TTY hijacking when a priviliged user uses sudo to run unprivileged commands |
+| CVE-2005-4890 [^7]     |       | TTY hijacking when a privileged user uses sudo to run unprivileged commands |
 | - [^9]                 |       | https://www.sudo.ws/security/advisories/cmnd_alias_negation/                |
 | CVE-2010-1646 [^10]    |       | https://www.sudo.ws/security/advisories/secure_path/                        |
 | CVE-2010-2956 [^11]    |       | https://www.sudo.ws/security/advisories/runas_group/                        |
@@ -32,7 +32,7 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 
 [^1]: All our path checks should only ever be done with absolute paths
 [^2]: We try to take care to only expose relevant information to the user
-[^3]: Our usage of Rust should mostly prevent heap corruption bugs from occuring
+[^3]: Our usage of Rust should mostly prevent heap corruption bugs from occurring
 [^4]: env_reset is always enabled in sudo-rs, additionally we apply filtering to
       several variables to prevent any additional attack paths
 [^5]: -
