@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::cli::{help, SudoAction, SudoOptions};
+use crate::cli::{help, SudoAction};
 use crate::common::{resolve::resolve_current_user, Context, Error};
 use crate::log::dev_info;
 use crate::system::timestamp::RecordScope;
@@ -79,24 +79,24 @@ fn sudo_process() -> Result<(), Error> {
     };
 
     // parse cli options
-    match SudoOptions::from_env() {
-        Ok(options) => match options.action {
-            SudoAction::Help => {
+    match SudoAction::from_env() {
+        Ok(action) => match action {
+            SudoAction::Help(_) => {
                 eprintln_ignore_io_error!("{}", help::long_help_message());
                 std::process::exit(0);
             }
-            SudoAction::Version => {
+            SudoAction::Version(_) => {
                 eprintln_ignore_io_error!("sudo-rs {VERSION}");
                 std::process::exit(0);
             }
-            SudoAction::RemoveTimestamp => {
+            SudoAction::RemoveTimestamp(_) => {
                 let user = resolve_current_user()?;
                 let mut record_file =
                     SessionRecordFile::open_for_user(user.uid, Duration::seconds(0))?;
                 record_file.reset()?;
                 Ok(())
             }
-            SudoAction::ResetTimestamp => {
+            SudoAction::ResetTimestamp(_) => {
                 if let Some(scope) = RecordScope::for_process(&Process::new()) {
                     let user = resolve_current_user()?;
                     let mut record_file =
@@ -105,17 +105,17 @@ fn sudo_process() -> Result<(), Error> {
                 }
                 Ok(())
             }
-            SudoAction::Validate => pipeline.run_validate(options),
-            SudoAction::Run(ref cmd) => {
+            SudoAction::Validate(options) => pipeline.run_validate(options),
+            SudoAction::Run(options) => {
                 // special case for when no command is given
-                if cmd.is_empty() && !options.shell && !options.login {
+                if options.positional_args.is_empty() && !options.shell && !options.login {
                     eprintln_ignore_io_error!("{}", help::USAGE_MSG);
                     std::process::exit(1);
                 } else {
                     pipeline.run(options)
                 }
             }
-            SudoAction::List(_) => pipeline.run_list(options),
+            SudoAction::List(options) => pipeline.run_list(options),
             SudoAction::Edit(_) => {
                 unimplemented!();
             }
