@@ -91,48 +91,48 @@ impl SudoOptions {
             if arg == "--" {
                 processed.push(SudoArg::Rest(arg_iter.collect()));
                 break;
-            } else if arg.starts_with("--") {
-                let long_arg = arg;
-
-                if long_arg.contains('=') {
+            } else if let Some(unprefixed) = arg.strip_prefix("--") {
+                if let Some((key, value)) = unprefixed.split_once('=') {
                     // convert assignment to normal tokens
-                    let (key, value) = long_arg.split_once('=').unwrap();
+
                     // only accept arguments when one is expected
-                    if !Self::TAKES_ARGUMENT.contains(&&key[2..]) {
+                    if !Self::TAKES_ARGUMENT.contains(&key) {
                         Err(format!("'{}' does not take any arguments", key))?;
                     }
-                    processed.push(SudoArg::Argument(key.to_string(), value.to_string()));
-                } else if Self::TAKES_ARGUMENT.contains(&&long_arg[2..]) {
+                    processed.push(SudoArg::Argument("--".to_string() + key, value.to_string()));
+                } else if Self::TAKES_ARGUMENT.contains(&unprefixed) {
                     if let Some(next) = arg_iter.next() {
                         processed.push(SudoArg::Argument(arg, next));
                     } else {
-                        Err(format!("'{}' expects an argument", &long_arg))?;
+                        Err(format!("'{}' expects an argument", &arg))?;
                     }
                 } else {
                     processed.push(SudoArg::Flag(arg));
                 }
-            } else if arg.starts_with('-') {
-                let short_arg = arg;
-
+            } else if let Some(unprefixed) = arg.strip_prefix('-') {
                 // split combined shorthand options
-                for (n, char) in short_arg.trim_start_matches('-').chars().enumerate() {
-                    let flag = format!("-{char}");
-                    // convert option argument to seperate segment
-                    if Self::TAKES_ARGUMENT_SHORT.contains(&char) {
-                        let rest = short_arg[(n + 2)..].trim().to_string();
+                let mut chars = unprefixed.chars();
+
+                while let Some(curr) = chars.next() {
+                    let flag = format!("-{curr}");
+                    // convert option argument to separate segment
+                    if Self::TAKES_ARGUMENT_SHORT.contains(&curr) {
+                        let rest = chars.as_str();
+                        let next = chars.next();
+
                         // assignment syntax is not accepted for shorthand arguments
-                        if rest.starts_with('=') {
+                        if next == Some('=') {
                             Err("invalid option '='")?;
                         }
-                        if !rest.is_empty() {
-                            processed.push(SudoArg::Argument(flag, rest));
+                        if next.is_some() {
+                            processed.push(SudoArg::Argument(flag, rest.to_string()));
                         } else if let Some(next) = arg_iter.next() {
                             processed.push(SudoArg::Argument(flag, next));
-                        } else if char == 'h' {
+                        } else if curr == 'h' {
                             // short version of --help has no arguments
                             processed.push(SudoArg::Flag(flag));
                         } else {
-                            Err(format!("'-{}' expects an argument", char))?;
+                            Err(format!("'-{}' expects an argument", curr))?;
                         }
                         break;
                     } else {
