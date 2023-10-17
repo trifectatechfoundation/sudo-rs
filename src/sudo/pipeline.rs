@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::process::exit;
 
-use crate::cli::SudoOptions;
+use crate::cli::{OptionsForContext, RunOptions, ValidateOptions};
 use crate::common::{resolve::expand_tilde_in_path, Context, Environment, Error};
 use crate::env::environment;
 use crate::exec::{ExecOutput, ExitReason};
@@ -40,9 +40,9 @@ pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
 }
 
 impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
-    pub fn run(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
+    pub fn run(mut self, cmd_opts: RunOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
-        let mut context = build_context(cmd_opts, &pre)?;
+        let mut context = build_context(cmd_opts.into(), &pre)?;
 
         let policy = self.policy.judge(pre, &context)?;
         let authorization = policy.authorization();
@@ -99,9 +99,9 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         Ok(())
     }
 
-    pub fn run_validate(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
+    pub fn run_validate(mut self, cmd_opts: ValidateOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
-        let context = build_context(cmd_opts, &pre)?;
+        let context = build_context(cmd_opts.into(), &pre)?;
 
         match pre.validate_authorization() {
             Authorization::Forbidden => {
@@ -187,7 +187,10 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     }
 }
 
-fn build_context(cmd_opts: SudoOptions, pre: &dyn PreJudgementPolicy) -> Result<Context, Error> {
+fn build_context(
+    cmd_opts: OptionsForContext,
+    pre: &dyn PreJudgementPolicy,
+) -> Result<Context, Error> {
     let secure_path: String = pre
         .secure_path()
         .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
