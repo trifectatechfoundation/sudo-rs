@@ -156,11 +156,9 @@ impl SudoOptions {
 
     /// try to parse and environment variable assignment
     fn try_to_env_var(arg: &str) -> Option<(String, String)> {
-        if let Some((name, value)) = arg.split_once('=').and_then(|(name, value)| {
-            name.chars()
-                .all(|c| c.is_alphanumeric() || c == '_')
-                .then_some((name, value))
-        }) {
+        let (name, value) = arg.split_once('=')?;
+
+        if name.chars().all(|c| c.is_alphanumeric() || c == '_') {
             Some((name.to_owned(), value.to_owned()))
         } else {
             None
