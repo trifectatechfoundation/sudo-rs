@@ -138,3 +138,35 @@ fn dash_dash_flag_equal_value_syntax() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn lax_validation() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let output = Command::new("sudo")
+        .args(["--remove-timestamp", "-u", "root"])
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    assert_contains!(output.stderr(), "usage");
+    Ok(())
+}
+
+#[test]
+fn miscategorized_reset_timestamp_action() -> Result<()> {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let output = Command::new("env")
+        .args([
+            "SHELL=/usr/bin/false",
+            "sudo",
+            "--reset-timestamp",
+            "--shell",
+        ])
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    Ok(())
+}
