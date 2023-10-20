@@ -103,7 +103,8 @@ impl TryFrom<SudoOptions> for HelpOptions {
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
         // see `SudoOptions::validate`
-        debug_assert!(mem::take(&mut opts.help));
+        let help = mem::take(&mut opts.help);
+        debug_assert!(help);
 
         reject_all("--help", opts)?;
 
@@ -119,7 +120,8 @@ impl TryFrom<SudoOptions> for VersionOptions {
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
         // see `SudoOptions::validate`
-        debug_assert!(mem::take(&mut opts.version));
+        let version = mem::take(&mut opts.version);
+        debug_assert!(version);
 
         reject_all("--version", opts)?;
 
@@ -135,7 +137,8 @@ impl TryFrom<SudoOptions> for RemoveTimestampOptions {
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
         // see `SudoOptions::validate`
-        debug_assert!(mem::take(&mut opts.remove_timestamp));
+        let remove_timestamp = mem::take(&mut opts.remove_timestamp);
+        debug_assert!(remove_timestamp);
 
         reject_all("--remove-timestamp", opts)?;
 
@@ -151,7 +154,8 @@ impl TryFrom<SudoOptions> for ResetTimestampOptions {
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
         // see `SudoOptions::validate`
-        debug_assert!(mem::take(&mut opts.reset_timestamp));
+        let reset_timestamp = mem::take(&mut opts.reset_timestamp);
+        debug_assert!(reset_timestamp);
 
         reject_all("--reset-timestamp", opts)?;
 
@@ -180,7 +184,8 @@ impl TryFrom<SudoOptions> for ValidateOptions {
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
         // see `SudoOptions::validate`
-        debug_assert!(mem::take(&mut opts.validate));
+        let validate = mem::take(&mut opts.validate);
+        debug_assert!(validate);
 
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -228,7 +233,8 @@ impl TryFrom<SudoOptions> for EditOptions {
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
         // see `SudoOptions::validate`
-        debug_assert!(mem::take(&mut opts.edit));
+        let edit = mem::take(&mut opts.edit);
+        debug_assert!(edit);
 
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
