@@ -1,4 +1,3 @@
-use crate::cli::OptionsForContext;
 use crate::system::{Group, User};
 use std::{
     env, fs, io,
@@ -7,7 +6,10 @@ use std::{
     str::FromStr,
 };
 
-use super::{context::LaunchType, Error};
+use super::{
+    context::{LaunchType, OptionsForContext},
+    Error,
+};
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {

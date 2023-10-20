@@ -1,4 +1,3 @@
-use crate::cli::{ContextAction, OptionsForContext};
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::system::{hostname, Group, Process, User};
 use std::path::PathBuf;
@@ -8,6 +7,27 @@ use super::{
     resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
     Error,
 };
+
+#[derive(Clone, Copy)]
+pub enum ContextAction {
+    List,
+    Run,
+    Validate,
+}
+
+// this is a bit of a hack to keep the existing `Context` API working
+pub struct OptionsForContext {
+    pub chdir: Option<PathBuf>,
+    pub group: Option<String>,
+    pub login: bool,
+    pub non_interactive: bool,
+    pub positional_args: Vec<String>,
+    pub reset_timestamp: bool,
+    pub shell: bool,
+    pub stdin: bool,
+    pub user: Option<String>,
+    pub action: ContextAction,
+}
 
 #[derive(Debug)]
 pub struct Context {
@@ -75,7 +95,7 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use crate::{cli::SudoAction, system::hostname};
+    use crate::{sudo::SudoAction, system::hostname};
     use std::collections::HashMap;
 
     use super::Context;
