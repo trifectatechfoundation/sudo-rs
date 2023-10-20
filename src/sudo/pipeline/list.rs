@@ -1,10 +1,9 @@
 use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
-    cli::ListOptions,
     common::{Context, Error},
     pam::CLIConverser,
-    sudo::{pam::PamAuthenticator, SudoersPolicy},
+    sudo::{cli::ListOptions, pam::PamAuthenticator, SudoersPolicy},
     sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
     system::User,
 };

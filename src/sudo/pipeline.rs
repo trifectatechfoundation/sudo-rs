@@ -1,11 +1,12 @@
 use std::ffi::OsStr;
 use std::process::exit;
 
-use crate::cli::{OptionsForContext, RunOptions, ValidateOptions};
+use super::cli::{RunOptions, ValidateOptions};
+use crate::common::context::OptionsForContext;
 use crate::common::{Context, Environment, Error};
-use crate::env::environment;
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
+use crate::sudo::env::environment;
 use crate::sudo::Duration;
 use crate::sudoers::{Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy};
 use crate::system::interface::UserId;

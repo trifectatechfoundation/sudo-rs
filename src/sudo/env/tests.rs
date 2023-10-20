@@ -1,6 +1,8 @@
-use crate::cli::{RunOptions, SudoAction};
 use crate::common::{CommandAndArguments, Context, Environment};
-use crate::env::environment::get_target_environment;
+use crate::sudo::{
+    cli::{RunOptions, SudoAction},
+    env::environment::get_target_environment,
+};
 use crate::system::{Group, Process, User};
 use std::collections::{HashMap, HashSet};
 

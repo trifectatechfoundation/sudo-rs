@@ -1,21 +1,26 @@
 #![forbid(unsafe_code)]
 
-use crate::cli::{help, SudoAction};
 use crate::common::{resolve::resolve_current_user, Context, Error};
 use crate::log::dev_info;
 use crate::system::timestamp::RecordScope;
 use crate::system::User;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
+use cli::help;
+#[cfg(test)]
+pub use cli::SudoAction;
+#[cfg(not(test))]
+use cli::SudoAction;
 use pam::PamAuthenticator;
 use pipeline::{Pipeline, PolicyPlugin};
-use std::env;
 use std::path::Path;
 
+mod cli;
 mod diagnostic;
+mod env;
 mod pam;
 mod pipeline;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 
 fn candidate_sudoers_file() -> &'static Path {
     let pb_rs: &'static Path = Path::new("/etc/sudoers-rs");

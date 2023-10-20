@@ -2,6 +2,7 @@
 
 use std::{borrow::Cow, mem, path::PathBuf};
 
+use crate::common::context::{ContextAction, OptionsForContext};
 use crate::common::{SudoPath, SudoString};
 
 pub mod help;
@@ -813,27 +814,6 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     ensure_is_absent(context, &positional_args, "positional argument")?;
 
     Ok(())
-}
-
-// this is a bit of a hack to keep the existing `Context` API working
-pub struct OptionsForContext {
-    pub chdir: Option<SudoPath>,
-    pub group: Option<SudoString>,
-    pub login: bool,
-    pub non_interactive: bool,
-    pub positional_args: Vec<String>,
-    pub reset_timestamp: bool,
-    pub shell: bool,
-    pub stdin: bool,
-    pub user: Option<SudoString>,
-    pub action: ContextAction,
-}
-
-#[derive(Clone, Copy)]
-pub enum ContextAction {
-    List,
-    Run,
-    Validate,
 }
 
 impl From<ListOptions> for OptionsForContext {
