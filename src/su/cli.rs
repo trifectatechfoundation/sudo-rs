@@ -193,13 +193,11 @@ impl SuOptions {
             if arg == "-" {
                 options.login = true;
             // if the argument starts with -- it must be a full length option name
-            } else if arg.starts_with("--") {
+            } else if let Some(unprefixed) = arg.strip_prefix("--") {
                 // parse assignments like '--group=ferris'
-                if arg.contains('=') {
-                    // convert assignment to normal tokens
-                    let (key, value) = arg.split_once('=').unwrap();
+                if let Some((key, value)) = unprefixed.split_once('=') {
                     // lookup the option by name
-                    if let Some(option) = Self::SU_OPTIONS.iter().find(|o| o.long == &key[2..]) {
+                    if let Some(option) = Self::SU_OPTIONS.iter().find(|o| o.long == key) {
                         // the value is already present, when the option does not take any arguments this results in an error
                         if option.takes_argument {
                             (option.set)(&mut options, Some(value.to_string()))?;
@@ -210,7 +208,8 @@ impl SuOptions {
                         Err(format!("unrecognized option '{}'", arg))?;
                     }
                 // lookup the option
-                } else if let Some(option) = Self::SU_OPTIONS.iter().find(|o| o.long == &arg[2..]) {
+                } else if let Some(option) = Self::SU_OPTIONS.iter().find(|o| o.long == unprefixed)
+                {
                     // try to parse an argument when the option needs an argument
                     if option.takes_argument {
                         let next_arg = arg_iter.next();
@@ -221,18 +220,20 @@ impl SuOptions {
                 } else {
                     Err(format!("unrecognized option '{}'", arg))?;
                 }
-            } else if arg.starts_with('-') {
+            } else if let Some(unprefixed) = arg.strip_prefix('-') {
                 // flags can be grouped, so we loop over the the characters
-                for (n, char) in arg.trim_start_matches('-').chars().enumerate() {
+                let mut chars = unprefixed.chars();
+                while let Some(curr) = chars.next() {
                     // lookup the option
-                    if let Some(option) = Self::SU_OPTIONS.iter().find(|o| o.short == char) {
+                    if let Some(option) = Self::SU_OPTIONS.iter().find(|o| o.short == curr) {
                         // try to parse an argument when one is necessary, either the rest of the current flag group or the next argument
+                        let rest = chars.as_str();
+
                         if option.takes_argument {
-                            let rest = arg[(n + 2)..].trim().to_string();
-                            let next_arg = if rest.is_empty() {
+                            let next_arg = if rest.trim().is_empty() {
                                 arg_iter.next()
                             } else {
-                                Some(rest)
+                                Some(rest.to_string())
                             };
                             (option.set)(&mut options, next_arg)?;
                             // stop looping over flags if the current flag takes an argument
@@ -242,7 +243,7 @@ impl SuOptions {
                             (option.set)(&mut options, None)?;
                         }
                     } else {
-                        Err(format!("unrecognized option '{}'", char))?;
+                        Err(format!("unrecognized option '{}'", curr))?;
                     }
                 }
             } else {
