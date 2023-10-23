@@ -193,7 +193,21 @@ impl SuOptions {
             // - or -l or --login indicates a login shell should be started
             if arg == "-" {
                 options.login = true;
-            // if the argument starts with -- it must be a full length option name
+            } else if arg == "--" {
+                // only positional arguments after this point
+                if let Some(next_arg) = arg_iter.next() {
+                    if first_positional_argument {
+                        options.user = next_arg;
+                    } else {
+                        options.arguments.push(next_arg);
+                    }
+
+                    options.arguments.extend(arg_iter);
+                }
+
+                break;
+
+                // if the argument starts with -- it must be a full length option name
             } else if let Some(unprefixed) = arg.strip_prefix("--") {
                 // parse assignments like '--group=ferris'
                 if let Some((key, value)) = unprefixed.split_once('=') {
@@ -517,5 +531,16 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-", "-c", "echo"]));
+    }
+
+    #[test]
+    fn only_positional_args_after_dashdash() {
+        let expected = SuOptions {
+            action: SuAction::Run,
+            user: "ferris".to_string(),
+            arguments: vec!["-c".to_string(), "echo".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["--", "ferris", "-c", "echo"]));
     }
 }
