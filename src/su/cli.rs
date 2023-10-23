@@ -188,6 +188,7 @@ impl SuOptions {
         let mut options: SuOptions = SuOptions::default();
         let mut arg_iter = arguments.into_iter().skip(1);
 
+        let mut first_positional_argument = true;
         while let Some(arg) = arg_iter.next() {
             // - or -l or --login indicates a login shell should be started
             if arg == "-" {
@@ -247,11 +248,13 @@ impl SuOptions {
                     }
                 }
             } else {
-                // when no option is provided (starting with - or --) the next argument is interpreted as a username
-                options.user = SudoString::from_cli_string(arg);
-                // the rest of the arguments are passed to the shell
-                options.arguments = arg_iter.collect();
-                break;
+                if first_positional_argument {
+                    options.user = SudoString::from_cli_string(arg);
+                } else {
+                    options.arguments.push(arg);
+                }
+
+                first_positional_argument = false;
             }
         }
 
@@ -336,22 +339,12 @@ mod tests {
 
     #[test]
     fn it_parses_an_user() {
-        assert_eq!(
-            SuOptions {
-                user: "ferris".into(),
-                ..Default::default()
-            },
-            parse(&["-P", "ferris"])
-        );
-
-        assert_eq!(
-            SuOptions {
-                user: "ferris".into(),
-                arguments: vec!["-P".to_string()],
-                ..Default::default()
-            },
-            parse(&["ferris", "-P"])
-        );
+        let expected = SuOptions {
+            user: "ferris".into(),
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["-P", "ferris"]));
+        assert_eq!(expected, parse(&["ferris", "-P"]));
     }
 
     #[test]
@@ -476,7 +469,7 @@ mod tests {
     fn short_flag_whitespace() {
         let expected = SuOptions {
             action: SuAction::Run,
-            group: vec![" ".to_string()],
+            group: vec![" ".into()],
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-g "]));
@@ -486,8 +479,8 @@ mod tests {
     fn short_flag_whitespace_positional_argument() {
         let expected = SuOptions {
             action: SuAction::Run,
-            group: vec![" ".to_string()],
-            user: "ghost".to_string(),
+            group: vec![" ".into()],
+            user: "ghost".into(),
             ..Default::default()
         };
         assert_eq!(expected, parse(&["-g ", "ghost"]));
@@ -501,5 +494,28 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(expected, parse(&["--group= "]));
+    }
+
+    #[test]
+    fn flag_after_positional_argument() {
+        let expected = SuOptions {
+            action: SuAction::Run,
+            arguments: vec![],
+            login: true,
+            user: "ferris".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["ferris", "-l"]));
+    }
+
+    #[test]
+    fn flags_after_dash() {
+        let expected = SuOptions {
+            action: SuAction::Run,
+            command: Some("echo".to_string()),
+            login: true,
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["-", "-c", "echo"]));
     }
 }
