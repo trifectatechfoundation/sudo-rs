@@ -151,7 +151,7 @@ impl SuOptions {
                     let values: Vec<String> = list.split(',').map(str::to_string).collect();
                     sudo_options.whitelist_environment.extend(values);
                 } else {
-                    Err("no enivronment whitelist provided")?
+                    Err("no environment whitelist provided")?
                 }
 
                 Ok(())
