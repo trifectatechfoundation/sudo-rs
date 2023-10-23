@@ -230,7 +230,7 @@ impl SuOptions {
                         let rest = chars.as_str();
 
                         if option.takes_argument {
-                            let next_arg = if rest.trim().is_empty() {
+                            let next_arg = if rest.is_empty() {
                                 arg_iter.next()
                             } else {
                                 Some(rest.to_string())
@@ -470,5 +470,36 @@ mod tests {
         };
         assert_eq!(expected, parse(&["-V"]));
         assert_eq!(expected, parse(&["--version"]));
+    }
+
+    #[test]
+    fn short_flag_whitespace() {
+        let expected = SuOptions {
+            action: SuAction::Run,
+            group: vec![" ".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["-g "]));
+    }
+
+    #[test]
+    fn short_flag_whitespace_positional_argument() {
+        let expected = SuOptions {
+            action: SuAction::Run,
+            group: vec![" ".to_string()],
+            user: "ghost".to_string(),
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["-g ", "ghost"]));
+    }
+
+    #[test]
+    fn long_flag_equal_whitespace() {
+        let expected = SuOptions {
+            action: SuAction::Run,
+            group: vec![" ".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(expected, parse(&["--group= "]));
     }
 }
