@@ -54,3 +54,19 @@ fn when_specified_more_than_once_only_last_value_is_used() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn positional_arguments_are_not_passed_to_command() -> Result<()> {
+    let env = Env("").build()?;
+
+    let argss = [["-c", "echo", "root", "a"], ["root", "-c", "echo", "a"]];
+
+    for args in argss {
+        let output = Command::new("su").args(args).output(&env)?;
+        let stdout = output.stdout()?;
+
+        assert!(stdout.trim().is_empty());
+    }
+
+    Ok(())
+}

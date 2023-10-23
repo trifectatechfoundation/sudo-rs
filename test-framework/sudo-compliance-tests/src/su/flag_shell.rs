@@ -355,3 +355,24 @@ echo $0";
 
     Ok(())
 }
+
+#[test]
+fn positional_arguments_are_passed_to_shell() -> Result<()> {
+    let shell_path = "/root/my-shell";
+    let args = ["a", "b"];
+    let shell = "#!/bin/sh
+echo ${@}";
+    let env = Env("")
+        .file(shell_path, TextFile(shell).chmod("100"))
+        .build()?;
+
+    let actual = Command::new("su")
+        .args(["-s", shell_path, "root"])
+        .args(args)
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(args.join(" "), actual);
+
+    Ok(())
+}
