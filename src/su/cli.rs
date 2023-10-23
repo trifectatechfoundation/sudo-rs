@@ -100,7 +100,11 @@ impl SuOptions {
             long: "login",
             takes_argument: false,
             set: |sudo_options, _| {
-                sudo_options.login = true;
+                if sudo_options.login {
+                    return Err(more_than_once("--login"));
+                } else {
+                    sudo_options.login = true;
+                }
                 Ok(())
             },
         },
@@ -109,7 +113,11 @@ impl SuOptions {
             long: "preserve-environment",
             takes_argument: false,
             set: |sudo_options, _| {
-                sudo_options.preserve_environment = true;
+                if sudo_options.preserve_environment {
+                    return Err(more_than_once("--preserve-environment"));
+                } else {
+                    sudo_options.preserve_environment = true;
+                }
                 Ok(())
             },
         },
@@ -178,13 +186,15 @@ impl SuOptions {
     ];
 
     pub fn from_env() -> Result<SuOptions, String> {
-        let args = std::env::args().collect();
+        let args = std::env::args();
 
         Self::parse_arguments(args)
     }
 
     /// parse su arguments into SuOptions struct
-    pub(crate) fn parse_arguments(arguments: Vec<String>) -> Result<SuOptions, String> {
+    pub(crate) fn parse_arguments(
+        arguments: impl IntoIterator<Item = String>,
+    ) -> Result<SuOptions, String> {
         let mut options: SuOptions = SuOptions::default();
         let mut arg_iter = arguments.into_iter().skip(1);
 
@@ -192,7 +202,11 @@ impl SuOptions {
         while let Some(arg) = arg_iter.next() {
             // - or -l or --login indicates a login shell should be started
             if arg == "-" {
-                options.login = true;
+                if options.login {
+                    return Err(more_than_once("--login"));
+                } else {
+                    options.login = true;
+                }
             } else if arg == "--" {
                 // only positional arguments after this point
                 if let Some(next_arg) = arg_iter.next() {
@@ -274,6 +288,10 @@ impl SuOptions {
 
         Ok(options)
     }
+}
+
+fn more_than_once(flag: &str) -> String {
+    format!("argument '{flag}' was provided more than once, but cannot be used multiple times")
 }
 
 #[cfg(test)]
@@ -542,5 +560,17 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(expected, parse(&["--", "ferris", "-c", "echo"]));
+    }
+
+    #[test]
+    fn repeated_boolean_flag() {
+        let f = |s: &str| s.to_string();
+
+        assert!(SuOptions::parse_arguments(["su", "-l", "-l"].map(f)).is_err());
+        assert!(SuOptions::parse_arguments(["su", "-", "-l"].map(f)).is_err());
+        assert!(SuOptions::parse_arguments(["su", "--login", "-l"].map(f)).is_err());
+
+        assert!(SuOptions::parse_arguments(["su", "-p", "-p"].map(f)).is_err());
+        assert!(SuOptions::parse_arguments(["su", "-p", "--preserve-environment"].map(f)).is_err());
     }
 }
