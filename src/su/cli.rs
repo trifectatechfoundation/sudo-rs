@@ -40,7 +40,7 @@ pub enum SuAction {
     Run,
 }
 
-type OptionSetter = &'static dyn Fn(&mut SuOptions, Option<String>) -> Result<(), String>;
+type OptionSetter = fn(&mut SuOptions, Option<String>) -> Result<(), String>;
 
 struct SuOption {
     short: char,
@@ -55,7 +55,7 @@ impl SuOptions {
             short: 'c',
             long: "command",
             takes_argument: true,
-            set: &|sudo_options, argument| {
+            set: |sudo_options, argument| {
                 if argument.is_some() {
                     sudo_options.command = argument;
                 } else {
@@ -69,7 +69,7 @@ impl SuOptions {
             short: 'g',
             long: "group",
             takes_argument: true,
-            set: &|sudo_options, argument| {
+            set: |sudo_options, argument| {
                 if let Some(value) = argument {
                     sudo_options.group.push(SudoString::from_cli_string(value));
                 } else {
@@ -83,7 +83,7 @@ impl SuOptions {
             short: 'G',
             long: "supp-group",
             takes_argument: true,
-            set: &|sudo_options, argument| {
+            set: |sudo_options, argument| {
                 if let Some(value) = argument {
                     sudo_options
                         .supp_group
@@ -99,7 +99,7 @@ impl SuOptions {
             short: 'l',
             long: "login",
             takes_argument: false,
-            set: &|sudo_options, _| {
+            set: |sudo_options, _| {
                 sudo_options.login = true;
                 Ok(())
             },
@@ -108,7 +108,7 @@ impl SuOptions {
             short: 'p',
             long: "preserve-environment",
             takes_argument: false,
-            set: &|sudo_options, _| {
+            set: |sudo_options, _| {
                 sudo_options.preserve_environment = true;
                 Ok(())
             },
@@ -117,7 +117,7 @@ impl SuOptions {
             short: 'm',
             long: "preserve-environment",
             takes_argument: false,
-            set: &|sudo_options, _| {
+            set: |sudo_options, _| {
                 sudo_options.preserve_environment = true;
                 Ok(())
             },
@@ -126,13 +126,13 @@ impl SuOptions {
             short: 'P',
             long: "pty",
             takes_argument: false,
-            set: &|_sudo_options, _| Ok(()),
+            set: |_sudo_options, _| Ok(()),
         },
         SuOption {
             short: 's',
             long: "shell",
             takes_argument: true,
-            set: &|sudo_options, argument| {
+            set: |sudo_options, argument| {
                 if let Some(path) = argument {
                     sudo_options.shell = Some(PathBuf::from(path));
                 } else {
@@ -146,7 +146,7 @@ impl SuOptions {
             short: 'w',
             long: "whitelist-environment",
             takes_argument: true,
-            set: &|sudo_options, argument| {
+            set: |sudo_options, argument| {
                 if let Some(list) = argument {
                     let values: Vec<String> = list.split(',').map(str::to_string).collect();
                     sudo_options.whitelist_environment.extend(values);
@@ -161,7 +161,7 @@ impl SuOptions {
             short: 'V',
             long: "version",
             takes_argument: false,
-            set: &|sudo_options, _| {
+            set: |sudo_options, _| {
                 sudo_options.action = SuAction::Version;
                 Ok(())
             },
@@ -170,7 +170,7 @@ impl SuOptions {
             short: 'h',
             long: "help",
             takes_argument: false,
-            set: &|sudo_options, _| {
+            set: |sudo_options, _| {
                 sudo_options.action = SuAction::Help;
                 Ok(())
             },
