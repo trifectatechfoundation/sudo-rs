@@ -1,6 +1,6 @@
 use crate::common::{CommandAndArguments, Context, Environment};
 use crate::sudo::{
-    cli::{RunOptions, SudoAction},
+    cli::{SudoAction, SudoRunOptions},
     env::environment::get_target_environment,
 };
 use crate::system::{Group, Process, User};
@@ -75,7 +75,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .collect()
 }
 
-fn create_test_context(sudo_options: &RunOptions) -> Context {
+fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
     let command =
         CommandAndArguments::build_from_args(None, sudo_options.positional_args.clone(), &path);

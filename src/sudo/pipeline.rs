@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::process::exit;
 
-use super::cli::{RunOptions, ValidateOptions};
+use super::cli::{SudoRunOptions, SudoValidateOptions};
 use crate::common::context::OptionsForContext;
 use crate::common::{resolve::expand_tilde_in_path, Context, Environment, Error};
 use crate::exec::{ExecOutput, ExitReason};
@@ -41,7 +41,7 @@ pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
 }
 
 impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
-    pub fn run(mut self, cmd_opts: RunOptions) -> Result<(), Error> {
+    pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
         let mut context = build_context(cmd_opts.into(), &pre)?;
 
@@ -100,7 +100,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         Ok(())
     }
 
-    pub fn run_validate(mut self, cmd_opts: ValidateOptions) -> Result<(), Error> {
+    pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
         let context = build_context(cmd_opts.into(), &pre)?;
 
