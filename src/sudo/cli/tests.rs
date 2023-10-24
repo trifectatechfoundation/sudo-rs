@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 
 use crate::common::SudoPath;
 
@@ -81,12 +80,12 @@ fn mix_env_variables_with_trailing_args_divided_by_hyphens() {
 /// Divided by known flag.
 #[test]
 fn mix_env_variables_with_trailing_args_divided_by_known_flag() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-b", "external=args", "something"]).unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "-i", "external=args", "something"]).unwrap();
     assert_eq!(
         cmd.env_var_list,
         vec![("external".to_owned(), "args".to_owned())]
     );
-    assert!(cmd.background);
+    assert!(cmd.login);
     assert_eq!(cmd.positional_args, vec!["something"]);
 }
 
@@ -95,11 +94,11 @@ fn mix_env_variables_with_trailing_args_divided_by_known_flag() {
 #[test]
 fn trailing_args_followed_by_known_flag() {
     let cmd =
-        SudoOptions::try_parse_from(["sudo", "args", "followed_by", "known_flag", "-b"]).unwrap();
-    assert!(!cmd.background);
+        SudoOptions::try_parse_from(["sudo", "args", "followed_by", "known_flag", "-i"]).unwrap();
+    assert!(!cmd.login);
     assert_eq!(
         cmd.positional_args,
-        vec!["args", "followed_by", "known_flag", "-b"]
+        vec!["args", "followed_by", "known_flag", "-i"]
     );
 }
 
@@ -114,13 +113,13 @@ fn trailing_args_hyphens_known_flag() {
         "args",
         "followed_by",
         "known_flag",
-        "-b",
+        "-i",
     ])
     .unwrap();
-    assert!(!cmd.background);
+    assert!(!cmd.login);
     assert_eq!(
         cmd.positional_args,
-        vec!["trailing", "args", "followed_by", "known_flag", "-b"]
+        vec!["trailing", "args", "followed_by", "known_flag", "-i"]
     );
 }
 
@@ -141,11 +140,11 @@ fn first_trailing_env_var_is_not_an_external_arg() {
 #[test]
 fn trailing_env_vars_are_external_args() {
     let cmd = SudoOptions::try_parse_from([
-        "sudo", "FOO=1", "-b", "BAR=2", "command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg",
+        "sudo", "FOO=1", "-i", "BAR=2", "command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg",
         "BARBAZ=5",
     ])
     .unwrap();
-    assert!(cmd.background);
+    assert!(cmd.login);
     assert_eq!(
         cmd.env_var_list,
         vec![
@@ -194,15 +193,6 @@ fn non_interactive() {
 }
 
 #[test]
-fn preserve_groups() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-P"]).unwrap();
-    assert!(cmd.preserve_groups);
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-groups"]).unwrap();
-    assert!(cmd.preserve_groups);
-}
-
-#[test]
 fn stdin() {
     let cmd = SudoOptions::try_parse_from(["sudo", "-S"]).unwrap();
     assert!(cmd.stdin);
@@ -242,30 +232,6 @@ fn group() {
 
     let cmd = SudoOptions::try_parse_from(["sudo", "--group=rustaceans"]).unwrap();
     assert_eq!(cmd.group.as_deref(), Some("rustaceans"));
-}
-
-#[test]
-fn host() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-hlilo"]).unwrap();
-    assert_eq!(cmd.host.as_deref(), Some("lilo"));
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--host", "lilo"]).unwrap();
-    assert_eq!(cmd.host.as_deref(), Some("lilo"));
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--host=lilo"]).unwrap();
-    assert_eq!(cmd.host.as_deref(), Some("lilo"));
-}
-
-#[test]
-fn chroot() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-R/some/path"]).unwrap();
-    assert_eq!(cmd.chroot, Some(PathBuf::from("/some/path")));
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--chroot", "/some/path"]).unwrap();
-    assert_eq!(cmd.chroot, Some(PathBuf::from("/some/path")));
-
-    let cmd = SudoOptions::try_parse_from(["sudo", "--chroot=/some/path"]).unwrap();
-    assert_eq!(cmd.chroot, Some(PathBuf::from("/some/path")));
 }
 
 #[test]

@@ -5,7 +5,7 @@ use super::path::SudoPath;
 use super::{
     command::CommandAndArguments,
     resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
-    Error,
+    Error, SudoString,
 };
 
 #[derive(Clone, Copy)]
@@ -17,15 +17,15 @@ pub enum ContextAction {
 
 // this is a bit of a hack to keep the existing `Context` API working
 pub struct OptionsForContext {
-    pub chdir: Option<PathBuf>,
-    pub group: Option<String>,
+    pub chdir: Option<SudoPath>,
+    pub group: Option<SudoString>,
     pub login: bool,
     pub non_interactive: bool,
     pub positional_args: Vec<String>,
     pub reset_timestamp: bool,
     pub shell: bool,
     pub stdin: bool,
-    pub user: Option<String>,
+    pub user: Option<SudoString>,
     pub action: ContextAction,
 }
 
