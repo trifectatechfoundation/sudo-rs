@@ -122,7 +122,8 @@ fn sudo_process() -> Result<(), Error> {
             }
             SudoAction::List(options) => pipeline.run_list(options),
             SudoAction::Edit(_) => {
-                unimplemented!();
+                eprintln_ignore_io_error!("error: `--edit` flag has not yet been implemented");
+                std::process::exit(1);
             }
         },
         Err(e) => {
