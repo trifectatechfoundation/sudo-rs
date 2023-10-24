@@ -47,7 +47,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                 "warning: CLI-level env var list has not yet been implemented and will be ignored"
             )
         }
-        if !cmd_opts.preserve_env.is_empty() {
+        if !cmd_opts.preserve_env.is_nothing() {
             eprintln_ignore_io_error!(
                 "warning: `--preserve-env` has not yet been implemented and will be ignored"
             )
