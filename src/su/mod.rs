@@ -6,14 +6,17 @@ use crate::system::term::current_tty_name;
 
 use std::{env, process};
 
-use cli::{SuAction, SuOptions};
+use cli::SuAction;
 use context::SuContext;
 use help::{long_help_message, USAGE_MSG};
+
+use self::cli::SuRunOptions;
 
 mod cli;
 mod context;
 mod help;
 
+const DEFAULT_USER: &str = "root";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn authenticate(
@@ -76,7 +79,7 @@ fn authenticate(
     Ok(pam)
 }
 
-fn run(options: SuOptions) -> Result<(), Error> {
+fn run(options: SuRunOptions) -> Result<(), Error> {
     // lookup user and build context object
     let context = SuContext::from_env(options)?;
 
@@ -122,24 +125,24 @@ fn run(options: SuOptions) -> Result<(), Error> {
 pub fn main() {
     crate::log::SudoLogger::new("su: ").into_global_logger();
 
-    let su_options = match SuOptions::from_env() {
-        Ok(options) => options,
+    let action = match SuAction::from_env() {
+        Ok(action) => action,
         Err(error) => {
             println_ignore_io_error!("su: {error}\n{USAGE_MSG}");
             std::process::exit(1);
         }
     };
 
-    match su_options.action {
-        SuAction::Help => {
+    match action {
+        SuAction::Help(_) => {
             println_ignore_io_error!("{}", long_help_message());
             std::process::exit(0);
         }
-        SuAction::Version => {
+        SuAction::Version(_) => {
             eprintln_ignore_io_error!("su-rs {VERSION}");
             std::process::exit(0);
         }
-        SuAction::Run => match run(su_options) {
+        SuAction::Run(options) => match run(options) {
             Err(Error::CommandNotFound(c)) => {
                 eprintln_ignore_io_error!("su: {}", Error::CommandNotFound(c));
                 std::process::exit(127);

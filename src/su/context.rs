@@ -14,7 +14,7 @@ use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
 
-use super::cli::SuOptions;
+use super::cli::SuRunOptions;
 
 const VALID_LOGIN_SHELLS_LIST: &str = "/etc/shells";
 const FALLBACK_LOGIN_SHELL: &str = "/bin/sh";
@@ -27,7 +27,7 @@ const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
 pub(crate) struct SuContext {
     command: PathBuf,
     arguments: Vec<String>,
-    options: SuOptions,
+    options: SuRunOptions,
     pub(crate) environment: Environment,
     user: User,
     requesting_user: User,
@@ -49,7 +49,7 @@ fn is_restricted(shell: &Path) -> bool {
 }
 
 impl SuContext {
-    pub(crate) fn from_env(options: SuOptions) -> Result<SuContext, Error> {
+    pub(crate) fn from_env(options: SuRunOptions) -> Result<SuContext, Error> {
         let process = crate::system::Process::new();
 
         // resolve environment, reset if this is a login
@@ -253,14 +253,20 @@ impl RunOptions for SuContext {
 mod tests {
     use std::path::PathBuf;
 
-    use crate::{common::Error, su::cli::SuOptions};
+    use crate::{
+        common::Error,
+        su::cli::{SuAction, SuRunOptions},
+    };
 
     use super::SuContext;
 
-    fn get_options(args: &[&str]) -> SuOptions {
+    fn get_options(args: &[&str]) -> SuRunOptions {
         let mut args = args.iter().map(|s| s.to_string()).collect::<Vec<String>>();
         args.insert(0, "/bin/su".to_string());
-        SuOptions::parse_arguments(args).unwrap()
+        SuAction::parse_arguments(args)
+            .unwrap()
+            .try_into_run()
+            .unwrap()
     }
 
     #[test]
