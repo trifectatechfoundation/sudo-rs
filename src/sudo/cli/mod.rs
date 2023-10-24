@@ -314,7 +314,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
 // sudo [-ABbEHnPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i | -s] [command [arg ...]]
 pub struct SudoRunOptions {
     // -E
-    pub preserve_env: Vec<String>,
+    pub preserve_env: PreserveEnv,
     // -k
     pub reset_timestamp: bool,
     // -n
@@ -402,7 +402,7 @@ struct SudoOptions {
     // -U
     other_user: Option<SudoString>,
     // -E
-    preserve_env: Vec<String>,
+    preserve_env: PreserveEnv,
     // -s
     shell: bool,
     // -S
@@ -433,6 +433,29 @@ struct SudoOptions {
     positional_args: Vec<String>,
 }
 
+#[derive(Default, Debug, Clone, PartialEq)]
+pub enum PreserveEnv {
+    #[default]
+    Nothing,
+    Everything,
+    Only(Vec<String>),
+}
+
+impl PreserveEnv {
+    #[cfg(test)]
+    pub fn try_into_only(self) -> Result<Vec<String>, Self> {
+        if let Self::Only(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn is_nothing(&self) -> bool {
+        matches!(self, Self::Nothing)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum List {
     Once,
@@ -454,16 +477,9 @@ enum SudoArg {
 }
 
 impl SudoArg {
-    const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'E', 'g', 'h', 'R', 'U', 'u'];
-    const TAKES_ARGUMENT: &'static [&'static str] = &[
-        "chdir",
-        "preserve-env",
-        "group",
-        "host",
-        "chroot",
-        "other-user",
-        "user",
-    ];
+    const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'g', 'h', 'R', 'U', 'u'];
+    const TAKES_ARGUMENT: &'static [&'static str] =
+        &["chdir", "group", "host", "chroot", "other-user", "user"];
 
     /// argument assignments and shorthand options preprocessing
     fn normalize_arguments<I>(iter: I) -> Result<Vec<Self>, String>
@@ -483,7 +499,8 @@ impl SudoArg {
                     // convert assignment to normal tokens
 
                     // only accept arguments when one is expected
-                    if !Self::TAKES_ARGUMENT.contains(&key) {
+                    // `--preserve-env` is special as it only takes an argument using this `key=value` syntax
+                    if !Self::TAKES_ARGUMENT.contains(&key) && key != "preserve-env" {
                         Err(format!("'{}' does not take any arguments", key))?;
                     }
                     processed.push(SudoArg::Argument("--".to_string() + key, value.to_string()));
@@ -583,6 +600,9 @@ impl SudoOptions {
         for arg in arg_iter {
             match arg {
                 SudoArg::Flag(flag) => match flag.as_str() {
+                    "-E" | "--preserve-env" => {
+                        options.preserve_env = PreserveEnv::Everything;
+                    }
                     "-e" | "--edit" => {
                         options.edit = true;
                     }
@@ -631,7 +651,15 @@ impl SudoOptions {
                         options.chdir = Some(SudoPath::from_cli_string(value));
                     }
                     "-E" | "--preserve-env" => {
-                        options.preserve_env = value.split(',').map(str::to_string).collect()
+                        let split_value = || value.split(',').map(str::to_string);
+                        match &mut options.preserve_env {
+                            PreserveEnv::Nothing => {
+                                options.preserve_env = PreserveEnv::Only(split_value().collect())
+                            }
+                            PreserveEnv::Everything => {}
+                            PreserveEnv::Only(list) => list.extend(split_value()),
+                        }
+                        // options.preserve_env = value.split(',').map(str::to_string).collect()
                     }
                     "-g" | "--group" => {
                         options.group = Some(SudoString::from_cli_string(value));
@@ -688,6 +716,12 @@ impl<T> IsAbsent for Option<T> {
 impl<T> IsAbsent for Vec<T> {
     fn is_absent(&self) -> bool {
         self.is_empty()
+    }
+}
+
+impl IsAbsent for PreserveEnv {
+    fn is_absent(&self) -> bool {
+        self.is_nothing()
     }
 }
 

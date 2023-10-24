@@ -1,21 +1,30 @@
 
 use crate::common::SudoPath;
 
+use crate::sudo::cli::PreserveEnv;
+
 use super::{SudoAction, SudoOptions};
 use pretty_assertions::assert_eq;
 
 /// Passing '-E' with a variable fails
 #[test]
 fn short_preserve_env_with_var_fails() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "-E=variable"]);
-    assert!(cmd.is_err())
+    let argss = [["sudo", "-E=variable"], ["sudo", "-Evariable"]];
+
+    for args in argss {
+        let res = SudoOptions::try_parse_from(args);
+        assert!(res.is_err())
+    }
 }
 
 /// Passing '--preserve-env' with an argument fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_var() {
     let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=some_argument"]).unwrap();
-    assert_eq!(cmd.preserve_env, vec!["some_argument"]);
+    assert_eq!(
+        ["some_argument"],
+        cmd.preserve_env.try_into_only().unwrap().as_slice(),
+    );
 }
 
 /// Passing '--preserve-env' with several arguments fills 'preserve_env', 'short_preserve_env' stays 'false'
@@ -27,9 +36,53 @@ fn preserve_env_with_several_vars() {
     ])
     .unwrap();
     assert_eq!(
-        cmd.preserve_env,
-        vec!["some_argument", "another_argument", "a_third_one"]
+        ["some_argument", "another_argument", "a_third_one"],
+        cmd.preserve_env.try_into_only().unwrap().as_slice(),
     );
+}
+
+#[test]
+fn preserve_env_boolean() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env"]).unwrap();
+    assert_eq!(cmd.preserve_env, PreserveEnv::Everything);
+}
+
+#[test]
+fn preserve_env_boolean_and_list() {
+    let expected = PreserveEnv::Everything;
+    let argss = [
+        ["sudo", "--preserve-env", "--preserve-env=some_argument"],
+        ["sudo", "--preserve-env=some_argument", "--preserve-env"],
+    ];
+
+    for args in argss {
+        let cmd = SudoOptions::try_parse_from(args).unwrap();
+        assert_eq!(expected, cmd.preserve_env);
+    }
+}
+
+#[test]
+fn preserve_env_repeated() {
+    let cmd = SudoOptions::try_parse_from([
+        "sudo",
+        "--preserve-env=some_argument",
+        "--preserve-env=another_argument",
+    ])
+    .unwrap();
+    assert_eq!(
+        ["some_argument", "another_argument"],
+        cmd.preserve_env.try_into_only().unwrap().as_slice()
+    );
+}
+
+// `--preserve-env` only accepts a value with the syntax `--preserve-env=varname`
+// so this `--preserve-env` is acting like a boolean flag
+#[test]
+fn preserve_env_space() {
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env", "true"]).unwrap();
+
+    assert_eq!(PreserveEnv::Everything, cmd.preserve_env);
+    assert_eq!(["true"], cmd.positional_args.as_slice());
 }
 
 /// Catch env variable that is given without hyphens in 'VAR=value' form in env_var_list.
