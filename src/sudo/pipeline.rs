@@ -42,6 +42,17 @@ pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
 
 impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
+        if !cmd_opts.env_var_list.is_empty() {
+            eprintln_ignore_io_error!(
+                "warning: CLI-level env var list has not yet been implemented and will be ignored"
+            )
+        }
+        if !cmd_opts.preserve_env.is_empty() {
+            eprintln_ignore_io_error!(
+                "warning: `--preserve-env` has not yet been implemented and will be ignored"
+            )
+        }
+
         let pre = self.policy.init()?;
         let mut context = build_context(cmd_opts.into(), &pre)?;
 
