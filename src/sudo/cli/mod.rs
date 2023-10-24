@@ -172,8 +172,6 @@ pub struct ValidateOptions {
     pub stdin: bool,
     // -g
     pub group: Option<String>,
-    // -h
-    pub host: Option<String>,
     // -u
     pub user: Option<String>,
 }
@@ -190,7 +188,6 @@ impl TryFrom<SudoOptions> for ValidateOptions {
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
         let group = mem::take(&mut opts.group);
-        let host = mem::take(&mut opts.host);
         let user = mem::take(&mut opts.user);
 
         reject_all("--validate", opts)?;
@@ -200,7 +197,6 @@ impl TryFrom<SudoOptions> for ValidateOptions {
             non_interactive,
             stdin,
             group,
-            host,
             user,
         })
     }
@@ -218,10 +214,6 @@ pub struct EditOptions {
     pub chdir: Option<PathBuf>,
     // -g
     pub group: Option<String>,
-    // -h
-    pub host: Option<String>,
-    // -R
-    pub chroot: Option<PathBuf>,
     // -u
     pub user: Option<String>,
     pub positional_args: Vec<String>,
@@ -240,8 +232,6 @@ impl TryFrom<SudoOptions> for EditOptions {
         let stdin = mem::take(&mut opts.stdin);
         let chdir = mem::take(&mut opts.chdir);
         let group = mem::take(&mut opts.group);
-        let host = mem::take(&mut opts.host);
-        let chroot = mem::take(&mut opts.chroot);
         let user = mem::take(&mut opts.user);
         let positional_args = mem::take(&mut opts.positional_args);
 
@@ -257,8 +247,6 @@ impl TryFrom<SudoOptions> for EditOptions {
             stdin,
             chdir,
             group,
-            host,
-            chroot,
             user,
             positional_args,
         })
@@ -278,8 +266,6 @@ pub struct ListOptions {
     pub stdin: bool,
     // -g
     pub group: Option<String>,
-    // -h
-    pub host: Option<String>,
     // -U
     pub other_user: Option<String>,
     // -u
@@ -297,7 +283,6 @@ impl TryFrom<SudoOptions> for ListOptions {
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
         let group = mem::take(&mut opts.group);
-        let host = mem::take(&mut opts.host);
         let other_user = mem::take(&mut opts.other_user);
         let user = mem::take(&mut opts.user);
         let positional_args = mem::take(&mut opts.positional_args);
@@ -318,7 +303,6 @@ impl TryFrom<SudoOptions> for ListOptions {
             non_interactive,
             stdin,
             group,
-            host,
             other_user,
             user,
             positional_args,
@@ -328,26 +312,18 @@ impl TryFrom<SudoOptions> for ListOptions {
 
 // sudo [-ABbEHnPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i | -s] [command [arg ...]]
 pub struct RunOptions {
-    // -b
-    pub background: bool,
     // -E
     pub preserve_env: Vec<String>,
     // -k
     pub reset_timestamp: bool,
     // -n
     pub non_interactive: bool,
-    // -P
-    pub preserve_groups: bool,
     // -S
     pub stdin: bool,
     // -D
     pub chdir: Option<PathBuf>,
     // -g
     pub group: Option<String>,
-    // -h
-    pub host: Option<String>,
-    // -R
-    pub chroot: Option<PathBuf>,
     // -u
     pub user: Option<String>,
     // VAR=value
@@ -363,16 +339,12 @@ impl TryFrom<SudoOptions> for RunOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
-        let background = mem::take(&mut opts.background);
         let preserve_env = mem::take(&mut opts.preserve_env);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
-        let preserve_groups = mem::take(&mut opts.preserve_groups);
         let stdin = mem::take(&mut opts.stdin);
         let chdir = mem::take(&mut opts.chdir);
         let group = mem::take(&mut opts.group);
-        let host = mem::take(&mut opts.host);
-        let chroot = mem::take(&mut opts.chroot);
         let user = mem::take(&mut opts.user);
         let env_var_list = mem::take(&mut opts.env_var_list);
         let login = mem::take(&mut opts.login);
@@ -401,16 +373,12 @@ impl TryFrom<SudoOptions> for RunOptions {
         reject_all(context, opts)?;
 
         Ok(Self {
-            background,
             preserve_env,
             reset_timestamp,
             non_interactive,
-            preserve_groups,
             stdin,
             chdir,
             group,
-            host,
-            chroot,
             user,
             env_var_list,
             login,
@@ -422,16 +390,10 @@ impl TryFrom<SudoOptions> for RunOptions {
 
 #[derive(Default)]
 struct SudoOptions {
-    // -b
-    background: bool,
-    // -R
-    chroot: Option<PathBuf>,
     // -D
     chdir: Option<PathBuf>,
     // -g
     group: Option<String>,
-    // -h
-    host: Option<String>,
     // -i
     login: bool,
     // -n
@@ -440,8 +402,6 @@ struct SudoOptions {
     other_user: Option<String>,
     // -E
     preserve_env: Vec<String>,
-    // -P
-    preserve_groups: bool,
     // -s
     shell: bool,
     // -S
@@ -622,9 +582,6 @@ impl SudoOptions {
         for arg in arg_iter {
             match arg {
                 SudoArg::Flag(flag) => match flag.as_str() {
-                    "-b" | "--background" => {
-                        options.background = true;
-                    }
                     "-e" | "--edit" => {
                         options.edit = true;
                     }
@@ -652,9 +609,6 @@ impl SudoOptions {
                     "-n" | "--non-interactive" => {
                         options.non_interactive = true;
                     }
-                    "-P" | "--preserve-groups" => {
-                        options.preserve_groups = true;
-                    }
                     "-S" | "--stdin" => {
                         options.stdin = true;
                     }
@@ -680,12 +634,6 @@ impl SudoOptions {
                     }
                     "-g" | "--group" => {
                         options.group = Some(value);
-                    }
-                    "-h" | "--host" => {
-                        options.host = Some(value);
-                    }
-                    "-R" | "--chroot" => {
-                        options.chroot = Some(PathBuf::from(value));
                     }
                     "-U" | "--other-user" => {
                         options.other_user = Some(value);
@@ -765,16 +713,12 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     }
 
     let SudoOptions {
-        background,
-        chroot,
         chdir,
         group,
-        host,
         login,
         non_interactive,
         other_user,
         preserve_env,
-        preserve_groups,
         shell,
         stdin,
         user,
@@ -790,19 +734,15 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     } = opts;
 
     let flags = [
-        tuple!(background),
         tuple!(chdir),
-        tuple!(chroot),
         tuple!(edit),
         tuple!(group),
         tuple!(help),
-        tuple!(host),
         tuple!(list),
         tuple!(login),
         tuple!(non_interactive),
         tuple!(other_user),
         tuple!(preserve_env),
-        tuple!(preserve_groups),
         tuple!(remove_timestamp),
         tuple!(reset_timestamp),
         tuple!(shell),
@@ -832,7 +772,6 @@ impl From<ListOptions> for OptionsForContext {
             user,
 
             list: _,
-            host: _,
             other_user: _,
         } = opts;
 
@@ -861,8 +800,6 @@ impl From<ValidateOptions> for OptionsForContext {
             reset_timestamp,
             stdin,
             user,
-
-            host: _,
         } = opts;
 
         Self {
@@ -895,12 +832,8 @@ impl From<RunOptions> for OptionsForContext {
             stdin,
             user,
 
-            background: _,
-            chroot: _,
             env_var_list: _,
-            host: _,
             preserve_env: _,
-            preserve_groups: _,
         } = opts;
 
         Self {
