@@ -11,14 +11,14 @@ pub mod help;
 mod tests;
 
 pub enum SudoAction {
-    Edit(EditOptions),
-    Help(HelpOptions),
-    List(ListOptions),
-    RemoveTimestamp(RemoveTimestampOptions),
-    ResetTimestamp(ResetTimestampOptions),
-    Run(RunOptions),
-    Validate(ValidateOptions),
-    Version(VersionOptions),
+    Edit(SudoEditOptions),
+    Help(SudoHelpOptions),
+    List(SudoListOptions),
+    RemoveTimestamp(SudoRemoveTimestampOptions),
+    ResetTimestamp(SudoResetTimestampOptions),
+    Run(SudoRunOptions),
+    Validate(SudoValidateOptions),
+    Version(SudoVersionOptions),
 }
 
 impl SudoAction {
@@ -80,7 +80,7 @@ impl SudoAction {
     }
 
     #[cfg(test)]
-    pub fn try_into_run(self) -> Result<RunOptions, Self> {
+    pub fn try_into_run(self) -> Result<SudoRunOptions, Self> {
         if let Self::Run(v) = self {
             Ok(v)
         } else {
@@ -96,9 +96,9 @@ impl SudoAction {
 }
 
 // sudo -h | -K | -k | -V
-pub struct HelpOptions {}
+pub struct SudoHelpOptions {}
 
-impl TryFrom<SudoOptions> for HelpOptions {
+impl TryFrom<SudoOptions> for SudoHelpOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -113,9 +113,9 @@ impl TryFrom<SudoOptions> for HelpOptions {
 }
 
 // sudo -h | -K | -k | -V
-pub struct VersionOptions {}
+pub struct SudoVersionOptions {}
 
-impl TryFrom<SudoOptions> for VersionOptions {
+impl TryFrom<SudoOptions> for SudoVersionOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -130,9 +130,9 @@ impl TryFrom<SudoOptions> for VersionOptions {
 }
 
 // sudo -h | -K | -k | -V
-pub struct RemoveTimestampOptions {}
+pub struct SudoRemoveTimestampOptions {}
 
-impl TryFrom<SudoOptions> for RemoveTimestampOptions {
+impl TryFrom<SudoOptions> for SudoRemoveTimestampOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -147,9 +147,9 @@ impl TryFrom<SudoOptions> for RemoveTimestampOptions {
 }
 
 // sudo -h | -K | -k | -V
-pub struct ResetTimestampOptions {}
+pub struct SudoResetTimestampOptions {}
 
-impl TryFrom<SudoOptions> for ResetTimestampOptions {
+impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -164,7 +164,7 @@ impl TryFrom<SudoOptions> for ResetTimestampOptions {
 }
 
 // sudo -v [-ABkNnS] [-g group] [-h host] [-p prompt] [-u user]
-pub struct ValidateOptions {
+pub struct SudoValidateOptions {
     // -k
     pub reset_timestamp: bool,
     // -n
@@ -177,7 +177,7 @@ pub struct ValidateOptions {
     pub user: Option<SudoString>,
 }
 
-impl TryFrom<SudoOptions> for ValidateOptions {
+impl TryFrom<SudoOptions> for SudoValidateOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -204,7 +204,7 @@ impl TryFrom<SudoOptions> for ValidateOptions {
 }
 
 // sudo -e [-ABkNnS] [-r role] [-t type] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...
-pub struct EditOptions {
+pub struct SudoEditOptions {
     // -k
     pub reset_timestamp: bool,
     // -n
@@ -220,7 +220,7 @@ pub struct EditOptions {
     pub positional_args: Vec<String>,
 }
 
-impl TryFrom<SudoOptions> for EditOptions {
+impl TryFrom<SudoOptions> for SudoEditOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -255,7 +255,7 @@ impl TryFrom<SudoOptions> for EditOptions {
 }
 
 // sudo -l [-ABkNnS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command [arg ...]]
-pub struct ListOptions {
+pub struct SudoListOptions {
     // -l OR -l -l
     pub list: List,
 
@@ -275,7 +275,7 @@ pub struct ListOptions {
     pub positional_args: Vec<String>,
 }
 
-impl TryFrom<SudoOptions> for ListOptions {
+impl TryFrom<SudoOptions> for SudoListOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -312,7 +312,7 @@ impl TryFrom<SudoOptions> for ListOptions {
 }
 
 // sudo [-ABbEHnPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i | -s] [command [arg ...]]
-pub struct RunOptions {
+pub struct SudoRunOptions {
     // -E
     pub preserve_env: Vec<String>,
     // -k
@@ -336,7 +336,7 @@ pub struct RunOptions {
     pub positional_args: Vec<String>,
 }
 
-impl TryFrom<SudoOptions> for RunOptions {
+impl TryFrom<SudoOptions> for SudoRunOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
@@ -762,9 +762,9 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     Ok(())
 }
 
-impl From<ListOptions> for OptionsForContext {
-    fn from(opts: ListOptions) -> Self {
-        let ListOptions {
+impl From<SudoListOptions> for OptionsForContext {
+    fn from(opts: SudoListOptions) -> Self {
+        let SudoListOptions {
             group,
             non_interactive,
             positional_args,
@@ -793,9 +793,9 @@ impl From<ListOptions> for OptionsForContext {
     }
 }
 
-impl From<ValidateOptions> for OptionsForContext {
-    fn from(opts: ValidateOptions) -> Self {
-        let ValidateOptions {
+impl From<SudoValidateOptions> for OptionsForContext {
+    fn from(opts: SudoValidateOptions) -> Self {
+        let SudoValidateOptions {
             group,
             non_interactive,
             reset_timestamp,
@@ -820,9 +820,9 @@ impl From<ValidateOptions> for OptionsForContext {
     }
 }
 
-impl From<RunOptions> for OptionsForContext {
-    fn from(opts: RunOptions) -> Self {
-        let RunOptions {
+impl From<SudoRunOptions> for OptionsForContext {
+    fn from(opts: SudoRunOptions) -> Self {
+        let SudoRunOptions {
             chdir,
             group,
             login,
