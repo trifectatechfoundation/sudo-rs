@@ -72,6 +72,7 @@ fn uses_shell_env_var_when_flag_preserve_environment_is_present() -> Result<()> 
 }
 
 #[test]
+#[ignore = "intentionally non-compliant"]
 fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
     let env = Env("").build()?;
 
