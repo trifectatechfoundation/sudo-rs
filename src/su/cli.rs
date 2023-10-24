@@ -1,5 +1,7 @@
 use std::{borrow::Cow, mem, path::PathBuf};
 
+use crate::common::SudoString;
+
 use super::DEFAULT_USER;
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -213,9 +215,7 @@ impl<T> IsAbsent for Vec<T> {
     }
 }
 
-use crate::common::SudoString;
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 struct SuOptions {
     // -c
     command: Option<String>,
@@ -239,24 +239,6 @@ struct SuOptions {
     whitelist_environment: Vec<String>,
 
     positional_args: Vec<String>,
-}
-
-impl Default for SuOptions {
-    fn default() -> Self {
-        Self {
-            command: None,
-            group: vec![],
-            help: false,
-            login: false,
-            positional_args: vec![],
-            preserve_environment: false,
-            pty: false,
-            shell: None,
-            supp_group: vec![],
-            version: false,
-            whitelist_environment: vec![],
-        }
-    }
 }
 
 type OptionSetter = fn(&mut SuOptions, Option<String>) -> Result<(), String>;
