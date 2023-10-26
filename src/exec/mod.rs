@@ -64,20 +64,22 @@ fn run_command_internal(options: &impl RunOptions, env: Environment) -> io::Resu
     if let Some(arg0) = options.arg0() {
         command.arg0(arg0);
     }
-    // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
-    let path = options.chdir().cloned().or_else(|| {
-        options.is_login().then(|| {
-            // signal to the operating system that the command is a login shell by prefixing "-"
-            let mut process_name = qualified_path
-                .file_name()
-                .map(|osstr| osstr.as_bytes().to_vec())
-                .unwrap_or_else(Vec::new);
-            process_name.insert(0, b'-');
-            command.arg0(OsStr::from_bytes(&process_name));
 
-            options.user().home.clone()
-        })
-    });
+    if options.is_login() {
+        // signal to the operating system that the command is a login shell by prefixing "-"
+        let mut process_name = qualified_path
+            .file_name()
+            .map(|osstr| osstr.as_bytes().to_vec())
+            .unwrap_or_else(Vec::new);
+        process_name.insert(0, b'-');
+        command.arg0(OsStr::from_bytes(&process_name));
+    }
+
+    // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
+    let path = options
+        .chdir()
+        .cloned()
+        .or_else(|| options.is_login().then(|| options.user().home.clone()));
 
     // set target user and groups
     set_target_user(
