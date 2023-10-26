@@ -188,3 +188,19 @@ fn target_user_has_insufficient_perms() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn flag_login_is_respected() -> Result<()> {
+    let expected = "-bash";
+    let env = Env("ALL ALL=(ALL:ALL) CWD=* ALL").build()?;
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("sudo --login --chdir /tmp echo '$0'")
+        .output(&env)?
+        .stdout()?;
+
+    assert_eq!(expected, output);
+
+    Ok(())
+}
