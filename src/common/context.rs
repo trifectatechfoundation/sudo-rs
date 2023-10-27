@@ -1,5 +1,5 @@
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
-use crate::system::{hostname, Group, Process, User};
+use crate::system::{Group, Hostname, Process, User};
 use std::path::PathBuf;
 
 use super::{
@@ -41,7 +41,7 @@ pub struct Context {
     pub non_interactive: bool,
     pub use_session_records: bool,
     // system
-    pub hostname: String,
+    pub hostname: Hostname,
     pub current_user: User,
     pub process: Process,
     // policy
@@ -61,7 +61,7 @@ impl Context {
         sudo_options: OptionsForContext,
         path: String,
     ) -> Result<Context, Error> {
-        let hostname = hostname();
+        let hostname = Hostname::resolve();
         let current_user = resolve_current_user()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
@@ -95,7 +95,7 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sudo::SudoAction, system::hostname};
+    use crate::{sudo::SudoAction, system::Hostname};
     use std::collections::HashMap;
 
     use super::Context;
@@ -115,7 +115,7 @@ mod tests {
 
         assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
         assert_eq!(context.command.arguments, ["hello"]);
-        assert_eq!(context.hostname, hostname());
+        assert_eq!(context.hostname, Hostname::resolve());
         assert_eq!(context.target_user.uid, 0);
     }
 }

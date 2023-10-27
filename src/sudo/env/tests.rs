@@ -3,7 +3,7 @@ use crate::sudo::{
     cli::{SudoAction, SudoRunOptions},
     env::environment::get_target_environment,
 };
-use crate::system::{Group, Process, User};
+use crate::system::{Group, Hostname, Process, User};
 use std::collections::{HashMap, HashSet};
 
 const TESTS: &str = "
@@ -117,7 +117,7 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     };
 
     Context {
-        hostname: "test-ubuntu".to_string(),
+        hostname: Hostname::fake("test-ubuntu"),
         command,
         current_user: current_user.clone(),
         target_user: if sudo_options.user.as_deref() == Some("test") {
