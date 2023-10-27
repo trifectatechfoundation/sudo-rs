@@ -2,6 +2,7 @@ use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_
 use crate::system::{Group, Hostname, Process, User};
 use std::path::PathBuf;
 
+use super::ne_string::NonEmptyString;
 use super::resolve::CurrentUser;
 use super::{
     command::CommandAndArguments,
@@ -19,14 +20,14 @@ pub enum ContextAction {
 // this is a bit of a hack to keep the existing `Context` API working
 pub struct OptionsForContext {
     pub chdir: Option<PathBuf>,
-    pub group: Option<String>,
+    pub group: Option<NonEmptyString>,
     pub login: bool,
     pub non_interactive: bool,
     pub positional_args: Vec<String>,
     pub reset_timestamp: bool,
     pub shell: bool,
     pub stdin: bool,
-    pub user: Option<String>,
+    pub user: Option<NonEmptyString>,
     pub action: ContextAction,
 }
 
