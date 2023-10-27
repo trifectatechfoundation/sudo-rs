@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
-use crate::common::{resolve::resolve_current_user, Context, Error};
+use crate::common::resolve::CurrentUser;
+use crate::common::{Context, Error};
 use crate::log::dev_info;
 use crate::system::timestamp::RecordScope;
 use crate::system::User;
@@ -59,7 +60,7 @@ impl PolicyPlugin for SudoersPolicy {
         context: &Context,
     ) -> Result<Self::Policy, Error> {
         Ok(pre.check(
-            &context.current_user,
+            &*context.current_user,
             &context.hostname,
             crate::sudoers::Request {
                 user: &context.target_user,
@@ -95,17 +96,17 @@ fn sudo_process() -> Result<(), Error> {
                 std::process::exit(0);
             }
             SudoAction::RemoveTimestamp(_) => {
-                let user = resolve_current_user()?;
+                let user = CurrentUser::resolve()?;
                 let mut record_file =
-                    SessionRecordFile::open_for_user(user.uid, Duration::seconds(0))?;
+                    SessionRecordFile::open_for_user(&user, Duration::seconds(0))?;
                 record_file.reset()?;
                 Ok(())
             }
             SudoAction::ResetTimestamp(_) => {
                 if let Some(scope) = RecordScope::for_process(&Process::new()) {
-                    let user = resolve_current_user()?;
+                    let user = CurrentUser::resolve()?;
                     let mut record_file =
-                        SessionRecordFile::open_for_user(user.uid, Duration::seconds(0))?;
+                        SessionRecordFile::open_for_user(&user, Duration::seconds(0))?;
                     record_file.disable(scope, None)?;
                 }
                 Ok(())
