@@ -15,8 +15,8 @@ use std::{io, mem};
 
 use crate::common::resolve::resolve_path;
 use crate::log::auth_warn;
-use crate::system::can_execute;
 use crate::system::interface::{UnixGroup, UnixUser};
+use crate::system::{self, can_execute};
 use ast::*;
 use tokens::*;
 
@@ -77,7 +77,7 @@ impl Sudoers {
     pub fn check<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         &self,
         am_user: &User,
-        on_host: &str,
+        on_host: &system::Hostname,
         request: Request<User, Group>,
     ) -> Judgement {
         // exception: if user is root or does not switch users, NOPASSWD is implied
@@ -100,7 +100,7 @@ impl Sudoers {
     pub fn check_list_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         &self,
         invoking_user: &User,
-        hostname: &str,
+        hostname: &system::Hostname,
         request: ListRequest<User, Group>,
     ) -> Judgement {
         // exception: if user is root or does not switch users, NOPASSWD is implied
@@ -142,7 +142,7 @@ impl Sudoers {
     fn matching_user_specs<'a: 'b + 'c, 'b: 'c, 'c, User: UnixUser + PartialEq<User>>(
         &'a self,
         invoking_user: &'b User,
-        hostname: &'c str,
+        hostname: &'c system::Hostname,
     ) -> impl Iterator<Item = impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))> + 'b>
            + 'c {
         let Self { rules, aliases, .. } = self;
@@ -166,7 +166,7 @@ impl Sudoers {
     pub fn matching_entries<'a, User: UnixUser + PartialEq<User>>(
         &'a self,
         invoking_user: &User,
-        hostname: &str,
+        hostname: &system::Hostname,
     ) -> Vec<Entry<'a>> {
         // NOTE this method MUST NOT perform any filtering that `Self::check` does not do to
         // ensure `sudo $command` and `sudo --list` use the same permission checking logic
@@ -276,7 +276,7 @@ fn open_subsudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
 #[derive(Default)]
 pub(super) struct AliasTable {
     user: VecOrd<Def<UserSpecifier>>,
-    host: VecOrd<Def<Hostname>>,
+    host: VecOrd<Def<tokens::Hostname>>,
     cmnd: VecOrd<Def<Command>>,
     runas: VecOrd<Def<UserSpecifier>>,
 }
@@ -299,7 +299,7 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     sudoers: &Sudoers,
     am_user: &User,
-    on_host: &str,
+    on_host: &system::Hostname,
     request: Request<User, Group>,
 ) -> Option<Tag> {
     let cmdline = (request.command, request.arguments);
