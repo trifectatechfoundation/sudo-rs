@@ -2,9 +2,10 @@ use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_
 use crate::system::{Group, Hostname, Process, User};
 use std::path::PathBuf;
 
+use super::resolve::CurrentUser;
 use super::{
     command::CommandAndArguments,
-    resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
+    resolve::{resolve_launch_and_shell, resolve_target_user_and_group},
     Error,
 };
 
@@ -42,7 +43,7 @@ pub struct Context {
     pub use_session_records: bool,
     // system
     pub hostname: Hostname,
-    pub current_user: User,
+    pub current_user: CurrentUser,
     pub process: Process,
     // policy
     pub use_pty: bool,
@@ -62,7 +63,7 @@ impl Context {
         path: String,
     ) -> Result<Context, Error> {
         let hostname = Hostname::resolve();
-        let current_user = resolve_current_user()?;
+        let current_user = CurrentUser::resolve()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
