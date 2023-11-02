@@ -62,15 +62,22 @@ macro_rules! sudoer {
 }
 
 // alternative to parse_eval, but goes through sudoer! directly
+#[must_use]
 fn parse_line(s: &str) -> Sudo {
     sudoer![s].next().unwrap().unwrap()
 }
 
+/// Returns `None` if a syntax error is encountered
+fn try_parse_line(s: &str) -> Option<Sudo> {
+    parse_lines(&mut [s, ""].join("").chars().peekable())
+        .into_iter()
+        .next()?
+        .ok()
+}
+
 #[test]
 fn ambiguous_spec() {
-    let Sudo::Spec(_) = parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL") else {
-        todo!()
-    };
+    assert!(parse_eval::<ast::Sudo>("marc, User_Alias ALL = ALL").is_spec());
 }
 
 #[test]
@@ -342,61 +349,27 @@ fn directive_test() {
 #[test]
 // the overloading of '#' causes a lot of issues
 fn hashsign_test() {
-    let Sudo::Spec(_) = parse_line("#42 ALL=ALL") else {
-        panic!()
-    };
-    let Sudo::Spec(_) = parse_line("ALL ALL=(#42) ALL") else {
-        panic!()
-    };
-    let Sudo::Spec(_) = parse_line("ALL ALL=(%#42) ALL") else {
-        panic!()
-    };
-    let Sudo::Spec(_) = parse_line("ALL ALL=(:#42) ALL") else {
-        panic!()
-    };
-    let Sudo::Decl(_) = parse_line("User_Alias FOO=#42, %#0, #3") else {
-        panic!()
-    };
-    let Sudo::LineComment = parse_line("") else {
-        panic!()
-    };
-    let Sudo::LineComment = parse_line("#this is a comment") else {
-        panic!()
-    };
-    let Sudo::Include(_) = parse_line("#include foo") else {
-        panic!()
-    };
-    let Sudo::IncludeDir(_) = parse_line("#includedir foo") else {
-        panic!()
-    };
-    let Sudo::Include(x) = parse_line("#include \"foo bar\"") else {
-        panic!()
-    };
-    assert_eq!(x, "foo bar");
+    assert!(parse_line("#42 ALL=ALL").is_spec());
+    assert!(parse_line("ALL ALL=(#42) ALL").is_spec());
+    assert!(parse_line("ALL ALL=(%#42) ALL").is_spec());
+    assert!(parse_line("ALL ALL=(:#42) ALL").is_spec());
+    assert!(parse_line("User_Alias FOO=#42, %#0, #3").is_decl());
+    assert!(parse_line("").is_line_comment());
+    assert!(parse_line("#this is a comment").is_line_comment());
+    assert!(parse_line("#include foo").is_include());
+    assert!(parse_line("#includedir foo").is_include_dir());
+    assert_eq!("foo bar", parse_line("#include \"foo bar\"").as_include());
     // this is fine
-    let Sudo::LineComment = parse_line("#inlcudedir foo") else {
-        panic!()
-    };
-    let Sudo::Include(_) = parse_line("@include foo") else {
-        panic!()
-    };
-    let Sudo::IncludeDir(_) = parse_line("@includedir foo") else {
-        panic!()
-    };
-    let Sudo::Include(x) = parse_line("@include \"foo bar\"") else {
-        panic!()
-    };
-    assert_eq!(x, "foo bar");
+    assert!(parse_line("#inlcudedir foo").is_line_comment());
+    assert!(parse_line("@include foo").is_include());
+    assert!(parse_line("@includedir foo").is_include_dir());
+    assert_eq!("foo bar", parse_line("@include \"foo bar\"").as_include());
 }
 
 #[test]
 fn gh674_at_include_quoted_backslash() {
-    let Sudo::Include(_) = parse_line(r#"@include "/etc/sudo\ers" "#) else {
-        panic!()
-    };
-    let Sudo::IncludeDir(_) = parse_line(r#"@includedir "/etc/sudo\ers.d" "#) else {
-        panic!()
-    };
+    assert!(parse_line(r#"@include "/etc/sudo\ers" "#).is_include());
+    assert!(parse_line(r#"@includedir "/etc/sudo\ers.d" "#).is_include_dir());
 }
 
 #[test]
@@ -413,47 +386,38 @@ fn gh676_percent_h_escape_unsupported() {
 }
 
 #[test]
-#[should_panic]
 fn hashsign_error() {
-    let Sudo::Include(_) = parse_line("#include foo bar") else {
-        todo!()
-    };
+    assert!(parse_line("#include foo bar").is_line_comment());
 }
 
 #[test]
-#[should_panic]
 fn include_regression() {
-    let Sudo::Include(_) = parse_line("#4,#include foo") else {
-        todo!()
-    };
+    assert!(try_parse_line("#4,#include foo").is_none());
 }
 
 #[test]
-#[should_panic]
 fn nullbyte_regression() {
-    if let Sudo::Spec(PermissionSpec { .. }) = parse_line("ferris ALL=(ALL:ferris\0) ALL") {};
+    assert!(try_parse_line("ferris ALL=(ALL:ferris\0) ALL").is_none());
 }
 
 #[test]
-#[should_panic]
 fn alias_all_regression() {
-    parse_line("User_Alias ALL = sudouser");
+    assert!(try_parse_line("User_Alias ALL = sudouser").is_none())
 }
 
 #[test]
-#[should_panic]
 fn defaults_regression() {
-    parse_line("Defaults .mymachine=ALL");
+    assert!(try_parse_line("Defaults .mymachine=ALL").is_none())
 }
 
 #[test]
 fn useralias_underscore_regression() {
-    let Sudo::Spec(x) = parse_line("FOO_BAR ALL=ALL") else {
-        todo!()
-    };
-    let Qualified::Allow(Meta::Alias(_)) = x.users[0] else {
-        panic!()
-    };
+    let sudo = parse_line("FOO_BAR ALL=ALL");
+    let spec = sudo.as_spec().expect("`Sudo::Spec`");
+    assert!(spec.users[0]
+        .as_allow()
+        .expect("`Qualified::Allow`")
+        .is_alias());
 }
 
 fn test_topo_sort(n: usize) {
