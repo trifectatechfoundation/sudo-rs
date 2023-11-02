@@ -1,7 +1,7 @@
 use super::Sudoers;
 
 use super::Judgement;
-use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
+use crate::common::{SudoPath, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
 use crate::system::time::Duration;
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
 /// permission check.
@@ -9,7 +9,6 @@ use crate::system::time::Duration;
 /// The trait definitions can be part of some global crate in the future, if we support more
 /// than just the sudoers file.
 use std::collections::HashSet;
-use std::path::Path;
 
 pub trait Policy {
     fn authorization(&self) -> Authorization {
@@ -47,7 +46,7 @@ pub struct AuthorizationAllowed {
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[repr(u32)]
 pub enum DirChange<'a> {
-    Strict(Option<&'a Path>) = HARDENED_ENUM_VALUE_0,
+    Strict(Option<&'a SudoPath>) = HARDENED_ENUM_VALUE_0,
     Any = HARDENED_ENUM_VALUE_1,
 }
 
@@ -165,8 +164,8 @@ mod test {
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Any));
         assert_eq!(judge.chdir(), DirChange::Any);
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/usr".into())));
-        assert_eq!(judge.chdir(), (DirChange::Strict(Some(Path::new("/usr")))));
+        assert_eq!(judge.chdir(), (DirChange::Strict(Some(&"/usr".into()))));
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/bin".into())));
-        assert_eq!(judge.chdir(), (DirChange::Strict(Some(Path::new("/bin")))));
+        assert_eq!(judge.chdir(), (DirChange::Strict(Some(&"/bin".into()))));
     }
 }

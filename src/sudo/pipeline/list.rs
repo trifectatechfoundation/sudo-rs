@@ -18,7 +18,8 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             .other_user
             .as_ref()
             .map(|username| {
-                User::from_name(username)?.ok_or_else(|| Error::UserNotFound(username.clone()))
+                User::from_name(username.as_cstr())?
+                    .ok_or_else(|| Error::UserNotFound(username.clone().into()))
             })
             .transpose()?;
 

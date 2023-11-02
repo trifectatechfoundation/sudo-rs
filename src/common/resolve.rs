@@ -1,5 +1,6 @@
 use crate::cli::SudoOptions;
 use crate::system::{Group, User};
+use std::ffi::CStr;
 use std::{
     env, fs, io,
     os::unix::prelude::MetadataExt,
@@ -7,16 +8,17 @@ use std::{
     str::FromStr,
 };
 
+use super::SudoString;
 use super::{context::LaunchType, Error};
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
-    Name(&'a str),
+    Name(&'a SudoString),
     Id(T),
 }
 
 impl<'a, T: FromStr> NameOrId<'a, T> {
-    pub fn parse(input: &'a str) -> Option<Self> {
+    pub fn parse(input: &'a SudoString) -> Option<Self> {
         if input.is_empty() {
             None
         } else if let Some(stripped) = input.strip_prefix('#') {
@@ -52,25 +54,17 @@ pub(super) fn resolve_launch_and_shell(
 }
 
 pub(crate) fn resolve_target_user_and_group(
-    target_user_name_or_id: &Option<String>,
-    target_group_name_or_id: &Option<String>,
+    target_user_name_or_id: &Option<SudoString>,
+    target_group_name_or_id: &Option<SudoString>,
     current_user: &User,
 ) -> Result<(User, Group), Error> {
     // resolve user name or #<id> to a user
     let mut target_user =
-        match NameOrId::parse(target_user_name_or_id.as_deref().unwrap_or_default()) {
-            Some(NameOrId::Name(name)) => User::from_name(name)?,
-            Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
-            _ => None,
-        };
+        resolve_from_name_or_id(target_user_name_or_id, User::from_name, User::from_uid)?;
 
     // resolve group name or #<id> to a group
     let mut target_group =
-        match NameOrId::parse(target_group_name_or_id.as_deref().unwrap_or_default()) {
-            Some(NameOrId::Name(name)) => Group::from_name(name)?,
-            Some(NameOrId::Id(gid)) => Group::from_gid(gid)?,
-            _ => None,
-        };
+        resolve_from_name_or_id(target_group_name_or_id, Group::from_name, Group::from_gid)?;
 
     match (&target_user_name_or_id, &target_group_name_or_id) {
         // when -g is specified, but -u is not specified default -u to the current user
@@ -85,8 +79,8 @@ pub(crate) fn resolve_target_user_and_group(
         }
         // when no -u or -g is specified, default to root:root
         (None, None) => {
-            target_user = User::from_name("root")?;
-            target_group = Group::from_name("root")?;
+            target_user = User::from_name(cstr!("root"))?;
+            target_group = Group::from_name(cstr!("root"))?;
         }
         _ => {}
     }
@@ -110,6 +104,21 @@ pub(crate) fn resolve_target_user_and_group(
                 .unwrap_or_default()
                 .to_string(),
         )),
+    }
+}
+
+fn resolve_from_name_or_id<T, I, E>(
+    input: &Option<SudoString>,
+    from_name: impl FnOnce(&CStr) -> Result<Option<T>, E>,
+    from_id: impl FnOnce(I) -> Result<Option<T>, E>,
+) -> Result<Option<T>, E>
+where
+    I: FromStr,
+{
+    match input.as_ref().and_then(NameOrId::parse) {
+        Some(NameOrId::Name(name)) => from_name(name.as_cstr()),
+        Some(NameOrId::Id(id)) => from_id(id),
+        None => Ok(None),
     }
 }
 
@@ -171,31 +180,6 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
         })
 }
 
-/// Resolve the use of a '~' that occurs in a PathBuf; based on the sudoers context
-pub(crate) fn expand_tilde_in_path(
-    default_user: &str,
-    mut path: PathBuf,
-) -> Result<PathBuf, Error> {
-    let mut iter = path.iter();
-    if let Some(mut user_name) = iter
-        .next()
-        .and_then(|s| s.to_str())
-        .and_then(|s| s.strip_prefix('~'))
-    {
-        if user_name.is_empty() {
-            user_name = default_user
-        }
-        let home_dir = crate::system::User::from_name(user_name)
-            .ok()
-            .flatten()
-            .ok_or(Error::UserNotFound(user_name.to_string()))?
-            .home;
-        path = home_dir.join(iter.collect::<std::path::PathBuf>())
-    }
-
-    Ok(path)
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -230,11 +214,20 @@ mod tests {
 
     #[test]
     fn test_name_or_id() {
-        assert_eq!(NameOrId::<u32>::parse(""), None);
-        assert_eq!(NameOrId::<u32>::parse("mies"), Some(NameOrId::Name("mies")));
-        assert_eq!(NameOrId::<u32>::parse("1337"), Some(NameOrId::Name("1337")));
-        assert_eq!(NameOrId::<u32>::parse("#1337"), Some(NameOrId::Id(1337)));
-        assert_eq!(NameOrId::<u32>::parse("#-1"), None);
+        assert_eq!(NameOrId::<u32>::parse(&"".into()), None);
+        assert_eq!(
+            NameOrId::<u32>::parse(&"mies".into()),
+            Some(NameOrId::Name(&"mies".into()))
+        );
+        assert_eq!(
+            NameOrId::<u32>::parse(&"1337".into()),
+            Some(NameOrId::Name(&"1337".into()))
+        );
+        assert_eq!(
+            NameOrId::<u32>::parse(&"#1337".into()),
+            Some(NameOrId::Id(1337))
+        );
+        assert_eq!(NameOrId::<u32>::parse(&"#-1".into()), None);
     }
 
     #[test]
@@ -247,34 +240,25 @@ mod tests {
         assert_eq!(group.name, "root");
 
         // unknown user
-        let result = resolve_target_user_and_group(
-            &Some("non_existing_ghost".to_string()),
-            &None,
-            &current_user,
-        );
+        let result =
+            resolve_target_user_and_group(&Some("non_existing_ghost".into()), &None, &current_user);
         assert!(result.is_err());
 
         // unknown user
-        let result = resolve_target_user_and_group(
-            &None,
-            &Some("non_existing_ghost".to_string()),
-            &current_user,
-        );
+        let result =
+            resolve_target_user_and_group(&None, &Some("non_existing_ghost".into()), &current_user);
         assert!(result.is_err());
 
         // fallback to current user when different group specified
         let (user, group) =
-            resolve_target_user_and_group(&None, &Some("root".to_string()), &current_user).unwrap();
+            resolve_target_user_and_group(&None, &Some("root".into()), &current_user).unwrap();
         assert_eq!(user.name, current_user.name);
         assert_eq!(group.name, "root");
 
         // fallback to current users group when no group specified
-        let (user, group) = resolve_target_user_and_group(
-            &Some(current_user.name.to_string()),
-            &None,
-            &current_user,
-        )
-        .unwrap();
+        let (user, group) =
+            resolve_target_user_and_group(&Some(current_user.name.clone()), &None, &current_user)
+                .unwrap();
         assert_eq!(user.name, current_user.name);
         assert_eq!(group.gid, current_user.gid);
     }

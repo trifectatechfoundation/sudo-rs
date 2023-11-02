@@ -12,7 +12,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::cutils::*;
+use crate::{
+    common::{Error, SudoPath, SudoString},
+    cutils::*,
+};
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
@@ -254,9 +257,9 @@ pub fn chown<S: AsRef<CStr>>(
 pub struct User {
     pub uid: UserId,
     pub gid: GroupId,
-    pub name: String,
+    pub name: SudoString,
     pub gecos: String,
-    pub home: PathBuf,
+    pub home: SudoPath,
     pub shell: PathBuf,
     pub passwd: String,
     pub groups: Vec<GroupId>,
@@ -266,7 +269,7 @@ impl User {
     /// # Safety
     /// This function expects `pwd` to be a result from a succesful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
-    unsafe fn from_libc(pwd: &libc::passwd) -> User {
+    unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
         let mut buf_len: libc::c_int = 32;
         let mut groups_buffer: Vec<libc::gid_t>;
 
@@ -294,19 +297,19 @@ impl User {
             panic!("invalid groups count returned from getgrouplist, this should not happen")
         });
 
-        User {
+        Ok(User {
             uid: pwd.pw_uid,
             gid: pwd.pw_gid,
-            name: string_from_ptr(pwd.pw_name),
+            name: SudoString::new(string_from_ptr(pwd.pw_name))?,
             gecos: string_from_ptr(pwd.pw_gecos),
-            home: os_string_from_ptr(pwd.pw_dir).into(),
+            home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
             shell: os_string_from_ptr(pwd.pw_shell).into(),
             passwd: string_from_ptr(pwd.pw_passwd),
             groups: groups_buffer,
-        }
+        })
     }
 
-    pub fn from_uid(uid: UserId) -> std::io::Result<Option<User>> {
+    pub fn from_uid(uid: UserId) -> Result<Option<User>, Error> {
         let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
         let mut buf = vec![0; max_pw_size as usize];
         let mut pwd = MaybeUninit::uninit();
@@ -324,7 +327,7 @@ impl User {
             Ok(None)
         } else {
             let pwd = unsafe { pwd.assume_init() };
-            Ok(Some(unsafe { Self::from_libc(&pwd) }))
+            unsafe { Self::from_libc(&pwd).map(Some) }
         }
     }
 
@@ -344,16 +347,16 @@ impl User {
         unsafe { libc::getgid() }
     }
 
-    pub fn real() -> std::io::Result<Option<User>> {
+    pub fn real() -> Result<Option<User>, Error> {
         Self::from_uid(Self::real_uid())
     }
 
-    pub fn from_name(name: &str) -> std::io::Result<Option<User>> {
+    pub fn from_name(name_c: &CStr) -> Result<Option<User>, Error> {
         let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
         let mut buf = vec![0; max_pw_size as usize];
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
-        let name_c = CString::new(name).expect("String contained null bytes");
+
         cerr(unsafe {
             libc::getpwnam_r(
                 name_c.as_ptr(),
@@ -367,7 +370,7 @@ impl User {
             Ok(None)
         } else {
             let pwd = unsafe { pwd.assume_init() };
-            Ok(Some(unsafe { Self::from_libc(&pwd) }))
+            unsafe { Self::from_libc(&pwd).map(Some) }
         }
     }
 }
@@ -430,12 +433,11 @@ impl Group {
         }
     }
 
-    pub fn from_name(name: &str) -> std::io::Result<Option<Group>> {
+    pub fn from_name(name_c: &CStr) -> std::io::Result<Option<Group>> {
         let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
         let mut buf = vec![0; max_gr_size as usize];
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        let name_c = CString::new(name).expect("String contained null bytes");
         cerr(unsafe {
             libc::getgrnam_r(
                 name_c.as_ptr(),

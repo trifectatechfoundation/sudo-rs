@@ -5,8 +5,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::common::resolve::{is_valid_executable, resolve_current_user};
 use crate::common::{error::Error, Environment};
+use crate::common::{
+    resolve::{is_valid_executable, resolve_current_user},
+    SudoPath,
+};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
@@ -75,8 +78,8 @@ impl SuContext {
         let requesting_user = resolve_current_user()?;
 
         // resolve target user
-        let mut user = User::from_name(&options.user)?
-            .ok_or_else(|| Error::UserNotFound(options.user.clone()))?;
+        let mut user = User::from_name(options.user.as_cstr())?
+            .ok_or_else(|| Error::UserNotFound(options.user.clone().into()))?;
 
         // check the current user is root
         let is_current_root = User::real_uid() == 0;
@@ -98,8 +101,8 @@ impl SuContext {
         }
 
         for group_name in options.group.iter() {
-            let primary_group = Group::from_name(group_name)?
-                .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
+            let primary_group = Group::from_name(group_name.as_cstr())?
+                .ok_or_else(|| Error::GroupNotFound(group_name.clone().into()))?;
 
             // last argument is the primary group
             group = primary_group.clone();
@@ -108,8 +111,8 @@ impl SuContext {
 
         // add additional group if current user is root
         for (index, group_name) in options.supp_group.iter().enumerate() {
-            let supp_group = Group::from_name(group_name)?
-                .ok_or_else(|| Error::GroupNotFound(group_name.to_owned()))?;
+            let supp_group = Group::from_name(group_name.as_cstr())?
+                .ok_or_else(|| Error::GroupNotFound(group_name.clone().into()))?;
 
             // set primary group if none was provided
             if index == 0 && options.group.is_empty() {
@@ -178,7 +181,7 @@ impl SuContext {
 
         if !options.preserve_environment {
             // extend environment with fixed variables
-            environment.insert("HOME".into(), user.home.clone().into_os_string());
+            environment.insert("HOME".into(), user.home.clone().into());
             environment.insert("SHELL".into(), command.clone().into());
             environment.insert(
                 "MAIL".into(),
@@ -217,7 +220,7 @@ impl RunOptions for SuContext {
         None
     }
 
-    fn chdir(&self) -> Option<&std::path::PathBuf> {
+    fn chdir(&self) -> Option<&SudoPath> {
         None
     }
 

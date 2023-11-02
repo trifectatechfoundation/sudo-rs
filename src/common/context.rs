@@ -1,8 +1,8 @@
 use crate::cli::{SudoAction, SudoOptions};
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::system::{hostname, Group, Process, User};
-use std::path::PathBuf;
 
+use super::path::SudoPath;
 use super::{
     command::CommandAndArguments,
     resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
@@ -13,7 +13,7 @@ use super::{
 pub struct Context {
     // cli options
     pub launch: LaunchType,
-    pub chdir: Option<PathBuf>,
+    pub chdir: Option<SudoPath>,
     pub command: CommandAndArguments,
     pub target_user: User,
     pub target_group: Group,
