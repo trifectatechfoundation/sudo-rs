@@ -1,6 +1,7 @@
 use crate::system::{Group, User};
+use core::fmt;
 use std::{
-    env, fs, io,
+    env, fs, io, ops,
     os::unix::prelude::MetadataExt,
     path::{Path, PathBuf},
     str::FromStr,
@@ -8,29 +9,79 @@ use std::{
 
 use super::{
     context::{LaunchType, OptionsForContext},
+    ne_string::NonEmptyString,
     Error,
 };
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
-    Name(&'a str),
+    Name(&'a NonEmptyString),
     Id(T),
 }
 
 impl<'a, T: FromStr> NameOrId<'a, T> {
-    pub fn parse(input: &'a str) -> Option<Self> {
-        if input.is_empty() {
-            None
-        } else if let Some(stripped) = input.strip_prefix('#') {
-            stripped.parse::<T>().ok().map(|id| Self::Id(id))
+    pub fn parse(input: &'a NonEmptyString) -> Result<Self, Error> {
+        let ret = if let Some(stripped) = input.strip_prefix('#') {
+            if let Ok(id) = stripped.parse() {
+                Self::Id(id)
+            } else {
+                // `$ useradd #abc` adds a non-functional line to `/etc/passwd` so it should be
+                // fine to short-circuit treat this as an error
+                return Err(Error::UserNotFound(input.to_string()));
+            }
         } else {
-            Some(Self::Name(input))
+            Self::Name(input)
+        };
+
+        Ok(ret)
+    }
+
+    #[cfg(test)]
+    fn as_name(&self) -> Option<&&'a NonEmptyString> {
+        if let Self::Name(v) = self {
+            Some(v)
+        } else {
+            None
         }
     }
 }
 
-pub fn resolve_current_user() -> Result<User, Error> {
-    User::real()?.ok_or(Error::UserNotFound("current user".to_string()))
+#[derive(Clone)]
+pub struct CurrentUser {
+    inner: User,
+}
+
+impl From<CurrentUser> for User {
+    fn from(value: CurrentUser) -> Self {
+        value.inner
+    }
+}
+
+impl fmt::Debug for CurrentUser {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("CurrentUser").field(&self.inner).finish()
+    }
+}
+
+impl ops::Deref for CurrentUser {
+    type Target = User;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl CurrentUser {
+    #[cfg(test)]
+    pub fn fake(user: User) -> Self {
+        Self { inner: user }
+    }
+
+    pub fn resolve() -> Result<Self, Error> {
+        Ok(Self {
+            inner: User::real()?.ok_or(Error::UserNotFound("current user".to_string()))?,
+        })
+    }
 }
 
 type Shell = Option<PathBuf>;
@@ -54,30 +105,40 @@ pub(super) fn resolve_launch_and_shell(
 }
 
 pub(crate) fn resolve_target_user_and_group(
-    target_user_name_or_id: &Option<String>,
-    target_group_name_or_id: &Option<String>,
-    current_user: &User,
+    target_user_name_or_id: &Option<NonEmptyString>,
+    target_group_name_or_id: &Option<NonEmptyString>,
+    current_user: &CurrentUser,
 ) -> Result<(User, Group), Error> {
     // resolve user name or #<id> to a user
-    let mut target_user =
-        match NameOrId::parse(target_user_name_or_id.as_deref().unwrap_or_default()) {
-            Some(NameOrId::Name(name)) => User::from_name(name)?,
-            Some(NameOrId::Id(uid)) => User::from_uid(uid)?,
-            _ => None,
-        };
+    let mut target_user = target_user_name_or_id
+        .as_ref()
+        .map(|input| {
+            match NameOrId::parse(input)? {
+                NameOrId::Name(name) => User::from_name(name),
+                NameOrId::Id(id) => User::from_uid(id),
+            }
+            .map_err(Error::from)
+        })
+        .transpose()?
+        .flatten();
 
     // resolve group name or #<id> to a group
-    let mut target_group =
-        match NameOrId::parse(target_group_name_or_id.as_deref().unwrap_or_default()) {
-            Some(NameOrId::Name(name)) => Group::from_name(name)?,
-            Some(NameOrId::Id(gid)) => Group::from_gid(gid)?,
-            _ => None,
-        };
+    let mut target_group = target_group_name_or_id
+        .as_ref()
+        .map(|input| {
+            match NameOrId::parse(input)? {
+                NameOrId::Name(name) => Group::from_name(name),
+                NameOrId::Id(id) => Group::from_gid(id),
+            }
+            .map_err(Error::from)
+        })
+        .transpose()?
+        .flatten();
 
     match (&target_user_name_or_id, &target_group_name_or_id) {
         // when -g is specified, but -u is not specified default -u to the current user
         (None, Some(_)) => {
-            target_user = Some(current_user.clone());
+            target_user = Some(current_user.clone().into());
         }
         // when -u is specified but -g is not specified, default -g to the primary group of the specified user
         (Some(_), None) => {
@@ -202,10 +263,9 @@ pub(crate) fn expand_tilde_in_path(
 mod tests {
     use std::path::PathBuf;
 
-    use super::{
-        is_valid_executable, resolve_current_user, resolve_path, resolve_target_user_and_group,
-        NameOrId,
-    };
+    use crate::common::resolve::CurrentUser;
+
+    use super::{is_valid_executable, resolve_path, resolve_target_user_and_group, NameOrId};
 
     #[test]
     fn test_resolve_path() {
@@ -232,16 +292,30 @@ mod tests {
 
     #[test]
     fn test_name_or_id() {
-        assert_eq!(NameOrId::<u32>::parse(""), None);
-        assert_eq!(NameOrId::<u32>::parse("mies"), Some(NameOrId::Name("mies")));
-        assert_eq!(NameOrId::<u32>::parse("1337"), Some(NameOrId::Name("1337")));
-        assert_eq!(NameOrId::<u32>::parse("#1337"), Some(NameOrId::Id(1337)));
-        assert_eq!(NameOrId::<u32>::parse("#-1"), None);
+        assert_eq!(
+            "mies",
+            NameOrId::<u32>::parse(&"mies".into())
+                .unwrap()
+                .as_name()
+                .unwrap(),
+        );
+        assert_eq!(
+            "1337",
+            NameOrId::<u32>::parse(&"1337".into())
+                .unwrap()
+                .as_name()
+                .unwrap(),
+        );
+        assert_eq!(
+            NameOrId::Id(1337),
+            NameOrId::<u32>::parse(&"#1337".into()).unwrap()
+        );
+        assert!(NameOrId::<u32>::parse(&"#-1".into()).is_err());
     }
 
     #[test]
     fn test_resolve_target_user_and_group() {
-        let current_user = resolve_current_user().unwrap();
+        let current_user = CurrentUser::resolve().unwrap();
 
         // fallback to root
         let (user, group) = resolve_target_user_and_group(&None, &None, &current_user).unwrap();
@@ -249,30 +323,24 @@ mod tests {
         assert_eq!(group.name, "root");
 
         // unknown user
-        let result = resolve_target_user_and_group(
-            &Some("non_existing_ghost".to_string()),
-            &None,
-            &current_user,
-        );
+        let result =
+            resolve_target_user_and_group(&Some("non_existing_ghost".into()), &None, &current_user);
         assert!(result.is_err());
 
         // unknown user
-        let result = resolve_target_user_and_group(
-            &None,
-            &Some("non_existing_ghost".to_string()),
-            &current_user,
-        );
+        let result =
+            resolve_target_user_and_group(&None, &Some("non_existing_ghost".into()), &current_user);
         assert!(result.is_err());
 
         // fallback to current user when different group specified
         let (user, group) =
-            resolve_target_user_and_group(&None, &Some("root".to_string()), &current_user).unwrap();
+            resolve_target_user_and_group(&None, &Some("root".into()), &current_user).unwrap();
         assert_eq!(user.name, current_user.name);
         assert_eq!(group.name, "root");
 
         // fallback to current users group when no group specified
         let (user, group) = resolve_target_user_and_group(
-            &Some(current_user.name.to_string()),
+            &Some(current_user.name.as_str().into()),
             &None,
             &current_user,
         )

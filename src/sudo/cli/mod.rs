@@ -2,7 +2,10 @@
 
 use std::{borrow::Cow, mem, path::PathBuf};
 
-use crate::common::context::{ContextAction, OptionsForContext};
+use crate::common::{
+    context::{ContextAction, OptionsForContext},
+    ne_string::NonEmptyString,
+};
 
 pub mod help;
 
@@ -171,9 +174,9 @@ pub struct SudoValidateOptions {
     // -S
     pub stdin: bool,
     // -g
-    pub group: Option<String>,
+    pub group: Option<NonEmptyString>,
     // -u
-    pub user: Option<String>,
+    pub user: Option<NonEmptyString>,
 }
 
 impl TryFrom<SudoOptions> for SudoValidateOptions {
@@ -213,9 +216,9 @@ pub struct SudoEditOptions {
     // -D
     pub chdir: Option<PathBuf>,
     // -g
-    pub group: Option<String>,
+    pub group: Option<NonEmptyString>,
     // -u
-    pub user: Option<String>,
+    pub user: Option<NonEmptyString>,
     pub positional_args: Vec<String>,
 }
 
@@ -265,11 +268,11 @@ pub struct SudoListOptions {
     // -S
     pub stdin: bool,
     // -g
-    pub group: Option<String>,
+    pub group: Option<NonEmptyString>,
     // -U
     pub other_user: Option<String>,
     // -u
-    pub user: Option<String>,
+    pub user: Option<NonEmptyString>,
 
     pub positional_args: Vec<String>,
 }
@@ -323,9 +326,9 @@ pub struct SudoRunOptions {
     // -D
     pub chdir: Option<PathBuf>,
     // -g
-    pub group: Option<String>,
+    pub group: Option<NonEmptyString>,
     // -u
-    pub user: Option<String>,
+    pub user: Option<NonEmptyString>,
     // VAR=value
     pub env_var_list: Vec<(String, String)>,
     // -i
@@ -393,7 +396,7 @@ struct SudoOptions {
     // -D
     chdir: Option<PathBuf>,
     // -g
-    group: Option<String>,
+    group: Option<NonEmptyString>,
     // -i
     login: bool,
     // -n
@@ -407,7 +410,7 @@ struct SudoOptions {
     // -S
     stdin: bool,
     // -u
-    user: Option<String>,
+    user: Option<NonEmptyString>,
 
     // additional environment
     env_var_list: Vec<(String, String)>,
@@ -661,13 +664,19 @@ impl SudoOptions {
                         // options.preserve_env = value.split(',').map(str::to_string).collect()
                     }
                     "-g" | "--group" => {
-                        options.group = Some(value);
+                        options.group = Some(
+                            NonEmptyString::new(value)
+                                .ok_or("group argument cannot be an empty string")?,
+                        );
                     }
                     "-U" | "--other-user" => {
                         options.other_user = Some(value);
                     }
                     "-u" | "--user" => {
-                        options.user = Some(value);
+                        options.user = Some(
+                            NonEmptyString::new(value)
+                                .ok_or("user argument cannot be an empty string")?,
+                        );
                     }
                     _option => {
                         Err("invalid option provided")?;

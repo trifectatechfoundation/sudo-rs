@@ -1,10 +1,12 @@
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
-use crate::system::{hostname, Group, Process, User};
+use crate::system::{Group, Hostname, Process, User};
 use std::path::PathBuf;
 
+use super::ne_string::NonEmptyString;
+use super::resolve::CurrentUser;
 use super::{
     command::CommandAndArguments,
-    resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
+    resolve::{resolve_launch_and_shell, resolve_target_user_and_group},
     Error,
 };
 
@@ -18,14 +20,14 @@ pub enum ContextAction {
 // this is a bit of a hack to keep the existing `Context` API working
 pub struct OptionsForContext {
     pub chdir: Option<PathBuf>,
-    pub group: Option<String>,
+    pub group: Option<NonEmptyString>,
     pub login: bool,
     pub non_interactive: bool,
     pub positional_args: Vec<String>,
     pub reset_timestamp: bool,
     pub shell: bool,
     pub stdin: bool,
-    pub user: Option<String>,
+    pub user: Option<NonEmptyString>,
     pub action: ContextAction,
 }
 
@@ -41,8 +43,8 @@ pub struct Context {
     pub non_interactive: bool,
     pub use_session_records: bool,
     // system
-    pub hostname: String,
-    pub current_user: User,
+    pub hostname: Hostname,
+    pub current_user: CurrentUser,
     pub process: Process,
     // policy
     pub use_pty: bool,
@@ -61,8 +63,8 @@ impl Context {
         sudo_options: OptionsForContext,
         path: String,
     ) -> Result<Context, Error> {
-        let hostname = hostname();
-        let current_user = resolve_current_user()?;
+        let hostname = Hostname::resolve();
+        let current_user = CurrentUser::resolve()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
@@ -95,7 +97,7 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sudo::SudoAction, system::hostname};
+    use crate::{sudo::SudoAction, system::Hostname};
     use std::collections::HashMap;
 
     use super::Context;
@@ -115,7 +117,7 @@ mod tests {
 
         assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
         assert_eq!(context.command.arguments, ["hello"]);
-        assert_eq!(context.hostname, hostname());
+        assert_eq!(context.hostname, Hostname::resolve());
         assert_eq!(context.target_user.uid, 0);
     }
 }
