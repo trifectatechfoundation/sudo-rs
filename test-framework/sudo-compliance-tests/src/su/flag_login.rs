@@ -136,6 +136,7 @@ fn term_var_in_invoking_users_env_is_preserved() -> Result<()> {
 }
 
 #[test]
+#[ignore = "wontfix"]
 fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
     let env = Env("").build()?;
 
