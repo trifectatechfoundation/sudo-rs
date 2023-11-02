@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::common::resolve::{is_valid_executable, CurrentUser};
+use crate::common::resolve::{is_valid_executable, resolve_current_user};
 use crate::common::{error::Error, Environment};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
@@ -27,7 +27,7 @@ pub(crate) struct SuContext {
     options: SuOptions,
     pub(crate) environment: Environment,
     user: User,
-    requesting_user: CurrentUser,
+    requesting_user: User,
     group: Group,
     pub(crate) process: Process,
 }
@@ -72,7 +72,7 @@ impl SuContext {
             }
         }
 
-        let requesting_user = CurrentUser::resolve()?;
+        let requesting_user = resolve_current_user()?;
 
         // resolve target user
         let mut user = User::from_name(&options.user)?

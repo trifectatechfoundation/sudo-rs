@@ -1,4 +1,4 @@
-use crate::{pam::PamError, system::Hostname};
+use crate::pam::PamError;
 use std::{borrow::Cow, fmt, path::PathBuf};
 
 #[derive(Debug)]
@@ -7,7 +7,7 @@ pub enum Error {
     NotAllowed {
         username: String,
         command: Cow<'static, str>,
-        hostname: Hostname,
+        hostname: String,
         other_user: Option<String>,
     },
     SelfCheck,

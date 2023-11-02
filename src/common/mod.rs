@@ -9,7 +9,6 @@ pub mod bin_serde;
 pub mod command;
 pub mod context;
 pub mod error;
-pub mod ne_string;
 pub mod resolve;
 
 pub type Environment = HashMap<OsString, OsString>;

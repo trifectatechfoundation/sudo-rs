@@ -4,10 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{
-    common::resolve::CurrentUser,
-    log::{auth_info, auth_warn},
-};
+use crate::log::{auth_info, auth_warn};
 
 use super::{
     audit::secure_open_cookie_file,
@@ -47,11 +44,10 @@ pub struct SessionRecordFile {
 impl SessionRecordFile {
     const BASE_PATH: &'static str = "/var/run/sudo-rs/ts";
 
-    pub fn open_for_user(user: &CurrentUser, timeout: Duration) -> io::Result<Self> {
-        let uid = user.uid;
+    pub fn open_for_user(user: UserId, timeout: Duration) -> io::Result<Self> {
         let mut path = PathBuf::from(Self::BASE_PATH);
-        path.push(uid.to_string());
-        SessionRecordFile::new(uid, secure_open_cookie_file(&path)?, timeout)
+        path.push(user.to_string());
+        SessionRecordFile::new(user, secure_open_cookie_file(&path)?, timeout)
     }
 
     const FILE_VERSION: u16 = 1;
