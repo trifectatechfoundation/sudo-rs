@@ -1,4 +1,3 @@
-use crate::cli::SudoOptions;
 use crate::system::{Group, User};
 use std::ffi::CStr;
 use std::{
@@ -9,7 +8,10 @@ use std::{
 };
 
 use super::SudoString;
-use super::{context::LaunchType, Error};
+use super::{
+    context::{LaunchType, OptionsForContext},
+    Error,
+};
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
@@ -36,7 +38,7 @@ pub fn resolve_current_user() -> Result<User, Error> {
 type Shell = Option<PathBuf>;
 
 pub(super) fn resolve_launch_and_shell(
-    sudo_options: &SudoOptions,
+    sudo_options: &OptionsForContext,
     current_user: &User,
     target_user: &User,
 ) -> (LaunchType, Shell) {

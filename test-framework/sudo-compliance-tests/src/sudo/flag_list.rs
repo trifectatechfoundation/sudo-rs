@@ -221,7 +221,7 @@ fn does_not_work_with_lowercase_u_flag() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "usage: sudo -h | -K | -k | -V"
     } else {
-        "invalid argument found for '--list"
+        "'--user' flag must be accompanied by a command"
     };
     assert_contains!(actual, diagnostic);
 

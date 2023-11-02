@@ -1,11 +1,12 @@
 use std::ffi::OsStr;
 use std::process::exit;
 
-use crate::cli::SudoOptions;
+use super::cli::{SudoRunOptions, SudoValidateOptions};
+use crate::common::context::OptionsForContext;
 use crate::common::{Context, Environment, Error};
-use crate::env::environment;
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
+use crate::sudo::env::environment;
 use crate::sudo::Duration;
 use crate::sudoers::{Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy};
 use crate::system::interface::UserId;
@@ -40,9 +41,20 @@ pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
 }
 
 impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
-    pub fn run(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
+    pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
+        if !cmd_opts.env_var_list.is_empty() {
+            eprintln_ignore_io_error!(
+                "warning: CLI-level env var list has not yet been implemented and will be ignored"
+            )
+        }
+        if !cmd_opts.preserve_env.is_nothing() {
+            eprintln_ignore_io_error!(
+                "warning: `--preserve-env` has not yet been implemented and will be ignored"
+            )
+        }
+
         let pre = self.policy.init()?;
-        let mut context = build_context(cmd_opts, &pre)?;
+        let mut context = build_context(cmd_opts.into(), &pre)?;
 
         let policy = self.policy.judge(pre, &context)?;
         let authorization = policy.authorization();
@@ -99,9 +111,9 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         Ok(())
     }
 
-    pub fn run_validate(mut self, cmd_opts: SudoOptions) -> Result<(), Error> {
+    pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
-        let context = build_context(cmd_opts, &pre)?;
+        let context = build_context(cmd_opts.into(), &pre)?;
 
         match pre.validate_authorization() {
             Authorization::Forbidden => {
@@ -187,7 +199,10 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     }
 }
 
-fn build_context(cmd_opts: SudoOptions, pre: &dyn PreJudgementPolicy) -> Result<Context, Error> {
+fn build_context(
+    cmd_opts: OptionsForContext,
+    pre: &dyn PreJudgementPolicy,
+) -> Result<Context, Error> {
     let secure_path: String = pre
         .secure_path()
         .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());

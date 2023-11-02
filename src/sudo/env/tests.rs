@@ -1,6 +1,8 @@
-use crate::cli::SudoOptions;
 use crate::common::{CommandAndArguments, Context, Environment};
-use crate::env::environment::get_target_environment;
+use crate::sudo::{
+    cli::{SudoAction, SudoRunOptions},
+    env::environment::get_target_environment,
+};
 use crate::system::{Group, Process, User};
 use std::collections::{HashMap, HashSet};
 
@@ -73,9 +75,10 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .collect()
 }
 
-fn create_test_context(sudo_options: &SudoOptions) -> Context {
+fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
-    let command = CommandAndArguments::build_from_args(None, sudo_options.clone().args(), &path);
+    let command =
+        CommandAndArguments::build_from_args(None, sudo_options.positional_args.clone(), &path);
 
     let current_user = User {
         uid: 1000,
@@ -129,7 +132,7 @@ fn create_test_context(sudo_options: &SudoOptions) -> Context {
             root_group
         },
         launch: crate::common::context::LaunchType::Direct,
-        chdir: sudo_options.directory.clone(),
+        chdir: sudo_options.chdir.clone(),
         stdin: sudo_options.stdin,
         non_interactive: sudo_options.non_interactive,
         process: Process::new(),
@@ -152,7 +155,11 @@ fn test_environment_variable_filtering() {
     let initial_env = parts.remove(0).1;
 
     for (cmd, expected_env) in parts {
-        let options = SudoOptions::try_parse_from(cmd.split_whitespace()).unwrap();
+        let options = SudoAction::try_parse_from(cmd.split_whitespace())
+            .unwrap()
+            .try_into_run()
+            .ok()
+            .unwrap();
         let settings = crate::sudoers::Judgement::default();
         let context = create_test_context(&options);
         let resulting_env =
