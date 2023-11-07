@@ -23,6 +23,16 @@ Linux distribution does not package that version (or a later one), you can alway
 install the most recent version through [rustup]. You also need the C development
 files for PAM (`libpam0g-dev` on Debian, `pam-devel` on Fedora).
 
+On Ubuntu or Debian-based systems, use the following command to install the PAM development library:
+```
+sudo apt-get install libpam0g-dev
+```
+
+On CentOS or Red Hat-based systems, you can use the following command:
+```
+sudo yum install pam-devel
+```
+
 With dependencies installed, building sudo-rs is a simple matter of:
 ```
 cargo build --release
