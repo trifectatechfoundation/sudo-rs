@@ -4,7 +4,7 @@ A safety oriented and memory safe implementation of sudo and su written in Rust.
 
 ## Status of this project
 
-Sudo-rs is being developed further; features you might expect form original sudo
+Sudo-rs is being developed further; features you might expect from original sudo
 may still be unimplemented or not planned. If there is an important one you need,
 please request it using the issue tracker. If you encounter any usability bugs,
 also please report them on the [issue tracker](https://github.com/memorysafety/sudo-rs/issues).
