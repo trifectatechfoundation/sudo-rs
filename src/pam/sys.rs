@@ -30,56 +30,19 @@ pub const PAM_ABORT: u32 = 26;
 pub const PAM_AUTHTOK_EXPIRED: u32 = 27;
 pub const PAM_MODULE_UNKNOWN: u32 = 28;
 pub const PAM_BAD_ITEM: u32 = 29;
-pub const PAM_CONV_AGAIN: u32 = 30;
-pub const PAM_INCOMPLETE: u32 = 31;
 pub const PAM_SILENT: u32 = 32768;
 pub const PAM_DISALLOW_NULL_AUTHTOK: u32 = 1;
-pub const PAM_ESTABLISH_CRED: u32 = 2;
-pub const PAM_DELETE_CRED: u32 = 4;
 pub const PAM_REINITIALIZE_CRED: u32 = 8;
-pub const PAM_REFRESH_CRED: u32 = 16;
 pub const PAM_CHANGE_EXPIRED_AUTHTOK: u32 = 32;
-pub const PAM_SERVICE: u32 = 1;
 pub const PAM_USER: u32 = 2;
 pub const PAM_TTY: u32 = 3;
-pub const PAM_RHOST: u32 = 4;
-pub const PAM_CONV: u32 = 5;
-pub const PAM_AUTHTOK: u32 = 6;
-pub const PAM_OLDAUTHTOK: u32 = 7;
 pub const PAM_RUSER: u32 = 8;
-pub const PAM_USER_PROMPT: u32 = 9;
-pub const PAM_FAIL_DELAY: u32 = 10;
-pub const PAM_XDISPLAY: u32 = 11;
-pub const PAM_XAUTHDATA: u32 = 12;
-pub const PAM_AUTHTOK_TYPE: u32 = 13;
 pub const PAM_DATA_SILENT: u32 = 1073741824;
 pub const PAM_PROMPT_ECHO_OFF: u32 = 1;
 pub const PAM_PROMPT_ECHO_ON: u32 = 2;
 pub const PAM_ERROR_MSG: u32 = 3;
 pub const PAM_TEXT_INFO: u32 = 4;
-pub const PAM_RADIO_TYPE: u32 = 5;
-pub const PAM_BINARY_PROMPT: u32 = 7;
-pub const PAM_MAX_NUM_MSG: u32 = 32;
-pub const PAM_MAX_MSG_SIZE: u32 = 512;
 pub const PAM_MAX_RESP_SIZE: u32 = 512;
-pub const PAM_AUTHTOK_RECOVER_ERR: u32 = 21;
-pub const PAM_BP_MAX_LENGTH: u32 = 131072;
-pub const PAM_BPC_FALSE: u32 = 0;
-pub const PAM_BPC_TRUE: u32 = 1;
-pub const PAM_BPC_OK: u32 = 1;
-pub const PAM_BPC_SELECT: u32 = 2;
-pub const PAM_BPC_DONE: u32 = 3;
-pub const PAM_BPC_FAIL: u32 = 4;
-pub const PAM_BPC_GETENV: u32 = 65;
-pub const PAM_BPC_PUTENV: u32 = 66;
-pub const PAM_BPC_TEXT: u32 = 67;
-pub const PAM_BPC_ERROR: u32 = 68;
-pub const PAM_BPC_PROMPT: u32 = 69;
-pub const PAM_BPC_PASS: u32 = 70;
-pub const PAM_PRELIM_CHECK: u32 = 16384;
-pub const PAM_UPDATE_AUTHTOK: u32 = 8192;
-pub const PAM_DATA_REPLACE: u32 = 536870912;
-pub const PAM_MODUTIL_NGROUPS: u32 = 64;
 pub type pam_handle_t = u8;
 extern "C" {
     pub fn pam_set_item(
@@ -99,16 +62,7 @@ extern "C" {
     pub fn pam_strerror(pamh: *mut pam_handle_t, errnum: libc::c_int) -> *const libc::c_char;
 }
 extern "C" {
-    pub fn pam_putenv(pamh: *mut pam_handle_t, name_value: *const libc::c_char) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_getenv(pamh: *mut pam_handle_t, name: *const libc::c_char) -> *const libc::c_char;
-}
-extern "C" {
     pub fn pam_getenvlist(pamh: *mut pam_handle_t) -> *mut *mut libc::c_char;
-}
-extern "C" {
-    pub fn pam_fail_delay(pamh: *mut pam_handle_t, musec_delay: libc::c_uint) -> libc::c_int;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -249,15 +203,6 @@ extern "C" {
     ) -> libc::c_int;
 }
 extern "C" {
-    pub fn pam_start_confdir(
-        service_name: *const libc::c_char,
-        user: *const libc::c_char,
-        pam_conversation: *const pam_conv,
-        confdir: *const libc::c_char,
-        pamh: *mut *mut pam_handle_t,
-    ) -> libc::c_int;
-}
-extern "C" {
     pub fn pam_end(pamh: *mut pam_handle_t, pam_status: libc::c_int) -> libc::c_int;
 }
 extern "C" {
@@ -282,156 +227,6 @@ pub type __uid_t = libc::c_uint;
 pub type __gid_t = libc::c_uint;
 pub type gid_t = __gid_t;
 pub type uid_t = __uid_t;
-pub type va_list = __builtin_va_list;
-extern "C" {
-    pub fn pam_vsyslog(
-        pamh: *const pam_handle_t,
-        priority: libc::c_int,
-        fmt: *const libc::c_char,
-        args: *mut __va_list_tag,
-    );
-}
-extern "C" {
-    pub fn pam_syslog(
-        pamh: *const pam_handle_t,
-        priority: libc::c_int,
-        fmt: *const libc::c_char,
-        ...
-    );
-}
-extern "C" {
-    pub fn pam_vprompt(
-        pamh: *mut pam_handle_t,
-        style: libc::c_int,
-        response: *mut *mut libc::c_char,
-        fmt: *const libc::c_char,
-        args: *mut __va_list_tag,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_prompt(
-        pamh: *mut pam_handle_t,
-        style: libc::c_int,
-        response: *mut *mut libc::c_char,
-        fmt: *const libc::c_char,
-        ...
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_get_authtok(
-        pamh: *mut pam_handle_t,
-        item: libc::c_int,
-        authtok: *mut *const libc::c_char,
-        prompt: *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_get_authtok_noverify(
-        pamh: *mut pam_handle_t,
-        authtok: *mut *const libc::c_char,
-        prompt: *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_get_authtok_verify(
-        pamh: *mut pam_handle_t,
-        authtok: *mut *const libc::c_char,
-        prompt: *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_misc_paste_env(
-        pamh: *mut pam_handle_t,
-        user_env: *const *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_misc_drop_env(env: *mut *mut libc::c_char) -> *mut *mut libc::c_char;
-}
-extern "C" {
-    pub fn pam_misc_setenv(
-        pamh: *mut pam_handle_t,
-        name: *const libc::c_char,
-        value: *const libc::c_char,
-        readonly: libc::c_int,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_set_data(
-        pamh: *mut pam_handle_t,
-        module_data_name: *const libc::c_char,
-        data: *mut libc::c_void,
-        cleanup: ::std::option::Option<
-            unsafe extern "C" fn(
-                pamh: *mut pam_handle_t,
-                data: *mut libc::c_void,
-                error_status: libc::c_int,
-            ),
-        >,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_get_data(
-        pamh: *const pam_handle_t,
-        module_data_name: *const libc::c_char,
-        data: *mut *const libc::c_void,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_get_user(
-        pamh: *mut pam_handle_t,
-        user: *mut *const libc::c_char,
-        prompt: *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_sm_authenticate(
-        pamh: *mut pam_handle_t,
-        flags: libc::c_int,
-        argc: libc::c_int,
-        argv: *mut *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_sm_setcred(
-        pamh: *mut pam_handle_t,
-        flags: libc::c_int,
-        argc: libc::c_int,
-        argv: *mut *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_sm_acct_mgmt(
-        pamh: *mut pam_handle_t,
-        flags: libc::c_int,
-        argc: libc::c_int,
-        argv: *mut *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_sm_open_session(
-        pamh: *mut pam_handle_t,
-        flags: libc::c_int,
-        argc: libc::c_int,
-        argv: *mut *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_sm_close_session(
-        pamh: *mut pam_handle_t,
-        flags: libc::c_int,
-        argc: libc::c_int,
-        argv: *mut *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_sm_chauthtok(
-        pamh: *mut pam_handle_t,
-        flags: libc::c_int,
-        argc: libc::c_int,
-        argv: *mut *const libc::c_char,
-    ) -> libc::c_int;
-}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct passwd {
@@ -709,74 +504,6 @@ fn bindgen_test_layout_spwd() {
         )
     );
 }
-extern "C" {
-    pub fn pam_modutil_getpwnam(pamh: *mut pam_handle_t, user: *const libc::c_char) -> *mut passwd;
-}
-extern "C" {
-    pub fn pam_modutil_getpwuid(pamh: *mut pam_handle_t, uid: uid_t) -> *mut passwd;
-}
-extern "C" {
-    pub fn pam_modutil_getgrnam(pamh: *mut pam_handle_t, group: *const libc::c_char) -> *mut group;
-}
-extern "C" {
-    pub fn pam_modutil_getgrgid(pamh: *mut pam_handle_t, gid: gid_t) -> *mut group;
-}
-extern "C" {
-    pub fn pam_modutil_getspnam(pamh: *mut pam_handle_t, user: *const libc::c_char) -> *mut spwd;
-}
-extern "C" {
-    pub fn pam_modutil_user_in_group_nam_nam(
-        pamh: *mut pam_handle_t,
-        user: *const libc::c_char,
-        group: *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_user_in_group_nam_gid(
-        pamh: *mut pam_handle_t,
-        user: *const libc::c_char,
-        group: gid_t,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_user_in_group_uid_nam(
-        pamh: *mut pam_handle_t,
-        user: uid_t,
-        group: *const libc::c_char,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_user_in_group_uid_gid(
-        pamh: *mut pam_handle_t,
-        user: uid_t,
-        group: gid_t,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_getlogin(pamh: *mut pam_handle_t) -> *const libc::c_char;
-}
-extern "C" {
-    pub fn pam_modutil_read(
-        fd: libc::c_int,
-        buffer: *mut libc::c_char,
-        count: libc::c_int,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_write(
-        fd: libc::c_int,
-        buffer: *const libc::c_char,
-        count: libc::c_int,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_audit_write(
-        pamh: *mut pam_handle_t,
-        type_: libc::c_int,
-        message: *const libc::c_char,
-        retval: libc::c_int,
-    ) -> libc::c_int;
-}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pam_modutil_privs {
@@ -861,38 +588,6 @@ fn bindgen_test_layout_pam_modutil_privs() {
             stringify!(is_dropped)
         )
     );
-}
-extern "C" {
-    pub fn pam_modutil_drop_priv(
-        pamh: *mut pam_handle_t,
-        p: *mut pam_modutil_privs,
-        pw: *const passwd,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_regain_priv(
-        pamh: *mut pam_handle_t,
-        p: *mut pam_modutil_privs,
-    ) -> libc::c_int;
-}
-pub const pam_modutil_redirect_fd_PAM_MODUTIL_IGNORE_FD: pam_modutil_redirect_fd = 0;
-pub const pam_modutil_redirect_fd_PAM_MODUTIL_PIPE_FD: pam_modutil_redirect_fd = 1;
-pub const pam_modutil_redirect_fd_PAM_MODUTIL_NULL_FD: pam_modutil_redirect_fd = 2;
-pub type pam_modutil_redirect_fd = libc::c_uint;
-extern "C" {
-    pub fn pam_modutil_sanitize_helper_fds(
-        pamh: *mut pam_handle_t,
-        redirect_stdin: pam_modutil_redirect_fd,
-        redirect_stdout: pam_modutil_redirect_fd,
-        redirect_stderr: pam_modutil_redirect_fd,
-    ) -> libc::c_int;
-}
-extern "C" {
-    pub fn pam_modutil_search_key(
-        pamh: *mut pam_handle_t,
-        file_name: *const libc::c_char,
-        key: *const libc::c_char,
-    ) -> *mut libc::c_char;
 }
 pub type __builtin_va_list = [__va_list_tag; 1usize];
 #[repr(C)]
