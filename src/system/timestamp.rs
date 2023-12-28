@@ -420,8 +420,8 @@ impl RecordScope {
         if let Ok(Some(tty_device)) = tty {
             if let Ok(init_time) = Process::starting_time(WithProcess::Other(process.session_id)) {
                 Some(RecordScope::Tty {
-                    tty_device,
-                    session_pid: process.session_id,
+                    tty_device: tty_device.id(),
+                    session_pid: process.session_id.id(),
                     init_time,
                 })
             } else {
@@ -431,7 +431,7 @@ impl RecordScope {
         } else if let Some(parent_pid) = process.parent_pid {
             if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
                 Some(RecordScope::Ppid {
-                    group_pid: parent_pid,
+                    group_pid: parent_pid.id(),
                     init_time,
                 })
             } else {
@@ -484,7 +484,7 @@ impl SessionRecord {
     ) -> SessionRecord {
         SessionRecord {
             scope,
-            auth_user,
+            auth_user: auth_user.id(),
             timestamp,
             enabled,
         }
@@ -533,7 +533,12 @@ impl SessionRecord {
             }
         };
 
-        Ok(SessionRecord::init(scope, auth_user, enabled, timestamp))
+        Ok(SessionRecord::init(
+            scope,
+            UserId(auth_user),
+            enabled,
+            timestamp,
+        ))
     }
 
     /// Convert the record to a vector of bytes for storage.
@@ -561,7 +566,7 @@ impl SessionRecord {
     /// Returns true if this record matches the specified scope and is for the
     /// specified target auth user.
     pub fn matches(&self, scope: &RecordScope, auth_user: UserId) -> bool {
-        self.scope == *scope && self.auth_user == auth_user
+        self.scope == *scope && self.auth_user == auth_user.id()
     }
 
     /// Returns true if this record was written somewhere in the time range

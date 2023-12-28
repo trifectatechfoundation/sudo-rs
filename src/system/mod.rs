@@ -120,7 +120,7 @@ unsafe fn inner_fork() -> io::Result<ForkResult> {
     if pid == 0 {
         Ok(ForkResult::Child)
     } else {
-        Ok(ForkResult::Parent(pid))
+        Ok(ForkResult::Parent(ProcessId(pid)))
     }
 }
 
@@ -144,7 +144,7 @@ pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
 }
 
 pub fn setsid() -> io::Result<ProcessId> {
-    cerr(unsafe { libc::setsid() })
+    cerr(unsafe { ProcessId(libc::setsid()) })
 }
 
 pub fn hostname() -> String {
@@ -201,10 +201,10 @@ pub fn set_target_user(
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
                 target_user.groups.len(),
-                target_user.groups.as_ptr(),
+                &(*target_user.groups.as_ptr()).0,
             ))?;
-            cerr(libc::setgid(target_group.gid))?;
-            cerr(libc::setuid(target_user.uid))?;
+            cerr(libc::setgid(target_group.gid.id()))?;
+            cerr(libc::setuid(target_user.uid.id()))?;
 
             Ok(())
         });
@@ -215,30 +215,30 @@ pub fn set_target_user(
 pub fn kill(pid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
+    cerr(unsafe { libc::kill(pid.id(), signal) }).map(|_| ())
 }
 
 /// Send a signal to a process group with the specified ID.
 pub fn killpg(pgid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
+    cerr(unsafe { libc::killpg(pgid.id(), signal) }).map(|_| ())
 }
 
 /// Get the process group ID of the current process.
 pub fn getpgrp() -> ProcessId {
-    unsafe { libc::getpgrp() }
+    unsafe { ProcessId(libc::getpgrp()) }
 }
 
 /// Get a process group ID.
 pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
-    cerr(unsafe { libc::getpgid(pid) })
+    cerr(unsafe { ProcessId(libc::getpgid(pid.id())) })
 }
 
 /// Set a process group ID.
 pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
-    cerr(unsafe { libc::setpgid(pid, pgid) }).map(|_| ())
+    cerr(unsafe { libc::setpgid(pid.id(), pgid.id()) }).map(|_| ())
 }
 
 pub fn chown<S: AsRef<CStr>>(
@@ -250,7 +250,7 @@ pub fn chown<S: AsRef<CStr>>(
     let uid = uid.into();
     let gid = gid.into();
 
-    cerr(unsafe { libc::chown(path, uid, gid) }).map(|_| ())
+    cerr(unsafe { libc::chown(path, uid.id(), gid.id()) }).map(|_| ())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -271,15 +271,15 @@ impl User {
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
         let mut buf_len: libc::c_int = 32;
-        let mut groups_buffer: Vec<libc::gid_t>;
+        let mut groups_buffer: Vec<GroupId>;
 
         while {
-            groups_buffer = vec![0; buf_len as usize];
+            groups_buffer = vec![GroupId(0); buf_len as usize];
             let result = unsafe {
                 libc::getgrouplist(
                     pwd.pw_name,
                     pwd.pw_gid,
-                    groups_buffer.as_mut_ptr(),
+                    &mut (*groups_buffer.as_mut_ptr()).0,
                     &mut buf_len,
                 )
             };
@@ -298,8 +298,8 @@ impl User {
         });
 
         Ok(User {
-            uid: pwd.pw_uid,
-            gid: pwd.pw_gid,
+            uid: UserId(pwd.pw_uid),
+            gid: GroupId(pwd.pw_gid),
             name: SudoString::new(string_from_ptr(pwd.pw_name))?,
             gecos: string_from_ptr(pwd.pw_gecos),
             home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
@@ -316,7 +316,7 @@ impl User {
         let mut pwd_ptr = std::ptr::null_mut();
         cerr(unsafe {
             libc::getpwuid_r(
-                uid,
+                uid.id(),
                 pwd.as_mut_ptr(),
                 buf.as_mut_ptr(),
                 buf.len(),
@@ -332,19 +332,19 @@ impl User {
     }
 
     pub fn effective_uid() -> UserId {
-        unsafe { libc::geteuid() }
+        unsafe { UserId(libc::geteuid()) }
     }
 
     pub fn effective_gid() -> GroupId {
-        unsafe { libc::getegid() }
+        unsafe { GroupId(libc::getegid()) }
     }
 
     pub fn real_uid() -> UserId {
-        unsafe { libc::getuid() }
+        unsafe { UserId(libc::getuid()) }
     }
 
     pub fn real_gid() -> GroupId {
-        unsafe { libc::getgid() }
+        unsafe { GroupId(libc::getgid()) }
     }
 
     pub fn real() -> Result<Option<User>, Error> {
@@ -404,7 +404,7 @@ impl Group {
         }
 
         Group {
-            gid: grp.gr_gid,
+            gid: GroupId(grp.gr_gid),
             name: string_from_ptr(grp.gr_name),
             passwd: string_from_ptr(grp.gr_passwd),
             members,
@@ -418,7 +418,7 @@ impl Group {
         let mut grp_ptr = std::ptr::null_mut();
         cerr(unsafe {
             libc::getgrgid_r(
-                gid,
+                gid.id(),
                 grp.as_mut_ptr(),
                 buf.as_mut_ptr(),
                 buf.len(),
@@ -504,29 +504,29 @@ impl Process {
     pub fn process_id() -> ProcessId {
         // NOTE libstd casts the `i32` that `libc::getpid` returns into `u32`
         // here we cast it back into `i32` (`ProcessId`)
-        std::process::id() as ProcessId
+        ProcessId(std::process::id() as i32)
     }
 
     /// Return the parent process identifier for the current process
     pub fn parent_id() -> Option<ProcessId> {
         // NOTE libstd casts the `i32` that `libc::getppid` returns into `u32`
         // here we cast it back into `i32` (`ProcessId`)
-        let pid = unix::process::parent_id() as ProcessId;
+        let pid = unix::process::parent_id() as i32;
         if pid == 0 {
             None
         } else {
-            Some(pid)
+            Some(ProcessId(pid))
         }
     }
 
     /// Return the process group id for the current process
     pub fn group_id() -> ProcessId {
-        unsafe { libc::getpgid(0) }
+        unsafe { ProcessId(libc::getpgid(0)) }
     }
 
     /// Get the session id for the current process
     pub fn session_id() -> ProcessId {
-        unsafe { libc::getsid(0) }
+        unsafe { ProcessId(libc::getsid(0)) }
     }
 
     /// Returns the device identifier of the TTY device that is currently
@@ -542,7 +542,7 @@ impl Process {
             // int. We convert via u32 because a direct conversion to DeviceId
             // would use sign extension, which would result in a different bit
             // representation
-            Ok(Some(data as u32 as DeviceId))
+            Ok(Some(DeviceId(data as u64)))
         }
     }
 

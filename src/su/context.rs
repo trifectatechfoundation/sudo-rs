@@ -12,6 +12,7 @@ use crate::common::{
 };
 use crate::exec::RunOptions;
 use crate::log::user_warn;
+use crate::system::interface::{ProcessId, ROOT};
 use crate::system::{Group, Process, User};
 
 use super::cli::SuRunOptions;
@@ -82,7 +83,7 @@ impl SuContext {
             .ok_or_else(|| Error::UserNotFound(options.user.clone().into()))?;
 
         // check the current user is root
-        let is_current_root = User::real_uid() == 0;
+        let is_current_root = User::real_uid() == ROOT;
         let is_target_root = options.user == "root";
 
         // only root can set a (additional) group
@@ -240,7 +241,7 @@ impl RunOptions for SuContext {
         &self.group
     }
 
-    fn pid(&self) -> i32 {
+    fn pid(&self) -> ProcessId {
         self.process.pid
     }
 

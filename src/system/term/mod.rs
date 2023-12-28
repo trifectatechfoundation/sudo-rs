@@ -150,11 +150,11 @@ pub(crate) trait Terminal: sealed::Sealed {
 impl<F: AsRawFd> Terminal for F {
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
-        cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })
+        cerr(unsafe { ProcessId(libc::tcgetpgrp(self.as_raw_fd())) })
     }
     /// Set the foreground process group ID associated with this terminalto `pgrp`.
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
-        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp) }).map(|_| ())
+        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp.id()) }).map(|_| ())
     }
 
     /// Make the given terminal the controlling terminal of the calling process.
