@@ -1,41 +1,40 @@
-use core::convert::Infallible;
-use std::convert::TryFrom;
+use std::convert::From;
 use std::ffi::CStr;
 use std::fmt;
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) struct GroupId(pub(crate) libc::gid_t);
+pub struct GroupId(pub libc::gid_t);
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) struct UserId(pub(crate) libc::uid_t);
+pub struct UserId(pub libc::uid_t);
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) struct ProcessId(pub(crate) libc::pid_t);
+pub struct ProcessId(pub libc::pid_t);
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(crate) struct DeviceId(pub(crate) libc::dev_t);
+pub struct DeviceId(pub libc::dev_t);
 
 pub(crate) const ROOT_ID: u32 = 0;
 pub(crate) const ROOT: UserId = UserId(ROOT_ID);
 
 impl UserId {
-    pub(crate) fn id(&self) -> u32 {
+    pub fn id(&self) -> u32 {
         self.0
     }
 }
 
 impl ProcessId {
-    pub(crate) fn id(&self) -> i32 {
+    pub fn id(&self) -> i32 {
         self.0
     }
 }
 
 impl GroupId {
-    pub(crate) fn id(&self) -> u32 {
+    pub fn id(&self) -> u32 {
         self.0
     }
 }
 
 impl DeviceId {
-    pub(crate) fn id(&self) -> u64 {
+    pub fn id(&self) -> u64 {
         self.0
     }
 }
@@ -72,11 +71,9 @@ impl fmt::Display for ProcessId {
     }
 }
 
-impl TryFrom<ProcessId> for i64 {
-    type Error = Infallible;
-
-    fn try_from(value: ProcessId) -> Result<Self, Self::Error> {
-        value.0.try_into()
+impl From<ProcessId> for i64 {
+    fn from(value: ProcessId) -> Self {
+        value.0.into()
     }
 }
 
