@@ -583,7 +583,7 @@ mod tests {
 
     use crate::system::tests::tempfile;
 
-    const TEST_USER_ID: UserId = 1000;
+    const TEST_USER_ID: UserId = UserId(1000);
 
     impl SetLength for Cursor<Vec<u8>> {
         fn set_len(&mut self, new_len: usize) -> io::Result<()> {
@@ -613,7 +613,7 @@ mod tests {
                 session_pid: 42,
                 init_time: SystemTime::now().unwrap() - Duration::seconds(150),
             },
-            999,
+            UserId(999),
         )
         .unwrap();
 
@@ -633,7 +633,7 @@ mod tests {
                 group_pid: 42,
                 init_time: SystemTime::now().unwrap(),
             },
-            123,
+            UserId(123),
         )
         .unwrap();
         let bytes = ppid_sample.as_bytes().unwrap();
@@ -650,24 +650,24 @@ mod tests {
             init_time,
         };
 
-        let tty_sample = SessionRecord::new(scope, 675).unwrap();
+        let tty_sample = SessionRecord::new(scope, UserId(675)).unwrap();
 
-        assert!(tty_sample.matches(&scope, 675));
-        assert!(!tty_sample.matches(&scope, 789));
+        assert!(tty_sample.matches(&scope, UserId(675)));
+        assert!(!tty_sample.matches(&scope, UserId(789)));
         assert!(!tty_sample.matches(
             &RecordScope::Tty {
                 tty_device: 20,
                 session_pid: 1234,
                 init_time
             },
-            675
+            UserId(675)
         ));
         assert!(!tty_sample.matches(
             &RecordScope::Ppid {
                 group_pid: 42,
                 init_time
             },
-            675
+            UserId(675)
         ));
 
         // make sure time is different
@@ -678,7 +678,7 @@ mod tests {
                 session_pid: 1234,
                 init_time: SystemTime::now().unwrap()
             },
-            675
+            UserId(675)
         ));
     }
 
@@ -690,7 +690,7 @@ mod tests {
             session_pid: 1234,
             init_time: some_time,
         };
-        let sample = SessionRecord::init(scope, 1234, true, some_time);
+        let sample = SessionRecord::init(scope, UserId(1234), true, some_time);
 
         let dur = Duration::seconds(30);
 
@@ -755,7 +755,7 @@ mod tests {
             session_pid: 0,
             init_time: SystemTime::new(0, 0),
         };
-        let auth_user = 2424;
+        let auth_user = UserId(2424);
         let res = srf.create(tty_scope, auth_user).unwrap();
         let CreateResult::Created { time } = res else {
             panic!("Expected record to be created");

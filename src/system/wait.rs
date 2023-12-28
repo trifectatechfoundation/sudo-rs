@@ -168,7 +168,7 @@ mod tests {
             .spawn()
             .unwrap();
 
-        let command_pid = command.id() as ProcessId;
+        let command_pid = ProcessId(command.id() as i32);
 
         let (pid, status) = command_pid.wait(WaitOptions::new()).unwrap();
         assert_eq!(command_pid, pid);
@@ -195,7 +195,7 @@ mod tests {
             .spawn()
             .unwrap();
 
-        let command_pid = command.id() as ProcessId;
+        let command_pid = ProcessId(command.id() as i32);
 
         kill(command_pid, SIGSTOP).unwrap();
 
@@ -224,7 +224,7 @@ mod tests {
             .spawn()
             .unwrap();
 
-        let command_pid = command.id() as ProcessId;
+        let command_pid = ProcessId(command.id() as i32);
 
         let mut count = 0;
         let (pid, status) = loop {

@@ -640,6 +640,10 @@ mod tests {
         process::exit,
     };
 
+    use crate::system::GroupId;
+    use crate::system::ProcessId;
+    use crate::system::UserId;
+
     use libc::SIGKILL;
 
     use super::{
@@ -668,13 +672,13 @@ mod tests {
     fn test_get_user_and_group_by_id() {
         let fixed_users = &[(0, "root"), (1, "daemon")];
         for &(id, name) in fixed_users {
-            let root = User::from_uid(id).unwrap().unwrap();
-            assert_eq!(root.uid, id as libc::uid_t);
+            let root = User::from_uid(UserId(id)).unwrap().unwrap();
+            assert_eq!(root.uid, UserId(id as libc::uid_t));
             assert_eq!(root.name, name);
         }
         for &(id, name) in fixed_users {
-            let root = Group::from_gid(id).unwrap().unwrap();
-            assert_eq!(root.gid, id as libc::gid_t);
+            let root = Group::from_gid(GroupId(id)).unwrap().unwrap();
+            assert_eq!(root.gid, GroupId(id as libc::gid_t));
             assert_eq!(root.name, name);
         }
     }
@@ -708,7 +712,7 @@ mod tests {
                 Group {
                     name: name.to_string(),
                     passwd: passwd.to_string(),
-                    gid,
+                    gid: GroupId(gid),
                     members: mem.iter().map(|s| s.to_string()).collect(),
                 }
             )
@@ -737,8 +741,8 @@ mod tests {
         use super::{getpgid, setpgid};
 
         let pgrp = getpgrp();
-        assert_eq!(getpgid(0).unwrap(), pgrp);
-        assert_eq!(getpgid(std::process::id() as i32).unwrap(), pgrp);
+        assert_eq!(getpgid(ProcessId(0)).unwrap(), pgrp);
+        assert_eq!(getpgid(ProcessId(std::process::id() as i32)).unwrap(), pgrp);
 
         match super::fork().unwrap() {
             ForkResult::Child => {
@@ -747,7 +751,7 @@ mod tests {
             }
             ForkResult::Parent(child_pid) => {
                 // The child should be in our process group.
-                assert_eq!(getpgid(child_pid).unwrap(), getpgid(0).unwrap(),);
+                assert_eq!(getpgid(child_pid).unwrap(), getpgid(ProcessId(0)).unwrap(),);
                 // Move the child to its own process group
                 setpgid(child_pid, child_pid).unwrap();
                 // The process group of the child should have changed.
@@ -761,7 +765,7 @@ mod tests {
             .arg("1")
             .spawn()
             .unwrap();
-        super::kill(child.id() as i32, SIGKILL).unwrap();
+        super::kill(ProcessId(child.id() as i32), SIGKILL).unwrap();
         assert!(!child.wait().unwrap().success());
     }
     #[test]
