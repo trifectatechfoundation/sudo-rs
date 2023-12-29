@@ -2,7 +2,6 @@ use std::io::{self, ErrorKind};
 use std::path::PathBuf;
 
 use crate::common::SudoPath;
-use crate::system::interface::ProcessId;
 use crate::{
     common::{context::LaunchType, Context},
     system::{Group, User},
@@ -17,7 +16,7 @@ pub trait RunOptions {
     fn user(&self) -> &User;
     fn requesting_user(&self) -> &User;
     fn group(&self) -> &Group;
-    fn pid(&self) -> ProcessId;
+    fn pid(&self) -> i32;
     fn use_pty(&self) -> bool;
 }
 
@@ -58,8 +57,8 @@ impl RunOptions for Context {
         &self.target_group
     }
 
-    fn pid(&self) -> ProcessId {
-        self.process.pid
+    fn pid(&self) -> i32 {
+        self.process.pid.id()
     }
 
     fn use_pty(&self) -> bool {

@@ -12,7 +12,7 @@ use crate::common::{
 };
 use crate::exec::RunOptions;
 use crate::log::user_warn;
-use crate::system::interface::{ProcessId, ROOT};
+use crate::system::interface::ROOT;
 use crate::system::{Group, Process, User};
 
 use super::cli::SuRunOptions;
@@ -241,8 +241,8 @@ impl RunOptions for SuContext {
         &self.group
     }
 
-    fn pid(&self) -> ProcessId {
-        self.process.pid
+    fn pid(&self) -> i32 {
+        self.process.pid.id()
     }
 
     fn use_pty(&self) -> bool {
