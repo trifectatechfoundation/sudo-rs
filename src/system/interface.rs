@@ -177,7 +177,7 @@ mod test {
     #[test]
     fn test_user_id() {
         let uid = UserId(1000);
-        assert_eq!(uid.id(), 1000);
+        assert_eq!(uid.id(), 1000u32);
         let parsed_uid: UserId = "1000".parse().unwrap();
         assert_eq!(parsed_uid, uid);
         assert_eq!(format!("{}", uid), "1000");
@@ -186,7 +186,7 @@ mod test {
     #[test]
     fn test_group_id() {
         let gid = GroupId(1000);
-        assert_eq!(gid.id(), 1000);
+        assert_eq!(gid.id(), 1000u32);
         let parsed_gid: GroupId = "1000".parse().unwrap();
         assert_eq!(parsed_gid, gid);
         assert_eq!(format!("{}", gid), "1000");
@@ -195,7 +195,7 @@ mod test {
     #[test]
     fn test_process_id() {
         let pid = ProcessId(1000);
-        assert_eq!(pid.id(), 1000);
+        assert_eq!(pid.id(), 1000i32);
         let parsed_pid: ProcessId = "1000".parse().unwrap();
         assert_eq!(parsed_pid, pid);
         assert_eq!(format!("{}", pid), "1000");
@@ -204,7 +204,7 @@ mod test {
     #[test]
     fn test_device_id() {
         let did = DeviceId(1000);
-        assert_eq!(did.id(), 1000);
+        assert_eq!(did.id(), 1000u64);
         let parsed_did: DeviceId = "1000".parse().unwrap();
         assert_eq!(parsed_did, did);
         assert_eq!(format!("{}", did), "1000");
