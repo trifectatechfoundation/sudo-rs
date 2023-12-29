@@ -116,11 +116,11 @@ pub(crate) enum ForkResult {
 }
 
 unsafe fn inner_fork() -> io::Result<ForkResult> {
-    let pid = cerr(unsafe { libc::fork() })?;
-    if pid == 0 {
+    let pid = cerr(unsafe { ProcessId(libc::fork()) })?;
+    if pid == ProcessId(0) {
         Ok(ForkResult::Child)
     } else {
-        Ok(ForkResult::Parent(ProcessId(pid)))
+        Ok(ForkResult::Parent(pid))
     }
 }
 
@@ -201,7 +201,7 @@ pub fn set_target_user(
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
                 target_user.groups.len(),
-                &(*target_user.groups.as_ptr()).0,
+                &(*target_user.groups.as_ptr()).id(),
             ))?;
             cerr(libc::setgid(target_group.gid.id()))?;
             cerr(libc::setuid(target_user.uid.id()))?;
@@ -511,12 +511,10 @@ impl Process {
     pub fn parent_id() -> Option<ProcessId> {
         // NOTE libstd casts the `i32` that `libc::getppid` returns into `u32`
         // here we cast it back into `i32` (`ProcessId`)
-        let pid = unix::process::parent_id() as i32;
-        if pid == 0 {
-            None
-        } else {
-            Some(ProcessId(pid))
-        }
+        let pid = ProcessId(unix::process::parent_id() as i32);
+
+        // Return None if the parent process ID is 0, else wrap in Some
+        (pid != ProcessId(0)).then_some(pid)
     }
 
     /// Return the process group id for the current process

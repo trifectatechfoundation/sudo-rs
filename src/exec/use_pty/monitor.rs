@@ -198,17 +198,14 @@ fn exec_command(
     original_set: Option<SignalSet>,
 ) -> io::Error {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
-    let command_pid = std::process::id() as i32;
+    let command_pid = ProcessId(std::process::id() as i32);
 
-    setpgid(ProcessId(0), ProcessId(command_pid)).ok();
+    setpgid(ProcessId(0), command_pid).ok();
 
     // Wait for the monitor to set us as the foreground group for the pty if we are in the
     // foreground.
     if foreground {
-        while !pty_follower
-            .tcgetpgrp()
-            .is_ok_and(|pid| pid == ProcessId(command_pid))
-        {
+        while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
             std::thread::sleep(std::time::Duration::from_micros(1));
         }
     }
