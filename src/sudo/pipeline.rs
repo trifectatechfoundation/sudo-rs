@@ -86,7 +86,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             log_command_execution(&context);
 
             crate::exec::run_command(&context, target_env)
-                .map_err(|io_error| Error::IoError(Some(context.command.command), io_error))
+                .map_err(|io_error| Error::Io(Some(context.command.command), io_error))
         } else {
             Err(Error::CommandNotFound(context.command.command))
         };
