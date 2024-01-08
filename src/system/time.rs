@@ -23,6 +23,8 @@ impl SystemTime {
         crate::cutils::cerr(unsafe {
             libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr())
         })?;
+        // SAFETY: The `libc::clock_gettime` will correctly initialize `spec`,
+        // otherwise it will return early with the `?` operator.
         let spec = unsafe { spec.assume_init() };
         Ok(spec.into())
     }
