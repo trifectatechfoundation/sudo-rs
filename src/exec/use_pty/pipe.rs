@@ -105,7 +105,7 @@ const BUFSIZE: usize = 6 * 1024;
 
 /// A buffer that stores the bytes read from `R` before they are written to `W`.
 struct Buffer<R, W> {
-    buffer: [u8; BUFSIZE],
+    internal: [u8; BUFSIZE],
     /// The start of the busy section of the buffer.
     start: usize,
     /// The end of the busy section of the buffer.
@@ -128,7 +128,7 @@ impl<R: Read, W: Write> Buffer<R, W> {
         write_handle.ignore(registry);
 
         Self {
-            buffer: [0; BUFSIZE],
+            internal: [0; BUFSIZE],
             start: 0,
             end: 0,
             read_handle,
@@ -164,7 +164,7 @@ impl<R: Read, W: Write> Buffer<R, W> {
         }
 
         // This is the remaining free section that follows the busy section of the buffer.
-        let buffer = &mut self.buffer[self.end..];
+        let buffer = &mut self.internal[self.end..];
 
         // Read `len` bytes from `read` into the buffer.
         let len = read.read(buffer)?;
@@ -195,7 +195,7 @@ impl<R: Read, W: Write> Buffer<R, W> {
         }
 
         // This is the busy section of the buffer.
-        let buffer = &self.buffer[self.start..self.end];
+        let buffer = &self.internal[self.start..self.end];
 
         // Write the first `len` bytes of the busy section to `write`.
         let len = write.write(buffer)?;
@@ -220,7 +220,7 @@ impl<R: Read, W: Write> Buffer<R, W> {
     /// Flush this buffer, ensuring that all the contents of its internal buffer are written.
     fn flush(&mut self, write: &mut W) -> io::Result<()> {
         // This is the busy section of the buffer.
-        let buffer = &self.buffer[self.start..self.end];
+        let buffer = &self.internal[self.start..self.end];
 
         // Write the complete busy section to `write`.
         write.write_all(buffer)?;
