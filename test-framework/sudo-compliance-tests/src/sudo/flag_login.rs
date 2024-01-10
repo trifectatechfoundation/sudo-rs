@@ -243,6 +243,7 @@ fn insufficient_permissions_to_execute_shell() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let stderr = output.stderr();
+    println!("{:?}", stderr);
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
