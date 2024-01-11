@@ -266,7 +266,7 @@ fn get_pty() -> io::Result<Pty> {
 
     let pty = Pty::open().map_err(|err| {
         dev_error!("cannot allocate pty: {err}");
-        err
+        io::Error::new(io::ErrorKind::NotFound, "unable to open pty")
     })?;
 
     let euid = User::effective_uid();
