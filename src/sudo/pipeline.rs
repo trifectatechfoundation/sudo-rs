@@ -3,6 +3,7 @@ use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use crate::common::context::OptionsForContext;
+use crate::common::resolve::CurrentUser;
 use crate::common::{Context, Environment, Error};
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
@@ -145,7 +146,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             context.use_session_records,
             scope,
             context.current_user.uid,
-            context.current_user.uid,
+            &context.current_user,
             prior_validity,
         );
         self.authenticator.init(context)?;
@@ -216,7 +217,7 @@ fn determine_auth_status(
     use_session_records: bool,
     record_for: Option<RecordScope>,
     auth_uid: UserId,
-    current_user: UserId,
+    current_user: &CurrentUser,
     prior_validity: Duration,
 ) -> AuthStatus {
     if !must_policy_authenticate {

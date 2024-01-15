@@ -5,11 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::common::{error::Error, Environment};
-use crate::common::{
-    resolve::{is_valid_executable, resolve_current_user},
-    SudoPath,
-};
+use crate::common::{error::Error, resolve::CurrentUser, Environment};
+use crate::common::{resolve::is_valid_executable, SudoPath};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
@@ -30,7 +27,7 @@ pub(crate) struct SuContext {
     options: SuRunOptions,
     pub(crate) environment: Environment,
     user: User,
-    requesting_user: User,
+    requesting_user: CurrentUser,
     group: Group,
     pub(crate) process: Process,
 }
@@ -75,7 +72,7 @@ impl SuContext {
             }
         }
 
-        let requesting_user = resolve_current_user()?;
+        let requesting_user = CurrentUser::resolve()?;
 
         // resolve target user
         let mut user = User::from_name(options.user.as_cstr())?

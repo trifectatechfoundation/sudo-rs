@@ -1,4 +1,4 @@
-use crate::pam::PamError;
+use crate::{pam::PamError, system::Hostname};
 use std::{borrow::Cow, fmt, path::PathBuf};
 
 use super::{SudoPath, SudoString};
@@ -9,7 +9,7 @@ pub enum Error {
     NotAllowed {
         username: SudoString,
         command: Cow<'static, str>,
-        hostname: String,
+        hostname: Hostname,
         other_user: Option<SudoString>,
     },
     SelfCheck,

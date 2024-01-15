@@ -1,9 +1,10 @@
+use crate::common::resolve::CurrentUser;
 use crate::common::{CommandAndArguments, Context, Environment};
 use crate::sudo::{
     cli::{SudoAction, SudoRunOptions},
     env::environment::get_target_environment,
 };
-use crate::system::{Group, Process, User};
+use crate::system::{Group, Hostname, Process, User};
 use std::collections::{HashMap, HashSet};
 
 const TESTS: &str = "
@@ -80,7 +81,7 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     let command =
         CommandAndArguments::build_from_args(None, sudo_options.positional_args.clone(), &path);
 
-    let current_user = User {
+    let current_user = CurrentUser::fake(User {
         uid: 1000,
         gid: 1000,
 
@@ -90,7 +91,7 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
         shell: "/bin/sh".into(),
         passwd: String::new(),
         groups: vec![],
-    };
+    });
 
     let current_group = Group {
         gid: 1000,
@@ -118,11 +119,11 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     };
 
     Context {
-        hostname: "test-ubuntu".to_string(),
+        hostname: Hostname::fake("test-ubuntu"),
         command,
         current_user: current_user.clone(),
         target_user: if sudo_options.user.as_deref() == Some("test") {
-            current_user
+            current_user.into()
         } else {
             root_user
         },

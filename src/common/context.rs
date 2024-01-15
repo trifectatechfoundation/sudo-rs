@@ -1,11 +1,11 @@
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
-use crate::system::{hostname, Group, Process, User};
+use crate::system::{Group, Hostname, Process, User};
 
-use super::path::SudoPath;
+use super::resolve::CurrentUser;
 use super::{
     command::CommandAndArguments,
-    resolve::{resolve_current_user, resolve_launch_and_shell, resolve_target_user_and_group},
-    Error, SudoString,
+    resolve::{resolve_launch_and_shell, resolve_target_user_and_group},
+    Error, SudoPath, SudoString,
 };
 
 #[derive(Clone, Copy)]
@@ -41,8 +41,8 @@ pub struct Context {
     pub non_interactive: bool,
     pub use_session_records: bool,
     // system
-    pub hostname: String,
-    pub current_user: User,
+    pub hostname: Hostname,
+    pub current_user: CurrentUser,
     pub process: Process,
     // policy
     pub use_pty: bool,
@@ -61,8 +61,8 @@ impl Context {
         sudo_options: OptionsForContext,
         path: String,
     ) -> Result<Context, Error> {
-        let hostname = hostname();
-        let current_user = resolve_current_user()?;
+        let hostname = Hostname::resolve();
+        let current_user = CurrentUser::resolve()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
@@ -95,7 +95,7 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sudo::SudoAction, system::hostname};
+    use crate::{sudo::SudoAction, system::Hostname};
     use std::collections::HashMap;
 
     use super::Context;
@@ -115,7 +115,7 @@ mod tests {
 
         assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
         assert_eq!(context.command.arguments, ["hello"]);
-        assert_eq!(context.hostname, hostname());
+        assert_eq!(context.hostname, Hostname::resolve());
         assert_eq!(context.target_user.uid, 0);
     }
 }

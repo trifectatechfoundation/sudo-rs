@@ -1,7 +1,9 @@
 use crate::system::{Group, User};
-use std::ffi::CStr;
+use core::fmt;
 use std::{
-    env, fs, io,
+    env,
+    ffi::CStr,
+    fs, io, ops,
     os::unix::prelude::MetadataExt,
     path::{Path, PathBuf},
     str::FromStr,
@@ -31,8 +33,42 @@ impl<'a, T: FromStr> NameOrId<'a, T> {
     }
 }
 
-pub fn resolve_current_user() -> Result<User, Error> {
-    User::real()?.ok_or(Error::UserNotFound("current user".to_string()))
+#[derive(Clone)]
+pub struct CurrentUser {
+    inner: User,
+}
+
+impl From<CurrentUser> for User {
+    fn from(value: CurrentUser) -> Self {
+        value.inner
+    }
+}
+
+impl fmt::Debug for CurrentUser {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("CurrentUser").field(&self.inner).finish()
+    }
+}
+
+impl ops::Deref for CurrentUser {
+    type Target = User;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl CurrentUser {
+    #[cfg(test)]
+    pub fn fake(user: User) -> Self {
+        Self { inner: user }
+    }
+
+    pub fn resolve() -> Result<Self, Error> {
+        Ok(Self {
+            inner: User::real()?.ok_or(Error::UserNotFound("current user".to_string()))?,
+        })
+    }
 }
 
 type Shell = Option<PathBuf>;
@@ -58,7 +94,7 @@ pub(super) fn resolve_launch_and_shell(
 pub(crate) fn resolve_target_user_and_group(
     target_user_name_or_id: &Option<SudoString>,
     target_group_name_or_id: &Option<SudoString>,
-    current_user: &User,
+    current_user: &CurrentUser,
 ) -> Result<(User, Group), Error> {
     // resolve user name or #<id> to a user
     let mut target_user =
@@ -71,7 +107,7 @@ pub(crate) fn resolve_target_user_and_group(
     match (&target_user_name_or_id, &target_group_name_or_id) {
         // when -g is specified, but -u is not specified default -u to the current user
         (None, Some(_)) => {
-            target_user = Some(current_user.clone());
+            target_user = Some(current_user.clone().into());
         }
         // when -u is specified but -g is not specified, default -g to the primary group of the specified user
         (Some(_), None) => {
@@ -186,10 +222,9 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
 mod tests {
     use std::path::PathBuf;
 
-    use super::{
-        is_valid_executable, resolve_current_user, resolve_path, resolve_target_user_and_group,
-        NameOrId,
-    };
+    use crate::common::resolve::CurrentUser;
+
+    use super::{is_valid_executable, resolve_path, resolve_target_user_and_group, NameOrId};
 
     #[test]
     fn test_resolve_path() {
@@ -234,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_resolve_target_user_and_group() {
-        let current_user = resolve_current_user().unwrap();
+        let current_user = CurrentUser::resolve().unwrap();
 
         // fallback to root
         let (user, group) = resolve_target_user_and_group(&None, &None, &current_user).unwrap();

@@ -79,7 +79,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             target_group: &context.target_group,
         };
         let judgement =
-            sudoers.check_list_permission(&context.current_user, &context.hostname, list_request);
+            sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
         match judgement.authorization() {
             Authorization::Allowed(auth) => {
                 self.auth_and_update_record_file(context, auth)?;
