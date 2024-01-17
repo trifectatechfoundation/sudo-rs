@@ -1,6 +1,6 @@
 PAM_SRC_DIR = src/pam
 
-BINDGEN_CMD = bindgen --allowlist-function '^pam_.*$$' --allowlist-var '^PAM_.*$$' --opaque-type pam_handle_t --ctypes-prefix libc
+BINDGEN_CMD = bindgen --merge-extern-blocks --allowlist-function '^pam_.*$$' --allowlist-var '^PAM_.*$$' --opaque-type pam_handle_t --ctypes-prefix libc
 
 .PHONY: all clean pam-sys pam-sys-diff
 
