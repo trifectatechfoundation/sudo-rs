@@ -9,10 +9,13 @@ pam-sys-diff: $(PAM_SRC_DIR)/wrapper.h
 	@echo $(PAM_SRC_DIR)/sys.rs does not need to be re-generated
 
 # use 'make pam-sys' to re-generate the sys.rs file
-pam-sys: $(PAM_SRC_DIR)/sys/x86_64_linux.rs
+pam-sys: $(PAM_SRC_DIR)/sys/x86_64_linux.rs $(PAM_SRC_DIR)/sys/i386_linux.rs
 
 $(PAM_SRC_DIR)/sys/x86_64_linux.rs: $(PAM_SRC_DIR)/wrapper.h
 	$(BINDGEN_CMD) $< --output $@ -- --target=x86_64-pc-linux-gnu
+
+$(PAM_SRC_DIR)/sys/i386_linux.rs: $(PAM_SRC_DIR)/wrapper.h
+	$(BINDGEN_CMD) $< --output $@ -- --target=i386-pc-linux-gnu
 
 clean:
 	rm $(PAM_SRC_DIR)/sys/x86_64_linux.rs
