@@ -47,7 +47,7 @@ pub const PAM_PROMPT_ECHO_ON: libc::c_int = 2;
 pub const PAM_ERROR_MSG: libc::c_int = 3;
 pub const PAM_TEXT_INFO: libc::c_int = 4;
 pub const PAM_MAX_RESP_SIZE: libc::c_int = 512;
-pub type pam_handle_t = u8;
+pub type pam_handle_t = libc::c_void;
 extern "C" {
     pub fn pam_set_item(
         pamh: *mut pam_handle_t,
