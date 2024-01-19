@@ -140,7 +140,7 @@ impl<C: Converser> PamContext<C> {
     /// Get the PAM flag value for the silent flag
     fn silent_flag(&self) -> i32 {
         if self.silent {
-            PAM_SILENT as i32
+            PAM_SILENT
         } else {
             0
         }
@@ -151,7 +151,7 @@ impl<C: Converser> PamContext<C> {
         if self.allow_null_auth_token {
             0
         } else {
-            PAM_DISALLOW_NULL_AUTHTOK as i32
+            PAM_DISALLOW_NULL_AUTHTOK
         }
     }
 
@@ -198,7 +198,7 @@ impl<C: Converser> PamContext<C> {
         pam_err(unsafe {
             pam_set_item(
                 self.pamh,
-                PAM_USER as i32,
+                PAM_USER,
                 c_user.as_ptr() as *const libc::c_void,
             )
         })
@@ -207,7 +207,7 @@ impl<C: Converser> PamContext<C> {
     /// Get the user that is currently active in the PAM handle
     pub fn get_user(&mut self) -> PamResult<String> {
         let mut data = std::ptr::null();
-        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER as i32, &mut data) })?;
+        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER, &mut data) })?;
 
         // safety check to make sure that we do not ready a null ptr into a cstr
         if data.is_null() {
@@ -226,7 +226,7 @@ impl<C: Converser> PamContext<C> {
         pam_err(unsafe {
             pam_set_item(
                 self.pamh,
-                PAM_TTY as i32,
+                PAM_TTY,
                 data.as_ptr() as *const libc::c_void,
             )
         })
@@ -238,7 +238,7 @@ impl<C: Converser> PamContext<C> {
         pam_err(unsafe {
             pam_set_item(
                 self.pamh,
-                PAM_RUSER as i32,
+                PAM_RUSER,
                 data.as_ptr() as *const libc::c_void,
             )
         })
@@ -266,7 +266,7 @@ impl<C: Converser> PamContext<C> {
         let mut flags = 0;
         flags |= self.silent_flag();
         if expired_only {
-            flags |= PAM_CHANGE_EXPIRED_AUTHTOK as i32;
+            flags |= PAM_CHANGE_EXPIRED_AUTHTOK;
         }
         pam_err(unsafe { pam_chauthtok(self.pamh, flags) })
     }
@@ -362,7 +362,7 @@ impl<C: Converser> Drop for PamContext<C> {
         unsafe {
             pam_end(
                 self.pamh,
-                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int) | PAM_DATA_SILENT as i32,
+                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int) | PAM_DATA_SILENT,
             )
         };
     }
