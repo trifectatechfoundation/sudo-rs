@@ -84,7 +84,7 @@ impl PamErrorType {
     pub(super) fn from_int(errno: libc::c_int) -> PamErrorType {
         use PamErrorType::*;
 
-        match errno as libc::c_uint {
+        match errno {
             PAM_SUCCESS => Success,
             PAM_OPEN_ERR => OpenError,
             PAM_SYMBOL_ERR => SymbolError,

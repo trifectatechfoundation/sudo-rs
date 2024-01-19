@@ -25,7 +25,7 @@ impl PamMessageStyle {
     pub fn from_int(val: libc::c_int) -> Option<PamMessageStyle> {
         use PamMessageStyle::*;
 
-        match val as libc::c_uint {
+        match val {
             PAM_PROMPT_ECHO_OFF => Some(PromptEchoOff),
             PAM_PROMPT_ECHO_ON => Some(PromptEchoOn),
             PAM_ERROR_MSG => Some(ErrorMessage),
