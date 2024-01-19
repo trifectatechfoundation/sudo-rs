@@ -196,11 +196,7 @@ impl<C: Converser> PamContext<C> {
     pub fn set_user(&mut self, user: &str) -> PamResult<()> {
         let c_user = CString::new(user)?;
         pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_USER,
-                c_user.as_ptr() as *const libc::c_void,
-            )
+            pam_set_item(self.pamh, PAM_USER, c_user.as_ptr() as *const libc::c_void)
         })
     }
 
@@ -223,25 +219,13 @@ impl<C: Converser> PamContext<C> {
     /// Set the TTY path for the current TTY that this PAM session started from.
     pub fn set_tty<P: AsRef<OsStr>>(&mut self, tty_path: P) -> PamResult<()> {
         let data = CString::new(tty_path.as_ref().as_bytes())?;
-        pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_TTY,
-                data.as_ptr() as *const libc::c_void,
-            )
-        })
+        pam_err(unsafe { pam_set_item(self.pamh, PAM_TTY, data.as_ptr() as *const libc::c_void) })
     }
 
     // Set the user that requested the actions in this PAM instance.
     pub fn set_requesting_user(&mut self, user: &str) -> PamResult<()> {
         let data = CString::new(user.as_bytes())?;
-        pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_RUSER,
-                data.as_ptr() as *const libc::c_void,
-            )
-        })
+        pam_err(unsafe { pam_set_item(self.pamh, PAM_RUSER, data.as_ptr() as *const libc::c_void) })
     }
 
     /// Re-initialize the credentials stored in PAM
