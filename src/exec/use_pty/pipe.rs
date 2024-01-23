@@ -101,7 +101,7 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
 }
 
 struct RingBuffer {
-    storage: [u8; Self::LEN],
+    storage: Box<[u8; Self::LEN]>,
     // The start index of the non-empty section of the buffer.
     start: usize,
     // The length of the non-empty section of the buffer.
@@ -115,7 +115,7 @@ impl RingBuffer {
     /// Create a new, empty buffer.
     fn new() -> Self {
         Self {
-            storage: [0; Self::LEN],
+            storage: Box::new([0; Self::LEN]),
             start: 0,
             len: 0,
         }
