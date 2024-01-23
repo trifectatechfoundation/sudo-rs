@@ -148,6 +148,9 @@ mod tests {
         buf.insert(&mut [0u8; HALF_LEN].as_slice()).unwrap();
         buf.remove(&mut vec![]).unwrap();
 
+        assert_eq!(buf.start, HALF_LEN);
+        assert_eq!(buf.len, 0);
+
         // Then we fill the first half of the buffer with ones and the second one with twos in a
         // single insertion. This tests case 1.1.
         // ┌─────────┬─────────┐
@@ -160,6 +163,9 @@ mod tests {
         expected.extend_from_slice(&[2; HALF_LEN]);
         buf.insert(&mut expected.as_slice()).unwrap();
 
+        assert_eq!(buf.start, HALF_LEN);
+        assert_eq!(buf.len, RingBuffer::LEN);
+
         // When we remove all the elements of the buffer we should find them in the same order we
         // inserted them. This tests case 2.1.
         let mut found = vec![];
@@ -167,6 +173,9 @@ mod tests {
         assert_eq!(removed_len, expected.len());
 
         assert_eq!(expected, found);
+
+        assert_eq!(buf.start, HALF_LEN);
+        assert_eq!(buf.len, 0);
     }
 
     #[test]
@@ -185,6 +194,9 @@ mod tests {
         buf.insert(&mut [0; 2 * QUARTER_LEN].as_slice()).unwrap();
         buf.remove(&mut vec![]).unwrap();
 
+        assert_eq!(buf.start, 2 * QUARTER_LEN);
+        assert_eq!(buf.len, 0);
+
         // Then we fill one quarter of the buffer with ones. This gives us a non-empty buffer whose
         // empty section is not contiguous.
         // ┌───────────┬─────┬─────┐
@@ -195,6 +207,10 @@ mod tests {
         //           start
         let mut expected = vec![1; QUARTER_LEN];
         buf.insert(&mut expected.as_slice()).unwrap();
+
+        assert_eq!(buf.start, 2 * QUARTER_LEN);
+        assert_eq!(buf.len, QUARTER_LEN);
+
         // Then we fill one quarter of the buffer with twos and another quarter of the buffer with
         // threes in a single insertion. This tests case 1.2.
         // ┌─────┬─────┬─────┬─────┐
@@ -209,6 +225,9 @@ mod tests {
 
         expected.extend(second_half);
 
+        assert_eq!(buf.start, 2 * QUARTER_LEN);
+        assert_eq!(buf.len, 3 * QUARTER_LEN);
+
         // When we remove all the elements of the buffer we should find them in the same order we
         // inserted them. This tests case 2.2.
         let mut found = vec![];
@@ -216,6 +235,9 @@ mod tests {
         assert_eq!(removed_len, expected.len());
 
         assert_eq!(expected, found);
+
+        assert_eq!(buf.start, QUARTER_LEN);
+        assert_eq!(buf.len, 0);
     }
 
     #[test]
@@ -234,6 +256,9 @@ mod tests {
         let mut expected = vec![1; QUARTER_LEN];
         buf.insert(&mut expected.as_slice()).unwrap();
 
+        assert_eq!(buf.start, 0);
+        assert_eq!(buf.len, QUARTER_LEN);
+
         // Then we fill one quarter of the buffer with twos. This tests case 1.3.
         // ┌─────┬─────┬──────────┐
         // │  1  │  2  │          │
@@ -246,6 +271,9 @@ mod tests {
 
         expected.extend(second_half);
 
+        assert_eq!(buf.start, 0);
+        assert_eq!(buf.len, 2 * QUARTER_LEN);
+
         // When we remove all the elements of the buffer we should find them in the same order we
         // inserted them. This tests case 2.3.
         let mut found = vec![];
@@ -253,5 +281,8 @@ mod tests {
         assert_eq!(removed_len, expected.len());
 
         assert_eq!(expected, found);
+
+        assert_eq!(buf.start, 2 * QUARTER_LEN);
+        assert_eq!(buf.len, 0);
     }
 }
