@@ -168,7 +168,7 @@ impl RingBuffer {
             let end = self.start + self.len;
             if end >= self.storage.len() {
                 // Case 2.2. The buffer is not full and the non-empty section wraps around
-                // `storage`. Meanning that there are two non-empty slices in `storage`: `start..`
+                // `storage`. Meaning that there are two non-empty slices in `storage`: `start..`
                 // and `..end`.
                 let end = end % self.storage.len();
                 let first_slice = &self.storage[self.start..];
