@@ -51,6 +51,9 @@ impl RingBuffer {
 
         self.len += inserted_len;
 
+        debug_assert!(self.start < Self::LEN);
+        debug_assert!(self.len <= Self::LEN);
+
         Ok(inserted_len)
     }
 
@@ -82,9 +85,12 @@ impl RingBuffer {
         };
 
         self.start += removed_len;
-        self.start %= self.storage.len();
+        self.start %= Self::LEN;
 
         self.len -= removed_len;
+
+        debug_assert!(self.start < Self::LEN);
+        debug_assert!(self.len <= Self::LEN);
 
         Ok(removed_len)
     }
