@@ -127,22 +127,22 @@ impl RingBuffer {
 
     fn insert<R: Read>(&mut self, read: &mut R) -> io::Result<usize> {
         let inserted_len = if self.is_empty() {
-            // Case 1.1. The buffer is empty, meaning that there are two empty slices in `storage`:
-            // `start..` and `..start`.
+            // Case 1.1. The buffer is empty, meaning that there are two unfilled slices in
+            // `storage`:`start..` and `..start`.
             let (second_slice, first_slice) = self.storage.split_at_mut(self.start);
             read.read_vectored(&mut [first_slice, second_slice].map(IoSliceMut::new))?
         } else {
             let &mut Self { start, len, .. } = self;
             let end = start + len;
             if end >= self.storage.len() {
-                // Case 1.2. The buffer is not empty and the non-empty section wraps around
-                // `storage`. Meaning that there is only one empty slice in `storage`: `end..start`.
+                // Case 1.2. The buffer is not empty and the filled section wraps around `storage`.
+                // Meaning that there is only one unfilled slice in `storage`: `end..start`.
                 let end = end % self.storage.len();
                 read.read(&mut self.storage[end..start])?
             } else {
-                // Case 1.3. The buffer is non empty and the non-empty section is a contiguous
-                // slice of `storage`. Meaning that there are two empty slices in `storage`:
-                // `..start` and `end..`.
+                // Case 1.3. The buffer is not empty and the filled section is a contiguous slice
+                // of `storage`. Meaning that there are two unfilled slices in `storage`: `..start`
+                // and `end..`.
                 let (mid, first_slice) = self.storage.split_at_mut(end);
                 let second_slice = &mut mid[..start];
                 read.read_vectored(&mut [first_slice, second_slice].map(IoSliceMut::new))?
@@ -160,23 +160,22 @@ impl RingBuffer {
 
     fn remove<W: Write>(&mut self, write: &mut W) -> io::Result<usize> {
         let removed_len = if self.is_full() {
-            // Case 2.1. The buffer is full, meaning that there are two non-empty slices in
-            // `storage`: `start..` and `..start`.
+            // Case 2.1. The buffer is full, meaning that there are two filled slices in `storage`:
+            // `start..` and `..start`.
             let (second_slice, first_slice) = self.storage.split_at(self.start);
             write.write_vectored(&[first_slice, second_slice].map(IoSlice::new))?
         } else {
             let end = self.start + self.len;
             if end >= self.storage.len() {
-                // Case 2.2. The buffer is not full and the non-empty section wraps around
-                // `storage`. Meaning that there are two non-empty slices in `storage`: `start..`
-                // and `..end`.
+                // Case 2.2. The buffer is not full and the filled section wraps around `storage`.
+                // Meaning that there are two non-empty slices in `storage`: `start..` and `..end`.
                 let end = end % self.storage.len();
                 let first_slice = &self.storage[self.start..];
                 let second_slice = &self.storage[..end];
                 write.write_vectored(&[first_slice, second_slice].map(IoSlice::new))?
             } else {
-                // Case 2.3. The buffer is not full and the non-empty section is a contiguous slice
-                // of `storage.` Meaning that there is only one non-empty slice in `storage`:
+                // Case 2.3. The buffer is not full and the filled section is a contiguous slice
+                // of `storage.` Meaning that there is only one filled slice in `storage`:
                 // `start..end`.
                 write.write(&self.storage[self.start..end])?
             }
