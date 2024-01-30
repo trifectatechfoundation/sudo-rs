@@ -50,17 +50,17 @@ impl Write for SysLogWriter {
         loop {
             if self.cursor + message.len() > LIMIT {
                 // floor_char_boundary is currently unstable
-                let mut mid = LIMIT;
-                while !message.is_char_boundary(mid) {
-                    mid -= 1;
+                let mut truncate_boundary = LIMIT - self.cursor;
+                while !message.is_char_boundary(truncate_boundary) {
+                    truncate_boundary -= 1;
                 }
 
-                mid = message[..mid]
+                truncate_boundary = message[..truncate_boundary]
                     .rfind(|c: char| c.is_ascii_whitespace())
-                    .unwrap_or(mid);
+                    .unwrap_or(truncate_boundary);
 
-                let left = &message[..mid];
-                let right = &message[mid..];
+                let left = &message[..truncate_boundary];
+                let right = &message[truncate_boundary..];
 
                 self.append(left.as_bytes());
                 self.append(DOTDOTDOT_END);
@@ -105,7 +105,9 @@ impl Log for Syslog {
 
 #[cfg(test)]
 mod tests {
-    use super::Syslog;
+    use std::fmt::Write;
+
+    use super::{SysLogWriter, Syslog, FACILITY};
     use log::Log;
 
     #[test]
@@ -117,6 +119,16 @@ mod tests {
             .build();
 
         logger.log(&record);
+    }
+
+
+    #[test]
+    fn can_handle_multiple_writes() {
+        let mut writer = SysLogWriter::new(libc::LOG_DEBUG, FACILITY);
+
+        for i in 1..20 {
+            let _ = write!(writer, "{}", "Test 123 ".repeat(i));
+        }
     }
 
     #[test]
