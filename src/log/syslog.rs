@@ -105,10 +105,10 @@ impl Log for Syslog {
 
 #[cfg(test)]
 mod tests {
+    use log::Log;
     use std::fmt::Write;
 
     use super::{SysLogWriter, Syslog, FACILITY};
-    use log::Log;
 
     #[test]
     fn can_write_to_syslog() {
@@ -120,7 +120,6 @@ mod tests {
 
         logger.log(&record);
     }
-
 
     #[test]
     fn can_handle_multiple_writes() {
