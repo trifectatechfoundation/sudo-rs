@@ -1,5 +1,5 @@
 <!-- ---
-title: VISUDO(8) sudo-rs 0.2.1 | sudo-rs
+title: VISUDO(8) sudo-rs 0.2.2 | sudo-rs
 --- -->
 
 # NAME
