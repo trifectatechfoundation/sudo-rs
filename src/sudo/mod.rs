@@ -47,8 +47,14 @@ impl PolicyPlugin for SudoersPolicy {
         let (sudoers, syntax_errors) = crate::sudoers::Sudoers::open(sudoers_path)
             .map_err(|e| Error::Configuration(format!("{e}")))?;
 
-        for crate::sudoers::Error(pos, error) in syntax_errors {
-            diagnostic::diagnostic!("{error}", sudoers_path @ pos);
+        for crate::sudoers::Error {
+            source,
+            location,
+            message,
+        } in syntax_errors
+        {
+            let path = source.as_deref().unwrap_or(sudoers_path);
+            diagnostic::diagnostic!("{message}", path @ location);
         }
 
         Ok(sudoers)

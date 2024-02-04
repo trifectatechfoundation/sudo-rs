@@ -25,7 +25,11 @@ const INCLUDE_LIMIT: u8 = 128;
 
 /// Export some necessary symbols from modules
 pub use ast::TextEnum;
-pub struct Error(pub Option<basic_parser::Position>, pub String);
+pub struct Error {
+    pub source: Option<PathBuf>,
+    pub location: Option<basic_parser::Position>,
+    pub message: String,
+}
 
 #[derive(Default)]
 pub struct Sudoers {
@@ -587,12 +591,19 @@ fn analyze(
     }
 
     impl Sudoers {
-        fn include(&mut self, path: &Path, diagnostics: &mut Vec<Error>, count: &mut u8) {
+        fn include(
+            &mut self,
+            parent: &Path,
+            path: &Path,
+            diagnostics: &mut Vec<Error>,
+            count: &mut u8,
+        ) {
             if *count >= INCLUDE_LIMIT {
-                diagnostics.push(Error(
-                    None,
-                    format!("include file limit reached opening '{}'", path.display()),
-                ))
+                diagnostics.push(Error {
+                    source: Some(parent.to_owned()),
+                    location: None,
+                    message: format!("include file limit reached opening '{}'", path.display()),
+                })
             // FIXME: this will cause an error in `visudo` if we open a non-privileged sudoers file
             // that includes another non-privileged sudoer files.
             } else {
@@ -609,7 +620,11 @@ fn analyze(
                             e.to_string()
                         };
 
-                        diagnostics.push(Error(None, message))
+                        diagnostics.push(Error {
+                            source: Some(parent.to_owned()),
+                            location: None,
+                            message,
+                        })
                     }
                 }
             }
@@ -641,6 +656,7 @@ fn analyze(
                         }
 
                         Sudo::Include(path) => self.include(
+                            cur_path,
                             &resolve_relative(cur_path, path),
                             diagnostics,
                             safety_count,
@@ -648,18 +664,20 @@ fn analyze(
 
                         Sudo::IncludeDir(path) => {
                             if path.contains("%h") {
-                                diagnostics.push(Error(
-                                    None,
-                                    format!("cannot open sudoers file {path}: percent escape %h in includedir is unsupported")));
+                                diagnostics.push(Error{
+                                    source: Some(cur_path.to_owned()),
+                                    location: None,
+                                    message: format!("cannot open sudoers file {path}: percent escape %h in includedir is unsupported")});
                                 continue;
                             }
 
                             let path = resolve_relative(cur_path, path);
                             let Ok(files) = std::fs::read_dir(&path) else {
-                                diagnostics.push(Error(
-                                    None,
-                                    format!("cannot open sudoers file {}", path.display()),
-                                ));
+                                diagnostics.push(Error {
+                                    source: Some(cur_path.to_owned()),
+                                    location: None,
+                                    message: format!("cannot open sudoers file {}", path.display()),
+                                });
                                 continue;
                             };
                             let mut safe_files = files
@@ -675,14 +693,16 @@ fn analyze(
                                 .collect::<Vec<_>>();
                             safe_files.sort();
                             for file in safe_files {
-                                self.include(file.as_ref(), diagnostics, safety_count)
+                                self.include(cur_path, file.as_ref(), diagnostics, safety_count)
                             }
                         }
                     },
 
-                    Err(basic_parser::Status::Fatal(pos, error)) => {
-                        diagnostics.push(Error(Some(pos), error))
-                    }
+                    Err(basic_parser::Status::Fatal(pos, message)) => diagnostics.push(Error {
+                        source: Some(cur_path.to_owned()),
+                        location: Some(pos),
+                        message,
+                    }),
                     Err(_) => panic!("internal parser error"),
                 }
             }
@@ -756,7 +776,11 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
 
     impl<T> Visitor<'_, T> {
         fn complain(&mut self, text: String) {
-            self.diagnostics.push(Error(None, text))
+            self.diagnostics.push(Error {
+                source: None,
+                location: None,
+                message: text,
+            })
         }
 
         fn visit(&mut self, pos: usize) {

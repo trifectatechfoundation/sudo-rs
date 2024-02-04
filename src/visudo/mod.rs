@@ -107,7 +107,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     }
 
     let mut stderr = io::stderr();
-    for crate::sudoers::Error(_position, message) in errors {
+    for crate::sudoers::Error { message, .. } in errors {
         writeln!(stderr, "syntax error: {message}")?;
     }
 
@@ -245,7 +245,7 @@ fn edit_sudoers_file(
 
         writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
 
-        for crate::sudoers::Error(_position, message) in errors {
+        for crate::sudoers::Error { message, .. } in errors {
             writeln!(stderr, "syntax error: {message}")?;
         }
 
