@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2] - 2024-02-02
+
+### Changed
+- Several changes to the code to improve type safety
+- Improved error message when a PTY cannot be opened
+- Improved portability of the PAM bindings
+- su: improved parsing of su command line options
+- Add path information to parse errors originating from included files
+
+### Fixed
+- Fixed a panic with large messages written to the syslog
+- sudo: respect `--login` regardless of the presence of `--chdir`
+
 ## [0.2.1] - 2023-09-21
 
 ### Changed
@@ -98,6 +111,7 @@
 - Use canonicalized paths for the executed binaries
 - Simplified CLI help to only display supported actions
 
+[0.2.2]: https://github.com/memorysafety/sudo-rs/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230711...v0.2.0
 [0.2.0-dev.20230711]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230703...v0.2.0-dev.20230711
