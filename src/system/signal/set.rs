@@ -30,14 +30,16 @@ impl SignalAction {
             }
         };
 
-        Ok(Self {
-            raw: libc::sigaction {
-                sa_sigaction,
-                sa_mask: sa_mask.raw,
-                sa_flags,
-                sa_restorer: None,
-            },
-        })
+        // SAFETY: since sigaction is a C struct, all-zeroes is a valid representation
+        // We cannot use a "literal struct" initialization method since the exact representation
+        // of libc::sigaction is not fixed, see e.g. https://github.com/memorysafety/sudo-rs/issues/829
+        let mut raw: libc::sigaction = unsafe { std::mem::zeroed() };
+        raw.sa_sigaction = sa_sigaction;
+        raw.sa_mask = sa_mask.raw;
+        raw.sa_flags = sa_flags;
+        raw.sa_restorer = None;
+
+        Ok(Self { raw })
     }
 
     pub(super) fn register(&self, signal: SignalNumber) -> io::Result<Self> {
