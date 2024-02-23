@@ -10,13 +10,44 @@ please request it using the issue tracker. If you encounter any usability bugs,
 also please report them on the [issue tracker](https://github.com/memorysafety/sudo-rs/issues).
 Suspected vulnerabilities can be reported on our [security page](https://github.com/memorysafety/sudo-rs/security).
 
-An audit of sudo-rs will take place in September 2023, the next stable release will
-incorporate its results.
+An [audit of sudo-rs version 0.2.0](docs/audit/audit-report-sudo-rs.pdf) has been performed in August 2023.
+The findings from that audit are addressed in the current version.
 
 Sudo-rs currently is targeted for Linux-based operating systems only; Linux kernel 5.9
 or newer is necessary to run sudo-rs.
 
-## Building it yourself
+## Installing sudo-rs
+
+The recommended way to start using `sudo-rs` is via the package manager of your Linux distribution.
+
+### Debian/Ubuntu
+If you are running Debian 13 (trixie) or later, or Ubuntu 24.04 (Noble Numbat) or later, you can use:
+```sh
+sudo apt-get install sudo-rs
+```
+This will offer the functionality using the commands `su-rs` and `sudo-rs`. If you want to invoke sudo-rs
+via the usual commands `sudo` and `su` instead, prepend `/usr/lib/cargo/bin` to your current `$PATH` variable.
+
+### Fedora
+
+For Fedora, we expect sudo-rs to be available via its package manager soon.
+
+### Installing our pre-compiled x86-64 binaries
+
+You can also switch to sudo-rs manually by using our pre-compiled tarballs.
+We currently only offer these for x86-64 systems.
+
+We recommend installing sudo-rs and su-s in your `/usr/local` hierarchy using the commands:
+```sh
+sudo tar -C /usr/local -xvf sudo-VERSION.tar.gz
+```
+and for su-rs:
+```sh
+sudo tar -C /usr/local -xvf su-VERSION.tar.gz
+```
+This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo` and `su`.
+
+### Building from source
 
 Sudo-rs is written in Rust. The minimum required Rust version is 1.70. If your
 Linux distribution does not package that version (or a later one), you can always
@@ -28,7 +59,7 @@ On Ubuntu or Debian-based systems, use the following command to install the PAM 
 sudo apt-get install libpam0g-dev
 ```
 
-On CentOS or Red Hat-based systems, you can use the following command:
+On Fedora, CentOS and other Red Hat-based systems, you can use the following command:
 ```
 sudo yum install pam-devel
 ```
