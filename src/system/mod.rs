@@ -894,3 +894,10 @@ mod tests {
         assert_eq!(status.exit_status(), Some(0));
     }
 }
+
+pub fn make_zeroed_sigaction() -> libc::sigaction {
+    // SAFETY: since sigaction is a C struct, all-zeroes is a valid representation
+    // We cannot use a "literal struct" initialization method since the exact representation
+    // of libc::sigaction is not fixed, see e.g. https://github.com/memorysafety/sudo-rs/issues/829
+    unsafe { std::mem::zeroed() }
+}

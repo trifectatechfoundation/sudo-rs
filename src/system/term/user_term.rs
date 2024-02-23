@@ -20,7 +20,10 @@ use libc::{
 };
 
 use super::{TermSize, Terminal};
-use crate::{cutils::cerr, system::interface::ProcessId};
+use crate::{
+    cutils::cerr,
+    system::{interface::ProcessId, make_zeroed_sigaction},
+};
 
 const INPUT_FLAGS: tcflag_t = IGNPAR
     | PARMRK
@@ -64,17 +67,19 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
 
     let mut original_action = MaybeUninit::<sigaction>::uninit();
 
-    let action = sigaction {
+    let action = {
+        let mut raw: libc::sigaction = make_zeroed_sigaction();
         // Call `on_sigttou` if `SIGTTOU` arrives.
-        sa_sigaction: on_sigttou as sighandler_t,
+        raw.sa_sigaction = on_sigttou as sighandler_t;
         // Exclude any other signals from the set
-        sa_mask: {
+        raw.sa_mask = {
             let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
             unsafe { sigemptyset(sa_mask.as_mut_ptr()) };
             unsafe { sa_mask.assume_init() }
-        },
-        sa_flags: 0,
-        sa_restorer: None,
+        };
+        raw.sa_flags = 0;
+        raw.sa_restorer = None;
+        raw
     };
     // Reset `GOT_SIGTTOU`.
     GOT_SIGTTOU.store(false, Ordering::SeqCst);
@@ -225,17 +230,19 @@ impl UserTerm {
 
         let mut original_action = MaybeUninit::<sigaction>::uninit();
 
-        let action = sigaction {
+        let action = {
+            let mut raw: libc::sigaction = make_zeroed_sigaction();
             // Call `on_sigttou` if `SIGTTOU` arrives.
-            sa_sigaction: on_sigttou as sighandler_t,
+            raw.sa_sigaction = on_sigttou as sighandler_t;
             // Exclude any other signals from the set
-            sa_mask: {
+            raw.sa_mask = {
                 let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
                 unsafe { sigemptyset(sa_mask.as_mut_ptr()) };
                 unsafe { sa_mask.assume_init() }
-            },
-            sa_flags: 0,
-            sa_restorer: None,
+            };
+            raw.sa_flags = 0;
+            raw.sa_restorer = None;
+            raw
         };
         // Reset `GOT_SIGTTOU`.
         GOT_SIGTTOU.store(false, Ordering::SeqCst);

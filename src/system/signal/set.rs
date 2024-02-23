@@ -1,4 +1,4 @@
-use crate::cutils::cerr;
+use crate::{cutils::cerr, system::make_zeroed_sigaction};
 
 use super::{handler::SignalHandlerBehavior, SignalNumber};
 
@@ -30,14 +30,13 @@ impl SignalAction {
             }
         };
 
-        Ok(Self {
-            raw: libc::sigaction {
-                sa_sigaction,
-                sa_mask: sa_mask.raw,
-                sa_flags,
-                sa_restorer: None,
-            },
-        })
+        let mut raw: libc::sigaction = make_zeroed_sigaction();
+        raw.sa_sigaction = sa_sigaction;
+        raw.sa_mask = sa_mask.raw;
+        raw.sa_flags = sa_flags;
+        raw.sa_restorer = None;
+
+        Ok(Self { raw })
     }
 
     pub(super) fn register(&self, signal: SignalNumber) -> io::Result<Self> {
