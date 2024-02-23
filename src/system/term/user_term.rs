@@ -20,7 +20,10 @@ use libc::{
 };
 
 use super::{TermSize, Terminal};
-use crate::{cutils::cerr, system::interface::ProcessId};
+use crate::{
+    cutils::cerr,
+    system::{interface::ProcessId, make_zeroed_sigaction},
+};
 
 const INPUT_FLAGS: tcflag_t = IGNPAR
     | PARMRK
@@ -65,8 +68,7 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
     let mut original_action = MaybeUninit::<sigaction>::uninit();
 
     let action = {
-        // SAFETY: since sigaction is a C struct, all-zeroes is a valid representation
-        let mut raw: libc::sigaction = unsafe { std::mem::zeroed() };
+        let mut raw: libc::sigaction = make_zeroed_sigaction();
         // Call `on_sigttou` if `SIGTTOU` arrives.
         raw.sa_sigaction = on_sigttou as sighandler_t;
         // Exclude any other signals from the set
@@ -229,8 +231,7 @@ impl UserTerm {
         let mut original_action = MaybeUninit::<sigaction>::uninit();
 
         let action = {
-            // SAFETY: since sigaction is a C struct, all-zeroes is a valid representation
-            let mut raw: libc::sigaction = unsafe { std::mem::zeroed() };
+            let mut raw: libc::sigaction = make_zeroed_sigaction();
             // Call `on_sigttou` if `SIGTTOU` arrives.
             raw.sa_sigaction = on_sigttou as sighandler_t;
             // Exclude any other signals from the set

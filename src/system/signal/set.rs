@@ -1,4 +1,4 @@
-use crate::cutils::cerr;
+use crate::{cutils::cerr, system::make_zeroed_sigaction};
 
 use super::{handler::SignalHandlerBehavior, SignalNumber};
 
@@ -30,10 +30,7 @@ impl SignalAction {
             }
         };
 
-        // SAFETY: since sigaction is a C struct, all-zeroes is a valid representation
-        // We cannot use a "literal struct" initialization method since the exact representation
-        // of libc::sigaction is not fixed, see e.g. https://github.com/memorysafety/sudo-rs/issues/829
-        let mut raw: libc::sigaction = unsafe { std::mem::zeroed() };
+        let mut raw: libc::sigaction = make_zeroed_sigaction();
         raw.sa_sigaction = sa_sigaction;
         raw.sa_mask = sa_mask.raw;
         raw.sa_flags = sa_flags;
