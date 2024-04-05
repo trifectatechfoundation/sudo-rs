@@ -30,7 +30,11 @@ via the usual commands `sudo` and `su` instead, prepend `/usr/lib/cargo/bin` to 
 
 ### Fedora
 
-For Fedora, we expect sudo-rs to be available via its package manager soon.
+If you are running Fedora 38 or later, you can use: 
+```sh
+sudo dnf install sudo-rs
+```
+This will offer the functionality using the commands `su-rs` and `sudo-rs`.
 
 ### Installing our pre-compiled x86-64 binaries
 
