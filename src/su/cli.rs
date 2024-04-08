@@ -22,6 +22,7 @@ impl SuAction {
     }
 
     #[cfg(test)]
+    #[allow(clippy::result_large_err)]
     pub fn try_into_run(self) -> Result<SuRunOptions, Self> {
         if let Self::Run(v) = self {
             Ok(v)
