@@ -25,6 +25,8 @@ impl RingBuffer {
         self.len == self.storage.len()
     }
 
+    // rustc 1.77.1 clippy gives false diagnostics, https://github.com/rust-lang/rust-clippy/issues/12519
+    #[allow(clippy::unused_io_amount)]
     pub(super) fn insert<R: Read>(&mut self, read: &mut R) -> io::Result<usize> {
         let inserted_len = if self.is_empty() {
             // Case 1.1. The buffer is empty, meaning that there are two unfilled slices in
@@ -61,6 +63,8 @@ impl RingBuffer {
         self.len == 0
     }
 
+    // rustc 1.77.1 clippy gives false diagnostics, https://github.com/rust-lang/rust-clippy/issues/12519
+    #[allow(clippy::unused_io_amount)]
     pub(super) fn remove<W: Write>(&mut self, write: &mut W) -> io::Result<usize> {
         let removed_len = if self.is_full() {
             // Case 2.1. The buffer is full, meaning that there are two filled slices in `storage`:

@@ -172,6 +172,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(true)
         .open(&tmp_path)?;
 
     tmp_file.set_permissions(Permissions::from_mode(0o700))?;
