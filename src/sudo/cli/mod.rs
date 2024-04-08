@@ -80,6 +80,7 @@ impl SudoAction {
     }
 
     #[cfg(test)]
+    #[allow(clippy::result_large_err)]
     pub fn try_into_run(self) -> Result<SudoRunOptions, Self> {
         if let Self::Run(v) = self {
             Ok(v)
