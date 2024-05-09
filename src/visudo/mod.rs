@@ -283,6 +283,8 @@ fn edit_sudoers_file(
         writeln!(stderr, "visudo: {} unchanged", tmp_path.display())?;
     } else {
         sudoers_file.write_all(&tmp_contents)?;
+        let new_size = sudoers_file.stream_position()?;
+        sudoers_file.set_len(new_size)?;
     }
 
     lock.unlock()?;
