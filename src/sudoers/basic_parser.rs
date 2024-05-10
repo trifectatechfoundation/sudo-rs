@@ -73,7 +73,6 @@ pub fn maybe<T>(status: Parsed<T>) -> Parsed<Option<T>> {
 pub use super::char_stream::CharStream;
 
 /// All implementations of the Parse trait must satisfy this contract:
-///
 /// If the `parse` method of this trait returns None, the iterator is not advanced; otherwise it is
 /// advanced beyond the accepted part of the input. i.e. if some input is consumed the method
 /// *MUST* be producing a `Some` value.
@@ -274,6 +273,7 @@ impl<T: Parse> Parse for Option<T> {
 }
 
 /// Parsing method for lists of items separated by a given character; this adheres to the contract of the [Parse] trait.
+#[allow(clippy::multiple_bound_locations)]
 pub(super) fn parse_list<T: Parse>(
     sep_by: char,
     max: usize,

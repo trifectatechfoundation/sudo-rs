@@ -22,7 +22,7 @@ fn ps1_env_var_is_set_when_sudo_ps1_is_set() -> Result<()> {
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(ps1), sudo_env.get("PS1").copied());
-    assert!(sudo_env.get("SUDO_PS1").is_none());
+    assert!(!sudo_env.contains_key("SUDO_PS1"));
 
     Ok(())
 }
@@ -43,8 +43,8 @@ fn ps1_env_var_is_not_set_when_sudo_ps1_is_set_and_flag_login_is_used() -> Resul
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert!(sudo_env.get("PS1").is_none());
-    assert!(sudo_env.get("SUDO_PS1").is_none());
+    assert!(!sudo_env.contains_key("PS1"));
+    assert!(!sudo_env.contains_key("SUDO_PS1"));
 
     Ok(())
 }
@@ -68,7 +68,7 @@ fn can_start_with_parentheses() -> Result<()> {
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(ps1), sudo_env.get("PS1").copied());
-    assert!(sudo_env.get("SUDO_PS1").is_none());
+    assert!(!sudo_env.contains_key("SUDO_PS1"));
 
     Ok(())
 }

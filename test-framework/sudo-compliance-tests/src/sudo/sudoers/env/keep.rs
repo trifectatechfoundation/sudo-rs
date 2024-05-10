@@ -158,7 +158,7 @@ fn equal_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     // can be disabled
-    assert!(sudo_env.get("DISPLAY").is_none());
+    assert!(!sudo_env.contains_key("DISPLAY"));
     assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
 
     // cannot be disabled
@@ -190,7 +190,7 @@ fn minus_equal_can_disable_preservation_of_vars_display_path_but_not_term() -> R
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     // can be disabled
-    assert!(sudo_env.get("DISPLAY").is_none());
+    assert!(!sudo_env.contains_key("DISPLAY"));
     assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
 
     // cannot be disabled
@@ -218,7 +218,7 @@ fn bang_can_disable_preservation_of_vars_display_path_but_not_term() -> Result<(
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     // can be disabled
-    assert!(sudo_env.get("DISPLAY").is_none());
+    assert!(!sudo_env.contains_key("DISPLAY"));
     assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
 
     // cannot be disabled

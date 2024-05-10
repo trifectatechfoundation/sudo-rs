@@ -240,6 +240,7 @@ extern "C" {
 extern "C" {
     pub fn pam_chauthtok(pamh: *mut pam_handle_t, flags: libc::c_int) -> libc::c_int;
 }
+#[allow(dead_code)]
 pub type __uid_t = libc::c_uint;
 pub type __gid_t = libc::c_uint;
 pub type gid_t = __gid_t;
