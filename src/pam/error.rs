@@ -6,23 +6,17 @@ use super::sys::*;
 
 pub type PamResult<T, E = PamError> = Result<T, E>;
 
+// TODO: add missing doc-comments
 #[derive(PartialEq, Eq, Debug)]
 pub enum PamErrorType {
     /// There was no error running the PAM command
     Success,
-    ///
     OpenError,
-    ///
     SymbolError,
-    ///
     ServiceError,
-    ///
     SystemError,
-    ///
     BufferError,
-    ///
     ConversationError,
-    ///
     PermissionDenied,
     /// The maximum number of authentication attempts was reached and no more
     /// attempts should be made.
@@ -47,27 +41,17 @@ pub enum PamErrorType {
     CredentialsError,
     /// The user account is expired and can no longer be used.
     AccountExpired,
-    ///
     AuthTokenExpired,
-    ///
     SessionError,
-    ///
     AuthTokenError,
-    ///
     AuthTokenRecoveryError,
-    ///
     AuthTokenLockBusy,
-    ///
     AuthTokenDisableAging,
-    ///
     NoModuleData,
-    ///
     Ignore,
     /// The application should exit immediately.
     Abort,
-    ///
     TryAgain,
-    ///
     ModuleUnknown,
     /// The application tried to set/delete an undefined or inaccessible item.
     BadItem, // Extension in OpenPAM and LinuxPAM

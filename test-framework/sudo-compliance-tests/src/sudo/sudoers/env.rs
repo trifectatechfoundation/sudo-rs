@@ -220,7 +220,7 @@ fn equal_overrides(env_list: EnvList) -> Result<()> {
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert!(sudo_env.get(env_name2).is_none());
+    assert!(!sudo_env.contains_key(env_name2));
     assert_eq!(Some(env_val1), sudo_env.get(env_name1).copied());
 
     Ok(())
@@ -412,7 +412,7 @@ fn if_value_starts_with_parentheses_variable_is_removed(env_list: EnvList) -> Re
         .stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert!(sudo_env.get(env_name).is_none());
+    assert!(!sudo_env.contains_key(env_name));
 
     Ok(())
 }
@@ -525,7 +525,7 @@ fn minus_equal_removes(env_list: EnvList) -> Result<()> {
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(Some(env_val1), sudo_env.get(env_name1).copied());
-    assert!(sudo_env.get(env_name2).is_none());
+    assert!(!sudo_env.contains_key(env_name2));
 
     Ok(())
 }
@@ -550,7 +550,7 @@ fn minus_equal_an_element_not_in_the_list_is_not_an_error(env_list: EnvList) -> 
     let stdout = output.stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert!(sudo_env.get(env_name).is_none());
+    assert!(!sudo_env.contains_key(env_name));
 
     Ok(())
 }
@@ -576,8 +576,8 @@ fn bang_clears_the_whole_list(env_list: EnvList) -> Result<()> {
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert!(sudo_env.get(env_name1).is_none());
-    assert!(sudo_env.get(env_name1).is_none());
+    assert!(!sudo_env.contains_key(env_name1));
+    assert!(!sudo_env.contains_key(env_name1));
 
     Ok(())
 }
@@ -604,7 +604,7 @@ fn can_append_after_bang(env_list: EnvList) -> Result<()> {
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert!(sudo_env.get(env_name1).is_none());
+    assert!(!sudo_env.contains_key(env_name1));
     assert_eq!(Some(env_val2), sudo_env.get(env_name2).copied());
 
     Ok(())
@@ -632,7 +632,7 @@ fn can_override_after_bang(env_list: EnvList) -> Result<()> {
 
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert!(sudo_env.get(env_name1).is_none());
+    assert!(!sudo_env.contains_key(env_name1));
     assert_eq!(Some(env_val2), sudo_env.get(env_name2).copied());
 
     Ok(())
