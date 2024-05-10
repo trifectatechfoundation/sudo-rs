@@ -17,20 +17,6 @@ use super::{
     Process, WithProcess,
 };
 
-/// Truncates or extends the underlying data
-pub trait SetLength {
-    /// After this is called, the underlying data will either be truncated
-    /// up to new_len bytes, or it will have been extended by zero bytes up to
-    /// new_len.
-    fn set_len(&mut self, new_len: usize) -> io::Result<()>;
-}
-
-impl SetLength for File {
-    fn set_len(&mut self, new_len: usize) -> io::Result<()> {
-        File::set_len(self, new_len as u64)
-    }
-}
-
 type BoolStorage = u8;
 
 const SIZE_OF_TS: i64 = std::mem::size_of::<SystemTime>() as i64;
@@ -583,26 +569,6 @@ mod tests {
     use crate::system::tests::tempfile;
 
     const TEST_USER_ID: UserId = 1000;
-
-    impl SetLength for Cursor<Vec<u8>> {
-        fn set_len(&mut self, new_len: usize) -> io::Result<()> {
-            self.get_mut().truncate(new_len);
-            while self.get_mut().len() < new_len {
-                self.get_mut().push(0);
-            }
-            Ok(())
-        }
-    }
-
-    impl SetLength for Cursor<&mut Vec<u8>> {
-        fn set_len(&mut self, new_len: usize) -> io::Result<()> {
-            self.get_mut().truncate(new_len);
-            while self.get_mut().len() < new_len {
-                self.get_mut().push(0);
-            }
-            Ok(())
-        }
-    }
 
     #[test]
     fn can_encode_and_decode() {
