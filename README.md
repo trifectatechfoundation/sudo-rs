@@ -20,6 +20,16 @@ or newer is necessary to run sudo-rs.
 
 The recommended way to start using `sudo-rs` is via the package manager of your Linux distribution.
 
+### Arch Linux
+
+Arch Linux can be installed via AUR [sudo-rs](https://aur.archlinux.org/packages/sudo-rs) or [sudo-rs-git](https://aur.archlinux.org/packages/sudo-rs-git).
+
+Note: [AUR usage help](https://wiki.archlinux.org/title/AUR_helpers)
+
+```sh
+yay -Syu sudo-rs
+```
+
 ### Debian/Ubuntu
 If you are running Debian 13 (trixie) or later, or Ubuntu 24.04 (Noble Numbat) or later, you can use:
 ```sh
