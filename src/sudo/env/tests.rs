@@ -96,8 +96,6 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     let current_group = Group {
         gid: 1000,
         name: "test".to_string(),
-        passwd: String::new(),
-        members: Vec::new(),
     };
 
     let root_user = User {
@@ -114,8 +112,6 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     let root_group = Group {
         gid: 0,
         name: "root".to_string(),
-        passwd: String::new(),
-        members: Vec::new(),
     };
 
     Context {
