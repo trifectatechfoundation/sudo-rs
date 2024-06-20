@@ -133,6 +133,9 @@ fn is_safe_tz(value: &[u8]) -> bool {
     };
 
     if check_value.starts_with(&[b'/']) {
+        // clippy 1.79 wants to us to optimise this check away; but we don't know what this will always
+        // be possible; and the compiler is clever enough to do that for us anyway if it can be.
+        #[allow(clippy::const_is_empty)]
         if !PATH_ZONEINFO.is_empty() {
             if !check_value.starts_with(PATH_ZONEINFO.as_bytes())
                 || check_value.get(PATH_ZONEINFO.len()) != Some(&b'/')

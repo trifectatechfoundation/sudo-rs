@@ -1,5 +1,6 @@
 macro_rules! add_from {
     ($ctor:ident, $type:ty) => {
+        #[allow(non_local_definitions)]
         impl From<$type> for $crate::defaults::SudoDefault {
             fn from(value: $type) -> Self {
                 $crate::defaults::SudoDefault::$ctor(value.into())
@@ -8,6 +9,7 @@ macro_rules! add_from {
     };
 
     ($ctor:ident, $type:ty, negatable$(, $vetting_function:expr)?) => {
+        #[allow(non_local_definitions)]
         impl From<$type> for $crate::defaults::SudoDefault {
             fn from(value: $type) -> Self {
                 $crate::defaults::SudoDefault::$ctor(OptTuple {
@@ -17,6 +19,7 @@ macro_rules! add_from {
             }
         }
 
+        #[allow(non_local_definitions)]
         impl From<($type, $type)> for $crate::defaults::SudoDefault {
             fn from((value, neg): ($type, $type)) -> Self {
                 $crate::defaults::SudoDefault::$ctor(OptTuple {
