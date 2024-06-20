@@ -590,9 +590,8 @@ fn analyze(
         }
     }
 
-    impl Sudoers {
         fn include(
-            &mut self,
+            cfg: &mut Sudoers,
             parent: &Path,
             path: &Path,
             diagnostics: &mut Vec<Error>,
@@ -610,7 +609,7 @@ fn analyze(
                 match open_subsudoers(path) {
                     Ok(subsudoer) => {
                         *count += 1;
-                        self.process(path, subsudoer, diagnostics, count)
+                        process(cfg, path, subsudoer, diagnostics, count)
                     }
                     Err(e) => {
                         let message = if e.kind() == io::ErrorKind::NotFound {
@@ -631,7 +630,7 @@ fn analyze(
         }
 
         fn process(
-            &mut self,
+            cfg: &mut Sudoers,
             cur_path: &Path,
             sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
             diagnostics: &mut Vec<Error>,
@@ -642,20 +641,21 @@ fn analyze(
                     Ok(line) => match line {
                         Sudo::LineComment => {}
 
-                        Sudo::Spec(permission) => self.rules.push(permission),
+                        Sudo::Spec(permission) => cfg.rules.push(permission),
 
-                        Sudo::Decl(UserAlias(mut def)) => self.aliases.user.1.append(&mut def),
-                        Sudo::Decl(HostAlias(mut def)) => self.aliases.host.1.append(&mut def),
-                        Sudo::Decl(CmndAlias(mut def)) => self.aliases.cmnd.1.append(&mut def),
-                        Sudo::Decl(RunasAlias(mut def)) => self.aliases.runas.1.append(&mut def),
+                        Sudo::Decl(UserAlias(mut def)) => cfg.aliases.user.1.append(&mut def),
+                        Sudo::Decl(HostAlias(mut def)) => cfg.aliases.host.1.append(&mut def),
+                        Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
+                        Sudo::Decl(RunasAlias(mut def)) => cfg.aliases.runas.1.append(&mut def),
 
                         Sudo::Decl(Defaults(params)) => {
                             for (name, value) in params {
-                                self.set_default(name, value)
+                                set_default(cfg, name, value)
                             }
                         }
 
-                        Sudo::Include(path) => self.include(
+                        Sudo::Include(path) => include(
+                            cfg,
                             cur_path,
                             &resolve_relative(cur_path, path),
                             diagnostics,
@@ -693,7 +693,7 @@ fn analyze(
                                 .collect::<Vec<_>>();
                             safe_files.sort();
                             for file in safe_files {
-                                self.include(cur_path, file.as_ref(), diagnostics, safety_count)
+                                include(cfg, cur_path, file.as_ref(), diagnostics, safety_count)
                             }
                         }
                     },
@@ -708,17 +708,17 @@ fn analyze(
             }
         }
 
-        fn set_default(&mut self, name: String, value: ConfigValue) {
+        fn set_default(cfg: &mut Sudoers, name: String, value: ConfigValue) {
             match value {
                 Flag(value) => {
                     if value {
-                        self.settings.flags.insert(name);
+                        cfg.settings.flags.insert(name);
                     } else {
-                        self.settings.flags.remove(&name);
+                        cfg.settings.flags.remove(&name);
                     }
                 }
                 List(mode, values) => {
-                    let slot: &mut _ = self.settings.list.entry(name).or_default();
+                    let slot: &mut _ = cfg.settings.list.entry(name).or_default();
                     match mode {
                         Mode::Set => *slot = values.into_iter().collect(),
                         Mode::Add => slot.extend(values),
@@ -730,20 +730,19 @@ fn analyze(
                     }
                 }
                 Text(value) => {
-                    self.settings.str_value.insert(name, value);
+                    cfg.settings.str_value.insert(name, value);
                 }
                 Enum(value) => {
-                    self.settings.enum_value.insert(name, value);
+                    cfg.settings.enum_value.insert(name, value);
                 }
                 Num(value) => {
-                    self.settings.int_value.insert(name, value);
+                    cfg.settings.int_value.insert(name, value);
                 }
             }
         }
-    }
 
     let mut diagnostics = vec![];
-    result.process(path, sudoers, &mut diagnostics, &mut 0);
+    process(&mut result, path, sudoers, &mut diagnostics, &mut 0);
 
     let alias = &mut result.aliases;
     alias.user.0 = sanitize_alias_table(&alias.user.1, &mut diagnostics);
