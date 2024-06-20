@@ -590,156 +590,156 @@ fn analyze(
         }
     }
 
-        fn include(
-            cfg: &mut Sudoers,
-            parent: &Path,
-            path: &Path,
-            diagnostics: &mut Vec<Error>,
-            count: &mut u8,
-        ) {
-            if *count >= INCLUDE_LIMIT {
-                diagnostics.push(Error {
-                    source: Some(parent.to_owned()),
-                    location: None,
-                    message: format!("include file limit reached opening '{}'", path.display()),
-                })
-            // FIXME: this will cause an error in `visudo` if we open a non-privileged sudoers file
-            // that includes another non-privileged sudoer files.
-            } else {
-                match open_subsudoers(path) {
-                    Ok(subsudoer) => {
-                        *count += 1;
-                        process(cfg, path, subsudoer, diagnostics, count)
-                    }
-                    Err(e) => {
-                        let message = if e.kind() == io::ErrorKind::NotFound {
-                            // improve the error message in this case
-                            format!("cannot open sudoers file '{}'", path.display())
-                        } else {
-                            e.to_string()
-                        };
+    fn include(
+        cfg: &mut Sudoers,
+        parent: &Path,
+        path: &Path,
+        diagnostics: &mut Vec<Error>,
+        count: &mut u8,
+    ) {
+        if *count >= INCLUDE_LIMIT {
+            diagnostics.push(Error {
+                source: Some(parent.to_owned()),
+                location: None,
+                message: format!("include file limit reached opening '{}'", path.display()),
+            })
+        // FIXME: this will cause an error in `visudo` if we open a non-privileged sudoers file
+        // that includes another non-privileged sudoer files.
+        } else {
+            match open_subsudoers(path) {
+                Ok(subsudoer) => {
+                    *count += 1;
+                    process(cfg, path, subsudoer, diagnostics, count)
+                }
+                Err(e) => {
+                    let message = if e.kind() == io::ErrorKind::NotFound {
+                        // improve the error message in this case
+                        format!("cannot open sudoers file '{}'", path.display())
+                    } else {
+                        e.to_string()
+                    };
 
-                        diagnostics.push(Error {
-                            source: Some(parent.to_owned()),
-                            location: None,
-                            message,
-                        })
-                    }
+                    diagnostics.push(Error {
+                        source: Some(parent.to_owned()),
+                        location: None,
+                        message,
+                    })
                 }
             }
         }
+    }
 
-        fn process(
-            cfg: &mut Sudoers,
-            cur_path: &Path,
-            sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
-            diagnostics: &mut Vec<Error>,
-            safety_count: &mut u8,
-        ) {
-            for item in sudoers {
-                match item {
-                    Ok(line) => match line {
-                        Sudo::LineComment => {}
+    fn process(
+        cfg: &mut Sudoers,
+        cur_path: &Path,
+        sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
+        diagnostics: &mut Vec<Error>,
+        safety_count: &mut u8,
+    ) {
+        for item in sudoers {
+            match item {
+                Ok(line) => match line {
+                    Sudo::LineComment => {}
 
-                        Sudo::Spec(permission) => cfg.rules.push(permission),
+                    Sudo::Spec(permission) => cfg.rules.push(permission),
 
-                        Sudo::Decl(UserAlias(mut def)) => cfg.aliases.user.1.append(&mut def),
-                        Sudo::Decl(HostAlias(mut def)) => cfg.aliases.host.1.append(&mut def),
-                        Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
-                        Sudo::Decl(RunasAlias(mut def)) => cfg.aliases.runas.1.append(&mut def),
+                    Sudo::Decl(UserAlias(mut def)) => cfg.aliases.user.1.append(&mut def),
+                    Sudo::Decl(HostAlias(mut def)) => cfg.aliases.host.1.append(&mut def),
+                    Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
+                    Sudo::Decl(RunasAlias(mut def)) => cfg.aliases.runas.1.append(&mut def),
 
-                        Sudo::Decl(Defaults(params)) => {
-                            for (name, value) in params {
-                                set_default(cfg, name, value)
-                            }
+                    Sudo::Decl(Defaults(params)) => {
+                        for (name, value) in params {
+                            set_default(cfg, name, value)
                         }
+                    }
 
-                        Sudo::Include(path) => include(
-                            cfg,
-                            cur_path,
-                            &resolve_relative(cur_path, path),
-                            diagnostics,
-                            safety_count,
-                        ),
+                    Sudo::Include(path) => include(
+                        cfg,
+                        cur_path,
+                        &resolve_relative(cur_path, path),
+                        diagnostics,
+                        safety_count,
+                    ),
 
-                        Sudo::IncludeDir(path) => {
-                            if path.contains("%h") {
-                                diagnostics.push(Error{
+                    Sudo::IncludeDir(path) => {
+                        if path.contains("%h") {
+                            diagnostics.push(Error{
                                     source: Some(cur_path.to_owned()),
                                     location: None,
                                     message: format!("cannot open sudoers file {path}: percent escape %h in includedir is unsupported")});
-                                continue;
-                            }
-
-                            let path = resolve_relative(cur_path, path);
-                            let Ok(files) = std::fs::read_dir(&path) else {
-                                diagnostics.push(Error {
-                                    source: Some(cur_path.to_owned()),
-                                    location: None,
-                                    message: format!("cannot open sudoers file {}", path.display()),
-                                });
-                                continue;
-                            };
-                            let mut safe_files = files
-                                .filter_map(|direntry| {
-                                    let path = direntry.ok()?.path();
-                                    let text = path.file_name()?.to_str()?;
-                                    if text.ends_with('~') || text.contains('.') {
-                                        None
-                                    } else {
-                                        Some(path)
-                                    }
-                                })
-                                .collect::<Vec<_>>();
-                            safe_files.sort();
-                            for file in safe_files {
-                                include(cfg, cur_path, file.as_ref(), diagnostics, safety_count)
-                            }
+                            continue;
                         }
-                    },
 
-                    Err(basic_parser::Status::Fatal(pos, message)) => diagnostics.push(Error {
-                        source: Some(cur_path.to_owned()),
-                        location: Some(pos),
-                        message,
-                    }),
-                    Err(_) => panic!("internal parser error"),
-                }
-            }
-        }
-
-        fn set_default(cfg: &mut Sudoers, name: String, value: ConfigValue) {
-            match value {
-                Flag(value) => {
-                    if value {
-                        cfg.settings.flags.insert(name);
-                    } else {
-                        cfg.settings.flags.remove(&name);
-                    }
-                }
-                List(mode, values) => {
-                    let slot: &mut _ = cfg.settings.list.entry(name).or_default();
-                    match mode {
-                        Mode::Set => *slot = values.into_iter().collect(),
-                        Mode::Add => slot.extend(values),
-                        Mode::Del => {
-                            for key in values {
-                                slot.remove(&key);
-                            }
+                        let path = resolve_relative(cur_path, path);
+                        let Ok(files) = std::fs::read_dir(&path) else {
+                            diagnostics.push(Error {
+                                source: Some(cur_path.to_owned()),
+                                location: None,
+                                message: format!("cannot open sudoers file {}", path.display()),
+                            });
+                            continue;
+                        };
+                        let mut safe_files = files
+                            .filter_map(|direntry| {
+                                let path = direntry.ok()?.path();
+                                let text = path.file_name()?.to_str()?;
+                                if text.ends_with('~') || text.contains('.') {
+                                    None
+                                } else {
+                                    Some(path)
+                                }
+                            })
+                            .collect::<Vec<_>>();
+                        safe_files.sort();
+                        for file in safe_files {
+                            include(cfg, cur_path, file.as_ref(), diagnostics, safety_count)
                         }
                     }
-                }
-                Text(value) => {
-                    cfg.settings.str_value.insert(name, value);
-                }
-                Enum(value) => {
-                    cfg.settings.enum_value.insert(name, value);
-                }
-                Num(value) => {
-                    cfg.settings.int_value.insert(name, value);
-                }
+                },
+
+                Err(basic_parser::Status::Fatal(pos, message)) => diagnostics.push(Error {
+                    source: Some(cur_path.to_owned()),
+                    location: Some(pos),
+                    message,
+                }),
+                Err(_) => panic!("internal parser error"),
             }
         }
+    }
+
+    fn set_default(cfg: &mut Sudoers, name: String, value: ConfigValue) {
+        match value {
+            Flag(value) => {
+                if value {
+                    cfg.settings.flags.insert(name);
+                } else {
+                    cfg.settings.flags.remove(&name);
+                }
+            }
+            List(mode, values) => {
+                let slot: &mut _ = cfg.settings.list.entry(name).or_default();
+                match mode {
+                    Mode::Set => *slot = values.into_iter().collect(),
+                    Mode::Add => slot.extend(values),
+                    Mode::Del => {
+                        for key in values {
+                            slot.remove(&key);
+                        }
+                    }
+                }
+            }
+            Text(value) => {
+                cfg.settings.str_value.insert(name, value);
+            }
+            Enum(value) => {
+                cfg.settings.enum_value.insert(name, value);
+            }
+            Num(value) => {
+                cfg.settings.int_value.insert(name, value);
+            }
+        }
+    }
 
     let mut diagnostics = vec![];
     process(&mut result, path, sudoers, &mut diagnostics, &mut 0);
