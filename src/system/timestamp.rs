@@ -315,6 +315,7 @@ pub enum TouchResult {
     NotFound,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub enum CreateResult {
     /// The record was found and it was refreshed
     Updated {
@@ -736,9 +737,10 @@ mod tests {
 
         std::thread::sleep(std::time::Duration::from_millis(1));
         let res = srf.create(tty_scope, auth_user).unwrap();
-        let CreateResult::Updated { .. } = res else {
+        let CreateResult::Updated { old_time, new_time } = res else {
             panic!("Expected record to be updated");
         };
+        assert_ne!(old_time, new_time);
 
         // reset the file
         assert!(srf.reset().is_ok());
