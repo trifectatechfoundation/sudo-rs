@@ -497,9 +497,7 @@ impl WithProcess {
 pub struct Process {
     pub pid: ProcessId,
     pub parent_pid: Option<ProcessId>,
-    pub group_id: ProcessId,
     pub session_id: ProcessId,
-    pub name: PathBuf,
 }
 
 impl Default for Process {
@@ -513,14 +511,8 @@ impl Process {
         Process {
             pid: Self::process_id(),
             parent_pid: Self::parent_id(),
-            group_id: Self::group_id(),
             session_id: Self::session_id(),
-            name: Self::process_name().unwrap_or_else(|| PathBuf::from("sudo")),
         }
-    }
-
-    pub fn process_name() -> Option<PathBuf> {
-        std::env::args().next().map(PathBuf::from)
     }
 
     /// Return the process identifier for the current process
@@ -540,11 +532,6 @@ impl Process {
         } else {
             Some(pid)
         }
-    }
-
-    /// Return the process group id for the current process
-    pub fn group_id() -> ProcessId {
-        unsafe { libc::getpgid(0) }
     }
 
     /// Get the session id for the current process
