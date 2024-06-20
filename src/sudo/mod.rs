@@ -16,7 +16,7 @@ use pipeline::{Pipeline, PolicyPlugin};
 use std::path::Path;
 
 mod cli;
-mod diagnostic;
+pub mod diagnostic;
 mod env;
 mod pam;
 mod pipeline;

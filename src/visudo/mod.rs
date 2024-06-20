@@ -11,6 +11,7 @@ use std::{
 };
 
 use crate::{
+    sudo::diagnostic,
     sudoers::Sudoers,
     system::{
         can_execute,
@@ -106,9 +107,14 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         return Ok(());
     }
 
-    let mut stderr = io::stderr();
-    for crate::sudoers::Error { message, .. } in errors {
-        writeln!(stderr, "syntax error: {message}")?;
+    for crate::sudoers::Error {
+        message,
+        source,
+        location,
+    } in errors
+    {
+        let path = source.as_deref().unwrap_or(sudoers_path);
+        diagnostic::diagnostic!("syntax error: {message}", path @ location);
     }
 
     Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
