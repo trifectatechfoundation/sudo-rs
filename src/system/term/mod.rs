@@ -182,7 +182,7 @@ impl<F: AsRawFd> Terminal for F {
     }
 
     fn tcgetsid(&self) -> io::Result<ProcessId> {
-       cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) }) 
+        cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })
     }
 }
 
