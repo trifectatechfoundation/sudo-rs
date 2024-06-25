@@ -7,7 +7,6 @@ use std::{
 };
 
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process};
-use crate::log::dev_warn;
 
 use self::ring_buffer::RingBuffer;
 
@@ -59,19 +58,6 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
         &self.right
     }
 
-    pub(super) fn tty_gone<T: Process>(&mut self, registry: &mut EventRegistry<T>) -> bool {
-        let gone = unsafe {
-            // Check if tty which existed is now gone.
-            // NOTE: errno set is EIO which is not a documented possibility.
-            libc::tcgetsid(self.left.as_raw_fd()) == -1
-        };
-        if gone {
-            dev_warn!("tty gone (closed/detached), ignoring future events");
-            self.ignore_events(registry);
-        }
-        gone
-    }
-
     /// Stop the poll events of this pipe.
     pub(super) fn ignore_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
         self.buffer_lr.read_handle.ignore(registry);
@@ -94,9 +80,6 @@ impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
         poll_event: PollEvent,
         registry: &mut EventRegistry<T>,
     ) -> io::Result<()> {
-        if self.tty_gone(registry) {
-            return Ok(());
-        }
         match poll_event {
             PollEvent::Readable => self.buffer_lr.read(&mut self.left, registry),
             PollEvent::Writable => self.buffer_rl.write(&mut self.left, registry),

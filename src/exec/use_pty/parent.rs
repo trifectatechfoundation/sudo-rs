@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::io;
+use std::os::fd::AsRawFd;
 use std::process::{Command, Stdio};
 
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
@@ -700,7 +701,16 @@ impl Process for ParentClosure {
         match event {
             ParentEvent::Signal => self.on_signal(registry),
             ParentEvent::Tty(poll_event) => {
-                self.tty_pipe.on_left_event(poll_event, registry).ok();
+                // Check if tty which existed is now gone.
+                // NOTE: errno set is EIO which is not a documented possibility.
+                let tty_gone = unsafe { libc::tcgetsid(self.tty_pipe.left().as_raw_fd()) == -1 };
+
+                if tty_gone {
+                    dev_warn!("tty gone (closed/detached), ignoring future events");
+                    self.tty_pipe.ignore_events(registry);
+                } else {
+                    self.tty_pipe.on_left_event(poll_event, registry).ok();
+                }
             }
             ParentEvent::Pty(poll_event) => {
                 self.tty_pipe.on_right_event(poll_event, registry).ok();
