@@ -145,6 +145,7 @@ pub(crate) trait Terminal: sealed::Sealed {
     fn make_controlling_terminal(&self) -> io::Result<()>;
     fn ttyname(&self) -> io::Result<OsString>;
     fn is_terminal(&self) -> bool;
+    fn tcgetsid(&self) -> io::Result<ProcessId>;
 }
 
 impl<F: AsRawFd> Terminal for F {
@@ -178,6 +179,10 @@ impl<F: AsRawFd> Terminal for F {
     /// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
     fn is_terminal(&self) -> bool {
         safe_isatty(self.as_raw_fd())
+    }
+
+    fn tcgetsid(&self) -> io::Result<ProcessId> {
+        cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })
     }
 }
 

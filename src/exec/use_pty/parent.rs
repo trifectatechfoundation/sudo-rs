@@ -700,7 +700,13 @@ impl Process for ParentClosure {
         match event {
             ParentEvent::Signal => self.on_signal(registry),
             ParentEvent::Tty(poll_event) => {
-                self.tty_pipe.on_left_event(poll_event, registry).ok();
+                // Check if tty which existed is now gone.
+                if self.tty_pipe.left().tcgetsid().is_err() {
+                    dev_warn!("tty gone (closed/detached), ignoring future events");
+                    self.tty_pipe.ignore_events(registry);
+                } else {
+                    self.tty_pipe.on_left_event(poll_event, registry).ok();
+                }
             }
             ParentEvent::Pty(poll_event) => {
                 self.tty_pipe.on_right_event(poll_event, registry).ok();
