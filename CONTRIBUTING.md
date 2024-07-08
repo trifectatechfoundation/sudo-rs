@@ -51,7 +51,7 @@ If you find a security problem that can be used to used to compromise a system,
 do follow our [security policy] and report a vulnerability instead of using the
 issue tracker.
 
-[security policy]: https://github.com/memorysafety/sudo-rs/security/policy
+[security policy]: https://github.com/trifectatechfoundation/sudo-rs/security/policy
 
 ## Working on a bigger issue
 

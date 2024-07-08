@@ -7,8 +7,8 @@ A safety oriented and memory safe implementation of sudo and su written in Rust.
 Sudo-rs is being developed further; features you might expect from original sudo
 may still be unimplemented or not planned. If there is an important one you need,
 please request it using the issue tracker. If you encounter any usability bugs,
-also please report them on the [issue tracker](https://github.com/memorysafety/sudo-rs/issues).
-Suspected vulnerabilities can be reported on our [security page](https://github.com/memorysafety/sudo-rs/security).
+also please report them on the [issue tracker](https://github.com/trifectatechfoundation/sudo-rs/issues).
+Suspected vulnerabilities can be reported on our [security page](https://github.com/trifectatechfoundation/sudo-rs/security).
 
 An [audit of sudo-rs version 0.2.0](docs/audit/audit-report-sudo-rs.pdf) has been performed in August 2023.
 The findings from that audit are addressed in the current version.
