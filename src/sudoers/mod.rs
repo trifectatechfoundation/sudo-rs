@@ -456,7 +456,7 @@ fn match_group_alias(group: &impl UnixGroup) -> impl Fn(&UserSpecifier) -> bool 
     move |spec| match spec {
         UserSpecifier::User(ident) => match_group(group)(ident),
         /* the parser does not allow this, but can happen due to Runas_Alias,
-         * see https://github.com/memorysafety/sudo-rs/issues/13 */
+         * see https://github.com/trifectatechfoundation/sudo-rs/issues/13 */
         _ => {
             auth_warn!("warning: ignoring %group syntax in runas_alias for checking sudo -g");
             false

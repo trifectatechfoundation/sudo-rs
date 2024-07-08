@@ -111,9 +111,9 @@
 - Use canonicalized paths for the executed binaries
 - Simplified CLI help to only display supported actions
 
-[0.2.2]: https://github.com/memorysafety/sudo-rs/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230711...v0.2.0
-[0.2.0-dev.20230711]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230703...v0.2.0-dev.20230711
-[0.2.0-dev.20230703]: https://github.com/memorysafety/sudo-rs/compare/v0.2.0-dev.20230627...v0.2.0-dev.20230703
-[0.2.0-dev.20230627]: https://github.com/memorysafety/sudo-rs/compare/v0.1.0-dev.20230620...v0.2.0-dev.20230627
+[0.2.2]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.0-dev.20230711...v0.2.0
+[0.2.0-dev.20230711]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.0-dev.20230703...v0.2.0-dev.20230711
+[0.2.0-dev.20230703]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.0-dev.20230627...v0.2.0-dev.20230703
+[0.2.0-dev.20230627]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.1.0-dev.20230620...v0.2.0-dev.20230627

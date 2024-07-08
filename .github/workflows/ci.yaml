@@ -397,11 +397,7 @@ jobs:
           shared-key: "stable"
 
       - name: Run clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy-result
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --no-deps -- --deny warnings
+        run: cargo clippy --no-deps --all-targets --all-features -- --deny warnings
 
   docs:
     needs: clippy

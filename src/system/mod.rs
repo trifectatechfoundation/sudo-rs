@@ -645,7 +645,7 @@ pub fn escape_os_str_lossy(s: &std::ffi::OsStr) -> String {
 pub fn make_zeroed_sigaction() -> libc::sigaction {
     // SAFETY: since sigaction is a C struct, all-zeroes is a valid representation
     // We cannot use a "literal struct" initialization method since the exact representation
-    // of libc::sigaction is not fixed, see e.g. https://github.com/memorysafety/sudo-rs/issues/829
+    // of libc::sigaction is not fixed, see e.g. https://github.com/trifectatechfoundation/sudo-rs/issues/829
     unsafe { std::mem::zeroed() }
 }
 
