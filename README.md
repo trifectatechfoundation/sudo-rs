@@ -164,5 +164,6 @@ extract parts of our work in usable crates for other people.
 
 ## Sponsors
 
-The development of sudo-rs is an initiative of the [Prossimo project by ISRG](https://www.memorysafety.org/).
+The initial development of sudo-rs was started and funded by the [Internet Security Research Group](https://www.abetterinternet.org/) as part of the [Prossimo project](https://www.memorysafety.org/).
+
 An independent security audit of sudo-rs was made possible by the [NLNet Foundation](https://nlnet.nl/).
