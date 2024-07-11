@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.3] - 2024-07-11
+
+### Changed
+- Portability: sudo-rs now is compatible with s390x-unknown-linux-gnu
+- Removed unneeded code & fix hints given by newer Rust version
+
+### Fixed
+- `visudo` would not properly truncate a `sudoers` file
+- high CPU load when child process did not terminate after closure of a terminal
+
 ## [0.2.2] - 2024-02-02
 
 ### Changed
@@ -111,6 +121,7 @@
 - Use canonicalized paths for the executed binaries
 - Simplified CLI help to only display supported actions
 
+[0.2.3]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/trifectatechfoundation/sudo-rs/compare/v0.2.0-dev.20230711...v0.2.0
