@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-DATE="2023-09-21"
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 PROJECT_DIR=$(dirname "$SCRIPT_DIR")
 SUDO_RS_VERSION="$(cargo metadata --format-version 1 --manifest-path "$PROJECT_DIR/Cargo.toml" | jq '.packages[] | select(.name=="sudo-rs") | .version' -r)"
@@ -8,6 +7,9 @@ BUILDER_IMAGE_TAG="sudo-rs-release-builder:latest"
 TARGET_DIR_BASE="$PROJECT_DIR/target/pkg"
 
 set -eo pipefail
+
+# Fetch the date from the changelog
+DATE=$(grep -m1 '^##' "$PROJECT_DIR"/CHANGELOG.md | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}')
 
 # Build binaries
 docker build --pull --tag "$BUILDER_IMAGE_TAG" --file "$SCRIPT_DIR/Dockerfile-release" "$SCRIPT_DIR"
