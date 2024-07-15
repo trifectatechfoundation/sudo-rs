@@ -13,6 +13,7 @@ pub enum Error {
         other_user: Option<SudoString>,
     },
     SelfCheck,
+    KernelCheck,
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
     ChDirNotAllowed {
@@ -56,6 +57,7 @@ impl fmt::Display for Error {
             Error::SelfCheck => {
                 f.write_str("sudo must be owned by uid 0 and have the setuid bit set")
             }
+            Error::KernelCheck => f.write_str("sudo needs a Kernel >= 5.9"),
             Error::CommandNotFound(p) => write!(f, "'{}': command not found", p.display()),
             Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
             Error::UserNotFound(u) => write!(f, "user '{u}' not found"),

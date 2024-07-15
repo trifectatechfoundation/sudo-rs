@@ -30,6 +30,8 @@ mod audit;
 // generalized traits for when we want to hide implementations
 pub mod interface;
 
+pub mod kernel;
+
 pub mod file;
 
 pub mod time;
