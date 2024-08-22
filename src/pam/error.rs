@@ -154,13 +154,14 @@ impl PamErrorType {
     }
 
     fn get_err_msg(&self) -> String {
-        // pam_strerror technically takes a pam handle as the first argument,
+        // SAFETY: pam_strerror technically takes a pam handle as the first argument,
         // but we do not know of any implementation that actually uses the pamh
         // argument. See also the netbsd man page for `pam_strerror`.
         let data = unsafe { pam_strerror(std::ptr::null_mut(), self.as_int()) };
         if data.is_null() {
             String::from("Error unresolved by PAM")
         } else {
+            // SAFETY: pam_strerror returns a pointer to a null-terminated string
             unsafe { string_from_ptr(data) }
         }
     }

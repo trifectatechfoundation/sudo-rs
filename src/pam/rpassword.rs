@@ -51,6 +51,7 @@ impl HiddenInput {
         term.c_lflag |= ECHONL;
 
         // Save the settings for now.
+        // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
         cerr(unsafe { tcsetattr(fd, TCSANOW, &term) })?;
 
         Ok(Some(HiddenInput { tty, term_orig }))
@@ -60,6 +61,7 @@ impl HiddenInput {
 impl Drop for HiddenInput {
     fn drop(&mut self) {
         // Set the the mode back to normal
+        // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
         unsafe {
             tcsetattr(self.tty.as_raw_fd(), TCSANOW, &self.term_orig);
         }
@@ -68,7 +70,9 @@ impl Drop for HiddenInput {
 
 fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
     let mut term = mem::MaybeUninit::<termios>::uninit();
+    // SAFETY: we are passing tcgetattr a pointer to valid memory
     cerr(unsafe { ::libc::tcgetattr(fd, term.as_mut_ptr()) })?;
+    // SAFETY: if the previous call was a success, `tcgetattr` has initialized `term`
     Ok(unsafe { term.assume_init() })
 }
 
