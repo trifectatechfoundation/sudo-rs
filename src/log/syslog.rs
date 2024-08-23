@@ -23,6 +23,8 @@ mod internal {
 
     // the caller of the pub functions will have to take care never to `append` more bytes than
     // are `available`, or a panic will occur.
+    // the impl guarantees that after `line_break()`, there will be enough room available for at
+    // least a single UTF8 character sequence (which is true since MAX_MSG_LEN >= 10)
     impl SysLogWriter {
         pub fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
             Self {
@@ -78,6 +80,9 @@ fn floor_char_boundary(data: &str, mut index: usize) -> usize {
     index
 }
 
+/// This function REQUIRES that `message` is larger than `max_size` (or a panic will occur).
+/// This function WILL return a non-zero result if `max_size` is large enough to fit
+/// at least the first character of `message`.
 fn suggested_break(message: &str, max_size: usize) -> usize {
     let mut truncate_boundary = floor_char_boundary(message, max_size);
 
@@ -104,6 +109,13 @@ impl Write for SysLogWriter {
             self.append(left.as_bytes());
             self.line_break();
 
+            // This loop while terminate, since either of the following is true:
+            //  1. truncate_boundary is strictly positive:
+            //     message.len() has strictly decreased, and self.available() has not decreased
+            //  2. truncate_boundary is zero:
+            //     message.len() has remained unchanged, but self.available() has strictly increased;
+            //     this latter is true since, for truncate_boundary to be 0, self.available() must
+            //     have been not large enough to fit a single UTF8 character
             message = right;
         }
 
