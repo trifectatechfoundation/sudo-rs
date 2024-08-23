@@ -1,57 +1,72 @@
 use core::fmt::{self, Write};
-use std::ffi::CStr;
-
 use log::{Level, Log, Metadata};
-
-use crate::system::syslog;
 
 pub struct Syslog;
 
-const LIMIT: usize = 960;
-const DOTDOTDOT_START: &[u8] = b"[...] ";
-const DOTDOTDOT_END: &[u8] = b" [...]";
-const NULL_BYTE: usize = 1; // for C string compatibility
-const BUFSZ: usize = LIMIT + DOTDOTDOT_END.len() + NULL_BYTE;
-const FACILITY: libc::c_int = libc::LOG_AUTH;
+mod internal {
+    use crate::system::syslog;
+    use std::ffi::CStr;
 
-struct SysLogWriter {
-    buffer: [u8; BUFSZ],
-    cursor: usize,
-    facility: libc::c_int,
-    priority: libc::c_int,
-}
+    const DOTDOTDOT_START: &[u8] = b"[...] ";
+    const DOTDOTDOT_END: &[u8] = b" [...]";
 
-impl SysLogWriter {
-    fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
-        Self {
-            buffer: [0; BUFSZ],
-            cursor: 0,
-            priority,
-            facility,
+    const MAX_MSG_LEN: usize = 960;
+    const NULL_BYTE_LEN: usize = 1; // for C string compatibility
+    const BUFSZ: usize = MAX_MSG_LEN + DOTDOTDOT_END.len() + NULL_BYTE_LEN;
+
+    pub struct SysLogWriter {
+        buffer: [u8; BUFSZ],
+        cursor: usize,
+        facility: libc::c_int,
+        priority: libc::c_int,
+    }
+
+    // the caller of the pub functions will have to take care never to `append` more bytes than
+    // are `available`, or a panic will occur.
+    impl SysLogWriter {
+        pub fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
+            Self {
+                buffer: [0; BUFSZ],
+                cursor: 0,
+                priority,
+                facility,
+            }
+        }
+
+        pub fn append(&mut self, bytes: &[u8]) {
+            let num_bytes = bytes.len();
+            self.buffer[self.cursor..self.cursor + num_bytes].copy_from_slice(bytes);
+            self.cursor += num_bytes;
+        }
+
+        pub fn line_break(&mut self) {
+            self.append(DOTDOTDOT_END);
+            self.commit_to_syslog();
+            self.append(DOTDOTDOT_START);
+        }
+
+        pub fn commit_to_syslog(&mut self) {
+            self.append(&[0]);
+            let message = CStr::from_bytes_with_nul(&self.buffer[..self.cursor]).unwrap();
+            syslog(self.priority, self.facility, message);
+            self.cursor = 0;
+        }
+
+        pub fn available(&self) -> usize {
+            MAX_MSG_LEN - self.cursor
         }
     }
-
-    fn append(&mut self, bytes: &[u8]) {
-        let num_bytes = bytes.len();
-        self.buffer[self.cursor..self.cursor + num_bytes].copy_from_slice(bytes);
-        self.cursor += num_bytes;
-    }
-
-    fn send_to_syslog(&mut self) {
-        self.append(&[0]);
-        let message = CStr::from_bytes_with_nul(&self.buffer[..self.cursor]).unwrap();
-        syslog(self.priority, self.facility, message);
-        self.cursor = 0;
-    }
 }
+
+use internal::SysLogWriter;
 
 impl Write for SysLogWriter {
     fn write_str(&mut self, mut message: &str) -> fmt::Result {
         loop {
-            if self.cursor + message.len() > LIMIT {
+            if message.len() > self.available() {
                 // floor_char_boundary is currently unstable
-                let mut truncate_boundary = LIMIT - self.cursor;
-                while truncate_boundary > 0 && !message.is_char_boundary(truncate_boundary) {
+                let mut truncate_boundary = self.available();
+                while !message.is_char_boundary(truncate_boundary) {
                     truncate_boundary -= 1;
                 }
 
@@ -62,17 +77,15 @@ impl Write for SysLogWriter {
 
                 if truncate_boundary == 0 {
                     // we failed to find a "nice" cut off point, abruptly cut off the msg
-                    truncate_boundary = LIMIT - self.cursor;
+                    truncate_boundary = self.available();
                 }
 
                 let left = &message[..truncate_boundary];
                 let right = &message[truncate_boundary..];
 
                 self.append(left.as_bytes());
-                self.append(DOTDOTDOT_END);
-                self.send_to_syslog();
+                self.line_break();
 
-                self.append(DOTDOTDOT_START);
                 message = right;
             } else {
                 self.append(message.as_bytes());
@@ -84,6 +97,8 @@ impl Write for SysLogWriter {
         Ok(())
     }
 }
+
+const FACILITY: libc::c_int = libc::LOG_AUTH;
 
 impl Log for Syslog {
     fn enabled(&self, metadata: &Metadata) -> bool {
@@ -101,7 +116,7 @@ impl Log for Syslog {
 
         let mut writer = SysLogWriter::new(priority, FACILITY);
         let _ = write!(writer, "{}", record.args());
-        writer.send_to_syslog();
+        writer.commit_to_syslog();
     }
 
     fn flush(&self) {
