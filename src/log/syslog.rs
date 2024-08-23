@@ -51,13 +51,19 @@ impl Write for SysLogWriter {
             if self.cursor + message.len() > LIMIT {
                 // floor_char_boundary is currently unstable
                 let mut truncate_boundary = LIMIT - self.cursor;
-                while !message.is_char_boundary(truncate_boundary) {
+                while truncate_boundary > 0 && !message.is_char_boundary(truncate_boundary) {
                     truncate_boundary -= 1;
                 }
 
+                // don't overzealously truncate log messages
                 truncate_boundary = message[..truncate_boundary]
                     .rfind(|c: char| c.is_ascii_whitespace())
                     .unwrap_or(truncate_boundary);
+
+                if truncate_boundary == 0 {
+                    // we failed to find a "nice" cut off point, abruptly cut off the msg
+                    truncate_boundary = LIMIT - self.cursor;
+                }
 
                 let left = &message[..truncate_boundary];
                 let right = &message[truncate_boundary..];
