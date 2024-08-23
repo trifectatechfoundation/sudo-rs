@@ -87,23 +87,19 @@ fn suggested_break(message: &str, max_size: usize) -> usize {
 
 impl Write for SysLogWriter {
     fn write_str(&mut self, mut message: &str) -> fmt::Result {
-        loop {
-            if message.len() > self.available() {
-                let truncate_boundary = suggested_break(message, self.available());
+        while message.len() > self.available() {
+            let truncate_boundary = suggested_break(message, self.available());
 
-                let left = &message[..truncate_boundary];
-                let right = &message[truncate_boundary..];
+            let left = &message[..truncate_boundary];
+            let right = &message[truncate_boundary..];
 
-                self.append(left.as_bytes());
-                self.line_break();
+            self.append(left.as_bytes());
+            self.line_break();
 
-                message = right;
-            } else {
-                self.append(message.as_bytes());
-
-                break;
-            }
+            message = right;
         }
+
+        self.append(message.as_bytes());
 
         Ok(())
     }
