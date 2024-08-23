@@ -45,7 +45,7 @@ mod internal {
             self.append(DOTDOTDOT_START);
         }
 
-        pub fn commit_to_syslog(&mut self) {
+        fn commit_to_syslog(&mut self) {
             self.append(&[0]);
             let message = CStr::from_bytes_with_nul(&self.buffer[..self.cursor]).unwrap();
             syslog(self.priority, self.facility, message);
@@ -54,6 +54,12 @@ mod internal {
 
         pub fn available(&self) -> usize {
             MAX_MSG_LEN - self.cursor
+        }
+    }
+
+    impl Drop for SysLogWriter {
+        fn drop(&mut self) {
+            self.commit_to_syslog();
         }
     }
 }
@@ -116,7 +122,6 @@ impl Log for Syslog {
 
         let mut writer = SysLogWriter::new(priority, FACILITY);
         let _ = write!(writer, "{}", record.args());
-        writer.commit_to_syslog();
     }
 
     fn flush(&self) {
