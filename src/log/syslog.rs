@@ -66,25 +66,30 @@ mod internal {
 
 use internal::SysLogWriter;
 
+fn suggested_break(message: &str, max_size: usize) -> usize {
+    // floor_char_boundary is currently unstable
+    let mut truncate_boundary = max_size;
+    while !message.is_char_boundary(truncate_boundary) {
+        truncate_boundary -= 1;
+    }
+
+    // don't overzealously truncate log messages
+    truncate_boundary = message[..truncate_boundary]
+        .rfind(|c: char| c.is_ascii_whitespace())
+        .unwrap_or(truncate_boundary);
+
+    if truncate_boundary == 0 {
+        max_size
+    } else {
+        truncate_boundary
+    }
+}
+
 impl Write for SysLogWriter {
     fn write_str(&mut self, mut message: &str) -> fmt::Result {
         loop {
             if message.len() > self.available() {
-                // floor_char_boundary is currently unstable
-                let mut truncate_boundary = self.available();
-                while !message.is_char_boundary(truncate_boundary) {
-                    truncate_boundary -= 1;
-                }
-
-                // don't overzealously truncate log messages
-                truncate_boundary = message[..truncate_boundary]
-                    .rfind(|c: char| c.is_ascii_whitespace())
-                    .unwrap_or(truncate_boundary);
-
-                if truncate_boundary == 0 {
-                    // we failed to find a "nice" cut off point, abruptly cut off the msg
-                    truncate_boundary = self.available();
-                }
+                let truncate_boundary = suggested_break(message, self.available());
 
                 let left = &message[..truncate_boundary];
                 let right = &message[truncate_boundary..];
