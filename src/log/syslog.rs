@@ -66,12 +66,20 @@ mod internal {
 
 use internal::SysLogWriter;
 
-fn suggested_break(message: &str, max_size: usize) -> usize {
-    // floor_char_boundary is currently unstable
-    let mut truncate_boundary = max_size;
-    while !message.is_char_boundary(truncate_boundary) {
-        truncate_boundary -= 1;
+/// `floor_char_boundary` is currently unstable in Rust
+fn floor_char_boundary(data: &str, mut index: usize) -> usize {
+    if index >= data.len() {
+        return data.len();
     }
+    while !data.is_char_boundary(index) {
+        index -= 1;
+    }
+
+    index
+}
+
+fn suggested_break(message: &str, max_size: usize) -> usize {
+    let mut truncate_boundary = floor_char_boundary(message, max_size);
 
     // don't overzealously truncate log messages
     truncate_boundary = message[..truncate_boundary]
