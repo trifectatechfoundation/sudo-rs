@@ -84,17 +84,16 @@ fn floor_char_boundary(data: &str, mut index: usize) -> usize {
 /// This function WILL return a non-zero result if `max_size` is large enough to fit
 /// at least the first character of `message`.
 fn suggested_break(message: &str, max_size: usize) -> usize {
-    let mut truncate_boundary = floor_char_boundary(message, max_size);
-
-    // don't overzealously truncate log messages
-    truncate_boundary = message[..truncate_boundary]
-        .rfind(|c: char| c.is_ascii_whitespace())
-        .unwrap_or(truncate_boundary);
-
-    if truncate_boundary == 0 {
-        floor_char_boundary(message, max_size)
+    // method A: try to split the message in two non-empty parts on an ASCII white space character
+    // method B: split on the utf8 character boundary that consumes the most data
+    if let Some(pos) = message.as_bytes()[1..max_size]
+        .iter()
+        .rposition(|c| c.is_ascii_whitespace())
+    {
+        // since pos+1 contains ASCII whitespace, it acts as a valid utf8 boundary as well
+        pos + 1
     } else {
-        truncate_boundary
+        floor_char_boundary(message, max_size)
     }
 }
 
