@@ -198,4 +198,11 @@ mod tests {
 
         logger.log(&record);
     }
+
+    #[test]
+    fn will_not_break_utf8() {
+        let mut writer = SysLogWriter::new(libc::LOG_DEBUG, FACILITY);
+
+        let _ = write!(writer, "{}¢", "x".repeat(959));
+    }
 }
