@@ -92,7 +92,7 @@ fn suggested_break(message: &str, max_size: usize) -> usize {
         .unwrap_or(truncate_boundary);
 
     if truncate_boundary == 0 {
-        max_size
+        floor_char_boundary(message, max_size)
     } else {
         truncate_boundary
     }
