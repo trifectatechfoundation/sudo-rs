@@ -56,10 +56,6 @@ const LOCAL_FLAGS: tcflag_t = ISIG
 
 static GOT_SIGTTOU: AtomicBool = AtomicBool::new(false);
 
-extern "C" fn on_sigttou(_signal: c_int, _info: *mut siginfo_t, _: *mut c_void) {
-    GOT_SIGTTOU.store(true, Ordering::SeqCst);
-}
-
 /// This is like `tcsetattr` but it only suceeds if we are in the foreground process group.
 /// # Safety
 ///
@@ -67,6 +63,17 @@ extern "C" fn on_sigttou(_signal: c_int, _info: *mut siginfo_t, _: *mut c_void) 
 unsafe fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()> {
     // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetattr` and
     // we are not in the foreground process group.
+
+    // SAFETY: is the responsibility of the caller of `tcsetattr_nobg`
+    let setattr = || cerr(unsafe { tcsetattr(fd, flags, tp) }).map(|_| ());
+
+    catching_sigttou(setattr)
+}
+
+fn catching_sigttou(mut function: impl FnMut() -> io::Result<()>) -> io::Result<()> {
+    extern "C" fn on_sigttou(_signal: c_int, _info: *mut siginfo_t, _: *mut c_void) {
+        GOT_SIGTTOU.store(true, Ordering::SeqCst);
+    }
 
     let action = {
         let mut raw: libc::sigaction = make_zeroed_sigaction();
@@ -106,8 +113,7 @@ unsafe fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Res
 
     // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
     let result = loop {
-        // SAFETY: is the responsibility of the caller of `tcsetattr_nobg`
-        match cerr(unsafe { tcsetattr(fd, flags, tp) }) {
+        match function() {
             Ok(_) => break Ok(()),
             Err(err) => {
                 let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);
@@ -252,54 +258,7 @@ impl UserTerm {
         // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetpgrp` and
         // we are not in the foreground process group.
 
-        let action = {
-            let mut raw: libc::sigaction = make_zeroed_sigaction();
-            // Call `on_sigttou` if `SIGTTOU` arrives.
-            raw.sa_sigaction = on_sigttou as sighandler_t;
-            // Exclude any other signals from the set
-            raw.sa_mask = {
-                let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
-                // SAFETY: see tcsetattr_nobg
-                unsafe {
-                    sigemptyset(sa_mask.as_mut_ptr());
-                    sa_mask.assume_init()
-                }
-            };
-            raw.sa_flags = 0;
-            raw.sa_restorer = None;
-            raw
-        };
-
-        // Reset `GOT_SIGTTOU`.
-        GOT_SIGTTOU.store(false, Ordering::SeqCst);
-
-        // Set `action` as the action for `SIGTTOU` and store the original action in `original_action`
-        // to restore it later.
-        // SAFETY: see tcsetattr_nobg
-        let original_action = unsafe {
-            let mut original_action = MaybeUninit::<sigaction>::uninit();
-            sigaction(SIGTTOU, &action, original_action.as_mut_ptr());
-            original_action.assume_init()
-        };
-
-        // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
-        let result = loop {
-            match self.tty.tcsetpgrp(pgrp) {
-                Ok(()) => break Ok(()),
-                Err(err) => {
-                    let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);
-                    if got_sigttou || err.kind() != io::ErrorKind::Interrupted {
-                        break Err(err);
-                    }
-                }
-            }
-        };
-
-        // Restore the original action.
-        // SAFETY: see tcsetattr_nobg
-        unsafe { sigaction(SIGTTOU, &original_action, std::ptr::null_mut()) };
-
-        result
+        catching_sigttou(|| self.tty.tcsetpgrp(pgrp))
     }
 }
 
