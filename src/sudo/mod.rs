@@ -111,7 +111,7 @@ fn sudo_process() -> Result<(), Error> {
     dev_info!("development logs are enabled");
 
     self_check()?;
-    kernel_check(5, 9)?;
+    kernel_check()?;
 
     let pipeline = Pipeline {
         policy: SudoersPolicy::default(),
