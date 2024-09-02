@@ -27,6 +27,7 @@ impl Wait for ProcessId {
     fn wait(self, options: WaitOptions) -> Result<(ProcessId, WaitStatus), WaitError> {
         let mut status: c_int = 0;
 
+        // SAFETY: a valid pointer is passed to `waitpid`
         let pid = cerr(unsafe { libc::waitpid(self, &mut status, options.flags) })
             .map_err(WaitError::Io)?;
 

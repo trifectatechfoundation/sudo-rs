@@ -49,10 +49,12 @@ pub(crate) fn can_execute<P: AsRef<Path>>(path: P) -> bool {
         return false;
     };
 
+    // SAFETY: we are passing a proper pointer to access
     unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 }
 }
 
 pub(crate) fn _exit(status: libc::c_int) -> ! {
+    // SAFETY: this function is safe to call
     unsafe { libc::_exit(status) }
 }
 
@@ -106,6 +108,7 @@ impl FileCloser {
 
 fn close_range(min_fd: c_uint, max_fd: c_uint) -> io::Result<()> {
     if min_fd <= max_fd {
+        // SAFETY: this function is safe to call with these arguments
         cerr(unsafe { libc::syscall(libc::SYS_close_range, min_fd, max_fd, 0 as c_uint) })?;
     }
 
@@ -119,6 +122,10 @@ pub(crate) enum ForkResult {
     Child,
 }
 
+/// # Safety
+///
+/// In a multithreaded program, only async-signal-safe functions are guaranteed to work in the
+/// child process until a call to `execve` or a similar function is done.
 unsafe fn inner_fork() -> io::Result<ForkResult> {
     let pid = cerr(unsafe { libc::fork() })?;
     if pid == 0 {
@@ -148,6 +155,7 @@ pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
 }
 
 pub fn setsid() -> io::Result<ProcessId> {
+    // SAFETY: this function is memory-safe to call
     cerr(unsafe { libc::setsid() })
 }
 
@@ -198,8 +206,10 @@ impl Hostname {
         let buffer_size = max_hostname_size + 1 /* null byte delimiter */ ;
         let mut buf = vec![0; buffer_size];
 
+        // SAFETY: we are passing a valid pointer to gethostname
         match cerr(unsafe { libc::gethostname(buf.as_mut_ptr(), buffer_size) }) {
             Ok(_) => Self {
+                // SAFETY: gethostname succeeded, so `buf` will hold a null-terminated C string
                 inner: unsafe { string_from_ptr(buf.as_ptr()) },
             },
 
@@ -218,6 +228,12 @@ pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &CStr) {
         Err(_) => panic!("syslog formatting string is not null-terminated"),
     };
 
+    // SAFETY:
+    // - "MSG" is a constant expression that is a null-terminated C string that represents "%s";
+    //   this also means that to achieve safety we MUST pass one more argument to syslog that is a proper
+    //   pointer to a null-terminated C string
+    // - message.as_ptr() is a pointer to a proper null-terminated C string (message being a &CStr)
+    // for more info: read the manpage for syslog(2)
     unsafe {
         libc::syslog(priority | facility, MSG, message.as_ptr());
     }
@@ -269,6 +285,7 @@ pub fn killpg(pgid: ProcessId, signal: SignalNumber) -> io::Result<()> {
 
 /// Get the process group ID of the current process.
 pub fn getpgrp() -> ProcessId {
+    // SAFETY: This function is always safe to call
     unsafe { libc::getpgrp() }
 }
 
@@ -280,6 +297,8 @@ pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
 
 /// Set a process group ID.
 pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
+    // SAFETY: This function cannot cause UB even if `pid` or `pgid` are not a valid process IDs:
+    // https://pubs.opengroup.org/onlinepubs/007904975/functions/setpgid.html
     cerr(unsafe { libc::setpgid(pid, pgid) }).map(|_| ())
 }
 
@@ -292,6 +311,8 @@ pub fn chown<S: AsRef<CStr>>(
     let uid = uid.into();
     let gid = gid.into();
 
+    // SAFETY: path is a valid pointer to a null-terminated C string; chown cannot cause safety
+    // issues even if uid and/or gid would be invalid identifiers.
     cerr(unsafe { libc::chown(path, uid, gid) }).map(|_| ())
 }
 
@@ -317,6 +338,8 @@ impl User {
 
         while {
             groups_buffer = vec![0; buf_len as usize];
+            // SAFETY: getgrouplist is passed valid pointers
+            // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
             let result = unsafe {
                 libc::getgrouplist(
                     pwd.pw_name,
@@ -356,6 +379,10 @@ impl User {
         let mut buf = vec![0; max_pw_size as usize];
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
+        // SAFETY: getpwuid_r is passed valid (although partly uninitialized) pointers to memory,
+        // in particular `buf` points to an array of `buf.len()` bytes, as required.
+        // After this call, if `pwd_ptr` is not NULL, `*pwd_ptr` and `pwd` will be aliased;
+        // but we never dereference `pwd_ptr`.
         cerr(unsafe {
             libc::getpwuid_r(
                 uid,
@@ -368,24 +395,31 @@ impl User {
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
+            // SAFETY: pwd_ptr was not null, and getpwuid_r succeeded, so we have assurances that
+            // the `pwd` structure was written to by getpwuid_r
             let pwd = unsafe { pwd.assume_init() };
+            // SAFETY: `pwd` was obtained by a call to getpwXXX_r, as required.
             unsafe { Self::from_libc(&pwd).map(Some) }
         }
     }
 
     pub fn effective_uid() -> UserId {
+        // SAFETY: this function cannot cause memory safety issues
         unsafe { libc::geteuid() }
     }
 
     pub fn effective_gid() -> GroupId {
+        // SAFETY: this function cannot cause memory safety issues
         unsafe { libc::getegid() }
     }
 
     pub fn real_uid() -> UserId {
+        // SAFETY: this function cannot cause memory safety issues
         unsafe { libc::getuid() }
     }
 
     pub fn real_gid() -> GroupId {
+        // SAFETY: this function cannot cause memory safety issues
         unsafe { libc::getgid() }
     }
 
@@ -399,6 +433,7 @@ impl User {
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
 
+        // SAFETY: analogous to getpwuid_r above
         cerr(unsafe {
             libc::getpwnam_r(
                 name_c.as_ptr(),
@@ -411,7 +446,10 @@ impl User {
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
+            // SAFETY: pwd_ptr was not null, and getpwnam_r succeeded, so we have assurances that
+            // the `pwd` structure was written to by getpwnam_r
             let pwd = unsafe { pwd.assume_init() };
+            // SAFETY: `pwd` was obtained by a call to getpwXXX_r, as required.
             unsafe { Self::from_libc(&pwd).map(Some) }
         }
     }
@@ -441,6 +479,7 @@ impl Group {
         let mut buf = vec![0; max_gr_size as usize];
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
+        // SAFETY: analogous to getpwuid_r above
         cerr(unsafe {
             libc::getgrgid_r(
                 gid,
@@ -453,7 +492,10 @@ impl Group {
         if grp_ptr.is_null() {
             Ok(None)
         } else {
+            // SAFETY: grp_ptr was not null, and getgrgid_r succeeded, so we have assurances that
+            // the `grp` structure was written to by getgrgid_r
             let grp = unsafe { grp.assume_init() };
+            // SAFETY: `pwd` was obtained by a call to getgrXXX_r, as required.
             Ok(Some(unsafe { Group::from_libc(&grp) }))
         }
     }
@@ -463,6 +505,7 @@ impl Group {
         let mut buf = vec![0; max_gr_size as usize];
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
+        // SAFETY: analogous to getpwuid_r above
         cerr(unsafe {
             libc::getgrnam_r(
                 name_c.as_ptr(),
@@ -475,7 +518,10 @@ impl Group {
         if grp_ptr.is_null() {
             Ok(None)
         } else {
+            // SAFETY: grp_ptr was not null, and getgrgid_r succeeded, so we have assurances that
+            // the `grp` structure was written to by getgrgid_r
             let grp = unsafe { grp.assume_init() };
+            // SAFETY: `pwd` was obtained by a call to getgrXXX_r, as required.
             Ok(Some(unsafe { Group::from_libc(&grp) }))
         }
     }
@@ -538,6 +584,7 @@ impl Process {
 
     /// Get the session id for the current process
     pub fn session_id() -> ProcessId {
+        // SAFETY: "If pid is 0, getsid() returns the session ID of the calling process."
         unsafe { libc::getsid(0) }
     }
 

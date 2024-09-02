@@ -20,6 +20,7 @@ impl SystemTime {
 
     pub fn now() -> std::io::Result<SystemTime> {
         let mut spec = MaybeUninit::<libc::timespec>::uninit();
+        // SAFETY: valid pointer is passed to clock_gettime
         crate::cutils::cerr(unsafe {
             libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr())
         })?;
