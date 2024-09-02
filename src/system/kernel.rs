@@ -1,41 +1,49 @@
-use std::ffi::CStr;
-
-use std::mem::zeroed;
-
 use crate::common::Error;
 
-pub fn kernel_check(major: u32, minor: u32) -> Result<(), Error> {
-    if cfg!(target_os = "freebsd") {
-        return Ok(());
-    }
+#[cfg(target_os = "linux")]
+pub fn kernel_check() -> Result<(), Error> {
+    use crate::cutils::cerr;
+    use std::ffi::CStr;
+    use std::mem::MaybeUninit;
 
-    let mut utsname: libc::utsname = unsafe { zeroed() };
+    // On Linux, we need kernel version 5.9 to have access to `close_range()`
+    const TARGET_VERSION: (u32, u32) = (5, 9);
 
-    if unsafe { libc::uname(&mut utsname) } != 0 {
-        // Could not get the kernel version. Try to run anyway
-        return Ok(());
-    }
+    let mut utsname = MaybeUninit::uninit();
 
-    let release = unsafe { CStr::from_ptr(utsname.release.as_ptr()) }
-        .to_string_lossy()
-        .into_owned();
+    // SAFETY: uname is passed a correct pointer
+    cerr(unsafe { libc::uname(utsname.as_mut_ptr()) })?;
 
-    let version_parts: Vec<&str> = release.split('.').collect();
+    // SAFETY: since uname exited normally, the struct is now initialized
+    let utsname = unsafe { utsname.assume_init() };
 
-    if version_parts.len() < 2 {
-        // Could not get the kernel version. Try to run anyway
-        return Ok(());
-    }
+    // SAFETY: utsname.release will hold a null-terminated C string
+    let release = unsafe { CStr::from_ptr(utsname.release.as_ptr()) }.to_string_lossy();
 
     // Parse the major and minor version numbers
-    if let (Ok(major_version), Ok(minor_version)) = (
-        version_parts[0].parse::<u32>(),
-        version_parts[1].parse::<u32>(),
-    ) {
-        if major_version > major || (major_version == major && minor_version >= minor) {
-            return Ok(());
+    let mut version_parts = release.split('.').map_while(|x| x.parse::<u32>().ok());
+
+    match (version_parts.next(), version_parts.next()) {
+        (Some(major), Some(minor)) if (major, minor) < TARGET_VERSION => {
+            // We have determined that this Linux kernel is too old.
+            Err(Error::KernelCheck)
+        }
+        _ => {
+            // We have not been able to prove that sudo-rs is incompatible with this kernel
+            // and are giving the benefit of the doubt.
+            Ok(())
         }
     }
+}
 
-    Err(Error::KernelCheck)
+#[cfg(target_os = "freebsd")]
+pub fn kernel_check() -> Result<(), Error> {
+    // the kernel check doesn't make much sense on FreeBSD (we need FreeBSD 8.0 or newer,
+    // which is comparatively ancient compared to Linux 5.9)
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
+pub fn kernel_check() -> Result<(), Error> {
+    compile_error!("sudo-rs only works on Linux and FreeBSD")
 }
