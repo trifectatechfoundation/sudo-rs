@@ -34,6 +34,11 @@ impl Pty {
         // Create two integers to hold the file descriptors for each side of the pty.
         let (mut leader, mut follower) = (0, 0);
 
+        // SAFETY:
+        // - openpty is passed two valid pointers as its first two arguments
+        // - path is a valid array that can hold PATH_MAX characters; and casting `u8` to `i8` is
+        //   valid since all values are initialized to zero.
+        // - the last two arguments are allowed to be NULL
         cerr(unsafe {
             libc::openpty(
                 &mut leader,
@@ -60,9 +65,11 @@ impl Pty {
         Ok(Self {
             path,
             leader: PtyLeader {
+                // SAFETY: `leader` has been set by `openpty`
                 file: unsafe { OwnedFd::from_raw_fd(leader) }.into(),
             },
             follower: PtyFollower {
+                // SAFETY: `follower` has been set by `openpty`
                 file: unsafe { OwnedFd::from_raw_fd(follower) }.into(),
             },
         })
@@ -75,6 +82,11 @@ pub(crate) struct PtyLeader {
 
 impl PtyLeader {
     pub(crate) fn set_size(&self, term_size: &TermSize) -> io::Result<()> {
+        // SAFETY: the TIOCSWINSZ expects an initialized pointer of type `winsize`
+        // https://www.man7.org/linux/man-pages/man2/TIOCSWINSZ.2const.html
+        //
+        // An object of type TermSize is safe to cast to `winsize` since it is a
+        // repr(transparent) "newtype" struct.
         cerr(unsafe {
             ioctl(
                 self.file.as_raw_fd(),
@@ -151,15 +163,19 @@ pub(crate) trait Terminal: sealed::Sealed {
 impl<F: AsRawFd> Terminal for F {
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
+        // SAFETY: tcgetpgrp cannot cause UB
         cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })
     }
     /// Set the foreground process group ID associated with this terminalto `pgrp`.
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
+        // SAFETY: tcsetpgrp cannot cause UB
         cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp) }).map(|_| ())
     }
 
     /// Make the given terminal the controlling terminal of the calling process.
     fn make_controlling_terminal(&self) -> io::Result<()> {
+        // SAFETY: this is a correct way to call the TIOCSCTTY ioctl, see:
+        // https://www.man7.org/linux/man-pages/man2/TIOCNOTTY.2const.html
         cerr(unsafe { libc::ioctl(self.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
         Ok(())
     }
@@ -172,7 +188,9 @@ impl<F: AsRawFd> Terminal for F {
             return Err(io::ErrorKind::Unsupported.into());
         }
 
+        // SAFETY: `buf` is a valid and initialized pointer, and its  correct length is passed
         cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr() as _, buf.len()) })?;
+        // SAFETY: `buf` will have been initialized by the `ttyname_r` call, if it succeeded
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
     }
 
@@ -182,6 +200,7 @@ impl<F: AsRawFd> Terminal for F {
     }
 
     fn tcgetsid(&self) -> io::Result<ProcessId> {
+        // SAFETY: tcgetsid cannot cause UB
         cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })
     }
 }
