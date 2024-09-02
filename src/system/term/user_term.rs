@@ -153,6 +153,9 @@ impl UserTerm {
     pub(crate) fn get_size(&self) -> io::Result<TermSize> {
         let mut term_size = MaybeUninit::<TermSize>::uninit();
 
+        // SAFETY: This passes a valid file descriptor and valid pointer (of
+        // the correct type) to the TIOCGWINSZ ioctl; see:
+        // https://man7.org/linux/man-pages/man2/TIOCGWINSZ.2const.html
         cerr(unsafe {
             ioctl(
                 self.tty.as_raw_fd(),
@@ -161,6 +164,7 @@ impl UserTerm {
             )
         })?;
 
+        // SAFETY: if we arrived at this point, `term_size` was initialized.
         Ok(unsafe { term_size.assume_init() })
     }
 
@@ -169,15 +173,16 @@ impl UserTerm {
         let src = self.tty.as_raw_fd();
         let dst = dst.as_raw_fd();
 
-        let mut tt_src = MaybeUninit::<termios>::uninit();
-        let mut tt_dst = MaybeUninit::<termios>::uninit();
-        let mut wsize = MaybeUninit::<winsize>::uninit();
+        // SAFETY: tt_src and tt_dst will be initialized by `tcgetattr`.
+        let (tt_src, mut tt_dst) = unsafe {
+            let mut tt_src = MaybeUninit::<termios>::uninit();
+            let mut tt_dst = MaybeUninit::<termios>::uninit();
 
-        cerr(unsafe { tcgetattr(src, tt_src.as_mut_ptr()) })?;
-        cerr(unsafe { tcgetattr(dst, tt_dst.as_mut_ptr()) })?;
+            cerr(tcgetattr(src, tt_src.as_mut_ptr()))?;
+            cerr(tcgetattr(dst, tt_dst.as_mut_ptr()))?;
 
-        let tt_src = unsafe { tt_src.assume_init() };
-        let mut tt_dst = unsafe { tt_dst.assume_init() };
+            (tt_src.assume_init(), tt_dst.assume_init())
+        };
 
         // Clear select input, output, control and local flags.
         tt_dst.c_iflag &= !INPUT_FLAGS;
@@ -195,21 +200,31 @@ impl UserTerm {
         tt_dst.c_cc.copy_from_slice(&tt_src.c_cc);
 
         // Copy speed from `src`.
-        {
-            let mut speed = unsafe { cfgetospeed(&tt_src) };
+        //
+        // SAFETY: the cfXXXXspeed calls are passed valid pointers and
+        // cannot cause UB even if the speed would be incorrect.
+        unsafe {
+            let mut speed = cfgetospeed(&tt_src);
             // Zero output speed closes the connection.
             if speed == libc::B0 {
                 speed = libc::B38400;
             }
-            unsafe { cfsetospeed(&mut tt_dst, speed) };
-            speed = unsafe { cfgetispeed(&tt_src) };
-            unsafe { cfsetispeed(&mut tt_dst, speed) };
+            cfsetospeed(&mut tt_dst, speed);
+
+            speed = cfgetispeed(&tt_src);
+            cfsetispeed(&mut tt_dst, speed);
         }
 
+        // SAFETY: dst is a valid file descriptor and `tt_dst` is an
+        // initialized struct obtained through tcgetattr; so this is safe to
+        // pass to `tcsetattr`.
         unsafe { tcsetattr_nobg(dst, TCSAFLUSH, &tt_dst) }?;
 
-        cerr(unsafe { ioctl(src, TIOCGWINSZ, &mut wsize) })?;
-        cerr(unsafe { ioctl(dst, TIOCSWINSZ, &wsize) })?;
+        let mut wsize = MaybeUninit::<winsize>::uninit();
+        // SAFETY: TIOCGWINSZ ioctl expects one argument of type *mut winsize
+        cerr(unsafe { ioctl(src, TIOCGWINSZ, wsize.as_mut_ptr()) })?;
+        // SAFETY: wsize has been initialized by the TIOCGWINSZ ioctl
+        cerr(unsafe { ioctl(dst, TIOCSWINSZ, wsize.as_ptr()) })?;
 
         Ok(())
     }
@@ -219,18 +234,24 @@ impl UserTerm {
     pub fn set_raw_mode(&mut self, with_signals: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
+        // Retrieve the original terminal (if we haven't done so already)
         if !self.changed {
+            // SAFETY: `termios` is a valid pointer to pass to tcgetattr
             cerr(unsafe { tcgetattr(fd, self.original_termios.as_mut_ptr()) })?;
         }
         // Retrieve the original terminal.
+        // SAFETY: tcgetattr will have initialized `termios`
         let mut term = unsafe { self.original_termios.assume_init() };
         // Set terminal to raw mode.
+        // SAFETY: `term` is a valid, initialized pointer to ` struct of type `termios`, which
+        // was previously obtained through `tcgetattr`.
         unsafe { cfmakeraw(&mut term) };
         // Enable terminal signals.
         if with_signals {
             term.c_cflag |= ISIG;
         }
 
+        // SAFETY: `fd` is a valid file descriptor for the tty; for `term`: same as above.
         unsafe { tcsetattr_nobg(fd, TCSADRAIN, &term) }?;
         self.changed = true;
 
@@ -245,6 +266,8 @@ impl UserTerm {
         if self.changed {
             let fd = self.tty.as_raw_fd();
             let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
+            // SAFETY: `fd` is a valid file descriptor for the tty; and `termios` is a valid pointer
+            // that was obtained through `tcgetattr`.
             unsafe { tcsetattr_nobg(fd, flags, self.original_termios.as_ptr()) }?;
             self.changed = false;
         }
