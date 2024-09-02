@@ -61,11 +61,12 @@ extern "C" fn on_sigttou(_signal: c_int, _info: *mut siginfo_t, _: *mut c_void) 
 }
 
 /// This is like `tcsetattr` but it only suceeds if we are in the foreground process group.
-fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()> {
+/// # Safety
+///
+/// The arguments to this function have to be valid arguments to `tcsetattr`.
+unsafe fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()> {
     // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetattr` and
     // we are not in the foreground process group.
-
-    let mut original_action = MaybeUninit::<sigaction>::uninit();
 
     let action = {
         let mut raw: libc::sigaction = make_zeroed_sigaction();
@@ -74,19 +75,37 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
         // Exclude any other signals from the set
         raw.sa_mask = {
             let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
-            unsafe { sigemptyset(sa_mask.as_mut_ptr()) };
-            unsafe { sa_mask.assume_init() }
+            // SAFETY: sa_mask is a valid and dereferenceble pointer; it will
+            // become initialized by `sigemptyset`
+            unsafe {
+                sigemptyset(sa_mask.as_mut_ptr());
+                sa_mask.assume_init()
+            }
         };
         raw.sa_flags = 0;
         raw
     };
     // Reset `GOT_SIGTTOU`.
     GOT_SIGTTOU.store(false, Ordering::SeqCst);
+
     // Set `action` as the action for `SIGTTOU` and store the original action in `original_action`
     // to restore it later.
-    unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
+    //
+    // SAFETY: `original_action` is a valid pointer; second, the `action` installed (on_sigttou):
+    // - is itself a safe function
+    // - only updates an atomic variable, so cannot violate memory unsafety that way
+    // - doesn't call any async-unsafe functions (refer to signal-safety(7))
+    // Therefore it can safely be installed as a signal handler.
+    // Furthermore, `sigaction` will initialize `original_action`.
+    let original_action = unsafe {
+        let mut original_action = MaybeUninit::<sigaction>::uninit();
+        sigaction(SIGTTOU, &action, original_action.as_mut_ptr());
+        original_action.assume_init()
+    };
+
     // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
     let result = loop {
+        // SAFETY: is the responsibility of the caller of `tcsetattr_nobg`
         match cerr(unsafe { tcsetattr(fd, flags, tp) }) {
             Ok(_) => break Ok(()),
             Err(err) => {
@@ -97,8 +116,13 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
             }
         }
     };
+
     // Restore the original action.
-    unsafe { sigaction(SIGTTOU, original_action.as_ptr(), std::ptr::null_mut()) };
+    //
+    // SAFETY: `original_action` is a valid pointer, and was initialized by the preceding
+    // call to `sigaction` (and not subsequently altered, since it is not mut). The third parameter
+    // is allowed to be NULL (this means we ignore the previously-installed handler)
+    unsafe { sigaction(SIGTTOU, &original_action, std::ptr::null_mut()) };
 
     result
 }
@@ -176,7 +200,7 @@ impl UserTerm {
             unsafe { cfsetispeed(&mut tt_dst, speed) };
         }
 
-        tcsetattr_nobg(dst, TCSAFLUSH, &tt_dst)?;
+        unsafe { tcsetattr_nobg(dst, TCSAFLUSH, &tt_dst) }?;
 
         cerr(unsafe { ioctl(src, TIOCGWINSZ, &mut wsize) })?;
         cerr(unsafe { ioctl(dst, TIOCSWINSZ, &wsize) })?;
@@ -201,7 +225,7 @@ impl UserTerm {
             term.c_cflag |= ISIG;
         }
 
-        tcsetattr_nobg(fd, TCSADRAIN, &term)?;
+        unsafe { tcsetattr_nobg(fd, TCSADRAIN, &term) }?;
         self.changed = true;
 
         Ok(())
@@ -215,7 +239,7 @@ impl UserTerm {
         if self.changed {
             let fd = self.tty.as_raw_fd();
             let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
-            tcsetattr_nobg(fd, flags, self.original_termios.as_ptr())?;
+            unsafe { tcsetattr_nobg(fd, flags, self.original_termios.as_ptr()) }?;
             self.changed = false;
         }
 
@@ -227,8 +251,6 @@ impl UserTerm {
         // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetpgrp` and
         // we are not in the foreground process group.
 
-        let mut original_action = MaybeUninit::<sigaction>::uninit();
-
         let action = {
             let mut raw: libc::sigaction = make_zeroed_sigaction();
             // Call `on_sigttou` if `SIGTTOU` arrives.
@@ -236,17 +258,28 @@ impl UserTerm {
             // Exclude any other signals from the set
             raw.sa_mask = {
                 let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
-                unsafe { sigemptyset(sa_mask.as_mut_ptr()) };
-                unsafe { sa_mask.assume_init() }
+                // SAFETY: see tcsetattr_nobg
+                unsafe {
+                    sigemptyset(sa_mask.as_mut_ptr());
+                    sa_mask.assume_init()
+                }
             };
             raw.sa_flags = 0;
             raw
         };
+
         // Reset `GOT_SIGTTOU`.
         GOT_SIGTTOU.store(false, Ordering::SeqCst);
+
         // Set `action` as the action for `SIGTTOU` and store the original action in `original_action`
         // to restore it later.
-        unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
+        // SAFETY: see tcsetattr_nobg
+        let original_action = unsafe {
+            let mut original_action = MaybeUninit::<sigaction>::uninit();
+            sigaction(SIGTTOU, &action, original_action.as_mut_ptr());
+            original_action.assume_init()
+        };
+
         // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
         let result = loop {
             match self.tty.tcsetpgrp(pgrp) {
@@ -259,8 +292,10 @@ impl UserTerm {
                 }
             }
         };
+
         // Restore the original action.
-        unsafe { sigaction(SIGTTOU, original_action.as_ptr(), std::ptr::null_mut()) };
+        // SAFETY: see tcsetattr_nobg
+        unsafe { sigaction(SIGTTOU, &original_action, std::ptr::null_mut()) };
 
         result
     }
