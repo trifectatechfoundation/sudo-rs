@@ -109,7 +109,7 @@ impl FileCloser {
 fn close_range(min_fd: c_uint, max_fd: c_uint) -> io::Result<()> {
     if min_fd <= max_fd {
         // SAFETY: this function is safe to call with these arguments
-        cerr(unsafe { libc::syscall(libc::SYS_close_range, min_fd, max_fd, 0 as c_uint) })?;
+        cerr(unsafe { libc::close_range(min_fd, max_fd, 0) })?;
     }
 
     Ok(())
