@@ -21,6 +21,11 @@ impl SignalInfo {
     /// Gets the PID that sent the signal.
     pub(crate) fn pid(&self) -> ProcessId {
         // FIXME: some signals don't set si_pid.
+        //
+        // SAFETY: this just fetches the `si_pid` field; since this is an integer,
+        // even if the information is nonsense it will not cause UB. Note that
+        // that a `ProcessId` does not have as type invariant that it always holds a valid
+        // process id, only that it is the appropriate type for storing such ids.
         unsafe { self.info.si_pid() }
     }
 

@@ -62,6 +62,9 @@ impl SignalStream {
     pub(crate) fn recv(&self) -> io::Result<SignalInfo> {
         let mut info = MaybeUninit::<SignalInfo>::uninit();
         let fd = self.rx.as_raw_fd();
+        // SAFETY: type invariant for `SignalStream` ensures that `fd` is a valid file descriptor;
+        // furthermore, `info` is a valid pointer to `siginfo_t` (by virtue of `SignalInfo` being a
+        // transparent newtype for it), which has room for `SignalInfo::SIZE` bytes.
         let bytes = cerr(unsafe { libc::recv(fd, info.as_mut_ptr().cast(), SignalInfo::SIZE, 0) })?;
 
         if bytes as usize != SignalInfo::SIZE {
@@ -92,6 +95,8 @@ pub(crate) fn register_handlers<const N: usize>(
             })?;
     }
 
+    // SAFETY: if the above for-loop has terminated, every handler will have
+    // been written to via "MaybeUnit::new", and so is initialized.
     Ok(handlers.map(|(_, handler)| unsafe { handler.assume_init() }))
 }
 
