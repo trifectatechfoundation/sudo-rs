@@ -137,8 +137,7 @@ fn catching_sigttou(mut function: impl FnMut() -> io::Result<()>) -> io::Result<
 /// Type to manipulate the settings of the user's terminal.
 pub struct UserTerm {
     tty: File,
-    original_termios: MaybeUninit<termios>,
-    changed: bool,
+    original_termios: Option<termios>,
 }
 
 impl UserTerm {
@@ -146,8 +145,7 @@ impl UserTerm {
     pub fn open() -> io::Result<Self> {
         Ok(Self {
             tty: OpenOptions::new().read(true).write(true).open("/dev/tty")?,
-            original_termios: MaybeUninit::uninit(),
-            changed: false,
+            original_termios: None,
         })
     }
 
@@ -235,26 +233,28 @@ impl UserTerm {
     pub fn set_raw_mode(&mut self, with_signals: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
-        // Retrieve the original terminal (if we haven't done so already)
-        if !self.changed {
+        // Because of `cerr`, we cannot use `get_or_insert_with` here
+        if self.original_termios.is_none() {
+            let mut termios = MaybeUninit::uninit();
             // SAFETY: `termios` is a valid pointer to pass to tcgetattr
-            cerr(unsafe { tcgetattr(fd, self.original_termios.as_mut_ptr()) })?;
+            cerr(unsafe { tcgetattr(fd, termios.as_mut_ptr()) })?;
+            // SAFETY: tcgetattr will have initialized `termios`
+            let termios = unsafe { termios.assume_init() };
+            self.original_termios = Some(termios);
         }
-        // Retrieve the original terminal.
-        // SAFETY: tcgetattr will have initialized `termios`
-        let mut term = unsafe { self.original_termios.assume_init() };
+        let term = self.original_termios.as_mut().unwrap();
+
         // Set terminal to raw mode.
         // SAFETY: `term` is a valid, initialized pointer to ` struct of type `termios`, which
         // was previously obtained through `tcgetattr`.
-        unsafe { cfmakeraw(&mut term) };
+        unsafe { cfmakeraw(term) };
         // Enable terminal signals.
         if with_signals {
             term.c_cflag |= ISIG;
         }
 
         // SAFETY: `fd` is a valid file descriptor for the tty; for `term`: same as above.
-        unsafe { tcsetattr_nobg(fd, TCSADRAIN, &term) }?;
-        self.changed = true;
+        unsafe { tcsetattr_nobg(fd, TCSADRAIN, term) }?;
 
         Ok(())
     }
@@ -264,13 +264,12 @@ impl UserTerm {
     /// This change is done after waiting for all the queued output to be written. To discard the
     /// queued input `flush` must be set to `true`.
     pub fn restore(&mut self, flush: bool) -> io::Result<()> {
-        if self.changed {
+        if let Some(termios) = self.original_termios.take() {
             let fd = self.tty.as_raw_fd();
             let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
             // SAFETY: `fd` is a valid file descriptor for the tty; and `termios` is a valid pointer
             // that was obtained through `tcgetattr`.
-            unsafe { tcsetattr_nobg(fd, flags, self.original_termios.as_ptr()) }?;
-            self.changed = false;
+            unsafe { tcsetattr_nobg(fd, flags, &termios) }?;
         }
 
         Ok(())
