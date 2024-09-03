@@ -264,12 +264,12 @@ impl UserTerm {
     /// This change is done after waiting for all the queued output to be written. To discard the
     /// queued input `flush` must be set to `true`.
     pub fn restore(&mut self, flush: bool) -> io::Result<()> {
-        if let Some(termios) = self.original_termios.take() {
+        if let Some(ref termios) = self.original_termios.take() {
             let fd = self.tty.as_raw_fd();
             let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
             // SAFETY: `fd` is a valid file descriptor for the tty; and `termios` is a valid pointer
             // that was obtained through `tcgetattr`.
-            unsafe { tcsetattr_nobg(fd, flags, &termios) }?;
+            unsafe { tcsetattr_nobg(fd, flags, termios) }?;
         }
 
         Ok(())
