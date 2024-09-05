@@ -18,7 +18,7 @@ macro_rules! eprintln_ignore_io_error {
 #[cfg(debug_assertions)]
 macro_rules! eprintln {
     ($($tt:tt)*) => {
-        compiler_error!("do not use `eprintln!`; use the `write!` macro instead")
+        compile_error!("do not use `eprintln!`; use the `write!` macro instead")
     };
 }
 
@@ -26,7 +26,7 @@ macro_rules! eprintln {
 #[cfg(debug_assertions)]
 macro_rules! eprint {
     ($($tt:tt)*) => {
-        compiler_error!("do not use `eprint!`; use the `write!` macro instead")
+        compile_error!("do not use `eprint!`; use the `write!` macro instead")
     };
 }
 
@@ -34,7 +34,7 @@ macro_rules! eprint {
 #[cfg(debug_assertions)]
 macro_rules! println {
     ($($tt:tt)*) => {
-        compiler_error!("do not use `println!`; use the `write!` macro instead")
+        compile_error!("do not use `println!`; use the `write!` macro instead")
     };
 }
 
@@ -42,7 +42,7 @@ macro_rules! println {
 #[cfg(debug_assertions)]
 macro_rules! print {
     ($($tt:tt)*) => {
-        compiler_error!("do not use `print!`; use the `write!` macro instead")
+        compile_error!("do not use `print!`; use the `write!` macro instead")
     };
 }
 
