@@ -126,13 +126,13 @@ fn is_printable(input: &[u8]) -> bool {
 /// It contains white space or non-printable characters.
 /// It is longer than the value of PATH_MAX.
 fn is_safe_tz(value: &[u8]) -> bool {
-    let check_value = if value.starts_with(&[b':']) {
+    let check_value = if value.starts_with(b":") {
         &value[1..]
     } else {
         value
     };
 
-    if check_value.starts_with(&[b'/']) {
+    if check_value.starts_with(b"/") {
         // clippy 1.79 wants to us to optimise this check away; but we don't know what this will always
         // be possible; and the compiler is clever enough to do that for us anyway if it can be.
         #[allow(clippy::const_is_empty)]
