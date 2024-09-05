@@ -331,6 +331,8 @@ impl<C: Converser> PamContext<C> {
             }
 
             // SAFETY: curr_str was obtained via libc::malloc() so we are responsible for freeing it.
+            // At this point, curr_str is also the only remaining pointer/reference to that allocated data
+            // (the data was copied above), so it can be deallocated without risk of use-after-free errors.
             unsafe { libc::free(curr_str.as_ptr().cast()) };
             // SAFETY: curr_env was not NULL, so it was not the last element in the list and so PAM
             // ensures that the next offset also is a valid pointer, and points to valid data.
