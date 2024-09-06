@@ -14,18 +14,20 @@ mod internal {
     const NULL_BYTE_LEN: usize = 1; // for C string compatibility
     const BUFSZ: usize = MAX_MSG_LEN + DOTDOTDOT_END.len() + NULL_BYTE_LEN;
 
-    pub struct SysLogWriter {
+    pub struct SysLogMessageWriter {
         buffer: [u8; BUFSZ],
         cursor: usize,
         facility: libc::c_int,
         priority: libc::c_int,
     }
 
-    // the caller of the pub functions will have to take care never to `append` more bytes than
+    // - whenever a SysLogMessageWriter has been constructed, a syslog message WILL be created
+    // for one specific event; this struct functions as a low-level interface for that message
+    // - the caller of the pub functions will have to take care never to `append` more bytes than
     // are `available`, or a panic will occur.
-    // the impl guarantees that after `line_break()`, there will be enough room available for at
+    // - the impl guarantees that after `line_break()`, there will be enough room available for at
     // least a single UTF8 character sequence (which is true since MAX_MSG_LEN >= 10)
-    impl SysLogWriter {
+    impl SysLogMessageWriter {
         pub fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
             Self {
                 buffer: [0; BUFSZ],
@@ -59,14 +61,14 @@ mod internal {
         }
     }
 
-    impl Drop for SysLogWriter {
+    impl Drop for SysLogMessageWriter {
         fn drop(&mut self) {
             self.commit_to_syslog();
         }
     }
 }
 
-use internal::SysLogWriter;
+use internal::SysLogMessageWriter;
 
 /// `floor_char_boundary` is currently unstable in Rust
 fn floor_char_boundary(data: &str, mut index: usize) -> usize {
@@ -97,7 +99,7 @@ fn suggested_break(message: &str, max_size: usize) -> usize {
     }
 }
 
-impl Write for SysLogWriter {
+impl Write for SysLogMessageWriter {
     fn write_str(&mut self, mut message: &str) -> fmt::Result {
         while message.len() > self.available() {
             let truncate_boundary = suggested_break(message, self.available());
@@ -140,7 +142,7 @@ impl Log for Syslog {
             Level::Trace => libc::LOG_DEBUG,
         };
 
-        let mut writer = SysLogWriter::new(priority, FACILITY);
+        let mut writer = SysLogMessageWriter::new(priority, FACILITY);
         let _ = write!(writer, "{}", record.args());
     }
 
@@ -154,7 +156,7 @@ mod tests {
     use log::Log;
     use std::fmt::Write;
 
-    use super::{SysLogWriter, Syslog, FACILITY};
+    use super::{SysLogMessageWriter, Syslog, FACILITY};
 
     #[test]
     fn can_write_to_syslog() {
@@ -169,7 +171,7 @@ mod tests {
 
     #[test]
     fn can_handle_multiple_writes() {
-        let mut writer = SysLogWriter::new(libc::LOG_DEBUG, FACILITY);
+        let mut writer = SysLogMessageWriter::new(libc::LOG_DEBUG, FACILITY);
 
         for i in 1..20 {
             let _ = write!(writer, "{}", "Test 123 ".repeat(i));
@@ -200,7 +202,7 @@ mod tests {
 
     #[test]
     fn will_not_break_utf8() {
-        let mut writer = SysLogWriter::new(libc::LOG_DEBUG, FACILITY);
+        let mut writer = SysLogMessageWriter::new(libc::LOG_DEBUG, FACILITY);
 
         let _ = write!(writer, "{}¢", "x".repeat(959));
     }
