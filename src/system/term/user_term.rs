@@ -238,7 +238,7 @@ impl UserTerm {
             termios
         } else {
             // SAFETY: `termios` is a valid pointer to pass to tcgetattr; if that calls succeeds,
-            // it will have initialized the `termios` strucutre
+            // it will have initialized the `termios` structure
             *self.original_termios.insert(unsafe {
                 let mut termios = MaybeUninit::uninit();
                 cerr(tcgetattr(fd, termios.as_mut_ptr()))?;
@@ -247,7 +247,7 @@ impl UserTerm {
         };
 
         // Set terminal to raw mode.
-        // SAFETY: `term` is a valid, initialized pointer to ` struct of type `termios`, which
+        // SAFETY: `term` is a valid, initialized pointer to struct of type `termios`, which
         // was previously obtained through `tcgetattr`.
         unsafe { cfmakeraw(&mut term) };
         // Enable terminal signals.
