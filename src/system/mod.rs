@@ -108,7 +108,10 @@ impl FileCloser {
 
 fn close_range(min_fd: c_uint, max_fd: c_uint) -> io::Result<()> {
     if min_fd <= max_fd {
-        // SAFETY: this function is safe to call with these arguments
+        // SAFETY: this function is safe to call:
+        // - any errors while closing a specific fd will be effectively ignored
+        // - if the provided range or flags are invalid, that will be reported
+        //   as an error but will not cause undefined behaviour
         cerr(unsafe { libc::close_range(min_fd, max_fd, 0) })?;
     }
 
@@ -584,7 +587,8 @@ impl Process {
 
     /// Get the session id for the current process
     pub fn session_id() -> ProcessId {
-        // SAFETY: "If pid is 0, getsid() returns the session ID of the calling process."
+        // SAFETY: this function is explicitly safe to call with argument 0,
+        // and more generally getsid will never cause memory safety issues.
         unsafe { libc::getsid(0) }
     }
 
