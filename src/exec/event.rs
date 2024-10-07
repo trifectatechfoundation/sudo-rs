@@ -178,6 +178,9 @@ impl<T: Process> EventRegistry<T> {
             return Ok(ids);
         }
 
+        // SAFETY: `poll` expects a pointer to an array of file descriptors (first argument),
+        // the length of which is indicated by the second argument; the third argument being -1
+        // denotes an infinite timeout.
         // FIXME: we should set either a timeout or use ppoll when available.
         cerr(unsafe { libc::poll(fds.as_mut_ptr(), fds.len() as _, -1) })?;
 

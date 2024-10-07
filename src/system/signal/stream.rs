@@ -18,12 +18,17 @@ use super::{
 
 static STREAM: OnceLock<SignalStream> = OnceLock::new();
 
+/// # Safety
+///
+/// The `info` parameters has to point to a valid instance of SignalInfo
 pub(super) unsafe fn send_siginfo(
     _signal: SignalNumber,
     info: *const SignalInfo,
     _context: *const libc::c_void,
 ) {
     if let Some(tx) = STREAM.get().map(|stream| stream.tx.as_raw_fd()) {
+        // SAFETY: called ensures that info is a valid pointer; any instance of SignalInfo will
+        // consists of SignalInfo::SIZE bytes
         unsafe { libc::send(tx, info.cast(), SignalInfo::SIZE, libc::MSG_DONTWAIT) };
     }
 }
