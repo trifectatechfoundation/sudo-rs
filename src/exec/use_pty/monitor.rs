@@ -380,12 +380,7 @@ impl<'a> MonitorClosure<'a> {
             }
         };
 
-        dev_info!(
-            "monitor received{} {} from {}",
-            opt_fmt(info.is_user_signaled(), " user signaled"),
-            info.signal(),
-            info.pid()
-        );
+        dev_info!("monitor received{}", info);
 
         // Don't do anything if the command has terminated already
         let Some(command_pid) = self.command_pid else {
@@ -395,10 +390,16 @@ impl<'a> MonitorClosure<'a> {
 
         match info.signal() {
             SIGCHLD => handle_sigchld(self, registry, "command", command_pid),
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled()
-                && is_self_terminating(info.pid(), command_pid, self.command_pgrp) => {}
-            signal => self.send_signal(signal, command_pid, false),
+            signal => {
+                if let Some(pid) = info.signaler_pid() {
+                    if is_self_terminating(pid, command_pid, self.command_pgrp) {
+                        // Skip the signal if it was sent by the user and it is self-terminating.
+                        return;
+                    }
+                }
+
+                self.send_signal(signal, command_pid, false)
+            }
         }
     }
 }

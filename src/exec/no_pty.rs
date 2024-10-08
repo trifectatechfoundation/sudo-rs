@@ -14,7 +14,7 @@ use crate::{
     },
 };
 use crate::{
-    exec::{handle_sigchld, opt_fmt, signal_fmt},
+    exec::{handle_sigchld, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
         fork, getpgid, getpgrp,
@@ -237,12 +237,7 @@ impl ExecClosure {
             }
         };
 
-        dev_info!(
-            "received{} {} from {}",
-            opt_fmt(info.is_user_signaled(), " user signaled"),
-            info.signal(),
-            info.pid()
-        );
+        dev_info!("received{}", info);
 
         let Some(command_pid) = self.command_pid else {
             dev_info!("command was terminated, ignoring signal");
@@ -255,9 +250,11 @@ impl ExecClosure {
                 // FIXME: we should handle SIGWINCH here if we want to support I/O plugins that
                 // react on window change events.
 
-                // Skip the signal if it was sent by the user and it is self-terminating.
-                if info.is_user_signaled() && self.is_self_terminating(info.pid()) {
-                    return;
+                if let Some(pid) = info.signaler_pid() {
+                    if self.is_self_terminating(pid) {
+                        // Skip the signal if it was sent by the user and it is self-terminating.
+                        return;
+                    }
                 }
 
                 if signal == SIGALRM {
