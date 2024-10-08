@@ -58,13 +58,6 @@ jobs:
       - name: set up docker buildx
         run: docker buildx create --name builder --use
 
-      - name: cache docker layers
-        uses: actions/cache@v2
-        with:
-          path: /tmp/.buildx-cache
-          key: docker-buildx-og-${{ github.sha }}
-          restore-keys: docker-buildx-og-
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
