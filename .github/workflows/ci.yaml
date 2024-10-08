@@ -19,7 +19,7 @@ jobs:
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -53,7 +53,7 @@ jobs:
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -93,7 +93,7 @@ jobs:
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -162,7 +162,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install llvm-tools component
         run: rustup component add llvm-tools
@@ -198,7 +198,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set rust nightly version
         run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustc)" >> $GITHUB_ENV
@@ -232,7 +232,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install rust 1.70
         run: rustup override set 1.70
@@ -259,7 +259,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set rust nightly version
         run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)" >> $GITHUB_ENV
@@ -289,7 +289,7 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -305,7 +305,7 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -321,7 +321,7 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -335,7 +335,7 @@ jobs:
     needs: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
