@@ -21,11 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install rust
-        run: |
-          rustup override set stable
-          rustup update stable
-
       - name: set up docker buildx
         run: docker buildx create --name builder --use
 
@@ -59,11 +54,6 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@v2
-
-      - name: Install rust
-        run: |
-          rustup override set stable
-          rustup update stable
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -104,11 +94,6 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@v2
-
-      - name: Install rust
-        run: |
-          rustup override set stable
-          rustup update stable
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -153,11 +138,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install rust
-        run: |
-          rustup override set stable
-          rustup update stable
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -184,11 +164,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install rust
-        run: |
-          rustup override set stable
-          rustup update stable
-          rustup component add llvm-tools
+      - name: Install llvm-tools component
+        run: rustup component add llvm-tools
 
       - name: Add cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -226,7 +203,7 @@ jobs:
       - name: Set rust nightly version
         run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustc)" >> $GITHUB_ENV
 
-      - name: Install rust
+      - name: Install nightly rust
         run: |
           rustup set profile minimal
           rustup override set nightly-${{ env.NIGHTLY_VERSION }}
@@ -257,9 +234,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install rust
-        run: |
-          rustup override set 1.70
+      - name: Install rust 1.70
+        run: rustup override set 1.70
 
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -288,7 +264,7 @@ jobs:
       - name: Set rust nightly version
         run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)" >> $GITHUB_ENV
 
-      - name: Install rust
+      - name: Install nightly rust and miri
         run: |
           rustup set profile minimal
           rustup override set nightly-${{ env.NIGHTLY_VERSION }}
@@ -315,13 +291,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install rust
-        run: |
-          rustup set profile minimal
-          rustup override set stable
-          rustup update stable
-          rustup component add rustfmt
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -337,13 +306,6 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v2
-
-      - name: Install rust
-        run: |
-          rustup set profile minimal
-          rustup override set stable
-          rustup update stable
-          rustup component add clippy
 
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -367,12 +329,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install rust
-        run: |
-          rustup set profile minimal
-          rustup override set stable
-          rustup update stable
-
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
@@ -392,12 +348,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
-      - name: Install rust
-        run: |
-          rustup set profile minimal
-          rustup override set stable
-          rustup update stable
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
