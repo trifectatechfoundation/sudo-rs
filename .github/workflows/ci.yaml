@@ -307,12 +307,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
-
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -328,12 +322,6 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v2
-
-      - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
