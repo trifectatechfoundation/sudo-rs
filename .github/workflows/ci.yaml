@@ -19,13 +19,7 @@ jobs:
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -59,23 +53,10 @@ jobs:
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
-
-      - name: cache docker layers
-        uses: actions/cache@v2
-        with:
-          path: /tmp/.buildx-cache
-          key: docker-buildx-og-${{ github.sha }}
-          restore-keys: docker-buildx-og-
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -105,13 +86,7 @@ jobs:
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -154,13 +129,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -186,14 +155,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          components: llvm-tools
+      - name: Install llvm-tools component
+        run: rustup component add llvm-tools
 
       - name: Add cargo-llvm-cov
         uses: taiki-e/install-action@v2
@@ -212,16 +177,10 @@ jobs:
           shared-key: "stable"
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --workspace --all-targets --all-features --release
+        run: cargo build --workspace --all-targets --all-features --release
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: llvm-cov
-          args: --workspace --all-features --all-targets --release --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --all-features --all-targets --release --lcov --output-path lcov.info
 
       - name: Upload code coverage
         uses: codecov/codecov-action@v3
@@ -232,17 +191,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set rust nightly version
         run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustc)" >> $GITHUB_ENV
 
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-${{ env.NIGHTLY_VERSION }}
-          override: true
+      - name: Install nightly rust
+        run: |
+          rustup set profile minimal
+          rustup override set nightly-${{ env.NIGHTLY_VERSION }}
 
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -256,34 +213,22 @@ jobs:
           shared-key: "nightly"
 
       - name: Update to minimal direct dependencies
-        uses: actions-rs/cargo@v1
-        with:
-          command: update
-          args: -Zdirect-minimal-versions
+        run: cargo update -Zdirect-minimal-versions
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --workspace --all-targets --all-features --release
+        run: cargo build --workspace --all-targets --all-features --release
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --all-features --all-targets --release
+        run: cargo test --workspace --all-features --all-targets --release
 
   build-and-test-msrv:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: "1.70"
-          override: true
+      - name: Install rust 1.70
+        run: rustup override set 1.70
 
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -297,34 +242,26 @@ jobs:
           shared-key: "msrv"
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --workspace --all-targets --all-features --release
+        run: cargo build --workspace --all-targets --all-features --release
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --all-features --all-targets --release
+        run: cargo test --workspace --all-features --all-targets --release
 
   miri:
     needs: build-and-test
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set rust nightly version
         run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)" >> $GITHUB_ENV
 
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-${{ env.NIGHTLY_VERSION }}
-          override: true
-          components: miri
+      - name: Install nightly rust and miri
+        run: |
+          rustup set profile minimal
+          rustup override set nightly-${{ env.NIGHTLY_VERSION }}
+          rustup component add miri
 
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -338,25 +275,14 @@ jobs:
           shared-key: miri
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: miri
-          args: test --workspace --all-features miri
+        run: cargo miri test --workspace --all-features miri
 
   format:
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -364,10 +290,7 @@ jobs:
           shared-key: "stable"
 
       - name: Run rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
   clippy:
     needs: format
@@ -375,21 +298,7 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: clippy
-
-      - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -405,20 +314,7 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+      - uses: actions/checkout@v4
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -426,23 +322,13 @@ jobs:
           shared-key: "stable"
 
       - name: Build docs
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --document-private-items --all-features
+        run: cargo doc --no-deps --document-private-items --all-features
 
   audit:
     needs: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@v2
@@ -455,6 +341,4 @@ jobs:
           shared-key: "audit"
 
       - name: Run audit
-        uses: actions-rs/cargo@v1
-        with:
-          command: audit
+        run: cargo audit
