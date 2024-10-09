@@ -279,7 +279,7 @@ pub fn set_target_user(
     unsafe {
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
-                target_user.groups.len(),
+                target_user.groups.len() as _,
                 // We can cast to gid_t because `GroupId` is marked as transparent
                 target_user.groups.as_ptr().cast::<libc::gid_t>(),
             ))?;
