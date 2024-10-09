@@ -71,11 +71,6 @@ jobs:
         working-directory: test-framework
         run: cargo test -p sudo-compliance-tests -- --include-ignored
 
-      - name: prevent the cache from growing too large
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
   compliance-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
