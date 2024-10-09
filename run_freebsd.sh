@@ -1,0 +1,1 @@
+qemu-system-x86_64 -machine q35,accel=kvm -drive file=freebsd.qcow2,format=qcow2 -vga virtio -netdev user,id=mynet,hostfwd=tcp:127.0.0.1:8080-:22 -device virtio-net-pci,netdev=mynet -m 4096 -smp 8 "$@"
