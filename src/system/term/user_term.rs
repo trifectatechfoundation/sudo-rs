@@ -56,7 +56,7 @@ const LOCAL_FLAGS: tcflag_t = ISIG
 
 static GOT_SIGTTOU: AtomicBool = AtomicBool::new(false);
 
-/// This is like `tcsetattr` but it only suceeds if we are in the foreground process group.
+/// This is like `tcsetattr` but it only succeeds if we are in the foreground process group.
 /// # Safety
 ///
 /// The arguments to this function have to be valid arguments to `tcsetattr`.
@@ -246,7 +246,7 @@ impl UserTerm {
         };
 
         // Set terminal to raw mode.
-        // SAFETY: `term` is a valid, initialized pointer to struct of type `termios`, which
+        // SAFETY: `term` is a valid, initialized struct of type `termios`, which
         // was previously obtained through `tcgetattr`.
         unsafe { cfmakeraw(&mut term) };
         // Enable terminal signals.

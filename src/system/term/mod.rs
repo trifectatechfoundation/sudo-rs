@@ -65,11 +65,11 @@ impl Pty {
         Ok(Self {
             path,
             leader: PtyLeader {
-                // SAFETY: `leader` has been set by `openpty`
+                // SAFETY: `openpty` has set `leader` to an open fd suitable for assuming ownership by `OwnedFd`.
                 file: unsafe { OwnedFd::from_raw_fd(leader) }.into(),
             },
             follower: PtyFollower {
-                // SAFETY: `follower` has been set by `openpty`
+                // SAFETY: `openpty` has set `follower` to an open fd suitable for assuming ownership by `OwnedFd`.
                 file: unsafe { OwnedFd::from_raw_fd(follower) }.into(),
             },
         })
@@ -166,7 +166,7 @@ impl<F: AsRawFd> Terminal for F {
         // SAFETY: tcgetpgrp cannot cause UB
         cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })
     }
-    /// Set the foreground process group ID associated with this terminalto `pgrp`.
+    /// Set the foreground process group ID associated with this terminal to `pgrp`.
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
         // SAFETY: tcsetpgrp cannot cause UB
         cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp) }).map(|_| ())
@@ -189,7 +189,7 @@ impl<F: AsRawFd> Terminal for F {
         }
 
         // SAFETY: `buf` is a valid and initialized pointer, and its  correct length is passed
-        cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr() as _, buf.len()) })?;
+        cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr(), buf.len()) })?;
         // SAFETY: `buf` will have been initialized by the `ttyname_r` call, if it succeeded
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
     }
