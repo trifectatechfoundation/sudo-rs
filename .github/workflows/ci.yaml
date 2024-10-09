@@ -5,8 +5,6 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
   merge_group:
     branches:
       - main
@@ -38,6 +36,9 @@ jobs:
           workspaces: |
             test-framework
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Run all E2E tests
         working-directory: test-framework
         run: cargo test -p e2e-tests
@@ -65,6 +66,9 @@ jobs:
           workspaces: |
             test-framework
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Test sudo-test itself
         working-directory: test-framework
         run: cargo test -p sudo-test
@@ -72,11 +76,6 @@ jobs:
       - name: Run all compliance tests against original sudo
         working-directory: test-framework
         run: cargo test -p sudo-compliance-tests -- --include-ignored
-
-      - name: prevent the cache from growing too large
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   compliance-tests:
     runs-on: ubuntu-latest
@@ -104,6 +103,9 @@ jobs:
           shared-key: "compliance-tests"
           workspaces: |
             test-framework
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Run gated compliance tests against sudo-rs
         working-directory: test-framework
@@ -138,6 +140,9 @@ jobs:
           workspaces: |
             test-framework
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: clippy sudo-test
         working-directory: test-framework
         run: cargo clippy -p sudo-test --no-deps -- --deny warnings
@@ -166,15 +171,17 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "stable"
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Build
         run: cargo build --workspace --all-targets --all-features --release
@@ -193,24 +200,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set rust nightly version
-        run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustc)" >> $GITHUB_ENV
-
       - name: Install nightly rust
         run: |
           rustup set profile minimal
-          rustup override set nightly-${{ env.NIGHTLY_VERSION }}
+          rustup override set nightly
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "nightly"
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Update to minimal direct dependencies
         run: cargo update -Zdirect-minimal-versions
@@ -231,15 +237,17 @@ jobs:
         run: rustup override set 1.70
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "msrv"
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Build
         run: cargo build --workspace --all-targets --all-features --release
@@ -254,25 +262,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set rust nightly version
-        run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)" >> $GITHUB_ENV
-
       - name: Install nightly rust and miri
         run: |
           rustup set profile minimal
-          rustup override set nightly-${{ env.NIGHTLY_VERSION }}
+          rustup override set nightly
           rustup component add miri
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: miri
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Run tests
         run: cargo miri test --workspace --all-features miri
@@ -283,11 +290,6 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v4
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "stable"
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
@@ -305,6 +307,9 @@ jobs:
         with:
           shared-key: "stable"
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Run clippy
         run: cargo clippy --no-deps --all-targets --all-features -- --deny warnings
 
@@ -321,6 +326,9 @@ jobs:
         with:
           shared-key: "stable"
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Build docs
         run: cargo doc --no-deps --document-private-items --all-features
 
@@ -334,11 +342,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "audit"
 
       - name: Run audit
         run: cargo audit
