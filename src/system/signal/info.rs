@@ -14,7 +14,7 @@ impl SignalInfo {
     pub(super) const SIZE: usize = std::mem::size_of::<Self>();
 
     /// Returns whether the signal was sent by the user or not.
-    pub(crate) fn is_user_signaled(&self) -> bool {
+    fn is_user_signaled(&self) -> bool {
         // This matches the definition of the SI_FROMUSER macro.
         self.info.si_code <= 0
     }
