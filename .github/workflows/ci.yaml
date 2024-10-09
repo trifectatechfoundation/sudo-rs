@@ -36,6 +36,9 @@ jobs:
           workspaces: |
             test-framework
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Run all E2E tests
         working-directory: test-framework
         run: cargo test -p e2e-tests
@@ -62,6 +65,9 @@ jobs:
           shared-key: "compliance-tests"
           workspaces: |
             test-framework
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Test sudo-test itself
         working-directory: test-framework
@@ -98,6 +104,9 @@ jobs:
           workspaces: |
             test-framework
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Run gated compliance tests against sudo-rs
         working-directory: test-framework
         env:
@@ -130,6 +139,9 @@ jobs:
           shared-key: "compliance-tests"
           workspaces: |
             test-framework
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: clippy sudo-test
         working-directory: test-framework
@@ -168,6 +180,9 @@ jobs:
         with:
           shared-key: "stable"
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Build
         run: cargo build --workspace --all-targets --all-features --release
 
@@ -200,6 +215,9 @@ jobs:
         with:
           shared-key: "nightly"
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Update to minimal direct dependencies
         run: cargo update -Zdirect-minimal-versions
 
@@ -227,6 +245,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "msrv"
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Build
         run: cargo build --workspace --all-targets --all-features --release
@@ -257,6 +278,9 @@ jobs:
         with:
           shared-key: miri
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Run tests
         run: cargo miri test --workspace --all-features miri
 
@@ -283,6 +307,9 @@ jobs:
         with:
           shared-key: "stable"
 
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
       - name: Run clippy
         run: cargo clippy --no-deps --all-targets --all-features -- --deny warnings
 
@@ -298,6 +325,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "stable"
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Build docs
         run: cargo doc --no-deps --document-private-items --all-features
