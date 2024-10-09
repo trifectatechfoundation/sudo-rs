@@ -16,6 +16,8 @@ mod error;
 mod rpassword;
 mod securemem;
 
+#[cfg_attr(target_os = "linux", path = "sys_linux.rs")]
+#[cfg_attr(target_os = "freebsd", path = "sys_freebsd.rs")]
 #[allow(nonstandard_style)]
 pub mod sys;
 
