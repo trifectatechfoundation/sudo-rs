@@ -282,11 +282,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "stable"
-
       - name: Run rustfmt
         run: cargo fmt --all -- --check
 
@@ -332,11 +327,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "audit"
 
       - name: Run audit
         run: cargo audit
