@@ -191,13 +191,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set rust nightly version
-        run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustc)" >> $GITHUB_ENV
-
       - name: Install nightly rust
         run: |
           rustup set profile minimal
-          rustup override set nightly-${{ env.NIGHTLY_VERSION }}
+          rustup override set nightly
 
       - name: Install dependencies
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -252,13 +249,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set rust nightly version
-        run: echo "NIGHTLY_VERSION=$(curl https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)" >> $GITHUB_ENV
-
       - name: Install nightly rust and miri
         run: |
           rustup set profile minimal
-          rustup override set nightly-${{ env.NIGHTLY_VERSION }}
+          rustup override set nightly
           rustup component add miri
 
       - name: Install dependencies
