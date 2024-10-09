@@ -159,10 +159,9 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -192,10 +191,9 @@ jobs:
           rustup override set nightly
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -221,10 +219,9 @@ jobs:
         run: rustup override set 1.70
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -251,10 +248,9 @@ jobs:
           rustup component add miri
 
       - name: Install dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libpam0g-dev
-          version: "1.0"
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
