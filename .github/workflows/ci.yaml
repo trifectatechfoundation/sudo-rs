@@ -29,6 +29,11 @@ jobs:
           key: docker-buildx-rs-${{ github.sha }}
           restore-keys: docker-buildx-rs-
 
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
+
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -96,6 +101,11 @@ jobs:
           path: /tmp/.buildx-cache
           key: docker-buildx-rs-${{ github.sha }}
           restore-keys: docker-buildx-rs-
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2

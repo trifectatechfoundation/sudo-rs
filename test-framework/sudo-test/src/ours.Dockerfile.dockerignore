@@ -2,8 +2,4 @@
 *
 
 # but these
-!Cargo.lock
-!Cargo.toml
-!src/**/*
-!bin/**/*
-!build.rs
+!/target/build

@@ -2,7 +2,7 @@ use core::str;
 use std::{
     env,
     fs::{self, File},
-    io::{Seek, SeekFrom, Write},
+    io::{Seek, SeekFrom, Write, ErrorKind},
     path::{Path, PathBuf},
     process::{self, Command as StdCommand, Stdio},
 };
@@ -146,6 +146,29 @@ pub fn build_base_image() -> Result<()> {
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {
+            // Build sudo-rs
+            let mut cargo_cmd = StdCommand::new("cargo");
+            cargo_cmd.args(["build", "--locked", "--features=dev", "--bins"]);
+            cargo_cmd.current_dir(&repo_root);
+            if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
+                cargo_cmd.stderr(Stdio::null()).stdout(Stdio::null());
+            }
+            if !cargo_cmd.status()?.success() {
+                return Err("`cargo build --locked --features=dev --bins` failed".into());
+            }
+
+            // Copy all binaries to a single place where the Dockerfile will find them
+            let target_debug_dir = repo_root.join("target").join("debug");
+            let build_dir = repo_root.join("target").join("build");
+            match fs::create_dir(&build_dir) {
+                Ok(()) => {}
+                Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
+                Err(e) => return Err(e.into()),
+            }
+            for f in ["sudo", "su", "visudo"] {
+                fs::copy(target_debug_dir.join(f), build_dir.join(f))?;
+            }
+
             // needed for dockerfile-specific dockerignore (e.g. `Dockerfile.dockerignore`) support
             cmd.current_dir(repo_root);
             cmd.args(["-f", "test-framework/sudo-test/src/ours.Dockerfile", "."]);
