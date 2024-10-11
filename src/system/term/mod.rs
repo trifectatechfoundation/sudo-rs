@@ -218,7 +218,7 @@ mod tests {
         process::exit,
     };
 
-    use crate::system::{fork, getpgid, setsid, term::*, ForkResult};
+    use crate::system::{fork_for_test, getpgid, setsid, term::*, ForkResult};
 
     #[test]
     fn open_pty() {
@@ -238,7 +238,7 @@ mod tests {
 
         // FIXME fork will deadlock when this test panics if it forked while
         // another test was panicking.
-        let ForkResult::Parent(_) = (unsafe { fork().unwrap() }) else {
+        let ForkResult::Parent(_) = (unsafe { fork_for_test() }) else {
             // Open a new pseudoterminal.
             let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.
