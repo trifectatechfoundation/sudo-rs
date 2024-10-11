@@ -113,7 +113,12 @@ mod tests {
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
 
-        assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
+        if cfg!(target_os = "linux") {
+            // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
+            assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
+        } else {
+            assert_eq!(context.command.command.to_str().unwrap(), "/bin/echo");
+        }
         assert_eq!(context.command.arguments, ["hello"]);
         assert_eq!(context.hostname, Hostname::resolve());
         assert_eq!(context.target_user.uid, 0);

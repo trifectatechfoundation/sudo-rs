@@ -344,10 +344,19 @@ mod test {
             canonicalize("/usr/bin/pkill").unwrap(),
             Path::new("/usr/bin/pkill")
         );
-        // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
-        assert_eq!(
-            canonicalize("/bin/pkill").unwrap(),
-            Path::new("/usr/bin/pkill")
-        );
+        if cfg!(any(target_os = "linux", target_os = "macos")) {
+            // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
+            assert_eq!(
+                canonicalize("/bin/pkill").unwrap(),
+                Path::new("/usr/bin/pkill")
+            );
+        } else if cfg!(target_os = "freebsd") {
+            assert_eq!(canonicalize("/bin/pkill").unwrap(), Path::new("/bin/pkill"));
+        } else {
+            panic!(
+                "canonicalization test not yet adapted for {}",
+                std::env::consts::OS
+            );
+        }
     }
 }
