@@ -906,11 +906,11 @@ mod tests {
         // another test was panicking.
         let ForkResult::Parent(child_pid) = (unsafe { fork_for_test() }) else {
             let should_close =
-                std::fs::File::open(std::env::temp_dir().join("should_close.txt")).unwrap();
+                std::fs::File::create(std::env::temp_dir().join("should_close.txt")).unwrap();
             assert!(!is_closed(&should_close));
 
             let should_not_close =
-                std::fs::File::open(std::env::temp_dir().join("should_not_close.txt")).unwrap();
+                std::fs::File::create(std::env::temp_dir().join("should_not_close.txt")).unwrap();
             assert!(!is_closed(&should_not_close));
 
             let mut closer = super::FileCloser::new();
