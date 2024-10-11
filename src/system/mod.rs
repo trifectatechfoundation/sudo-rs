@@ -727,13 +727,25 @@ mod tests {
 
     #[test]
     fn test_get_user_and_group_by_id() {
-        let fixed_users = &[(0, "root"), (1, "daemon")];
+        let fixed_users = &[
+            (0, "root"),
+            (
+                User::from_name(cstr!("daemon")).unwrap().unwrap().uid,
+                "daemon",
+            ),
+        ];
         for &(id, name) in fixed_users {
             let root = User::from_uid(id).unwrap().unwrap();
             assert_eq!(root.uid, id as libc::uid_t);
             assert_eq!(root.name, name);
         }
-        let fixed_groups = &[(0, ROOT_GROUP_NAME), (1, "daemon")];
+        let fixed_groups = &[
+            (0, ROOT_GROUP_NAME),
+            (
+                Group::from_name(cstr!("daemon")).unwrap().unwrap().gid,
+                "daemon",
+            ),
+        ];
         for &(id, name) in fixed_groups {
             let root = Group::from_gid(id).unwrap().unwrap();
             assert_eq!(root.gid, id as libc::gid_t);
