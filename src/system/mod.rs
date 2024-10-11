@@ -687,6 +687,12 @@ pub fn make_zeroed_sigaction() -> libc::sigaction {
     unsafe { std::mem::zeroed() }
 }
 
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) const ROOT_GROUP_NAME: &str = "root";
+
+#[cfg(all(test, not(target_os = "linux")))]
+pub(crate) const ROOT_GROUP_NAME: &str = "wheel";
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -700,7 +706,7 @@ mod tests {
     use super::{
         fork, getpgrp, setpgid,
         wait::{Wait, WaitOptions},
-        ForkResult, Group, User, WithProcess,
+        ForkResult, Group, User, WithProcess, ROOT_GROUP_NAME,
     };
 
     pub(super) fn tempfile() -> std::io::Result<std::fs::File> {
@@ -727,7 +733,8 @@ mod tests {
             assert_eq!(root.uid, id as libc::uid_t);
             assert_eq!(root.name, name);
         }
-        for &(id, name) in fixed_users {
+        let fixed_groups = &[(0, ROOT_GROUP_NAME), (1, "daemon")];
+        for &(id, name) in fixed_groups {
             let root = Group::from_gid(id).unwrap().unwrap();
             assert_eq!(root.gid, id as libc::gid_t);
             assert_eq!(root.name, name);

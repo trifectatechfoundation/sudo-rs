@@ -65,7 +65,9 @@ impl UnixGroup for super::Group {
 
 #[cfg(test)]
 mod test {
-    use crate::system::{Group, User};
+    use std::ffi::CString;
+
+    use crate::system::{Group, User, ROOT_GROUP_NAME};
 
     use super::*;
 
@@ -73,7 +75,11 @@ mod test {
         let name = name_c.to_str().unwrap();
         assert!(user.has_name(name));
         assert!(user.has_uid(uid));
-        assert!(user.in_group_by_name(name_c));
+        if user.has_name("root") {
+            assert!(user.in_group_by_name(CString::new(ROOT_GROUP_NAME).unwrap().as_c_str()));
+        } else {
+            assert!(user.in_group_by_name(name_c));
+        }
         assert_eq!(user.is_root(), name == "root");
     }
 
@@ -92,7 +98,8 @@ mod test {
     #[test]
     fn test_unix_group() {
         let group = |name| Group::from_name(name).unwrap().unwrap();
-        test_group(group(cstr!("root")), "root", 0);
+        let root_group_cstr = CString::new(ROOT_GROUP_NAME).unwrap();
+        test_group(group(root_group_cstr.as_c_str()), ROOT_GROUP_NAME, 0);
         test_group(group(cstr!("daemon")), "daemon", 1);
     }
 
