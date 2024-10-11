@@ -87,7 +87,8 @@ pub(super) fn exec_monitor(
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
-    let ForkResult::Parent(command_pid) = fork().map_err(|err| {
+    // SAFETY: There should be no other threads at this point.
+    let ForkResult::Parent(command_pid) = unsafe { fork() }.map_err(|err| {
         dev_warn!("unable to fork command process: {err}");
         err
     })?
