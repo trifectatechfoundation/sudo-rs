@@ -236,7 +236,9 @@ mod tests {
         // Create a socket so the child can send us a byte if successful.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        let ForkResult::Parent(_) = fork().unwrap() else {
+        // FIXME fork will deadlock when this test panics if it forked while
+        // another test was panicking.
+        let ForkResult::Parent(_) = (unsafe { fork().unwrap() }) else {
             // Open a new pseudoterminal.
             let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.

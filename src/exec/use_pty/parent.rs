@@ -162,7 +162,8 @@ pub(in crate::exec) fn exec_pty(
         }
     };
 
-    let ForkResult::Parent(monitor_pid) = fork().map_err(|err| {
+    // SAFETY: There should be no other threads at this point.
+    let ForkResult::Parent(monitor_pid) = (unsafe { fork() }).map_err(|err| {
         dev_error!("cannot fork monitor process: {err}");
         err
     })?

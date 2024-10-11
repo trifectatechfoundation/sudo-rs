@@ -50,7 +50,8 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
     // fails.
     file_closer.except(&errpipe_tx);
 
-    let ForkResult::Parent(command_pid) = fork().map_err(|err| {
+    // SAFETY: There should be no other threads at this point.
+    let ForkResult::Parent(command_pid) = unsafe { fork() }.map_err(|err| {
         dev_warn!("unable to fork command process: {err}");
         err
     })?

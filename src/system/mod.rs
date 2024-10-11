@@ -125,28 +125,6 @@ pub(crate) enum ForkResult {
     Child,
 }
 
-/// # Safety
-///
-/// In a multithreaded program, only async-signal-safe functions are guaranteed to work in the
-/// child process until a call to `execve` or a similar function is done.
-unsafe fn inner_fork() -> io::Result<ForkResult> {
-    let pid = cerr(unsafe { libc::fork() })?;
-    if pid == 0 {
-        Ok(ForkResult::Child)
-    } else {
-        Ok(ForkResult::Parent(pid))
-    }
-}
-
-#[cfg(target_os = "linux")]
-/// Create a new process.
-pub(crate) fn fork() -> io::Result<ForkResult> {
-    // SAFETY: `fork` is implemented using `clone` in linux so we don't need to worry about signal
-    // safety.
-    unsafe { inner_fork() }
-}
-
-#[cfg(not(target_os = "linux"))]
 /// Create a new process.
 ///
 /// # Safety
@@ -154,7 +132,14 @@ pub(crate) fn fork() -> io::Result<ForkResult> {
 /// In a multithreaded program, only async-signal-safe functions are guaranteed to work in the
 /// child process until a call to `execve` or a similar function is done.
 pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
-    inner_fork()
+    // FIXME use std::panic::always_abort() once it is stable if the current
+    // process is multi-threaded.
+    let pid = cerr(unsafe { libc::fork() })?;
+    if pid == 0 {
+        Ok(ForkResult::Child)
+    } else {
+        Ok(ForkResult::Parent(pid))
+    }
 }
 
 pub fn setsid() -> io::Result<ProcessId> {
@@ -808,7 +793,9 @@ mod tests {
         assert_eq!(getpgid(0).unwrap(), pgrp);
         assert_eq!(getpgid(std::process::id() as i32).unwrap(), pgrp);
 
-        match super::fork().unwrap() {
+        // FIXME fork will deadlock when this test panics if it forked while
+        // another test was panicking.
+        match unsafe { super::fork().unwrap() } {
             ForkResult::Child => {
                 // wait for the parent.
                 std::thread::sleep(std::time::Duration::from_secs(1))
@@ -837,13 +824,17 @@ mod tests {
         // Create a socket so the children write to it if they aren't terminated by `killpg`.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        let ForkResult::Parent(pid1) = fork().unwrap() else {
+        // FIXME fork will deadlock when this test panics if it forked while
+        // another test was panicking.
+        let ForkResult::Parent(pid1) = (unsafe { fork().unwrap() }) else {
             std::thread::sleep(std::time::Duration::from_secs(1));
             tx.write_all(&[42]).unwrap();
             exit(0);
         };
 
-        let ForkResult::Parent(pid2) = fork().unwrap() else {
+        // FIXME fork will deadlock when this test panics if it forked while
+        // another test was panicking.
+        let ForkResult::Parent(pid2) = (unsafe { fork().unwrap() }) else {
             std::thread::sleep(std::time::Duration::from_secs(1));
             tx.write_all(&[42]).unwrap();
             exit(0);
@@ -871,7 +862,9 @@ mod tests {
 
     #[test]
     fn close_the_universe() {
-        let ForkResult::Parent(child_pid) = fork().unwrap() else {
+        // FIXME fork will deadlock when this test panics if it forked while
+        // another test was panicking.
+        let ForkResult::Parent(child_pid) = (unsafe { fork().unwrap() }) else {
             let should_close =
                 std::fs::File::open(std::env::temp_dir().join("should_close.txt")).unwrap();
             assert!(!is_closed(&should_close));
@@ -902,7 +895,9 @@ mod tests {
 
     #[test]
     fn except_stdio_is_fine() {
-        let ForkResult::Parent(child_pid) = fork().unwrap() else {
+        // FIXME fork will deadlock when this test panics if it forked while
+        // another test was panicking.
+        let ForkResult::Parent(child_pid) = (unsafe { fork().unwrap() }) else {
             let mut closer = super::FileCloser::new();
 
             closer.except(&io::stdin());
