@@ -97,6 +97,9 @@ impl FromStr for UserId {
     }
 }
 
+/// This trait/module is here to not make this crate independent (at the present time) in the idiosyncracies of user representation details
+/// (which we may decide over time), as well as to make explicit what functionality a user-representation must have; this
+/// interface is not set in stone and "easy" to change.
 pub trait UnixUser {
     fn has_name(&self, _name: &str) -> bool {
         false
@@ -138,6 +141,7 @@ impl UnixUser for super::User {
         }
     }
     fn in_group_by_gid(&self, gid: GroupId) -> bool {
+
         self.groups.contains(&gid)
     }
 }
