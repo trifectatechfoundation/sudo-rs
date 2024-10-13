@@ -141,7 +141,6 @@ impl UnixUser for super::User {
         }
     }
     fn in_group_by_gid(&self, gid: GroupId) -> bool {
-
         self.groups.contains(&gid)
     }
 }

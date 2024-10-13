@@ -247,7 +247,7 @@ pub fn set_target_user(
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
                 target_user.groups.len(),
-                &mut (*target_user.groups.as_ptr()).get(),
+                &(*target_user.groups.as_ptr()).get(),
             ))?;
             cerr(libc::setgid(target_group.gid.get()))?;
             cerr(libc::setuid(target_user.uid.get()))?;
