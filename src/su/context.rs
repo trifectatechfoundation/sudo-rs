@@ -79,7 +79,7 @@ impl SuContext {
             .ok_or_else(|| Error::UserNotFound(options.user.clone().into()))?;
 
         // check the current user is root
-        let is_current_root = User::real_uid() == 0;
+        let is_current_root = User::real_uid().get() == 0;
         let is_target_root = options.user == "root";
 
         // only root can set a (additional) group
@@ -238,7 +238,7 @@ impl RunOptions for SuContext {
     }
 
     fn pid(&self) -> i32 {
-        self.process.pid
+        self.process.pid.get()
     }
 
     fn use_pty(&self) -> bool {

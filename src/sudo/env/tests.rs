@@ -4,6 +4,7 @@ use crate::sudo::{
     cli::{SudoAction, SudoRunOptions},
     env::environment::get_target_environment,
 };
+use crate::system::interface::{GroupId, UserId};
 use crate::system::{Group, Hostname, Process, User};
 use std::collections::{HashMap, HashSet};
 
@@ -82,8 +83,8 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
         CommandAndArguments::build_from_args(None, sudo_options.positional_args.clone(), &path);
 
     let current_user = CurrentUser::fake(User {
-        uid: 1000,
-        gid: 1000,
+        uid: UserId::new(1000),
+        gid: GroupId::new(1000),
 
         name: "test".into(),
         gecos: String::new(),
@@ -94,13 +95,13 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     });
 
     let current_group = Group {
-        gid: 1000,
+        gid: GroupId::new(1000),
         name: "test".to_string(),
     };
 
     let root_user = User {
-        uid: 0,
-        gid: 0,
+        uid: UserId::new(1000),
+        gid: GroupId::new(1000),
         name: "root".into(),
         gecos: String::new(),
         home: "/root".into(),
@@ -110,7 +111,7 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     };
 
     let root_group = Group {
-        gid: 0,
+        gid: GroupId::new(1000),
         name: "root".to_string(),
     };
 

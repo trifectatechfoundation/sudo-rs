@@ -148,7 +148,7 @@ impl ExecClosure {
     /// - is the same PID of the command, or
     /// - is in the process group of the command and either sudo or the command is the leader.
     fn is_self_terminating(&self, signaler_pid: ProcessId) -> bool {
-        if signaler_pid != 0 {
+        if signaler_pid.get() != 0 {
             if Some(signaler_pid) == self.command_pid {
                 return true;
             }
@@ -213,7 +213,7 @@ impl ExecClosure {
             dev_warn!(
                 "cannot send {} to {} (sudo): {err}",
                 signal_fmt(signal),
-                self.sudo_pid
+                self.sudo_pid.get()
             );
         }
 

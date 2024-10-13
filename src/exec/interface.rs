@@ -58,7 +58,7 @@ impl RunOptions for Context {
     }
 
     fn pid(&self) -> i32 {
-        self.process.pid
+        self.process.pid.get()
     }
 
     fn use_pty(&self) -> bool {

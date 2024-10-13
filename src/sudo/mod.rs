@@ -146,7 +146,7 @@ fn self_check() -> Result<(), Error> {
     const ROOT: u32 = 0;
 
     let euid = User::effective_uid();
-    if euid == ROOT {
+    if euid.get() == ROOT {
         Ok(())
     } else {
         Err(Error::SelfCheck)

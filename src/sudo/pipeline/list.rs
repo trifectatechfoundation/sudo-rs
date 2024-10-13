@@ -87,7 +87,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             }
 
             Authorization::Forbidden => {
-                if context.current_user.uid == 0 {
+                if context.current_user.uid.get() == 0 {
                     if original_command.is_some() {
                         return Err(Error::Silent);
                     }
