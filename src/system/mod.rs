@@ -322,17 +322,17 @@ impl User {
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
         let mut buf_len: libc::c_int = 32;
-        let mut groups_buffer: Vec<GroupId>;
+        let mut groups_buffer: Vec<libc::gid_t>;
 
         while {
-            groups_buffer = vec![GroupId::new(0); buf_len as usize];
+            groups_buffer = vec![0; buf_len as usize];
             // SAFETY: getgrouplist is passed valid pointers
             // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
             let result = unsafe {
                 libc::getgrouplist(
                     pwd.pw_name,
                     pwd.pw_gid,
-                    &mut (*groups_buffer.as_mut_ptr()).get(),
+                    groups_buffer.as_mut_ptr(),
                     &mut buf_len,
                 )
             };
@@ -358,7 +358,7 @@ impl User {
             home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
             shell: os_string_from_ptr(pwd.pw_shell).into(),
             passwd: string_from_ptr(pwd.pw_passwd),
-            groups: groups_buffer,
+            groups: groups_buffer.iter().map(|id| GroupId::new(*id)).collect::<Vec<_>>(),
         })
     }
 
