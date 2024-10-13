@@ -358,7 +358,10 @@ impl User {
             home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
             shell: os_string_from_ptr(pwd.pw_shell).into(),
             passwd: string_from_ptr(pwd.pw_passwd),
-            groups: groups_buffer.iter().map(|id| GroupId::new(*id)).collect::<Vec<_>>(),
+            groups: groups_buffer
+                .iter()
+                .map(|id| GroupId::new(*id))
+                .collect::<Vec<_>>(),
         })
     }
 
