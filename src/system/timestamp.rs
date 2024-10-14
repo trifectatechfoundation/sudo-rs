@@ -568,9 +568,9 @@ impl SessionRecord {
 mod tests {
     use super::*;
     use crate::system::tests::tempfile;
-    use std::cell::OnceCell;
+    use std::sync::OnceLock;
 
-    const TEST_USER_ID: OnceCell<UserId> = OnceCell::new();
+    static TEST_USER_ID: OnceLock<UserId> = OnceLock::new();
     fn test_user_id() -> UserId {
         *TEST_USER_ID.get_or_init(|| UserId::new(1000))
     }
