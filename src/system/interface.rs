@@ -96,9 +96,10 @@ mod test {
         test_group(group(cstr!("daemon")), "daemon", 1);
     }
 
+    impl UnixUser for () {}
+
     #[test]
     fn test_default() {
-        impl UnixUser for () {}
         assert!(!().has_name("root"));
         assert!(!().has_uid(0));
         assert!(!().is_root());

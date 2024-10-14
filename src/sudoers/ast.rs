@@ -193,7 +193,6 @@ impl Sudo {
 /// identifier = name
 ///            | #<numerical id>
 /// ```
-
 impl Parse for Identifier {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         if accept_if(|c| c == '#', stream).is_some() {
@@ -215,7 +214,6 @@ impl Many for Identifier {}
 ///
 /// This computes the correct negation with multiple exclamation marks in the parsing stage so we
 /// are not bothered by it later.
-
 impl<T: Parse + UserFriendly> Parse for Qualified<T> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         if is_syntax('!', stream)? {
@@ -242,7 +240,6 @@ impl<T: Many> Many for Qualified<T> {
 }
 
 /// Helper function for parsing `Meta<T>` things where T is not a token
-
 fn parse_meta<T: Parse>(
     stream: &mut impl CharStream,
     embed: impl FnOnce(SudoString) -> T,
@@ -259,7 +256,6 @@ fn parse_meta<T: Parse>(
 }
 
 /// Since Identifier is not a token, add the parser for `Meta<Identifier>`
-
 impl Parse for Meta<Identifier> {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         parse_meta(stream, Identifier::Name)
@@ -365,7 +361,6 @@ impl Parse for MetaOrTag {
 /// ```text
 /// commandspec = [tag modifiers]*, command
 /// ```
-
 impl Parse for CommandSpec {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let mut tags = vec![];
@@ -414,7 +409,6 @@ impl Parse for CommandSpec {
 /// ```text
 /// (host,runas,commandspec) = hostlist, "=", [runas?, commandspec]+
 /// ```
-
 impl Parse for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let hosts = try_nonterminal(stream)?;
@@ -463,7 +457,6 @@ impl Many for (Option<RunAs>, CommandSpec) {}
 /// ```
 /// There is a syntactical ambiguity in the sudoer Directive and Permission specifications, so we
 /// have to parse them 'together' and do a delayed decision on which category we are in.
-
 impl Parse for Sudo {
     // note: original sudo would reject:
     //   "User_Alias, user machine = command"
@@ -520,7 +513,6 @@ impl Parse for Sudo {
 }
 
 /// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
-
 fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
     fn get_path(stream: &mut impl CharStream) -> Parsed<String> {
         if accept_if(|c| c == '"', stream).is_some() {

@@ -436,7 +436,7 @@ enum MonitorEvent {
     ReadableBackchannel,
 }
 
-impl<'a> Process for MonitorClosure<'a> {
+impl Process for MonitorClosure<'_> {
     type Event = MonitorEvent;
     type Break = io::Error;
     type Exit = CommandStatus;
@@ -450,7 +450,7 @@ impl<'a> Process for MonitorClosure<'a> {
     }
 }
 
-impl<'a> HandleSigchld for MonitorClosure<'a> {
+impl HandleSigchld for MonitorClosure<'_> {
     const OPTIONS: WaitOptions = WaitOptions::new().untraced().no_hang();
 
     fn on_exit(&mut self, exit_code: c_int, registry: &mut EventRegistry<Self>) {

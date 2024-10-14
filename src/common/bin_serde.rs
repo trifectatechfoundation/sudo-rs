@@ -113,18 +113,18 @@ mod tests {
         assert_eq!(tx.read().unwrap(), 23);
     }
 
+    impl DeSerialize for u8 {
+        type Bytes = [u8; std::mem::size_of::<Self>()];
+        fn serialize(&self) -> [u8; 1] {
+            self.to_ne_bytes()
+        }
+        fn deserialize(bytes: [u8; 1]) -> Self {
+            Self::from_ne_bytes(bytes)
+        }
+    }
+
     #[test]
     pub fn different_types() {
-        impl DeSerialize for u8 {
-            type Bytes = [u8; std::mem::size_of::<Self>()];
-            fn serialize(&self) -> [u8; 1] {
-                self.to_ne_bytes()
-            }
-            fn deserialize(bytes: [u8; 1]) -> Self {
-                Self::from_ne_bytes(bytes)
-            }
-        }
-
         let (mut tx, mut rx) = BinPipe::pair().unwrap();
         tx.write(&42i32).unwrap();
         assert_eq!(rx.read().unwrap(), 42);

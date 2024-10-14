@@ -273,15 +273,11 @@ impl<T: Parse> Parse for Option<T> {
 }
 
 /// Parsing method for lists of items separated by a given character; this adheres to the contract of the [Parse] trait.
-#[allow(clippy::multiple_bound_locations)]
-pub(super) fn parse_list<T: Parse>(
+pub(super) fn parse_list<T: Parse + UserFriendly>(
     sep_by: char,
     max: usize,
     stream: &mut impl CharStream,
-) -> Parsed<Vec<T>>
-where
-    T: Parse + UserFriendly,
-{
+) -> Parsed<Vec<T>> {
     let mut elems = Vec::new();
     elems.push(try_nonterminal(stream)?);
     while maybe(try_syntax(sep_by, stream))?.is_some() {
