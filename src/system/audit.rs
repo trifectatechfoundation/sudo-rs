@@ -112,9 +112,19 @@ mod test {
         // /etc/hosts should be readable and "secure" (if this test fails, you have been compromised)
         assert!(std::fs::File::open("/etc/hosts").is_ok());
         assert!(secure_open("/etc/hosts", false).is_ok());
-        // /var/log/utmp should be readable, but not secure (writeable by group other than root)
-        assert!(std::fs::File::open("/var/log/wtmp").is_ok());
-        assert!(secure_open("/var/log/wtmp", false).is_err());
+
+        // /tmp should be readable, but not secure (writeable by group other than root)
+        assert!(std::fs::File::open("/tmp").is_ok());
+        assert!(secure_open("/tmp", false).is_err());
+
+        #[cfg(target_os = "linux")]
+        {
+            // /var/log/utmp should be readable, but not secure (writeable by group other than root)
+            // It doesn't exist on many non-Linux systems however.
+            assert!(std::fs::File::open("/var/log/wtmp").is_ok());
+            assert!(secure_open("/var/log/wtmp", false).is_err());
+        }
+
         // /etc/shadow should not be readable
         assert!(std::fs::File::open("/etc/shadow").is_err());
         assert!(secure_open("/etc/shadow", false).is_err());
