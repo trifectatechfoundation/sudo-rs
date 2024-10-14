@@ -132,6 +132,7 @@ mod test {
 
     #[test]
     fn test_secure_open_cookie_file() {
+        // FIXME test fails when root
         assert!(secure_open_cookie_file("/etc/hosts").is_err());
     }
 }

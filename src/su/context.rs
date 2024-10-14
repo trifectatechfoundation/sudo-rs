@@ -282,6 +282,7 @@ mod tests {
 
     #[test]
     fn group_as_non_root() {
+        // FIXME test returns different error or no error at all when root
         let options = get_options(&["-g", "root"]);
         let result = SuContext::from_env(options);
         let expected = Error::Options("only root can specify alternative groups".to_owned());
