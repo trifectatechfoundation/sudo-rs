@@ -25,7 +25,7 @@ impl<'a> StrEnum<'a> {
     }
 }
 
-impl<'a> std::ops::Deref for StrEnum<'a> {
+impl std::ops::Deref for StrEnum<'_> {
     type Target = str;
     fn deref(&self) -> &str {
         self.get()
