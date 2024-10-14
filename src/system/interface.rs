@@ -30,11 +30,6 @@ impl UserId {
     pub fn get(&self) -> libc::uid_t {
         self.0
     }
-
-    #[cfg(test)]
-    pub const fn new_const(uid: libc::uid_t) -> Self {
-        UserId(uid)
-    }
 }
 
 impl ProcessId {
