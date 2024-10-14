@@ -738,15 +738,15 @@ mod tests {
     #[test]
     fn test_get_user_and_group_by_id() {
         let fixed_users = &[
-            (0, "root"),
+            (UserId::new(0), "root"),
             (
                 User::from_name(cstr!("daemon")).unwrap().unwrap().uid,
                 "daemon",
             ),
         ];
         for &(id, name) in fixed_users {
-            let root = User::from_uid(UserId::new(id)).unwrap().unwrap();
-            assert_eq!(root.uid.get(), id);
+            let root = User::from_uid(id).unwrap().unwrap();
+            assert_eq!(root.uid, id);
             assert_eq!(root.name, name);
         }
 
@@ -759,7 +759,7 @@ mod tests {
         ];
         for &(id, name) in fixed_groups {
             let root = Group::from_gid(id).unwrap().unwrap();
-            assert_eq!(root.gid.get(), id);
+            assert_eq!(root.gid, id);
             assert_eq!(root.name, name);
         }
     }

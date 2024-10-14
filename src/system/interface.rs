@@ -156,12 +156,9 @@ impl UnixGroup for super::Group {
 
 #[cfg(test)]
 mod test {
-    use std::ffi::CString;
-
-    use crate::system::{Group, User, ROOT_GROUP_NAME};
-
     use super::*;
-    use crate::system::{Group, User};
+    use crate::system::{Group, User, ROOT_GROUP_NAME};
+    use std::ffi::CString;
 
     fn test_user(user: impl UnixUser, name_c: &CStr, uid: UserId) {
         let name = name_c.to_str().unwrap();
@@ -189,8 +186,13 @@ mod test {
 
     #[test]
     fn test_unix_group() {
+        let group = |name| Group::from_name(name).unwrap().unwrap();
         let root_group_cstr = CString::new(ROOT_GROUP_NAME).unwrap();
-        test_group(group(root_group_cstr.as_c_str()), ROOT_GROUP_NAME, GroupId::new(0));
+        test_group(
+            group(root_group_cstr.as_c_str()),
+            ROOT_GROUP_NAME,
+            GroupId::new(0),
+        );
         test_group(group(cstr!("daemon")), "daemon", GroupId::new(1));
     }
 
