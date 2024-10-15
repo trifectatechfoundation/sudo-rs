@@ -23,6 +23,28 @@ mod env;
 mod pam;
 mod pipeline;
 
+/// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
+fn unstable_warning() {
+    if cfg!(target_os = "linux") {
+        return;
+    }
+
+    let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
+
+    if check_var != "I accept that my system may break unexpectedly" {
+        eprintln_ignore_io_error!(
+            "WARNING!
+Sudo-rs is in the early stages of supporting OSes other than Linux and could potentially
+break your system. We recommend that you do not run this on any production environment.
+To turn off this warning and start using sudo-rs set the environment variable
+SUDO_RS_IS_UNSTABLE to the value `I accept that my system may break unexpectedly`. If
+you are unsure how to do this then this software is not suited for you at this time."
+        );
+
+        std::process::exit(1);
+    }
+}
+
 const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 
 pub(crate) fn candidate_sudoers_file() -> &'static Path {
@@ -127,6 +149,8 @@ fn sudo_process() -> Result<(), Error> {
                     eprintln_ignore_io_error!("{}", help::USAGE_MSG);
                     std::process::exit(1);
                 } else {
+                    unstable_warning();
+
                     pipeline.run(options)
                 }
             }
