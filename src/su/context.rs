@@ -5,11 +5,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::common::{error::Error, resolve::CurrentUser, Environment};
 use crate::common::{resolve::is_valid_executable, SudoPath};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
+use crate::{
+    common::{error::Error, resolve::CurrentUser, Environment},
+    system::interface::ProcessId,
+};
 
 use super::cli::SuRunOptions;
 
@@ -237,8 +240,8 @@ impl RunOptions for SuContext {
         &self.group
     }
 
-    fn pid(&self) -> i32 {
-        self.process.pid.get()
+    fn pid(&self) -> ProcessId {
+        self.process.pid
     }
 
     fn use_pty(&self) -> bool {

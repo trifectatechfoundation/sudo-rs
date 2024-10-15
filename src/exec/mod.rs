@@ -108,14 +108,14 @@ fn run_command_internal(options: &impl RunOptions, env: Environment) -> io::Resu
 
     if options.use_pty() {
         match UserTerm::open() {
-            Ok(user_tty) => exec_pty(ProcessId::new(options.pid()), command, user_tty),
+            Ok(user_tty) => exec_pty(options.pid(), command, user_tty),
             Err(err) => {
                 dev_info!("Could not open user's terminal, not allocating a pty: {err}");
-                exec_no_pty(ProcessId::new(options.pid()), command)
+                exec_no_pty(options.pid(), command)
             }
         }
     } else {
-        exec_no_pty(ProcessId::new(options.pid()), command)
+        exec_no_pty(options.pid(), command)
     }
 }
 
