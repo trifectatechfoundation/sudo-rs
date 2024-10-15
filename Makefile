@@ -13,6 +13,8 @@ pam-sys: $(PAM_SRC_DIR)/sys.rs
 
 $(PAM_SRC_DIR)/sys.rs: $(PAM_SRC_DIR)/wrapper.h
 	$(BINDGEN_CMD) $< --output $@
+	cargo minify --apply --allow-dirty
+	sed -i 's/rust-bindgen \w*\.\w*\.\w*/\0, minified by cargo-minify/' $@
 
 clean:
 	rm $(PAM_SRC_DIR)/sys.rs
