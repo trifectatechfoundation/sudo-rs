@@ -30,6 +30,8 @@ impl UserId {
     pub fn get(&self) -> libc::uid_t {
         self.0
     }
+
+    pub const ROOT: Self = Self(0);
 }
 
 impl ProcessId {
@@ -126,7 +128,7 @@ impl UnixUser for super::User {
         self.uid == uid
     }
     fn is_root(&self) -> bool {
-        self.has_uid(UserId::new(0))
+        self.has_uid(UserId::ROOT)
     }
     fn in_group_by_name(&self, name_c: &CStr) -> bool {
         if let Ok(Some(group)) = super::Group::from_name(name_c) {
@@ -175,7 +177,7 @@ mod test {
     #[test]
     fn test_unix_user() {
         let user = |name| User::from_name(name).unwrap().unwrap();
-        test_user(user(cstr!("root")), cstr!("root"), UserId::new(0));
+        test_user(user(cstr!("root")), cstr!("root"), UserId::ROOT);
         test_user(user(cstr!("daemon")), cstr!("daemon"), UserId::new(1));
     }
 
@@ -196,7 +198,7 @@ mod test {
     #[test]
     fn test_default() {
         assert!(!().has_name("root"));
-        assert!(!().has_uid(UserId::new(0)));
+        assert!(!().has_uid(UserId::ROOT));
         assert!(!().is_root());
         assert!(!().in_group_by_name(cstr!("root")));
     }

@@ -100,7 +100,7 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
     };
 
     let root_user = User {
-        uid: UserId::new(0),
+        uid: UserId::ROOT,
         gid: GroupId::new(0),
         name: "root".into(),
         gecos: String::new(),

@@ -95,7 +95,10 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sudo::SudoAction, system::Hostname};
+    use crate::{
+        sudo::SudoAction,
+        system::{interface::UserId, Hostname},
+    };
     use std::collections::HashMap;
 
     use super::Context;
@@ -121,6 +124,6 @@ mod tests {
         }
         assert_eq!(context.command.arguments, ["hello"]);
         assert_eq!(context.hostname, Hostname::resolve());
-        assert_eq!(context.target_user.uid.get(), 0);
+        assert_eq!(context.target_user.uid, UserId::ROOT);
     }
 }

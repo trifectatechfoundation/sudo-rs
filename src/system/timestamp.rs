@@ -568,12 +568,8 @@ impl SessionRecord {
 mod tests {
     use super::*;
     use crate::system::tests::tempfile;
-    use std::sync::OnceLock;
 
-    static TEST_USER_ID: OnceLock<UserId> = OnceLock::new();
-    fn test_user_id() -> UserId {
-        *TEST_USER_ID.get_or_init(|| UserId::new(1000))
-    }
+    static TEST_USER_ID: UserId = UserId::ROOT;
 
     #[test]
     fn can_encode_and_decode() {
@@ -691,25 +687,25 @@ mod tests {
         // valid header should remain valid
         let c = tempfile_with_data(&[0xD0, 0x50, 0x01, 0x00]).unwrap();
         let timeout = Duration::seconds(30);
-        assert!(SessionRecordFile::new(test_user_id(), c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid headers should be corrected
         let c = tempfile_with_data(&[0xAB, 0xBA]).unwrap();
-        assert!(SessionRecordFile::new(test_user_id(), c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // empty header should be filled in
         let c = tempfile_with_data(&[]).unwrap();
-        assert!(SessionRecordFile::new(test_user_id(), c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
 
         // invalid version should reset file
         let c = tempfile_with_data(&[0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0]).unwrap();
-        assert!(SessionRecordFile::new(test_user_id(), c.try_clone().unwrap(), timeout).is_ok());
+        assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
     }
@@ -719,7 +715,7 @@ mod tests {
         let timeout = Duration::seconds(30);
         let c = tempfile_with_data(&[]).unwrap();
         let mut srf =
-            SessionRecordFile::new(test_user_id(), c.try_clone().unwrap(), timeout).unwrap();
+            SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).unwrap();
         let tty_scope = RecordScope::Tty {
             tty_device: DeviceId::new(0),
             session_pid: ProcessId::new(0),

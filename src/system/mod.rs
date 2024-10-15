@@ -757,7 +757,7 @@ mod tests {
     #[test]
     fn test_get_user_and_group_by_id() {
         let fixed_users = &[
-            (UserId::new(0), "root"),
+            (UserId::ROOT, "root"),
             (
                 User::from_name(cstr!("daemon")).unwrap().unwrap().uid,
                 "daemon",
