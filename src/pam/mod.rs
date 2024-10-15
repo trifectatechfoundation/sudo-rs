@@ -142,7 +142,7 @@ impl<C: Converser> PamContext<C> {
     /// Get the PAM flag value for the silent flag
     fn silent_flag(&self) -> i32 {
         if self.silent {
-            PAM_SILENT
+            PAM_SILENT as _
         } else {
             0
         }
@@ -153,7 +153,7 @@ impl<C: Converser> PamContext<C> {
         if self.allow_null_auth_token {
             0
         } else {
-            PAM_DISALLOW_NULL_AUTHTOK
+            PAM_DISALLOW_NULL_AUTHTOK as _
         }
     }
 
@@ -202,7 +202,11 @@ impl<C: Converser> PamContext<C> {
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
         // `c_user.as_ptr()` will point to a correct null-terminated string.
         pam_err(unsafe {
-            pam_set_item(self.pamh, PAM_USER, c_user.as_ptr() as *const libc::c_void)
+            pam_set_item(
+                self.pamh,
+                PAM_USER as _,
+                c_user.as_ptr() as *const libc::c_void,
+            )
         })
     }
 
@@ -210,7 +214,7 @@ impl<C: Converser> PamContext<C> {
     pub fn get_user(&mut self) -> PamResult<String> {
         let mut data = std::ptr::null();
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
-        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER, &mut data) })?;
+        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER as _, &mut data) })?;
 
         // safety check to make sure that we were not passed a null pointer by PAM,
         // or that in fact PAM did not write to `data` at all.
@@ -230,7 +234,13 @@ impl<C: Converser> PamContext<C> {
         let data = CString::new(tty_path.as_ref().as_bytes())?;
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
         // `data.as_ptr()` will point to a correct null-terminated string.
-        pam_err(unsafe { pam_set_item(self.pamh, PAM_TTY, data.as_ptr() as *const libc::c_void) })
+        pam_err(unsafe {
+            pam_set_item(
+                self.pamh,
+                PAM_TTY as _,
+                data.as_ptr() as *const libc::c_void,
+            )
+        })
     }
 
     // Set the user that requested the actions in this PAM instance.
@@ -238,7 +248,13 @@ impl<C: Converser> PamContext<C> {
         let data = CString::new(user.as_bytes())?;
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
         // `data.as_ptr()` will point to a correct null-terminated string.
-        pam_err(unsafe { pam_set_item(self.pamh, PAM_RUSER, data.as_ptr() as *const libc::c_void) })
+        pam_err(unsafe {
+            pam_set_item(
+                self.pamh,
+                PAM_RUSER as _,
+                data.as_ptr() as *const libc::c_void,
+            )
+        })
     }
 
     /// Re-initialize the credentials stored in PAM
@@ -264,7 +280,7 @@ impl<C: Converser> PamContext<C> {
         let mut flags = 0;
         flags |= self.silent_flag();
         if expired_only {
-            flags |= PAM_CHANGE_EXPIRED_AUTHTOK;
+            flags |= PAM_CHANGE_EXPIRED_AUTHTOK as libc::c_int;
         }
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
         pam_err(unsafe { pam_chauthtok(self.pamh, flags) })
@@ -382,7 +398,8 @@ impl<C: Converser> Drop for PamContext<C> {
         unsafe {
             pam_end(
                 self.pamh,
-                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int) | PAM_DATA_SILENT,
+                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int)
+                    | PAM_DATA_SILENT as libc::c_int,
             )
         };
     }
