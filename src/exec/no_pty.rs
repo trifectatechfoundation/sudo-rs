@@ -213,7 +213,7 @@ impl ExecClosure {
             dev_warn!(
                 "cannot send {} to {} (sudo): {err}",
                 signal_fmt(signal),
-                self.sudo_pid.get()
+                self.sudo_pid
             );
         }
 
