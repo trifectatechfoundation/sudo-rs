@@ -148,8 +148,8 @@ pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
 /// child process until a call to `execve` or a similar function is done.
 #[cfg(test)]
 unsafe fn fork_for_test() -> ForkResult {
-    let pid = cerr(unsafe { libc::fork() }).unwrap();
-    if pid == 0 {
+    let result = fork().unwrap();
+    if let ForkResult::Child = result {
         // Make sure that panics in the child always abort the process if it doesn't deadlock.
         // FIXME use std::panic::always_abort() once it is stable
         std::panic::set_hook(Box::new(|info| {
@@ -157,10 +157,8 @@ unsafe fn fork_for_test() -> ForkResult {
             let _ = writeln!(std::io::stderr(), "{info}");
             std::process::exit(101);
         }));
-        ForkResult::Child
-    } else {
-        ForkResult::Parent(pid)
     }
+    result
 }
 
 pub fn setsid() -> io::Result<ProcessId> {
