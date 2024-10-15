@@ -1,13 +1,18 @@
 use std::io;
 
+#[cfg(target_os = "linux")]
+use libc::__WALL;
 use libc::{
     c_int, WEXITSTATUS, WIFCONTINUED, WIFEXITED, WIFSIGNALED, WIFSTOPPED, WNOHANG, WSTOPSIG,
-    WTERMSIG, WUNTRACED, __WALL,
+    WTERMSIG, WUNTRACED,
 };
 
 use crate::cutils::cerr;
 use crate::system::signal::signal_name;
 use crate::{system::interface::ProcessId, system::signal::SignalNumber};
+
+#[cfg(not(target_os = "linux"))]
+const __WALL: c_int = 0;
 
 mod sealed {
     pub(crate) trait Sealed {}
