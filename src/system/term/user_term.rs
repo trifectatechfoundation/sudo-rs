@@ -78,7 +78,6 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
             unsafe { sa_mask.assume_init() }
         };
         raw.sa_flags = 0;
-        raw.sa_restorer = None;
         raw
     };
     // Reset `GOT_SIGTTOU`.
@@ -241,7 +240,6 @@ impl UserTerm {
                 unsafe { sa_mask.assume_init() }
             };
             raw.sa_flags = 0;
-            raw.sa_restorer = None;
             raw
         };
         // Reset `GOT_SIGTTOU`.

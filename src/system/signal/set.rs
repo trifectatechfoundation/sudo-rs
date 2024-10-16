@@ -34,7 +34,6 @@ impl SignalAction {
         raw.sa_sigaction = sa_sigaction;
         raw.sa_mask = sa_mask.raw;
         raw.sa_flags = sa_flags;
-        raw.sa_restorer = None;
 
         Ok(Self { raw })
     }

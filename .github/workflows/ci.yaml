@@ -284,6 +284,36 @@ jobs:
       - name: Run tests
         run: cargo miri test --workspace --all-features miri
 
+  check-bindings:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install libpam0g-dev
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "msrv"
+
+      - name: Install rust-bindgen
+        uses: taiki-e/install-action@v2
+        with:
+          tool: bindgen-cli@0.70.1
+
+      - name: Install cargo-minify
+        run: cargo install --locked --git https://github.com/tweedegolf/cargo-minify cargo-minify
+
+      - name: Regenerate bindings
+        run: make -B pam-sys
+
+      - name: Check for differences
+        run: git diff --exit-code
+
   format:
     runs-on: ubuntu-latest
     env:
