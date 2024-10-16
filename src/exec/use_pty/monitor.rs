@@ -199,9 +199,9 @@ fn exec_command(
     original_set: Option<SignalSet>,
 ) -> io::Error {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
-    let command_pid = std::process::id() as ProcessId;
+    let command_pid = ProcessId::new(std::process::id() as i32);
 
-    setpgid(0, command_pid).ok();
+    setpgid(ProcessId::new(0), command_pid).ok();
 
     // Wait for the monitor to set us as the foreground group for the pty if we are in the
     // foreground.
@@ -414,7 +414,7 @@ fn is_self_terminating(
     command_pid: ProcessId,
     command_pgrp: ProcessId,
 ) -> bool {
-    if signaler_pid != 0 {
+    if signaler_pid.get() != 0 {
         if signaler_pid == command_pid {
             return true;
         }
