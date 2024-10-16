@@ -1,18 +1,23 @@
 use std::{ffi::CStr, fmt::Display, num::ParseIntError, str::FromStr};
 
+/// Represents a group ID in the system.
+///
+/// `GroupId` is transparent because the memory mapping should stay the same as the underlying
+/// type, so we can safely cast as a pointer.
+/// See the implementation in `system::mod::set_target_user`.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GroupId(libc::gid_t);
 
-#[repr(transparent)]
+/// Represents a user ID in the system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UserId(libc::uid_t);
 
-#[repr(transparent)]
+/// Represents a process ID in the system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProcessId(libc::pid_t);
 
-#[repr(transparent)]
+/// Represents a device ID in the system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeviceId(libc::dev_t);
 
