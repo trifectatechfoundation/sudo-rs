@@ -362,6 +362,7 @@ fn temporary_file_is_deleted_when_done() -> Result<()> {
 }
 
 #[test]
+//#[ignore = "hangs on freebsd"]
 fn temporary_file_is_deleted_when_terminated_by_signal() -> Result<()> {
     let kill_visudo = "/root/kill-visudo.sh";
     let expected = SUDOERS_ALL_ALL_NOPASSWD;

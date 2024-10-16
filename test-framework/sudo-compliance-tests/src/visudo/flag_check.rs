@@ -188,7 +188,7 @@ fn flag_file_does_not_check_perms_nor_ownership() -> Result<()> {
     let env = Env("")
         .file(
             file_path,
-            TextFile("").chown(format!("{USERNAME}:users")).chmod("777"),
+            TextFile("").chown(format!("{USERNAME}:nobody")).chmod("777"),
         )
         .user(USERNAME)
         .build()?;

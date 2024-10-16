@@ -80,7 +80,7 @@ pub enum Authenticate {
     Nopasswd = HARDENED_ENUM_VALUE_2,
 }
 
-/// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
+/// Commands in /usr/local/etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[derive(Default, Clone, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
 pub struct Tag {

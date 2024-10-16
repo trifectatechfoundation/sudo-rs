@@ -105,7 +105,7 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
         name: "root".into(),
         gecos: String::new(),
         home: "/root".into(),
-        shell: "/bin/bash".into(),
+        shell: "/usr/bin/bash".into(),
         passwd: String::new(),
         groups: vec![],
     };
