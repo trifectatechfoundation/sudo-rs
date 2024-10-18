@@ -366,6 +366,9 @@ fn when_no_run_as_spec_then_a_group_that_root_is_in_may_be_specified() -> Result
     let mut actual = output.split_ascii_whitespace().collect::<HashSet<_>>();
 
     assert!(actual.remove(ROOT_GROUP));
+    if cfg!(target_os = "freebsd") {
+        assert!(actual.remove("operator"));
+    }
     assert!(actual.is_empty());
 
     Ok(())
