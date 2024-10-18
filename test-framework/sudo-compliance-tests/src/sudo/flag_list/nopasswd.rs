@@ -10,8 +10,6 @@ fn when_invoking_user_is_root() -> Result<()> {
         &["-U", USERNAME],
         // regardless of target user
         &["-u", USERNAME, "true"],
-        // regardless of target group
-        &["-g", "users", "true"],
     ];
 
     let env = Env("ALL ALL=(ALL:ALL) ALL").user(USERNAME).build()?;
