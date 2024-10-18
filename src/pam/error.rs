@@ -210,7 +210,7 @@ impl fmt::Display for PamError {
                 )
             }
             PamError::Pam(tp, msg) => write!(f, "PAM returned an error ({tp:?}): {msg}"),
-            PamError::IoError(e) => write!(f, "IO error: {e}"),
+            PamError::IoError(e) => write!(f, "PAM IO error: {e}"),
             PamError::SessionAlreadyOpen => {
                 write!(f, "Cannot open session while one is already open")
             }

@@ -23,6 +23,7 @@ const VALID_LOGIN_SHELLS_LIST: &str = "/etc/shells";
 const FALLBACK_LOGIN_SHELL: &str = "/bin/sh";
 
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
+// FIXME adopt for FreeBSD
 const PATH_DEFAULT: &str = env!("SU_PATH_DEFAULT");
 const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
 
