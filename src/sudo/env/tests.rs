@@ -30,7 +30,7 @@ const TESTS: &str = "
     LS_COLORS=cd=40;33;01:*.jpg=01;35:*.mp3=00;36:
     MAIL=/var/mail/root
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    SHELL=/bin/bash
+    SHELL=/usr/bin/bash
     SUDO_COMMAND=/usr/bin/env
     SUDO_GID=1000
     SUDO_UID=1000
