@@ -527,11 +527,11 @@ mod tests {
 
     #[test]
     fn it_parses_shell_default() {
-        let result = parse(&["--shell", "/usr/bin/bash"]);
+        let result = parse(&["--shell", "/bin/bash"]);
         assert_eq!(
             result,
             SuAction::Run(SuRunOptions {
-                shell: Some("/usr/bin/bash".into()),
+                shell: Some("/bin/bash".into()),
                 ..<_>::default()
             })
         );
@@ -564,16 +564,16 @@ mod tests {
     fn it_parses_combined_options_and_arguments() {
         let expected = SuAction::Run(SuRunOptions {
             login: true,
-            shell: Some("/usr/bin/bash".into()),
+            shell: Some("/bin/bash".into()),
             ..<_>::default()
         });
 
-        assert_eq!(expected, parse(&["-Pls/usr/bin/bash"]));
-        assert_eq!(expected, parse(&["-Pls", "/usr/bin/bash"]));
-        assert_eq!(expected, parse(&["-Pl", "-s/usr/bin/bash"]));
-        assert_eq!(expected, parse(&["-lP", "-s", "/usr/bin/bash"]));
-        assert_eq!(expected, parse(&["-lP", "--shell=/usr/bin/bash"]));
-        assert_eq!(expected, parse(&["-lP", "--shell", "/usr/bin/bash"]));
+        assert_eq!(expected, parse(&["-Pls/bin/bash"]));
+        assert_eq!(expected, parse(&["-Pls", "/bin/bash"]));
+        assert_eq!(expected, parse(&["-Pl", "-s/bin/bash"]));
+        assert_eq!(expected, parse(&["-lP", "-s", "/bin/bash"]));
+        assert_eq!(expected, parse(&["-lP", "--shell=/bin/bash"]));
+        assert_eq!(expected, parse(&["-lP", "--shell", "/bin/bash"]));
     }
 
     #[test]
