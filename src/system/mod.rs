@@ -600,7 +600,7 @@ impl Process {
     /// attached to the given process
     pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         // device id of tty is displayed as a signed integer of 32 bits
-        let data: i32 = read_proc_stat(pid, 7 /* tty_nr */)?;
+        let data: i32 = read_proc_stat(pid, 6 /* tty_nr */)?;
         if data == 0 {
             Ok(None)
         } else {
@@ -615,7 +615,7 @@ impl Process {
 
     /// Get the process starting time of a specific process
     pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
-        let process_start: u64 = read_proc_stat(pid, 22 /* start_time */)?;
+        let process_start: u64 = read_proc_stat(pid, 21 /* start_time */)?;
 
         // the startime field is stored in ticks since the system start, so we need to know how many
         // ticks go into a second
@@ -661,7 +661,7 @@ fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<
     // we've now passed the first two fields, so we are at index 1, now we skip over
     // fields until we arrive at the field we are searching for
     let mut curr_field = 1;
-    while curr_field <= field_idx && !stat.is_empty() {
+    while curr_field < field_idx && !stat.is_empty() {
         if stat[0] == b' ' {
             curr_field += 1;
         }
