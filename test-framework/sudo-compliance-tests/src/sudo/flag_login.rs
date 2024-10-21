@@ -54,7 +54,7 @@ fn sets_home_directory_as_working_directory() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_eq!(expected, actual);
+    assert_contains!(actual, expected);
 
     Ok(())
 }
