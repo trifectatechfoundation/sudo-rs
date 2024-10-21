@@ -8,7 +8,6 @@ use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{
     cond_fmt, handle_sigchld, signal_fmt, terminate_process, ExecOutput, HandleSigchld,
-    ProcessOutput,
 };
 use crate::exec::{
     io_util::retry_while_interrupted,
@@ -22,7 +21,9 @@ use crate::system::signal::{
 };
 use crate::system::term::{Pty, PtyFollower, PtyLeader, TermSize, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
-use crate::system::{chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User};
+use crate::system::{
+    chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User, _exit,
+};
 use crate::system::{getpgid, interface::ProcessId};
 
 use super::pipe::Pipe;
@@ -32,7 +33,7 @@ pub(in crate::exec) fn exec_pty(
     sudo_pid: ProcessId,
     mut command: Command,
     user_tty: UserTerm,
-) -> io::Result<ProcessOutput> {
+) -> io::Result<ExecOutput> {
     // Allocate a pseudoterminal.
     let pty = get_pty()?;
 
@@ -199,7 +200,8 @@ pub(in crate::exec) fn exec_pty(
             }
         }
 
-        return Ok(ProcessOutput::ChildExit);
+        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+        _exit(1);
     };
 
     // Close the file descriptors that we don't access
@@ -252,11 +254,9 @@ pub(in crate::exec) fn exec_pty(
         }
     }
 
-    Ok(ProcessOutput::SudoExit {
-        output: ExecOutput {
-            command_exit_reason: exit_reason?,
-            restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
-        },
+    Ok(ExecOutput {
+        command_exit_reason: exit_reason?,
+        restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
     })
 }
 

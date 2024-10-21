@@ -19,7 +19,6 @@ use crate::{
     common::Environment,
     log::dev_warn,
     system::{
-        _exit,
         interface::ProcessId,
         killpg,
         signal::{consts::*, signal_name},
@@ -46,14 +45,6 @@ use self::{
 /// Returns the [`ExitReason`] of the command and a function that restores the default handler for
 /// signals once its called.
 pub fn run_command(options: &impl RunOptions, env: Environment) -> io::Result<ExecOutput> {
-    match run_command_internal(options, env)? {
-        ProcessOutput::SudoExit { output } => Ok(output),
-        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-        ProcessOutput::ChildExit => _exit(1),
-    }
-}
-
-fn run_command_internal(options: &impl RunOptions, env: Environment) -> io::Result<ProcessOutput> {
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command()?;
     let mut command = Command::new(qualified_path);
@@ -125,13 +116,6 @@ pub struct ExecOutput {
     pub command_exit_reason: ExitReason,
     /// A function to restore the signal handlers that were modified to execute the command.
     pub restore_signal_handlers: Box<dyn FnOnce()>,
-}
-
-enum ProcessOutput {
-    // The main process exited.
-    SudoExit { output: ExecOutput },
-    // A forked child process exited.
-    ChildExit,
 }
 
 /// Exit reason for the command executed by sudo.
