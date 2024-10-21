@@ -634,13 +634,19 @@ impl Process {
     }
 }
 
-/// Read the n-th field (with 1-based indexing) from `/proc/<pid>/self`.
+/// Read the n-th field (with 0-based indexing) from `/proc/<pid>/self`.
 ///
 /// See ["Table 1-4: Contents of the stat fields" of "The /proc
 /// Filesystem"][proc_stat_fields] in the Linux docs for all available fields.
 ///
+/// IMPORTANT: the first two fields are not accessible with this routine.
+///
 /// [proc_stat_fields]: https://www.kernel.org/doc/html/latest/filesystems/proc.html#id10
 fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<T> {
+    // the first two fields are skipped by the code below, and we never need them,
+    // so no point in implementing code for it in this private function.
+    debug_assert!(field_idx >= 2);
+
     // read from a specific pid file, or use `self` to refer to our own process
     let pidref = pid.to_proc_string();
 
