@@ -960,4 +960,17 @@ mod tests {
         let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
         assert_eq!(status.exit_status(), Some(0));
     }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn proc_stat_test() {
+        use super::{read_proc_stat, Process, WithProcess::Current};
+        // the process is 'sleeping' (apparently)
+        assert_eq!("S", read_proc_stat::<String>(Current, 2).unwrap());
+        let parent = Process::parent_id().unwrap();
+        // field 3 is always the parent process
+        assert_eq!(parent, read_proc_stat::<i32>(Current, 3).unwrap());
+        // this next field should always be 0 (which precedes an important bit of info for us!)
+        assert_eq!(0, read_proc_stat::<i32>(Current, 20).unwrap());
+    }
 }
