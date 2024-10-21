@@ -600,7 +600,7 @@ impl Process {
     /// attached to the given process
     pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         // device id of tty is displayed as a signed integer of 32 bits
-        let data: i32 = read_proc_stat(pid, 7)?;
+        let data: i32 = read_proc_stat(pid, 7 /* tty_nr */)?;
         if data == 0 {
             Ok(None)
         } else {
@@ -615,7 +615,7 @@ impl Process {
 
     /// Get the process starting time of a specific process
     pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
-        let process_start: u64 = read_proc_stat(pid, 22)?;
+        let process_start: u64 = read_proc_stat(pid, 22 /* start_time */)?;
 
         // the startime field is stored in ticks since the system start, so we need to know how many
         // ticks go into a second
@@ -634,6 +634,12 @@ impl Process {
     }
 }
 
+/// Read the n-th field (with 1-based indexing) from `/proc/<pid>/self`.
+///
+/// See ["Table 1-4: Contents of the stat fields" of "The /proc
+/// Filesystem"][proc_stat_fields] in the Linux docs for all available fields.
+///
+/// [proc_stat_fields]: https://www.kernel.org/doc/html/latest/filesystems/proc.html#id10
 fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<T> {
     // read from a specific pid file, or use `self` to refer to our own process
     let pidref = pid.to_proc_string();
