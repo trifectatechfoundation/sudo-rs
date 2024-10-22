@@ -604,7 +604,7 @@ impl Process {
     /// attached to the given process
     pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         // device id of tty is displayed as a signed integer of 32 bits
-        let data: i32 = read_proc_stat(pid, 6)?;
+        let data: i32 = read_proc_stat(pid, 6 /* tty_nr */)?;
         if data == 0 {
             Ok(None)
         } else {
@@ -619,7 +619,7 @@ impl Process {
 
     /// Get the process starting time of a specific process
     pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
-        let process_start: u64 = read_proc_stat(pid, 21)?;
+        let process_start: u64 = read_proc_stat(pid, 21 /* start_time */)?;
 
         // the startime field is stored in ticks since the system start, so we need to know how many
         // ticks go into a second
@@ -638,7 +638,19 @@ impl Process {
     }
 }
 
+/// Read the n-th field (with 0-based indexing) from `/proc/<pid>/self`.
+///
+/// See ["Table 1-4: Contents of the stat fields" of "The /proc
+/// Filesystem"][proc_stat_fields] in the Linux docs for all available fields.
+///
+/// IMPORTANT: the first two fields are not accessible with this routine.
+///
+/// [proc_stat_fields]: https://www.kernel.org/doc/html/latest/filesystems/proc.html#id10
 fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<T> {
+    // the first two fields are skipped by the code below, and we never need them,
+    // so no point in implementing code for it in this private function.
+    debug_assert!(field_idx >= 2);
+
     // read from a specific pid file, or use `self` to refer to our own process
     let pidref = pid.to_proc_string();
 
@@ -966,5 +978,18 @@ mod tests {
 
         let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
         assert_eq!(status.exit_status(), Some(0));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn proc_stat_test() {
+        use super::{read_proc_stat, Process, WithProcess::Current};
+        // the process is 'sleeping' (apparently)
+        assert_eq!("S", read_proc_stat::<String>(Current, 2).unwrap());
+        let parent = Process::parent_id().unwrap();
+        // field 3 is always the parent process
+        assert_eq!(parent, read_proc_stat::<i32>(Current, 3).unwrap());
+        // this next field should always be 0 (which precedes an important bit of info for us!)
+        assert_eq!(0, read_proc_stat::<i32>(Current, 20).unwrap());
     }
 }

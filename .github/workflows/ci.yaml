@@ -295,11 +295,6 @@ jobs:
           sudo apt update
           sudo apt install libpam0g-dev
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "msrv"
-
       - name: Install rust-bindgen
         uses: taiki-e/install-action@v2
         with:
