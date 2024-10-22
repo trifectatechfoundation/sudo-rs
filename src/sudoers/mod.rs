@@ -443,7 +443,7 @@ fn in_group(user: &impl UnixUser, group: &impl UnixGroup) -> bool {
 
 fn match_group(group: &impl UnixGroup) -> impl Fn(&Identifier) -> bool + '_ {
     move |id| match id {
-        Identifier::ID(num) => group.as_gid().get() == *num,
+        Identifier::ID(num) => group.as_gid() == GroupId::new(*num),
         Identifier::Name(name) => group.try_as_name().map_or(false, |s| name == s),
     }
 }
