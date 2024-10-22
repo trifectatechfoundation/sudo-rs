@@ -157,7 +157,7 @@ impl<F: AsRawFd> Terminal for F {
     }
     /// Set the foreground process group ID associated with this terminalto `pgrp`.
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
-        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp.get()) }).map(|_| ())
+        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp.inner()) }).map(|_| ())
     }
 
     /// Make the given terminal the controlling terminal of the calling process.
@@ -246,7 +246,7 @@ mod tests {
             // Open a new pseudoterminal.
             let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.
-            assert_eq!(leader.tcgetpgrp().unwrap().get(), 0);
+            assert_eq!(leader.tcgetpgrp().unwrap().inner(), 0);
             // Create a new session so we can change the controlling terminal.
             setsid().unwrap();
             // Set the pty leader as the controlling terminal.

@@ -91,7 +91,7 @@ impl ParentMessage {
 
         let data = match self {
             ParentMessage::IoError(data) => *data,
-            ParentMessage::CommandPid(data) => data.get(),
+            ParentMessage::CommandPid(data) => data.inner(),
             ParentMessage::CommandStatus(status) => match status {
                 CommandStatus::Exit(data)
                 | CommandStatus::Term(data)

@@ -26,7 +26,7 @@ impl GroupId {
         Self(id)
     }
 
-    pub fn get(&self) -> libc::gid_t {
+    pub fn inner(&self) -> libc::gid_t {
         self.0
     }
 }
@@ -36,7 +36,7 @@ impl UserId {
         Self(id)
     }
 
-    pub fn get(&self) -> libc::uid_t {
+    pub fn inner(&self) -> libc::uid_t {
         self.0
     }
 
@@ -48,7 +48,7 @@ impl ProcessId {
         Self(id)
     }
 
-    pub fn get(&self) -> libc::pid_t {
+    pub fn inner(&self) -> libc::pid_t {
         self.0
     }
 
@@ -62,7 +62,7 @@ impl DeviceId {
         Self(id)
     }
 
-    pub fn get(&self) -> libc::dev_t {
+    pub fn inner(&self) -> libc::dev_t {
         self.0
     }
 }

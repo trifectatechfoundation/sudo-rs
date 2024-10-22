@@ -269,8 +269,8 @@ pub fn set_target_user(
                 // We can cast to gid_t because `GroupId` is marked as transparent
                 target_user.groups.as_ptr().cast::<libc::gid_t>(),
             ))?;
-            cerr(libc::setgid(target_group.gid.get()))?;
-            cerr(libc::setuid(target_user.uid.get()))?;
+            cerr(libc::setgid(target_group.gid.inner()))?;
+            cerr(libc::setuid(target_user.uid.inner()))?;
 
             Ok(())
         });
@@ -281,14 +281,14 @@ pub fn set_target_user(
 pub fn kill(pid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    cerr(unsafe { libc::kill(pid.get(), signal) }).map(|_| ())
+    cerr(unsafe { libc::kill(pid.inner(), signal) }).map(|_| ())
 }
 
 /// Send a signal to a process group with the specified ID.
 pub fn killpg(pgid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    cerr(unsafe { libc::killpg(pgid.get(), signal) }).map(|_| ())
+    cerr(unsafe { libc::killpg(pgid.inner(), signal) }).map(|_| ())
 }
 
 /// Get the process group ID of the current process.
@@ -300,14 +300,14 @@ pub fn getpgrp() -> ProcessId {
 /// Get a process group ID.
 pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
-    Ok(ProcessId::new(cerr(unsafe { libc::getpgid(pid.get()) })?))
+    Ok(ProcessId::new(cerr(unsafe { libc::getpgid(pid.inner()) })?))
 }
 
 /// Set a process group ID.
 pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` or `pgid` are not a valid process IDs:
     // https://pubs.opengroup.org/onlinepubs/007904975/functions/setpgid.html
-    cerr(unsafe { libc::setpgid(pid.get(), pgid.get()) }).map(|_| ())
+    cerr(unsafe { libc::setpgid(pid.inner(), pgid.inner()) }).map(|_| ())
 }
 
 pub fn chown<S: AsRef<CStr>>(
@@ -321,7 +321,7 @@ pub fn chown<S: AsRef<CStr>>(
 
     // SAFETY: path is a valid pointer to a null-terminated C string; chown cannot cause safety
     // issues even if uid and/or gid would be invalid identifiers.
-    cerr(unsafe { libc::chown(path, uid.get(), gid.get()) }).map(|_| ())
+    cerr(unsafe { libc::chown(path, uid.inner(), gid.inner()) }).map(|_| ())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -396,7 +396,7 @@ impl User {
         // but we never dereference `pwd_ptr`.
         cerr(unsafe {
             libc::getpwuid_r(
-                uid.get(),
+                uid.inner(),
                 pwd.as_mut_ptr(),
                 buf.as_mut_ptr(),
                 buf.len(),
@@ -493,7 +493,7 @@ impl Group {
         // SAFETY: analogous to getpwuid_r above
         cerr(unsafe {
             libc::getgrgid_r(
-                gid.get(),
+                gid.inner(),
                 grp.as_mut_ptr(),
                 buf.as_mut_ptr(),
                 buf.len(),

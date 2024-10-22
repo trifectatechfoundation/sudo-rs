@@ -348,9 +348,9 @@ impl RecordScope {
                 init_time,
             } => {
                 target.write_all(&[1u8])?;
-                let b = tty_device.get().to_le_bytes();
+                let b = tty_device.inner().to_le_bytes();
                 target.write_all(&b)?;
-                let b = session_pid.get().to_le_bytes();
+                let b = session_pid.inner().to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
@@ -359,7 +359,7 @@ impl RecordScope {
                 init_time,
             } => {
                 target.write_all(&[2u8])?;
-                let b = group_pid.get().to_le_bytes();
+                let b = group_pid.inner().to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
@@ -486,7 +486,7 @@ impl SessionRecord {
         self.scope.encode(target)?;
 
         // write user id
-        let buf = self.auth_user.get().to_le_bytes();
+        let buf = self.auth_user.inner().to_le_bytes();
         target.write_all(&buf)?;
 
         // write timestamp
