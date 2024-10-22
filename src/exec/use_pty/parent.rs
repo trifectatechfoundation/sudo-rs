@@ -182,7 +182,7 @@ pub(in crate::exec) fn exec_pty(
             file_closer,
             original_set,
         ) {
-            Ok(exec_output) => return Ok(exec_output),
+            Ok(exec_output) => match exec_output {},
             Err(err) => {
                 // Disable nonblocking assetions as we will not poll the backchannel anymore.
                 backchannels.monitor.set_nonblocking_assertions(true);
