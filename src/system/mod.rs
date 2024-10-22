@@ -971,8 +971,9 @@ mod tests {
     #[test]
     fn proc_stat_test() {
         use super::{read_proc_stat, Process, WithProcess::Current};
-        // the process is 'sleeping' (apparently)
-        assert_eq!("S", read_proc_stat::<String>(Current, 2).unwrap());
+        // The process can be 'sleeping' or 'running': it looks like the state field of /proc/pid/stat
+        // will show the state for the main thread of the process rather than for the process as a whole.
+        assert!("SR".contains(read_proc_stat::<char>(Current, 2).unwrap()));
         let parent = Process::parent_id().unwrap();
         // field 3 is always the parent process
         assert_eq!(parent, read_proc_stat::<i32>(Current, 3).unwrap());
