@@ -164,12 +164,13 @@ impl<F: AsRawFd> Terminal for F {
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
         // SAFETY: tcgetpgrp cannot cause UB
-        cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })
+        let id = cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })?;
+        Ok(ProcessId::new(id))
     }
     /// Set the foreground process group ID associated with this terminal to `pgrp`.
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
         // SAFETY: tcsetpgrp cannot cause UB
-        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp) }).map(|_| ())
+        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp.inner()) }).map(|_| ())
     }
 
     /// Make the given terminal the controlling terminal of the calling process.
@@ -201,7 +202,8 @@ impl<F: AsRawFd> Terminal for F {
 
     fn tcgetsid(&self) -> io::Result<ProcessId> {
         // SAFETY: tcgetsid cannot cause UB
-        cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })
+        let id = cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })?;
+        Ok(ProcessId::new(id))
     }
 }
 

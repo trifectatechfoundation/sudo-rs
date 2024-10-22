@@ -989,7 +989,10 @@ mod tests {
         assert!("SR".contains(read_proc_stat::<char>(Current, 2).unwrap()));
         let parent = Process::parent_id().unwrap();
         // field 3 is always the parent process
-        assert_eq!(parent, read_proc_stat::<i32>(Current, 3).unwrap());
+        assert_eq!(
+            parent,
+            ProcessId::new(read_proc_stat::<i32>(Current, 3).unwrap())
+        );
         // this next field should always be 0 (which precedes an important bit of info for us!)
         assert_eq!(0, read_proc_stat::<i32>(Current, 20).unwrap());
     }

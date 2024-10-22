@@ -5,13 +5,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{common::{resolve::is_valid_executable, SudoPath}, system::interface::UserId};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
 use crate::{
     common::{error::Error, resolve::CurrentUser, Environment},
     system::interface::ProcessId,
+};
+use crate::{
+    common::{resolve::is_valid_executable, SudoPath},
+    system::interface::UserId,
 };
 
 use super::cli::SuRunOptions;
