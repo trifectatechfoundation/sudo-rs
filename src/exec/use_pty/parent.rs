@@ -7,7 +7,7 @@ use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopRea
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{
-    cond_fmt, handle_sigchld, opt_fmt, signal_fmt, terminate_process, ExecOutput, HandleSigchld,
+    cond_fmt, handle_sigchld, signal_fmt, terminate_process, ExecOutput, HandleSigchld,
     ProcessOutput,
 };
 use crate::exec::{
@@ -617,12 +617,7 @@ impl ParentClosure {
             }
         };
 
-        dev_info!(
-            "parent received{} {} from {}",
-            opt_fmt(info.is_user_signaled(), " user signaled"),
-            info.signal(),
-            info.pid()
-        );
+        dev_info!("parent received{}", info);
 
         let Some(monitor_pid) = self.monitor_pid else {
             dev_info!("monitor was terminated, ignoring signal");
@@ -639,10 +634,17 @@ impl ParentClosure {
                     dev_warn!("cannot resize terminal: {}", err);
                 }
             }
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            // FIXME: check `send_command_status`
-            signal => self.schedule_signal(signal, registry),
+            signal => {
+                if let Some(pid) = info.signaler_pid() {
+                    if self.is_self_terminating(pid) {
+                        // Skip the signal if it was sent by the user and it is self-terminating.
+                        return;
+                    }
+                }
+
+                // FIXME: check `send_command_status`
+                self.schedule_signal(signal, registry)
+            }
         }
     }
 
