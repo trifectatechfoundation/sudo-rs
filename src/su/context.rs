@@ -5,11 +5,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::common::{error::Error, resolve::CurrentUser, Environment};
-use crate::common::{resolve::is_valid_executable, SudoPath};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
+use crate::{
+    common::{error::Error, resolve::CurrentUser, Environment},
+    system::interface::ProcessId,
+};
+use crate::{
+    common::{resolve::is_valid_executable, SudoPath},
+    system::interface::UserId,
+};
 
 use super::cli::SuRunOptions;
 
@@ -79,7 +85,7 @@ impl SuContext {
             .ok_or_else(|| Error::UserNotFound(options.user.clone().into()))?;
 
         // check the current user is root
-        let is_current_root = User::real_uid() == 0;
+        let is_current_root = User::real_uid() == UserId::ROOT;
         let is_target_root = options.user == "root";
 
         // only root can set a (additional) group
@@ -237,7 +243,7 @@ impl RunOptions for SuContext {
         &self.group
     }
 
-    fn pid(&self) -> i32 {
+    fn pid(&self) -> ProcessId {
         self.process.pid
     }
 

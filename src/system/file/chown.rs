@@ -15,6 +15,6 @@ impl Chown for File {
 
         // SAFETY: `fchown` is passed a proper file descriptor; and even if the user/group id
         // is invalid, it will not cause UB.
-        cerr(unsafe { libc::fchown(fd, owner, group) }).map(|_| ())
+        cerr(unsafe { libc::fchown(fd, owner.inner(), group.inner()) }).map(|_| ())
     }
 }

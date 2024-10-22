@@ -23,7 +23,8 @@ impl SignalInfo {
     pub(crate) fn signaler_pid(&self) -> Option<ProcessId> {
         if self.is_user_signaled() {
             // SAFETY: si_pid is always initialized if the signal is user signaled.
-            unsafe { Some(self.info.si_pid()) }
+            let id = unsafe { self.info.si_pid() };
+            Some(ProcessId::new(id))
         } else {
             None
         }

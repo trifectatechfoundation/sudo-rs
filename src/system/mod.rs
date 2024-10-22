@@ -136,7 +136,7 @@ pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
     if pid == 0 {
         Ok(ForkResult::Child)
     } else {
-        Ok(ForkResult::Parent(pid))
+        Ok(ForkResult::Parent(ProcessId::new(pid)))
     }
 }
 
@@ -163,7 +163,7 @@ unsafe fn fork_for_test() -> ForkResult {
 
 pub fn setsid() -> io::Result<ProcessId> {
     // SAFETY: this function is memory-safe to call
-    cerr(unsafe { libc::setsid() })
+    Ok(ProcessId::new(cerr(unsafe { libc::setsid() })?))
 }
 
 #[derive(Clone)]
@@ -266,10 +266,11 @@ pub fn set_target_user(
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
                 target_user.groups.len(),
-                target_user.groups.as_ptr(),
+                // We can cast to gid_t because `GroupId` is marked as transparent
+                target_user.groups.as_ptr().cast::<libc::gid_t>(),
             ))?;
-            cerr(libc::setgid(target_group.gid))?;
-            cerr(libc::setuid(target_user.uid))?;
+            cerr(libc::setgid(target_group.gid.inner()))?;
+            cerr(libc::setuid(target_user.uid.inner()))?;
 
             Ok(())
         });
@@ -280,33 +281,33 @@ pub fn set_target_user(
 pub fn kill(pid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    cerr(unsafe { libc::kill(pid, signal) }).map(|_| ())
+    cerr(unsafe { libc::kill(pid.inner(), signal) }).map(|_| ())
 }
 
 /// Send a signal to a process group with the specified ID.
 pub fn killpg(pgid: ProcessId, signal: SignalNumber) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pgid` is not a valid process ID or if
     // `signal` is not a valid signal code.
-    cerr(unsafe { libc::killpg(pgid, signal) }).map(|_| ())
+    cerr(unsafe { libc::killpg(pgid.inner(), signal) }).map(|_| ())
 }
 
 /// Get the process group ID of the current process.
 pub fn getpgrp() -> ProcessId {
     // SAFETY: This function is always safe to call
-    unsafe { libc::getpgrp() }
+    ProcessId::new(unsafe { libc::getpgrp() })
 }
 
 /// Get a process group ID.
 pub fn getpgid(pid: ProcessId) -> io::Result<ProcessId> {
     // SAFETY: This function cannot cause UB even if `pid` is not a valid process ID
-    cerr(unsafe { libc::getpgid(pid) })
+    Ok(ProcessId::new(cerr(unsafe { libc::getpgid(pid.inner()) })?))
 }
 
 /// Set a process group ID.
 pub fn setpgid(pid: ProcessId, pgid: ProcessId) -> io::Result<()> {
     // SAFETY: This function cannot cause UB even if `pid` or `pgid` are not a valid process IDs:
     // https://pubs.opengroup.org/onlinepubs/007904975/functions/setpgid.html
-    cerr(unsafe { libc::setpgid(pid, pgid) }).map(|_| ())
+    cerr(unsafe { libc::setpgid(pid.inner(), pgid.inner()) }).map(|_| ())
 }
 
 pub fn chown<S: AsRef<CStr>>(
@@ -320,7 +321,7 @@ pub fn chown<S: AsRef<CStr>>(
 
     // SAFETY: path is a valid pointer to a null-terminated C string; chown cannot cause safety
     // issues even if uid and/or gid would be invalid identifiers.
-    cerr(unsafe { libc::chown(path, uid, gid) }).map(|_| ())
+    cerr(unsafe { libc::chown(path, uid.inner(), gid.inner()) }).map(|_| ())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -370,14 +371,17 @@ impl User {
         });
 
         Ok(User {
-            uid: pwd.pw_uid,
-            gid: pwd.pw_gid,
+            uid: UserId::new(pwd.pw_uid),
+            gid: GroupId::new(pwd.pw_gid),
             name: SudoString::new(string_from_ptr(pwd.pw_name))?,
             gecos: string_from_ptr(pwd.pw_gecos),
             home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
             shell: os_string_from_ptr(pwd.pw_shell).into(),
             passwd: string_from_ptr(pwd.pw_passwd),
-            groups: groups_buffer,
+            groups: groups_buffer
+                .iter()
+                .map(|id| GroupId::new(*id))
+                .collect::<Vec<_>>(),
         })
     }
 
@@ -392,7 +396,7 @@ impl User {
         // but we never dereference `pwd_ptr`.
         cerr(unsafe {
             libc::getpwuid_r(
-                uid,
+                uid.inner(),
                 pwd.as_mut_ptr(),
                 buf.as_mut_ptr(),
                 buf.len(),
@@ -412,22 +416,22 @@ impl User {
 
     pub fn effective_uid() -> UserId {
         // SAFETY: this function cannot cause memory safety issues
-        unsafe { libc::geteuid() }
+        UserId::new(unsafe { libc::geteuid() })
     }
 
     pub fn effective_gid() -> GroupId {
         // SAFETY: this function cannot cause memory safety issues
-        unsafe { libc::getegid() }
+        GroupId::new(unsafe { libc::getegid() })
     }
 
     pub fn real_uid() -> UserId {
         // SAFETY: this function cannot cause memory safety issues
-        unsafe { libc::getuid() }
+        UserId::new(unsafe { libc::getuid() })
     }
 
     pub fn real_gid() -> GroupId {
         // SAFETY: this function cannot cause memory safety issues
-        unsafe { libc::getgid() }
+        GroupId::new(unsafe { libc::getgid() })
     }
 
     pub fn real() -> Result<Option<User>, Error> {
@@ -476,7 +480,7 @@ impl Group {
     /// null-terminated list; the pointed-to strings are expected to be null-terminated.
     unsafe fn from_libc(grp: &libc::group) -> Group {
         Group {
-            gid: grp.gr_gid,
+            gid: GroupId::new(grp.gr_gid),
             name: string_from_ptr(grp.gr_name),
         }
     }
@@ -489,7 +493,7 @@ impl Group {
         // SAFETY: analogous to getpwuid_r above
         cerr(unsafe {
             libc::getgrgid_r(
-                gid,
+                gid.inner(),
                 grp.as_mut_ptr(),
                 buf.as_mut_ptr(),
                 buf.len(),
@@ -574,15 +578,15 @@ impl Process {
     pub fn process_id() -> ProcessId {
         // NOTE libstd casts the `i32` that `libc::getpid` returns into `u32`
         // here we cast it back into `i32` (`ProcessId`)
-        std::process::id() as ProcessId
+        ProcessId::new(std::process::id() as i32)
     }
 
     /// Return the parent process identifier for the current process
     pub fn parent_id() -> Option<ProcessId> {
         // NOTE libstd casts the `i32` that `libc::getppid` returns into `u32`
         // here we cast it back into `i32` (`ProcessId`)
-        let pid = unix::process::parent_id() as ProcessId;
-        if pid == 0 {
+        let pid = ProcessId::new(unix::process::parent_id() as i32);
+        if !pid.is_valid() {
             None
         } else {
             Some(pid)
@@ -593,7 +597,7 @@ impl Process {
     pub fn session_id() -> ProcessId {
         // SAFETY: this function is explicitly safe to call with argument 0,
         // and more generally getsid will never cause memory safety issues.
-        unsafe { libc::getsid(0) }
+        ProcessId::new(unsafe { libc::getsid(0) })
     }
 
     /// Returns the device identifier of the TTY device that is currently
@@ -609,7 +613,7 @@ impl Process {
             // int. We convert via u32 because a direct conversion to DeviceId
             // would use sign extension, which would result in a different bit
             // representation
-            Ok(Some(data as u32 as DeviceId))
+            Ok(Some(DeviceId::new(data as u64)))
         }
     }
 
@@ -734,6 +738,8 @@ mod tests {
 
     use libc::SIGKILL;
 
+    use crate::system::interface::{GroupId, ProcessId, UserId};
+
     use super::{
         fork_for_test, getpgrp, setpgid,
         wait::{Wait, WaitOptions},
@@ -759,7 +765,7 @@ mod tests {
     #[test]
     fn test_get_user_and_group_by_id() {
         let fixed_users = &[
-            (0, "root"),
+            (UserId::ROOT, "root"),
             (
                 User::from_name(cstr!("daemon")).unwrap().unwrap().uid,
                 "daemon",
@@ -767,11 +773,12 @@ mod tests {
         ];
         for &(id, name) in fixed_users {
             let root = User::from_uid(id).unwrap().unwrap();
-            assert_eq!(root.uid, id as libc::uid_t);
+            assert_eq!(root.uid, id);
             assert_eq!(root.name, name);
         }
+
         let fixed_groups = &[
-            (0, ROOT_GROUP_NAME),
+            (GroupId::new(0), ROOT_GROUP_NAME),
             (
                 Group::from_name(cstr!("daemon")).unwrap().unwrap().gid,
                 "daemon",
@@ -779,7 +786,7 @@ mod tests {
         ];
         for &(id, name) in fixed_groups {
             let root = Group::from_gid(id).unwrap().unwrap();
-            assert_eq!(root.gid, id as libc::gid_t);
+            assert_eq!(root.gid, id);
             assert_eq!(root.name, name);
         }
     }
@@ -812,7 +819,7 @@ mod tests {
                 },
                 Group {
                     name: name.to_string(),
-                    gid,
+                    gid: GroupId::new(gid),
                 }
             )
         }
@@ -840,8 +847,11 @@ mod tests {
         use super::{getpgid, setpgid};
 
         let pgrp = getpgrp();
-        assert_eq!(getpgid(0).unwrap(), pgrp);
-        assert_eq!(getpgid(std::process::id() as i32).unwrap(), pgrp);
+        assert_eq!(getpgid(ProcessId::new(0)).unwrap(), pgrp);
+        assert_eq!(
+            getpgid(ProcessId::new(std::process::id() as i32)).unwrap(),
+            pgrp
+        );
 
         // FIXME fork will deadlock when this test panics if it forked while
         // another test was panicking.
@@ -852,7 +862,10 @@ mod tests {
             }
             ForkResult::Parent(child_pid) => {
                 // The child should be in our process group.
-                assert_eq!(getpgid(child_pid).unwrap(), getpgid(0).unwrap(),);
+                assert_eq!(
+                    getpgid(child_pid).unwrap(),
+                    getpgid(ProcessId::new(0)).unwrap(),
+                );
                 // Move the child to its own process group
                 setpgid(child_pid, child_pid).unwrap();
                 // The process group of the child should have changed.
@@ -866,7 +879,7 @@ mod tests {
             .arg("1")
             .spawn()
             .unwrap();
-        super::kill(child.id() as i32, SIGKILL).unwrap();
+        super::kill(ProcessId::new(child.id() as i32), SIGKILL).unwrap();
         assert!(!child.wait().unwrap().success());
     }
     #[test]
@@ -976,7 +989,10 @@ mod tests {
         assert!("SR".contains(read_proc_stat::<char>(Current, 2).unwrap()));
         let parent = Process::parent_id().unwrap();
         // field 3 is always the parent process
-        assert_eq!(parent, read_proc_stat::<i32>(Current, 3).unwrap());
+        assert_eq!(
+            parent,
+            ProcessId::new(read_proc_stat::<i32>(Current, 3).unwrap())
+        );
         // this next field should always be 0 (which precedes an important bit of info for us!)
         assert_eq!(0, read_proc_stat::<i32>(Current, 20).unwrap());
     }
