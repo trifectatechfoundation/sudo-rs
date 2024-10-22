@@ -184,7 +184,7 @@ pub(in crate::exec) fn exec_pty(
         ) {
             Ok(exec_output) => match exec_output {},
             Err(err) => {
-                // Disable nonblocking assetions as we will not poll the backchannel anymore.
+                // Disable nonblocking assertions as we will not poll the backchannel anymore.
                 backchannels.monitor.set_nonblocking_assertions(true);
 
                 match err.try_into() {

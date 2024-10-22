@@ -67,7 +67,7 @@ pub(super) fn exec_monitor(
     })?;
 
     // Use a pipe to get the IO error if `exec_command` fails.
-    let (mut errpipe_tx, errpipe_rx) = BinPipe::pair()?;
+    let (errpipe_tx, errpipe_rx) = BinPipe::pair()?;
 
     // Don't close the error pipe as we need it to retrieve the error code if the command execution
     // fails.
@@ -93,16 +93,14 @@ pub(super) fn exec_monitor(
     else {
         drop(errpipe_rx);
 
-        let err = exec_command(command, foreground, pty_follower, file_closer, original_set);
-        dev_warn!("failed to execute command: {err}");
-        // If `exec_command` returns, it means that executing the command failed. Send the error to
-        // the monitor using the pipe.
-        if let Some(error_code) = err.raw_os_error() {
-            errpipe_tx.write(&error_code).ok();
-        }
-
-        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-        _exit(1);
+        match exec_command(
+            command,
+            foreground,
+            pty_follower,
+            file_closer,
+            errpipe_tx,
+            original_set,
+        ) {}
     };
 
     // Send the command's PID to the parent.
@@ -190,14 +188,14 @@ pub(super) fn exec_monitor(
     _exit(1);
 }
 
-// FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 fn exec_command(
     mut command: Command,
     foreground: bool,
     pty_follower: PtyFollower,
     file_closer: FileCloser,
+    mut errpipe_tx: BinPipe<i32, i32>,
     original_set: Option<SignalSet>,
-) -> io::Error {
+) -> ! {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
     let command_pid = ProcessId::new(std::process::id() as i32);
 
@@ -222,10 +220,27 @@ fn exec_command(
     }
 
     if let Err(err) = file_closer.close_the_universe() {
-        return err;
+        dev_warn!("failed to close the universe: {err}");
+        // Send the error to the monitor using the pipe.
+        if let Some(error_code) = err.raw_os_error() {
+            errpipe_tx.write(&error_code).ok();
+        }
+
+        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+        _exit(1);
     }
 
-    command.exec()
+    let err = command.exec();
+
+    dev_warn!("failed to execute command: {err}");
+    // If `exec_command` returns, it means that executing the command failed. Send the error to
+    // the monitor using the pipe.
+    if let Some(error_code) = err.raw_os_error() {
+        errpipe_tx.write(&error_code).ok();
+    }
+
+    // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+    _exit(1);
 }
 
 struct MonitorClosure<'a> {
