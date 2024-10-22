@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::common::{resolve::is_valid_executable, SudoPath};
+use crate::{common::{resolve::is_valid_executable, SudoPath}, system::interface::UserId};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
@@ -82,7 +82,7 @@ impl SuContext {
             .ok_or_else(|| Error::UserNotFound(options.user.clone().into()))?;
 
         // check the current user is root
-        let is_current_root = User::real_uid().get() == 0;
+        let is_current_root = User::real_uid() == UserId::ROOT;
         let is_target_root = options.user == "root";
 
         // only root can set a (additional) group
