@@ -414,7 +414,7 @@ fn is_self_terminating(
     command_pid: ProcessId,
     command_pgrp: ProcessId,
 ) -> bool {
-    if signaler_pid.get() != 0 {
+    if signaler_pid.is_valid() {
         if signaler_pid == command_pid {
             return true;
         }

@@ -586,7 +586,7 @@ impl Process {
         // NOTE libstd casts the `i32` that `libc::getppid` returns into `u32`
         // here we cast it back into `i32` (`ProcessId`)
         let pid = ProcessId::new(unix::process::parent_id() as i32);
-        if pid.get() == 0 {
+        if !pid.is_valid() {
             None
         } else {
             Some(pid)

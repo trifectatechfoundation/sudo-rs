@@ -51,6 +51,10 @@ impl ProcessId {
     pub fn get(&self) -> libc::pid_t {
         self.0
     }
+
+    pub fn is_valid(&self) -> bool {
+        self.0 != 0
+    }
 }
 
 impl DeviceId {
