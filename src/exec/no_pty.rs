@@ -4,7 +4,7 @@ use super::{
     event::PollEvent,
     event::{EventRegistry, Process, StopReason},
     io_util::was_interrupted,
-    terminate_process, ExitReason, HandleSigchld, ProcessOutput,
+    terminate_process, ExecOutput, ExitReason, HandleSigchld,
 };
 use crate::{
     common::bin_serde::BinPipe,
@@ -17,7 +17,7 @@ use crate::{
     exec::{handle_sigchld, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        fork, getpgid, getpgrp,
+        _exit, fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
         term::{Terminal, UserTerm},
@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ProcessOutput> {
+pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ExecOutput> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
@@ -74,7 +74,8 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
             errpipe_tx.write(&error_code).ok();
         }
 
-        return Ok(ProcessOutput::ChildExit);
+        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+        _exit(1);
     };
 
     dev_info!("executed command with pid {command_pid}");
@@ -95,11 +96,9 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         StopReason::Exit(reason) => reason,
     };
 
-    Ok(ProcessOutput::SudoExit {
-        output: crate::exec::ExecOutput {
-            command_exit_reason,
-            restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
-        },
+    Ok(crate::exec::ExecOutput {
+        command_exit_reason,
+        restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
     })
 }
 
