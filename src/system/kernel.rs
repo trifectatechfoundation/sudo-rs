@@ -1,37 +1,40 @@
 use std::ffi::CStr;
 
-use std::mem::zeroed;
+use std::mem::MaybeUninit;
 
-use crate::common::Error;
+use crate::{common::Error, cutils::cerr};
 
-pub fn kernel_check(major: u32, minor: u32) -> Result<(), Error> {
-    let mut utsname: libc::utsname = unsafe { zeroed() };
+#[cfg(target_os = "linux")]
+pub fn kernel_check(target_major: u32, target_minor: u32) -> Result<(), Error> {
+    let mut utsname = MaybeUninit::uninit();
 
-    if unsafe { libc::uname(&mut utsname) } != 0 {
-        // Could not get the kernel version. Try to run anyway
-        return Ok(());
-    }
+    // SAFETY: uname is passed a correct pointer
+    cerr(unsafe { libc::uname(utsname.as_mut_ptr()) })?;
 
-    let release = unsafe { CStr::from_ptr(utsname.release.as_ptr()) }
-        .to_string_lossy()
-        .into_owned();
+    // SAFETY: since uname exited normally, the struct is now initialized
+    let utsname = unsafe { utsname.assume_init() };
 
-    let version_parts: Vec<&str> = release.split('.').collect();
-
-    if version_parts.len() < 2 {
-        // Could not get the kernel version. Try to run anyway
-        return Ok(());
-    }
+    // SAFETY: utsname.release will hold a null-terminated C string
+    let release = unsafe { CStr::from_ptr(utsname.release.as_ptr()) }.to_string_lossy();
 
     // Parse the major and minor version numbers
-    if let (Ok(major_version), Ok(minor_version)) = (
-        version_parts[0].parse::<u32>(),
-        version_parts[1].parse::<u32>(),
-    ) {
-        if major_version > major || (major_version == major && minor_version >= minor) {
-            return Ok(());
+    let mut version_parts = release.split('.').map_while(|x| x.parse::<u32>().ok());
+
+    match (version_parts.next(), version_parts.next()) {
+        (Some(major), Some(minor)) if (major, minor) < (target_major, target_minor) => {
+            // We have determined that this Linux kernel is too old.
+            Err(Error::KernelCheck)
+        }
+        _ => {
+            // We have not been able to prove that sudo-rs is incompatible with this kernel
+            // and are giving the benefit of the doubt.
+            Ok(())
         }
     }
+}
 
+#[cfg(not(target_os = "linux"))]
+pub fn kernel_check(target_major: u32, target_minor: u32) -> Result<(), Error> {
+    // if someone managed to compile this on anything else than Linux: your luck runs out here
     Err(Error::KernelCheck)
 }
