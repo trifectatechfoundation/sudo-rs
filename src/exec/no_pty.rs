@@ -56,14 +56,14 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         err
     })?
     else {
-        file_closer.close_the_universe()?;
-
         // Restore the signal mask now that the handlers have been setup.
         if let Some(set) = original_set {
             if let Err(err) = set.set_mask() {
                 dev_warn!("cannot restore signal mask: {err}");
             }
         }
+
+        file_closer.close_the_universe()?;
 
         let err = command.exec();
 

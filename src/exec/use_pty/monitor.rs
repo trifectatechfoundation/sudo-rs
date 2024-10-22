@@ -214,15 +214,15 @@ fn exec_command(
     // Done with the pty follower.
     drop(pty_follower);
 
-    if let Err(err) = file_closer.close_the_universe() {
-        return err;
-    }
-
     // Restore the signal mask now that the handlers have been setup.
     if let Some(set) = original_set {
         if let Err(err) = set.set_mask() {
             dev_warn!("cannot restore signal mask: {err}");
         }
+    }
+
+    if let Err(err) = file_closer.close_the_universe() {
+        return err;
     }
 
     command.exec()
