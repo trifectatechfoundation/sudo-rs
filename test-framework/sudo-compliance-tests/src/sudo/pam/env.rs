@@ -1,3 +1,5 @@
+#![cfg(not(target_os = "freebsd"))] // FreeBSD doesn't have pam_env.so
+
 // `pam_env` module integration
 // see 'Command execution' section in `man sudoers`
 
@@ -55,7 +57,6 @@ fn stock_pam_d_sudo() -> Result<()> {
             .stdout()?;
     }
 
-    /*
     let security_pam_env = Command::new("cat")
         .arg(SECURITY_PAM_ENV_PATH)
         .output(&env)?
@@ -67,7 +68,6 @@ fn stock_pam_d_sudo() -> Result<()> {
         "stock {} file has changed; variable `STOCK_SECURITY_PAM_ENV` needs to be updated",
         SECURITY_PAM_ENV_PATH
     );
-    */
 
     Ok(())
 }
