@@ -1,13 +1,13 @@
 use std::ffi::OsString;
 
+use crate::common::context::LaunchType;
 use crate::common::error::Error;
 use crate::log::{dev_info, user_warn};
 use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
 use crate::system::term::current_tty_name;
 
 pub(super) struct InitPamArgs<'a> {
-    pub(super) is_login_shell: bool,
-    pub(super) is_shell: bool,
+    pub(super) launch: LaunchType,
     pub(super) use_stdin: bool,
     pub(super) non_interactive: bool,
     pub(super) password_feedback: bool,
@@ -20,8 +20,7 @@ pub(super) struct InitPamArgs<'a> {
 
 pub(super) fn init_pam(
     InitPamArgs {
-        is_login_shell,
-        is_shell,
+        launch,
         use_stdin,
         non_interactive,
         password_feedback,
@@ -32,10 +31,9 @@ pub(super) fn init_pam(
         hostname,
     }: InitPamArgs,
 ) -> PamResult<PamContext> {
-    let service_name = if is_login_shell && cfg!(feature = "pam-login") {
-        "sudo-i"
-    } else {
-        "sudo"
+    let service_name = match launch {
+        LaunchType::Login if cfg!(feature = "pam-login") => "sudo-i",
+        LaunchType::Login | LaunchType::Shell | LaunchType::Direct => "sudo",
     };
     let mut pam = PamContext::new_cli(
         "sudo",
@@ -45,7 +43,7 @@ pub(super) fn init_pam(
         password_feedback,
         None,
     )?;
-    pam.mark_silent(!is_shell && !is_login_shell);
+    pam.mark_silent(matches!(launch, LaunchType::Direct));
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
     pam.set_user(auth_user)?;

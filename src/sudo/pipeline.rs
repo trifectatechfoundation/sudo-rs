@@ -3,7 +3,6 @@ use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use super::diagnostic;
-use crate::common::context::LaunchType;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
 use crate::exec::{ExecOutput, ExitReason};
@@ -173,8 +172,7 @@ fn auth_and_update_record_file(
     };
 
     let mut pam_context = init_pam(InitPamArgs {
-        is_login_shell: matches!(context.launch, LaunchType::Login),
-        is_shell: matches!(context.launch, LaunchType::Shell),
+        launch: context.launch,
         use_stdin: context.stdin,
         non_interactive: context.non_interactive,
         password_feedback: context.password_feedback,
