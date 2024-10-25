@@ -1,6 +1,6 @@
-<!-- ---
+---
 title: VISUDO(8) sudo-rs 0.2.4 | sudo-rs
---- -->
+---
 
 # NAME
 
