@@ -219,7 +219,9 @@ fn exec_command(
         }
     }
 
-    if let Err(err) = file_closer.close_the_universe() {
+    // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
+    // and errpipe before exiting without running atexit handlers using _exit
+    if let Err(err) = unsafe { file_closer.close_the_universe() } {
         dev_warn!("failed to close the universe: {err}");
         // Send the error to the monitor using the pipe.
         if let Some(error_code) = err.raw_os_error() {

@@ -63,7 +63,11 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
             }
         }
 
-        file_closer.close_the_universe()?;
+        // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
+        // and errpipe before exiting without running atexit handlers using _exit
+        unsafe {
+            file_closer.close_the_universe()?;
+        }
 
         let err = command.exec();
 
