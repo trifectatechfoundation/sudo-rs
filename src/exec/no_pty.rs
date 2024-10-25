@@ -65,8 +65,15 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
 
         // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
         // and errpipe before exiting without running atexit handlers using _exit
-        unsafe {
-            file_closer.close_the_universe()?;
+        if let Err(err) = unsafe { file_closer.close_the_universe() } {
+            dev_warn!("failed to close the universe: {err}");
+            // Send the error to the monitor using the pipe.
+            if let Some(error_code) = err.raw_os_error() {
+                errpipe_tx.write(&error_code).ok();
+            }
+
+            // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+            _exit(1);
         }
 
         let err = command.exec();
