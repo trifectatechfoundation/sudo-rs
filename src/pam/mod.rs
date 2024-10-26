@@ -57,6 +57,8 @@ impl<C: Converser> PamContextBuilder<C> {
             }));
 
             let mut pamh = std::ptr::null_mut();
+            // SAFETY: we are passing the required fields to `pam_start`; in particular, the value
+            // of `pamh` set above is not used, but will be overwritten by `pam_start`.
             let res = unsafe {
                 pam_start(
                     c_service_name.as_ptr(),
@@ -140,7 +142,7 @@ impl<C: Converser> PamContext<C> {
     /// Get the PAM flag value for the silent flag
     fn silent_flag(&self) -> i32 {
         if self.silent {
-            PAM_SILENT
+            PAM_SILENT as _
         } else {
             0
         }
@@ -151,7 +153,7 @@ impl<C: Converser> PamContext<C> {
         if self.allow_null_auth_token {
             0
         } else {
-            PAM_DISALLOW_NULL_AUTHTOK
+            PAM_DISALLOW_NULL_AUTHTOK as _
         }
     }
 
@@ -161,6 +163,7 @@ impl<C: Converser> PamContext<C> {
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
 
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
         pam_err(unsafe { pam_authenticate(self.pamh, flags) })?;
 
         if self.has_panicked() {
@@ -175,6 +178,7 @@ impl<C: Converser> PamContext<C> {
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
 
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
         pam_err(unsafe { pam_acct_mgmt(self.pamh, flags) })
     }
 
@@ -195,22 +199,31 @@ impl<C: Converser> PamContext<C> {
     /// Set the user that will be authenticated.
     pub fn set_user(&mut self, user: &str) -> PamResult<()> {
         let c_user = CString::new(user)?;
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
+        // `c_user.as_ptr()` will point to a correct null-terminated string.
         pam_err(unsafe {
-            pam_set_item(self.pamh, PAM_USER, c_user.as_ptr() as *const libc::c_void)
+            pam_set_item(
+                self.pamh,
+                PAM_USER as _,
+                c_user.as_ptr() as *const libc::c_void,
+            )
         })
     }
 
     /// Get the user that is currently active in the PAM handle
     pub fn get_user(&mut self) -> PamResult<String> {
         let mut data = std::ptr::null();
-        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER, &mut data) })?;
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
+        pam_err(unsafe { pam_get_item(self.pamh, PAM_USER as _, &mut data) })?;
 
-        // safety check to make sure that we do not ready a null ptr into a cstr
+        // safety check to make sure that we were not passed a null pointer by PAM,
+        // or that in fact PAM did not write to `data` at all.
         if data.is_null() {
             return Err(PamError::InvalidState);
         }
 
-        // unsafe conversion to cstr
+        // SAFETY: the contract for `pam_get_item` ensures that if `data` was touched by
+        // `pam_get_item`, it will point to a valid null-terminated string.
         let cstr = unsafe { CStr::from_ptr(data as *const c_char) };
 
         Ok(cstr.to_str()?.to_owned())
@@ -219,13 +232,29 @@ impl<C: Converser> PamContext<C> {
     /// Set the TTY path for the current TTY that this PAM session started from.
     pub fn set_tty<P: AsRef<OsStr>>(&mut self, tty_path: P) -> PamResult<()> {
         let data = CString::new(tty_path.as_ref().as_bytes())?;
-        pam_err(unsafe { pam_set_item(self.pamh, PAM_TTY, data.as_ptr() as *const libc::c_void) })
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
+        // `data.as_ptr()` will point to a correct null-terminated string.
+        pam_err(unsafe {
+            pam_set_item(
+                self.pamh,
+                PAM_TTY as _,
+                data.as_ptr() as *const libc::c_void,
+            )
+        })
     }
 
     // Set the user that requested the actions in this PAM instance.
     pub fn set_requesting_user(&mut self, user: &str) -> PamResult<()> {
         let data = CString::new(user.as_bytes())?;
-        pam_err(unsafe { pam_set_item(self.pamh, PAM_RUSER, data.as_ptr() as *const libc::c_void) })
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
+        // `data.as_ptr()` will point to a correct null-terminated string.
+        pam_err(unsafe {
+            pam_set_item(
+                self.pamh,
+                PAM_RUSER as _,
+                data.as_ptr() as *const libc::c_void,
+            )
+        })
     }
 
     /// Re-initialize the credentials stored in PAM
@@ -238,6 +267,7 @@ impl<C: Converser> PamContext<C> {
         let mut flags = action;
         flags |= self.silent_flag();
 
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
         pam_err(unsafe { pam_setcred(self.pamh, flags) })
     }
 
@@ -250,14 +280,16 @@ impl<C: Converser> PamContext<C> {
         let mut flags = 0;
         flags |= self.silent_flag();
         if expired_only {
-            flags |= PAM_CHANGE_EXPIRED_AUTHTOK;
+            flags |= PAM_CHANGE_EXPIRED_AUTHTOK as libc::c_int;
         }
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
         pam_err(unsafe { pam_chauthtok(self.pamh, flags) })
     }
 
     /// Start a user session for the authenticated user.
     pub fn open_session(&mut self) -> PamResult<()> {
         if !self.session_started {
+            // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
             pam_err(unsafe { pam_open_session(self.pamh, self.silent_flag()) })?;
             self.session_started = true;
             Ok(())
@@ -269,6 +301,7 @@ impl<C: Converser> PamContext<C> {
     /// End the user session.
     pub fn close_session(&mut self) -> PamResult<()> {
         if self.session_started {
+            // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
             pam_err(unsafe { pam_close_session(self.pamh, self.silent_flag()) })?;
             self.session_started = false;
             Ok(())
@@ -280,13 +313,25 @@ impl<C: Converser> PamContext<C> {
     /// Get a full listing of the current PAM environment
     pub fn env(&mut self) -> PamResult<HashMap<OsString, OsString>> {
         let mut res = HashMap::new();
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
+        // The man page for pam_getenvlist states that:
+        //    The format of the memory is a malloc()'d array of char pointers, the last element
+        //    of which is set to NULL. Each of the non-NULL entries in this array point to a
+        //    NUL terminated and malloc()'d char string of the form: "name=value".
+        //
+        //    The pam_getenvlist function returns NULL on failure.
         let envs = unsafe { pam_getenvlist(self.pamh) };
         if envs.is_null() {
             return Err(PamError::EnvListFailure);
         }
         let mut curr_env = envs;
+        // SAFETY: the loop invariant is as follows:
+        // - `curr_env` itself is always a valid pointer to an array of valid (possibly NULL) pointers
+        // - if `curr_env` points to a pointer that is not-null, that data is a c-string allocated by malloc()
+        // - `curr_env` points to NULL if and only if it is the final element in the array
         while let Some(curr_str) = NonNull::new(unsafe { curr_env.read() }) {
             let data = {
+                // SAFETY: `curr_str` points to a valid null-terminated string per the above
                 let cstr = unsafe { CStr::from_ptr(curr_str.as_ptr()) };
                 let bytes = cstr.to_bytes();
                 if let Some(pos) = bytes.iter().position(|b| *b == b'=') {
@@ -301,12 +346,16 @@ impl<C: Converser> PamContext<C> {
                 res.insert(k, v);
             }
 
-            // free the current string and move to the next one
+            // SAFETY: curr_str was obtained via libc::malloc() so we are responsible for freeing it.
+            // At this point, curr_str is also the only remaining pointer/reference to that allocated data
+            // (the data was copied above), so it can be deallocated without risk of use-after-free errors.
             unsafe { libc::free(curr_str.as_ptr().cast()) };
+            // SAFETY: curr_env was not NULL, so it was not the last element in the list and so PAM
+            // ensures that the next offset also is a valid pointer, and points to valid data.
             curr_env = unsafe { curr_env.offset(1) };
         }
 
-        // free the entire array
+        // SAFETY: `envs` itself was obtained by malloc(), so we are reponsible for freeing it.
         unsafe { libc::free(envs.cast()) };
 
         Ok(res)
@@ -314,6 +363,7 @@ impl<C: Converser> PamContext<C> {
 
     /// Check if anything panicked since the last call.
     pub fn has_panicked(&self) -> bool {
+        // SAFETY: self.data_ptr was created by Box::into_raw
         unsafe { (*self.data_ptr).panicked }
     }
 }
@@ -336,6 +386,7 @@ impl PamContext<CLIConverser> {
 impl<C: Converser> Drop for PamContext<C> {
     fn drop(&mut self) {
         // data_ptr's pointee is de-allocated in this scope
+        // SAFETY: self.data_ptr was created by Box::into_raw
         let _data = unsafe { Box::from_raw(self.data_ptr) };
         let _ = self.close_session();
 
@@ -343,10 +394,12 @@ impl<C: Converser> Drop for PamContext<C> {
         // it is unclear what it really does and does not do, other than the vague
         // documentation description to 'not take the call to seriously'
         // Also see https://github.com/systemd/systemd/issues/22318
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
         unsafe {
             pam_end(
                 self.pamh,
-                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int) | PAM_DATA_SILENT,
+                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int)
+                    | PAM_DATA_SILENT as libc::c_int,
             )
         };
     }

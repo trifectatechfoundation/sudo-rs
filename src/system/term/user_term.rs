@@ -56,16 +56,24 @@ const LOCAL_FLAGS: tcflag_t = ISIG
 
 static GOT_SIGTTOU: AtomicBool = AtomicBool::new(false);
 
-extern "C" fn on_sigttou(_signal: c_int, _info: *mut siginfo_t, _: *mut c_void) {
-    GOT_SIGTTOU.store(true, Ordering::SeqCst);
-}
-
-/// This is like `tcsetattr` but it only suceeds if we are in the foreground process group.
-fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()> {
+/// This is like `tcsetattr` but it only succeeds if we are in the foreground process group.
+/// # Safety
+///
+/// The arguments to this function have to be valid arguments to `tcsetattr`.
+unsafe fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()> {
     // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetattr` and
     // we are not in the foreground process group.
 
-    let mut original_action = MaybeUninit::<sigaction>::uninit();
+    // SAFETY: is the responsibility of the caller of `tcsetattr_nobg`
+    let setattr = || cerr(unsafe { tcsetattr(fd, flags, tp) }).map(|_| ());
+
+    catching_sigttou(setattr)
+}
+
+fn catching_sigttou(mut function: impl FnMut() -> io::Result<()>) -> io::Result<()> {
+    extern "C" fn on_sigttou(_signal: c_int, _info: *mut siginfo_t, _: *mut c_void) {
+        GOT_SIGTTOU.store(true, Ordering::SeqCst);
+    }
 
     let action = {
         let mut raw: libc::sigaction = make_zeroed_sigaction();
@@ -74,21 +82,37 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
         // Exclude any other signals from the set
         raw.sa_mask = {
             let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
-            unsafe { sigemptyset(sa_mask.as_mut_ptr()) };
-            unsafe { sa_mask.assume_init() }
+            // SAFETY: sa_mask is a valid and dereferenceble pointer; it will
+            // become initialized by `sigemptyset`
+            unsafe {
+                sigemptyset(sa_mask.as_mut_ptr());
+                sa_mask.assume_init()
+            }
         };
         raw.sa_flags = 0;
-        raw.sa_restorer = None;
         raw
     };
     // Reset `GOT_SIGTTOU`.
     GOT_SIGTTOU.store(false, Ordering::SeqCst);
+
     // Set `action` as the action for `SIGTTOU` and store the original action in `original_action`
     // to restore it later.
-    unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
+    //
+    // SAFETY: `original_action` is a valid pointer; second, the `action` installed (on_sigttou):
+    // - is itself a safe function
+    // - only updates an atomic variable, so cannot violate memory unsafety that way
+    // - doesn't call any async-unsafe functions (refer to signal-safety(7))
+    // Therefore it can safely be installed as a signal handler.
+    // Furthermore, `sigaction` will initialize `original_action`.
+    let original_action = unsafe {
+        let mut original_action = MaybeUninit::<sigaction>::uninit();
+        sigaction(SIGTTOU, &action, original_action.as_mut_ptr());
+        original_action.assume_init()
+    };
+
     // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
     let result = loop {
-        match cerr(unsafe { tcsetattr(fd, flags, tp) }) {
+        match function() {
             Ok(_) => break Ok(()),
             Err(err) => {
                 let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);
@@ -98,8 +122,13 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
             }
         }
     };
+
     // Restore the original action.
-    unsafe { sigaction(SIGTTOU, original_action.as_ptr(), std::ptr::null_mut()) };
+    //
+    // SAFETY: `original_action` is a valid pointer, and was initialized by the preceding
+    // call to `sigaction` (and not subsequently altered, since it is not mut). The third parameter
+    // is allowed to be NULL (this means we ignore the previously-installed handler)
+    unsafe { sigaction(SIGTTOU, &original_action, std::ptr::null_mut()) };
 
     result
 }
@@ -107,8 +136,7 @@ fn tcsetattr_nobg(fd: c_int, flags: c_int, tp: *const termios) -> io::Result<()>
 /// Type to manipulate the settings of the user's terminal.
 pub struct UserTerm {
     tty: File,
-    original_termios: MaybeUninit<termios>,
-    changed: bool,
+    original_termios: Option<termios>,
 }
 
 impl UserTerm {
@@ -116,14 +144,16 @@ impl UserTerm {
     pub fn open() -> io::Result<Self> {
         Ok(Self {
             tty: OpenOptions::new().read(true).write(true).open("/dev/tty")?,
-            original_termios: MaybeUninit::uninit(),
-            changed: false,
+            original_termios: None,
         })
     }
 
     pub(crate) fn get_size(&self) -> io::Result<TermSize> {
         let mut term_size = MaybeUninit::<TermSize>::uninit();
 
+        // SAFETY: This passes a valid file descriptor and valid pointer (of
+        // the correct type) to the TIOCGWINSZ ioctl; see:
+        // https://man7.org/linux/man-pages/man2/TIOCGWINSZ.2const.html
         cerr(unsafe {
             ioctl(
                 self.tty.as_raw_fd(),
@@ -132,6 +162,7 @@ impl UserTerm {
             )
         })?;
 
+        // SAFETY: if we arrived at this point, `term_size` was initialized.
         Ok(unsafe { term_size.assume_init() })
     }
 
@@ -140,15 +171,16 @@ impl UserTerm {
         let src = self.tty.as_raw_fd();
         let dst = dst.as_raw_fd();
 
-        let mut tt_src = MaybeUninit::<termios>::uninit();
-        let mut tt_dst = MaybeUninit::<termios>::uninit();
-        let mut wsize = MaybeUninit::<winsize>::uninit();
+        // SAFETY: tt_src and tt_dst will be initialized by `tcgetattr`.
+        let (tt_src, mut tt_dst) = unsafe {
+            let mut tt_src = MaybeUninit::<termios>::uninit();
+            let mut tt_dst = MaybeUninit::<termios>::uninit();
 
-        cerr(unsafe { tcgetattr(src, tt_src.as_mut_ptr()) })?;
-        cerr(unsafe { tcgetattr(dst, tt_dst.as_mut_ptr()) })?;
+            cerr(tcgetattr(src, tt_src.as_mut_ptr()))?;
+            cerr(tcgetattr(dst, tt_dst.as_mut_ptr()))?;
 
-        let tt_src = unsafe { tt_src.assume_init() };
-        let mut tt_dst = unsafe { tt_dst.assume_init() };
+            (tt_src.assume_init(), tt_dst.assume_init())
+        };
 
         // Clear select input, output, control and local flags.
         tt_dst.c_iflag &= !INPUT_FLAGS;
@@ -166,21 +198,31 @@ impl UserTerm {
         tt_dst.c_cc.copy_from_slice(&tt_src.c_cc);
 
         // Copy speed from `src`.
-        {
-            let mut speed = unsafe { cfgetospeed(&tt_src) };
+        //
+        // SAFETY: the cfXXXXspeed calls are passed valid pointers and
+        // cannot cause UB even if the speed would be incorrect.
+        unsafe {
+            let mut speed = cfgetospeed(&tt_src);
             // Zero output speed closes the connection.
             if speed == libc::B0 {
                 speed = libc::B38400;
             }
-            unsafe { cfsetospeed(&mut tt_dst, speed) };
-            speed = unsafe { cfgetispeed(&tt_src) };
-            unsafe { cfsetispeed(&mut tt_dst, speed) };
+            cfsetospeed(&mut tt_dst, speed);
+
+            speed = cfgetispeed(&tt_src);
+            cfsetispeed(&mut tt_dst, speed);
         }
 
-        tcsetattr_nobg(dst, TCSAFLUSH, &tt_dst)?;
+        // SAFETY: dst is a valid file descriptor and `tt_dst` is an
+        // initialized struct obtained through tcgetattr; so this is safe to
+        // pass to `tcsetattr`.
+        unsafe { tcsetattr_nobg(dst, TCSAFLUSH, &tt_dst) }?;
 
-        cerr(unsafe { ioctl(src, TIOCGWINSZ, &mut wsize) })?;
-        cerr(unsafe { ioctl(dst, TIOCSWINSZ, &wsize) })?;
+        let mut wsize = MaybeUninit::<winsize>::uninit();
+        // SAFETY: TIOCGWINSZ ioctl expects one argument of type *mut winsize
+        cerr(unsafe { ioctl(src, TIOCGWINSZ, wsize.as_mut_ptr()) })?;
+        // SAFETY: wsize has been initialized by the TIOCGWINSZ ioctl
+        cerr(unsafe { ioctl(dst, TIOCSWINSZ, wsize.as_ptr()) })?;
 
         Ok(())
     }
@@ -190,20 +232,30 @@ impl UserTerm {
     pub fn set_raw_mode(&mut self, with_signals: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
-        if !self.changed {
-            cerr(unsafe { tcgetattr(fd, self.original_termios.as_mut_ptr()) })?;
-        }
-        // Retrieve the original terminal.
-        let mut term = unsafe { self.original_termios.assume_init() };
+        // Retrieve the original terminal (if we haven't done so already)
+        let mut term = if let Some(termios) = self.original_termios {
+            termios
+        } else {
+            // SAFETY: `termios` is a valid pointer to pass to tcgetattr; if that calls succeeds,
+            // it will have initialized the `termios` structure
+            *self.original_termios.insert(unsafe {
+                let mut termios = MaybeUninit::uninit();
+                cerr(tcgetattr(fd, termios.as_mut_ptr()))?;
+                termios.assume_init()
+            })
+        };
+
         // Set terminal to raw mode.
+        // SAFETY: `term` is a valid, initialized struct of type `termios`, which
+        // was previously obtained through `tcgetattr`.
         unsafe { cfmakeraw(&mut term) };
         // Enable terminal signals.
         if with_signals {
             term.c_cflag |= ISIG;
         }
 
-        tcsetattr_nobg(fd, TCSADRAIN, &term)?;
-        self.changed = true;
+        // SAFETY: `fd` is a valid file descriptor for the tty; for `term`: same as above.
+        unsafe { tcsetattr_nobg(fd, TCSADRAIN, &term) }?;
 
         Ok(())
     }
@@ -213,11 +265,12 @@ impl UserTerm {
     /// This change is done after waiting for all the queued output to be written. To discard the
     /// queued input `flush` must be set to `true`.
     pub fn restore(&mut self, flush: bool) -> io::Result<()> {
-        if self.changed {
+        if let Some(termios) = self.original_termios.take() {
             let fd = self.tty.as_raw_fd();
             let flags = if flush { TCSAFLUSH } else { TCSADRAIN };
-            tcsetattr_nobg(fd, flags, self.original_termios.as_ptr())?;
-            self.changed = false;
+            // SAFETY: `fd` is a valid file descriptor for the tty; and `termios` is a valid pointer
+            // that was obtained through `tcgetattr`.
+            unsafe { tcsetattr_nobg(fd, flags, &termios) }?;
         }
 
         Ok(())
@@ -228,43 +281,7 @@ impl UserTerm {
         // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetpgrp` and
         // we are not in the foreground process group.
 
-        let mut original_action = MaybeUninit::<sigaction>::uninit();
-
-        let action = {
-            let mut raw: libc::sigaction = make_zeroed_sigaction();
-            // Call `on_sigttou` if `SIGTTOU` arrives.
-            raw.sa_sigaction = on_sigttou as sighandler_t;
-            // Exclude any other signals from the set
-            raw.sa_mask = {
-                let mut sa_mask = MaybeUninit::<sigset_t>::uninit();
-                unsafe { sigemptyset(sa_mask.as_mut_ptr()) };
-                unsafe { sa_mask.assume_init() }
-            };
-            raw.sa_flags = 0;
-            raw.sa_restorer = None;
-            raw
-        };
-        // Reset `GOT_SIGTTOU`.
-        GOT_SIGTTOU.store(false, Ordering::SeqCst);
-        // Set `action` as the action for `SIGTTOU` and store the original action in `original_action`
-        // to restore it later.
-        unsafe { sigaction(SIGTTOU, &action, original_action.as_mut_ptr()) };
-        // Call `tcsetattr` until it suceeds and ignore interruptions if we did not receive `SIGTTOU`.
-        let result = loop {
-            match self.tty.tcsetpgrp(pgrp) {
-                Ok(()) => break Ok(()),
-                Err(err) => {
-                    let got_sigttou = GOT_SIGTTOU.load(Ordering::SeqCst);
-                    if got_sigttou || err.kind() != io::ErrorKind::Interrupted {
-                        break Err(err);
-                    }
-                }
-            }
-        };
-        // Restore the original action.
-        unsafe { sigaction(SIGTTOU, original_action.as_ptr(), std::ptr::null_mut()) };
-
-        result
+        catching_sigttou(|| self.tty.tcsetpgrp(pgrp))
     }
 }
 

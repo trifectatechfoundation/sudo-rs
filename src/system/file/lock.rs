@@ -52,6 +52,8 @@ fn flock(fd: RawFd, action: LockOp, nonblocking: bool) -> Result<()> {
         operation |= libc::LOCK_NB;
     }
 
+    // SAFETY: even if `fd` would not be a valid file descriptor, that would merely
+    // result in an error condition, not UB
     cerr(unsafe { libc::flock(fd, operation) })?;
     Ok(())
 }

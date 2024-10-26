@@ -1,83 +1,132 @@
 use core::fmt::{self, Write};
-use std::ffi::CStr;
-
 use log::{Level, Log, Metadata};
-
-use crate::system::syslog;
 
 pub struct Syslog;
 
-const LIMIT: usize = 960;
-const DOTDOTDOT_START: &[u8] = b"[...] ";
-const DOTDOTDOT_END: &[u8] = b" [...]";
-const NULL_BYTE: usize = 1; // for C string compatibility
-const BUFSZ: usize = LIMIT + DOTDOTDOT_END.len() + NULL_BYTE;
-const FACILITY: libc::c_int = libc::LOG_AUTH;
+mod internal {
+    use crate::system::syslog;
+    use std::ffi::CStr;
 
-struct SysLogWriter {
-    buffer: [u8; BUFSZ],
-    cursor: usize,
-    facility: libc::c_int,
-    priority: libc::c_int,
-}
+    const DOTDOTDOT_START: &[u8] = b"[...] ";
+    const DOTDOTDOT_END: &[u8] = b" [...]";
 
-impl SysLogWriter {
-    fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
-        Self {
-            buffer: [0; BUFSZ],
-            cursor: 0,
-            priority,
-            facility,
-        }
+    const MAX_MSG_LEN: usize = 960;
+    const NULL_BYTE_LEN: usize = 1; // for C string compatibility
+    const BUFSZ: usize = MAX_MSG_LEN + DOTDOTDOT_END.len() + NULL_BYTE_LEN;
+
+    pub struct SysLogMessageWriter {
+        buffer: [u8; BUFSZ],
+        cursor: usize,
+        facility: libc::c_int,
+        priority: libc::c_int,
     }
 
-    fn append(&mut self, bytes: &[u8]) {
-        let num_bytes = bytes.len();
-        self.buffer[self.cursor..self.cursor + num_bytes].copy_from_slice(bytes);
-        self.cursor += num_bytes;
-    }
-
-    fn send_to_syslog(&mut self) {
-        self.append(&[0]);
-        let message = CStr::from_bytes_with_nul(&self.buffer[..self.cursor]).unwrap();
-        syslog(self.priority, self.facility, message);
-        self.cursor = 0;
-    }
-}
-
-impl Write for SysLogWriter {
-    fn write_str(&mut self, mut message: &str) -> fmt::Result {
-        loop {
-            if self.cursor + message.len() > LIMIT {
-                // floor_char_boundary is currently unstable
-                let mut truncate_boundary = LIMIT - self.cursor;
-                while !message.is_char_boundary(truncate_boundary) {
-                    truncate_boundary -= 1;
-                }
-
-                truncate_boundary = message[..truncate_boundary]
-                    .rfind(|c: char| c.is_ascii_whitespace())
-                    .unwrap_or(truncate_boundary);
-
-                let left = &message[..truncate_boundary];
-                let right = &message[truncate_boundary..];
-
-                self.append(left.as_bytes());
-                self.append(DOTDOTDOT_END);
-                self.send_to_syslog();
-
-                self.append(DOTDOTDOT_START);
-                message = right;
-            } else {
-                self.append(message.as_bytes());
-
-                break;
+    // - whenever a SysLogMessageWriter has been constructed, a syslog message WILL be created
+    // for one specific event; this struct functions as a low-level interface for that message
+    // - the caller of the pub functions will have to take care never to `append` more bytes than
+    // are `available`, or a panic will occur.
+    // - the impl guarantees that after `line_break()`, there will be enough room available for at
+    // least a single UTF8 character sequence (which is true since MAX_MSG_LEN >= 10)
+    impl SysLogMessageWriter {
+        pub fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
+            Self {
+                buffer: [0; BUFSZ],
+                cursor: 0,
+                priority,
+                facility,
             }
         }
+
+        pub fn append(&mut self, bytes: &[u8]) {
+            let num_bytes = bytes.len();
+            self.buffer[self.cursor..self.cursor + num_bytes].copy_from_slice(bytes);
+            self.cursor += num_bytes;
+        }
+
+        pub fn line_break(&mut self) {
+            self.append(DOTDOTDOT_END);
+            self.commit_to_syslog();
+            self.append(DOTDOTDOT_START);
+        }
+
+        fn commit_to_syslog(&mut self) {
+            self.append(&[0]);
+            let message = CStr::from_bytes_with_nul(&self.buffer[..self.cursor]).unwrap();
+            syslog(self.priority, self.facility, message);
+            self.cursor = 0;
+        }
+
+        pub fn available(&self) -> usize {
+            MAX_MSG_LEN - self.cursor
+        }
+    }
+
+    impl Drop for SysLogMessageWriter {
+        fn drop(&mut self) {
+            self.commit_to_syslog();
+        }
+    }
+}
+
+use internal::SysLogMessageWriter;
+
+/// `floor_char_boundary` is currently unstable in Rust
+fn floor_char_boundary(data: &str, mut index: usize) -> usize {
+    if index >= data.len() {
+        return data.len();
+    }
+    while !data.is_char_boundary(index) {
+        index -= 1;
+    }
+
+    index
+}
+
+/// This function REQUIRES that `message` is larger than `max_size` (or a panic will occur).
+/// This function WILL return a non-zero result if `max_size` is large enough to fit
+/// at least the first character of `message`.
+fn suggested_break(message: &str, max_size: usize) -> usize {
+    // method A: try to split the message in two non-empty parts on an ASCII white space character
+    // method B: split on the utf8 character boundary that consumes the most data
+    if let Some(pos) = message.as_bytes()[1..max_size]
+        .iter()
+        .rposition(|c| c.is_ascii_whitespace())
+    {
+        // since pos+1 contains ASCII whitespace, it acts as a valid utf8 boundary as well
+        pos + 1
+    } else {
+        floor_char_boundary(message, max_size)
+    }
+}
+
+impl Write for SysLogMessageWriter {
+    fn write_str(&mut self, mut message: &str) -> fmt::Result {
+        while message.len() > self.available() {
+            let truncate_boundary = suggested_break(message, self.available());
+
+            let left = &message[..truncate_boundary];
+            let right = &message[truncate_boundary..];
+
+            self.append(left.as_bytes());
+            self.line_break();
+
+            // This loop while terminate, since either of the following is true:
+            //  1. truncate_boundary is strictly positive:
+            //     message.len() has strictly decreased, and self.available() has not decreased
+            //  2. truncate_boundary is zero:
+            //     message.len() has remained unchanged, but self.available() has strictly increased;
+            //     this latter is true since, for truncate_boundary to be 0, self.available() must
+            //     have been not large enough to fit a single UTF8 character
+            message = right;
+        }
+
+        self.append(message.as_bytes());
 
         Ok(())
     }
 }
+
+const FACILITY: libc::c_int = libc::LOG_AUTH;
 
 impl Log for Syslog {
     fn enabled(&self, metadata: &Metadata) -> bool {
@@ -93,9 +142,8 @@ impl Log for Syslog {
             Level::Trace => libc::LOG_DEBUG,
         };
 
-        let mut writer = SysLogWriter::new(priority, FACILITY);
+        let mut writer = SysLogMessageWriter::new(priority, FACILITY);
         let _ = write!(writer, "{}", record.args());
-        writer.send_to_syslog();
     }
 
     fn flush(&self) {
@@ -108,7 +156,7 @@ mod tests {
     use log::Log;
     use std::fmt::Write;
 
-    use super::{SysLogWriter, Syslog, FACILITY};
+    use super::{SysLogMessageWriter, Syslog, FACILITY};
 
     #[test]
     fn can_write_to_syslog() {
@@ -123,7 +171,7 @@ mod tests {
 
     #[test]
     fn can_handle_multiple_writes() {
-        let mut writer = SysLogWriter::new(libc::LOG_DEBUG, FACILITY);
+        let mut writer = SysLogMessageWriter::new(libc::LOG_DEBUG, FACILITY);
 
         for i in 1..20 {
             let _ = write!(writer, "{}", "Test 123 ".repeat(i));
@@ -150,5 +198,12 @@ mod tests {
             .build();
 
         logger.log(&record);
+    }
+
+    #[test]
+    fn will_not_break_utf8() {
+        let mut writer = SysLogMessageWriter::new(libc::LOG_DEBUG, FACILITY);
+
+        let _ = write!(writer, "{}¢", "x".repeat(959));
     }
 }

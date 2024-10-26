@@ -95,7 +95,10 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use crate::{sudo::SudoAction, system::Hostname};
+    use crate::{
+        sudo::SudoAction,
+        system::{interface::UserId, Hostname},
+    };
     use std::collections::HashMap;
 
     use super::Context;
@@ -113,9 +116,14 @@ mod tests {
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
 
-        assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
+        if cfg!(target_os = "linux") {
+            // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
+            assert_eq!(context.command.command.to_str().unwrap(), "/usr/bin/echo");
+        } else {
+            assert_eq!(context.command.command.to_str().unwrap(), "/bin/echo");
+        }
         assert_eq!(context.command.arguments, ["hello"]);
         assert_eq!(context.hostname, Hostname::resolve());
-        assert_eq!(context.target_user.uid, 0);
+        assert_eq!(context.target_user.uid, UserId::ROOT);
     }
 }

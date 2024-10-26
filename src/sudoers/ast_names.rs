@@ -1,4 +1,4 @@
-/// This module contains user-friendly names for the various items in the AST, to report in case they are missing
+//! This module contains user-friendly names for the various items in the AST, to report in case they are missing
 
 pub trait UserFriendly {
     const DESCRIPTION: &'static str;

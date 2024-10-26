@@ -34,7 +34,6 @@ impl SignalAction {
         raw.sa_sigaction = sa_sigaction;
         raw.sa_mask = sa_mask.raw;
         raw.sa_flags = sa_flags;
-        raw.sa_restorer = None;
 
         Ok(Self { raw })
     }
@@ -42,8 +41,11 @@ impl SignalAction {
     pub(super) fn register(&self, signal: SignalNumber) -> io::Result<Self> {
         let mut original_action = MaybeUninit::<Self>::zeroed();
 
+        // SAFETY: `sigaction` expects a valid pointer, which we provide; the typecast is valid
+        // since SignalAction is a repr(transparent) newtype struct.
         cerr(unsafe { libc::sigaction(signal, &self.raw, original_action.as_mut_ptr().cast()) })?;
 
+        // SAFETY: `sigaction` will have properly initialized `original_action`.
         Ok(unsafe { original_action.assume_init() })
     }
 }
@@ -59,8 +61,10 @@ impl SignalSet {
     pub(crate) fn empty() -> io::Result<Self> {
         let mut set = MaybeUninit::<Self>::zeroed();
 
+        // SAFETY: same as above
         cerr(unsafe { libc::sigemptyset(set.as_mut_ptr().cast()) })?;
 
+        // SAFETY: `sigemptyset` will have initialized `set`
         Ok(unsafe { set.assume_init() })
     }
 
@@ -68,16 +72,20 @@ impl SignalSet {
     pub(crate) fn full() -> io::Result<Self> {
         let mut set = MaybeUninit::<Self>::zeroed();
 
+        // SAFETY: same as above
         cerr(unsafe { libc::sigfillset(set.as_mut_ptr().cast()) })?;
 
+        // SAFETY: `sigfillset` will have initialized `set`
         Ok(unsafe { set.assume_init() })
     }
 
     fn sigprocmask(&self, how: libc::c_int) -> io::Result<Self> {
         let mut original_set = MaybeUninit::<Self>::zeroed();
 
+        // SAFETY: same as above
         cerr(unsafe { libc::sigprocmask(how, &self.raw, original_set.as_mut_ptr().cast()) })?;
 
+        // SAFETY: `sigprocmask` will have initialized `set`
         Ok(unsafe { original_set.assume_init() })
     }
 

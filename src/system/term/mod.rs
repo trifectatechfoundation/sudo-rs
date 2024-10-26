@@ -34,6 +34,11 @@ impl Pty {
         // Create two integers to hold the file descriptors for each side of the pty.
         let (mut leader, mut follower) = (0, 0);
 
+        // SAFETY:
+        // - openpty is passed two valid pointers as its first two arguments
+        // - path is a valid array that can hold PATH_MAX characters; and casting `u8` to `i8` is
+        //   valid since all values are initialized to zero.
+        // - the last two arguments are allowed to be NULL
         cerr(unsafe {
             libc::openpty(
                 &mut leader,
@@ -60,9 +65,11 @@ impl Pty {
         Ok(Self {
             path,
             leader: PtyLeader {
+                // SAFETY: `openpty` has set `leader` to an open fd suitable for assuming ownership by `OwnedFd`.
                 file: unsafe { OwnedFd::from_raw_fd(leader) }.into(),
             },
             follower: PtyFollower {
+                // SAFETY: `openpty` has set `follower` to an open fd suitable for assuming ownership by `OwnedFd`.
                 file: unsafe { OwnedFd::from_raw_fd(follower) }.into(),
             },
         })
@@ -75,6 +82,11 @@ pub(crate) struct PtyLeader {
 
 impl PtyLeader {
     pub(crate) fn set_size(&self, term_size: &TermSize) -> io::Result<()> {
+        // SAFETY: the TIOCSWINSZ expects an initialized pointer of type `winsize`
+        // https://www.man7.org/linux/man-pages/man2/TIOCSWINSZ.2const.html
+        //
+        // An object of type TermSize is safe to cast to `winsize` since it is a
+        // repr(transparent) "newtype" struct.
         cerr(unsafe {
             ioctl(
                 self.file.as_raw_fd(),
@@ -151,15 +163,20 @@ pub(crate) trait Terminal: sealed::Sealed {
 impl<F: AsRawFd> Terminal for F {
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
-        cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })
+        // SAFETY: tcgetpgrp cannot cause UB
+        let id = cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })?;
+        Ok(ProcessId::new(id))
     }
-    /// Set the foreground process group ID associated with this terminalto `pgrp`.
+    /// Set the foreground process group ID associated with this terminal to `pgrp`.
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
-        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp) }).map(|_| ())
+        // SAFETY: tcsetpgrp cannot cause UB
+        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp.inner()) }).map(|_| ())
     }
 
     /// Make the given terminal the controlling terminal of the calling process.
     fn make_controlling_terminal(&self) -> io::Result<()> {
+        // SAFETY: this is a correct way to call the TIOCSCTTY ioctl, see:
+        // https://www.man7.org/linux/man-pages/man2/TIOCNOTTY.2const.html
         cerr(unsafe { libc::ioctl(self.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
         Ok(())
     }
@@ -172,7 +189,9 @@ impl<F: AsRawFd> Terminal for F {
             return Err(io::ErrorKind::Unsupported.into());
         }
 
-        cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr() as _, buf.len()) })?;
+        // SAFETY: `buf` is a valid and initialized pointer, and its  correct length is passed
+        cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr(), buf.len()) })?;
+        // SAFETY: `buf` will have been initialized by the `ttyname_r` call, if it succeeded
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
     }
 
@@ -182,7 +201,9 @@ impl<F: AsRawFd> Terminal for F {
     }
 
     fn tcgetsid(&self) -> io::Result<ProcessId> {
-        cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })
+        // SAFETY: tcgetsid cannot cause UB
+        let id = cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })?;
+        Ok(ProcessId::new(id))
     }
 }
 
@@ -218,7 +239,7 @@ mod tests {
         process::exit,
     };
 
-    use crate::system::{fork, getpgid, setsid, term::*, ForkResult};
+    use crate::system::{fork_for_test, getpgid, setsid, term::*, ForkResult};
 
     #[test]
     fn open_pty() {
@@ -236,17 +257,19 @@ mod tests {
         // Create a socket so the child can send us a byte if successful.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        let ForkResult::Parent(_) = fork().unwrap() else {
+        // FIXME fork will deadlock when this test panics if it forked while
+        // another test was panicking.
+        let ForkResult::Parent(_) = (unsafe { fork_for_test() }) else {
             // Open a new pseudoterminal.
             let leader = Pty::open().unwrap().leader;
             // The pty leader should not have a foreground process group yet.
-            assert_eq!(leader.tcgetpgrp().unwrap(), 0);
+            assert_eq!(leader.tcgetpgrp().unwrap().inner(), 0);
             // Create a new session so we can change the controlling terminal.
             setsid().unwrap();
             // Set the pty leader as the controlling terminal.
             leader.make_controlling_terminal().unwrap();
             // Set us as the foreground process group of the pty leader.
-            let pgid = getpgid(0).unwrap();
+            let pgid = getpgid(ProcessId::new(0)).unwrap();
             leader.tcsetpgrp(pgid).unwrap();
             // Check that we are in fact the foreground process group of the pty leader.
             assert_eq!(pgid, leader.tcgetpgrp().unwrap());

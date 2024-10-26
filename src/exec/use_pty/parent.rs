@@ -7,7 +7,7 @@ use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopRea
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{
-    cond_fmt, handle_sigchld, opt_fmt, signal_fmt, terminate_process, ExecOutput, HandleSigchld,
+    cond_fmt, handle_sigchld, signal_fmt, terminate_process, ExecOutput, HandleSigchld,
     ProcessOutput,
 };
 use crate::exec::{
@@ -162,7 +162,8 @@ pub(in crate::exec) fn exec_pty(
         }
     };
 
-    let ForkResult::Parent(monitor_pid) = fork().map_err(|err| {
+    // SAFETY: There should be no other threads at this point.
+    let ForkResult::Parent(monitor_pid) = (unsafe { fork() }).map_err(|err| {
         dev_error!("cannot fork monitor process: {err}");
         err
     })?
@@ -432,7 +433,7 @@ impl ParentClosure {
     /// - is the same PID of the command, or
     /// - is in the process group of the command and either sudo or the command is the leader.
     fn is_self_terminating(&self, signaler_pid: ProcessId) -> bool {
-        if signaler_pid != 0 {
+        if signaler_pid.is_valid() {
             if Some(signaler_pid) == self.command_pid {
                 return true;
             }
@@ -616,12 +617,7 @@ impl ParentClosure {
             }
         };
 
-        dev_info!(
-            "parent received{} {} from {}",
-            opt_fmt(info.is_user_signaled(), " user signaled"),
-            info.signal(),
-            info.pid()
-        );
+        dev_info!("parent received{}", info);
 
         let Some(monitor_pid) = self.monitor_pid else {
             dev_info!("monitor was terminated, ignoring signal");
@@ -638,10 +634,17 @@ impl ParentClosure {
                     dev_warn!("cannot resize terminal: {}", err);
                 }
             }
-            // Skip the signal if it was sent by the user and it is self-terminating.
-            _ if info.is_user_signaled() && self.is_self_terminating(info.pid()) => {}
-            // FIXME: check `send_command_status`
-            signal => self.schedule_signal(signal, registry),
+            signal => {
+                if let Some(pid) = info.signaler_pid() {
+                    if self.is_self_terminating(pid) {
+                        // Skip the signal if it was sent by the user and it is self-terminating.
+                        return;
+                    }
+                }
+
+                // FIXME: check `send_command_status`
+                self.schedule_signal(signal, registry)
+            }
         }
     }
 

@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    sudo::diagnostic,
+    sudo::{candidate_sudoers_file, diagnostic},
     sudoers::Sudoers,
     system::{
         can_execute,
@@ -64,7 +64,9 @@ pub fn main() {
 }
 
 fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
-    let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
+    let sudoers_path = file_arg
+        .map(Path::new)
+        .unwrap_or_else(|| candidate_sudoers_file());
 
     let sudoers_file = File::open(sudoers_path)
         .map_err(|err| io_msg!(err, "unable to open {}", sudoers_path.display()))?;
@@ -121,7 +123,9 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
 }
 
 fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
-    let sudoers_path = Path::new(file_arg.unwrap_or("/etc/sudoers"));
+    let sudoers_path = file_arg
+        .map(Path::new)
+        .unwrap_or_else(|| candidate_sudoers_file());
 
     let (sudoers_file, existed) = if sudoers_path.exists() {
         let file = File::options().read(true).write(true).open(sudoers_path)?;

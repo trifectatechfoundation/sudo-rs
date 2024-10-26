@@ -15,7 +15,7 @@ use std::{io, mem};
 
 use crate::common::resolve::resolve_path;
 use crate::log::auth_warn;
-use crate::system::interface::{UnixGroup, UnixUser};
+use crate::system::interface::{GroupId, UnixGroup, UnixUser, UserId};
 use crate::system::{self, can_execute};
 use ast::*;
 use tokens::*;
@@ -286,7 +286,6 @@ pub(super) struct AliasTable {
 }
 
 /// A vector with a list defining the order in which it needs to be processed
-
 type VecOrd<T> = (Vec<usize>, Vec<T>);
 
 fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
@@ -297,7 +296,6 @@ fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
 /// user/group. Not that in the sudoers file, later permissions override earlier restrictions.
 /// The `cmdline` argument should already be ready to essentially feed to an exec() call; or be
 /// a special command like 'sudoedit'.
-
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
 // doesn't match, we escape using the '?' mechanism.
 fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
@@ -339,7 +337,6 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 /// Process a raw parsed AST bit of RunAs + Command specifications:
 /// - RunAs specifications distribute over the commands that follow (until overridden)
 /// - Tags accumulate over the entire line
-
 fn distribute_tags(
     runas_cmds: &[(Option<RunAs>, CommandSpec)],
 ) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>))> {
@@ -364,7 +361,6 @@ type FoundAliases = HashMap<String, bool>;
 /// Find an item matching a certain predicate in an collection (optionally attributed) list of
 /// identifiers; identifiers can be directly identifying, wildcards, and can either be positive or
 /// negative (i.e. preceeded by an even number of exclamation marks in the sudoers file)
-
 fn find_item<'a, Predicate, Iter, T: 'a>(
     items: Iter,
     matches: &Predicate,
@@ -436,7 +432,7 @@ fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
         UserSpecifier::User(id) => match_identifier(user, id),
         UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name.as_cstr()),
-        UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(*num),
+        UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(GroupId::new(*num)),
         _ => todo!(), // nonunix-groups, netgroups, etc.
     }
 }
@@ -447,7 +443,7 @@ fn in_group(user: &impl UnixUser, group: &impl UnixGroup) -> bool {
 
 fn match_group(group: &impl UnixGroup) -> impl Fn(&Identifier) -> bool + '_ {
     move |id| match id {
-        Identifier::ID(num) => group.as_gid() == *num,
+        Identifier::ID(num) => group.as_gid() == GroupId::new(*num),
         Identifier::Name(name) => group.try_as_name().map_or(false, |s| name == s),
     }
 }
@@ -487,7 +483,6 @@ fn unfold_alias_table<T>(table: &VecOrd<Def<T>>) -> HashMap<&String, &Vec<Qualif
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
 /// I.e. this function should not be "pub".
-
 fn get_aliases<Predicate, T>(table: &VecOrd<Def<T>>, pred: &Predicate) -> FoundAliases
 where
     Predicate: Fn(&T) -> bool,
@@ -510,11 +505,10 @@ where
 }
 
 /// Code to map an ast::Identifier to the UnixUser trait
-
 fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
     match ident {
         Identifier::Name(name) => user.has_name(name),
-        Identifier::ID(num) => user.has_uid(*num),
+        Identifier::ID(num) => user.has_uid(UserId::new(*num)),
     }
 }
 
@@ -756,7 +750,6 @@ fn analyze(
 /// Alias definition inin a Sudoers file can come in any order; and aliases can refer to other aliases, etc.
 /// It is much easier if they are presented in a "definitional order" (i.e. aliases that use other aliases occur later)
 /// At the same time, this is a good place to detect problems in the aliases, such as unknown aliases and cycles.
-
 fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) -> Vec<usize> {
     fn remqualify<U>(item: &Qualified<U>) -> &U {
         match item {

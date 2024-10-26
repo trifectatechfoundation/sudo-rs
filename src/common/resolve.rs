@@ -118,7 +118,11 @@ pub(crate) fn resolve_target_user_and_group(
         // when no -u or -g is specified, default to root:root
         (None, None) => {
             target_user = User::from_name(cstr!("root"))?;
-            target_group = Group::from_name(cstr!("root"))?;
+            target_group = Group::from_name(if cfg!(target_os = "linux") {
+                cstr!("root")
+            } else {
+                cstr!("wheel")
+            })?;
         }
         _ => {}
     }
@@ -223,6 +227,7 @@ mod tests {
     use std::path::PathBuf;
 
     use crate::common::resolve::CurrentUser;
+    use crate::system::ROOT_GROUP_NAME;
 
     use super::{is_valid_executable, resolve_path, resolve_target_user_and_group, NameOrId};
 
@@ -274,7 +279,7 @@ mod tests {
         // fallback to root
         let (user, group) = resolve_target_user_and_group(&None, &None, &current_user).unwrap();
         assert_eq!(user.name, "root");
-        assert_eq!(group.name, "root");
+        assert_eq!(group.name, ROOT_GROUP_NAME);
 
         // unknown user
         let result =
@@ -288,9 +293,10 @@ mod tests {
 
         // fallback to current user when different group specified
         let (user, group) =
-            resolve_target_user_and_group(&None, &Some("root".into()), &current_user).unwrap();
+            resolve_target_user_and_group(&None, &Some(ROOT_GROUP_NAME.into()), &current_user)
+                .unwrap();
         assert_eq!(user.name, current_user.name);
-        assert_eq!(group.name, "root");
+        assert_eq!(group.name, ROOT_GROUP_NAME);
 
         // fallback to current users group when no group specified
         let (user, group) =
@@ -302,7 +308,7 @@ mod tests {
 }
 
 /// Resolve symlinks in all the directories leading up to a file, but
-/// not the file itself; this alles sudo to specify a precise policy with
+/// not the file itself; this allows sudo to specify a precise policy with
 /// tools like busybox or pgrep (which is a symlink to pgrep on systems)
 pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     let path = path.as_ref();
@@ -338,10 +344,19 @@ mod test {
             canonicalize("/usr/bin/pkill").unwrap(),
             Path::new("/usr/bin/pkill")
         );
-        // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
-        assert_eq!(
-            canonicalize("/bin/pkill").unwrap(),
-            Path::new("/usr/bin/pkill")
-        );
+        if cfg!(any(target_os = "linux", target_os = "macos")) {
+            // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
+            assert_eq!(
+                canonicalize("/bin/pkill").unwrap(),
+                Path::new("/usr/bin/pkill")
+            );
+        } else if cfg!(target_os = "freebsd") {
+            assert_eq!(canonicalize("/bin/pkill").unwrap(), Path::new("/bin/pkill"));
+        } else {
+            panic!(
+                "canonicalization test not yet adapted for {}",
+                std::env::consts::OS
+            );
+        }
     }
 }

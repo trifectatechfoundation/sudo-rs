@@ -25,7 +25,7 @@ impl PamMessageStyle {
     pub fn from_int(val: libc::c_int) -> Option<PamMessageStyle> {
         use PamMessageStyle::*;
 
-        match val {
+        match val as _ {
             PAM_PROMPT_ECHO_OFF => Some(PromptEchoOff),
             PAM_PROMPT_ECHO_ON => Some(PromptEchoOn),
             PAM_ERROR_MSG => Some(ErrorMessage),
@@ -203,8 +203,13 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             messages: Vec::with_capacity(num_msg as usize),
         };
         for i in 0..num_msg as isize {
+            // SAFETY: the PAM contract ensures that `num_msg` does not exceed the amount
+            // of messages presented to this function in `msg`, and that it is not being
+            // written to at the same time as we are reading it. Note that the reference
+            // we create does not escape this loopy body.
             let message: &pam_message = unsafe { &**msg.offset(i) };
 
+            // SAFETY: PAM ensures that the messages passed are properly null-terminated
             let msg = unsafe { string_from_ptr(message.msg) };
             let style = if let Some(style) = PamMessageStyle::from_int(message.msg_style) {
                 style
@@ -221,6 +226,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
         }
 
         // send the conversation of to the Rust part
+        // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
         let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
         if app_data
             .converser
@@ -232,6 +238,8 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
 
         // Conversation should now contain response messages
         // allocate enough memory for the responses, set it to zero
+        // SAFETY: this will either allocate the required amount of (initialized) bytes,
+        // or return a null pointer.
         let temp_resp = unsafe {
             libc::calloc(
                 num_msg as libc::size_t,
@@ -244,6 +252,9 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
 
         // Store the responses
         for (i, msg) in conversation.messages.into_iter().enumerate() {
+            // SAFETY: `i` will not exceed `num_msg` by the way `conversation_messages`
+            // is constructed, so `temp_resp` will have allocated-and-initialized data at
+            // the required offset that only we have a writable pointer to.
             let response: &mut pam_response = unsafe { &mut *(temp_resp.add(i)) };
 
             if let Some(secbuf) = msg.response {
@@ -252,6 +263,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
         }
 
         // Set the responses
+        // SAFETY: PAM contract says that we are passed a valid, non-null, writeable pointer here.
         unsafe { *response = temp_resp };
 
         PamErrorType::Success
@@ -262,6 +274,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
         Ok(r) => r,
         Err(_) => {
             // notify caller that a panic has occured
+            // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
             app_data.panicked = true;
 
