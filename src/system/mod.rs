@@ -280,6 +280,8 @@ pub fn set_target_user(
     if !target_user.groups.contains(&target_group.gid) {
         target_user.groups.push(target_group.gid);
     }
+    // On FreeBSD the first entry in setgroups is the egid. It should be duplicated later in the list.
+    target_user.groups.insert(0, target_group.gid);
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
