@@ -106,6 +106,7 @@ Defaults passwd_tries=2"
 
 // this is a PAM security feature
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "on FreeBSD retry is immediately allowed")]
 fn retry_is_not_allowed_immediately() -> Result<()> {
     let script_path = "/tmp/script.sh";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
