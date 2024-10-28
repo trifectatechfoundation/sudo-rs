@@ -269,6 +269,10 @@ pub fn set_target_user(
                 // We can cast to gid_t because `GroupId` is marked as transparent
                 target_user.groups.as_ptr().cast::<libc::gid_t>(),
             ))?;
+            // setgid and setuid set the real, effective and saved version of the gid and uid
+            // respectively rather than just the real gid and uid. The original sudo uses setresgid
+            // and setresuid instead with all three arguments equal, but as this does the same as
+            // setgid and setuid using the latter is fine too.
             cerr(libc::setgid(target_group.gid.inner()))?;
             cerr(libc::setuid(target_user.uid.inner()))?;
 
