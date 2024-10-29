@@ -46,17 +46,19 @@ pub type SpecList<T> = Vec<Spec<T>>;
 
 /// An identifier is a name or a #number
 #[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
+#[repr(u32)]
 pub enum Identifier {
-    Name(SudoString),
-    ID(u32),
+    Name(SudoString) = HARDENED_ENUM_VALUE_0,
+    ID(u32) = HARDENED_ENUM_VALUE_1,
 }
 
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
 #[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
+#[repr(u32)]
 pub enum UserSpecifier {
-    User(Identifier),
-    Group(Identifier),
-    NonunixGroup(Identifier),
+    User(Identifier) = HARDENED_ENUM_VALUE_0,
+    Group(Identifier) = HARDENED_ENUM_VALUE_1,
+    NonunixGroup(Identifier) = HARDENED_ENUM_VALUE_2,
 }
 
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
@@ -118,12 +120,13 @@ pub enum Directive {
 
 pub type TextEnum = crate::defaults::StrEnum<'static>;
 
+#[repr(u32)]
 pub enum ConfigValue {
-    Flag(bool),
-    Text(Option<Box<str>>),
-    Num(i64),
-    List(Mode, Vec<String>),
-    Enum(TextEnum),
+    Flag(bool) = HARDENED_ENUM_VALUE_0,
+    Text(Option<Box<str>>) = HARDENED_ENUM_VALUE_1,
+    Num(i64) = HARDENED_ENUM_VALUE_2,
+    List(Mode, Vec<String>) = HARDENED_ENUM_VALUE_3,
+    Enum(TextEnum) = HARDENED_ENUM_VALUE_4,
 }
 
 #[repr(u32)]
