@@ -120,7 +120,19 @@ pub enum Directive {
     HostAlias(Defs<Hostname>) = HARDENED_ENUM_VALUE_1,
     CmndAlias(Defs<Command>) = HARDENED_ENUM_VALUE_2,
     RunasAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
-    Defaults(Vec<defaults::SettingsModifier>) = HARDENED_ENUM_VALUE_4,
+    Defaults(Vec<defaults::SettingsModifier>, ConfigScope) = HARDENED_ENUM_VALUE_4,
+}
+
+/// AST object for the 'context' (host, user, cmnd, runas) of a Defaults directive
+#[repr(u32)]
+pub enum ConfigScope {
+    // "Defaults entries are parsed in the following order:
+    // generic, host and user Defaults first, then runas Defaults and finally command defaults."
+    Generic,
+    Host(SpecList<Hostname>),
+    User(SpecList<UserSpecifier>),
+    RunAs(SpecList<UserSpecifier>),
+    Command(SpecList<SimpleCommand>),
 }
 
 /// The Sudoers file can contain permissions and directives
@@ -522,7 +534,7 @@ impl Parse for Sudo {
         if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
             // element 1 always exists (parse_list fails on an empty list)
             let key = &users[0];
-            if let Some(directive) = maybe(get_directive(key, stream))? {
+            if let Some(directive) = maybe(get_directive(key, stream, start_pos))? {
                 if users.len() != 1 {
                     unrecoverable!(pos = start_pos, stream, "invalid user name list");
                 }
@@ -615,6 +627,7 @@ impl<T> Many for Def<T> {
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut CharStream,
+    begin_pos: (usize, usize),
 ) -> Parsed<Directive> {
     use super::ast::Directive::*;
     use super::ast::Meta::*;
@@ -629,7 +642,28 @@ fn get_directive(
         "Host_Alias" => make(HostAlias(expect_nonterminal(stream)?)),
         "Cmnd_Alias" | "Cmd_Alias" => make(CmndAlias(expect_nonterminal(stream)?)),
         "Runas_Alias" => make(RunasAlias(expect_nonterminal(stream)?)),
-        "Defaults" => make(Defaults(expect_nonterminal(stream)?)),
+        "Defaults" => {
+            let allow_scope_modifier = stream.get_pos().0 == begin_pos.0
+                && stream.get_pos().1 - begin_pos.1 == "Defaults".len();
+
+            let scope = if allow_scope_modifier {
+                if is_syntax('@', stream)? {
+                    ConfigScope::Host(expect_nonterminal(stream)?)
+                } else if is_syntax(':', stream)? {
+                    ConfigScope::User(expect_nonterminal(stream)?)
+                } else if is_syntax('!', stream)? {
+                    ConfigScope::Command(expect_nonterminal(stream)?)
+                } else if is_syntax('>', stream)? {
+                    ConfigScope::RunAs(expect_nonterminal(stream)?)
+                } else {
+                    ConfigScope::Generic
+                }
+            } else {
+                ConfigScope::Generic
+            };
+
+            make(Defaults(expect_nonterminal(stream)?, scope))
+        }
         _ => reject(),
     }
 }

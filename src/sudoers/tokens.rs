@@ -152,20 +152,22 @@ impl Token for AliasName {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
-pub type Command = (glob::Pattern, Option<Box<[String]>>);
+pub type Command = (SimpleCommand, Option<Box<[String]>>);
+
+/// A type that is specific to 'only commands', that can only happen in "Defaults!command" contexts;
+/// which is essentially a subset of "Command"
+pub type SimpleCommand = glob::Pattern;
 
 impl Token for Command {
     const MAX_LEN: usize = 1024;
 
     fn construct(s: String) -> Result<Self, String> {
-        let cvt_err = |pat: Result<_, glob::PatternError>| {
-            pat.map_err(|err| format!("wildcard pattern error {err}"))
-        };
-
         // the tokenizer should not give us a token that consists of only whitespace
         let mut cmd_iter = s.split_whitespace();
-        let mut cmd = cmd_iter.next().unwrap().to_string();
+        let cmd = cmd_iter.next().unwrap().to_string();
         let mut args = cmd_iter.map(String::from).collect::<Vec<String>>();
+
+        let command = SimpleCommand::construct(cmd)?;
 
         let argpat = if args.is_empty() {
             // if no arguments are mentioned, anything is allowed
@@ -176,6 +178,32 @@ impl Token for Command {
                 args.pop();
             }
             Some(args.into_boxed_slice())
+        };
+
+        Ok((command, argpat))
+    }
+
+    // all commands start with "/" except "sudoedit"
+    fn accept_1st(c: char) -> bool {
+        SimpleCommand::accept_1st(c)
+    }
+
+    fn accept(c: char) -> bool {
+        SimpleCommand::accept(c) || c == ' '
+    }
+
+    const ALLOW_ESCAPE: bool = SimpleCommand::ALLOW_ESCAPE;
+    fn escaped(c: char) -> bool {
+        SimpleCommand::escaped(c)
+    }
+}
+
+impl Token for SimpleCommand {
+    const MAX_LEN: usize = 1024;
+
+    fn construct(mut cmd: String) -> Result<Self, String> {
+        let cvt_err = |pat: Result<_, glob::PatternError>| {
+            pat.map_err(|err| format!("wildcard pattern error {err}"))
         };
 
         // record if the cmd ends in a slash and remove it if it does
@@ -197,7 +225,7 @@ impl Token for Command {
             cmd.push_str("/*");
         }
 
-        Ok((cvt_err(glob::Pattern::new(&cmd))?, argpat))
+        cvt_err(glob::Pattern::new(&cmd))
     }
 
     // all commands start with "/" except "sudoedit"
@@ -211,11 +239,12 @@ impl Token for Command {
 
     const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
-        matches!(c, '\\' | ',' | ':' | '=' | '#')
+        matches!(c, '\\' | ',' | ':' | '=' | '#' | ' ')
     }
 }
 
 impl Many for Command {}
+impl Many for SimpleCommand {}
 
 pub struct DefaultName(pub String);
 

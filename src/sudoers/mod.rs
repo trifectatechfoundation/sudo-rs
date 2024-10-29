@@ -590,7 +590,7 @@ fn analyze(
                     Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
                     Sudo::Decl(RunasAlias(mut def)) => cfg.aliases.runas.1.append(&mut def),
 
-                    Sudo::Decl(Defaults(params)) => {
+                    Sudo::Decl(Defaults(params, scope)) => {
                         for modifier in params {
                             modifier(&mut cfg.settings);
                         }
