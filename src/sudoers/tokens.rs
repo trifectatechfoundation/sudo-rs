@@ -328,9 +328,10 @@ impl Token for StringParameter {
 // a path used for in CWD and CHROOT specs
 #[derive(Clone, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
+#[repr(u32)]
 pub enum ChDir {
-    Path(SudoPath),
-    Any,
+    Path(SudoPath) = HARDENED_ENUM_VALUE_0,
+    Any = HARDENED_ENUM_VALUE_1,
 }
 
 impl Token for ChDir {
