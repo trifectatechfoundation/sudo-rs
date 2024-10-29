@@ -8,7 +8,7 @@ use crate::common::{
 };
 
 /// The Sudoers file allows negating items with the exclamation mark.
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, PartialEq, Eq))]
 #[repr(u32)]
 pub enum Qualified<T> {
     Allow(T) = HARDENED_ENUM_VALUE_0,
@@ -45,7 +45,7 @@ pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
 /// An identifier is a name or a #number
-#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]
 pub enum Identifier {
     Name(SudoString) = HARDENED_ENUM_VALUE_0,
@@ -53,7 +53,7 @@ pub enum Identifier {
 }
 
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
-#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]
 pub enum UserSpecifier {
     User(Identifier) = HARDENED_ENUM_VALUE_0,
@@ -69,7 +69,7 @@ pub struct RunAs {
 
 // `sudo -l l` calls this the `authenticate` option
 #[derive(Copy, Clone, Default, PartialEq)]
-#[cfg_attr(test, derive(Debug, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, Eq))]
 #[repr(u32)]
 pub enum Authenticate {
     #[default]
@@ -82,7 +82,7 @@ pub enum Authenticate {
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[derive(Default, Clone, PartialEq)]
-#[cfg_attr(test, derive(Debug, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, Eq))]
 pub struct Tag {
     pub authenticate: Authenticate,
     pub cwd: Option<ChDir>,

@@ -5,7 +5,7 @@ use crate::common::{SudoPath, SudoString};
 use super::basic_parser::{Many, Token};
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 
-#[cfg_attr(test, derive(Clone, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Clone, PartialEq, Eq))]
 pub struct Username(pub SudoString);
 
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
@@ -80,7 +80,7 @@ impl Many for Hostname {}
 
 /// This enum allows items to use the ALL wildcard or be specified with aliases, or directly.
 /// (Maybe this is better defined not as a Token but simply directly as an implementation of [crate::sudoers::basic_parser::Parse])
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, PartialEq, Eq))]
 #[repr(u32)]
 pub enum Meta<T> {
     All = HARDENED_ENUM_VALUE_0,
@@ -327,7 +327,7 @@ impl Token for StringParameter {
 
 // a path used for in CWD and CHROOT specs
 #[derive(Clone, PartialEq)]
-#[cfg_attr(test, derive(Debug, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, Eq))]
 #[repr(u32)]
 pub enum ChDir {
     Path(SudoPath) = HARDENED_ENUM_VALUE_0,
