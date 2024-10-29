@@ -416,7 +416,7 @@ fn defaults_regression() {
 #[test]
 fn specific_defaults() {
     assert!(parse_line("Defaults !use_pty").is_decl());
-    assert!(try_parse_line("Defaults!use_pty").is_none()); // this succeeds right now but should fail
+    assert!(try_parse_line("Defaults!use_pty").is_none());
     assert!(parse_line("Defaults!/bin/bash !use_pty").is_decl());
     assert!(try_parse_line("Defaults!/bin/bash!use_pty").is_none());
     assert!(try_parse_line("Defaults !/bin/bash !use_pty").is_none());
