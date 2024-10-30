@@ -1,26 +1,33 @@
-macro_rules! add_from {
+use super::SudoDefault;
+
+pub(super) trait ToSudoDefault {
+    fn to_sudodefault(self) -> SudoDefault;
+}
+
+macro_rules! add_conversion {
     ($ctor:ident, $type:ty) => {
-        impl From<$type> for $crate::defaults::SudoDefault {
-            fn from(value: $type) -> Self {
-                $crate::defaults::SudoDefault::$ctor(value.into())
+        impl ToSudoDefault for $type {
+            fn to_sudodefault(self) -> SudoDefault {
+                $crate::defaults::SudoDefault::$ctor(self.into())
             }
         }
     };
 
     ($ctor:ident, $type:ty, negatable$(, $vetting_function:expr)?) => {
-        impl From<$type> for $crate::defaults::SudoDefault {
+        impl ToSudoDefault for $type {
             #[allow(clippy::from_str_radix_10)]
-            fn from(value: $type) -> Self {
+            fn to_sudodefault(self) -> SudoDefault {
                 $crate::defaults::SudoDefault::$ctor(OptTuple {
-                    default: value.into(),
+                    default: self.into(),
                     negated: None,
                 }$(, $vetting_function)?)
             }
         }
 
-        impl From<($type, $type)> for $crate::defaults::SudoDefault {
+        impl ToSudoDefault for ($type, $type) {
             #[allow(clippy::from_str_radix_10)]
-            fn from((value, neg): ($type, $type)) -> Self {
+            fn to_sudodefault(self) -> SudoDefault {
+                let (value, neg) = self;
                 $crate::defaults::SudoDefault::$ctor(OptTuple {
                     default: value.into(),
                     negated: Some(neg.into()),
@@ -63,12 +70,12 @@ macro_rules! defaults {
             $(stringify!($name)),*
         ];
 
-        add_from!(Flag, bool);
-        add_from!(Integer, i64, negatable, |text| i64::from_str_radix(text, 10).ok());
-        add_from!(Text, &'static str, negatable);
-        add_from!(Text, Option<&'static str>, negatable);
-        add_from!(List, &'static [&'static str]);
-        add_from!(Enum, StrEnum<'static>, negatable);
+        add_conversion!(Flag, bool);
+        add_conversion!(Integer, i64, negatable, |text| i64::from_str_radix(text, 10).ok());
+        add_conversion!(Text, &'static str, negatable);
+        add_conversion!(Text, Option<&'static str>, negatable);
+        add_conversion!(List, &'static [&'static str]);
+        add_conversion!(Enum, StrEnum<'static>, negatable);
 
         // because of the nature of radix and ranges, 'let mut result' is not always necessary, and
         // a radix of 10 can also not always be avoided (and for uniformity, I would also not avoid this
@@ -84,7 +91,7 @@ macro_rules! defaults {
                               |key: &'static str| StrEnum::new(key, keys).unwrap_or_else(|| unreachable!())
                           })?];
                           let datum = restrict(sliceify!($value));
-                          let mut result = tupleify!(datum$(, restrict($negate))?).into();
+                          let mut result = tupleify!(datum$(, restrict($negate))?).to_sudodefault();
                           $(
                               if let SudoDefault::Integer(_, ref mut checker) = &mut result {
                                   *checker = |text| i64::from_str_radix(text, 10$(*0 + $radix)?).ok().filter(|val| ($first ..= $last).contains(val));
@@ -105,7 +112,7 @@ macro_rules! defaults {
     };
 }
 
-pub(super) use add_from;
+pub(super) use add_conversion;
 pub(super) use defaults;
 pub(super) use optional;
 pub(super) use sliceify;
