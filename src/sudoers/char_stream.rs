@@ -42,17 +42,17 @@ impl<Iter: Iterator<Item = char>> CharStream for PeekableWithPos<Iter> {
 }
 
 #[cfg(test)]
-impl<Iter: Iterator<Item = char>> CharStream for std::iter::Peekable<Iter> {
+impl CharStream for std::str::CharIndices<'_> {
     fn advance(&mut self) {
         self.next();
     }
 
     fn peek(&mut self) -> Option<char> {
-        self.peek().cloned()
+        self.as_str().chars().next()
     }
 
     fn get_pos(&self) -> (usize, usize) {
-        (0, 0)
+        (0, self.offset())
     }
 }
 

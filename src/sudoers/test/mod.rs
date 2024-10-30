@@ -57,7 +57,7 @@ macro_rules! request {
 
 macro_rules! sudoer {
     ($($e:expr),*) => {
-        parse_lines(&mut [$($e),*, ""].join("\n").chars().peekable())
+        parse_lines(&mut [$($e),*, ""].join("\n").char_indices())
             .into_iter()
             .map(|x| Ok::<_,basic_parser::Status>(x.unwrap()))
     }
@@ -71,7 +71,7 @@ fn parse_line(s: &str) -> Sudo {
 
 /// Returns `None` if a syntax error is encountered
 fn try_parse_line(s: &str) -> Option<Sudo> {
-    parse_lines(&mut [s, ""].join("").chars().peekable())
+    parse_lines(&mut [s, ""].join("").char_indices())
         .into_iter()
         .next()?
         .ok()
