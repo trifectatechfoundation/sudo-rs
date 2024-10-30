@@ -414,6 +414,28 @@ fn defaults_regression() {
 }
 
 #[test]
+fn specific_defaults() {
+    assert!(parse_line("Defaults !use_pty").is_decl());
+    assert!(try_parse_line("Defaults!use_pty").is_none()); // this succeeds right now but should fail
+    assert!(parse_line("Defaults!/bin/bash !use_pty").is_decl());
+    assert!(try_parse_line("Defaults!/bin/bash!use_pty").is_none());
+    assert!(try_parse_line("Defaults !/bin/bash !use_pty").is_none());
+    assert!(try_parse_line("Defaults !/bin/bash").is_none());
+    assert!(parse_line("Defaults@host !use_pty").is_decl());
+    assert!(parse_line("Defaults@host!use_pty").is_decl());
+    assert!(try_parse_line("Defaults @host!use_pty").is_none());
+    assert!(try_parse_line("Defaults @host !use_pty").is_none());
+    assert!(parse_line("Defaults:user !use_pty").is_decl());
+    assert!(parse_line("Defaults:user!use_pty").is_decl());
+    assert!(try_parse_line("Defaults :user!use_pty").is_none());
+    assert!(try_parse_line("Defaults :user !use_pty").is_none());
+    assert!(parse_line("Defaults>user !use_pty").is_decl());
+    assert!(parse_line("Defaults>user!use_pty").is_decl());
+    assert!(try_parse_line("Defaults >user!use_pty").is_none());
+    assert!(try_parse_line("Defaults >user !use_pty").is_none());
+}
+
+#[test]
 fn useralias_underscore_regression() {
     let sudo = parse_line("FOO_BAR ALL=ALL");
     let spec = sudo.as_spec().expect("`Sudo::Spec`");
