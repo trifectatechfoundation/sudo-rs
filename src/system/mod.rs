@@ -1,5 +1,7 @@
 use core::fmt;
 // TODO: remove unused attribute when system is cleaned up
+#[cfg(target_os = "linux")]
+use std::str::FromStr;
 use std::{
     collections::BTreeSet,
     ffi::{c_uint, CStr, CString},
@@ -11,7 +13,6 @@ use std::{
         unix::{self, prelude::OsStrExt},
     },
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use crate::{
@@ -279,7 +280,7 @@ pub fn set_target_user(
     unsafe {
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
-                target_user.groups.len(),
+                target_user.groups.len() as _,
                 // We can cast to gid_t because `GroupId` is marked as transparent
                 target_user.groups.as_ptr().cast::<libc::gid_t>(),
             ))?;
@@ -562,6 +563,7 @@ pub enum WithProcess {
 }
 
 impl WithProcess {
+    #[cfg(target_os = "linux")]
     fn to_proc_string(&self) -> String {
         match self {
             WithProcess::Current => "self".into(),
@@ -620,6 +622,7 @@ impl Process {
 
     /// Returns the device identifier of the TTY device that is currently
     /// attached to the given process
+    #[cfg(target_os = "linux")]
     pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         // device id of tty is displayed as a signed integer of 32 bits
         let data: i32 = read_proc_stat(pid, 6 /* tty_nr */)?;
@@ -635,7 +638,66 @@ impl Process {
         }
     }
 
+    /// Returns the device identifier of the TTY device that is currently
+    /// attached to the given process
+    #[cfg(target_os = "freebsd")]
+    pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
+        use std::ffi::c_void;
+        use std::ptr;
+
+        let mut ki_proc: Vec<libc::kinfo_proc> = Vec::with_capacity(1);
+
+        let pid = match pid {
+            WithProcess::Current => std::process::id() as i32,
+            WithProcess::Other(pid) => pid.inner(),
+        };
+
+        loop {
+            let mut size = ki_proc.capacity() * size_of::<libc::kinfo_proc>();
+            match cerr(unsafe {
+                libc::sysctl(
+                    [
+                        libc::CTL_KERN,
+                        libc::KERN_PROC,
+                        libc::KERN_PROC_PID,
+                        pid,
+                        size_of::<libc::kinfo_proc>() as i32,
+                        1,
+                    ]
+                    .as_ptr(),
+                    4,
+                    ki_proc.as_mut_ptr().cast::<c_void>(),
+                    &mut size,
+                    ptr::null(),
+                    0,
+                )
+            }) {
+                Ok(_) => {
+                    assert!(size >= size_of::<libc::kinfo_proc>());
+                    // SAFETY: The above sysctl has initialized at least `size` bytes. We have
+                    // asserted that this is at least a single element.
+                    unsafe {
+                        ki_proc.set_len(1);
+                    }
+                    break;
+                }
+                Err(e) if e.raw_os_error() == Some(libc::ENOMEM) => {
+                    // Vector not big enough. Grow it by 10% and try again.
+                    ki_proc.reserve(ki_proc.capacity() + (ki_proc.capacity() + 9) / 10);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        if ki_proc[0].ki_tdev == !0 {
+            Ok(None)
+        } else {
+            Ok(Some(DeviceId::new(ki_proc[0].ki_tdev)))
+        }
+    }
+
     /// Get the process starting time of a specific process
+    #[cfg(target_os = "linux")]
     pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
         let process_start: u64 = read_proc_stat(pid, 21 /* start_time */)?;
 
@@ -654,6 +716,60 @@ impl Process {
             ((process_start % ticks_per_second) * (1_000_000_000 / ticks_per_second)) as i64,
         ))
     }
+
+    /// Get the process starting time of a specific process
+    #[cfg(target_os = "freebsd")]
+    pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
+        use std::ffi::c_void;
+        use std::ptr;
+
+        let mut ki_proc: Vec<libc::kinfo_proc> = Vec::with_capacity(1);
+
+        let pid = match pid {
+            WithProcess::Current => std::process::id() as i32,
+            WithProcess::Other(pid) => pid.inner(),
+        };
+
+        loop {
+            let mut size = ki_proc.capacity() * size_of::<libc::kinfo_proc>();
+            match cerr(unsafe {
+                libc::sysctl(
+                    [
+                        libc::CTL_KERN,
+                        libc::KERN_PROC,
+                        libc::KERN_PROC_PID,
+                        pid,
+                        size_of::<libc::kinfo_proc>() as i32,
+                        1,
+                    ]
+                    .as_ptr(),
+                    4,
+                    ki_proc.as_mut_ptr().cast::<c_void>(),
+                    &mut size,
+                    ptr::null(),
+                    0,
+                )
+            }) {
+                Ok(_) => {
+                    assert!(size >= size_of::<libc::kinfo_proc>());
+                    // SAFETY: The above sysctl has initialized at least `size` bytes. We have
+                    // asserted that this is at least a single element.
+                    unsafe {
+                        ki_proc.set_len(1);
+                    }
+                    break;
+                }
+                Err(e) if e.raw_os_error() == Some(libc::ENOMEM) => {
+                    // Vector not big enough. Grow it by 10% and try again.
+                    ki_proc.reserve(ki_proc.capacity() + (ki_proc.capacity() + 9) / 10);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        let ki_start = ki_proc[0].ki_start;
+        Ok(SystemTime::new(ki_start.tv_sec, ki_start.tv_usec * 1000))
+    }
 }
 
 /// Read the n-th field (with 0-based indexing) from `/proc/<pid>/self`.
@@ -664,6 +780,7 @@ impl Process {
 /// IMPORTANT: the first two fields are not accessible with this routine.
 ///
 /// [proc_stat_fields]: https://www.kernel.org/doc/html/latest/filesystems/proc.html#id10
+#[cfg(target_os = "linux")]
 fn read_proc_stat<T: FromStr>(pid: WithProcess, field_idx: isize) -> io::Result<T> {
     // the first two fields are skipped by the code below, and we never need them,
     // so no point in implementing code for it in this private function.

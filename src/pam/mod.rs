@@ -21,6 +21,9 @@ mod securemem;
 #[allow(nonstandard_style)]
 pub mod sys;
 
+#[cfg(target_os = "freebsd")]
+const PAM_DATA_SILENT: std::ffi::c_int = 0;
+
 pub use converse::{CLIConverser, Converser};
 
 pub struct PamContext<C: Converser> {
