@@ -36,7 +36,7 @@ pub struct Context {
     pub chdir: Option<SudoPath>,
     pub command: CommandAndArguments,
     pub target_user: User,
-    pub target_group: Group,
+    pub target_group: Option<Group>,
     pub stdin: bool,
     pub non_interactive: bool,
     pub use_session_records: bool,

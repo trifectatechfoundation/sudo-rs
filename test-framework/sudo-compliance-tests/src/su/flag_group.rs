@@ -81,7 +81,8 @@ fn when_specified_more_than_once_all_groups_are_added_to_group_list() -> Result<
         .output(&env)?
         .stdout()?;
 
-    assert_eq!(format!("{gid2} {gid1}"), actual);
+    // on FreeBSD id -G returns the real, effective and supplementary group ids without deduplication.
+    assert_eq!(format!("{gid2} {gid1} {gid2}"), actual);
 
     Ok(())
 }

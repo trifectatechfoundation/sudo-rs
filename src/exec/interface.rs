@@ -16,7 +16,7 @@ pub trait RunOptions {
     fn is_login(&self) -> bool;
     fn user(&self) -> &User;
     fn requesting_user(&self) -> &User;
-    fn group(&self) -> &Group;
+    fn group(&self) -> Option<&Group>;
     fn pid(&self) -> ProcessId;
 
     fn use_pty(&self) -> bool;
@@ -55,8 +55,8 @@ impl RunOptions for Context {
         &self.current_user
     }
 
-    fn group(&self) -> &Group {
-        &self.target_group
+    fn group(&self) -> Option<&Group> {
+        self.target_group.as_ref()
     }
 
     fn pid(&self) -> ProcessId {

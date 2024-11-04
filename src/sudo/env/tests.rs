@@ -124,11 +124,11 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
         } else {
             root_user
         },
-        target_group: if sudo_options.user.as_deref() == Some("test") {
+        target_group: Some(if sudo_options.user.as_deref() == Some("test") {
             current_group
         } else {
             root_group
-        },
+        }),
         launch: crate::common::context::LaunchType::Direct,
         chdir: sudo_options.chdir.clone(),
         stdin: sudo_options.stdin,
