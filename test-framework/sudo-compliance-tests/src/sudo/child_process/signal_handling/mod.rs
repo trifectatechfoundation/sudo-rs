@@ -169,6 +169,9 @@ fn sigalrm_terminates_command(tty: bool) -> Result<()> {
         .as_user(USERNAME)
         .spawn(&env)?;
 
+    // Wait for expects-signal.sh to install the signal handler
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
     Command::new("sh")
         .args([kill_sudo, "-ALRM"])
         .tty(tty)
