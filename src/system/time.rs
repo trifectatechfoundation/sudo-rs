@@ -27,10 +27,12 @@ impl SystemTime {
         // SAFETY: valid pointer is passed to clock_gettime
         crate::cutils::cerr(unsafe {
             libc::clock_gettime(
-                if cfg!(target_os = "freebsd") {
+                if cfg!(target_os = "linux") {
+                    todo!() // libc::CLOCK_BOOTTIME
+                } else if cfg!(any(target_os = "freebsd", target_os = "macos")) {
                     libc::CLOCK_REALTIME
                 } else {
-                    libc::CLOCK_BOOTTIME
+                    unimplemented!()
                 },
                 spec.as_mut_ptr(),
             )

@@ -120,7 +120,7 @@ fn close_range(min_fd: c_uint, max_fd: c_uint) -> io::Result<()> {
         // - any errors while closing a specific fd will be effectively ignored
         // - if the provided range or flags are invalid, that will be reported
         //   as an error but will not cause undefined behaviour
-        cerr(unsafe { libc::close_range(min_fd, max_fd, 0) })?;
+        //cerr(unsafe { libc::close_range(min_fd, max_fd, 0) })?;
     }
 
     Ok(())
@@ -381,8 +381,8 @@ impl User {
             let result = unsafe {
                 libc::getgrouplist(
                     pwd.pw_name,
-                    pwd.pw_gid,
-                    groups_buffer.as_mut_ptr(),
+                    pwd.pw_gid as _,
+                    groups_buffer.as_mut_ptr() as _,
                     &mut buf_len,
                 )
             };
@@ -707,6 +707,13 @@ impl Process {
         }
     }
 
+    /// Returns the device identifier of the TTY device that is currently
+    /// attached to the given process
+    #[cfg(target_os = "macos")]
+    pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
+        Ok(None)
+    }
+
     /// Get the process starting time of a specific process
     #[cfg(target_os = "linux")]
     pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
@@ -780,6 +787,12 @@ impl Process {
 
         let ki_start = ki_proc[0].ki_start;
         Ok(SystemTime::new(ki_start.tv_sec, ki_start.tv_usec * 1000))
+    }
+
+    /// Get the process starting time of a specific process
+    #[cfg(target_os = "macos")]
+    pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
+        SystemTime::now()
     }
 }
 
