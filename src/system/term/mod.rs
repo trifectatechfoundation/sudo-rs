@@ -239,7 +239,7 @@ mod tests {
         process::exit,
     };
 
-    use crate::system::{fork_for_test, getpgid, setsid, term::*, ForkResult};
+    use crate::system::{fork_for_test, getpgid, setsid, term::*};
 
     #[test]
     fn open_pty() {
@@ -257,26 +257,26 @@ mod tests {
         // Create a socket so the child can send us a byte if successful.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        // FIXME fork will deadlock when this test panics if it forked while
-        // another test was panicking.
-        let ForkResult::Parent(_) = (unsafe { fork_for_test() }) else {
-            // Open a new pseudoterminal.
-            let leader = Pty::open().unwrap().leader;
-            // The pty leader should not have a foreground process group yet.
-            assert_eq!(leader.tcgetpgrp().unwrap().inner(), 0);
-            // Create a new session so we can change the controlling terminal.
-            setsid().unwrap();
-            // Set the pty leader as the controlling terminal.
-            leader.make_controlling_terminal().unwrap();
-            // Set us as the foreground process group of the pty leader.
-            let pgid = getpgid(ProcessId::new(0)).unwrap();
-            leader.tcsetpgrp(pgid).unwrap();
-            // Check that we are in fact the foreground process group of the pty leader.
-            assert_eq!(pgid, leader.tcgetpgrp().unwrap());
-            // If we haven't panicked yet, send a byte to the parent.
-            tx.write_all(&[42]).unwrap();
+        unsafe {
+            fork_for_test(|| {
+                // Open a new pseudoterminal.
+                let leader = Pty::open().unwrap().leader;
+                // The pty leader should not have a foreground process group yet.
+                assert_eq!(leader.tcgetpgrp().unwrap().inner(), 0);
+                // Create a new session so we can change the controlling terminal.
+                setsid().unwrap();
+                // Set the pty leader as the controlling terminal.
+                leader.make_controlling_terminal().unwrap();
+                // Set us as the foreground process group of the pty leader.
+                let pgid = getpgid(ProcessId::new(0)).unwrap();
+                leader.tcsetpgrp(pgid).unwrap();
+                // Check that we are in fact the foreground process group of the pty leader.
+                assert_eq!(pgid, leader.tcgetpgrp().unwrap());
+                // If we haven't panicked yet, send a byte to the parent.
+                tx.write_all(&[42]).unwrap();
 
-            exit(0);
+                exit(0);
+            })
         };
 
         drop(tx);

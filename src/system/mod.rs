@@ -147,18 +147,32 @@ pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
 /// In a multithreaded program, only async-signal-safe functions are guaranteed to work in the
 /// child process until a call to `execve` or a similar function is done.
 #[cfg(test)]
-unsafe fn fork_for_test() -> ForkResult {
-    let result = fork().unwrap();
-    if let ForkResult::Child = result {
-        // Make sure that panics in the child always abort the process if it doesn't deadlock.
-        // FIXME use std::panic::always_abort() once it is stable
-        std::panic::set_hook(Box::new(|info| {
-            use std::io::Write;
-            let _ = writeln!(std::io::stderr(), "{info}");
-            std::process::exit(101);
-        }));
+unsafe fn fork_for_test(child_func: impl FnOnce() -> std::convert::Infallible) -> ProcessId {
+    use std::io::Write;
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::process::exit;
+
+    match fork().unwrap() {
+        ForkResult::Child => {
+            // Make sure that panics in the child always abort the process.
+            let err = match catch_unwind(AssertUnwindSafe(child_func)) {
+                Ok(res) => match res {},
+                Err(err) => err,
+            };
+
+            let s = if let Some(s) = err.downcast_ref::<&str>() {
+                s
+            } else if let Some(s) = err.downcast_ref::<String>() {
+                s
+            } else {
+                "Box<dyn Any>"
+            };
+            let _ = writeln!(std::io::stderr(), "{s}");
+
+            exit(101);
+        }
+        ForkResult::Parent(pid) => pid,
     }
-    result
 }
 
 pub fn setsid() -> io::Result<ProcessId> {
@@ -747,7 +761,7 @@ mod tests {
     use super::{
         fork_for_test, getpgrp, setpgid,
         wait::{Wait, WaitOptions},
-        ForkResult, Group, User, WithProcess, ROOT_GROUP_NAME,
+        Group, User, WithProcess, ROOT_GROUP_NAME,
     };
 
     pub(super) fn tempfile() -> std::io::Result<std::fs::File> {
@@ -857,25 +871,23 @@ mod tests {
             pgrp
         );
 
-        // FIXME fork will deadlock when this test panics if it forked while
-        // another test was panicking.
-        match unsafe { super::fork_for_test() } {
-            ForkResult::Child => {
+        let child_pid = unsafe {
+            super::fork_for_test(|| {
                 // wait for the parent.
-                std::thread::sleep(std::time::Duration::from_secs(1))
-            }
-            ForkResult::Parent(child_pid) => {
-                // The child should be in our process group.
-                assert_eq!(
-                    getpgid(child_pid).unwrap(),
-                    getpgid(ProcessId::new(0)).unwrap(),
-                );
-                // Move the child to its own process group
-                setpgid(child_pid, child_pid).unwrap();
-                // The process group of the child should have changed.
-                assert_eq!(getpgid(child_pid).unwrap(), child_pid);
-            }
-        }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                exit(0);
+            })
+        };
+
+        // The child should be in our process group.
+        assert_eq!(
+            getpgid(child_pid).unwrap(),
+            getpgid(ProcessId::new(0)).unwrap(),
+        );
+        // Move the child to its own process group
+        setpgid(child_pid, child_pid).unwrap();
+        // The process group of the child should have changed.
+        assert_eq!(getpgid(child_pid).unwrap(), child_pid);
     }
     #[test]
     fn kill_test() {
@@ -891,20 +903,20 @@ mod tests {
         // Create a socket so the children write to it if they aren't terminated by `killpg`.
         let (mut rx, mut tx) = UnixStream::pair().unwrap();
 
-        // FIXME fork will deadlock when this test panics if it forked while
-        // another test was panicking.
-        let ForkResult::Parent(pid1) = (unsafe { fork_for_test() }) else {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            tx.write_all(&[42]).unwrap();
-            exit(0);
+        let pid1 = unsafe {
+            fork_for_test(|| {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                tx.write_all(&[42]).unwrap();
+                exit(0);
+            })
         };
 
-        // FIXME fork will deadlock when this test panics if it forked while
-        // another test was panicking.
-        let ForkResult::Parent(pid2) = (unsafe { fork_for_test() }) else {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            tx.write_all(&[42]).unwrap();
-            exit(0);
+        let pid2 = unsafe {
+            fork_for_test(|| {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                tx.write_all(&[42]).unwrap();
+                exit(0);
+            })
         };
 
         drop(tx);
@@ -929,31 +941,32 @@ mod tests {
 
     #[test]
     fn close_the_universe() {
-        // FIXME fork will deadlock when this test panics if it forked while
-        // another test was panicking.
-        let ForkResult::Parent(child_pid) = (unsafe { fork_for_test() }) else {
-            let should_close =
-                std::fs::File::create(std::env::temp_dir().join("should_close.txt")).unwrap();
-            assert!(!is_closed(&should_close));
+        let child_pid = unsafe {
+            fork_for_test(|| {
+                let should_close =
+                    std::fs::File::create(std::env::temp_dir().join("should_close.txt")).unwrap();
+                assert!(!is_closed(&should_close));
 
-            let should_not_close =
-                std::fs::File::create(std::env::temp_dir().join("should_not_close.txt")).unwrap();
-            assert!(!is_closed(&should_not_close));
+                let should_not_close =
+                    std::fs::File::create(std::env::temp_dir().join("should_not_close.txt"))
+                        .unwrap();
+                assert!(!is_closed(&should_not_close));
 
-            let mut closer = super::FileCloser::new();
+                let mut closer = super::FileCloser::new();
 
-            closer.except(&should_not_close);
+                closer.except(&should_not_close);
 
-            closer.close_the_universe().unwrap();
+                closer.close_the_universe().unwrap();
 
-            assert!(is_closed(&should_close));
+                assert!(is_closed(&should_close));
 
-            assert!(!is_closed(&io::stdin()));
-            assert!(!is_closed(&io::stdout()));
-            assert!(!is_closed(&io::stderr()));
-            assert!(!is_closed(&should_not_close));
+                assert!(!is_closed(&io::stdin()));
+                assert!(!is_closed(&io::stdout()));
+                assert!(!is_closed(&io::stderr()));
+                assert!(!is_closed(&should_not_close));
 
-            exit(0)
+                exit(0)
+            })
         };
 
         let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
@@ -962,22 +975,22 @@ mod tests {
 
     #[test]
     fn except_stdio_is_fine() {
-        // FIXME fork will deadlock when this test panics if it forked while
-        // another test was panicking.
-        let ForkResult::Parent(child_pid) = (unsafe { fork_for_test() }) else {
-            let mut closer = super::FileCloser::new();
+        let child_pid = unsafe {
+            fork_for_test(|| {
+                let mut closer = super::FileCloser::new();
 
-            closer.except(&io::stdin());
-            closer.except(&io::stdout());
-            closer.except(&io::stderr());
+                closer.except(&io::stdin());
+                closer.except(&io::stdout());
+                closer.except(&io::stderr());
 
-            closer.close_the_universe().unwrap();
+                closer.close_the_universe().unwrap();
 
-            assert!(!is_closed(&io::stdin()));
-            assert!(!is_closed(&io::stdout()));
-            assert!(!is_closed(&io::stderr()));
+                assert!(!is_closed(&io::stdin()));
+                assert!(!is_closed(&io::stdout()));
+                assert!(!is_closed(&io::stderr()));
 
-            exit(0)
+                exit(0)
+            })
         };
 
         let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
