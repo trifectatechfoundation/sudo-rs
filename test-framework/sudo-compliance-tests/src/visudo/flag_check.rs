@@ -14,7 +14,7 @@ fn no_syntax_errors_and_ok_ownership_and_perms() -> Result<()> {
 
     assert!(output.status().success(), "{}", output.stderr());
     assert!(output.stderr().is_empty());
-    assert_eq!("/etc/sudoers: parsed OK", output.stdout()?);
+    assert_eq!(format!("{ETC_SUDOERS}: parsed OK"), output.stdout()?);
 
     Ok(())
 }
@@ -29,7 +29,7 @@ fn bad_perms() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
     assert_contains!(
         output.stderr(),
-        "/etc/sudoers: bad permissions, should be mode 0440"
+        format!("{ETC_SUDOERS}: bad permissions, should be mode 0440")
     );
 
     Ok(())
@@ -47,7 +47,7 @@ fn bad_ownership() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
     assert_contains!(
         output.stderr(),
-        "/etc/sudoers: wrong owner (uid, gid) should be (0, 0)"
+        format!("{ETC_SUDOERS}: wrong owner (uid, gid) should be (0, 0)")
     );
 
     Ok(())
@@ -81,7 +81,7 @@ fn file_does_not_exist() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
     assert_contains!(
         output.stderr(),
-        "visudo: unable to open /etc/sudoers: No such file or directory"
+        format!("visudo: unable to open {ETC_SUDOERS}: No such file or directory")
     );
 
     Ok(())

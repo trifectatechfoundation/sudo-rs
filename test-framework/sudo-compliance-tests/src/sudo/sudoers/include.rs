@@ -1,11 +1,13 @@
-use sudo_test::{Command, Env, TextFile};
+use std::path::Path;
+
+use sudo_test::{Command, Env, TextFile, ETC_SUDOERS};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
 fn relative_path() -> Result<()> {
     let env = Env("@include sudoers2")
-        .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
+        .file(format!("{ETC_SUDOERS}2"), SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
     Command::new("sudo")
@@ -118,7 +120,7 @@ fn double_quote_in_name_double_quotes() -> Result<()> {
 #[test]
 fn include_loop_error_messages() -> Result<()> {
     let env = Env("@include /etc/sudoers2")
-        .file(r#"/etc/sudoers2"#, "@include /etc/sudoers")
+        .file(r#"/etc/sudoers2"#, format!("@include {ETC_SUDOERS}"))
         .build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
@@ -138,7 +140,7 @@ fn include_loop_error_messages() -> Result<()> {
 #[test]
 fn include_loop_not_fatal() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include /etc/sudoers2"])
-        .file(r#"/etc/sudoers2"#, "@include /etc/sudoers")
+        .file(r#"/etc/sudoers2"#, format!("@include {ETC_SUDOERS}"))
         .build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
@@ -180,16 +182,16 @@ fn permissions_check() -> Result<()> {
 #[test]
 fn permissions_check_not_fatal() -> Result<()> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include sudoers2"])
-        .file(r#"/etc/sudoers2"#, TextFile("").chmod("777"))
+        .file(format!("{ETC_SUDOERS}2"), TextFile("").chmod("777"))
         .build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
-        "sudo: /etc/sudoers2 is world writable"
+        format!("sudo: {ETC_SUDOERS}2 is world writable")
     } else {
-        "sudo-rs: /etc/sudoers2 cannot be world-writable"
+        format!("sudo-rs: {ETC_SUDOERS}2 cannot be world-writable")
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -269,17 +271,19 @@ fn relative_path_parent_directory() -> Result<()> {
 
 #[test]
 fn relative_path_grandparent_directory() -> Result<()> {
-    // base path is `/etc/sudoers` so grandparent does not exist
+    // base path is `/etc/sudoers` or `/usr/local/etc/sudoers` so grandparent does not exist
     let env = Env("@include ../../sudoers2").build()?;
 
     let output = Command::new("sudo").arg("true").output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
+
+    let path = Path::new(ETC_SUDOERS).parent().unwrap().to_str().unwrap().to_owned() + "/../../sudoers2";
     let diagnostic = if sudo_test::is_original_sudo() {
-        "sudo: unable to open /etc/../../sudoers2: No such file or directory"
+        format!("sudo: unable to open {path}: No such file or directory")
     } else {
-        "sudo-rs: cannot open sudoers file '/etc/../../sudoers2'"
+        format!("sudo-rs: cannot open sudoers file '{path}'")
     };
     assert_contains!(output.stderr(), diagnostic);
     Ok(())
@@ -288,7 +292,7 @@ fn relative_path_grandparent_directory() -> Result<()> {
 #[test]
 fn relative_path_dot_slash() -> Result<()> {
     let env = Env("@include ./sudoers2")
-        .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
+        .file(format!("{ETC_SUDOERS}2"), SUDOERS_ALL_ALL_NOPASSWD)
         .build()?;
 
     Command::new("sudo")

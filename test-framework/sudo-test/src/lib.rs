@@ -12,8 +12,10 @@ use std::{
 
 use docker::{As, Container};
 
+pub use constants::*;
 pub use docker::{Child, Command, Output};
 
+mod constants;
 mod docker;
 pub mod helpers;
 
@@ -58,7 +60,7 @@ type AbsolutePath = String;
 type Groupname = String;
 type Username = String;
 
-/// test environment        
+/// test environment
 pub struct Env {
     container: Container,
     users: HashSet<Username>,
@@ -68,7 +70,7 @@ pub struct Env {
 #[allow(non_snake_case)]
 pub fn Env(sudoers: impl Into<TextFile>) -> EnvBuilder {
     let mut builder = EnvBuilder::default();
-    builder.file("/etc/sudoers", sudoers);
+    builder.file(ETC_SUDOERS, sudoers);
     builder
 }
 
@@ -769,7 +771,7 @@ mod tests {
         let env = Env(expected).build()?;
 
         let actual = Command::new("cat")
-            .arg("/etc/sudoers")
+            .arg(ETC_SUDOERS)
             .output(&env)?
             .stdout()?;
         assert_eq!(expected, actual);

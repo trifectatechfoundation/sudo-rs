@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, Env, TextFile, ETC_SUDOERS};
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
 
@@ -30,7 +30,6 @@ macro_rules! assert_snapshot {
 }
 
 const TMP_SUDOERS: &str = "/tmp/sudoers";
-const ETC_SUDOERS: &str = "/etc/sudoers";
 const DEFAULT_EDITOR: &str = "/usr/bin/editor";
 const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "100";
@@ -110,7 +109,7 @@ sleep 3",
     assert_eq!(Some(1), output.status().code());
     assert_contains!(
         output.stderr(),
-        "visudo: /etc/sudoers busy, try again later"
+        format!("visudo: {ETC_SUDOERS} busy, try again later")
     );
 
     Ok(())
@@ -134,7 +133,7 @@ echo "$@" > {LOGS_PATH}"#
     let args = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
 
     if sudo_test::is_original_sudo() {
-        assert_eq!("-- /etc/sudoers.tmp", args);
+        assert_eq!(format!("-- {ETC_SUDOERS}.tmp"), args);
     } else {
         assert_snapshot!(args);
     }
@@ -147,7 +146,7 @@ fn temporary_file_owner_and_perms() -> Result<()> {
     let editor_script = if sudo_test::is_original_sudo() {
         format!(
             r#"#!/bin/sh
-ls -l /etc/sudoers.tmp > {LOGS_PATH}"#
+ls -l {ETC_SUDOERS}.tmp > {LOGS_PATH}"#
         )
     } else {
         format!(
@@ -212,7 +211,7 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
     assert!(output.status().success());
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_eq!(output.stderr(), "visudo: /etc/sudoers.tmp unchanged");
+        assert_eq!(output.stderr(), format!("visudo: {ETC_SUDOERS}.tmp unchanged"));
     } else {
         assert_snapshot!(stderr);
     }
@@ -306,10 +305,10 @@ rm $2",
     if sudo_test::is_original_sudo() {
         assert_contains!(
             stderr,
-            "visudo: unable to re-open temporary file (/etc/sudoers.tmp), /etc/sudoers unchanged"
+            format!("visudo: unable to re-open temporary file ({ETC_SUDOERS}.tmp), {ETC_SUDOERS} unchanged")
         );
     } else {
-        assert_snapshot!(stderr);
+        assert_snapshot!(stderr.replace(ETC_SUDOERS, "<ETC_SUDOERS>"));
     }
 
     Ok(())
