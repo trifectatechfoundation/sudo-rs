@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use sudo_test::{Command, Env, User, ROOT_GROUP};
+use sudo_test::{Command, Env, User, BIN_TRUE, ROOT_GROUP};
 
 use crate::{Result, GROUPNAME, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
 
@@ -182,7 +182,7 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
         assert_eq!(Some(1), output.status().code());
 
         let diagnostic = if sudo_test::is_original_sudo() {
-            " is not allowed to execute '/usr/bin/true' as ".to_string()
+            format!(" is not allowed to execute '{BIN_TRUE}' as ")
         } else {
             format!("authentication failed: I'm sorry {user}. I'm afraid I can't do that")
         };
@@ -338,9 +338,9 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()>
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "user root is not allowed to execute '/usr/bin/true' as ferris"
+        format!("user root is not allowed to execute '{BIN_TRUE}' as ferris")
     } else {
-        "I'm sorry root. I'm afraid I can't do that"
+        "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -368,7 +368,7 @@ fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() -> 
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("user {USERNAME} is not allowed to execute '/usr/bin/true' as root:{GROUPNAME}")
+        format!("user {USERNAME} is not allowed to execute '{BIN_TRUE}' as root:{GROUPNAME}")
     } else {
         format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
     };

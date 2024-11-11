@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env, User, BIN_TRUE};
 
 use crate::{Result, GROUPNAME, USERNAME};
 
@@ -61,7 +61,7 @@ fn when_target_user_is_self() -> Result<()> {
         dbg!(&stdout);
 
         assert_not_contains!(stdout, "[sudo] password for");
-        assert_contains!(stdout, "/usr/bin/true");
+        assert_contains!(stdout, BIN_TRUE);
     }
 
     Ok(())
@@ -92,7 +92,7 @@ fn when_invoking_user_belongs_to_target_group() -> Result<()> {
         dbg!(&stdout);
 
         assert_not_contains!(stdout, "[sudo] password for");
-        assert_contains!(stdout, "/usr/bin/true");
+        assert_contains!(stdout, BIN_TRUE);
     }
 
     Ok(())

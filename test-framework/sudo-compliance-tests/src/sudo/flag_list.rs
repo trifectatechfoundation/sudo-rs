@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, User};
+use sudo_test::{Command, Env, TextFile, User, BIN_FALSE, BIN_LS, BIN_PWD, BIN_TRUE};
 
 use crate::{Result, PANIC_EXIT_CODE, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
@@ -272,7 +272,7 @@ fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<(
 
     assert!(output.status().success());
 
-    let expected = "/usr/bin/true";
+    let expected = BIN_TRUE;
     let actual = output.stdout()?;
 
     assert_eq!(actual, expected);
@@ -293,7 +293,7 @@ fn when_several_commands_specified_only_first_displayed_with_fully_qualified_pat
 
     assert!(output.status().success());
 
-    let expected = "/usr/bin/true ls";
+    let expected = format!("{BIN_TRUE} ls");
     let actual = output.stdout()?;
 
     assert_eq!(actual, expected);
@@ -303,7 +303,7 @@ fn when_several_commands_specified_only_first_displayed_with_fully_qualified_pat
 
 #[test]
 fn when_command_is_forbidden_exit_with_status_1_no_stderr() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true")
+    let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_FALSE}"))
         .user(USERNAME)
         .build()?;
 
@@ -323,10 +323,10 @@ fn when_command_is_forbidden_exit_with_status_1_no_stderr() -> Result<()> {
 fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> {
     let hostname = "container";
     let env = Env(format!(
-        "ALL ALL=({USERNAME}:ALL) /usr/bin/true
-        {USERNAME} ALL=(ALL:ALL) /usr/bin/pwd
-        {USERNAME} ALL=(root:ALL) /usr/bin/false
-        root ALL=(ALL:ALL) /usr/bin/ls
+        "ALL ALL=({USERNAME}:ALL) {BIN_TRUE}
+        {USERNAME} ALL=(ALL:ALL) {BIN_PWD}
+        {USERNAME} ALL=(root:ALL) {BIN_FALSE}
+        root ALL=(ALL:ALL) {BIN_LS}
         root ALL=({USERNAME}:ALL) /usr/bin/date
         ALL ALL=(root:ALL) /usr/bin/whoami
     "
@@ -344,9 +344,9 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
 
     let expected = format!(
         "User {USERNAME} may run the following commands on {hostname}:
-    ({USERNAME} : ALL) /usr/bin/true
-    (ALL : ALL) /usr/bin/pwd
-    (root : ALL) /usr/bin/false
+    ({USERNAME} : ALL) {BIN_TRUE}
+    (ALL : ALL) {BIN_PWD}
+    (root : ALL) {BIN_FALSE}
     (root : ALL) /usr/bin/whoami"
     );
     let actual = output.stdout()?;
@@ -360,8 +360,8 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Resul
     let another_user = "another_user";
     let hostname = "container";
     let env = Env(format!(
-        "root ALL=({another_user}:ALL)   /usr/bin/false
-        root ALL=(ALL:ALL)     /usr/bin/pwd
+        "root ALL=({another_user}:ALL)   {BIN_FALSE}
+        root ALL=(ALL:ALL)     {BIN_PWD}
         ALL ALL=({another_user}:ALL)    /usr/bin/whoami"
     ))
     .user(another_user)
@@ -373,7 +373,7 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Resul
         .output(&env)?;
 
     assert!(actual.status().success());
-    assert_eq!("/usr/bin/false pwd whoami", actual.stdout()?);
+    assert_eq!(format!("{BIN_FALSE} pwd whoami"), actual.stdout()?);
 
     Ok(())
 }
@@ -382,7 +382,7 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Resul
 fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() -> Result<()> {
     let another_user = "another_user";
     let hostname = "container";
-    let env = Env(format!("{another_user} ALL=(ALL:ALL) /usr/bin/ls"))
+    let env = Env(format!("{another_user} ALL=(ALL:ALL) {BIN_LS}"))
         .user(another_user)
         .hostname(hostname)
         .build()?;

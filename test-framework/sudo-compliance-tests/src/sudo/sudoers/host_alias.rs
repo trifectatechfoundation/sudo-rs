@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, BIN_TRUE};
 
 use crate::Result;
 
@@ -31,8 +31,8 @@ fn host_alias_works() -> Result<()> {
 #[test]
 fn host_alias_can_contain_underscore_and_digits() -> Result<()> {
     let env = Env([
-        "Host_Alias UNDER_SCORE123 = ALL",
-        "ALL UNDER_SCORE123 = (ALL:ALL) NOPASSWD: /usr/bin/true",
+        "Host_Alias UNDER_SCORE123 = ALL".to_owned(),
+        format!("ALL UNDER_SCORE123 = (ALL:ALL) NOPASSWD: {BIN_TRUE}"),
     ])
     .build()?;
 
@@ -47,9 +47,9 @@ fn host_alias_can_contain_underscore_and_digits() -> Result<()> {
 #[test]
 fn host_alias_cannot_start_with_underscore() -> Result<()> {
     let env = Env([
-        "Host_Alias _FOO = ALL",
-        "ALL ALL = (ALL:ALL) NOPASSWD: /usr/bin/true",
-        "ALL _FOO = (ALL:ALL) PASSWD: ALL",
+        "Host_Alias _FOO = ALL".to_owned(),
+        format!("ALL ALL = (ALL:ALL) NOPASSWD: {BIN_TRUE}"),
+        "ALL _FOO = (ALL:ALL) PASSWD: ALL".to_owned(),
     ])
     .build()?;
 

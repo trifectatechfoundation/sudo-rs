@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, User};
+use sudo_test::{Command, Env, TextFile, User, BIN_TRUE};
 
 use crate::{Result, PASSWORD, USERNAME};
 
@@ -263,7 +263,7 @@ fn when_no_etc_shells_file_uses_a_default_list() -> Result<()> {
             .assert_success()?;
 
         let output = Command::new("su")
-            .args(["-s", "/usr/bin/true", "-c", "false", target_user])
+            .args(["-s", BIN_TRUE, "-c", "false", target_user])
             .stdin(PASSWORD)
             .as_user(invoking_user)
             .output(&env)?;

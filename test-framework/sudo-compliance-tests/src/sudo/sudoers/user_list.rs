@@ -1,7 +1,7 @@
 //! Test the first component of the user specification: `<user_list> ALL=(ALL:ALL) ALL`
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env, User, ROOT_GROUP};
+use sudo_test::{Command, Env, User, BIN_TRUE, ROOT_GROUP};
 
 use crate::{Result, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
 
@@ -237,8 +237,8 @@ fn user_alias_works() -> Result<()> {
 #[test]
 fn user_alias_can_contain_underscore_and_digits() -> Result<()> {
     let env = Env([
-        "User_Alias UNDER_SCORE123 = ALL",
-        "UNDER_SCORE123 ALL = (ALL:ALL) NOPASSWD: /usr/bin/true",
+        "User_Alias UNDER_SCORE123 = ALL".to_owned(),
+        format!("UNDER_SCORE123 ALL = (ALL:ALL) NOPASSWD: {BIN_TRUE}"),
     ])
     .user(USERNAME)
     .build()?;
@@ -255,9 +255,9 @@ fn user_alias_can_contain_underscore_and_digits() -> Result<()> {
 #[test]
 fn user_alias_cannot_start_with_underscore() -> Result<()> {
     let env = Env([
-        "User_Alias _FOO = ALL",
-        "ALL ALL = (ALL:ALL) NOPASSWD: /usr/bin/true",
-        "_FOO ALL = (ALL:ALL) PASSWD: ALL",
+        "User_Alias _FOO = ALL".to_owned(),
+        format!("ALL ALL = (ALL:ALL) NOPASSWD: {BIN_TRUE}"),
+        "_FOO ALL = (ALL:ALL) PASSWD: ALL".to_owned(),
     ])
     .user(USERNAME)
     .build()?;

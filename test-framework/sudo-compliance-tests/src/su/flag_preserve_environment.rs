@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, User};
+use sudo_test::{Command, Env, TextFile, User, BIN_FALSE, BIN_TRUE};
 
 use crate::{helpers, Result, PASSWORD, USERNAME};
 
@@ -54,7 +54,7 @@ fn vars_home_shell_user_and_logname_are_preserved_for_reg_user() -> Result<()> {
 fn uses_shell_env_var_when_flag_preserve_environment_is_present() -> Result<()> {
     let env = Env("").build()?;
 
-    let cases = [("/usr/bin/true", None), ("/usr/bin/false", Some(1))];
+    let cases = [(BIN_TRUE, None), (BIN_FALSE, Some(1))];
 
     for (shell, code) in cases {
         let output = Command::new("env")

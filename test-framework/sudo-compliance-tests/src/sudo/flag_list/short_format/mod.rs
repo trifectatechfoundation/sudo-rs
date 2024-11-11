@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, BIN_LS, BIN_TRUE, BIN_FALSE};
 
 use crate::{Result, HOSTNAME};
 
@@ -121,182 +121,205 @@ fn complex_runas() -> Result<()> {
 
 #[test]
 fn command_alias() -> Result<()> {
-    let stdout = sudo_list_of(
-        "Cmnd_Alias COMMANDS = /usr/bin/true, /usr/bin/false
- ALL  ALL  = /usr/bin/ls, COMMANDS ",
-    )?;
+    let stdout = sudo_list_of(&format!(
+        "Cmnd_Alias COMMANDS = {BIN_TRUE}, {BIN_FALSE}
+ ALL  ALL  = {BIN_LS}, COMMANDS "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn negated_command_alias() -> Result<()> {
-    let stdout = sudo_list_of(
-        "Cmnd_Alias COMMANDS = /usr/bin/true, !/usr/bin/false
- ALL  ALL  = /usr/bin/ls, !COMMANDS ",
-    )?;
+    let stdout = sudo_list_of(&format!(
+        "Cmnd_Alias COMMANDS = {BIN_TRUE}, !{BIN_FALSE}
+ ALL  ALL  = {BIN_LS}, !COMMANDS "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn command_arguments() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = /usr/bin/true  a  b  c  ,  /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = {BIN_TRUE}  a  b  c  ,  {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn multiple_commands() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = /usr/bin/true ,  /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = {BIN_TRUE} ,  {BIN_FALSE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn multiple_runas_groups() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = ( root ) /usr/bin/true ,  ( ferris ) /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = ( root ) {BIN_TRUE} ,  ( ferris ) {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn implicit_runas_group() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = /usr/bin/true , ( ferris ) /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = {BIN_TRUE} , ( ferris ) {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_any() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = CWD = * /usr/bin/true ")?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = CWD = * {BIN_TRUE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_path() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = CWD = /home /usr/bin/true ")?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = CWD = /home {BIN_TRUE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_multiple_commands() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = CWD = * /usr/bin/true ,  /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = CWD = * {BIN_TRUE} ,  {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_multiple_runas_groups() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = CWD = * /usr/bin/true ,  ( ferris ) /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = CWD = * {BIN_TRUE} ,  ( ferris ) {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_override() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = CWD = * /usr/bin/true , CWD = /home /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = CWD = * {BIN_TRUE} , CWD = /home {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_not_in_first_position() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = /usr/bin/true , CWD = * /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = {BIN_TRUE} , CWD = * {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_across_runas_groups() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = CWD = * /usr/bin/true , (ferris) /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = CWD = * {BIN_TRUE} , (ferris) {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_override_across_runas_groups() -> Result<()> {
-    let stdout = sudo_list_of(
-        " ALL  ALL  = CWD = * /usr/bin/true , (ferris) /usr/bin/false , CWD = /home /usr/bin/ls ",
-    )?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = CWD = * {BIN_TRUE} , (ferris) {BIN_FALSE} , CWD = /home {BIN_LS} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn passwd() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = PASSWD : /usr/bin/true ")?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = PASSWD : {BIN_TRUE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn nopasswd() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = NOPASSWD : /usr/bin/true ")?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = NOPASSWD : {BIN_TRUE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn passwd_nopasswd_override() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = PASSWD : /usr/bin/true , NOPASSWD: /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = PASSWD : {BIN_TRUE} , NOPASSWD: {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn nopasswd_passwd_override() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = NOPASSWD : /usr/bin/true , PASSWD: /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = NOPASSWD : {BIN_TRUE} , PASSWD: {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn nopasswd_passwd_on_same_command() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = NOPASSWD : PASSWD : /usr/bin/true ")?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = NOPASSWD : PASSWD : {BIN_TRUE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn nopasswd_across_runas_groups() -> Result<()> {
-    let stdout =
-        sudo_list_of(" ALL  ALL  = NOPASSWD : /usr/bin/true , ( ferris ) /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = NOPASSWD : {BIN_TRUE} , ( ferris ) {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn passwd_across_runas_groups() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = PASSWD : /usr/bin/true , ( ferris ) /usr/bin/false ")?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = PASSWD : {BIN_TRUE} , ( ferris ) {BIN_FALSE} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn nopasswd_passwd_override_across_runas_groups() -> Result<()> {
-    let stdout = sudo_list_of(
-        " ALL  ALL  = NOPASSWD : /usr/bin/true , ( ferris ) /usr/bin/false , PASSWD : /usr/bin/ls ",
-    )?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = NOPASSWD : {BIN_TRUE} , ( ferris ) {BIN_FALSE} , PASSWD : {BIN_LS} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn cwd_nopasswd() -> Result<()> {
-    let stdout = sudo_list_of(" ALL  ALL  = CWD = * NOPASSWD : /usr/bin/true ")?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = CWD = * NOPASSWD : {BIN_TRUE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
 
 #[test]
 fn multiple_lines() -> Result<()> {
-    let stdout = sudo_list_of(
-        " ALL  ALL  = /usr/bin/true , /usr/bin/false
- root ALL = /usr/bin/ls ",
-    )?;
+    let stdout = sudo_list_of(&format!(
+        " ALL  ALL  = {BIN_TRUE} , {BIN_FALSE}
+ root ALL = {BIN_LS} "
+    ))?;
     assert_snapshot!(stdout);
     Ok(())
 }

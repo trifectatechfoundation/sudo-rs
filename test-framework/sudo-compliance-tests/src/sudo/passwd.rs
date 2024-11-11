@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, BIN_LS, BIN_TRUE};
 
 use crate::{Result, SUDOERS_NO_LECTURE, USERNAME};
 
@@ -17,8 +17,8 @@ macro_rules! assert_snapshot {
 #[test]
 fn explicit_passwd_overrides_nopasswd() -> Result<()> {
     let env = Env([
-        "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/true, PASSWD: /usr/bin/ls",
-        SUDOERS_NO_LECTURE,
+        format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, PASSWD: {BIN_LS}"),
+        SUDOERS_NO_LECTURE.to_owned(),
     ])
     .user(USERNAME)
     .build()?;

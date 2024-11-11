@@ -1,6 +1,6 @@
 //! Scenarios where a password does not need to be provided
 
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env, User, BIN_LS, BIN_TRUE};
 
 use crate::{Result, GROUPNAME, SUDOERS_NO_LECTURE, SUDOERS_ROOT_ALL, USERNAME};
 
@@ -63,7 +63,7 @@ fn nopasswd_tag() -> Result<()> {
 #[test]
 fn nopasswd_tag_for_command() -> Result<()> {
     let env = Env(format!(
-        "{USERNAME}    ALL=(ALL:ALL) NOPASSWD: /usr/bin/true"
+        "{USERNAME}    ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}"
     ))
     .user(USERNAME)
     .build()?;
@@ -78,7 +78,7 @@ fn nopasswd_tag_for_command() -> Result<()> {
 #[test]
 #[ignore = "gh530"]
 fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls")
+    let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, PASSWD: {BIN_LS}"))
         .user(USERNAME)
         .build()?;
 
@@ -109,7 +109,7 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
 #[ignore = "gh439"]
 fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Result<()> {
     let env = Env(format!(
-        "{USERNAME}    ALL=(ALL:ALL) NOPASSWD: /bin/true, /bin/ls"
+        "{USERNAME}    ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, {BIN_LS}"
     ))
     .user(USERNAME)
     .build()?;
@@ -125,8 +125,8 @@ fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Res
 #[ignore = "gh439"]
 fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Result<()> {
     let env = Env([
-        "ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, PASSWD: /bin/ls",
-        SUDOERS_NO_LECTURE,
+        format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, PASSWD: {BIN_LS}"),
+        SUDOERS_NO_LECTURE.to_owned(),
     ])
     .user(USERNAME)
     .build()?;
