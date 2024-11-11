@@ -76,7 +76,7 @@ fn flag_check() -> Result<()> {
     let env = Env("")
         .file(
             file_path,
-            TextFile("").chown(format!("{USERNAME}:nobody")).chmod("777"),
+            TextFile("").chown(format!("{USERNAME}:users")).chmod("777"),
         )
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .user(USERNAME)

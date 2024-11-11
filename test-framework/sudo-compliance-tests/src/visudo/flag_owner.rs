@@ -9,7 +9,7 @@ use crate::{
 fn when_present_changes_ownership_of_existing_file() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
-        .file(file_path, TextFile("").chown("root:nobody").chmod("777"))
+        .file(file_path, TextFile("").chown("root:users").chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .build()?;
 
@@ -32,7 +32,7 @@ fn when_present_changes_ownership_of_existing_file() -> Result<()> {
 fn when_absent_ownership_is_preserved() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
-        .file(file_path, TextFile("").chown("root:nobody").chmod("777"))
+        .file(file_path, TextFile("").chown("root:users").chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .build()?;
 
@@ -46,7 +46,7 @@ fn when_absent_ownership_is_preserved() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_contains!(ls_output, " root nobody ");
+    assert_contains!(ls_output, " root users ");
 
     Ok(())
 }
@@ -54,7 +54,7 @@ fn when_absent_ownership_is_preserved() -> Result<()> {
 #[test]
 fn etc_sudoers_ownership_is_always_changed() -> Result<()> {
     let file_path = ETC_SUDOERS;
-    let env = Env(TextFile("").chown(format!("{USERNAME}:nobody")).chmod("777"))
+    let env = Env(TextFile("").chown(format!("{USERNAME}:users")).chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .user(USERNAME)
         .build()?;
@@ -77,7 +77,7 @@ fn flag_check() -> Result<()> {
     let env = Env("")
         .file(
             file_path,
-            TextFile("").chown(format!("{USERNAME}:nobody")).chmod("777"),
+            TextFile("").chown(format!("{USERNAME}:users")).chmod("777"),
         )
         .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .user(USERNAME)
