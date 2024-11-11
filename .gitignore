@@ -16,3 +16,5 @@
 /docs/man/*.5.gz
 /docs/man/*.8
 /docs/man/*.8.gz
+
+freebsd.qcow2
