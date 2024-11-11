@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use sudo_test::{Command, Env, TextFile, User, ETC_SUDOERS};
+use sudo_test::{Command, Env, TextFile, User, ETC_SUDOERS, ROOT_GROUP};
 
 use crate::{Result, PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
 
@@ -137,7 +137,7 @@ fn can_sudo_if_sudoers_file_is_owner_writable() -> Result<()> {
 
 #[test]
 fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() -> Result<()> {
-    let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chown("1234:root"))
+    let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chown(format!("1234:{ROOT_GROUP}")))
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 

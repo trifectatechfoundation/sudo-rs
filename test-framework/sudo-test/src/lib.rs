@@ -480,7 +480,6 @@ pub fn TextFile(contents: impl AsRef<str>) -> TextFile {
 
 impl TextFile {
     const DEFAULT_CHMOD: &'static str = "000";
-    const DEFAULT_CHOWN: &'static str = "root:root";
 
     /// chmod string to apply to the file
     ///
@@ -531,7 +530,7 @@ impl From<String> for TextFile {
         Self {
             contents,
             chmod: Self::DEFAULT_CHMOD.to_string(),
-            chown: Self::DEFAULT_CHOWN.to_string(),
+            chown: format!("root:{ROOT_GROUP}"),
             trailing_newline: true,
         }
     }
@@ -570,7 +569,6 @@ pub struct Directory {
 
 impl Directory {
     const DEFAULT_CHMOD: &'static str = "100";
-    const DEFAULT_CHOWN: &'static str = "root:root";
 
     /// chmod string to apply to the file
     ///
@@ -611,7 +609,7 @@ impl From<String> for Directory {
         Self {
             path,
             chmod: Self::DEFAULT_CHMOD.to_string(),
-            chown: Self::DEFAULT_CHOWN.to_string(),
+            chown: format!("root:{ROOT_GROUP}"),
         }
     }
 }

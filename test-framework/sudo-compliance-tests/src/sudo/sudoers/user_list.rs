@@ -1,7 +1,7 @@
 //! Test the first component of the user specification: `<user_list> ALL=(ALL:ALL) ALL`
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env, User, ROOT_GROUP};
 
 use crate::{Result, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
 
@@ -76,7 +76,7 @@ fn user_id() -> Result<()> {
 
 #[test]
 fn group_name() -> Result<()> {
-    let env = Env("%root ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
+    let env = Env(format!("%{ROOT_GROUP} ALL=(ALL:ALL) NOPASSWD: ALL")).build()?;
 
     Command::new("sudo")
         .arg("true")

@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use sudo_test::{Command, Env, TextFile, ETC_SUDOERS};
+use sudo_test::{Command, Env, TextFile, ETC_SUDOERS, ROOT_GROUP};
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
 
@@ -78,7 +78,7 @@ fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() ->
         .output(&env)?
         .stdout()?;
 
-    assert!(ls_output.starts_with("-r--r----- 1 root root"));
+    assert!(ls_output.starts_with(&format!("-r--r----- 1 root {ROOT_GROUP}")));
 
     Ok(())
 }
@@ -163,7 +163,7 @@ ls -l /tmp/sudoers-*/sudoers > {LOGS_PATH}"#
 
     let ls_output = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
 
-    assert!(ls_output.starts_with("-rwx------ 1 root root"));
+    assert!(ls_output.starts_with(&format!("-rwx------ 1 root {ROOT_GROUP}")));
 
     Ok(())
 }

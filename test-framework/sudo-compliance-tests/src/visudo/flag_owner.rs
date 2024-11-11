@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, Env, TextFile, ROOT_GROUP};
 
 use crate::{
     visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE, ETC_SUDOERS, TMP_SUDOERS},
@@ -23,7 +23,7 @@ fn when_present_changes_ownership_of_existing_file() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_contains!(ls_output, " root root ");
+    assert_contains!(ls_output, format!(" root {ROOT_GROUP} "));
 
     Ok(())
 }
@@ -66,7 +66,7 @@ fn etc_sudoers_ownership_is_always_changed() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_contains!(ls_output, " root root ");
+    assert_contains!(ls_output, format!(" root {ROOT_GROUP} "));
 
     Ok(())
 }
