@@ -17,7 +17,7 @@ fn fixture() -> Result<Processes> {
 
     let child = Command::new("su")
         .args(["--pty", "-c"])
-        .arg("sh -c 'touch /tmp/barrier; sleep 3'")
+        .arg("sh -c 'touch /tmp/barrier; sleep 3; true'")
         .tty(true)
         .spawn(&env)?;
 

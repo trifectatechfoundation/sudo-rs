@@ -12,7 +12,7 @@ fn it_works() -> Result<()> {
 
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("echo {PASSWORD} | sudo -S -l; sudo -l"))
+        .arg(format!("echo {PASSWORD} | sudo -S -l; sudo -l && true"))
         .as_user(USERNAME)
         .output(&env)?;
 
@@ -42,7 +42,7 @@ fn credential_shared_with_non_list_sudo() -> Result<()> {
     Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S -l 2>/dev/null >/tmp/stdout1.txt; sudo true"
+            "echo {PASSWORD} | sudo -S -l 2>/dev/null >/tmp/stdout1.txt; sudo true && true"
         ))
         .as_user(USERNAME)
         .output(&env)?

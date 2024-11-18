@@ -13,7 +13,7 @@ fn is_limited_to_a_single_user() -> Result<()> {
     let child = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo -S true"
+            "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo -S true && true"
         ))
         .as_user(USERNAME)
         .spawn(&env)?;
@@ -37,7 +37,7 @@ fn has_a_user_global_effect() -> Result<()> {
     let child = Command::new("sh")
     .arg("-c")
     .arg(format!(
-        "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; echo | sudo -S true"
+        "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; echo | sudo -S true && true"
     ))
     .as_user(USERNAME)
     .spawn(&env)?;
@@ -76,7 +76,7 @@ fn also_works_locally() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -K; sudo true"
+            "echo {PASSWORD} | sudo -S true; sudo -K; sudo true && true"
         ))
         .as_user(USERNAME)
         .output(&env)?;
