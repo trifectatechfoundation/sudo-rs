@@ -40,7 +40,7 @@ via the usual commands `sudo` and `su` instead, prepend `/usr/lib/cargo/bin` to 
 
 ### Fedora
 
-If you are running Fedora 38 or later, you can use: 
+If you are running Fedora 38 or later, you can use:
 ```sh
 sudo dnf install sudo-rs
 ```
@@ -86,6 +86,11 @@ cargo build --release
 This produces a binary `target/release/sudo`. However, this binary must have
 the setuid flag set and must be owned by the root user in order to provide any
 useful functionality. Consult your operating system manual for details.
+On operating systems other than Linux we also require an environment variable
+`SUDO_RS_IS_UNSTABLE` to be set, and it must have the value
+`I accept that my system may break unexpectedly`. This because we are in an
+early stage of supporting non-Linux OSes. If you are unsure about how to set
+this up, then the current version of sudo is not intended for you.
 
 Sudo-rs needs the sudoers configuration file. The sudoers configuration file
 will be loaded from `/etc/sudoers-rs` if that file exists, otherwise the
