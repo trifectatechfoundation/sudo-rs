@@ -71,6 +71,10 @@ pub struct Env {
 pub fn Env(sudoers: impl Into<TextFile>) -> EnvBuilder {
     let mut builder = EnvBuilder::default();
     builder.file(ETC_SUDOERS, sudoers);
+    if cfg!(target_os = "freebsd") {
+        // Many tests expect the users group to exist, but FreeBSD doesn't actually use it.
+        builder.group("users");
+    }
     builder
 }
 
@@ -276,10 +280,51 @@ impl EnvBuilder {
             file.create(path, &container)?;
         }
 
-        Ok(Env {
+        let env = Env {
             container,
             users: usernames,
-        })
+        };
+
+        if cfg!(target_os = "freebsd") {
+            // Podman on FreeBSD forgets the setuid bit when building an image. Manually restore it
+            // as necessary for the current container.
+            // Reported upstream as https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=282539
+
+            let _ = Command::new("chmod")
+                .arg("755")
+                .arg("/home")
+                .output(&env)
+                .unwrap();
+
+            if is_original_sudo() {
+                Command::new("chflags")
+                    .arg("noschg")
+                    .arg("/usr/bin/su")
+                    .output(&env)
+                    .unwrap()
+                    .assert_success()
+                    .unwrap();
+                Command::new("chmod")
+                    .arg("4775")
+                    .arg("/usr/local/bin/sudo")
+                    .arg("/usr/bin/su")
+                    .output(&env)
+                    .unwrap()
+                    .assert_success()
+                    .unwrap();
+            } else {
+                Command::new("chmod")
+                    .arg("4775")
+                    .arg("/usr/bin/sudo")
+                    .arg("/usr/bin/su")
+                    .output(&env)
+                    .unwrap()
+                    .assert_success()
+                    .unwrap();
+            }
+        }
+
+        Ok(env)
     }
 }
 
@@ -364,28 +409,60 @@ impl User {
     }
 
     fn create(&self, container: &Container) -> Result<()> {
-        let mut useradd = Command::new("useradd");
-        useradd.arg("--no-user-group");
-        if self.create_home_directory {
-            useradd.arg("--create-home");
-        }
-        if let Some(path) = &self.shell {
-            useradd.arg("--shell").arg(path);
-        }
-        if let Some(id) = self.id {
-            useradd.arg("--uid").arg(id.to_string());
-        }
-        if !self.groups.is_empty() {
-            let group_list = self.groups.iter().cloned().collect::<Vec<_>>().join(",");
-            useradd.arg("--groups").arg(group_list);
-        }
-        useradd.arg(&self.name);
-        container.output(&useradd)?.assert_success()?;
+        if cfg!(target_os = "freebsd") {
+            let mut useradd = Command::new("pw");
+            useradd.arg("useradd");
+            useradd.arg(&self.name);
+            if self.create_home_directory {
+                useradd.arg("-m");
+            }
+            if let Some(path) = &self.shell {
+                useradd.arg("-s").arg(path);
+            }
+            if let Some(id) = self.id {
+                useradd.arg("-u").arg(id.to_string());
+            }
+            if !self.groups.is_empty() {
+                let group_list = self.groups.iter().cloned().collect::<Vec<_>>().join(",");
+                useradd.arg("-G").arg(group_list);
+            }
+            container.output(&useradd)?.assert_success()?;
 
-        if let Some(password) = &self.password {
-            container
-                .output(Command::new("chpasswd").stdin(format!("{}:{password}", self.name)))?
-                .assert_success()?;
+            if let Some(password) = &self.password {
+                container
+                    .output(
+                        Command::new("pw")
+                            .args(["usermod", "-n", &self.name, "-h", "0"])
+                            .stdin(password),
+                    )?
+                    .assert_success()?;
+            }
+        } else if cfg!(target_os = "linux") {
+            let mut useradd = Command::new("useradd");
+            useradd.arg("--no-user-group");
+            if self.create_home_directory {
+                useradd.arg("--create-home");
+            }
+            if let Some(path) = &self.shell {
+                useradd.arg("--shell").arg(path);
+            }
+            if let Some(id) = self.id {
+                useradd.arg("--uid").arg(id.to_string());
+            }
+            if !self.groups.is_empty() {
+                let group_list = self.groups.iter().cloned().collect::<Vec<_>>().join(",");
+                useradd.arg("--groups").arg(group_list);
+            }
+            useradd.arg(&self.name);
+            container.output(&useradd)?.assert_success()?;
+
+            if let Some(password) = &self.password {
+                container
+                    .output(Command::new("chpasswd").stdin(format!("{}:{password}", self.name)))?
+                    .assert_success()?;
+            }
+        } else {
+            todo!();
         }
 
         Ok(())
@@ -398,7 +475,12 @@ impl From<String> for User {
 
         Self {
             create_home_directory: false,
-            groups: HashSet::new(),
+            groups: if cfg!(target_os = "freebsd") {
+                // Many tests expect the users group to exist, but FreeBSD doesn't actually use it.
+                ["users".to_owned()].into_iter().collect()
+            } else {
+                HashSet::new()
+            },
             id: None,
             name,
             password: None,
@@ -436,13 +518,26 @@ impl Group {
     }
 
     fn create(&self, container: &Container) -> Result<()> {
-        let mut groupadd = Command::new("groupadd");
-        if let Some(id) = self.id {
-            groupadd.arg("--gid");
-            groupadd.arg(id.to_string());
+        if cfg!(target_os = "freebsd") {
+            let mut groupadd = Command::new("pw");
+            groupadd.arg("groupadd");
+            groupadd.arg(&self.name);
+            if let Some(id) = self.id {
+                groupadd.arg("-g");
+                groupadd.arg(id.to_string());
+            }
+            container.output(&groupadd)?.assert_success()
+        } else if cfg!(target_os = "linux") {
+            let mut groupadd = Command::new("groupadd");
+            if let Some(id) = self.id {
+                groupadd.arg("--gid");
+                groupadd.arg(id.to_string());
+            }
+            groupadd.arg(&self.name);
+            container.output(&groupadd)?.assert_success()
+        } else {
+            todo!();
         }
-        groupadd.arg(&self.name);
-        container.output(&groupadd)?.assert_success()
     }
 }
 
