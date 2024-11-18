@@ -88,6 +88,7 @@ fn sudo_uses_correct_service_file() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't use sudo-i PAM context")]
 fn sudo_dash_i_uses_correct_service_file() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file("/etc/pam.d/sudo-i", "auth sufficient pam_permit.so")

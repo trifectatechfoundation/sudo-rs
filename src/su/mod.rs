@@ -24,7 +24,12 @@ fn authenticate(
     user: &str,
     login: bool,
 ) -> Result<PamContext<CLIConverser>, Error> {
-    let context = if login { "su-l" } else { "su" };
+    // FIXME make it configurable by the packager
+    let context = if login && cfg!(target_os = "linux") {
+        "su-l"
+    } else {
+        "su"
+    };
     let use_stdin = true;
     let mut pam = PamContext::builder_cli("su", use_stdin, false)
         .target_user(user)
