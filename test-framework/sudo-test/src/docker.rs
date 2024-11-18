@@ -207,9 +207,9 @@ pub fn build_base_image() -> Result<()> {
         }
     }
 
-    if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
-        cmd.stderr(Stdio::null()).stdout(Stdio::null());
-    }
+    //if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
+    //    cmd.stderr(Stdio::null()).stdout(Stdio::null());
+    //}
 
     if !cmd.status()?.success() {
         return Err(format!("`{cmd:?}` failed").into());
