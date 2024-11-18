@@ -173,7 +173,7 @@ fn negation_excludes_group_members() -> Result<()> {
 
 #[test]
 fn negation_is_order_sensitive() -> Result<()> {
-    // negated items at the start of a specifier list  are meaningless
+    // negated items at the start of a specifier list are meaningless
     let env = Env("!ghost, %users ALL=(ALL:ALL) NOPASSWD: ALL")
         // the primary group of all new users is `users`
         .user("ferris")

@@ -247,7 +247,7 @@ fn sigwinch_works(use_pty: bool) -> Result<()> {
     assert_eq!(lines.len(), 3);
     // Assert that the terminal size that sudo sees the first time matches the original terminal size.
     assert_eq!(lines[0], lines[1]);
-    // ASsert that the terminal size that sudo sees the second time has actually changed to the
+    // Assert that the terminal size that sudo sees the second time has actually changed to the
     // value set by `change-size.sh`.
     assert_eq!(lines[2].trim(), "42 69");
 
