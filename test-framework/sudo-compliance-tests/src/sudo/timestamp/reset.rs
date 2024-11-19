@@ -14,7 +14,7 @@ fn it_works() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -k; sudo true"
+            "echo {PASSWORD} | sudo -S true; sudo -k; sudo true && true"
         ))
         .as_user(USERNAME)
         .output(&env)?;
@@ -41,7 +41,7 @@ fn has_a_local_effect() -> Result<()> {
     let child = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "set -e; echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo true"
+            "set -e; echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo true && true"
         ))
         .as_user(USERNAME)
         .spawn(&env)?;
@@ -64,7 +64,7 @@ fn with_command_prompts_for_password() -> Result<()> {
 
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("echo {PASSWORD} | sudo -S true; sudo -k true"))
+        .arg(format!("echo {PASSWORD} | sudo -S true; sudo -k true && true"))
         .as_user(USERNAME)
         .output(&env)?;
 
@@ -100,7 +100,7 @@ fn with_command_failure_does_not_invalidate_credential_cache() -> Result<()> {
     Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; sudo -k true; [ $? -eq 1 ] || exit 2; sudo true"
+            "echo {PASSWORD} | sudo -S true; sudo -k true; [ $? -eq 1 ] || exit 2; sudo true && true"
         ))
         .as_user(USERNAME)
         .output(&env)?
@@ -122,7 +122,7 @@ fn with_command_success_does_not_invalidate_credential_cache() -> Result<()> {
     Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -S true; echo {PASSWORD} | sudo -k -S true; sudo true"
+            "echo {PASSWORD} | sudo -S true; echo {PASSWORD} | sudo -k -S true; sudo true && true"
         ))
         .as_user(USERNAME)
         .output(&env)?
@@ -138,7 +138,7 @@ fn with_command_does_not_cache_credentials() -> Result<()> {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | sudo -k -S true 2>/dev/null || exit 2; sudo true"
+            "echo {PASSWORD} | sudo -k -S true 2>/dev/null || exit 2; sudo true && true"
         ))
         .as_user(USERNAME)
         .output(&env)?;

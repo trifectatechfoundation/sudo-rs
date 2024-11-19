@@ -49,7 +49,7 @@ fn target_user_must_exist_in_passwd_db() -> Result<()> {
     let env = Env("").build()?;
 
     let output = Command::new("su")
-        .args(["-c", "true", USERNAME])
+        .args([USERNAME, "-c", "true"])
         .output(&env)?;
 
     assert!(!output.status().success());
@@ -77,7 +77,7 @@ fn required_password_is_target_users_pass() -> Result<()> {
         .build()?;
 
     let actual = Command::new("su")
-        .args(["-c", "whoami", target_user_name])
+        .args([target_user_name, "-c", "whoami"])
         .stdin(target_user_password)
         .as_user(invoking_user)
         .output(&env)?
@@ -97,7 +97,7 @@ fn required_password_is_target_users_fail() -> Result<()> {
         .build()?;
 
     let output = Command::new("su")
-        .args(["-c", "true", target_user])
+        .args([target_user, "-c", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
         .output(&env)?;
@@ -120,17 +120,18 @@ fn nopasswd_root() -> Result<()> {
     let env = Env("").user(USERNAME).build()?;
 
     Command::new("su")
-        .args(["-c", "true", USERNAME])
+        .args([USERNAME, "-c", "true"])
         .output(&env)?
         .assert_success()
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "su on FreeBSD doesn't require password if target user is self")]
 fn password_is_required_when_target_user_is_self() -> Result<()> {
     let env = Env("").user(USERNAME).build()?;
 
     let output = Command::new("su")
-        .args(["-c", "true", USERNAME])
+        .args([USERNAME, "-c", "true"])
         .as_user(USERNAME)
         .output(&env)?;
 

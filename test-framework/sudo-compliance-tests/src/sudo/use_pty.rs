@@ -16,7 +16,7 @@ fn fixture() -> Result<Processes> {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build()?;
 
     let child = Command::new("sudo")
-        .args(["sh", "-c", "touch /tmp/barrier; sleep 3"])
+        .args(["sh", "-c", "touch /tmp/barrier; sleep 3; true"])
         .tty(true)
         .spawn(&env)?;
 

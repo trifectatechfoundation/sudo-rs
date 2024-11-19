@@ -7,9 +7,9 @@ WORKDIR /usr/src/sudo
 COPY . .
 RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --features="dev" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
 # set setuid on install
-RUN install --mode 4755 build/sudo /usr/bin/sudo
-RUN install --mode 4755 build/su /usr/bin/su
-RUN install --mode 755 build/visudo /usr/sbin/visudo
+RUN install -m 4755 build/sudo /usr/bin/sudo && \
+    install -m 4755 build/su /usr/bin/su && \
+    install -m 755 build/visudo /usr/sbin/visudo
 # `apt-get install sudo` creates this directory; creating it in the image saves us the work of creating it in each compliance test
 RUN mkdir -p /etc/sudoers.d
 # remove build dependencies
