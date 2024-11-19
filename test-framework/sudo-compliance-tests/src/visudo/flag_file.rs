@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, Env, TextFile, ROOT_GROUP};
 
 use crate::{
     visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
@@ -34,7 +34,7 @@ fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() ->
         .output(&env)?
         .stdout()?;
 
-    assert!(ls_output.starts_with("-rw-r----- 1 root root"));
+    assert!(ls_output.starts_with(&format!("-rw-r----- 1 root {ROOT_GROUP}")));
 
     Ok(())
 }

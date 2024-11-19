@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use sudo_test::{Command, Env, TextFile, User};
+use sudo_test::{Command, Env, TextFile, User, ETC_DIR, ROOT_GROUP};
 
 use crate::{Result, PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
 
@@ -95,9 +95,9 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "/etc/sudoers is world writable"
+        format!("{ETC_DIR}/sudoers is world writable")
     } else {
-        "invalid configuration: /etc/sudoers cannot be world-writable"
+        format!("invalid configuration: {ETC_DIR}/sudoers cannot be world-writable")
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -116,9 +116,9 @@ fn cannot_sudo_if_sudoers_file_is_group_writable() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "/etc/sudoers is owned by gid 1234, should be 0"
+        format!("{ETC_DIR}/sudoers is owned by gid 1234, should be 0")
     } else {
-        "invalid configuration: /etc/sudoers cannot be group-writable"
+        format!("invalid configuration: {ETC_DIR}/sudoers cannot be group-writable")
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -137,7 +137,7 @@ fn can_sudo_if_sudoers_file_is_owner_writable() -> Result<()> {
 
 #[test]
 fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() -> Result<()> {
-    let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chown("1234:root"))
+    let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chown(format!("1234:{ROOT_GROUP}")))
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
@@ -145,9 +145,9 @@ fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "/etc/sudoers is owned by uid 1234, should be 0"
+        format!("{ETC_DIR}/sudoers is owned by uid 1234, should be 0")
     } else {
-        "invalid configuration: /etc/sudoers must be owned by root"
+        format!("invalid configuration: {ETC_DIR}/sudoers must be owned by root")
     };
     assert_contains!(output.stderr(), diagnostic);
 

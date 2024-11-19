@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, BIN_TRUE};
 
 use crate::{helpers::Rsyslogd, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_ALL, USERNAME};
 
@@ -16,7 +16,7 @@ fn sudo_logs_every_executed_command() -> Result<()> {
         .assert_success()?;
 
     let auth_log = rsyslog.auth_log()?;
-    assert_contains!(auth_log, "COMMAND=/usr/bin/true");
+    assert_contains!(auth_log, format!("COMMAND={BIN_TRUE}"));
 
     Ok(())
 }

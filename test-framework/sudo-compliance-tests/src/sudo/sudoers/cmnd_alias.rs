@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env};
+use sudo_test::{Command, Env, BIN_LS, BIN_TRUE};
 
 use crate::{Result, USERNAME};
 
@@ -17,8 +17,8 @@ macro_rules! assert_snapshot {
 #[test]
 fn cmnd_alias_works() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias CMDSGROUP = /usr/bin/true, /usr/bin/ls",
-        "ALL ALL=(ALL:ALL) CMDSGROUP",
+        format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
+        "ALL ALL=(ALL:ALL) CMDSGROUP".to_owned(),
     ])
     .build()?;
 
@@ -31,8 +31,8 @@ fn cmnd_alias_works() -> Result<()> {
 #[test]
 fn cmnd_alias_nopasswd() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias CMDSGROUP = /usr/bin/true, /usr/bin/ls",
-        "ALL ALL=(ALL:ALL) NOPASSWD: CMDSGROUP",
+        format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
+        "ALL ALL=(ALL:ALL) NOPASSWD: CMDSGROUP".to_owned(),
     ])
     .user(USERNAME)
     .build()?;
@@ -47,8 +47,8 @@ fn cmnd_alias_nopasswd() -> Result<()> {
 #[test]
 fn cmnd_alias_can_contain_underscore_and_digits() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias UNDER_SCORE123 = /usr/bin/true, /usr/bin/ls",
-        "ALL ALL=(ALL:ALL) UNDER_SCORE123",
+        format!("Cmnd_Alias UNDER_SCORE123 = {BIN_TRUE}, {BIN_LS}"),
+        "ALL ALL=(ALL:ALL) UNDER_SCORE123".to_owned(),
     ])
     .build()?;
 
@@ -61,9 +61,9 @@ fn cmnd_alias_can_contain_underscore_and_digits() -> Result<()> {
 #[test]
 fn cmnd_alias_cannot_start_with_underscore() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias _INVALID = /usr/bin/true",
-        "ALL ALL=(ALL:ALL) NOPASSWD: ALL",
-        "ALL ALL=(ALL:ALL) !_INVALID",
+        format!("Cmnd_Alias _INVALID = {BIN_TRUE}"),
+        "ALL ALL=(ALL:ALL) NOPASSWD: ALL".to_owned(),
+        "ALL ALL=(ALL:ALL) !_INVALID".to_owned(),
     ])
     .build()?;
 
@@ -76,8 +76,8 @@ fn cmnd_alias_cannot_start_with_underscore() -> Result<()> {
 #[test]
 fn unlisted_cmnd_fails() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias CMDS = /usr/bin/ls",
-        "ALL ALL=(ALL:ALL) CMDSGROUP",
+        format!("Cmnd_Alias CMDS = {BIN_LS}"),
+        "ALL ALL=(ALL:ALL) CMDSGROUP".to_owned(),
     ])
     .build()?;
 
@@ -101,8 +101,8 @@ fn unlisted_cmnd_fails() -> Result<()> {
 #[test]
 fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias CMDSGROUP = true, /usr/bin/ls",
-        "ALL ALL=(ALL:ALL) CMDSGROUP",
+        format!("Cmnd_Alias CMDSGROUP = true, {BIN_LS}"),
+        "ALL ALL=(ALL:ALL) CMDSGROUP".to_owned(),
     ])
     .build()?;
 
@@ -127,8 +127,8 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
 #[test]
 fn command_alias_negation() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias CMDSGROUP = /usr/bin/true, /usr/bin/ls",
-        "ALL ALL=(ALL:ALL) !CMDSGROUP",
+        format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
+        "ALL ALL=(ALL:ALL) !CMDSGROUP".to_owned(),
     ])
     .build()?;
 
@@ -152,10 +152,10 @@ fn command_alias_negation() -> Result<()> {
 #[test]
 fn combined_cmnd_aliases() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUEGROUP = /usr/bin/sh, /usr/bin/true",
-        "Cmnd_Alias LSGROUP = /usr/bin/ls, /usr/sbin/dump",
-        "Cmnd_Alias BAZ = !TRUEGROUP, LSGROUP",
-        "ALL ALL=(ALL:ALL) BAZ",
+        format!("Cmnd_Alias TRUEGROUP = /usr/bin/sh, {BIN_TRUE}"),
+        format!("Cmnd_Alias LSGROUP = {BIN_LS}, /usr/sbin/dump"),
+        "Cmnd_Alias BAZ = !TRUEGROUP, LSGROUP".to_owned(),
+        "ALL ALL=(ALL:ALL) BAZ".to_owned(),
     ])
     .build()?;
 
@@ -182,8 +182,8 @@ fn combined_cmnd_aliases() -> Result<()> {
 #[test]
 fn double_negation() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias CMDSGROUP = /usr/bin/true, /usr/bin/ls",
-        "ALL ALL=(ALL:ALL) !!CMDSGROUP",
+        format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
+        "ALL ALL=(ALL:ALL) !!CMDSGROUP".to_owned(),
     ])
     .build()?;
 
@@ -196,10 +196,10 @@ fn double_negation() -> Result<()> {
 #[test]
 fn negation_not_order_sensitive() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUECMND = /usr/bin/true",
-        "Cmnd_Alias LSCMND = /usr/bin/ls",
-        "Cmnd_Alias BAZ = TRUECMND, !LSCMND",
-        "ALL ALL=(ALL:ALL) BAZ",
+        format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
+        format!("Cmnd_Alias LSCMND = {BIN_LS}"),
+        "Cmnd_Alias BAZ = TRUECMND, !LSCMND".to_owned(),
+        "ALL ALL=(ALL:ALL) BAZ".to_owned(),
     ])
     .build()?;
 
@@ -227,10 +227,10 @@ fn negation_not_order_sensitive() -> Result<()> {
 #[test]
 fn negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUECMND = !/usr/bin/true",
-        "Cmnd_Alias LSCMND = /usr/bin/ls",
-        "Cmnd_Alias BAZ = !TRUECMND, LSCMND",
-        "ALL ALL=(ALL:ALL) BAZ",
+        format!("Cmnd_Alias TRUECMND = !{BIN_TRUE}"),
+        format!("Cmnd_Alias LSCMND = {BIN_LS}"),
+        "Cmnd_Alias BAZ = !TRUECMND, LSCMND".to_owned(),
+        "ALL ALL=(ALL:ALL) BAZ".to_owned(),
     ])
     .build()?;
 
@@ -248,10 +248,10 @@ fn negation_combination() -> Result<()> {
 #[test]
 fn another_negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUECMND = /usr/bin/true",
-        "Cmnd_Alias LSCMND = /usr/bin/ls",
-        "Cmnd_Alias BAZ = TRUECMND, !LSCMND",
-        "ALL ALL=(ALL:ALL) !BAZ",
+        format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
+        format!("Cmnd_Alias LSCMND = {BIN_LS}"),
+        "Cmnd_Alias BAZ = TRUECMND, !LSCMND".to_owned(),
+        "ALL ALL=(ALL:ALL) !BAZ".to_owned(),
     ])
     .build()?;
 
@@ -279,10 +279,10 @@ fn another_negation_combination() -> Result<()> {
 #[test]
 fn one_more_negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUECMND = /usr/bin/true",
-        "Cmnd_Alias LSCMND = !/usr/bin/ls",
-        "Cmnd_Alias BAZ = TRUECMND, LSCMND",
-        "ALL ALL=(ALL:ALL) !BAZ",
+        format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
+        format!("Cmnd_Alias LSCMND = !{BIN_LS}"),
+        "Cmnd_Alias BAZ = TRUECMND, LSCMND".to_owned(),
+        "ALL ALL=(ALL:ALL) !BAZ".to_owned(),
     ])
     .build()?;
 
@@ -310,10 +310,10 @@ fn one_more_negation_combination() -> Result<()> {
 #[test]
 fn tripple_negation_combination() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUECMND = /usr/bin/true",
-        "Cmnd_Alias LSCMND = !/usr/bin/ls",
-        "Cmnd_Alias BAZ = TRUECMND, !LSCMND",
-        "ALL ALL=(ALL:ALL) !BAZ",
+        format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
+        format!("Cmnd_Alias LSCMND = !{BIN_LS}"),
+        "Cmnd_Alias BAZ = TRUECMND, !LSCMND".to_owned(),
+        "ALL ALL=(ALL:ALL) !BAZ".to_owned(),
     ])
     .build()?;
 
@@ -351,9 +351,9 @@ fn tripple_negation_combination() -> Result<()> {
 #[test]
 fn comma_listing_works() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUEGROUP = /usr/bin/sh, /usr/bin/true",
-        "Cmnd_Alias LSGROUP = /usr/bin/ls, /usr/sbin/dump",
-        "ALL ALL=(ALL:ALL) TRUEGROUP, LSGROUP",
+        format!("Cmnd_Alias TRUEGROUP = /usr/bin/sh, {BIN_TRUE}"),
+        format!("Cmnd_Alias LSGROUP = {BIN_LS}, /usr/sbin/dump"),
+        "ALL ALL=(ALL:ALL) TRUEGROUP, LSGROUP".to_owned(),
     ])
     .build()?;
 
@@ -371,21 +371,20 @@ fn comma_listing_works() -> Result<()> {
 #[test]
 fn runas_override() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUECMND = /usr/bin/true",
-        "Cmnd_Alias LSCMND = /usr/bin/ls",
-        "ALL ALL = (root) LSCMND, (ferris) TRUECMND",
+        format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
+        format!("Cmnd_Alias LSCMND = {BIN_LS}"),
+        "ALL ALL = (root) LSCMND, (ferris) TRUECMND".to_owned(),
     ])
     .user("ferris")
     .build()?;
 
-    let stdout = Command::new("sudo")
-        .args(["/usr/bin/ls", "/root"])
-        .output(&env)?
-        .stdout()?;
-    assert_eq!("", stdout);
+    let output = Command::new("sudo")
+        .args([BIN_LS, "/root"])
+        .output(&env)?;
+    assert!(output.status().success());
 
     let output = Command::new("sudo")
-        .args(["-u", "ferris", "/usr/bin/ls"])
+        .args(["-u", "ferris", BIN_LS])
         .output(&env)?;
 
     assert!(!output.status().success());
@@ -402,11 +401,11 @@ fn runas_override() -> Result<()> {
     }
 
     Command::new("sudo")
-        .args(["-u", "ferris", "/usr/bin/true"])
+        .args(["-u", "ferris", BIN_TRUE])
         .output(&env)?
         .assert_success()?;
 
-    let second_output = Command::new("sudo").args(["/usr/bin/true"]).output(&env)?;
+    let second_output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
 
     assert!(!second_output.status().success());
     assert_eq!(Some(1), second_output.status().code());
@@ -427,9 +426,9 @@ fn runas_override() -> Result<()> {
 #[test]
 fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
     let env = Env([
-        "Cmnd_Alias TRUECMND = /usr/bin/true",
-        "Cmnd_Alias LSCMND = /usr/bin/ls",
-        "ALL ALL = (root) TRUECMND, (ferris) TRUECMND",
+        format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
+        format!("Cmnd_Alias LSCMND = {BIN_LS}"),
+        "ALL ALL = (root) TRUECMND, (ferris) TRUECMND".to_owned(),
     ])
     .user("ferris")
     .build()?;
@@ -453,7 +452,7 @@ fn keywords() -> Result<()> {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);
         let env = Env([
-            format!("Cmnd_Alias {bad_keyword} = /usr/bin/true"),
+            format!("Cmnd_Alias {bad_keyword} = {BIN_TRUE}"),
             format!("ALL ALL=(ALL:ALL) {bad_keyword}"),
         ])
         .build()?;
@@ -467,7 +466,7 @@ fn keywords() -> Result<()> {
     for good_keyword in super::keywords_alias_good() {
         dbg!(good_keyword);
         let env = Env([
-            format!("Cmnd_Alias {good_keyword} = /usr/bin/true"),
+            format!("Cmnd_Alias {good_keyword} = {BIN_TRUE}"),
             format!("ALL ALL=(ALL:ALL) {good_keyword}"),
         ])
         .build()?;

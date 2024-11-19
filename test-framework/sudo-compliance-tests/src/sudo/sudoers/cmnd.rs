@@ -1,7 +1,7 @@
 //! Test the Cmnd_Spec component of the user specification: <user> ALL=(ALL:ALL) <cmnd_spec>
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, Env, TextFile, BIN_LS, BIN_TRUE};
 
 use crate::{Result, USERNAME};
 
@@ -19,19 +19,19 @@ macro_rules! assert_snapshot {
 
 #[test]
 fn given_specific_command_then_that_command_is_allowed() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /bin/true").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}")).build()?;
 
     Command::new("sudo")
-        .arg("/bin/true")
+        .arg(BIN_TRUE)
         .output(&env)?
         .assert_success()
 }
 
 #[test]
 fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /bin/ls").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_LS}")).build()?;
 
-    let output = Command::new("sudo").arg("/bin/true").output(&env)?;
+    let output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -51,12 +51,12 @@ fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
 
 #[test]
 fn given_specific_command_with_nopasswd_tag_then_no_password_auth_is_required() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true")
+    let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}"))
         .user(USERNAME)
         .build()?;
 
     Command::new("sudo")
-        .arg("/bin/true")
+        .arg(BIN_TRUE)
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()
@@ -66,7 +66,7 @@ fn given_specific_command_with_nopasswd_tag_then_no_password_auth_is_required() 
 fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) true").build()?;
 
-    let output = Command::new("sudo").arg("/bin/true").output(&env)?;
+    let output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -86,15 +86,15 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
 
 #[test]
 fn different() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /bin/true, /bin/ls").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}, {BIN_LS}")).build()?;
 
     Command::new("sudo")
-        .arg("/bin/true")
+        .arg(BIN_TRUE)
         .output(&env)?
         .assert_success()?;
 
     let output = Command::new("sudo")
-        .args(["/bin/ls", "/root"])
+        .args([BIN_LS, "/root"])
         .output(&env)?
         .stdout()?;
 
@@ -106,12 +106,12 @@ fn different() -> Result<()> {
 // it applies not only to the command is next to but to all commands that follow
 #[test]
 fn nopasswd_is_sticky() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/ls, /bin/true")
+    let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_LS}, {BIN_TRUE}"))
         .user(USERNAME)
         .build()?;
 
     Command::new("sudo")
-        .arg("/bin/true")
+        .arg(BIN_TRUE)
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()
@@ -119,22 +119,24 @@ fn nopasswd_is_sticky() -> Result<()> {
 
 #[test]
 fn repeated() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /bin/true, /bin/true").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}, {BIN_TRUE}")).build()?;
 
     Command::new("sudo")
-        .arg("/bin/true")
+        .arg(BIN_TRUE)
         .output(&env)?
         .assert_success()
 }
 
 #[test]
 fn nopasswd_override() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /bin/true, NOPASSWD: /bin/true")
-        .user(USERNAME)
-        .build()?;
+    let env = Env(format!(
+        "ALL ALL=(ALL:ALL) {BIN_TRUE}, NOPASSWD: {BIN_TRUE}"
+    ))
+    .user(USERNAME)
+    .build()?;
 
     Command::new("sudo")
-        .arg("/bin/true")
+        .arg(BIN_TRUE)
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()
@@ -142,45 +144,47 @@ fn nopasswd_override() -> Result<()> {
 
 #[test]
 fn runas_override() -> Result<()> {
-    let env = Env(format!("ALL ALL = (root) /bin/ls, ({USERNAME}) /bin/true"))
-        .user(USERNAME)
-        .build()?;
+    let env = Env(format!(
+        "ALL ALL = (root) {BIN_LS}, ({USERNAME}) {BIN_TRUE}"
+    ))
+    .user(USERNAME)
+    .build()?;
 
     let stdout = Command::new("sudo")
-        .args(["/bin/ls", "/root"])
+        .args([BIN_LS, "/root"])
         .output(&env)?
         .stdout()?;
 
     assert_eq!("", stdout);
 
     let output = Command::new("sudo")
-        .args(["-u", USERNAME, "/bin/ls"])
+        .args(["-u", USERNAME, BIN_LS])
         .output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "user root is not allowed to execute '/bin/ls' as ferris"
+        format!("user root is not allowed to execute '{BIN_LS}' as ferris")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
     Command::new("sudo")
-        .args(["-u", "ferris", "/bin/true"])
+        .args(["-u", "ferris", BIN_TRUE])
         .output(&env)?
         .assert_success()?;
 
-    let output = Command::new("sudo").args(["/bin/true"]).output(&env)?;
+    let output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "user root is not allowed to execute '/bin/true' as root"
+        format!("user root is not allowed to execute '{BIN_TRUE}' as root")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -190,7 +194,7 @@ fn runas_override() -> Result<()> {
 #[test]
 fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
     let env = Env(format!(
-        "ALL ALL = (root) /usr/bin/true, ({USERNAME}) /usr/bin/true"
+        "ALL ALL = (root) {BIN_TRUE}, ({USERNAME}) {BIN_TRUE}"
     ))
     .user(USERNAME)
     .build()?;
@@ -265,7 +269,7 @@ fn wildcards_are_allowed_for_file() -> Result<()> {
 #[test]
 #[ignore = "wontfix"]
 fn wildcards_are_allowed_for_args() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true /root/*").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} /root/*")).build()?;
 
     Command::new("sudo")
         .arg("true")
@@ -278,7 +282,7 @@ fn wildcards_are_allowed_for_args() -> Result<()> {
 
 #[test]
 fn arguments_can_be_supplied() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}")).build()?;
 
     Command::new("sudo")
         .arg("true")
@@ -297,7 +301,7 @@ fn arguments_can_be_supplied() -> Result<()> {
 
 #[test]
 fn arguments_can_be_forced() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true hello").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} hello")).build()?;
 
     Command::new("sudo")
         .arg("true")
@@ -314,9 +318,9 @@ fn arguments_can_be_forced() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "user root is not allowed to execute '/usr/bin/true /root/ hello world' as root"
+        format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -325,7 +329,7 @@ fn arguments_can_be_forced() -> Result<()> {
 
 #[test]
 fn arguments_can_be_forbidded() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/true \"\"").build()?;
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} \"\"")).build()?;
 
     let output = Command::new("sudo")
         .arg("true")
@@ -336,9 +340,9 @@ fn arguments_can_be_forbidded() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "user root is not allowed to execute '/usr/bin/true /root/ hello world' as root"
+        format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 

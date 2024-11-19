@@ -1,6 +1,6 @@
 //! PAM integration tests
 
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env, User, BIN_TRUE};
 
 use crate::{Result, PASSWORD, USERNAME};
 
@@ -12,7 +12,7 @@ fn given_pam_permit_then_no_password_auth_required() -> Result<()> {
         .build()?;
 
     Command::new("su")
-        .args(["-c", "/usr/bin/true"])
+        .args(["-c", BIN_TRUE])
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()
@@ -30,7 +30,7 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
         .build()?;
 
     let output = Command::new("su")
-        .args(["-s", "/usr/bin/true", target_user])
+        .args(["-s", BIN_TRUE, target_user])
         .as_user(invoking_user)
         .stdin(PASSWORD)
         .output(&env)?;
@@ -61,9 +61,7 @@ fn being_root_has_no_precedence_over_pam_deny() -> Result<()> {
         .file("/etc/pam.d/su", "auth requisite pam_deny.so")
         .build()?;
 
-    let output = Command::new("su")
-        .args(["-c", "/usr/bin/true"])
-        .output(&env)?;
+    let output = Command::new("su").args(["-c", BIN_TRUE]).output(&env)?;
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
