@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use sudo_test::{Command, Env, TextFile, ETC_SUDOERS, ROOT_GROUP};
+use sudo_test::{Command, Env, TextFile, ETC_DIR, ETC_SUDOERS, ROOT_GROUP};
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
 
@@ -109,7 +109,7 @@ sleep 3",
     assert_eq!(Some(1), output.status().code());
     assert_contains!(
         output.stderr(),
-        format!("visudo: {ETC_SUDOERS} busy, try again later")
+        format!("visudo: {ETC_DIR}/sudoers busy, try again later")
     );
 
     Ok(())
@@ -133,7 +133,7 @@ echo "$@" > {LOGS_PATH}"#
     let args = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
 
     if sudo_test::is_original_sudo() {
-        assert_eq!(format!("-- {ETC_SUDOERS}.tmp"), args);
+        assert_eq!(format!("-- {ETC_DIR}/sudoers.tmp"), args);
     } else {
         assert_snapshot!(args);
     }
@@ -146,7 +146,7 @@ fn temporary_file_owner_and_perms() -> Result<()> {
     let editor_script = if sudo_test::is_original_sudo() {
         format!(
             r#"#!/bin/sh
-ls -l {ETC_SUDOERS}.tmp > {LOGS_PATH}"#
+ls -l {ETC_DIR}/sudoers.tmp > {LOGS_PATH}"#
         )
     } else {
         format!(
@@ -211,7 +211,10 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
     assert!(output.status().success());
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_eq!(output.stderr(), format!("visudo: {ETC_SUDOERS}.tmp unchanged"));
+        assert_eq!(
+            output.stderr(),
+            format!("visudo: {ETC_DIR}/sudoers.tmp unchanged")
+        );
     } else {
         assert_snapshot!(stderr);
     }
@@ -305,10 +308,10 @@ rm $2",
     if sudo_test::is_original_sudo() {
         assert_contains!(
             stderr,
-            format!("visudo: unable to re-open temporary file ({ETC_SUDOERS}.tmp), {ETC_SUDOERS} unchanged")
+            format!("visudo: unable to re-open temporary file ({ETC_DIR}/sudoers.tmp), {ETC_DIR}/sudoers unchanged")
         );
     } else {
-        assert_snapshot!(stderr.replace(ETC_SUDOERS, "<ETC_SUDOERS>"));
+        assert_snapshot!(stderr.replace(ETC_DIR, "<ETC_DIR>"));
     }
 
     Ok(())

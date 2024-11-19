@@ -1,3 +1,11 @@
+/// The directory where sudo will look for the sudoers file.
+#[cfg(not(target_os = "freebsd"))]
+pub const ETC_DIR: &str = "/etc";
+
+/// The directory where sudo will look for the sudoers file.
+#[cfg(target_os = "freebsd")]
+pub const ETC_DIR: &str = "/usr/local/etc";
+
 /// The path where sudo will look for the sudoers file.
 #[cfg(not(target_os = "freebsd"))]
 pub const ETC_SUDOERS: &str = "/etc/sudoers";
