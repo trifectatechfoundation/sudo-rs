@@ -5,6 +5,10 @@ use std::mem::zeroed;
 use crate::common::Error;
 
 pub fn kernel_check(major: u32, minor: u32) -> Result<(), Error> {
+    if cfg!(target_os = "freebsd") {
+        return Ok(());
+    }
+
     let mut utsname: libc::utsname = unsafe { zeroed() };
 
     if unsafe { libc::uname(&mut utsname) } != 0 {

@@ -48,14 +48,17 @@ you are unsure how to do this then this software is not suited for you at this t
 const VERSION: &str = std::env!("CARGO_PKG_VERSION");
 
 pub(crate) fn candidate_sudoers_file() -> &'static Path {
-    let pb_rs: &'static Path = Path::new("/etc/sudoers-rs");
-    if pb_rs.exists() {
-        dev_info!("Running with /etc/sudoers-rs file");
+    let pb_rs = Path::new("/etc/sudoers-rs");
+    let file = if pb_rs.exists() {
         pb_rs
+    } else if cfg!(target_os = "freebsd") {
+        // FIXME maybe make this configurable by the packager?
+        Path::new("/usr/local/etc/sudoers")
     } else {
-        dev_info!("Running with /etc/sudoers file");
         Path::new("/etc/sudoers")
-    }
+    };
+    dev_info!("Running with {} file", file.display());
+    file
 }
 
 #[derive(Default)]

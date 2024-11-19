@@ -111,7 +111,12 @@ pub fn init_pam(
     auth_user: &str,
     requesting_user: &str,
 ) -> PamResult<PamContext<CLIConverser>> {
-    let service_name = if is_login_shell { "sudo-i" } else { "sudo" };
+    // FIXME make it configurable by the packager
+    let service_name = if is_login_shell && cfg!(target_os = "linux") {
+        "sudo-i"
+    } else {
+        "sudo"
+    };
     let mut pam = PamContext::builder_cli("sudo", use_stdin, non_interactive)
         .service_name(service_name)
         .build()?;
