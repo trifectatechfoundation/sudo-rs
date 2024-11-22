@@ -1,8 +1,8 @@
 use core::str;
 use std::{
-    env,
+    env::{self, consts::OS},
     fs::{self, File},
-    io::{Seek, SeekFrom, Write},
+    io::{ErrorKind, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     process::{self, Command as StdCommand, Stdio},
 };
@@ -15,10 +15,40 @@ pub use self::command::{As, Child, Command, Output};
 
 mod command;
 
-const DOCKER_RUN_COMMAND: &[&str] = &["sleep", "infinity"];
+const DOCKER_RUN_COMMAND: &[&str] = &["sleep", "1000d"];
 
 pub struct Container {
     id: String,
+}
+
+fn docker_command() -> StdCommand {
+    if cfg!(target_os = "freebsd") {
+        let mut cmd = StdCommand::new("sudo");
+        cmd.arg("podman");
+        cmd
+    } else {
+        StdCommand::new("docker")
+    }
+}
+
+fn docker_build_command(tag: &str) -> StdCommand {
+    if cfg!(target_os = "freebsd") {
+        let mut cmd = StdCommand::new("sudo");
+        cmd.args(["podman", "build", "-t", base_image()]);
+        cmd
+    } else {
+        let mut cmd = StdCommand::new("docker");
+        cmd.args(["buildx", "build", "-t", tag, "--load"]);
+
+        if env::var_os("CI").is_some() {
+            cmd.args([
+                "--cache-from=type=local,src=/tmp/.buildx-cache",
+                "--cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max",
+            ]);
+        }
+
+        cmd
+    }
 }
 
 impl Container {
@@ -28,7 +58,7 @@ impl Container {
     }
 
     pub fn new_with_hostname(image: &str, hostname: Option<&str>) -> Result<Self> {
-        let mut docker_run = StdCommand::new("docker");
+        let mut docker_run = docker_command();
         docker_run.args(["run", "--detach"]);
         if let Some(hostname) = hostname {
             docker_run.args(["--hostname", hostname]);
@@ -60,7 +90,7 @@ impl Container {
     }
 
     fn docker_exec(&self, cmd: &Command) -> process::Command {
-        let mut docker_exec = StdCommand::new("docker");
+        let mut docker_exec = docker_command();
         docker_exec.arg("exec");
         if cmd.get_stdin().is_some() {
             docker_exec.arg("-i");
@@ -84,11 +114,7 @@ impl Container {
         let src_path = temp_file.path().display().to_string();
         let dest_path = format!("{}:{path_in_container}", self.id);
 
-        run(
-            StdCommand::new("docker").args(["cp", &src_path, &dest_path]),
-            None,
-        )?
-        .assert_success()?;
+        run(docker_command().args(["cp", &src_path, &dest_path]), None)?.assert_success()?;
 
         Ok(())
     }
@@ -105,11 +131,7 @@ impl Container {
 
         let src_path = format!("{}:/tmp/profraw", self.id);
         let dst_path = profraw_dir.join(&self.id).display().to_string();
-        run(
-            StdCommand::new("docker").args(["cp", &src_path, &dst_path]),
-            None,
-        )?
-        .assert_success()?;
+        run(docker_command().args(["cp", &src_path, &dst_path]), None)?.assert_success()?;
 
         Ok(())
     }
@@ -123,7 +145,7 @@ impl Drop for Container {
 
         // running this to completion would block the current thread for several seconds so just
         // fire and forget
-        let _ = StdCommand::new("docker")
+        let _ = docker_command()
             .args(["rm", "-f", &self.id])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -133,27 +155,54 @@ impl Drop for Container {
 
 pub fn build_base_image() -> Result<()> {
     let repo_root = repo_root();
-    let mut cmd = StdCommand::new("docker");
-
-    cmd.args(["buildx", "build", "-t", base_image(), "--load"]);
-
-    if env::var_os("CI").is_some() {
-        cmd.args([
-            "--cache-from=type=local,src=/tmp/.buildx-cache",
-            "--cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max",
-        ]);
-    }
+    let mut cmd = docker_build_command(base_image());
 
     match SudoUnderTest::from_env()? {
         SudoUnderTest::Ours => {
+            // On FreeBSD we build sudo-rs outside of the container. There are no pre-made FreeBSD
+            // Rust container images and unlike on Linux we intend to run the exact same FreeBSD
+            // version outside of the container and inside.
+            if cfg!(target_os = "freebsd") {
+                // Build sudo-rs
+                let mut cargo_cmd = StdCommand::new("cargo");
+                cargo_cmd.args(["build", "--locked", "--features=dev", "--bins"]);
+                cargo_cmd.current_dir(&repo_root);
+                if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
+                    cargo_cmd.stderr(Stdio::null()).stdout(Stdio::null());
+                }
+                if !cargo_cmd.status()?.success() {
+                    return Err("`cargo build --locked --features=dev --bins` failed".into());
+                }
+
+                // Copy all binaries to a single place where the Dockerfile will find them
+                let target_debug_dir = repo_root.join("target").join("debug");
+                let build_dir = repo_root.join("target").join("build");
+                match fs::create_dir(&build_dir) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
+                    Err(e) => return Err(e.into()),
+                }
+                for f in ["sudo", "su", "visudo"] {
+                    fs::copy(target_debug_dir.join(f), build_dir.join(f))?;
+                }
+            }
+
             // needed for dockerfile-specific dockerignore (e.g. `Dockerfile.dockerignore`) support
             cmd.current_dir(repo_root);
-            cmd.args(["-f", "test-framework/sudo-test/src/ours.Dockerfile", "."]);
+            cmd.args([
+                "-f",
+                &format!("test-framework/sudo-test/src/ours.{OS}.Dockerfile"),
+                ".",
+            ]);
         }
 
         SudoUnderTest::Theirs => {
             // pass Dockerfile via stdin to not provide the repository as a build context
-            let f = File::open(repo_root.join("test-framework/sudo-test/src/theirs.Dockerfile"))?;
+            let f = File::open(
+                repo_root
+                    .join("test-framework/sudo-test/src")
+                    .join(format!("theirs.{OS}.Dockerfile")),
+            )?;
             cmd.arg("-").stdin(Stdio::from(f));
         }
     }
@@ -163,7 +212,7 @@ pub fn build_base_image() -> Result<()> {
     }
 
     if !cmd.status()?.success() {
-        return Err("`docker build` failed".into());
+        return Err(format!("`{cmd:?}` failed").into());
     }
 
     Ok(())
@@ -203,7 +252,11 @@ mod tests {
 
     use super::*;
 
+    #[cfg(target_os = "linux")]
     const IMAGE: &str = "ubuntu:22.04";
+
+    #[cfg(target_os = "freebsd")]
+    const IMAGE: &str = "dougrabson/freebsd14-small:latest";
 
     #[test]
     fn eventually_removes_container_on_drop() -> Result<()> {
@@ -252,9 +305,17 @@ mod tests {
 
         let docker = Container::new(IMAGE)?;
 
-        docker
-            .output(Command::new("useradd").arg(username))?
-            .assert_success()?;
+        if cfg!(target_os = "linux") {
+            docker
+                .output(Command::new("useradd").arg(username))?
+                .assert_success()?;
+        } else if cfg!(target_os = "freebsd") {
+            docker
+                .output(Command::new("pw").args(["useradd", username]))?
+                .assert_success()?;
+        } else {
+            todo!()
+        }
 
         docker
             .output(Command::new("true").as_user(username))?
