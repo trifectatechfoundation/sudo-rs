@@ -15,7 +15,10 @@ fn prompt() -> Result<()> {
 
     let output = Command::new("visudo").output(&env)?;
 
-    assert_contains!(output.stdout()?, format!("press return to edit {ETC_DIR}/sudoers2:"));
+    assert_contains!(
+        output.stdout()?,
+        format!("press return to edit {ETC_DIR}/sudoers2:")
+    );
 
     Ok(())
 }
@@ -250,8 +253,10 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
 
 #[test]
 fn does_not_edit_files_in_includedir_directories() -> Result<()> {
-    let env = Env(format!("# 1
-    @includedir {ETC_DIR}/sudoers.d"))
+    let env = Env(format!(
+        "# 1
+    @includedir {ETC_DIR}/sudoers.d"
+    ))
     .file(format!("{ETC_DIR}/sudoers.d/a"), "# 2")
     .file(
         DEFAULT_EDITOR,

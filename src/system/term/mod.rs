@@ -261,8 +261,12 @@ mod tests {
             fork_for_test(|| {
                 // Open a new pseudoterminal.
                 let leader = Pty::open().unwrap().leader;
-                // The pty leader should not have a foreground process group yet.
-                assert_eq!(leader.tcgetpgrp().unwrap().inner(), 0);
+                // On FreeBSD this returns an unspecified PID when there is no foreground process
+                // group, so skip this check on FreeBSD.
+                if cfg!(not(target_os = "freebsd")) {
+                    // The pty leader should not have a foreground process group yet.
+                    assert_eq!(leader.tcgetpgrp().unwrap().inner(), 0);
+                }
                 // Create a new session so we can change the controlling terminal.
                 setsid().unwrap();
                 // Set the pty leader as the controlling terminal.

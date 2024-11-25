@@ -1,3 +1,11 @@
+/// The parent of the directory where sudo will look for the sudoers file.
+#[cfg(not(target_os = "freebsd"))]
+pub const ETC_PARENT_DIR: &str = "/";
+
+/// The parent of the directory where sudo will look for the sudoers file.
+#[cfg(target_os = "freebsd")]
+pub const ETC_PARENT_DIR: &str = "/usr/local/";
+
 /// The directory where sudo will look for the sudoers file.
 #[cfg(not(target_os = "freebsd"))]
 pub const ETC_DIR: &str = "/etc";

@@ -1,5 +1,5 @@
 use sudo_test::{
-    helpers::{self, PsAuxEntry},
+    helpers::{self, PsAuxEntry, PRINT_PTY_OWNER},
     Command, Env,
 };
 
@@ -122,7 +122,7 @@ fn pty_owner() -> Result<()> {
 
     let stdout = Command::new("su")
         .args(["--pty", "-c"])
-        .arg("stat $(tty) --format '%U %G'")
+        .arg(PRINT_PTY_OWNER)
         .tty(true)
         .output(&env)?
         .stdout()?;

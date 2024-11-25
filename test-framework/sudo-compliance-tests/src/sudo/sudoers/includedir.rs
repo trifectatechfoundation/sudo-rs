@@ -1,4 +1,4 @@
-use sudo_test::{Command, Directory, Env, TextFile, ETC_DIR};
+use sudo_test::{Command, Directory, Env, TextFile, ETC_DIR, ETC_PARENT_DIR};
 
 use crate::{
     Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_ALL, SUDOERS_USER_ALL_NOPASSWD, USERNAME,
@@ -262,6 +262,10 @@ fn whitespace_in_name_double_quotes() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "zfs on freebsd doesn't allow creating files with backslashes"
+)]
 fn backslash_in_name_escaped() -> Result<()> {
     let env = Env(r"@includedir /etc/sudo\\ers.d")
         .directory(r"/etc/sudo\ers.d")
@@ -275,6 +279,10 @@ fn backslash_in_name_escaped() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "zfs on freebsd doesn't allow creating files with backslashes"
+)]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@includedir "/etc/sudo\ers.d""#)
         .directory(r"/etc/sudo\ers.d")
@@ -387,8 +395,11 @@ fn ignores_directory_with_bad_ownership() -> Result<()> {
 #[test]
 fn relative_path_parent_directory() -> Result<()> {
     let env = Env("@includedir ../sudoers.d")
-        .directory("/sudoers.d")
-        .file("/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
+        .directory(format!("{ETC_PARENT_DIR}/sudoers.d"))
+        .file(
+            format!("{ETC_PARENT_DIR}/sudoers.d/a"),
+            SUDOERS_ALL_ALL_NOPASSWD,
+        )
         .build()?;
 
     Command::new("sudo")
@@ -400,10 +411,14 @@ fn relative_path_parent_directory() -> Result<()> {
 #[test]
 fn relative_path_grandparent_directory() -> Result<()> {
     // base path is `/etc/` so grandparent does not exist
-    let env = Env("@includedir ../../sudoers.d")
-        .directory("/sudoers.d")
-        .file("/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+    let env = Env(if cfg!(target_os = "freebsd") {
+        "@includedir ../../../../sudoers.d"
+    } else {
+        "@includedir ../../sudoers.d"
+    })
+    .directory("/sudoers.d")
+    .file("/sudoers.d/a", SUDOERS_ALL_ALL_NOPASSWD)
+    .build()?;
 
     Command::new("sudo")
         .arg("true")

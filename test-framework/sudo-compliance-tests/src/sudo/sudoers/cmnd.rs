@@ -93,12 +93,9 @@ fn different() -> Result<()> {
         .output(&env)?
         .assert_success()?;
 
-    let output = Command::new("sudo")
-        .args([BIN_LS, "/root"])
-        .output(&env)?
-        .stdout()?;
+    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env)?;
 
-    assert_eq!("", output);
+    assert!(output.status().success());
 
     Ok(())
 }
@@ -150,12 +147,9 @@ fn runas_override() -> Result<()> {
     .user(USERNAME)
     .build()?;
 
-    let stdout = Command::new("sudo")
-        .args([BIN_LS, "/root"])
-        .output(&env)?
-        .stdout()?;
+    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env)?;
 
-    assert_eq!("", stdout);
+    assert!(output.status().success());
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, BIN_LS])

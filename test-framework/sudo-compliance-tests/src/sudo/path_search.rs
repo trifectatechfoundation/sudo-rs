@@ -83,11 +83,12 @@ fn ignores_path_for_qualified_commands() -> Result<()> {
 
 #[test]
 fn paths_are_matched_using_realpath_in_sudoers() -> Result<()> {
-    let env = Env(["ALL ALL = /bin/true"]).build()?;
+    let env = Env(["ALL ALL = /tmp/bin/true"]).build()?;
 
-    // this test assumes /bin is a symbolic link for /usr/bin, which is the
-    // case on Debian bookworm; if it fails for original sudo, either change the
-    // dockerfile or explicitly create a symbolic link
+    Command::new("ln")
+        .args(["-s", "/usr/bin", "/tmp/bin"])
+        .output(&env)?
+        .assert_success()?;
 
     Command::new("sudo")
         .arg("/usr/bin/true")
@@ -101,12 +102,13 @@ fn paths_are_matched_using_realpath_in_sudoers() -> Result<()> {
 fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
     let env = Env(["ALL ALL = /usr/bin/true"]).build()?;
 
-    // this test assumes /bin is a symbolic link for /usr/bin, which is the
-    // case on Debian bookworm; if it fails for original sudo, either change the
-    // dockerfile or explicitly create a symbolic link
+    Command::new("ln")
+        .args(["-s", "/usr/bin", "/tmp/bin"])
+        .output(&env)?
+        .assert_success()?;
 
     Command::new("sudo")
-        .arg("/bin/true")
+        .arg("/tmp/bin/true")
         .output(&env)?
         .assert_success()?;
 

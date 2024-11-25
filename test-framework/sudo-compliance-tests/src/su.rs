@@ -126,7 +126,10 @@ fn nopasswd_root() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "su on FreeBSD doesn't require password if target user is self")]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "su on FreeBSD doesn't require password if target user is self"
+)]
 fn password_is_required_when_target_user_is_self() -> Result<()> {
     let env = Env("").user(USERNAME).build()?;
 
