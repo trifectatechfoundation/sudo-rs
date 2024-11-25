@@ -1,4 +1,4 @@
-use std::{ffi::c_int, io, os::unix::process::CommandExt, process::Command};
+use std::{convert::Infallible, ffi::c_int, io, os::unix::process::CommandExt, process::Command};
 
 use crate::exec::{opt_fmt, signal_fmt};
 use crate::system::signal::{
@@ -17,7 +17,6 @@ use crate::{
     exec::{
         event::{PollEvent, StopReason},
         use_pty::{SIGCONT_BG, SIGCONT_FG},
-        ProcessOutput,
     },
     log::{dev_error, dev_info, dev_warn},
     system::FileCloser,
@@ -25,7 +24,7 @@ use crate::{
 use crate::{
     exec::{handle_sigchld, terminate_process, HandleSigchld},
     system::{
-        fork, getpgid, getpgrp,
+        _exit, fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, setpgid, setsid,
         term::{PtyFollower, Terminal},
@@ -36,7 +35,6 @@ use crate::{
 
 use super::CommandStatus;
 
-// FIXME: This should return `io::Result<!>` but `!` is not stable yet.
 pub(super) fn exec_monitor(
     pty_follower: PtyFollower,
     command: Command,
@@ -44,7 +42,7 @@ pub(super) fn exec_monitor(
     backchannel: &mut MonitorBackchannel,
     mut file_closer: FileCloser,
     original_set: Option<SignalSet>,
-) -> io::Result<ProcessOutput> {
+) -> io::Result<Infallible> {
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
     match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore) {
@@ -103,7 +101,8 @@ pub(super) fn exec_monitor(
             errpipe_tx.write(&error_code).ok();
         }
 
-        return Ok(ProcessOutput::ChildExit);
+        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+        _exit(1);
     };
 
     // Send the command's PID to the parent.
@@ -187,7 +186,8 @@ pub(super) fn exec_monitor(
 
     // FIXME (ogsudo): The tty is restored here if selinux is available.
 
-    Ok(ProcessOutput::ChildExit)
+    // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+    _exit(1);
 }
 
 // FIXME: This should return `io::Result<!>` but `!` is not stable yet.
