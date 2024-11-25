@@ -1,5 +1,0 @@
----
-source: sudo-compliance-tests/src/sudoers/cmnd_alias.rs
-expression: stderr
----
-
