@@ -71,11 +71,7 @@ impl PsAuxEntry {
         } else if cfg!(target_os = "freebsd") {
             // On FreeBSD the PTY is either ? or - when there is no pty, or is an integer
             // potentially prefixed by v.
-            if self.tty == "?" || self.tty == "-" {
-                false
-            } else {
-                true
-            }
+            !(self.tty == "?" || self.tty == "-")
         } else {
             unimplemented!()
         }
