@@ -262,6 +262,10 @@ fn whitespace_in_name_double_quotes() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "zfs on freebsd doesn't allow creating files with backslashes"
+)]
 fn backslash_in_name_escaped() -> Result<()> {
     let env = Env(r"@includedir /etc/sudo\\ers.d")
         .directory(r"/etc/sudo\ers.d")
@@ -275,6 +279,10 @@ fn backslash_in_name_escaped() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "zfs on freebsd doesn't allow creating files with backslashes"
+)]
 fn backslash_in_name_double_quotes() -> Result<()> {
     let env = Env(r#"@includedir "/etc/sudo\ers.d""#)
         .directory(r"/etc/sudo\ers.d")
