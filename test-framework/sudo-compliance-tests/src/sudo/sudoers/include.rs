@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, ETC_DIR};
+use sudo_test::{Command, Env, TextFile, ETC_DIR, ETC_PARENT_DIR};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
@@ -258,7 +258,10 @@ fn hostname_expansion() -> Result<()> {
 #[test]
 fn relative_path_parent_directory() -> Result<()> {
     let env = Env("@include ../sudoers2")
-        .file("/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
+        .file(
+            format!("{ETC_PARENT_DIR}/sudoers2"),
+            SUDOERS_ALL_ALL_NOPASSWD,
+        )
         .build()?;
 
     Command::new("sudo")
