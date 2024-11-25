@@ -117,17 +117,14 @@ fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
 
 #[test]
 fn arg0_native_is_passed_from_commandline() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .file("/usr/bin/foo", TextFile("#!/bin/sh\necho $0").chmod("755"))
+        .build()?;
 
-    let output = Command::new("sh")
-        .args([
-            "-c",
-            "ln -s /bin/ls /bin/foo; sudo /bin/foo --invalid-flag; true",
-        ])
-        .output(&env)?;
+    let output = Command::new("sudo").arg("/usr/bin/foo").output(&env)?;
 
-    let stderr = output.stderr();
-    assert_starts_with!(stderr, "/bin/foo: unrecognized option");
+    let stdout = output.stdout().unwrap();
+    assert_starts_with!(stdout, "/usr/bin/foo");
 
     Ok(())
 }
