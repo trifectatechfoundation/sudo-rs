@@ -80,7 +80,7 @@ fn host_alias_negation() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -133,7 +133,7 @@ fn combined_host_aliases() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -161,7 +161,7 @@ fn unlisted_host_fails() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -189,7 +189,7 @@ fn negation_not_order_sensitive() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 

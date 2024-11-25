@@ -88,7 +88,7 @@ fn runas_alias_negation() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
+            format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
 
@@ -120,7 +120,7 @@ fn negation_on_user() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
+            format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
 
@@ -175,7 +175,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
+            format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
 
@@ -241,7 +241,7 @@ fn when_only_groupname_is_given_user_arg_fails() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            format!("authentication failed: I'm sorry ferris. I'm afraid I can't do that")
+            format!("I'm sorry ferris. I'm afraid I can't do that")
         );
     }
 
@@ -281,7 +281,7 @@ fn when_only_username_is_given_group_arg_fails() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            format!("authentication failed: I'm sorry ferris. I'm afraid I can't do that")
+            format!("I'm sorry ferris. I'm afraid I can't do that")
         );
     }
 

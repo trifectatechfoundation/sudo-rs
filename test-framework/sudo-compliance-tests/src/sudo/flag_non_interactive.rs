@@ -29,7 +29,7 @@ fn fails_if_password_needed() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: a password is required"
     } else {
-        "interaction required"
+        "interactive authentication is required"
     };
     assert_contains!(stderr, diagnostic);
 
@@ -62,7 +62,7 @@ fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: a password is required"
     } else {
-        "interaction required"
+        "interactive authentication is required"
     };
     assert_contains!(stderr, diagnostic);
 

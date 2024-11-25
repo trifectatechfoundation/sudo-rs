@@ -170,7 +170,7 @@ fn group_does_not_add_groups_without_authorization() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "authentication failed: I'm sorry ferris. I'm afraid I can't do that"
+        "I'm sorry ferris. I'm afraid I can't do that"
     };
 
     assert_contains!(output.stderr(), diagnostic);

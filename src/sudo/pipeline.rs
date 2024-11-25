@@ -62,10 +62,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         match authorization {
             Authorization::Forbidden => {
-                return Err(Error::auth(&format!(
-                    "I'm sorry {}. I'm afraid I can't do that",
-                    context.current_user.name
-                )));
+                return Err(Error::Authorization(context.current_user.name.to_string()));
             }
             Authorization::Allowed(auth) => {
                 self.apply_policy_to_context(&mut context, &policy)?;
@@ -118,10 +115,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         match pre.validate_authorization() {
             Authorization::Forbidden => {
-                return Err(Error::auth(&format!(
-                    "I'm sorry {}. I'm afraid I can't do that",
-                    context.current_user.name
-                )));
+                return Err(Error::Authorization(context.current_user.name.to_string()));
             }
             Authorization::Allowed(auth) => {
                 self.auth_and_update_record_file(&context, auth)?;

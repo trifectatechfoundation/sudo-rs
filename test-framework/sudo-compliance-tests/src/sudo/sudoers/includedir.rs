@@ -41,7 +41,7 @@ fn ignores_files_with_names_ending_in_tilde() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "root is not in the sudoers file"
     } else {
-        "authentication failed"
+        "I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -63,7 +63,7 @@ fn ignores_files_with_names_that_contain_a_dot() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "root is not in the sudoers file"
     } else {
-        "authentication failed"
+        "I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -325,7 +325,7 @@ fn no_hostname_expansion() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "root is not in the sudoers file"
     } else {
-        "authentication failed"
+        "I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -351,7 +351,7 @@ fn ignores_directory_with_bad_perms() -> Result<()> {
     } else {
         [
             format!("sudo-rs: {ETC_DIR}/sudoers2.d cannot be world-writable"),
-            "authentication failed".to_owned(),
+            "I'm sorry root. I'm afraid I can't do that".to_owned(),
         ]
     };
     for diagnostic in diagnostics {
@@ -381,7 +381,7 @@ fn ignores_directory_with_bad_ownership() -> Result<()> {
     } else {
         [
             format!("sudo-rs: {ETC_DIR}/sudoers2.d must be owned by root"),
-            "authentication failed".to_owned(),
+            "I'm sorry root. I'm afraid I can't do that".to_owned(),
         ]
     };
 
