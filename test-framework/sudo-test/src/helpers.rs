@@ -8,6 +8,20 @@ pub const PRINT_PTY_OWNER: &str = "stat $(tty) --format '%U %G'";
 #[cfg(target_os = "freebsd")]
 pub const PRINT_PTY_OWNER: &str = "stat -f '%Su %Sg' $(tty)";
 
+/// Check that the ls output matches the expectation while being insensitive to the exact output of
+/// the system ls version.
+#[track_caller]
+pub fn assert_ls_output(ls_output: &str, mode: &str, user: &str, group: &str) {
+    let parts = ls_output
+        .split(' ')
+        .filter(|part| !part.is_empty()) // FreeBSD ls often uses multiple spaces as seperator
+        .collect::<Vec<_>>();
+
+    assert_eq!(parts[0], mode);
+    assert_eq!(parts[2], user);
+    assert_eq!(parts[3], group);
+}
+
 /// parse the output of `ps aux`
 pub fn parse_ps_aux(ps_aux: &str) -> Vec<PsAuxEntry> {
     let mut entries = vec![];
