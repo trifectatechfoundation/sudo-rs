@@ -1,5 +1,13 @@
 //! Test helpers
 
+/// A command which will print the owner of it's TTY in the format "username group"
+#[cfg(target_os = "linux")]
+pub const PRINT_PTY_OWNER: &str = "stat $(tty) --format '%U %G'";
+
+/// A command which will print the owner of it's TTY in the format "username group"
+#[cfg(target_os = "freebsd")]
+pub const PRINT_PTY_OWNER: &str = "stat -f '%Su %Sg' $(tty)";
+
 /// parse the output of `ps aux`
 pub fn parse_ps_aux(ps_aux: &str) -> Vec<PsAuxEntry> {
     let mut entries = vec![];
