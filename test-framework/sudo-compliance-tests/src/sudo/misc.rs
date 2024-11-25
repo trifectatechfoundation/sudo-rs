@@ -168,7 +168,11 @@ fn works_when_invoked_through_a_symlink() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_ls_output(&ls_output, "lrwxrwxrwx", "ferris", "users");
+    if cfg!(target_os = "freebsd") {
+        assert_ls_output(&ls_output, "lrwx------", "ferris", "wheel");
+    } else {
+        assert_ls_output(&ls_output, "lrwxrwxrwx", "ferris", "users");
+    }
 
     // still, we expect sudo to work because the executable behind the symlink has the right
     // ownership and permissions
