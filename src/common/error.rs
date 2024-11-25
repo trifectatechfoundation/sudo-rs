@@ -22,7 +22,8 @@ pub enum Error {
     },
     UserNotFound(String),
     GroupNotFound(String),
-    Authentication(String),
+    Authorization(String),
+    InteractionRequired,
     Configuration(String),
     Options(String),
     Pam(PamError),
@@ -62,7 +63,8 @@ impl fmt::Display for Error {
             Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
             Error::UserNotFound(u) => write!(f, "user '{u}' not found"),
             Error::GroupNotFound(g) => write!(f, "group '{g}' not found"),
-            Error::Authentication(e) => write!(f, "authentication failed: {e}"),
+            Error::Authorization(u) => write!(f, "I'm sorry {u}. I'm afraid I can't do that"),
+            Error::InteractionRequired => write!(f, "interactive authentication is required"),
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
             Error::Options(e) => write!(f, "{e}"),
             Error::Pam(e) => write!(f, "PAM error: {e}"),
@@ -105,10 +107,6 @@ impl From<std::io::Error> for Error {
 }
 
 impl Error {
-    pub fn auth(message: &str) -> Self {
-        Self::Authentication(message.to_string())
-    }
-
     /// Returns `true` if the error is [`Silent`].
     ///
     /// [`Silent`]: Error::Silent

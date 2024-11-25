@@ -91,7 +91,7 @@ fn unlisted_cmnd_fails() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -117,7 +117,7 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -142,7 +142,7 @@ fn command_alias_negation() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -168,7 +168,7 @@ fn combined_cmnd_aliases() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -217,7 +217,7 @@ fn negation_not_order_sensitive() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -265,7 +265,7 @@ fn another_negation_combination() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -296,7 +296,7 @@ fn one_more_negation_combination() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -327,7 +327,7 @@ fn tripple_negation_combination() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -341,7 +341,7 @@ fn tripple_negation_combination() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -394,7 +394,7 @@ fn runas_override() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -414,7 +414,7 @@ fn runas_override() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 

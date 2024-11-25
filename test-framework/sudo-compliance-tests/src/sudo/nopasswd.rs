@@ -98,7 +98,7 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
     } else {
         assert_contains!(
             actual,
-            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
+            format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
 

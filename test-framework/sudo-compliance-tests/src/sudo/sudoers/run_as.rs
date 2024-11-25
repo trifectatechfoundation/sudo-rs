@@ -67,7 +67,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -129,7 +129,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -151,7 +151,7 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -184,7 +184,7 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
         let diagnostic = if sudo_test::is_original_sudo() {
             format!(" is not allowed to execute '{BIN_TRUE}' as ")
         } else {
-            format!("authentication failed: I'm sorry {user}. I'm afraid I can't do that")
+            format!("I'm sorry {user}. I'm afraid I can't do that")
         };
         assert_contains!(output.stderr(), diagnostic);
     }
@@ -235,7 +235,7 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> 
         } else {
             assert_contains!(
                 stderr,
-                format!("authentication failed: I'm sorry {user}. I'm afraid I can't do that")
+                format!("I'm sorry {user}. I'm afraid I can't do that")
             );
         }
     }
@@ -268,7 +268,7 @@ fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()>
         } else {
             assert_contains!(
                 stderr,
-                format!("authentication failed: I'm sorry {user}. I'm afraid I can't do that")
+                format!("I'm sorry {user}. I'm afraid I can't do that")
             );
         }
     }
@@ -444,7 +444,7 @@ fn supplemental_group_matching() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            format!("authentication failed: I'm sorry {USERNAME}. I'm afraid I can't do that")
+            format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
 

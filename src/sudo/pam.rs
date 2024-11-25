@@ -156,7 +156,7 @@ pub fn attempt_authenticate<C: Converser>(
                 if max_tries == 0 {
                     return Err(Error::MaxAuthAttempts(current_try));
                 } else if non_interactive {
-                    return Err(Error::Authentication("interaction required".to_string()));
+                    return Err(Error::InteractionRequired);
                 } else {
                     user_warn!("Authentication failed, try again.");
                 }

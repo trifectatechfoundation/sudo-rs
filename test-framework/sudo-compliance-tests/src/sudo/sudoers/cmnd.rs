@@ -42,7 +42,7 @@ fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -77,7 +77,7 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     } else {
         assert_contains!(
             stderr,
-            "authentication failed: I'm sorry root. I'm afraid I can't do that"
+            "I'm sorry root. I'm afraid I can't do that"
         );
     }
 
@@ -161,7 +161,7 @@ fn runas_override() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_LS}' as ferris")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
+        "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -178,7 +178,7 @@ fn runas_override() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_TRUE}' as root")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
+        "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -228,7 +228,7 @@ fn given_directory_then_commands_in_its_subdirectories_are_not_allowed() -> Resu
     let diagnostic = if sudo_test::is_original_sudo() {
         "user root is not allowed to execute '/usr/bin/true' as root"
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        "I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -314,7 +314,7 @@ fn arguments_can_be_forced() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
+        "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -336,7 +336,7 @@ fn arguments_can_be_forbidded() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that".to_owned()
+        "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -358,7 +358,7 @@ fn wildcards_dont_cross_directory_boundaries() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "user root is not allowed to execute '/usr/bin/sub/foo' as root"
     } else {
-        "authentication failed: I'm sorry root. I'm afraid I can't do that"
+        "I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
 
