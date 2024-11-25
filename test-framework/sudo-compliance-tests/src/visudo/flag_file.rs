@@ -208,7 +208,16 @@ fn regular_user_can_create_file() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    assert_ls_output(&ls_output, "-rw-r-----", USERNAME, "users");
+    assert_ls_output(
+        &ls_output,
+        "-rw-r-----",
+        USERNAME,
+        if cfg!(target_os = "freebsd") {
+            "wheel"
+        } else {
+            "users"
+        },
+    );
 
     Ok(())
 }
