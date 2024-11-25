@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env};
+use sudo_test::{helpers::assert_ls_output, Command, Env};
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
@@ -168,17 +168,7 @@ fn works_when_invoked_through_a_symlink() -> Result<()> {
         .output(&env)?
         .stdout()?;
 
-    // lrwxrwxrwx 1 ferris users
-    eprintln!("{ls_output}");
-
-    // symlink has not the setuid bit set
-    let stat_output = Command::new("stat")
-        .args(["-c", "%a", symlink_path])
-        .output(&env)?
-        .stdout()?;
-
-    // 777
-    eprintln!("{stat_output}");
+    assert_ls_output(&ls_output, "lrwxrwxrwx", "ferris", "users");
 
     // still, we expect sudo to work because the executable behind the symlink has the right
     // ownership and permissions
