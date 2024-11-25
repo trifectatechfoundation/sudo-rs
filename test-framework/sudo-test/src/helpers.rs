@@ -57,10 +57,25 @@ pub struct PsAuxEntry {
 impl PsAuxEntry {
     /// whether the process has an associated PTY
     pub fn has_tty(&self) -> bool {
-        if self.tty == "?" {
-            false
-        } else if self.tty.starts_with("pts/") {
-            true
+        if cfg!(target_os = "linux") {
+            // On Linux the PTY is either ? when there is no pty, starts with pts/ for a pseudo
+            // terminal or starts with tty in case of a virtual terminal. The last case shouldn't
+            // happen inside of containers.
+            if self.tty == "?" {
+                false
+            } else if self.tty.starts_with("pts/") {
+                true
+            } else {
+                unimplemented!()
+            }
+        } else if cfg!(target_os = "freebsd") {
+            // On FreeBSD the PTY is either ? or - when there is no pty, or is an integer
+            // potentially prefixed by v.
+            if self.tty == "?" || self.tty == "-" {
+                false
+            } else {
+                true
+            }
         } else {
             unimplemented!()
         }
