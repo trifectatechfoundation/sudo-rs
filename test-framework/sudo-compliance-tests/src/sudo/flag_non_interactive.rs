@@ -99,7 +99,9 @@ fn cached_credential() -> Result<()> {
 
     Command::new("sh")
         .arg("-c")
-        .arg(format!("echo {PASSWORD} | sudo -S true; sudo -n true && true"))
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; sudo -n true && true"
+        ))
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()

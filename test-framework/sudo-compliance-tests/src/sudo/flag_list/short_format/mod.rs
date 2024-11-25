@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, BIN_LS, BIN_TRUE, BIN_FALSE};
+use sudo_test::{Command, Env, BIN_FALSE, BIN_LS, BIN_TRUE};
 
 use crate::{Result, HOSTNAME};
 
@@ -189,9 +189,7 @@ fn cwd_path() -> Result<()> {
 
 #[test]
 fn cwd_multiple_commands() -> Result<()> {
-    let stdout = sudo_list_of(&format!(
-        " ALL  ALL  = CWD = * {BIN_TRUE} ,  {BIN_FALSE} "
-    ))?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = CWD = * {BIN_TRUE} ,  {BIN_FALSE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }
@@ -216,9 +214,7 @@ fn cwd_override() -> Result<()> {
 
 #[test]
 fn cwd_not_in_first_position() -> Result<()> {
-    let stdout = sudo_list_of(&format!(
-        " ALL  ALL  = {BIN_TRUE} , CWD = * {BIN_FALSE} "
-    ))?;
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = {BIN_TRUE} , CWD = * {BIN_FALSE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }

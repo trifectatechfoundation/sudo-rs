@@ -378,9 +378,7 @@ fn runas_override() -> Result<()> {
     .user("ferris")
     .build()?;
 
-    let output = Command::new("sudo")
-        .args([BIN_LS, "/root"])
-        .output(&env)?;
+    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env)?;
     assert!(output.status().success());
 
     let output = Command::new("sudo")

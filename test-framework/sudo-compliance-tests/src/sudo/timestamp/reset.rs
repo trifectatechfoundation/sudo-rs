@@ -64,7 +64,9 @@ fn with_command_prompts_for_password() -> Result<()> {
 
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("echo {PASSWORD} | sudo -S true; sudo -k true && true"))
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; sudo -k true && true"
+        ))
         .as_user(USERNAME)
         .output(&env)?;
 

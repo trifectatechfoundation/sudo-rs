@@ -14,7 +14,9 @@ fn credential_caching_works() -> Result<()> {
 
     Command::new("sh")
         .arg("-c")
-        .arg(format!("set -e; echo {PASSWORD} | sudo -S true; sudo true && true"))
+        .arg(format!(
+            "set -e; echo {PASSWORD} | sudo -S true; sudo true && true"
+        ))
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()
