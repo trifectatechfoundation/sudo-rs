@@ -484,7 +484,8 @@ impl From<String> for User {
             id: None,
             name,
             password: None,
-            shell: None,
+            // Keep the shell that is used consistent across OSes
+            shell: Some("/bin/sh".to_owned()),
         }
     }
 }

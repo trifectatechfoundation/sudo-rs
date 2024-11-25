@@ -20,6 +20,12 @@ fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_data
 {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
+    // Make sure the shell of root doesn't match the shell of ferris
+    let output = Command::new("chsh")
+        .args(["-s", "/non/existent"])
+        .output(&env)?;
+    assert!(output.status().success());
+
     let getent_passwd = Command::new("getent")
         .arg("passwd")
         .output(&env)?
@@ -28,7 +34,6 @@ fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_data
     let target_users_shell = user_to_shell["root"];
     let invoking_users_shell = user_to_shell["ferris"];
 
-    // XXX a bit brittle. it would be better to set ferris' shell when creating the user
     assert_ne!(target_users_shell, invoking_users_shell);
 
     let output = Command::new("env")

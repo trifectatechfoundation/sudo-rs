@@ -89,7 +89,7 @@ fn ignores_shell_env_var_when_flag_preserve_environment_is_absent() -> Result<()
         .output(&env)?
         .stdout()?;
 
-    assert_eq!("/bin/bash", stdout);
+    assert_eq!("/bin/sh", stdout);
 
     Ok(())
 }

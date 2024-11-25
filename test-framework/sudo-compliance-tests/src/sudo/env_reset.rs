@@ -56,7 +56,7 @@ fn some_vars_are_set() -> Result<()> {
 
     // # man sudoers
     // "The HOME, MAIL, SHELL, LOGNAME and USER environment variables are initialized based on the target user"
-    assert_eq!(Some("/bin/bash"), sudo_env.remove("SHELL"));
+    assert_eq!(Some("/bin/sh"), sudo_env.remove("SHELL"));
 
     // "If the PATH and TERM variables are not preserved from the user's environment, they will be set to default values."
     let sudo_path = sudo_env.remove("PATH").expect("PATH not set");
@@ -199,7 +199,7 @@ fn some_vars_are_preserved() -> Result<()> {
     // not preserved
     assert_eq!(Some("/root"), sudo_env.remove("HOME"));
     assert_eq!(Some("/var/mail/root"), sudo_env.remove("MAIL"));
-    assert_eq!(Some("/bin/bash"), sudo_env.remove("SHELL"));
+    assert_eq!(Some("/bin/sh"), sudo_env.remove("SHELL"));
     assert_eq!(Some("root"), sudo_env.remove("LOGNAME"));
     assert_eq!(Some("root"), sudo_env.remove("USER"));
     assert_eq!(
