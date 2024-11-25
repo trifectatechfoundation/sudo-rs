@@ -261,7 +261,7 @@ Sudoers entry:
 
 #[test]
 fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true")
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/true")
         .user(USERNAME)
         .build()?;
 
@@ -282,7 +282,7 @@ fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<(
 
 #[test]
 fn when_several_commands_specified_only_first_displayed_with_fully_qualified_path() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/true, /bin/ls")
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/true, /bin/ls")
         .user(USERNAME)
         .build()?;
 

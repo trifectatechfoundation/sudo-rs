@@ -172,7 +172,7 @@ fn arg0_script_is_resolved_from_commandline() -> Result<()> {
         .build()?;
 
     let output = Command::new("sh")
-        .args(["-c", &format!("ln -s {path} /bin/foo; sudo foo")])
+        .args(["-c", &format!("ln -s {path} /usr/bin/foo; sudo foo")])
         .output(&env)?;
 
     let stdout = output.stdout()?;
