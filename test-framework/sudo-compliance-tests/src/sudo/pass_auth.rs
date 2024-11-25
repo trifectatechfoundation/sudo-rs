@@ -5,4 +5,7 @@
 mod stdin;
 mod tty;
 
-const MAX_PAM_RESPONSE_SIZE: usize = 512;
+#[cfg(not(target_os = "freebsd"))]
+const MAX_PASSWORD_SIZE: usize = 511; // MAX_PAM_RESPONSE_SIZE - 1 null byte
+#[cfg(target_os = "freebsd")]
+const MAX_PASSWORD_SIZE: usize = 128;

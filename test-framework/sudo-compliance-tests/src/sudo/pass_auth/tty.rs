@@ -2,7 +2,7 @@ use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, USERNAME};
 
-use super::MAX_PAM_RESPONSE_SIZE;
+use super::MAX_PASSWORD_SIZE;
 
 #[test]
 #[ignore = "gh414"]
@@ -68,7 +68,7 @@ fn no_tty() -> Result<()> {
 
 #[test]
 fn longest_possible_password_works() -> Result<()> {
-    let password = "a".repeat(MAX_PAM_RESPONSE_SIZE - 1 /* null byte */);
+    let password = "a".repeat(MAX_PASSWORD_SIZE);
 
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(&password))
@@ -83,12 +83,12 @@ fn longest_possible_password_works() -> Result<()> {
 
 #[test]
 fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Result<()> {
-    let password = "a".repeat(MAX_PAM_RESPONSE_SIZE - 1 /* null byte */);
+    let password = "a".repeat(MAX_PASSWORD_SIZE);
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(password))
         .build()?;
 
-    let input_sizes = [MAX_PAM_RESPONSE_SIZE, MAX_PAM_RESPONSE_SIZE + 1];
+    let input_sizes = [MAX_PASSWORD_SIZE + 1, MAX_PASSWORD_SIZE + 2];
 
     for input_size in input_sizes {
         let input = "a".repeat(input_size);

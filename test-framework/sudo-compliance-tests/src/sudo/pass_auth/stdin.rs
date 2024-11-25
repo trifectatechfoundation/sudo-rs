@@ -3,7 +3,7 @@ use sudo_test::{Command, Env, User};
 
 use crate::{Result, PASSWORD, USERNAME};
 
-use super::MAX_PAM_RESPONSE_SIZE;
+use super::MAX_PASSWORD_SIZE;
 
 #[test]
 fn correct_password() -> Result<()> {
@@ -67,7 +67,7 @@ fn no_password() -> Result<()> {
 
 #[test]
 fn longest_possible_password_works() -> Result<()> {
-    let password = "a".repeat(MAX_PAM_RESPONSE_SIZE - 1 /* null byte */);
+    let password = "a".repeat(MAX_PASSWORD_SIZE);
 
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(&password))
@@ -85,7 +85,7 @@ fn longest_possible_password_works() -> Result<()> {
 fn input_longer_than_max_pam_response_size_is_handled_gracefully() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL").user(USERNAME).build()?;
 
-    let input = "a".repeat(5 * MAX_PAM_RESPONSE_SIZE / 2);
+    let input = "a".repeat(5 * MAX_PASSWORD_SIZE / 2);
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .stdin(input)
@@ -108,12 +108,12 @@ fn input_longer_than_max_pam_response_size_is_handled_gracefully() -> Result<()>
 
 #[test]
 fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Result<()> {
-    let password = "a".repeat(MAX_PAM_RESPONSE_SIZE - 1 /* null byte */);
+    let password = "a".repeat(MAX_PASSWORD_SIZE);
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(password))
         .build()?;
 
-    let input_sizes = [MAX_PAM_RESPONSE_SIZE, MAX_PAM_RESPONSE_SIZE + 1];
+    let input_sizes = [MAX_PASSWORD_SIZE + 1, MAX_PASSWORD_SIZE + 2];
 
     for input_size in input_sizes {
         let input = "a".repeat(input_size);
