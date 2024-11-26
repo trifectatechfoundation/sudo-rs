@@ -42,17 +42,14 @@ pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
 }
 
 impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
-    pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
-        if !cmd_opts.env_var_list.is_empty() {
-            eprintln_ignore_io_error!(
-                "warning: CLI-level env var list has not yet been implemented and will be ignored"
-            )
-        }
+    pub fn run(mut self, mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
         if !cmd_opts.preserve_env.is_nothing() {
             eprintln_ignore_io_error!(
                 "warning: `--preserve-env` has not yet been implemented and will be ignored"
             )
         }
+
+        let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
 
         let pre = self.policy.init()?;
         let mut context = build_context(cmd_opts.into(), &pre)?;
@@ -70,12 +67,18 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             }
         }
 
+        // build environment
         let additional_env = self.authenticator.pre_exec(&context.target_user.name)?;
 
-        // build environment
         let current_env = environment::system_environment();
-        let target_env =
-            environment::get_target_environment(current_env, additional_env, &context, &policy);
+
+        let target_env = environment::get_target_environment(
+            current_env,
+            additional_env,
+            user_requested_env_vars,
+            &context,
+            &policy,
+        )?;
 
         let pid = context.process.pid;
 

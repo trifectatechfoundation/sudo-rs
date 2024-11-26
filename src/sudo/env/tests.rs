@@ -160,8 +160,14 @@ fn test_environment_variable_filtering() {
             .unwrap();
         let settings = crate::sudoers::Judgement::default();
         let context = create_test_context(&options);
-        let resulting_env =
-            get_target_environment(initial_env.clone(), HashMap::new(), &context, &settings);
+        let resulting_env = get_target_environment(
+            initial_env.clone(),
+            HashMap::new(),
+            Vec::new(),
+            &context,
+            &settings,
+        )
+        .unwrap();
 
         let resulting_env = environment_to_set(resulting_env);
         let expected_env = environment_to_set(expected_env);
