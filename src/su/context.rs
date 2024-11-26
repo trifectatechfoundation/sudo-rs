@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     env,
     ffi::OsString,
     fs, io,
@@ -9,13 +10,15 @@ use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
 use crate::{
-    common::{error::Error, resolve::CurrentUser, Environment},
+    common::{error::Error, resolve::CurrentUser},
     system::interface::ProcessId,
 };
 use crate::{
     common::{resolve::is_valid_executable, SudoPath},
     system::interface::UserId,
 };
+
+type Environment = HashMap<OsString, OsString>;
 
 use super::cli::SuRunOptions;
 

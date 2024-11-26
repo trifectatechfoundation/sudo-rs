@@ -1,10 +1,10 @@
 use std::{
-    collections::{hash_map::Entry, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
 };
 
-use crate::common::{CommandAndArguments, Context, Environment};
+use crate::common::{CommandAndArguments, Context};
 use crate::sudoers::Policy;
 use crate::system::PATH_MAX;
 
@@ -13,6 +13,13 @@ use super::wildcard_match::wildcard_match;
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 const PATH_DEFAULT: &str = env!("SUDO_PATH_DEFAULT");
+
+pub type Environment = HashMap<OsString, OsString>;
+
+/// obtain the system environment
+pub fn system_environment() -> Environment {
+    std::env::vars_os().collect()
+}
 
 /// check byte slice contains with given byte slice
 fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
@@ -192,18 +199,16 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
 /// Environment variables with a value beginning with ‘()’ are removed
 pub fn get_target_environment(
     current_env: Environment,
-    additional_env: Environment,
+    additional_env: impl IntoIterator<Item = (OsString, OsString)>,
     context: &Context,
     settings: &impl Policy,
 ) -> Environment {
-    let mut environment = Environment::default();
-
     // retrieve SUDO_PS1 value to set a PS1 value as additional environment
     let sudo_ps1 = current_env.get(OsStr::new("SUDO_PS1")).cloned();
 
     // variables preserved from the invoking user's environment by the
     // env_keep list take precedence over those in the PAM environment
-    environment.extend(additional_env);
+    let mut environment: HashMap<_, _> = additional_env.into_iter().collect();
 
     environment.extend(
         current_env

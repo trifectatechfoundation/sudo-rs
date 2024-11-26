@@ -1,10 +1,10 @@
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use crate::common::context::OptionsForContext;
 use crate::common::resolve::CurrentUser;
-use crate::common::{Context, Environment, Error};
+use crate::common::{Context, Error};
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
 use crate::sudo::env::environment;
@@ -32,7 +32,7 @@ pub trait PolicyPlugin {
 pub trait AuthPlugin {
     fn init(&mut self, context: &Context) -> Result<(), Error>;
     fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error>;
-    fn pre_exec(&mut self, target_user: &str) -> Result<Environment, Error>;
+    fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error>;
     fn cleanup(&mut self);
 }
 
@@ -73,7 +73,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let additional_env = self.authenticator.pre_exec(&context.target_user.name)?;
 
         // build environment
-        let current_env = std::env::vars_os().collect();
+        let current_env = environment::system_environment();
         let target_env =
             environment::get_target_environment(current_env, additional_env, &context, &policy);
 

@@ -1,8 +1,8 @@
 use crate::common::resolve::CurrentUser;
-use crate::common::{CommandAndArguments, Context, Environment};
+use crate::common::{CommandAndArguments, Context};
 use crate::sudo::{
     cli::{SudoAction, SudoRunOptions},
-    env::environment::get_target_environment,
+    env::environment::{get_target_environment, Environment},
 };
 use crate::system::interface::{GroupId, UserId};
 use crate::system::{Group, Hostname, Process, User};
@@ -66,7 +66,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .map(|e| {
             let (cmd, vars) = e.split_once('\n').unwrap();
 
-            let vars: Environment = vars
+            let vars = vars
                 .lines()
                 .map(|line| line.trim().split_once('=').unwrap())
                 .map(|(k, v)| (k.into(), v.into()))
@@ -142,7 +142,7 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
 fn environment_to_set(environment: Environment) -> HashSet<String> {
     HashSet::from_iter(
         environment
-            .iter()
+            .into_iter()
             .map(|(k, v)| format!("{}={}", k.to_str().unwrap(), v.to_str().unwrap())),
     )
 }
