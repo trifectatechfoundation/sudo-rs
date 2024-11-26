@@ -78,10 +78,7 @@ fn host_alias_negation() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -131,10 +128,7 @@ fn combined_host_aliases() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -159,10 +153,7 @@ fn unlisted_host_fails() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -187,10 +178,7 @@ fn negation_not_order_sensitive() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())

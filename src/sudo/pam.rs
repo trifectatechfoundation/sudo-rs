@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ffi::OsString;
 
 use crate::common::context::LaunchType;
@@ -59,7 +58,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
         Ok(())
     }
 
-    fn pre_exec(&mut self, target_user: &str) -> Result<HashMap<OsString, OsString>, Error> {
+    fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error> {
         let pam = self
             .pam
             .as_mut()
