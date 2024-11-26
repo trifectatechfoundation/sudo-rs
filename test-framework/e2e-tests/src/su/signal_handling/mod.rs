@@ -37,7 +37,7 @@ fn signal_is_forwarded_to_child() -> Result<()> {
 
     let child = Command::new("su")
         .arg("-c")
-        .arg(format!("sh {expects_signal} {signal}"))
+        .arg(format!("exec sh {expects_signal} {signal}"))
         .spawn(&env)?;
 
     Command::new("sh")
@@ -60,7 +60,7 @@ fn child_terminated_by_signal() -> Result<()> {
     // child process sends SIGTERM to itself
     let output = Command::new("su")
         .arg("-c")
-        .arg("sh -c 'kill $$'")
+        .arg("kill $$")
         .output(&env)?;
 
     assert_eq!(Some(143), output.status().code());
@@ -122,7 +122,7 @@ fn sigalrm_terminates_command() -> Result<()> {
 
     let child = Command::new("su")
         .arg("-c")
-        .arg(format!("sh {expects_signal} HUP TERM"))
+        .arg(format!("exec sh {expects_signal} HUP TERM"))
         .spawn(&env)?;
 
     Command::new("sh")
