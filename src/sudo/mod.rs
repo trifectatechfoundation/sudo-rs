@@ -45,7 +45,11 @@ you are unsure how to do this then this software is not suited for you at this t
     }
 }
 
-const VERSION: &str = std::env!("CARGO_PKG_VERSION");
+const VERSION: &str = if let Some(version_override) = std::option_env!("SUDO_RS_VERSION") {
+    version_override
+} else {
+    std::env!("CARGO_PKG_VERSION")
+};
 
 pub(crate) fn candidate_sudoers_file() -> &'static Path {
     let pb_rs = Path::new("/etc/sudoers-rs");

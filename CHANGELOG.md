@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.4-dev] - 2025-mm-dd
+
+### Changed
+- Portability: sudo-rs now works on FreeBSD!
+
+### Fixed
+- Bug in syslog writer could cause sudo to hang (#856)
+
 ## [0.2.3] - 2024-07-11
 
 ### Changed
