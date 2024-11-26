@@ -2,10 +2,9 @@
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
 PROJECT_DIR=$(dirname "$SCRIPT_DIR")
-NEW_VERSION="$1"
 
 # Fetch current version
-CURRENT_VERSION=$(sed -n '/version\s*=\s*"\([^"]*\)"/{s//\1/p;q}' "$PROJECT_DIR/Cargo.toml")
+CURRENT_VERSION=$(sed -n '/^version\s*=\s*"\([^"]*\)"/{s//\1/p;q}' "$PROJECT_DIR/Cargo.toml")
 
 # Fetch new version from changelog
 NEW_VERSION=$(grep -m1 '^##' "$PROJECT_DIR"/CHANGELOG.md | grep -o "\[[0-9]\+.[0-9]\+.[0-9]\+\]" | tr -d '[]')
