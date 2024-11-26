@@ -37,7 +37,7 @@ fn do_test(binary: Binary, not_use_pty: bool, user_tty: bool, expected: ExecMode
     let mut cmd = match binary {
         Binary::Su => {
             let mut cmd = Command::new("su");
-            cmd.args(["-c", "sh -c 'touch /tmp/barrier; sleep 3; true'"]);
+            cmd.args(["-c", "touch /tmp/barrier; sleep 3; true"]);
             cmd
         }
 
