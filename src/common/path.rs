@@ -10,7 +10,7 @@ use super::{Error, SudoString};
 
 /// A `PathBuf` guaranteed to not contain null bytes and be UTF-8 encoded
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(test, derive(Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Eq))]
 pub struct SudoPath {
     inner: String,
 }

@@ -57,7 +57,7 @@ macro_rules! request {
 
 macro_rules! sudoer {
     ($($e:expr),*) => {
-        parse_lines(&mut [$($e),*, ""].join("\n").chars().peekable())
+        parse_lines(&mut [$($e),*, ""].join("\n").char_indices())
             .into_iter()
             .map(|x| Ok::<_,basic_parser::Status>(x.unwrap()))
     }
@@ -71,7 +71,7 @@ fn parse_line(s: &str) -> Sudo {
 
 /// Returns `None` if a syntax error is encountered
 fn try_parse_line(s: &str) -> Option<Sudo> {
-    parse_lines(&mut [s, ""].join("").chars().peekable())
+    parse_lines(&mut [s, ""].join("").char_indices())
         .into_iter()
         .next()?
         .ok()
@@ -410,6 +410,28 @@ fn alias_all_regression() {
 #[test]
 fn defaults_regression() {
     assert!(try_parse_line("Defaults .mymachine=ALL").is_none())
+}
+
+#[test]
+fn specific_defaults() {
+    assert!(parse_line("Defaults !use_pty").is_decl());
+    assert!(try_parse_line("Defaults!use_pty").is_none());
+    assert!(parse_line("Defaults!/bin/bash !use_pty").is_decl());
+    assert!(try_parse_line("Defaults!/bin/bash!use_pty").is_none());
+    assert!(try_parse_line("Defaults !/bin/bash !use_pty").is_none());
+    assert!(try_parse_line("Defaults !/bin/bash").is_none());
+    assert!(parse_line("Defaults@host !use_pty").is_decl());
+    assert!(parse_line("Defaults@host!use_pty").is_decl());
+    assert!(try_parse_line("Defaults @host!use_pty").is_none());
+    assert!(try_parse_line("Defaults @host !use_pty").is_none());
+    assert!(parse_line("Defaults:user !use_pty").is_decl());
+    assert!(parse_line("Defaults:user!use_pty").is_decl());
+    assert!(try_parse_line("Defaults :user!use_pty").is_none());
+    assert!(try_parse_line("Defaults :user !use_pty").is_none());
+    assert!(parse_line("Defaults>user !use_pty").is_decl());
+    assert!(parse_line("Defaults>user!use_pty").is_decl());
+    assert!(try_parse_line("Defaults >user!use_pty").is_none());
+    assert!(try_parse_line("Defaults >user !use_pty").is_none());
 }
 
 #[test]

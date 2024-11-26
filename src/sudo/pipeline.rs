@@ -55,7 +55,12 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         }
 
         let pre = self.policy.init()?;
-        let mut context = build_context(cmd_opts.into(), &pre)?;
+        // chicken-and-egg: context must already have incorporated from the context:
+        // - host
+        // - current user
+        // - target user
+        // to be able to resolve the command correctly
+        let mut context = build_context(cmd_opts.into(), pre.secure_path())?;
 
         let policy = self.policy.judge(pre, &context)?;
         let authorization = policy.authorization();
@@ -114,7 +119,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
     pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
-        let context = build_context(cmd_opts.into(), &pre)?;
+        let context = build_context(cmd_opts.into(), pre.secure_path())?;
 
         match pre.validate_authorization() {
             Authorization::Forbidden => {
@@ -202,12 +207,12 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
 fn build_context(
     cmd_opts: OptionsForContext,
-    pre: &dyn PreJudgementPolicy,
+    secure_path: Option<String>,
 ) -> Result<Context, Error> {
-    let secure_path: String = pre
-        .secure_path()
-        .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
-    Context::build_from_options(cmd_opts, secure_path)
+    Context::build_from_options(
+        cmd_opts,
+        secure_path.unwrap_or_else(|| std::env::var("PATH").unwrap_or_default()),
+    )
 }
 
 /// This should determine what the authentication status for the given record

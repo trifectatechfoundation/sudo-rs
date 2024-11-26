@@ -4,7 +4,7 @@ use crate::{
     common::{Context, Error},
     pam::CLIConverser,
     sudo::{cli::SudoListOptions, pam::PamAuthenticator, SudoersPolicy},
-    sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
+    sudoers::{Authorization, ListRequest, Policy, PreJudgementPolicy, Request, Sudoers},
     system::{interface::UserId, User},
 };
 
@@ -25,7 +25,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
         let original_command = cmd_opts.positional_args.first().cloned();
 
         let sudoers = self.policy.init()?;
-        let context = super::build_context(cmd_opts.into(), &sudoers)?;
+        let context = super::build_context(cmd_opts.into(), sudoers.secure_path())?;
 
         if original_command.is_some() && !context.command.resolved {
             return Err(Error::CommandNotFound(context.command.command));

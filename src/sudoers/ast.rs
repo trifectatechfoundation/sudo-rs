@@ -8,7 +8,7 @@ use crate::common::{
 };
 
 /// The Sudoers file allows negating items with the exclamation mark.
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, PartialEq, Eq))]
 #[repr(u32)]
 pub enum Qualified<T> {
     Allow(T) = HARDENED_ENUM_VALUE_0,
@@ -45,7 +45,7 @@ pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
 /// An identifier is a name or a #number
-#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]
 pub enum Identifier {
     Name(SudoString) = HARDENED_ENUM_VALUE_0,
@@ -53,7 +53,7 @@ pub enum Identifier {
 }
 
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
-#[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]
 pub enum UserSpecifier {
     User(Identifier) = HARDENED_ENUM_VALUE_0,
@@ -69,7 +69,7 @@ pub struct RunAs {
 
 // `sudo -l l` calls this the `authenticate` option
 #[derive(Copy, Clone, Default, PartialEq)]
-#[cfg_attr(test, derive(Debug, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, Eq))]
 #[repr(u32)]
 pub enum Authenticate {
     #[default]
@@ -82,7 +82,7 @@ pub enum Authenticate {
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[derive(Default, Clone, PartialEq)]
-#[cfg_attr(test, derive(Debug, Eq))]
+#[cfg_attr(any(test, feature = "dev"), derive(Debug, Eq))]
 pub struct Tag {
     pub authenticate: Authenticate,
     pub cwd: Option<ChDir>,
@@ -115,7 +115,19 @@ pub enum Directive {
     HostAlias(Defs<Hostname>) = HARDENED_ENUM_VALUE_1,
     CmndAlias(Defs<Command>) = HARDENED_ENUM_VALUE_2,
     RunasAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
-    Defaults(Vec<(String, ConfigValue)>) = HARDENED_ENUM_VALUE_4,
+    Defaults(Vec<(String, ConfigValue)>, ConfigScope) = HARDENED_ENUM_VALUE_4,
+}
+
+/// AST object for the 'context' (host, user, cmnd, runas) of a Defaults directive
+#[repr(u32)]
+pub enum ConfigScope {
+    // "Defaults entries are parsed in the following order:
+    // generic, host and user Defaults first, then runas Defaults and finally command defaults."
+    Generic,
+    Host(SpecList<Hostname>),
+    User(SpecList<UserSpecifier>),
+    RunAs(SpecList<UserSpecifier>),
+    Command(SpecList<SimpleCommand>),
 }
 
 pub type TextEnum = crate::defaults::StrEnum<'static>;
@@ -499,7 +511,7 @@ impl Parse for Sudo {
         if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
             // element 1 always exists (parse_list fails on an empty list)
             let key = &users[0];
-            if let Some(directive) = maybe(get_directive(key, stream))? {
+            if let Some(directive) = maybe(get_directive(key, stream, start_pos))? {
                 if users.len() != 1 {
                     unrecoverable!(pos = start_pos, stream, "invalid user name list");
                 }
@@ -582,6 +594,7 @@ impl<T> Many for Def<T> {
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut impl CharStream,
+    begin_pos: (usize, usize),
 ) -> Parsed<Directive> {
     use super::ast::Directive::*;
     use super::ast::Meta::*;
@@ -596,7 +609,28 @@ fn get_directive(
         "Host_Alias" => make(HostAlias(expect_nonterminal(stream)?)),
         "Cmnd_Alias" | "Cmd_Alias" => make(CmndAlias(expect_nonterminal(stream)?)),
         "Runas_Alias" => make(RunasAlias(expect_nonterminal(stream)?)),
-        "Defaults" => make(Defaults(expect_nonterminal(stream)?)),
+        "Defaults" => {
+            let allow_scope_modifier = stream.get_pos().0 == begin_pos.0
+                && stream.get_pos().1 - begin_pos.1 == "Defaults".len();
+
+            let scope = if allow_scope_modifier {
+                if is_syntax('@', stream)? {
+                    ConfigScope::Host(expect_nonterminal(stream)?)
+                } else if is_syntax(':', stream)? {
+                    ConfigScope::User(expect_nonterminal(stream)?)
+                } else if is_syntax('!', stream)? {
+                    ConfigScope::Command(expect_nonterminal(stream)?)
+                } else if is_syntax('>', stream)? {
+                    ConfigScope::RunAs(expect_nonterminal(stream)?)
+                } else {
+                    ConfigScope::Generic
+                }
+            } else {
+                ConfigScope::Generic
+            };
+
+            make(Defaults(expect_nonterminal(stream)?, scope))
+        }
         _ => reject(),
     }
 }
