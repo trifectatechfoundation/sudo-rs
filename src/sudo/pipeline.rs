@@ -136,6 +136,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             must_authenticate,
             prior_validity,
             allowed_attempts,
+            ..
         }: AuthorizationAllowed,
     ) -> Result<(), Error> {
         let scope = RecordScope::for_process(&Process::new());
