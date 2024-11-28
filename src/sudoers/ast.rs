@@ -337,6 +337,8 @@ pub type Modifier = Box<dyn Fn(&mut Tag)>;
 impl Parse for MetaOrTag {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         use Meta::*;
+
+        let start_pos = stream.get_pos();
         let AliasName(keyword) = try_nonterminal(stream)?;
 
         let mut switch = |modifier: fn(&mut Tag)| {
@@ -345,13 +347,35 @@ impl Parse for MetaOrTag {
         };
 
         let result: Modifier = match keyword.as_str() {
+            "INTERCEPT" | "NOEXEC" => unrecoverable!(
+                pos = start_pos,
+                stream,
+                "NOEXEC and INTERCEPT are not supported by sudo-rs"
+            ),
+            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL" => {
+                eprintln_ignore_io_error!(
+                    "warning: {} tags are ignored by sudo-rs",
+                    keyword.as_str()
+                );
+                switch(|_| {})?
+            }
+
+            // 'FOLLOW' and 'NOFOLLOW' are only usable in a sudoedit context, which will result in
+            // a parse error elsewhere. 'EXEC' and 'NOINTERCEPT' are the default behaviour.
+            "FOLLOW" | "NOFOLLOW" | "EXEC" | "NOINTERCEPT" => switch(|_| {})?,
+            "SETENV" | "NOSETENV" => {
+                eprintln_ignore_io_error!("{} is WIP", keyword.as_str());
+                switch(|_| {})?
+            }
             "PASSWD" => switch(|tag| tag.authenticate = Authenticate::Passwd)?,
             "NOPASSWD" => switch(|tag| tag.authenticate = Authenticate::Nopasswd)?,
+
             "CWD" => {
                 expect_syntax('=', stream)?;
                 let path: ChDir = expect_nonterminal(stream)?;
                 Box::new(move |tag| tag.cwd = Some(path.clone()))
             }
+
             "ALL" => return make(MetaOrTag(All)),
             alias => return make(MetaOrTag(Alias(alias.to_string()))),
         };
