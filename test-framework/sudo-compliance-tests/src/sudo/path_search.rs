@@ -117,14 +117,21 @@ fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
 
 #[test]
 fn arg0_native_is_passed_from_commandline() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-        .file("/usr/bin/foo", TextFile("#!/bin/sh\necho $0").chmod("755"))
-        .build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
 
-    let output = Command::new("sudo").arg("/usr/bin/foo").output(&env)?;
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "ln -s /bin/ls /bin/foo; sudo /bin/foo --invalid-flag; true",
+        ])
+        .output(&env)?;
 
-    let stdout = output.stdout().unwrap();
-    assert_starts_with!(stdout, "/usr/bin/foo");
+    let mut stderr = output.stderr();
+    // On GNU, this will report "/bin/foo: ...". but FreeBSD's `ls` does not print its full invoked path in error
+    if stderr.starts_with("/bin/") {
+        stderr = &stderr[5..]
+    }
+    assert_starts_with!(stderr, "foo: unrecognized option");
 
     Ok(())
 }
