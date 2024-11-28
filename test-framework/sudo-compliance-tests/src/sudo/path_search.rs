@@ -122,16 +122,12 @@ fn arg0_native_is_passed_from_commandline() -> Result<()> {
     let output = Command::new("sh")
         .args([
             "-c",
-            "ln -s /bin/ls /bin/foo; sudo /bin/foo --invalid-flag; true",
+            "ln -s /bin /nib; sudo /nib/sleep --invalid-flag; true",
         ])
         .output(&env)?;
 
-    let mut stderr = output.stderr();
-    // On GNU, this will report "/bin/foo: ...". but FreeBSD's `ls` does not print its full invoked path in error
-    if stderr.starts_with("/bin/") {
-        stderr = &stderr[5..]
-    }
-    assert_starts_with!(stderr, "foo: unrecognized option");
+    let stderr = output.stderr();
+    assert_starts_with!(stderr, "/nib/sleep:");
 
     Ok(())
 }
@@ -162,11 +158,11 @@ fn arg0_script_is_passed_from_commandline() -> Result<()> {
         .build()?;
 
     let output = Command::new("sh")
-        .args(["-c", &format!("ln -s {path} /bin/foo; sudo /bin/foo")])
+        .args(["-c", "ln -s /bin /nib; sudo /nib/my-script"])
         .output(&env)?;
 
     let stdout = output.stdout()?;
-    assert_eq!(stdout, "/bin/foo");
+    assert_eq!(stdout, "/nib/my-script");
 
     Ok(())
 }
