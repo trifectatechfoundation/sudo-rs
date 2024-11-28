@@ -1,2 +1,2 @@
-FROM rust:1.79-slim-bullseye
+FROM rust:1.82-slim-bullseye@sha256:821c41ed8d70347b32c2a3e4779fa0f05354773adf627aa388d0904494e0d21f
 RUN apt-get update -y && apt-get install -y clang libclang-dev libpam0g-dev
