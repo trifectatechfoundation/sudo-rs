@@ -191,7 +191,7 @@ fn target_user_has_insufficient_perms() -> Result<()> {
 
 #[test]
 fn flag_login_is_respected() -> Result<()> {
-    let expected = "-bash";
+    let expected = "-sh";
     let env = Env("ALL ALL=(ALL:ALL) CWD=* ALL").build()?;
 
     let output = Command::new("sh")

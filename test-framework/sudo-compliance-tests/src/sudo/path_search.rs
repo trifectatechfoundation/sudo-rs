@@ -126,8 +126,12 @@ fn arg0_native_is_passed_from_commandline() -> Result<()> {
         ])
         .output(&env)?;
 
-    let stderr = output.stderr();
-    assert_starts_with!(stderr, "/bin/foo: unrecognized option");
+    let mut stderr = output.stderr();
+    // On GNU, this will report "/bin/foo: ...". but FreeBSD's `ls` does not print its full invoked path in error
+    if stderr.starts_with("/bin/") {
+        stderr = &stderr[5..]
+    }
+    assert_starts_with!(stderr, "foo: unrecognized option");
 
     Ok(())
 }
@@ -175,7 +179,7 @@ fn arg0_script_is_resolved_from_commandline() -> Result<()> {
         .build()?;
 
     let output = Command::new("sh")
-        .args(["-c", &format!("ln -s {path} /bin/foo; sudo foo")])
+        .args(["-c", &format!("ln -s {path} /usr/bin/foo; sudo foo")])
         .output(&env)?;
 
     let stdout = output.stdout()?;

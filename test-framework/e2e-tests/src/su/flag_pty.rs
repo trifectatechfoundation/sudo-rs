@@ -17,7 +17,7 @@ fn fixture() -> Result<Processes> {
 
     let child = Command::new("su")
         .args(["--pty", "-c"])
-        .arg("sh -c 'touch /tmp/barrier; sleep 3; true'")
+        .arg("touch /tmp/barrier; sleep 3")
         .tty(true)
         .spawn(&env)?;
 
@@ -35,9 +35,7 @@ fn fixture() -> Result<Processes> {
 
     let mut su_related_processes = entries
         .into_iter()
-        .filter(|entry| {
-            entry.command.contains("sh -c 'touch") | entry.command.starts_with("sh -c touch")
-        })
+        .filter(|entry| entry.command.contains("touch"))
         .collect::<Vec<_>>();
 
     su_related_processes.sort_by_key(|entry| entry.pid);

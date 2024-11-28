@@ -1,6 +1,5 @@
 ---
 source: sudo-compliance-tests/src/sudo/flag_list/long_format/mod.rs
-assertion_line: 227
 expression: stdout
 ---
 User root may run the following commands on container:
@@ -21,4 +20,4 @@ Sudoers entry:
     RunAsUsers: ferris
     Cwd: /home
     Commands:
-	/usr/bin/ls
+	<BIN_LS>

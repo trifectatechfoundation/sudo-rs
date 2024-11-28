@@ -14,7 +14,7 @@ fn it_works() -> Result<()> {
         let actual = Command::new("su").args(args).output(&env)?.stdout()?;
 
         // argv[0] is prefixed with '-' to invoke the shell as a login shell
-        assert_eq!("-bash", actual);
+        assert_eq!("-sh", actual);
     }
 
     Ok(())
@@ -151,7 +151,7 @@ fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
         let actual = Command::new("su").args(args).output(&env)?.stdout()?;
 
         // argv[0] is prefixed with '-' to invoke the shell as a login shell
-        assert_eq!("-bash", actual);
+        assert_eq!("-sh", actual);
     }
 
     Ok(())

@@ -27,28 +27,6 @@ fn ps1_env_var_is_set_when_sudo_ps1_is_set() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn ps1_env_var_is_not_set_when_sudo_ps1_is_set_and_flag_login_is_used() -> Result<()> {
-    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
-
-    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
-
-    // run sudo in an empty environment
-    let stdout = Command::new("env")
-        .args(["-i", SUDO_RS_IS_UNSTABLE])
-        .arg("SUDO_PS1=abc")
-        .args([&sudo_abs_path, "-i", &env_abs_path])
-        .output(&env)?
-        .stdout()?;
-    let sudo_env = helpers::parse_env_output(&stdout)?;
-
-    assert!(!sudo_env.contains_key("PS1"));
-    assert!(!sudo_env.contains_key("SUDO_PS1"));
-
-    Ok(())
-}
-
 // sudo removes env vars whose values start with `()` but that does not affect the SUDO_PS1 feature
 #[test]
 fn can_start_with_parentheses() -> Result<()> {

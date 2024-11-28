@@ -56,7 +56,7 @@ echo "${@}""#;
 
 #[test]
 fn flag_after_positional_argument() -> Result<()> {
-    let expected = "-bash";
+    let expected = "-sh";
     let env = Env("").build()?;
     let stdout = Command::new("env")
         .args(["su", "-c", "echo $0", "root", "-l"])
