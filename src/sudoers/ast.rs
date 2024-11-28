@@ -8,7 +8,8 @@ use crate::common::{
 };
 
 /// The Sudoers file allows negating items with the exclamation mark.
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[cfg_attr(test, derive(Debug, Eq))]
+#[derive(Clone, PartialEq)]
 #[repr(u32)]
 pub enum Qualified<T> {
     Allow(T) = HARDENED_ENUM_VALUE_0,
@@ -80,17 +81,31 @@ pub enum Authenticate {
     Nopasswd = HARDENED_ENUM_VALUE_2,
 }
 
+// A type that represents a hardened bool
+type EnvironmentControl = Qualified<()>;
+
+impl Default for EnvironmentControl {
+    fn default() -> Self {
+        Qualified::Forbid(())
+    }
+}
+
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[derive(Default, Clone, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
 pub struct Tag {
-    pub authenticate: Authenticate,
-    pub cwd: Option<ChDir>,
+    pub(super) authenticate: Authenticate,
+    pub(super) cwd: Option<ChDir>,
+    pub(super) env: EnvironmentControl,
 }
 
 impl Tag {
     pub fn needs_passwd(&self) -> bool {
         matches!(self.authenticate, Authenticate::None | Authenticate::Passwd)
+    }
+
+    pub fn allows_setenv(&self) -> bool {
+        self.env == Qualified::Allow(())
     }
 }
 
@@ -365,10 +380,9 @@ impl Parse for MetaOrTag {
             // 'FOLLOW' and 'NOFOLLOW' are only usable in a sudoedit context, which will result in
             // a parse error elsewhere. 'EXEC' and 'NOINTERCEPT' are the default behaviour.
             "FOLLOW" | "NOFOLLOW" | "EXEC" | "NOINTERCEPT" => switch(|_| {})?,
-            "SETENV" | "NOSETENV" => {
-                eprintln_ignore_io_error!("{} is WIP", keyword.as_str());
-                switch(|_| {})?
-            }
+
+            "SETENV" => switch(|tag| tag.env = Qualified::Allow(()))?,
+            "NOSETENV" => switch(|tag| tag.env = Qualified::Forbid(()))?,
             "PASSWD" => switch(|tag| tag.authenticate = Authenticate::Passwd)?,
             "NOPASSWD" => switch(|tag| tag.authenticate = Authenticate::Nopasswd)?,
 
