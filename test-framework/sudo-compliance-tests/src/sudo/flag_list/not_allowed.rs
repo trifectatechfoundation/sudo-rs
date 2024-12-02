@@ -68,7 +68,7 @@ fn flag_uppercase_u_plus_command() -> Result<()> {
             assert!(!output.status().success());
             assert_eq!(Some(1), output.status().code());
 
-            let command = if sudo_test::is_original_sudo() {
+            let command = if sudo_test::is_original_sudo() && !cfg!(target_os = "freebsd") {
                 "list/usr/bin/true"
             } else {
                 "list true"

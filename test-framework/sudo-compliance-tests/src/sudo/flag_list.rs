@@ -246,12 +246,17 @@ fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
 
     let expected = format!(
         "User {USERNAME} may run the following commands on {hostname}:\n
-Sudoers entry:
+Sudoers entry:{}
     RunAsUsers: ALL
     RunAsGroups: ALL
     Options: !authenticate
     Commands:
-\tALL"
+\tALL",
+        if sudo_test::is_original_sudo() && cfg!(target_os = "freebsd") {
+            " /usr/local/etc/sudoers"
+        } else {
+            ""
+        }
     );
     let actual = output.stdout()?;
     assert_eq!(actual, expected);
