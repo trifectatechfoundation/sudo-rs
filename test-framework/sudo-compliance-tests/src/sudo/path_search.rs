@@ -119,15 +119,23 @@ fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
 fn arg0_native_is_passed_from_commandline() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
 
-    let output = Command::new("sh")
-        .args([
-            "-c",
-            "ln -s /bin /nib; sudo /nib/sleep --invalid-flag; true",
-        ])
-        .output(&env)?;
+    // On FreeBSD awk is one of the few programs which print arg0 in error messages. On Linux
+    // however it doesn't print arg0 unlike most programs, so we use a random program instead.
+    if cfg!(target_os = "freebsd") {
+        let output = Command::new("sh")
+            .args(["-c", "ln -s /usr/bin /nib; sudo /nib/awk --invalid-flag; true"])
+            .output(&env)?;
 
-    let stderr = output.stderr();
-    assert_starts_with!(stderr, "/nib/sleep:");
+        let stderr = output.stderr();
+        assert_starts_with!(stderr, "/nib/awk:");
+    } else {
+        let output = Command::new("sh")
+            .args(["-c", "ln -s /bin /nib; sudo /nib/ls --invalid-flag; true"])
+            .output(&env)?;
+
+        let stderr = output.stderr();
+        assert_starts_with!(stderr, "/nib/ls:");
+    }
 
     Ok(())
 }
