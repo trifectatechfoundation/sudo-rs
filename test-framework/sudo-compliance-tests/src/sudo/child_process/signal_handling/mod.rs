@@ -257,7 +257,7 @@ fn sigwinch_works(use_pty: bool) -> Result<()> {
 #[test]
 #[cfg_attr(
     target_os = "freebsd",
-    ignore = "podman on freebsd puts each docker exec command in a jail with separate /dev/pts"
+    ignore = "gh924: podman on freebsd puts each docker exec command in a jail with separate /dev/pts"
 )]
 fn sigwinch_works_pty() -> Result<()> {
     sigwinch_works(true)
@@ -266,7 +266,7 @@ fn sigwinch_works_pty() -> Result<()> {
 #[test]
 #[cfg_attr(
     target_os = "freebsd",
-    ignore = "podman on freebsd puts each docker exec command in a jail with separate /dev/pts"
+    ignore = "gh924: podman on freebsd puts each docker exec command in a jail with separate /dev/pts"
 )]
 fn sigwinch_works_no_pty() -> Result<()> {
     sigwinch_works(false)
