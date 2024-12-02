@@ -188,10 +188,10 @@ echo $@";
 #[test]
 fn shell_is_invoked_as_a_login_shell() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-        .user(User(USERNAME).shell("/bin/bash"))
+        .user(User(USERNAME).shell("/bin/sh"))
         .build()?;
 
-    let expected = "-bash";
+    let expected = "-sh";
     let actual = Command::new("sudo")
         .args(["-u", "ferris", "-i", "echo", "$0"])
         .output(&env)?
