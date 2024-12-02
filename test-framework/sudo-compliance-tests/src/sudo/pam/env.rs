@@ -28,6 +28,7 @@ fn remove_comments_and_whitespace(contents: &str) -> String {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn stock_pam_d_sudo() -> Result<()> {
     let env = Env("").build()?;
 
@@ -70,6 +71,7 @@ fn stock_pam_d_sudo() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn preserves_pam_env() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -101,6 +103,7 @@ fn preserves_pam_env() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn pam_env_has_precedence_over_callers_env() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -180,16 +183,19 @@ fn env_list_has_precendece_over_pam_env(env_list: EnvList) -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn env_keep_has_precedence_over_pam_env() -> Result<()> {
     env_list_has_precendece_over_pam_env(EnvList::Keep)
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn env_check_has_precedence_over_pam_env() -> Result<()> {
     env_list_has_precendece_over_pam_env(EnvList::Check)
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn var_rejected_by_env_check_falls_back_to_pam_env_value() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -233,6 +239,7 @@ fn var_rejected_by_env_check_falls_back_to_pam_env_value() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn default_and_override_pam_env_vars_are_parentheses_checked_but_set_vars_are_not() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "() set";
@@ -264,6 +271,7 @@ fn default_and_override_pam_env_vars_are_parentheses_checked_but_set_vars_are_no
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn pam_env_vars_are_not_env_checked() -> Result<()> {
     let set_name = "SET_VAR";
     let set_value = "%set";

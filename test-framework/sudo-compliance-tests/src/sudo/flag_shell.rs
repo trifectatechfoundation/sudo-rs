@@ -172,13 +172,13 @@ fn shell_is_not_invoked_as_a_login_shell() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
 
     let actual = Command::new("env")
-        .args(["SHELL=/bin/bash", "sudo", "-s", "echo", "$0"])
+        .args(["SHELL=/bin/sh", "sudo", "-s", "echo", "$0"])
         .output(&env)?
         .stdout()?;
 
     // man bash says "A login shell is one whose first character of argument zero is a -"
-    assert_ne!("-bash", actual);
-    assert_eq!("/bin/bash", actual);
+    assert_ne!("-sh", actual);
+    assert_eq!("/bin/sh", actual);
 
     Ok(())
 }

@@ -51,3 +51,11 @@ pub const BIN_TRUE: &str = "/usr/bin/true";
 
 /// The path to the `false` binary.
 pub const BIN_FALSE: &str = "/usr/bin/false";
+
+/// The path to the `bash` binary.
+#[cfg(not(target_os = "freebsd"))]
+pub const BIN_BASH: &str = "/usr/bin/bash";
+
+/// The path to the `bash` binary.
+#[cfg(target_os = "freebsd")]
+pub const BIN_BASH: &str = "/usr/local/bin/bash";

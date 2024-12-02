@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, User, BIN_TRUE};
+use sudo_test::{Command, Env, TextFile, User, BIN_BASH, BIN_TRUE};
 
 use crate::{Result, PASSWORD, USERNAME};
 
@@ -182,7 +182,7 @@ echo {message}"
             format!(
                 "# {restricted_shell_path}
 /usr/bin/sh
-/usr/bin/bash"
+{BIN_BASH}"
             ),
         )
         .user(invoking_user)
@@ -213,13 +213,18 @@ echo {message}"
 #[test]
 fn when_no_etc_shells_file_uses_a_default_list() -> Result<()> {
     let default_list = ["/bin/sh"];
-    let not_in_list = [
-        "/bin/bash",
-        "/usr/bin/bash",
-        "/usr/bin/sh",
-        "/bin/dash",
-        "/usr/bin/dash",
-    ];
+    let not_in_list = if cfg!(target_os = "freebsd") {
+        &["/usr/local/bin/bash", "/usr/local/bin/dash"][..]
+    } else {
+        &[
+            "/bin/bash",
+            "/usr/bin/bash",
+            "/usr/bin/sh",
+            "/bin/dash",
+            "/usr/bin/dash",
+            BIN_BASH,
+        ][..]
+    };
     let invoking_user = USERNAME;
     let target_user = "ghost";
 
@@ -282,13 +287,13 @@ fn shell_canonical_path_is_not_used_when_determining_if_shell_is_restricted_or_n
     let shell = "/tmp/bash-symlink";
 
     let env = Env("")
-        .file("/etc/shells", "/usr/bin/bash")
+        .file("/etc/shells", BIN_BASH)
         .user(invoking_user)
         .user(User(target_user).shell(shell).password(PASSWORD))
         .build()?;
 
     Command::new("ln")
-        .args(["-s", "/usr/bin/bash", shell])
+        .args(["-s", BIN_BASH, shell])
         .output(&env)?
         .assert_success()?;
 
