@@ -1,5 +1,3 @@
-#![cfg(not(target_os = "freebsd"))] // FreeBSD doesn't have pam_env.so
-
 // `pam_env` module integration
 // see 'Command execution' section in `man sudoers`
 
