@@ -76,7 +76,7 @@ pub fn run_command(
     set_target_user(
         &mut command,
         options.user().clone(),
-        options.group().clone(),
+        options.group().cloned(),
     );
 
     // change current directory if necessary.

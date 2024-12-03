@@ -272,13 +272,13 @@ pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &CStr) {
 pub fn set_target_user(
     cmd: &mut std::process::Command,
     mut target_user: User,
-    target_group: Group,
+    target_group: Option<Group>,
 ) {
     use std::os::unix::process::CommandExt;
 
-    // add target group to list of additional groups if not present
-    if !target_user.groups.contains(&target_group.gid) {
-        target_user.groups.push(target_group.gid);
+    // On FreeBSD the first entry in setgroups is the egid. It should be duplicated later in the list.
+    if let Some(target_group) = &target_group {
+        target_user.groups.insert(0, target_group.gid);
     }
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
@@ -295,7 +295,11 @@ pub fn set_target_user(
             // respectively rather than just the real gid and uid. The original sudo uses setresgid
             // and setresuid instead with all three arguments equal, but as this does the same as
             // setgid and setuid using the latter is fine too.
-            cerr(libc::setgid(target_group.gid.inner()))?;
+            if let Some(target_group) = &target_group {
+                cerr(libc::setgid(target_group.gid.inner()))?;
+            } else {
+                cerr(libc::setgid(target_user.gid.inner()))?;
+            }
             cerr(libc::setuid(target_user.uid.inner()))?;
 
             Ok(())

@@ -41,14 +41,14 @@ pub struct Sudoers {
 /// A structure that represents what the user wants to do
 pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub user: &'a User,
-    pub group: &'a Group,
+    pub group: Option<&'a Group>,
     pub command: &'a Path,
     pub arguments: &'a [String],
 }
 
 pub struct ListRequest<'a, User: UnixUser, Group: UnixGroup> {
     pub target_user: &'a User,
-    pub target_group: &'a Group,
+    pub target_group: Option<&'a Group>,
 }
 
 #[derive(Default)]
@@ -85,8 +85,13 @@ impl Sudoers {
         request: Request<User, Group>,
     ) -> Judgement {
         // exception: if user is root or does not switch users, NOPASSWD is implied
-        let skip_passwd =
-            am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));
+        let skip_passwd = am_user.is_root()
+            || (request.user == am_user
+                && if let Some(group) = request.group {
+                    in_group(am_user, group)
+                } else {
+                    true
+                });
 
         let mut flags = check_permission(self, am_user, on_host, request);
         if let Some(Tag { authenticate, .. }) = flags.as_mut() {
@@ -110,7 +115,11 @@ impl Sudoers {
         // exception: if user is root or does not switch users, NOPASSWD is implied
         let skip_passwd = invoking_user.is_root()
             || (request.target_user == invoking_user
-                && in_group(invoking_user, request.target_group));
+                && if let Some(group) = request.target_group {
+                    in_group(invoking_user, group)
+                } else {
+                    true
+                });
 
         let mut flags = self
             .matching_user_specs(invoking_user, hostname)
@@ -309,7 +318,6 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     let aliases = &sudoers.aliases;
     let cmnd_aliases = get_aliases(&aliases.cmnd, &match_command(cmdline));
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
-    let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
     // NOTE to ensure `sudo $command` and `sudo --list` behave the same, both this function and
     // `Sudoers::matching_entries` must call this `matching_user_specs` method
@@ -317,14 +325,30 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
 
     let allowed_commands = matching_user_specs.filter_map(|(runas, cmdspec)| {
         if let Some(RunAs { users, groups }) = runas {
-            let stays_in_group = in_group(request.user, request.group);
+            let stays_in_group = if let Some(group) = request.group {
+                in_group(request.user, group)
+            } else {
+                true
+            };
             if request.user != am_user || (stays_in_group && !users.is_empty()) {
                 find_item(users, &match_user(request.user), &runas_user_aliases)?
             }
             if !stays_in_group {
-                find_item(groups, &match_group(request.group), &runas_group_aliases)?
+                let runas_group_aliases =
+                    get_aliases(&aliases.runas, &match_group_alias(request.group.unwrap()));
+                find_item(
+                    groups,
+                    &match_group(request.group.unwrap()),
+                    &runas_group_aliases,
+                )?
             }
-        } else if !(request.user.is_root() && in_group(request.user, request.group)) {
+        } else if !(request.user.is_root()
+            && if let Some(group) = request.group {
+                in_group(request.user, group)
+            } else {
+                true
+            })
+        {
             None?;
         }
 

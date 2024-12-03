@@ -101,7 +101,7 @@ impl PolicyPlugin for SudoersPolicy {
             &context.hostname,
             crate::sudoers::Request {
                 user: &context.target_user,
-                group: &context.target_group,
+                group: context.target_group.as_ref(),
                 command: &context.command.command,
                 arguments: &context.command.arguments,
             },

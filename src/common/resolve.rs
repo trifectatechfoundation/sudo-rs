@@ -95,7 +95,7 @@ pub(crate) fn resolve_target_user_and_group(
     target_user_name_or_id: &Option<SudoString>,
     target_group_name_or_id: &Option<SudoString>,
     current_user: &CurrentUser,
-) -> Result<(User, Group), Error> {
+) -> Result<(User, Option<Group>), Error> {
     // resolve user name or #<id> to a user
     let mut target_user =
         resolve_from_name_or_id(target_user_name_or_id, User::from_name, User::from_uid)?;
@@ -110,11 +110,7 @@ pub(crate) fn resolve_target_user_and_group(
             target_user = Some(current_user.clone().into());
         }
         // when -u is specified but -g is not specified, default -g to the primary group of the specified user
-        (Some(_), None) => {
-            if let Some(user) = &target_user {
-                target_group = Group::from_gid(user.gid)?;
-            }
-        }
+        (Some(_), None) => {}
         // when no -u or -g is specified, default to root:root
         (None, None) => {
             target_user = User::from_name(cstr!("root"))?;
@@ -128,17 +124,18 @@ pub(crate) fn resolve_target_user_and_group(
     }
 
     match (target_user, target_group) {
-        (Some(user), Some(group)) => {
-            // resolve success
-            Ok((user, group))
-        }
         // group name or id not found
-        (Some(_), None) => Err(Error::GroupNotFound(
+        (Some(_), None) if target_group_name_or_id.is_some() => Err(Error::GroupNotFound(
             target_group_name_or_id
                 .as_deref()
                 .unwrap_or_default()
                 .to_string(),
         )),
+
+        (Some(user), group) => {
+            // resolve success
+            Ok((user, group))
+        }
         // user (and maybe group) name or id not found
         _ => Err(Error::UserNotFound(
             target_user_name_or_id
@@ -279,7 +276,7 @@ mod tests {
         // fallback to root
         let (user, group) = resolve_target_user_and_group(&None, &None, &current_user).unwrap();
         assert_eq!(user.name, "root");
-        assert_eq!(group.name, ROOT_GROUP_NAME);
+        assert_eq!(group.unwrap().name, ROOT_GROUP_NAME);
 
         // unknown user
         let result =
@@ -296,14 +293,14 @@ mod tests {
             resolve_target_user_and_group(&None, &Some(ROOT_GROUP_NAME.into()), &current_user)
                 .unwrap();
         assert_eq!(user.name, current_user.name);
-        assert_eq!(group.name, ROOT_GROUP_NAME);
+        assert_eq!(group.unwrap().name, ROOT_GROUP_NAME);
 
         // fallback to current users group when no group specified
         let (user, group) =
             resolve_target_user_and_group(&Some(current_user.name.clone()), &None, &current_user)
                 .unwrap();
         assert_eq!(user.name, current_user.name);
-        assert_eq!(group.gid, current_user.gid);
+        assert_eq!(group, None);
     }
 }
 

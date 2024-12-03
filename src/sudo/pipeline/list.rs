@@ -76,7 +76,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
     ) -> Result<ControlFlow<(), ()>, Error> {
         let list_request = ListRequest {
             target_user: &context.target_user,
-            target_group: &context.target_group,
+            target_group: context.target_group.as_ref(),
         };
         let judgement =
             sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
@@ -128,7 +128,7 @@ fn check_other_users_list_perms(
 ) -> Result<(), Error> {
     let list_request = ListRequest {
         target_user: &context.target_user,
-        target_group: &context.target_group,
+        target_group: context.target_group.as_ref(),
     };
     let judgement = sudoers.check_list_permission(other_user, &context.hostname, list_request);
 
@@ -154,7 +154,7 @@ fn check_sudo_command_perms(
 
     let request = Request {
         user: &context.target_user,
-        group: &context.target_group,
+        group: context.target_group.as_ref(),
         command: &context.command.command,
         arguments: &context.command.arguments,
     };
