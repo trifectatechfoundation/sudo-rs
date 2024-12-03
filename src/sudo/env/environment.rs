@@ -1,10 +1,10 @@
 use std::{
-    collections::{hash_map::Entry, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
 };
 
-use crate::common::{CommandAndArguments, Context, Environment};
+use crate::common::{CommandAndArguments, Context, Error};
 use crate::sudoers::Policy;
 use crate::system::PATH_MAX;
 
@@ -13,6 +13,13 @@ use super::wildcard_match::wildcard_match;
 const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 const PATH_DEFAULT: &str = env!("SUDO_PATH_DEFAULT");
+
+pub type Environment = HashMap<OsString, OsString>;
+
+/// obtain the system environment
+pub fn system_environment() -> Environment {
+    std::env::vars_os().collect()
+}
 
 /// check byte slice contains with given byte slice
 fn contains_subsequence(haystack: &[u8], needle: &[u8]) -> bool {
@@ -165,6 +172,10 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
         return false;
     }
 
+    if cfg.secure_path().is_some() && key == "PATH" {
+        return false;
+    }
+
     if key == "TZ" {
         return in_table(key, cfg.env_keep())
             || (in_table(key, cfg.env_check()) && is_safe_tz(value.as_bytes()));
@@ -192,18 +203,17 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
 /// Environment variables with a value beginning with ‘()’ are removed
 pub fn get_target_environment(
     current_env: Environment,
-    additional_env: Environment,
+    additional_env: impl IntoIterator<Item = (OsString, OsString)>,
+    user_override: Vec<(String, String)>,
     context: &Context,
     settings: &impl Policy,
-) -> Environment {
-    let mut environment = Environment::default();
-
+) -> Result<Environment, Error> {
     // retrieve SUDO_PS1 value to set a PS1 value as additional environment
     let sudo_ps1 = current_env.get(OsStr::new("SUDO_PS1")).cloned();
 
     // variables preserved from the invoking user's environment by the
     // env_keep list take precedence over those in the PAM environment
-    environment.extend(additional_env);
+    let mut environment: HashMap<_, _> = additional_env.into_iter().collect();
 
     environment.extend(
         current_env
@@ -213,7 +223,19 @@ pub fn get_target_environment(
 
     add_extra_env(context, settings, sudo_ps1, &mut environment);
 
-    environment
+    let mut rejected_vars = Vec::new();
+    for (key, value) in user_override {
+        if should_keep(OsStr::new(&key), OsStr::new(&value), settings) {
+            environment.insert(key.into(), value.into());
+        } else {
+            rejected_vars.push(key);
+        }
+    }
+    if !rejected_vars.is_empty() {
+        return Err(Error::EnvironmentVar(rejected_vars));
+    }
+
+    Ok(environment)
 }
 
 #[cfg(test)]
@@ -225,6 +247,7 @@ mod tests {
     struct TestConfiguration {
         keep: HashSet<String>,
         check: HashSet<String>,
+        path: Option<String>,
     }
 
     impl Policy for TestConfiguration {
@@ -237,7 +260,7 @@ mod tests {
         }
 
         fn secure_path(&self) -> Option<String> {
-            None
+            self.path.clone()
         }
 
         fn use_pty(&self) -> bool {
@@ -245,30 +268,38 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_filtering() {
-        let config = TestConfiguration {
-            keep: HashSet::from(["AAP".to_string(), "NOOT".to_string()]),
-            check: HashSet::from(["MIES".to_string(), "TZ".to_string()]),
-        };
-
-        let check_should_keep = |key: &str, value: &str, expected: bool| {
+    impl TestConfiguration {
+        pub fn check_should_keep(&self, key: &str, value: &str, expected: bool) {
             assert_eq!(
-                should_keep(OsStr::new(key), OsStr::new(value), &config),
+                should_keep(OsStr::new(key), OsStr::new(value), self),
                 expected,
                 "{} should {}",
                 key,
                 if expected { "be kept" } else { "not be kept" }
             );
+        }
+    }
+
+    #[test]
+    fn test_filtering() {
+        let mut config = TestConfiguration {
+            keep: HashSet::from(["AAP".to_string(), "NOOT".to_string()]),
+            check: HashSet::from(["MIES".to_string(), "TZ".to_string()]),
+            path: Some("/bin".to_string()),
         };
 
-        check_should_keep("AAP", "FOO", true);
-        check_should_keep("MIES", "BAR", true);
-        check_should_keep("AAP", "()=foo", false);
-        check_should_keep("TZ", "Europe/Amsterdam", true);
-        check_should_keep("TZ", "../Europe/Berlin", false);
-        check_should_keep("MIES", "FOO/BAR", false);
-        check_should_keep("MIES", "FOO%", false);
+        config.check_should_keep("AAP", "FOO", true);
+        config.check_should_keep("MIES", "BAR", true);
+        config.check_should_keep("AAP", "()=foo", false);
+        config.check_should_keep("TZ", "Europe/Amsterdam", true);
+        config.check_should_keep("TZ", "../Europe/Berlin", false);
+        config.check_should_keep("MIES", "FOO/BAR", false);
+        config.check_should_keep("MIES", "FOO/BAR", false);
+
+        config.keep.insert("PATH".to_string());
+        config.check_should_keep("PATH", "FOO", false);
+        config.path = None;
+        config.check_should_keep("PATH", "FOO", true);
     }
 
     #[allow(clippy::useless_format)]

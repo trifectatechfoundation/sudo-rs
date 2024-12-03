@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     ffi::{CStr, CString, OsStr, OsString},
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
@@ -316,8 +315,8 @@ impl<C: Converser> PamContext<C> {
     }
 
     /// Get a full listing of the current PAM environment
-    pub fn env(&mut self) -> PamResult<HashMap<OsString, OsString>> {
-        let mut res = HashMap::new();
+    pub fn env(&mut self) -> PamResult<Vec<(OsString, OsString)>> {
+        let mut res = Vec::new();
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
         // The man page for pam_getenvlist states that:
         //    The format of the memory is a malloc()'d array of char pointers, the last element
@@ -348,7 +347,7 @@ impl<C: Converser> PamContext<C> {
                 }
             };
             if let Some((k, v)) = data {
-                res.insert(k, v);
+                res.push((k, v));
             }
 
             // SAFETY: curr_str was obtained via libc::malloc() so we are responsible for freeing it.

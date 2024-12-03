@@ -65,10 +65,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -127,10 +124,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -149,10 +143,7 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())

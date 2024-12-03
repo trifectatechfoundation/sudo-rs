@@ -41,10 +41,7 @@ fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() -> Re
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -89,10 +86,7 @@ fn negation_rejects() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())

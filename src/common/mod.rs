@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-use std::{collections::HashMap, ffi::OsString};
 
 pub use command::CommandAndArguments;
 pub use context::Context;
@@ -14,8 +13,6 @@ pub mod error;
 mod path;
 pub mod resolve;
 mod string;
-
-pub type Environment = HashMap<OsString, OsString>;
 
 // Hardened enum values used for critical enums to mitigate attacks like Rowhammer.
 // See for example https://arxiv.org/pdf/2309.02545.pdf

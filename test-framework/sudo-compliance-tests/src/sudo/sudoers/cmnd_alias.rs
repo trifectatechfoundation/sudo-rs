@@ -89,10 +89,7 @@ fn unlisted_cmnd_fails() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -115,10 +112,7 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -140,10 +134,7 @@ fn command_alias_negation() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -166,10 +157,7 @@ fn combined_cmnd_aliases() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     let second_output = Command::new("sudo").arg("ls").output(&env)?;
@@ -215,10 +203,7 @@ fn negation_not_order_sensitive() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -263,10 +248,7 @@ fn another_negation_combination() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     let second_output = Command::new("sudo").arg("ls").output(&env)?;
@@ -294,10 +276,7 @@ fn one_more_negation_combination() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     let second_output = Command::new("sudo").arg("ls").output(&env)?;
@@ -325,10 +304,7 @@ fn tripple_negation_combination() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     let second_output = Command::new("sudo").arg("ls").output(&env)?;
@@ -339,10 +315,7 @@ fn tripple_negation_combination() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -392,10 +365,7 @@ fn runas_override() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Command::new("sudo")
@@ -412,10 +382,7 @@ fn runas_override() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())

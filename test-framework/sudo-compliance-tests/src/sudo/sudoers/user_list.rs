@@ -27,10 +27,7 @@ fn no_match() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry root. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -162,10 +159,7 @@ fn negation_excludes_group_members() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry ghost. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry ghost. I'm afraid I can't do that");
     }
 
     Ok(())
@@ -225,10 +219,7 @@ fn user_alias_works() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(
-            stderr,
-            "I'm sorry ghost. I'm afraid I can't do that"
-        );
+        assert_contains!(stderr, "I'm sorry ghost. I'm afraid I can't do that");
     }
 
     Ok(())
