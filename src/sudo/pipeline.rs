@@ -42,17 +42,18 @@ pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
 }
 
 impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
-    pub fn run(mut self, mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
-        if !cmd_opts.preserve_env.is_nothing() {
+    pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
+        let pre = self.policy.init()?;
+
+        let (ctx_opts, pipe_opts) = cmd_opts.into();
+
+        if !pipe_opts.preserve_env.is_nothing() {
             eprintln_ignore_io_error!(
                 "warning: `--preserve-env` has not yet been implemented and will be ignored"
             )
         }
 
-        let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
-
-        let pre = self.policy.init()?;
-        let mut context = build_context(cmd_opts.into(), &pre)?;
+        let mut context = build_context(ctx_opts, &pre)?;
 
         let policy = self.policy.judge(pre, &context)?;
         let authorization = policy.authorization();
@@ -75,7 +76,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let target_env = environment::get_target_environment(
             current_env,
             additional_env,
-            user_requested_env_vars,
+            pipe_opts.user_requested_env_vars,
             &context,
             &policy,
         )?;
