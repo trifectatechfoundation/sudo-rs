@@ -1,7 +1,8 @@
-use sudo_test::{helpers::assert_ls_output, Command, Env, TextFile, ROOT_GROUP};
+use sudo_test::{helpers::assert_ls_output, Command, TextFile, ROOT_GROUP};
 
+use crate::visudo::visudo_env;
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
+    visudo::{CHMOD_EXEC, EDITOR_DUMMY, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
     Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL, USERNAME,
 };
 
@@ -19,9 +20,7 @@ macro_rules! assert_snapshot {
 
 #[test]
 fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
-    let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env("", TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC)).build()?;
 
     let file_path = TMP_SUDOERS;
     Command::new("visudo")
@@ -44,17 +43,16 @@ fn saves_file_if_no_syntax_errors() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
     let file_path = TMP_SUDOERS;
-    let env = Env("")
-        .file(file_path, unexpected)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo '{expected}' > $2"#
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .file(file_path, unexpected)
+    .build()?;
 
     Command::new("visudo")
         .args(["-f", file_path])
@@ -72,17 +70,16 @@ fn positional_argument() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
     let file_path = TMP_SUDOERS;
-    let env = Env("")
-        .file(file_path, unexpected)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo '{expected}' > $2"#
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .file(file_path, unexpected)
+    .build()?;
 
     Command::new("visudo")
         .arg(file_path)
@@ -101,18 +98,17 @@ fn flag_has_precedence_over_positional_argument() -> Result<()> {
     let original = SUDOERS_ROOT_ALL;
     let file_path = "/tmp/sudoers";
     let file_path2 = "/tmp/sudoers2";
-    let env = Env("")
-        .file(file_path, original)
-        .file(file_path2, original)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo '{expected}' > $2"#
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .file(file_path, original)
+    .file(file_path2, original)
+    .build()?;
 
     Command::new("visudo")
         .args(["-f", file_path])
@@ -133,16 +129,15 @@ echo '{expected}' > $2"#
 fn etc_sudoers_is_not_modified() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
-    let env = Env(expected)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                "#!/bin/sh
+    let env = visudo_env(
+        expected,
+        TextFile(format!(
+            "#!/bin/sh
 echo '{unexpected}' > $2"
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     Command::new("visudo")
         .args(["--file", TMP_SUDOERS])
@@ -161,16 +156,15 @@ echo '{unexpected}' > $2"
 
 #[test]
 fn passes_temporary_file_to_editor() -> Result<()> {
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo "$@" > {LOGS_PATH}"#
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let file_path = TMP_SUDOERS;
     Command::new("visudo")
@@ -191,8 +185,7 @@ echo "$@" > {LOGS_PATH}"#
 
 #[test]
 fn regular_user_can_create_file() -> Result<()> {
-    let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod("755"))
+    let env = visudo_env("", TextFile(EDITOR_DUMMY).chmod("755"))
         .user(USERNAME)
         .build()?;
 
@@ -227,18 +220,17 @@ fn regular_user_can_update_a_file_they_own() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
     let file_path = TMP_SUDOERS;
-    let env = Env("")
-        .file(file_path, TextFile(unexpected).chown(USERNAME).chmod("666"))
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo '{expected}' > $2"#
-            ))
-            .chmod("777"),
-        )
-        .user(USERNAME)
-        .build()?;
+        ))
+        .chmod("777"),
+    )
+    .file(file_path, TextFile(unexpected).chown(USERNAME).chmod("666"))
+    .user(USERNAME)
+    .build()?;
 
     Command::new("visudo")
         .args(["-f", file_path])
@@ -259,18 +251,17 @@ fn regular_user_cannot_update_a_file_they_dont_own() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
     let file_path = TMP_SUDOERS;
-    let env = Env("")
-        .file(file_path, TextFile(unexpected).chmod("666"))
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo '{expected}' > $2"#
-            ))
-            .chmod("777"),
-        )
-        .user(USERNAME)
-        .build()?;
+        ))
+        .chmod("777"),
+    )
+    .file(file_path, TextFile(unexpected).chmod("666"))
+    .user(USERNAME)
+    .build()?;
 
     let output = Command::new("visudo")
         .args(["-f", file_path])

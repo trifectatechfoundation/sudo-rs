@@ -1,5 +1,6 @@
 use std::{thread, time::Duration};
 
+use sudo_test::EnvBuilder;
 use sudo_test::{
     helpers::assert_ls_output, Command, Env, TextFile, ETC_DIR, ETC_SUDOERS, ROOT_GROUP,
 };
@@ -38,20 +39,26 @@ const CHMOD_EXEC: &str = "100";
 const EDITOR_DUMMY: &str = "#!/bin/sh
 echo \"#\" >> \"$2\"";
 
+fn visudo_env(sudoers: impl Into<TextFile>, editor: impl Into<TextFile>) -> EnvBuilder {
+    let mut env = Env(sudoers);
+    env.file(DEFAULT_EDITOR, editor)
+        .env("EDITOR", DEFAULT_EDITOR);
+    env
+}
+
 #[test]
 fn default_editor_is_usr_bin_editor() -> Result<()> {
     let expected = "default editor was called";
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                "#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            "#!/bin/sh
 
 echo '{expected}' > {LOGS_PATH}"
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
 
@@ -64,9 +71,7 @@ echo '{expected}' > {LOGS_PATH}"
 
 #[test]
 fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
-    let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env("", TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC)).build()?;
 
     Command::new("rm")
         .args(["-f", ETC_SUDOERS])
@@ -87,16 +92,15 @@ fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() ->
 
 #[test]
 fn errors_if_currently_being_edited() -> Result<()> {
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(
+            "#!/bin/sh
 sleep 3",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let child = Command::new("visudo").spawn(&env)?;
 
@@ -119,16 +123,15 @@ sleep 3",
 
 #[test]
 fn passes_temporary_file_to_editor() -> Result<()> {
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo "$@" > {LOGS_PATH}"#
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
 
@@ -157,9 +160,7 @@ ls -l /tmp/sudoers-*/sudoers > {LOGS_PATH}"#
         )
     };
 
-    let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(editor_script).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env("", TextFile(editor_script).chmod(CHMOD_EXEC)).build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
 
@@ -173,16 +174,15 @@ ls -l /tmp/sudoers-*/sudoers > {LOGS_PATH}"#
 #[test]
 fn saves_file_if_no_syntax_errors() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                r#"#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(format!(
+            r#"#!/bin/sh
 echo '{expected}' >> $2"#
-            ))
-            .chmod("100"),
-        )
-        .build()?;
+        ))
+        .chmod("100"),
+    )
+    .build()?;
 
     Command::new("rm")
         .args(["-f", ETC_SUDOERS])
@@ -204,16 +204,15 @@ echo '{expected}' >> $2"#
 #[test]
 fn stderr_message_when_file_is_not_modified() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
-                 true",
-            )
-            .chmod(CHMOD_EXEC),
+    let env = visudo_env(
+        expected,
+        TextFile(
+            "#!/bin/sh
+             true",
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("visudo").output(&env)?;
 
@@ -241,17 +240,16 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
 #[test]
 fn does_not_save_the_file_if_there_are_syntax_errors() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        expected,
+        TextFile(
+            "#!/bin/sh
 
 echo 'this is fine' > $2",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("visudo").output(&env)?;
 
@@ -271,16 +269,15 @@ echo 'this is fine' > $2",
 #[test]
 fn editor_exits_with_a_nonzero_code() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        SUDOERS_ALL_ALL_NOPASSWD,
+        TextFile(
+            "#!/bin/sh
 exit 11",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("visudo").output(&env)?;
 
@@ -298,16 +295,15 @@ exit 11",
 
 #[test]
 fn temporary_file_is_deleted_during_edition() -> Result<()> {
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(
+            "#!/bin/sh
 rm $2",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("visudo").output(&env)?;
 
@@ -329,16 +325,15 @@ rm $2",
 #[test]
 fn temp_file_initial_contents() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                "#!/bin/sh
+    let env = visudo_env(
+        expected,
+        TextFile(format!(
+            "#!/bin/sh
 cp $2 {LOGS_PATH}"
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
 
@@ -352,9 +347,7 @@ cp $2 {LOGS_PATH}"
 #[test]
 fn temporary_file_is_deleted_when_done() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env(expected, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC)).build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
 
@@ -372,18 +365,17 @@ fn temporary_file_is_deleted_when_done() -> Result<()> {
 fn temporary_file_is_deleted_when_terminated_by_signal() -> Result<()> {
     let kill_visudo = "/root/kill-visudo.sh";
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        expected,
+        TextFile(
+            "#!/bin/sh
 touch /tmp/barrier
 sleep 2",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .file(kill_visudo, include_str!("visudo/kill-visudo.sh"))
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .file(kill_visudo, include_str!("visudo/kill-visudo.sh"))
+    .build()?;
 
     let child = Command::new("visudo").spawn(&env)?;
 
@@ -406,17 +398,16 @@ sleep 2",
 
 #[test]
 fn does_not_panic_on_io_errors_parse_ok() -> Result<()> {
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(
+            "#!/bin/sh
 
 echo ' ' >> $2",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("bash")
         .args(["-c", "visudo | true; echo \"${PIPESTATUS[0]}\""])
@@ -434,17 +425,16 @@ echo ' ' >> $2",
 
 #[test]
 fn does_not_panic_on_io_errors_parse_error() -> Result<()> {
-    let env = Env("")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        "",
+        TextFile(
+            "#!/bin/sh
 
 echo 'bad syntax' >> $2",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("bash")
         .args(["-c", "visudo | true; echo \"${PIPESTATUS[0]}\""])

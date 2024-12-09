@@ -2,7 +2,7 @@ use sudo_test::{Command, Env, TextFile};
 
 use crate::{visudo::CHMOD_EXEC, Result};
 
-use crate::visudo::{DEFAULT_EDITOR, LOGS_PATH};
+use crate::visudo::{visudo_env, LOGS_PATH};
 
 #[test]
 #[ignore = "gh657"]
@@ -99,16 +99,15 @@ fn editors_must_be_specified_by_absolute_path() -> Result<()> {
 
 #[test]
 fn on_invalid_editor_does_not_falls_back_to_configured_default_value() -> Result<()> {
-    let env = Env("Defaults editor=true")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(
-                "#!/bin/sh
+    let env = visudo_env(
+        "Defaults editor=true",
+        TextFile(
+            "#!/bin/sh
 rm -f {LOGS_PATH}",
-            )
-            .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     Command::new("touch")
         .arg(LOGS_PATH)

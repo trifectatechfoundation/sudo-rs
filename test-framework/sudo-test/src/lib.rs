@@ -64,6 +64,7 @@ type Username = String;
 pub struct Env {
     container: Container,
     users: HashSet<Username>,
+    env: Vec<(String, String)>,
 }
 
 /// creates a new test environment builder that contains the specified `/etc/sudoers` file
@@ -95,7 +96,7 @@ impl Command {
             );
         }
 
-        env.container.output(self)
+        env.container.output(self, &env.env)
     }
 
     /// spawns the command in the specified test environment
@@ -107,7 +108,7 @@ impl Command {
             );
         }
 
-        env.container.spawn(self)
+        env.container.spawn(self, &env.env)
     }
 }
 
@@ -119,6 +120,7 @@ pub struct EnvBuilder {
     groups: HashMap<Groupname, Group>,
     hostname: Option<String>,
     users: HashMap<Username, User>,
+    env: Vec<(String, String)>,
 }
 
 impl EnvBuilder {
@@ -197,6 +199,13 @@ impl EnvBuilder {
     /// Sets the hostname of the container to the specified string
     pub fn hostname(&mut self, hostname: impl AsRef<str>) -> &mut Self {
         self.hostname = Some(hostname.as_ref().to_string());
+        self
+    }
+
+    /// Sets an env var for all commands executed in the container
+    pub fn env(&mut self, key: impl AsRef<str>, val: impl AsRef<str>) -> &mut Self {
+        self.env
+            .push((key.as_ref().to_owned(), val.as_ref().to_owned()));
         self
     }
 
@@ -283,6 +292,7 @@ impl EnvBuilder {
         let env = Env {
             container,
             users: usernames,
+            env: self.env.clone(),
         };
 
         if cfg!(target_os = "freebsd") {
@@ -426,7 +436,7 @@ impl User {
                 let group_list = self.groups.iter().cloned().collect::<Vec<_>>().join(",");
                 useradd.arg("-G").arg(group_list);
             }
-            container.output(&useradd)?.assert_success()?;
+            container.output(&useradd, &[])?.assert_success()?;
 
             if let Some(password) = &self.password {
                 container
@@ -434,6 +444,7 @@ impl User {
                         Command::new("pw")
                             .args(["usermod", "-n", &self.name, "-h", "0"])
                             .stdin(password),
+                        &[],
                     )?
                     .assert_success()?;
             }
@@ -454,11 +465,14 @@ impl User {
                 useradd.arg("--groups").arg(group_list);
             }
             useradd.arg(&self.name);
-            container.output(&useradd)?.assert_success()?;
+            container.output(&useradd, &[])?.assert_success()?;
 
             if let Some(password) = &self.password {
                 container
-                    .output(Command::new("chpasswd").stdin(format!("{}:{password}", self.name)))?
+                    .output(
+                        Command::new("chpasswd").stdin(format!("{}:{password}", self.name)),
+                        &[],
+                    )?
                     .assert_success()?;
             }
         } else {
@@ -527,7 +541,7 @@ impl Group {
                 groupadd.arg("-g");
                 groupadd.arg(id.to_string());
             }
-            container.output(&groupadd)?.assert_success()
+            container.output(&groupadd, &[])?.assert_success()
         } else if cfg!(target_os = "linux") {
             let mut groupadd = Command::new("groupadd");
             if let Some(id) = self.id {
@@ -535,7 +549,7 @@ impl Group {
                 groupadd.arg(id.to_string());
             }
             groupadd.arg(&self.name);
-            container.output(&groupadd)?.assert_success()
+            container.output(&groupadd, &[])?.assert_success()
         } else {
             todo!();
         }
@@ -613,10 +627,10 @@ impl TextFile {
         container.cp(path, &contents)?;
 
         container
-            .output(Command::new("chown").args([&self.chown, path]))?
+            .output(Command::new("chown").args([&self.chown, path]), &[])?
             .assert_success()?;
         container
-            .output(Command::new("chmod").args([&self.chmod, path]))?
+            .output(Command::new("chmod").args([&self.chmod, path]), &[])?
             .assert_success()
     }
 }
@@ -689,13 +703,13 @@ impl Directory {
     fn create(&self, container: &Container) -> Result<()> {
         let path = &self.path;
         container
-            .output(Command::new("mkdir").args([path]))?
+            .output(Command::new("mkdir").args([path]), &[])?
             .assert_success()?;
         container
-            .output(Command::new("chown").args([&self.chown, path]))?
+            .output(Command::new("chown").args([&self.chown, path]), &[])?
             .assert_success()?;
         container
-            .output(Command::new("chmod").args([&self.chmod, path]))?
+            .output(Command::new("chmod").args([&self.chmod, path]), &[])?
             .assert_success()
     }
 }
@@ -718,7 +732,7 @@ impl From<&'_ str> for Directory {
 
 fn getent_group(container: &Container) -> Result<(HashSet<Groupname>, HashSet<u32>)> {
     let stdout = container
-        .output(Command::new("getent").arg("group"))?
+        .output(Command::new("getent").arg("group"), &[])?
         .stdout()?;
     let mut groupnames = HashSet::new();
     let mut group_ids = HashSet::new();
@@ -740,7 +754,7 @@ fn getent_group(container: &Container) -> Result<(HashSet<Groupname>, HashSet<u3
 
 fn getent_passwd(container: &Container) -> Result<(HashSet<Username>, HashSet<u32>)> {
     let stdout = container
-        .output(Command::new("getent").arg("passwd"))?
+        .output(Command::new("getent").arg("passwd"), &[])?
         .stdout()?;
     let mut usernames = HashSet::new();
     let mut user_ids = HashSet::new();

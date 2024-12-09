@@ -1,16 +1,16 @@
-use sudo_test::{Command, Env, TextFile, ETC_DIR};
+use sudo_test::{Command, TextFile, ETC_DIR};
 
+use crate::visudo::visudo_env;
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH},
+    visudo::{CHMOD_EXEC, EDITOR_DUMMY, LOGS_PATH},
     Result,
 };
 
 #[test]
 #[ignore = "gh657"]
 fn prompt() -> Result<()> {
-    let env = Env("@include sudoers2")
+    let env = visudo_env("@include sudoers2", TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .file(format!("{ETC_DIR}/sudoers2"), "")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     let output = Command::new("visudo").output(&env)?;
@@ -26,17 +26,16 @@ fn prompt() -> Result<()> {
 #[test]
 #[ignore = "gh657"]
 fn calls_editor_on_included_files() -> Result<()> {
-    let env = Env("@include sudoers2")
-        .file(format!("{ETC_DIR}/sudoers2"), "")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                "#!/bin/sh
+    let env = visudo_env(
+        "@include sudoers2",
+        TextFile(format!(
+            "#!/bin/sh
 echo $@ >> {LOGS_PATH}"
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .file(format!("{ETC_DIR}/sudoers2"), "")
+    .build()?;
 
     Command::new("visudo")
         .stdin("\n")
@@ -54,18 +53,17 @@ echo $@ >> {LOGS_PATH}"
 #[test]
 #[ignore = "gh657"]
 fn closing_stdin_is_understood_as_yes_to_all() -> Result<()> {
-    let env = Env("@include sudoers2
-@include sudoers3")
-    .file(format!("{ETC_DIR}/sudoers2"), "")
-    .file(format!("{ETC_DIR}/sudoers3"), "")
-    .file(
-        DEFAULT_EDITOR,
+    let env = visudo_env(
+        "@include sudoers2
+@include sudoers3",
         TextFile(format!(
             "#!/bin/sh
 echo $@ >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
+    .file(format!("{ETC_DIR}/sudoers2"), "")
+    .file(format!("{ETC_DIR}/sudoers3"), "")
     .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
@@ -81,9 +79,16 @@ echo $@ >> {LOGS_PATH}"
 #[test]
 #[ignore = "gh657"]
 fn edit_order_follows_include_order() -> Result<()> {
-    let env = Env("# 1
+    let env = visudo_env(
+        "# 1
 @include sudoers2
-@include sudoers4")
+@include sudoers4",
+        TextFile(format!(
+            "#!/bin/sh
+cat $2 >> {LOGS_PATH}"
+        ))
+        .chmod(CHMOD_EXEC),
+    )
     .file(
         format!("{ETC_DIR}/sudoers2"),
         "# 2
@@ -91,14 +96,6 @@ fn edit_order_follows_include_order() -> Result<()> {
     )
     .file(format!("{ETC_DIR}/sudoers3"), "# 3")
     .file(format!("{ETC_DIR}/sudoers4"), "# 4")
-    .file(
-        DEFAULT_EDITOR,
-        TextFile(format!(
-            "#!/bin/sh
-cat $2 >> {LOGS_PATH}"
-        ))
-        .chmod(CHMOD_EXEC),
-    )
     .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
@@ -117,20 +114,19 @@ cat $2 >> {LOGS_PATH}"
 #[test]
 #[ignore = "gh657"]
 fn include_cycle_does_not_edit_the_same_files_many_times() -> Result<()> {
-    let env = Env("# 1
-@include sudoers2")
-    .file(
-        format!("{ETC_DIR}/sudoers2"),
-        "# 2
-@include sudoers",
-    )
-    .file(
-        DEFAULT_EDITOR,
+    let env = visudo_env(
+        "# 1
+@include sudoers2",
         TextFile(format!(
             "#!/bin/sh
 cat $2 >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
+    )
+    .file(
+        format!("{ETC_DIR}/sudoers2"),
+        "# 2
+@include sudoers",
     )
     .build()?;
 
@@ -158,19 +154,18 @@ cat $2 >> {LOGS_PATH}"
 #[test]
 #[ignore = "gh657"]
 fn does_edit_at_include_added_in_last_edit() -> Result<()> {
-    let env = Env("# 1")
-        .file(format!("{ETC_DIR}/sudoers2"), "# 2")
-        .file(
-            DEFAULT_EDITOR,
-            TextFile(format!(
-                "#!/bin/sh
+    let env = visudo_env(
+        "# 1",
+        TextFile(format!(
+            "#!/bin/sh
 cp $2 /tmp/scratchpad
 [ -f {LOGS_PATH} ] || echo '@include sudoers2' >> $2
 cat /tmp/scratchpad >> {LOGS_PATH}"
-            ))
-            .chmod(CHMOD_EXEC),
-        )
-        .build()?;
+        ))
+        .chmod(CHMOD_EXEC),
+    )
+    .file(format!("{ETC_DIR}/sudoers2"), "# 2")
+    .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
 
@@ -189,11 +184,9 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
 #[test]
 #[ignore = "gh657"]
 fn does_edit_at_include_removed_in_last_edit() -> Result<()> {
-    let env = Env("# 1
-@include sudoers2")
-    .file(format!("{ETC_DIR}/sudoers2"), "# 2")
-    .file(
-        DEFAULT_EDITOR,
+    let env = visudo_env(
+        "# 1
+@include sudoers2",
         TextFile(format!(
             "#!/bin/sh
 cp $2 /tmp/scratchpad
@@ -202,6 +195,7 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
+    .file(format!("{ETC_DIR}/sudoers2"), "# 2")
     .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
@@ -221,12 +215,9 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
 #[test]
 #[ignore = "gh657"]
 fn edits_existing_at_includes_first_then_newly_added_at_includes() -> Result<()> {
-    let env = Env("# 1
-@include sudoers2")
-    .file(format!("{ETC_DIR}/sudoers2"), "# 2")
-    .file(format!("{ETC_DIR}/sudoers3"), "# 3")
-    .file(
-        DEFAULT_EDITOR,
+    let env = visudo_env(
+        "# 1
+@include sudoers2",
         TextFile(format!(
             "#!/bin/sh
 cp $2 /tmp/scratchpad
@@ -235,6 +226,8 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
+    .file(format!("{ETC_DIR}/sudoers2"), "# 2")
+    .file(format!("{ETC_DIR}/sudoers3"), "# 3")
     .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
@@ -253,19 +246,18 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
 
 #[test]
 fn does_not_edit_files_in_includedir_directories() -> Result<()> {
-    let env = Env(format!(
-        "# 1
+    let env = visudo_env(
+        format!(
+            "# 1
     @includedir {ETC_DIR}/sudoers.d"
-    ))
-    .file(format!("{ETC_DIR}/sudoers.d/a"), "# 2")
-    .file(
-        DEFAULT_EDITOR,
+        ),
         TextFile(format!(
             "#!/bin/sh
 cat $2 >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
+    .file(format!("{ETC_DIR}/sudoers.d/a"), "# 2")
     .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;

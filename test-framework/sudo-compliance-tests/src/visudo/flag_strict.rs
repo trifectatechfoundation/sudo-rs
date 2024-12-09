@@ -1,16 +1,19 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, TextFile};
 
+use crate::visudo::visudo_env;
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY},
+    visudo::{CHMOD_EXEC, EDITOR_DUMMY},
     Result,
 };
 
 #[test]
 #[ignore = "gh657"]
 fn undefined_alias() -> Result<()> {
-    let env = Env(["# User_Alias ADMINS = root", "ADMINS ALL=(ALL:ALL) ALL"])
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env(
+        ["# User_Alias ADMINS = root", "ADMINS ALL=(ALL:ALL) ALL"],
+        TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("visudo").arg("--strict").output(&env)?;
 
@@ -33,9 +36,11 @@ fn undefined_alias() -> Result<()> {
 
 #[test]
 fn alias_cycle() -> Result<()> {
-    let env = Env(["User_Alias FOO = FOO", "FOO ALL=(ALL:ALL) ALL"])
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env(
+        ["User_Alias FOO = FOO", "FOO ALL=(ALL:ALL) ALL"],
+        TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     let output = Command::new("visudo").arg("--strict").output(&env)?;
 

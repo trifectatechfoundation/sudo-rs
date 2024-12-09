@@ -70,12 +70,12 @@ impl Container {
         Ok(Container { id })
     }
 
-    pub fn output(&self, cmd: &Command) -> Result<Output> {
-        run(&mut self.docker_exec(cmd), cmd.get_stdin())
+    pub fn output(&self, cmd: &Command, env: &[(String, String)]) -> Result<Output> {
+        run(&mut self.docker_exec(cmd, env), cmd.get_stdin())
     }
 
-    pub fn spawn(&self, cmd: &Command) -> Result<Child> {
-        let mut docker_exec = self.docker_exec(cmd);
+    pub fn spawn(&self, cmd: &Command, env: &[(String, String)]) -> Result<Child> {
+        let mut docker_exec = self.docker_exec(cmd, env);
 
         docker_exec.stdout(Stdio::piped()).stderr(Stdio::piped());
 
@@ -89,7 +89,7 @@ impl Container {
         Ok(Child::new(docker_exec.spawn()?))
     }
 
-    fn docker_exec(&self, cmd: &Command) -> process::Command {
+    fn docker_exec(&self, cmd: &Command, env: &[(String, String)]) -> process::Command {
         let mut docker_exec = docker_command();
         docker_exec.arg("exec");
         if cmd.get_stdin().is_some() {
@@ -101,6 +101,10 @@ impl Container {
         if let Some(as_) = cmd.get_as() {
             docker_exec.arg("--user");
             docker_exec.arg(as_.to_string());
+        }
+        for (env_var, env_val) in env {
+            docker_exec.arg("--env");
+            docker_exec.arg(format!("{env_var}={env_val}"));
         }
         docker_exec.arg(&self.id);
         docker_exec.args(cmd.get_args());
@@ -126,7 +130,7 @@ impl Container {
         self.output(Command::new("sh").args([
             "-c",
             "mkdir /tmp/profraw; find / -name '*.profraw' -exec cp {} /tmp/profraw/ \\; || true",
-        ]))?
+        ]), &[])?
         .assert_success()?;
 
         let src_path = format!("{}:/tmp/profraw", self.id);
@@ -282,9 +286,11 @@ mod tests {
     fn exec_as_root_works() -> Result<()> {
         let docker = Container::new(IMAGE)?;
 
-        docker.output(&Command::new("true"))?.assert_success()?;
+        docker
+            .output(&Command::new("true"), &[])?
+            .assert_success()?;
 
-        let output = docker.output(&Command::new("false"))?;
+        let output = docker.output(&Command::new("false"), &[])?;
         assert_eq!(Some(1), output.status.code());
 
         Ok(())
@@ -295,7 +301,7 @@ mod tests {
         let docker = Container::new(IMAGE)?;
 
         docker
-            .output(Command::new("true").as_user("root"))?
+            .output(Command::new("true").as_user("root"), &[])?
             .assert_success()
     }
 
@@ -307,18 +313,18 @@ mod tests {
 
         if cfg!(target_os = "linux") {
             docker
-                .output(Command::new("useradd").arg(username))?
+                .output(Command::new("useradd").arg(username), &[])?
                 .assert_success()?;
         } else if cfg!(target_os = "freebsd") {
             docker
-                .output(Command::new("pw").args(["useradd", username]))?
+                .output(Command::new("pw").args(["useradd", username]), &[])?
                 .assert_success()?;
         } else {
             todo!()
         }
 
         docker
-            .output(Command::new("true").as_user(username))?
+            .output(Command::new("true").as_user(username), &[])?
             .assert_success()
     }
 
@@ -331,7 +337,9 @@ mod tests {
 
         docker.cp(path, expected)?;
 
-        let actual = docker.output(Command::new("cat").arg(path))?.stdout()?;
+        let actual = docker
+            .output(Command::new("cat").arg(path), &[])?
+            .stdout()?;
         assert_eq!(expected, actual);
 
         Ok(())
@@ -345,10 +353,12 @@ mod tests {
         let docker = Container::new(IMAGE)?;
 
         docker
-            .output(Command::new("tee").arg(filename).stdin(expected))?
+            .output(Command::new("tee").arg(filename).stdin(expected), &[])?
             .assert_success()?;
 
-        let actual = docker.output(Command::new("cat").arg(filename))?.stdout()?;
+        let actual = docker
+            .output(Command::new("cat").arg(filename), &[])?
+            .stdout()?;
         assert_eq!(expected, actual);
 
         Ok(())
@@ -358,18 +368,18 @@ mod tests {
     fn spawn_works() -> Result<()> {
         let docker = Container::new(IMAGE)?;
 
-        let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]))?;
+        let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]), &[])?;
 
         // `sh` process may not be immediately visible to `pidof` since it was spawned so wait a bit
         thread::sleep(Duration::from_millis(500));
 
         docker
-            .output(Command::new("pidof").arg("sh"))?
+            .output(Command::new("pidof").arg("sh"), &[])?
             .assert_success()?;
 
         child.wait()?.assert_success()?;
 
-        let output = docker.output(Command::new("pidof").arg("sh"))?;
+        let output = docker.output(Command::new("pidof").arg("sh"), &[])?;
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
