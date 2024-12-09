@@ -292,7 +292,7 @@ fn when_only_username_is_given_group_arg_fails() -> Result<()> {
 fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
     let env = Env([
         &format!("Runas_Alias OP = otheruser, {GROUPNAME}"),
-        &format!("{USERNAME} ALL = (OP:OP) NOPASSWD: ALL"),
+        &format!("{USERNAME} ALL = (OP,{USERNAME}:OP) NOPASSWD: ALL"),
     ])
     .user(User(USERNAME))
     .user(User("otheruser"))
@@ -346,7 +346,7 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
     let env = Env([
         &format!("Runas_Alias GROUPALIAS = {GROUPNAME}"),
         ("Runas_Alias USERALIAS = otheruser"),
-        &format!("{USERNAME} ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL"),
+        "ALL ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL",
     ])
     .user(USERNAME)
     .user("otheruser")
@@ -361,7 +361,7 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
-        .as_user(USERNAME)
+        .as_user("otheruser")
         .output(&env)?
         .assert_success()?;
 

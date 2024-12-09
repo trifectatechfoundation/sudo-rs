@@ -35,8 +35,8 @@ const TMP_SUDOERS: &str = "/tmp/sudoers";
 const DEFAULT_EDITOR: &str = "/usr/bin/editor";
 const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "100";
-const EDITOR_TRUE: &str = "#!/bin/sh
-true";
+const EDITOR_DUMMY: &str = "#!/bin/sh
+echo \"#\" >> \"$2\"";
 
 #[test]
 fn default_editor_is_usr_bin_editor() -> Result<()> {
@@ -65,7 +65,7 @@ echo '{expected}' > {LOGS_PATH}"
 #[test]
 fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
     let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     Command::new("rm")
@@ -205,7 +205,14 @@ echo '{expected}' >> $2"#
 fn stderr_message_when_file_is_not_modified() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env(expected)
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+                 true",
+            )
+            .chmod(CHMOD_EXEC),
+        )
         .build()?;
 
     let output = Command::new("visudo").output(&env)?;
@@ -346,7 +353,7 @@ cp $2 {LOGS_PATH}"
 fn temporary_file_is_deleted_when_done() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env(expected)
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;

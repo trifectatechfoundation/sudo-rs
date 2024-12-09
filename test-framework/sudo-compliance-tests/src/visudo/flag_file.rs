@@ -1,7 +1,7 @@
 use sudo_test::{helpers::assert_ls_output, Command, Env, TextFile, ROOT_GROUP};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
     Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL, USERNAME,
 };
 
@@ -20,7 +20,7 @@ macro_rules! assert_snapshot {
 #[test]
 fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
     let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     let file_path = TMP_SUDOERS;
@@ -192,7 +192,7 @@ echo "$@" > {LOGS_PATH}"#
 #[test]
 fn regular_user_can_create_file() -> Result<()> {
     let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod("111"))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod("755"))
         .user(USERNAME)
         .build()?;
 
