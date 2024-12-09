@@ -126,7 +126,7 @@ fn include_loop_error_messages() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
     let diagnostic = if sudo_test::is_original_sudo() {
-        "sudo: /etc/sudoers2: too many levels of includes"
+        "/etc/sudoers2: too many levels of includes"
     } else {
         "sudo-rs: include file limit reached opening '/etc/sudoers2'"
     };
@@ -145,7 +145,7 @@ fn include_loop_not_fatal() -> Result<()> {
 
     assert!(output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
-        "sudo: /etc/sudoers2: too many levels of includes"
+        "/etc/sudoers2: too many levels of includes"
     } else {
         "sudo-rs: include file limit reached opening '/etc/sudoers2'"
     };
