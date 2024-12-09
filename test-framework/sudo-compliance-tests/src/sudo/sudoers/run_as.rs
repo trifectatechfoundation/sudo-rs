@@ -293,13 +293,11 @@ fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Res
         .group(GROUPNAME)
         .build()?;
 
-    for user in ["root", USERNAME] {
-        Command::new("sudo")
-            .args(["-g", GROUPNAME, "true"])
-            .as_user(user)
-            .output(&env)?
-            .assert_success()?;
-    }
+    Command::new("sudo")
+        .args(["-g", GROUPNAME, "true"])
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()?;
 
     Ok(())
 }

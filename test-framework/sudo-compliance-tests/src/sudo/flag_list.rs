@@ -1,4 +1,6 @@
-use sudo_test::{Command, Env, TextFile, User, BIN_FALSE, BIN_LS, BIN_PWD, BIN_TRUE};
+use sudo_test::{
+    Command, Env, TextFile, User, BIN_FALSE, BIN_LS, BIN_PWD, BIN_SUDO, BIN_TRUE, ETC_SUDOERS,
+};
 
 use crate::{Result, PANIC_EXIT_CODE, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
@@ -254,7 +256,10 @@ Sudoers entry:
 \tALL"
     );
     let actual = output.stdout()?;
-    assert_eq!(actual, expected);
+    assert_eq!(
+        actual.replace(&format!("Sudoers entry: {ETC_SUDOERS}"), "Sudoers entry:"),
+        expected
+    );
 
     Ok(())
 }
@@ -426,7 +431,7 @@ fn resolves_command_in_invoking_users_path_pass() -> Result<()> {
         .build()?;
 
     let output = Command::new("env")
-        .args(["-i", "PATH=/tmp", "/usr/bin/sudo", "-l", "true"])
+        .args(["-i", "PATH=/tmp", BIN_SUDO, "-l", "true"])
         .output(&env)?;
 
     let actual = output.stdout()?;

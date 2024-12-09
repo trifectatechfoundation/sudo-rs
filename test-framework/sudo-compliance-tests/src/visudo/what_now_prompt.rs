@@ -1,7 +1,8 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, TextFile};
 
+use crate::visudo::visudo_env;
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, ETC_SUDOERS, LOGS_PATH},
+    visudo::{CHMOD_EXEC, ETC_SUDOERS, LOGS_PATH},
     Result, SUDOERS_ALL_ALL_NOPASSWD,
 };
 
@@ -17,9 +18,7 @@ echo '{BAD_SUDOERS}' > $2"#
 
 #[test]
 fn prompt_is_printed_to_stdout() -> Result<()> {
-    let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env("", TextFile(editor()).chmod(CHMOD_EXEC)).build()?;
 
     let output = Command::new("visudo").output(&env)?;
 
@@ -31,9 +30,7 @@ fn prompt_is_printed_to_stdout() -> Result<()> {
 
 #[test]
 fn on_e_re_edits() -> Result<()> {
-    let env = Env("")
-        .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env("", TextFile(editor()).chmod(CHMOD_EXEC)).build()?;
 
     Command::new("visudo")
         .stdin("e")
@@ -54,9 +51,7 @@ fn on_e_re_edits() -> Result<()> {
 #[test]
 fn on_x_closes_without_saving_changes() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env(expected, TextFile(editor()).chmod(CHMOD_EXEC)).build()?;
 
     Command::new("visudo")
         .stdin("x")
@@ -84,9 +79,7 @@ fn on_x_closes_without_saving_changes() -> Result<()> {
 #[ignore = "gh657"]
 fn on_uppercase_q_closes_while_saving_changes() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env(expected, TextFile(editor()).chmod(CHMOD_EXEC)).build()?;
 
     Command::new("visudo")
         .stdin("Q")
@@ -114,9 +107,7 @@ fn on_uppercase_q_closes_while_saving_changes() -> Result<()> {
 #[ignore = "gh657"]
 fn on_invalid_option_prompts_again() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
-        .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env(expected, TextFile(editor()).chmod(CHMOD_EXEC)).build()?;
 
     let cases = [
         (2, "?"),

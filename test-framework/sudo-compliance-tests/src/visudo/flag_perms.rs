@@ -1,16 +1,16 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, TextFile};
 
+use crate::visudo::visudo_env;
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE, ETC_SUDOERS, TMP_SUDOERS},
+    visudo::{CHMOD_EXEC, EDITOR_DUMMY, ETC_SUDOERS, TMP_SUDOERS},
     Result, USERNAME,
 };
 
 #[test]
 fn when_present_changes_perms_of_existing_file() -> Result<()> {
     let file_path = TMP_SUDOERS;
-    let env = Env("")
+    let env = visudo_env("", TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .file(file_path, TextFile("").chmod("777"))
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .build()?;
 
     Command::new("visudo")
@@ -31,9 +31,8 @@ fn when_present_changes_perms_of_existing_file() -> Result<()> {
 #[test]
 fn when_absent_perms_are_preserved() -> Result<()> {
     let file_path = TMP_SUDOERS;
-    let env = Env("")
+    let env = visudo_env("", TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .file(file_path, TextFile("").chmod("777"))
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .build()?;
 
     Command::new("visudo")
@@ -54,9 +53,11 @@ fn when_absent_perms_are_preserved() -> Result<()> {
 #[test]
 fn etc_sudoers_perms_are_always_changed() -> Result<()> {
     let file_path = ETC_SUDOERS;
-    let env = Env(TextFile("").chmod("777"))
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
-        .build()?;
+    let env = visudo_env(
+        TextFile("").chmod("777"),
+        TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC),
+    )
+    .build()?;
 
     Command::new("visudo").output(&env)?.assert_success()?;
 
@@ -73,12 +74,11 @@ fn etc_sudoers_perms_are_always_changed() -> Result<()> {
 #[test]
 fn flag_check() -> Result<()> {
     let file_path = TMP_SUDOERS;
-    let env = Env("")
+    let env = visudo_env("", TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .file(
             file_path,
             TextFile("").chown(format!("{USERNAME}:users")).chmod("777"),
         )
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
         .user(USERNAME)
         .build()?;
 

@@ -51,6 +51,11 @@ fn some_vars_are_set() -> Result<()> {
     // "Set to the login name of the user who invoked sudo"
     assert_eq!(Some("root"), sudo_env.remove("SUDO_USER"));
 
+    // "Set to the home directory of the user who invoked sudo."
+    if let Some(val) = sudo_env.remove("SUDO_HOME") {
+        assert_eq!("/root", val);
+    }
+
     // "Set to the same value as LOGNAME"
     assert_eq!(Some("root"), sudo_env.remove("USER"));
 
@@ -145,6 +150,9 @@ fn user_dependent_vars() -> Result<()> {
     assert_eq!(Some("0"), sudo_env.remove("SUDO_GID"));
     assert_eq!(Some("0"), sudo_env.remove("SUDO_UID"));
     assert_eq!(Some("root"), sudo_env.remove("SUDO_USER"));
+    if let Some(val) = sudo_env.remove("SUDO_HOME") {
+        assert_eq!("/root", val);
+    }
 
     assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.remove("PATH"));
     assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.remove("TERM"));
@@ -209,6 +217,9 @@ fn some_vars_are_preserved() -> Result<()> {
     assert_eq!(Some("root"), sudo_env.remove("SUDO_USER"));
     assert_eq!(Some("0"), sudo_env.remove("SUDO_UID"));
     assert_eq!(Some("0"), sudo_env.remove("SUDO_GID"));
+    if let Some(val) = sudo_env.remove("SUDO_HOME") {
+        assert_eq!("/root", val);
+    }
 
     // preserved
     assert_eq!(Some(display), sudo_env.remove("DISPLAY"));
