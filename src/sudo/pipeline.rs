@@ -45,7 +45,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
 
-        let (ctx_opts, pipe_opts) = cmd_opts.into();
+        let (ctx_opts, mut pipe_opts) = cmd_opts.into();
 
         if !pipe_opts.preserve_env.is_nothing() {
             eprintln_ignore_io_error!(
@@ -56,30 +56,36 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let mut context = build_context(ctx_opts, &pre)?;
 
         let policy = self.policy.judge(pre, &context)?;
-        let authorization = policy.authorization();
 
-        match authorization {
-            Authorization::Forbidden => {
-                return Err(Error::Authorization(context.current_user.name.to_string()));
-            }
-            Authorization::Allowed(auth) => {
-                self.apply_policy_to_context(&mut context, &policy)?;
-                self.auth_and_update_record_file(&context, auth)?;
-            }
-        }
+        let Authorization::Allowed(auth) = policy.authorization() else {
+            return Err(Error::Authorization(context.current_user.name.to_string()));
+        };
+        self.apply_policy_to_context(&mut context, &policy)?;
+        self.auth_and_update_record_file(&context, &auth)?;
 
         // build environment
         let additional_env = self.authenticator.pre_exec(&context.target_user.name)?;
 
         let current_env = environment::system_environment();
 
-        let target_env = environment::get_target_environment(
+        let trusted_env = if auth.trust_environment {
+            environment::dangerous_environment(std::mem::take(
+                &mut pipe_opts.user_requested_env_vars,
+            ))
+        } else {
+            Vec::new()
+        };
+
+        let mut target_env = environment::get_target_environment(
             current_env,
             additional_env,
             pipe_opts.user_requested_env_vars,
             &context,
             &policy,
         )?;
+
+        debug_assert!(auth.trust_environment || trusted_env.is_empty());
+        target_env.extend(trusted_env);
 
         let pid = context.process.pid;
 
@@ -122,7 +128,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                 return Err(Error::Authorization(context.current_user.name.to_string()));
             }
             Authorization::Allowed(auth) => {
-                self.auth_and_update_record_file(&context, auth)?;
+                self.auth_and_update_record_file(&context, &auth)?;
             }
         }
 
@@ -132,12 +138,12 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     fn auth_and_update_record_file(
         &mut self,
         context: &Context,
-        AuthorizationAllowed {
+        &AuthorizationAllowed {
             must_authenticate,
             prior_validity,
             allowed_attempts,
             ..
-        }: AuthorizationAllowed,
+        }: &AuthorizationAllowed,
     ) -> Result<(), Error> {
         let scope = RecordScope::for_process(&Process::new());
         let mut auth_status = determine_auth_status(

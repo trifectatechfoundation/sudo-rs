@@ -238,6 +238,17 @@ pub fn get_target_environment(
     Ok(environment)
 }
 
+/// Extend the environment with user-suppled info
+pub fn dangerous_environment<Container>(user_override: Vec<(String, String)>) -> Container
+where
+    Container: FromIterator<(OsString, OsString)>,
+{
+    user_override
+        .into_iter()
+        .map(|(key, value)| -> (OsString, OsString) { (key.into(), value.into()) })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::{is_safe_tz, should_keep, PATH_ZONEINFO};
