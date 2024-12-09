@@ -304,24 +304,24 @@ impl EnvBuilder {
                     .unwrap()
                     .assert_success()
                     .unwrap();
-                Command::new("chmod")
-                    .arg("4775")
-                    .arg("/usr/local/bin/sudo")
-                    .arg("/usr/bin/su")
-                    .output(&env)
-                    .unwrap()
-                    .assert_success()
-                    .unwrap();
-            } else {
-                Command::new("chmod")
-                    .arg("4775")
-                    .arg("/usr/bin/sudo")
-                    .arg("/usr/bin/su")
-                    .output(&env)
-                    .unwrap()
-                    .assert_success()
-                    .unwrap();
             }
+
+            Command::new("chmod")
+                .arg("4755")
+                .arg(BIN_SUDO)
+                .arg("/usr/bin/su")
+                .output(&env)
+                .unwrap()
+                .assert_success()
+                .unwrap();
+
+            Command::new("chmod")
+                .arg("755")
+                .arg("/usr/local/sbin")
+                .output(&env)
+                .unwrap()
+                .assert_success()
+                .unwrap();
         }
 
         Ok(env)

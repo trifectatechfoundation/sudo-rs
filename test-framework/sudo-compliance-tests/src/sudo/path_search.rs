@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, Env, TextFile, BIN_SUDO};
 
 use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
@@ -22,7 +22,10 @@ fn can_find_command_not_visible_to_regular_user() -> Result<()> {
         .build()?;
 
     Command::new("sh")
-        .args(["-c", "export PATH=/root; cd /; /usr/bin/sudo my-script"])
+        .args([
+            "-c",
+            &format!("export PATH=/root; cd /; {BIN_SUDO} my-script"),
+        ])
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()?;
@@ -38,7 +41,10 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
         .build()?;
 
     let default_path = Command::new("sh")
-        .args(["-c", "unset PATH; /usr/bin/sudo /usr/bin/printenv PATH"])
+        .args([
+            "-c",
+            &format!("unset PATH; {BIN_SUDO} /usr/bin/printenv PATH"),
+        ])
         .output(&env)?
         .stdout()?;
 
@@ -47,7 +53,7 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
     assert!(default_path.contains("/usr/bin"));
 
     let output = Command::new("sh")
-        .args(["-c", "unset PATH; /usr/bin/sudo my-script"])
+        .args(["-c", &format!("unset PATH; {BIN_SUDO} my-script")])
         .output(&env)?;
 
     assert!(!output.status().success());
@@ -123,7 +129,10 @@ fn arg0_native_is_passed_from_commandline() -> Result<()> {
     // however it doesn't print arg0 unlike most programs, so we use a random program instead.
     if cfg!(target_os = "freebsd") {
         let output = Command::new("sh")
-            .args(["-c", "ln -s /usr/bin /nib; sudo /nib/awk --invalid-flag; true"])
+            .args([
+                "-c",
+                "ln -s /usr/bin /nib; sudo /nib/awk --invalid-flag; true",
+            ])
             .output(&env)?;
 
         let stderr = output.stderr();
