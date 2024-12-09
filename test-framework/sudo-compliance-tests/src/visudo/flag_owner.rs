@@ -1,7 +1,7 @@
 use sudo_test::{Command, Env, TextFile, ROOT_GROUP};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE, ETC_SUDOERS, TMP_SUDOERS},
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, TMP_SUDOERS},
     Result, USERNAME,
 };
 
@@ -10,7 +10,7 @@ fn when_present_changes_ownership_of_existing_file() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(file_path, TextFile("").chown("root:users").chmod("777"))
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     Command::new("visudo")
@@ -33,7 +33,7 @@ fn when_absent_ownership_is_preserved() -> Result<()> {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(file_path, TextFile("").chown("root:users").chmod("777"))
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     Command::new("visudo")
@@ -55,7 +55,7 @@ fn when_absent_ownership_is_preserved() -> Result<()> {
 fn etc_sudoers_ownership_is_always_changed() -> Result<()> {
     let file_path = ETC_SUDOERS;
     let env = Env(TextFile("").chown(format!("{USERNAME}:users")).chmod("777"))
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .user(USERNAME)
         .build()?;
 
@@ -79,7 +79,7 @@ fn flag_check() -> Result<()> {
             file_path,
             TextFile("").chown(format!("{USERNAME}:users")).chmod("777"),
         )
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .user(USERNAME)
         .build()?;
 
