@@ -117,28 +117,6 @@ fn negation_equals_never() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn double_negation_also_equals_never() -> Result<()> {
-    let env = Env([
-        SUDOERS_ROOT_ALL,
-        SUDOERS_USER_ALL_ALL,
-        "Defaults  !!lecture",
-    ])
-    .user(User(USERNAME).password(PASSWORD))
-    .build()?;
-
-    let output = Command::new("sudo")
-        .args(["-S", "true"])
-        .as_user(USERNAME)
-        .stdin(PASSWORD)
-        .output(&env)?;
-
-    assert!(output.status().success());
-    assert_not_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
-
-    Ok(())
-}
-
 /// Lectures are only shown when password is asked for
 #[test]
 fn root_user_lecture_not_shown() -> Result<()> {

@@ -199,3 +199,27 @@ fn cached_credential_not_shared_with_self_across_ttys() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn double_negation_also_equals_never() -> Result<()> {
+    let env = Env([
+        "Defaults !!use_pty".to_string(),
+        format!("{USERNAME} ALL=(ALL:ALL) ALL"),
+    ])
+    .user(User(USERNAME).password(PASSWORD))
+    .build()?;
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S true; sudo -u {USERNAME} sudo -n true && true"
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)?;
+
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    Ok(())
+}
