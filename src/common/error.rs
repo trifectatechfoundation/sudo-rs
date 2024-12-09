@@ -24,6 +24,7 @@ pub enum Error {
     GroupNotFound(String),
     Authorization(String),
     InteractionRequired,
+    EnvironmentVar(Vec<String>),
     Configuration(String),
     Options(String),
     Pam(PamError),
@@ -65,6 +66,18 @@ impl fmt::Display for Error {
             Error::GroupNotFound(g) => write!(f, "group '{g}' not found"),
             Error::Authorization(u) => write!(f, "I'm sorry {u}. I'm afraid I can't do that"),
             Error::InteractionRequired => write!(f, "interactive authentication is required"),
+            Error::EnvironmentVar(vs) => {
+                write!(
+                    f,
+                    "you are not allowed to set the following environment variables:"
+                )?;
+                let mut sep = "";
+                for v in vs {
+                    write!(f, "{sep} {v}")?;
+                    sep = ",";
+                }
+                Ok(())
+            }
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
             Error::Options(e) => write!(f, "{e}"),
             Error::Pam(e) => write!(f, "PAM error: {e}"),

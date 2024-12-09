@@ -858,8 +858,13 @@ impl From<SudoValidateOptions> for OptionsForContext {
     }
 }
 
-impl From<SudoRunOptions> for OptionsForContext {
-    fn from(opts: SudoRunOptions) -> Self {
+pub struct OptionsForPipeline {
+    pub preserve_env: PreserveEnv,
+    pub user_requested_env_vars: Vec<(String, String)>,
+}
+
+impl SudoRunOptions {
+    pub fn into(self) -> (OptionsForContext, OptionsForPipeline) {
         let SudoRunOptions {
             chdir,
             group,
@@ -871,11 +876,11 @@ impl From<SudoRunOptions> for OptionsForContext {
             stdin,
             user,
 
-            env_var_list: _,
-            preserve_env: _,
-        } = opts;
+            env_var_list,
+            preserve_env,
+        } = self;
 
-        Self {
+        let ctx_opts = OptionsForContext {
             action: ContextAction::Run,
 
             chdir,
@@ -887,6 +892,13 @@ impl From<SudoRunOptions> for OptionsForContext {
             shell,
             stdin,
             user,
-        }
+        };
+
+        let pipe_opts = OptionsForPipeline {
+            preserve_env,
+            user_requested_env_vars: env_var_list,
+        };
+
+        (ctx_opts, pipe_opts)
     }
 }

@@ -111,7 +111,8 @@ mod tests {
             .ok()
             .unwrap();
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-        let context = Context::build_from_options(options.into(), path.to_string()).unwrap();
+        let (ctx_opts, _pipe_opts) = options.into();
+        let context = Context::build_from_options(ctx_opts, path.to_string()).unwrap();
 
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());

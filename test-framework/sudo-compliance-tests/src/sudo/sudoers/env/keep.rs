@@ -248,3 +248,43 @@ fn checks_not_applied() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn can_set_from_commandline() -> Result<()> {
+    let name = "CAN_BE_SET";
+    let value = "4%2";
+    let env = Env([
+        "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env",
+        &format!("Defaults env_keep = {name}"),
+    ])
+    .build()?;
+
+    let stdout = Command::new("sudo")
+        .args([format!("{name}={value}"), "env".to_string()])
+        .output(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
+
+    assert_eq!(Some(value), sudo_env.get(name).copied());
+
+    Ok(())
+}
+
+#[test]
+fn cannot_set_from_commandline() -> Result<()> {
+    let name = "CANNOT_BE_SET";
+    let value = "42";
+    let env = Env(["ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env"]).build()?;
+
+    let output = Command::new("sudo")
+        .args([format!("{name}={value}"), "env".to_string()])
+        .output(&env)?;
+
+    assert_eq!(Some(1), output.status().code());
+    assert_contains!(
+        output.stderr(),
+        format!("you are not allowed to set the following environment variables: {name}")
+    );
+
+    Ok(())
+}

@@ -16,7 +16,8 @@ use std::{
 };
 
 use crate::{
-    common::Environment,
+    exec::no_pty::exec_no_pty,
+    log::dev_info,
     log::dev_warn,
     system::{
         interface::ProcessId,
@@ -24,10 +25,6 @@ use crate::{
         signal::{consts::*, signal_name},
         wait::{Wait, WaitError, WaitOptions},
     },
-};
-use crate::{
-    exec::no_pty::exec_no_pty,
-    log::dev_info,
     system::{set_target_user, signal::SignalNumber, term::UserTerm},
 };
 use crate::{log::user_error, system::kill};
@@ -44,7 +41,10 @@ use self::{
 ///
 /// Returns the [`ExitReason`] of the command and a function that restores the default handler for
 /// signals once its called.
-pub fn run_command(options: &impl RunOptions, env: Environment) -> io::Result<ExecOutput> {
+pub fn run_command(
+    options: &impl RunOptions,
+    env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
+) -> io::Result<ExecOutput> {
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command()?;
     let mut command = Command::new(qualified_path);
