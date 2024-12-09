@@ -1,4 +1,4 @@
-use sudo_test::{helpers::assert_ls_output, Command, Env};
+use sudo_test::{helpers::assert_ls_output, Command, Env, BIN_SUDO};
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
@@ -85,7 +85,7 @@ fn sudo_binary_lacks_setuid_flag() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
     Command::new("chmod")
-        .args(["0755", "/usr/bin/sudo"])
+        .args(["0755", BIN_SUDO])
         .output(&env)?
         .assert_success()?;
 
@@ -110,7 +110,7 @@ fn sudo_binary_is_not_owned_by_root() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
     Command::new("chown")
-        .args([USERNAME, "/usr/bin/sudo"])
+        .args([USERNAME, BIN_SUDO])
         .output(&env)?
         .assert_success()?;
 
@@ -135,12 +135,12 @@ fn sudo_binary_is_not_owned_by_root_and_ran_as_root() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
     Command::new("chmod")
-        .args(["0755", "/usr/bin/sudo"])
+        .args(["0755", BIN_SUDO])
         .output(&env)?
         .assert_success()?;
 
     Command::new("chown")
-        .args([USERNAME, "/usr/bin/sudo"])
+        .args([USERNAME, BIN_SUDO])
         .output(&env)?
         .assert_success()?;
 
@@ -157,7 +157,7 @@ fn works_when_invoked_through_a_symlink() -> Result<()> {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
 
     Command::new("ln")
-        .args(["-s", "/usr/bin/sudo", symlink_path])
+        .args(["-s", BIN_SUDO, symlink_path])
         .as_user(USERNAME)
         .output(&env)?
         .assert_success()?;

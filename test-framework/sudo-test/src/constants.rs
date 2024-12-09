@@ -30,6 +30,14 @@ pub const ROOT_GROUP: &str = "root";
 #[cfg(target_os = "freebsd")]
 pub const ROOT_GROUP: &str = "wheel";
 
+/// The path to the `sudo` binary.
+#[cfg(not(target_os = "freebsd"))]
+pub const BIN_SUDO: &str = "/usr/bin/sudo";
+
+/// The path to the `sudo` binary.
+#[cfg(target_os = "freebsd")]
+pub const BIN_SUDO: &str = "/usr/local/bin/sudo";
+
 /// The path to the `ls` binary.
 #[cfg(not(target_os = "freebsd"))]
 pub const BIN_LS: &str = "/usr/bin/ls";
