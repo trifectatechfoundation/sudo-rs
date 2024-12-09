@@ -169,6 +169,7 @@ mod tests {
 
     #[test]
     fn exit_status() {
+        #[allow(clippy::zombie_processes)]
         let command = std::process::Command::new("sh")
             .args(["-c", "sleep 0.1; exit 42"])
             .spawn()
@@ -196,6 +197,7 @@ mod tests {
 
     #[test]
     fn signals() {
+        #[allow(clippy::zombie_processes)]
         let command = std::process::Command::new("sh")
             .args(["-c", "sleep 1; exit 42"])
             .spawn()
@@ -225,6 +227,7 @@ mod tests {
 
     #[test]
     fn no_hang() {
+        #[allow(clippy::zombie_processes)]
         let command = std::process::Command::new("sh")
             .args(["-c", "sleep 0.1; exit 42"])
             .spawn()
