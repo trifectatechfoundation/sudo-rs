@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, Env, TextFile, BIN_SUDO};
 
 use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
 
@@ -21,7 +21,10 @@ fn if_unset_searches_program_in_invoking_users_path() -> Result<()> {
         .build()?;
 
     Command::new("sh")
-        .args(["-c", "export PATH=/root; cd /; /usr/bin/sudo my-script"])
+        .args([
+            "-c",
+            &format!("export PATH=/root; cd /; {BIN_SUDO} my-script"),
+        ])
         .output(&env)?
         .assert_success()?;
 
@@ -38,10 +41,14 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     .build()?;
 
     // `true` is in `/usr/bin/`
-    let match_in_relative_path_when_path_is_unset = "unset PATH; cd /usr/bin; /usr/bin/sudo true";
-    let match_in_absolute_path_when_path_is_unset = "unset PATH; cd /; /usr/bin/sudo my-script";
-    let match_in_relative_path_when_path_is_set = "export PATH=/tmp; cd /usr/bin; /usr/bin/sudo true";
-    let match_in_absolute_path_when_path_is_set = "export PATH=/tmp; cd /; /usr/bin/sudo my-script";
+    let match_in_relative_path_when_path_is_unset =
+        format!("unset PATH; cd /usr/bin; {BIN_SUDO} true");
+    let match_in_absolute_path_when_path_is_unset =
+        format!("unset PATH; cd /; {BIN_SUDO} my-script");
+    let match_in_relative_path_when_path_is_set =
+        format!("export PATH=/tmp; cd /usr/bin; {BIN_SUDO} true");
+    let match_in_absolute_path_when_path_is_set =
+        format!("export PATH=/tmp; cd /; {BIN_SUDO} my-script");
 
     let scripts = [
         match_in_relative_path_when_path_is_unset,
@@ -54,7 +61,7 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
         println!("{script}");
 
         Command::new("sh")
-            .args(["-c", script])
+            .args(["-c", &script])
             .output(&env)?
             .assert_success()?;
     }
@@ -94,8 +101,8 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL"
     .build()?;
 
     let user_path_set = "cd /; sudo /usr/bin/printenv PATH";
-    let user_path_unset = "unset PATH; cd /; /usr/bin/sudo /usr/bin/printenv PATH";
-    let scripts = [user_path_set, user_path_unset];
+    let user_path_unset = format!("unset PATH; cd /; {BIN_SUDO} /usr/bin/printenv PATH");
+    let scripts = [user_path_set, &user_path_unset];
 
     for script in scripts {
         println!("{script}");
