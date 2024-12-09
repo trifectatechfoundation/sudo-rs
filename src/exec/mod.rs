@@ -18,9 +18,6 @@ use std::{
 use crate::{
     exec::no_pty::exec_no_pty,
     log::dev_info,
-    system::{set_target_user, signal::SignalNumber, term::UserTerm},
-};
-use crate::{
     log::dev_warn,
     system::{
         interface::ProcessId,
@@ -28,6 +25,7 @@ use crate::{
         signal::{consts::*, signal_name},
         wait::{Wait, WaitError, WaitOptions},
     },
+    system::{set_target_user, signal::SignalNumber, term::UserTerm},
 };
 use crate::{log::user_error, system::kill};
 
