@@ -238,6 +238,18 @@ pub fn get_target_environment(
     Ok(environment)
 }
 
+/// Extend the environment with user-supplied info
+pub fn dangerous_extend<S>(env: &mut Environment, user_override: impl IntoIterator<Item = (S, S)>)
+where
+    S: Into<OsString>,
+{
+    env.extend(
+        user_override
+            .into_iter()
+            .map(|(key, value)| (key.into(), value.into())),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{is_safe_tz, should_keep, PATH_ZONEINFO};
