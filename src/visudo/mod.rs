@@ -303,9 +303,18 @@ fn edit_sudoers_file(
 }
 
 fn editor_path_fallback() -> io::Result<PathBuf> {
-    let path = Path::new("/usr/bin/editor");
-    if can_execute(path) {
-        return Ok(path.to_owned());
+    let editors = if cfg!(target_os = "linux") {
+        &["/usr/bin/editor"][..]
+    } else if cfg!(target_os = "freebsd") {
+        &["/usr/bin/vi"]
+    } else {
+        unimplemented!("unknown default editor for target")
+    };
+    for &editor in editors {
+        let path = Path::new(editor);
+        if can_execute(path) {
+            return Ok(path.to_owned());
+        }
     }
 
     Err(io::Error::new(
