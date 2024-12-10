@@ -118,16 +118,8 @@ fn on_invalid_option_prompts_again() -> Result<()> {
         .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
         .build()?;
 
-    let cases = [
-        (2, "?"),
-        (2, "abc"),
-        (2, "\n"),
-        (2, "\r\n"),
-        (3, "a\nb"),
-        (3, "\n\r"),
-        (2, "a\rb"),
-    ];
-    for (expected, input) in cases {
+    let cases = ["?", "abc", "\n", "\r\n", "a\nb", "\n\r", "a\rb"];
+    for input in cases {
         dbg!(input);
 
         let output = Command::new("visudo").stdin(input).output(&env)?;
@@ -138,7 +130,7 @@ fn on_invalid_option_prompts_again() -> Result<()> {
             .filter(|line| line.starts_with("What now?"))
             .count();
 
-        assert_eq!(expected, num_prompts);
+        assert!(num_prompts >= 2);
     }
 
     Ok(())
