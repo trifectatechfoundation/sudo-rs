@@ -67,7 +67,9 @@ fn add_extra_env(
         entry.insert(format!("{PATH_MAILDIR}/{}", context.target_user.name).into());
     }
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
-    environment.insert("SHELL".into(), context.target_user.shell.clone().into());
+    if let Entry::Vacant(entry) = environment.entry("SHELL".into()) {
+        entry.insert(context.target_user.shell.clone().into());
+    }
     // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
     // Since we always want to do env_reset -> always set HOME
