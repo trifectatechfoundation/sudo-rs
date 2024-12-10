@@ -22,6 +22,7 @@ fn sudo_logs_every_executed_command() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "Logging not really functional on FreeBSD even with og-sudo")]
 fn sudo_logs_every_failed_authentication_attempt() -> Result<()> {
     let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
     let rsyslog = Rsyslogd::start(&env)?;
