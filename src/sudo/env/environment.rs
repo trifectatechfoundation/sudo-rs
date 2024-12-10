@@ -201,9 +201,10 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
 /// If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
 ///
 /// Environment variables with a value beginning with ‘()’ are removed
+#[allow(unused)]
 pub fn get_target_environment(
     current_env: Environment,
-    additional_env: impl IntoIterator<Item = (OsString, OsString)>,
+    additional_env: Environment,
     user_override: Vec<(String, String)>,
     context: &Context,
     settings: &impl Policy,
@@ -213,7 +214,7 @@ pub fn get_target_environment(
 
     // variables preserved from the invoking user's environment by the
     // env_keep list take precedence over those in the PAM environment
-    let mut environment: HashMap<_, _> = additional_env.into_iter().collect();
+    let mut environment: HashMap<_, _> = additional_env;
 
     environment.extend(
         current_env

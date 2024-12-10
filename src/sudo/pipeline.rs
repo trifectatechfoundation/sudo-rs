@@ -1,7 +1,7 @@
 use std::ffi::{OsStr, OsString};
 use std::process::exit;
 
-use super::cli::{SudoRunOptions, SudoValidateOptions};
+use super::cli::{PreserveEnv, SudoRunOptions, SudoValidateOptions};
 use crate::common::context::OptionsForContext;
 use crate::common::resolve::CurrentUser;
 use crate::common::{Context, Error};
@@ -47,12 +47,6 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         let (ctx_opts, pipe_opts) = cmd_opts.into();
 
-        if !pipe_opts.preserve_env.is_nothing() {
-            eprintln_ignore_io_error!(
-                "warning: `--preserve-env` has not yet been implemented and will be ignored"
-            )
-        }
-
         let mut context = build_context(ctx_opts, &pre)?;
 
         let policy = self.policy.judge(pre, &context)?;
@@ -64,9 +58,22 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         self.auth_and_update_record_file(&context, &auth)?;
 
         // build environment
-        let additional_env = self.authenticator.pre_exec(&context.target_user.name)?;
-
         let current_env = environment::system_environment();
+
+        let pam_env = self.authenticator.pre_exec(&context.target_user.name)?;
+
+        let additional_env = match pipe_opts.preserve_env {
+            PreserveEnv::Nothing => pam_env.into_iter().collect(),
+            PreserveEnv::Everything if auth.trust_environment => current_env.clone(),
+            PreserveEnv::Only(kept) if auth.trust_environment => {
+                let mut env = current_env.clone();
+                env.retain(|key, _| kept.contains(key));
+
+                env
+            }
+            _ => return Err(Error::EnvironmentPreserve),
+        };
+
         let (checked_vars, trusted_vars) = if auth.trust_environment {
             (vec![], pipe_opts.user_requested_env_vars)
         } else {
@@ -81,7 +88,6 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             &policy,
         )?;
 
-        debug_assert!(auth.trust_environment || trusted_vars.is_empty());
         environment::dangerous_extend(&mut target_env, trusted_vars);
 
         let pid = context.process.pid;
