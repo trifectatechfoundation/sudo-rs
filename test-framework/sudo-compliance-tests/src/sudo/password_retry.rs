@@ -143,6 +143,7 @@ fn time_password_retry(script_path: &str, env: Env) -> Result<u64> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "/etc/pam.d/common-auth doesn't exist on FreeBSD")]
 fn can_control_retry_delay_using_pam() -> Result<()> {
     const NEW_DELAY_MICROS: u32 = 5_000_000;
 
