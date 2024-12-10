@@ -32,7 +32,10 @@ macro_rules! assert_snapshot {
 }
 
 const TMP_SUDOERS: &str = "/tmp/sudoers";
+#[cfg(not(target_os = "freebsd"))]
 const DEFAULT_EDITOR: &str = "/usr/bin/editor";
+#[cfg(target_os = "freebsd")]
+const DEFAULT_EDITOR: &str = "/usr/bin/vi";
 const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "100";
 const EDITOR_DUMMY: &str = "#!/bin/sh
