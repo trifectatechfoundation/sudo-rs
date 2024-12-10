@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use std::ffi::OsString;
 use std::{borrow::Cow, mem};
 
 use crate::common::context::{ContextAction, OptionsForContext};
@@ -442,12 +443,12 @@ pub enum PreserveEnv {
     #[default]
     Nothing,
     Everything,
-    Only(Vec<String>),
+    Only(Vec<OsString>),
 }
 
 impl PreserveEnv {
     #[cfg(test)]
-    pub fn try_into_only(self) -> Result<Vec<String>, Self> {
+    pub fn try_into_only(self) -> Result<Vec<OsString>, Self> {
         if let Self::Only(v) = self {
             Ok(v)
         } else {
@@ -655,7 +656,7 @@ impl SudoOptions {
                         options.chdir = Some(SudoPath::from_cli_string(value));
                     }
                     "-E" | "--preserve-env" => {
-                        let split_value = || value.split(',').map(str::to_string);
+                        let split_value = || value.split(',').map(OsString::from);
                         match &mut options.preserve_env {
                             PreserveEnv::Nothing => {
                                 options.preserve_env = PreserveEnv::Only(split_value().collect())

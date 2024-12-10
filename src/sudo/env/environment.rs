@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
 };
@@ -63,17 +63,19 @@ fn add_extra_env(
     );
     environment.insert("SUDO_USER".into(), context.current_user.name.clone().into());
     // target user
-    if let Entry::Vacant(entry) = environment.entry("MAIL".into()) {
-        entry.insert(format!("{PATH_MAILDIR}/{}", context.target_user.name).into());
-    }
+    environment
+        .entry("MAIL".into())
+        .or_insert_with(|| format!("{PATH_MAILDIR}/{}", context.target_user.name).into());
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
-    environment.insert("SHELL".into(), context.target_user.shell.clone().into());
+    environment
+        .entry("SHELL".into())
+        .or_insert_with(|| context.target_user.shell.clone().into());
     // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
     // Since we always want to do env_reset -> always set HOME
-    if let Entry::Vacant(entry) = environment.entry("HOME".into()) {
-        entry.insert(context.target_user.home.clone().into());
-    }
+    environment
+        .entry("HOME".into())
+        .or_insert_with(|| context.target_user.home.clone().into());
 
     match (
         environment.get(OsStr::new("LOGNAME")),
@@ -104,14 +106,13 @@ fn add_extra_env(
         environment.insert("PATH".into(), secure_path.into());
     }
     // If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
-    if !environment.contains_key(OsStr::new("PATH")) {
-        // If the PATH variable is not set, it will be set to default value
-        environment.insert("PATH".into(), PATH_DEFAULT.into());
-    }
+    environment
+        .entry("PATH".into())
+        .or_insert_with(|| PATH_DEFAULT.into());
     // If the TERM variable is not preserved from the user's environment, it will be set to default value
-    if !environment.contains_key(OsStr::new("TERM")) {
-        environment.insert("TERM".into(), "unknown".into());
-    }
+    environment
+        .entry("TERM".into())
+        .or_insert_with(|| "unknown".into());
     // The SUDO_PS1 variable requires special treatment as the PS1 variable must be set in the
     // target environment to the same value of SUDO_PS1 if the latter is set.
     if let Some(sudo_ps1_value) = sudo_ps1 {
@@ -201,9 +202,10 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
 /// If the PATH and TERM variables are not preserved from the user's environment, they will be set to default value
 ///
 /// Environment variables with a value beginning with ‘()’ are removed
+#[allow(unused)]
 pub fn get_target_environment(
     current_env: Environment,
-    additional_env: impl IntoIterator<Item = (OsString, OsString)>,
+    additional_env: Environment,
     user_override: Vec<(String, String)>,
     context: &Context,
     settings: &impl Policy,
@@ -213,7 +215,7 @@ pub fn get_target_environment(
 
     // variables preserved from the invoking user's environment by the
     // env_keep list take precedence over those in the PAM environment
-    let mut environment: HashMap<_, _> = additional_env.into_iter().collect();
+    let mut environment: HashMap<_, _> = additional_env;
 
     environment.extend(
         current_env
@@ -236,6 +238,18 @@ pub fn get_target_environment(
     }
 
     Ok(environment)
+}
+
+/// Extend the environment with user-supplied info
+pub fn dangerous_extend<S>(env: &mut Environment, user_override: impl IntoIterator<Item = (S, S)>)
+where
+    S: Into<OsString>,
+{
+    env.extend(
+        user_override
+            .into_iter()
+            .map(|(key, value)| (key.into(), value.into())),
+    )
 }
 
 #[cfg(test)]

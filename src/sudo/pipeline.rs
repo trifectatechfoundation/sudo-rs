@@ -1,7 +1,7 @@
 use std::ffi::{OsStr, OsString};
 use std::process::exit;
 
-use super::cli::{SudoRunOptions, SudoValidateOptions};
+use super::cli::{PreserveEnv, SudoRunOptions, SudoValidateOptions};
 use crate::common::context::OptionsForContext;
 use crate::common::resolve::CurrentUser;
 use crate::common::{Context, Error};
@@ -47,39 +47,48 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         let (ctx_opts, pipe_opts) = cmd_opts.into();
 
-        if !pipe_opts.preserve_env.is_nothing() {
-            eprintln_ignore_io_error!(
-                "warning: `--preserve-env` has not yet been implemented and will be ignored"
-            )
-        }
-
         let mut context = build_context(ctx_opts, &pre)?;
 
         let policy = self.policy.judge(pre, &context)?;
-        let authorization = policy.authorization();
 
-        match authorization {
-            Authorization::Forbidden => {
-                return Err(Error::Authorization(context.current_user.name.to_string()));
-            }
-            Authorization::Allowed(auth) => {
-                self.apply_policy_to_context(&mut context, &policy)?;
-                self.auth_and_update_record_file(&context, auth)?;
-            }
-        }
+        let Authorization::Allowed(auth) = policy.authorization() else {
+            return Err(Error::Authorization(context.current_user.name.to_string()));
+        };
+        self.apply_policy_to_context(&mut context, &policy)?;
+        self.auth_and_update_record_file(&context, &auth)?;
 
         // build environment
-        let additional_env = self.authenticator.pre_exec(&context.target_user.name)?;
-
         let current_env = environment::system_environment();
 
-        let target_env = environment::get_target_environment(
+        let pam_env = self.authenticator.pre_exec(&context.target_user.name)?;
+
+        let additional_env = match pipe_opts.preserve_env {
+            PreserveEnv::Nothing => pam_env.into_iter().collect(),
+            PreserveEnv::Everything if auth.trust_environment => current_env.clone(),
+            PreserveEnv::Only(kept) if auth.trust_environment => {
+                let mut env = current_env.clone();
+                env.retain(|key, _| kept.contains(key));
+
+                env
+            }
+            _ => return Err(Error::EnvironmentPreserve),
+        };
+
+        let (checked_vars, trusted_vars) = if auth.trust_environment {
+            (vec![], pipe_opts.user_requested_env_vars)
+        } else {
+            (pipe_opts.user_requested_env_vars, vec![])
+        };
+
+        let mut target_env = environment::get_target_environment(
             current_env,
             additional_env,
-            pipe_opts.user_requested_env_vars,
+            checked_vars,
             &context,
             &policy,
         )?;
+
+        environment::dangerous_extend(&mut target_env, trusted_vars);
 
         let pid = context.process.pid;
 
@@ -122,7 +131,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
                 return Err(Error::Authorization(context.current_user.name.to_string()));
             }
             Authorization::Allowed(auth) => {
-                self.auth_and_update_record_file(&context, auth)?;
+                self.auth_and_update_record_file(&context, &auth)?;
             }
         }
 
@@ -132,11 +141,12 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     fn auth_and_update_record_file(
         &mut self,
         context: &Context,
-        AuthorizationAllowed {
+        &AuthorizationAllowed {
             must_authenticate,
             prior_validity,
             allowed_attempts,
-        }: AuthorizationAllowed,
+            ..
+        }: &AuthorizationAllowed,
     ) -> Result<(), Error> {
         let scope = RecordScope::for_process(&Process::new());
         let mut auth_status = determine_auth_status(

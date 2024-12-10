@@ -25,6 +25,7 @@ pub enum Error {
     Authorization(String),
     InteractionRequired,
     EnvironmentVar(Vec<String>),
+    EnvironmentPreserve,
     Configuration(String),
     Options(String),
     Pam(PamError),
@@ -77,6 +78,9 @@ impl fmt::Display for Error {
                     sep = ",";
                 }
                 Ok(())
+            }
+            Error::EnvironmentPreserve => {
+                write!(f, "sorry, you are not allowed to preserve the environment")
             }
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
             Error::Options(e) => write!(f, "{e}"),
