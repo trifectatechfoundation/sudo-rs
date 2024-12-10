@@ -1,7 +1,7 @@
 use sudo_test::{Command, Env, TextFile, ETC_DIR};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE, LOGS_PATH},
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH},
     Result,
 };
 
@@ -10,7 +10,7 @@ use crate::{
 fn prompt() -> Result<()> {
     let env = Env("@include sudoers2")
         .file(format!("{ETC_DIR}/sudoers2"), "")
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     let output = Command::new("visudo").output(&env)?;

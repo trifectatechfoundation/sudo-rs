@@ -1,7 +1,7 @@
 use sudo_test::{Command, Env, TextFile};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE},
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY},
     Result,
 };
 
@@ -9,7 +9,7 @@ use crate::{
 #[ignore = "gh657"]
 fn undefined_alias() -> Result<()> {
     let env = Env(["# User_Alias ADMINS = root", "ADMINS ALL=(ALL:ALL) ALL"])
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     let output = Command::new("visudo").arg("--strict").output(&env)?;
@@ -34,7 +34,7 @@ fn undefined_alias() -> Result<()> {
 #[test]
 fn alias_cycle() -> Result<()> {
     let env = Env(["User_Alias FOO = FOO", "FOO ALL=(ALL:ALL) ALL"])
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     let output = Command::new("visudo").arg("--strict").output(&env)?;

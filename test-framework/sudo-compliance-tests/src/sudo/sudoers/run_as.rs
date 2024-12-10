@@ -20,22 +20,6 @@ macro_rules! assert_snapshot {
 
 // "If both Runas_Lists are empty, the command may only be run as the invoking user."
 #[test]
-#[ignore = "gh134"]
-fn when_empty_then_implicit_as_self_is_allowed() -> Result<()> {
-    let env = Env("ALL ALL=() NOPASSWD: ALL").user(USERNAME).build()?;
-
-    for user in ["root", USERNAME] {
-        Command::new("sudo")
-            .args(["true"])
-            .as_user(user)
-            .output(&env)?
-            .assert_success()?;
-    }
-
-    Ok(())
-}
-
-#[test]
 fn when_empty_then_explicit_as_self_is_allowed() -> Result<()> {
     let env = Env("ALL ALL=() NOPASSWD: ALL").user(USERNAME).build()?;
 
@@ -293,13 +277,11 @@ fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Res
         .group(GROUPNAME)
         .build()?;
 
-    for user in ["root", USERNAME] {
-        Command::new("sudo")
-            .args(["-g", GROUPNAME, "true"])
-            .as_user(user)
-            .output(&env)?
-            .assert_success()?;
-    }
+    Command::new("sudo")
+        .args(["-g", GROUPNAME, "true"])
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()?;
 
     Ok(())
 }

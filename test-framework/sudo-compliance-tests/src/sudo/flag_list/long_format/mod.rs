@@ -1,11 +1,14 @@
-use sudo_test::{Command, Env, BIN_FALSE, BIN_LS, BIN_TRUE};
+use sudo_test::{Command, Env, BIN_FALSE, BIN_LS, BIN_TRUE, ETC_SUDOERS};
 
 use crate::{Result, HOSTNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
-            filters => vec![(BIN_LS, "<BIN_LS>")],
+            filters => vec![
+                (BIN_LS, "<BIN_LS>"),
+                (&format!("Sudoers entry: {ETC_SUDOERS}"), "Sudoers entry:"),
+            ],
             prepend_module_to_snapshot => false,
         }, {
             insta::assert_snapshot!($($tt)*)

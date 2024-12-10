@@ -1,7 +1,7 @@
 use sudo_test::{Command, Env, TextFile};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_TRUE, LOGS_PATH},
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH},
     Result,
 };
 
@@ -19,7 +19,7 @@ rm -f {LOGS_PATH}"
             ))
             .chmod(CHMOD_EXEC),
         )
-        .file(DEFAULT_EDITOR, TextFile(EDITOR_TRUE).chmod(CHMOD_EXEC))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .build()?;
 
     for var_name in var_names {
@@ -74,7 +74,7 @@ echo {unexpected} >> {LOGS_PATH}"
                 ))
                 .chmod(CHMOD_EXEC),
             )
-            .file(DEFAULT_EDITOR, EDITOR_TRUE)
+            .file(DEFAULT_EDITOR, EDITOR_DUMMY)
             .build()?;
 
         Ok(Fixture {
@@ -161,7 +161,7 @@ fn falls_back_to_editor_list_when_env_editor_is_not_executable() -> Result<()> {
     let expected = "default editor was called";
     let editor_path = "/tmp/editor";
     let env = Env("")
-        .file(editor_path, EDITOR_TRUE)
+        .file(editor_path, EDITOR_DUMMY)
         .file(
             DEFAULT_EDITOR,
             TextFile(format!(

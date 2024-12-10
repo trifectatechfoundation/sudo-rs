@@ -129,37 +129,88 @@ fn cwd_set_to_non_glob_value_then_cannot_use_that_path_with_chdir_flag() -> Resu
 }
 
 #[test]
-#[ignore = "wontfix"]
-fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_unset() -> Result<()> {
+fn any_chdir_value_is_not_accepted_if_it_matches_pwd_cwd_unset() -> Result<()> {
     let path = "/root";
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL").build()?;
-    let stdout = Command::new("sh")
+
+    if sudo_test::is_original_sudo() {
+        let stdout = Command::new("sudo")
+            .arg("--version")
+            .output(&env)?
+            .stdout()?;
+        let version = stdout
+            .lines()
+            .next()
+            .unwrap()
+            .strip_prefix("Sudo version ")
+            .unwrap();
+        if version < "1.9.14" {
+            // Older sudo had a special case where --chdir is accepted if it matches the cwd even if
+            // it would otherwise be denied.
+            // FIXME remove once bookworm is oldstable
+            return Ok(());
+        }
+    }
+
+    let output = Command::new("sh")
         .arg("-c")
         .arg(format!("cd {path}; sudo --chdir {path} pwd"))
-        .output(&env)?
-        .stdout()?;
+        .output(&env)?;
 
-    assert_eq!(path, stdout);
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        format!("you are not permitted to use the -D option with {BIN_PWD}")
+    } else {
+        format!("you are not allowed to use '--chdir {path}' with '{BIN_PWD}'")
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
 
-// NOTE unclear if we want to adopt this behavior
 #[test]
-#[ignore = "wontfix"]
-fn any_chdir_value_is_accepted_if_it_matches_pwd_cwd_set() -> Result<()> {
+fn any_chdir_value_is_not_accepted_if_it_matches_pwd_cwd_set() -> Result<()> {
     let cwd_path = "/root";
     let another_path = "/tmp";
     let env = Env(format!("ALL ALL=(ALL:ALL) CWD={cwd_path} NOPASSWD: ALL")).build()?;
-    let stdout = Command::new("sh")
+
+    if sudo_test::is_original_sudo() {
+        let stdout = Command::new("sudo")
+            .arg("--version")
+            .output(&env)?
+            .stdout()?;
+        let version = stdout
+            .lines()
+            .next()
+            .unwrap()
+            .strip_prefix("Sudo version ")
+            .unwrap();
+        if version < "1.9.14" {
+            // Older sudo had a special case where --chdir is accepted if it matches the cwd even if
+            // it would otherwise be denied.
+            // FIXME remove once bookworm is oldstable
+            return Ok(());
+        }
+    }
+
+    let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
             "cd {another_path}; sudo --chdir {another_path} pwd"
         ))
-        .output(&env)?
-        .stdout()?;
+        .output(&env)?;
 
-    assert_eq!(cwd_path, stdout);
+    assert!(!output.status().success());
+    assert_eq!(Some(1), output.status().code());
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        format!("you are not permitted to use the -D option with {BIN_PWD}")
+    } else {
+        format!("you are not allowed to use '--chdir {another_path}' with '{BIN_PWD}'")
+    };
+    assert_contains!(output.stderr(), diagnostic);
 
     Ok(())
 }
