@@ -1,0 +1,13 @@
+task:
+  name: freebsd unit tests
+  freebsd_instance:
+    image_family: freebsd-14-1
+    memory: 2GB
+  setup_rust_script:
+    - pkg install -y git-tiny
+    - curl https://sh.rustup.rs -sSf --output rustup.sh
+    - sh rustup.sh -y --profile=minimal
+  test_script:
+    - . $HOME/.cargo/env
+    # We skip a couple of tests which fail when running as root.
+    - cargo test --workspace --all-features --all-targets --release -- --skip group_as_non_root --skip test_secure_open_cookie_file
