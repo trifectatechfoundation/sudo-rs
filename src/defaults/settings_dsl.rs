@@ -55,14 +55,14 @@ macro_rules! modifier_of {
     ($id:ident, [ $($value: expr),* ]) => {
         $crate::defaults::SettingKind::List(
             |mode, list|
-                Some(Box::new(move |obj: &mut Settings|
-                                       match mode {
-                                          ListMode::Set => obj.$id = list.into_iter().collect(),
-                                          ListMode::Add => obj.$id.extend(list),
-                                          ListMode::Del => for key in [$($value),*] {
-                                                               obj.$id.remove(key);
-                                                           },
-                                       }) as _)
+                Box::new(move |obj: &mut Settings|
+                                   match mode {
+                                      ListMode::Set => obj.$id = list.into_iter().collect(),
+                                      ListMode::Add => obj.$id.extend(list),
+                                      ListMode::Del => for key in list {
+                                                           obj.$id.remove(&key);
+                                                       },
+                                   }) as _
         )
     };
     ($id:ident, =int $first:literal ..= $last: literal $(@ $radix: literal)?; $value: expr) => {

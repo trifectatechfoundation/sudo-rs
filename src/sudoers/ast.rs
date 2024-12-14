@@ -624,7 +624,7 @@ impl Parse for defaults::SettingsModifier {
                     unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
                 };
 
-                make(checker(mode, parse_vars(stream)?).unwrap())
+                make(checker(mode, parse_vars(stream)?))
             };
 
         // Parse a text parameter
@@ -686,7 +686,7 @@ impl Parse for defaults::SettingsModifier {
                     defaults::SettingKind::List(checker) => {
                         let items = parse_vars(stream)?;
 
-                        make(checker(defaults::ListMode::Set, items).unwrap())
+                        make(checker(defaults::ListMode::Set, items))
                     }
                     defaults::SettingKind::Text(checker) => {
                         let text = text_item(stream)?;

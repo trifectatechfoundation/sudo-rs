@@ -12,8 +12,7 @@ pub enum SettingKind {
     Flag(SettingsModifier) = crate::common::HARDENED_ENUM_VALUE_0,
     Integer(fn(&str) -> Option<SettingsModifier>) = crate::common::HARDENED_ENUM_VALUE_1,
     Text(fn(&str) -> Option<SettingsModifier>) = crate::common::HARDENED_ENUM_VALUE_2,
-    List(fn(ListMode, Vec<String>) -> Option<SettingsModifier>) =
-        crate::common::HARDENED_ENUM_VALUE_3,
+    List(fn(ListMode, Vec<String>) -> SettingsModifier) = crate::common::HARDENED_ENUM_VALUE_3,
 }
 
 mod settings_dsl;
