@@ -196,12 +196,13 @@ macro_rules! defaults {
         #[allow(non_camel_case_types)]
         mod enums {
             $($(
-                #[derive(Debug)]
+                #[derive(Clone,Debug)]
                 #[cfg_attr(test, derive(PartialEq, Eq))]
                 pub enum $name { $($key),* }
             )?)*
         }
 
+        #[derive(Clone)]
         pub struct Settings {
             $(pub $name: type_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)),*
         }

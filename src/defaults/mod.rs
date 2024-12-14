@@ -18,11 +18,13 @@ pub enum ListMode {
     Del,
 }
 
+#[repr(u32)]
 pub enum SettingKind {
-    Flag(SettingsModifier),
-    Integer(fn(&str) -> Option<SettingsModifier>),
-    Text(fn(&str) -> Option<SettingsModifier>),
-    List(fn(ListMode, Vec<String>) -> Option<SettingsModifier>),
+    Flag(SettingsModifier) = crate::common::HARDENED_ENUM_VALUE_0,
+    Integer(fn(&str) -> Option<SettingsModifier>) = crate::common::HARDENED_ENUM_VALUE_1,
+    Text(fn(&str) -> Option<SettingsModifier>) = crate::common::HARDENED_ENUM_VALUE_2,
+    List(fn(ListMode, Vec<String>) -> Option<SettingsModifier>) =
+        crate::common::HARDENED_ENUM_VALUE_3,
 }
 
 #[derive(Debug)]
