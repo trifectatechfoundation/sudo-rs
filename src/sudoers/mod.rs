@@ -27,7 +27,6 @@ pub type Settings = defaults::Settings;
 const INCLUDE_LIMIT: u8 = 128;
 
 /// Export some necessary symbols from modules
-pub use ast::TextEnum;
 pub struct Error {
     pub source: Option<PathBuf>,
     pub location: Option<basic_parser::Position>,

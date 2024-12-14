@@ -119,8 +119,6 @@ pub enum Directive {
     Defaults(Vec<defaults::SettingsModifier>) = HARDENED_ENUM_VALUE_4,
 }
 
-pub type TextEnum = crate::defaults::StrEnum<'static>;
-
 /// The Sudoers file can contain permissions and directives
 #[repr(u32)]
 pub enum Sudo {
@@ -531,9 +529,6 @@ fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
     make(result)
 }
 
-use crate::defaults::sudo_default;
-use crate::defaults::SudoDefault as Setting;
-
 /// grammar:
 /// ```text
 /// name = definition [ : name = definiton [ : ... ] ]
@@ -643,8 +638,6 @@ impl Parse for defaults::SettingsModifier {
                 make(name)
             }
         };
-
-        use crate::defaults::OptTuple;
 
         if is_syntax('!', stream)? {
             let value_pos = stream.get_pos();
