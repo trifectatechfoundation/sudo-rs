@@ -106,6 +106,7 @@ Defaults passwd_tries=2"
 
 // this is a PAM security feature
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "on FreeBSD retry is immediately allowed")]
 fn retry_is_not_allowed_immediately() -> Result<()> {
     let script_path = "/tmp/script.sh";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
@@ -142,6 +143,7 @@ fn time_password_retry(script_path: &str, env: Env) -> Result<u64> {
 }
 
 #[test]
+#[cfg_attr(target_os = "freebsd", ignore = "/etc/pam.d/common-auth doesn't exist on FreeBSD")]
 fn can_control_retry_delay_using_pam() -> Result<()> {
     const NEW_DELAY_MICROS: u32 = 5_000_000;
 
