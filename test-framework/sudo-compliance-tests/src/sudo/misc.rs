@@ -217,7 +217,6 @@ fn does_not_panic_on_io_errors_cli_error() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh771"]
 fn long_username() -> Result<()> {
     // `useradd` limits usernames to 32 characters
     // directly write to `/etc/passwd` to work around this limitation
