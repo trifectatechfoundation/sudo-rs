@@ -4,8 +4,6 @@ permissions: read-all
 
 on:
   push:
-    branches:
-      - main
   pull_request:
   merge_group:
     branches:
@@ -177,7 +175,12 @@ jobs:
           grep -r '#\[ignore' ./src | grep -v -e '"gh' -e '"wontfix"' && echo 'found ignored tests not linked to a GitHub issue. please like them using the format #[ignore = "gh123"]' && exit 1; true
 
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: "${{ matrix.os }}"
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -191,6 +194,7 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Install dependencies
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update
           sudo apt install libpam0g-dev
