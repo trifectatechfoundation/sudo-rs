@@ -47,10 +47,10 @@ macro_rules! negate_of {
 
 macro_rules! modifier_of {
     ($id:ident, true) => {
-        $crate::defaults::SettingKind::Flag(Box::new(move |obj: &mut Settings| obj.$id = true) as _)
+        $crate::defaults::SettingKind::Flag(Box::new(move |obj: &mut Settings| obj.$id = true))
     };
     ($id:ident, false) => {
-        $crate::defaults::SettingKind::Flag(Box::new(move |obj: &mut Settings| obj.$id = true) as _)
+        $crate::defaults::SettingKind::Flag(Box::new(move |obj: &mut Settings| obj.$id = true))
     };
     ($id:ident, [ $($value: expr),* ]) => {
         $crate::defaults::SettingKind::List(
@@ -62,7 +62,7 @@ macro_rules! modifier_of {
                                       ListMode::Del => for key in list {
                                                            obj.$id.remove(&key);
                                                        },
-                                   }) as _
+                                   })
         )
     };
     ($id:ident, =int $first:literal ..= $last: literal $(@ $radix: literal)?; $value: expr) => {
@@ -72,19 +72,19 @@ macro_rules! modifier_of {
                             .ok()
                             .filter(|val| ($first ..= $last)
                             .contains(val))
-                            .map(|i| Box::new(move |obj: &mut Settings| obj.$id = i) as _)
+                            .map(|i| Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>)
         )
     };
     ($id:ident, =int $fn: expr; $value: expr) => {
         $crate::defaults::SettingKind::Integer(
-            |text| $fn(&text).map(|i| Box::new(move |obj: &mut Settings| obj.$id = i) as _)
+            |text| $fn(&text).map(|i| Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>)
         )
     };
     ($id:ident, $(=int $check: expr;)+ $value: expr) => { compile_error!("bla") };
     ($id:ident, $(=enum $key: ident;)+ $value: ident) => {
         $crate::defaults::SettingKind::Text(|key| match key {
             $(
-            stringify!($key) => { Some(Box::new(move |obj: &mut Settings| obj.$id = $crate::defaults::enums::$id::$key) as _) },
+            stringify!($key) => { Some(Box::new(move |obj: &mut Settings| obj.$id = $crate::defaults::enums::$id::$key)) },
             )*
             _ => None,
         })
@@ -93,7 +93,7 @@ macro_rules! modifier_of {
         $crate::defaults::SettingKind::Text(
             |text| {
                 let text = text.into();
-                Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)) as _)
+                Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)))
             }
         )
     };
@@ -101,7 +101,7 @@ macro_rules! modifier_of {
         $crate::defaults::SettingKind::Text(
             |text| {
                 let text = text.into();
-                Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)) as _)
+                Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)))
             }
         )
     };
