@@ -152,8 +152,13 @@ macro_rules! ifdef {
     };
 }
 
+macro_rules! emit {
+    (ignored; $($def: tt)*) => { };
+    ( ; $($def: tt)*) => { $($def)* };
+}
+
 macro_rules! defaults {
-    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])? $({$fn: expr})?)*) => {
+    ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])? $({$fn: expr})? $(#$attribute:ident)?)*) => {
         #[allow(non_camel_case_types)]
         mod enums {
             $($(
@@ -171,8 +176,10 @@ macro_rules! defaults {
         // we add setters to make sure the settings-object is read only, and to generate 'unused variable' warnings
         impl Settings {
             $(
-            pub fn $name(&self) -> referent_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value) {
-                result_of!(self.$name, $(=value $fn;)?$(=value $first;)?$($(=value $key;)*)? $value)
+            emit! { $($attribute)?;
+                pub fn $name(&self) -> referent_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value) {
+                    result_of!(self.$name, $(=value $fn;)?$(=value $first;)?$($(=value $key;)*)? $value)
+                }
             }
             )*
         }
@@ -215,6 +222,7 @@ macro_rules! defaults {
 }
 
 pub(super) use defaults;
+pub(super) use emit;
 pub(super) use ifdef;
 pub(super) use initializer_of;
 pub(super) use modifier_of;

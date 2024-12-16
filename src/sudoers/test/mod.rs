@@ -250,15 +250,16 @@ fn default_bool_test() {
     let (Sudoers { settings, .. }, _) = analyze(
         Path::new("/etc/fakesudoers"),
         sudoer![
-            "Defaults env_reset",
+            "Defaults env_editor",
             "Defaults !use_pty",
+            "Defaults use_pty",
             "Defaults !env_keep",
             "Defaults !secure_path",
             "Defaults !env_editor"
         ],
     );
-    assert!(settings.env_reset());
-    assert!(!settings.use_pty());
+    assert!(!settings.env_editor());
+    assert!(settings.use_pty());
     assert!(settings.env_keep().is_empty());
     assert_eq!(settings.secure_path(), None);
     assert!(!settings.env_editor());
@@ -302,11 +303,11 @@ fn default_multi_test() {
     let (Sudoers { settings, .. }, _) = analyze(
         Path::new("/etc/fakesudoers"),
         sudoer![
-        "Defaults env_reset, !use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
+        "Defaults !env_editor, use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
     ],
     );
-    assert!(settings.env_reset());
-    assert!(!settings.use_pty());
+    assert!(!settings.env_editor());
+    assert!(settings.use_pty());
     assert_eq!(settings.secure_path(), Some("/etc"));
     assert_eq!(
         settings.env_keep(),

@@ -17,24 +17,25 @@ pub enum SettingKind {
 
 mod settings_dsl;
 use settings_dsl::{
-    defaults, ifdef, initializer_of, modifier_of, negator_of, referent_of, result_of, storage_of,
+    defaults, emit, ifdef, initializer_of, modifier_of, negator_of, referent_of, result_of,
+    storage_of,
 };
 
 defaults! {
-    always_query_group_plugin = false
-    always_set_home           = false
-    env_reset                 = true
-    mail_badpass              = true
-    match_group_by_gid        = false
+    always_query_group_plugin = false  #ignored
+    always_set_home           = false  #ignored
+    env_reset                 = true   #ignored
+    mail_badpass              = true   #ignored
+    match_group_by_gid        = false  #ignored
     use_pty                   = true
-    visiblepw                 = false
+    visiblepw                 = false  #ignored
     env_editor                = true
 
     passwd_tries              = 3 [0..=1000]
 
     secure_path               = None (!= None)
 
-    verifypw                  = all (!= never) [all, always, any, never]
+    verifypw                  = all (!= never) [all, always, any, never] #ignored
 
     timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
 
@@ -49,7 +50,7 @@ defaults! {
                                 "BASHOPTS", "SHELLOPTS", "JAVA_TOOL_OPTIONS", "PERLIO_DEBUG",
                                 "PERLLIB", "PERL5LIB", "PERL5OPT", "PERL5DB", "FPATH", "NULLCMD",
                                 "READNULLCMD", "ZDOTDIR", "TMPPREFIX", "PYTHONHOME", "PYTHONPATH",
-                                "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"]
+                                "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"] #ignored
 }
 
 /// A custom parser to parse seconds as fractional "minutes", the format used by
