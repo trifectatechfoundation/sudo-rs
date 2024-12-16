@@ -1,4 +1,4 @@
-macro_rules! type_of {
+macro_rules! storage_of {
     ($id:ident, true) => { bool };
     ($id:ident, false) => { bool };
     ($id:ident, [ $($value: expr),* ]) => { std::collections::HashSet<String> };
@@ -7,7 +7,16 @@ macro_rules! type_of {
     ($id:ident, $_: expr) => { Option<Box<str>> };
 }
 
-macro_rules! value_of {
+macro_rules! referent_of {
+    ($id:ident, true) => { bool };
+    ($id:ident, false) => { bool };
+    ($id:ident, [ $($value: expr),* ]) => { &std::collections::HashSet<String> };
+    ($id:ident, $(=int $check: expr;)+ $_: expr) => { i64 };
+    ($id:ident, $(=enum $k: ident;)+ $_: ident) => { $crate::defaults::enums::$id };
+    ($id:ident, $_: expr) => { Option<&str> };
+}
+
+macro_rules! initializer_of {
     ($id:ident, true) => { true };
     ($id:ident, false) => { false };
     ($id:ident, [ $($value: expr),* ]) => { [$($value),*].into_iter().map(|s: &str| s.to_string()).collect::<std::collections::HashSet<_>>() };
@@ -18,7 +27,7 @@ macro_rules! value_of {
     ($id:ident, $($_: tt)*) => { ifdef![] };
 }
 
-macro_rules! negate_of {
+macro_rules! negator_of {
     ($id:ident, true) => {
         false
     };
@@ -42,6 +51,24 @@ macro_rules! negate_of {
     };
     ($id:ident, $($_: tt)*) => {
         ifdef![]
+    };
+}
+
+macro_rules! result_of {
+    ($id:expr, true) => {
+        $id
+    };
+    ($id:expr, false) => {
+        $id
+    };
+    ($id:expr, [ $($value: expr),* ]) => {
+        &$id
+    };
+    ($id:expr, $(=value $k: expr;)+ $_: expr) => {
+        $id
+    };
+    ($id:expr, $_: expr) => {
+        $id.as_deref()
     };
 }
 
@@ -130,7 +157,7 @@ macro_rules! defaults {
         #[allow(non_camel_case_types)]
         mod enums {
             $($(
-                #[derive(Clone,Debug)]
+                #[derive(Clone,Copy,Debug)]
                 #[cfg_attr(test, derive(PartialEq, Eq))]
                 pub enum $name { $($key),* }
             )?)*
@@ -138,14 +165,23 @@ macro_rules! defaults {
 
         #[derive(Clone)]
         pub struct Settings {
-            $(pub $name: type_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)),*
+            $($name: storage_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)),*
+        }
+
+        // we add setters to make sure the settings-object is read only, and to generate 'unused variable' warnings
+        impl Settings {
+            $(
+            pub fn $name(&self) -> referent_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value) {
+                result_of!(self.$name, $(=value $fn;)?$(=value $first;)?$($(=value $key;)*)? $value)
+            }
+            )*
         }
 
         impl Default for Settings {
             #[allow(unused_parens)]
             fn default() -> Self {
                 Self {
-                    $($name: value_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)),*
+                    $($name: initializer_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)),*
                 }
             }
         }
@@ -157,8 +193,8 @@ macro_rules! defaults {
                 $(
                 stringify!($name) if ifdef!($($negate)?; true; false) || matches!(stringify!($value), "true" | "false") || stringify!($value).starts_with('[') => {
                     let _value = ifdef!($($negate)?;
-                        value_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $($negate)?);
-                        negate_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)
+                        initializer_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $($negate)?);
+                        negator_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)
                     );
                     Some(Box::new(move |obj: &mut Settings| obj.$name = _value))
                 },
@@ -180,7 +216,9 @@ macro_rules! defaults {
 
 pub(super) use defaults;
 pub(super) use ifdef;
+pub(super) use initializer_of;
 pub(super) use modifier_of;
-pub(super) use negate_of;
-pub(super) use type_of;
-pub(super) use value_of;
+pub(super) use negator_of;
+pub(super) use referent_of;
+pub(super) use result_of;
+pub(super) use storage_of;

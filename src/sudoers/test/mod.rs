@@ -257,11 +257,11 @@ fn default_bool_test() {
             "Defaults !env_editor"
         ],
     );
-    assert!(settings.env_reset);
-    assert!(!settings.use_pty);
-    assert!(settings.env_keep.is_empty());
-    assert_eq!(settings.secure_path, None);
-    assert!(!settings.env_editor);
+    assert!(settings.env_reset());
+    assert!(!settings.use_pty());
+    assert!(settings.env_keep().is_empty());
+    assert_eq!(settings.secure_path(), None);
+    assert!(!settings.env_editor());
 }
 
 #[test]
@@ -279,18 +279,18 @@ fn default_set_test() {
         ],
     );
     assert_eq!(
-        settings.env_keep,
-        ["FOO", "BAR"].into_iter().map(|x| x.to_string()).collect()
+        settings.env_keep(),
+        &["FOO", "BAR"].into_iter().map(|x| x.to_string()).collect()
     );
     assert_eq!(
-        settings.env_check,
-        ["FOO", "XYZZY"]
+        settings.env_check(),
+        &["FOO", "XYZZY"]
             .into_iter()
             .map(|x| x.to_string())
             .collect()
     );
-    assert_eq!(settings.secure_path.as_deref(), Some("/etc"));
-    assert_eq!(settings.passwd_tries, 5);
+    assert_eq!(settings.secure_path(), Some("/etc"));
+    assert_eq!(settings.passwd_tries(), 5);
 
     assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
@@ -305,10 +305,13 @@ fn default_multi_test() {
         "Defaults env_reset, !use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
     ],
     );
-    assert!(settings.env_reset);
-    assert!(!settings.use_pty);
-    assert_eq!(settings.secure_path.as_deref(), Some("/etc"));
-    assert_eq!(settings.env_keep, ["FOO".to_string()].into_iter().collect());
+    assert!(settings.env_reset());
+    assert!(!settings.use_pty());
+    assert_eq!(settings.secure_path(), Some("/etc"));
+    assert_eq!(
+        settings.env_keep(),
+        &["FOO".to_string()].into_iter().collect()
+    );
 }
 
 #[test]

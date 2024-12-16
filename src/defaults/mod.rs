@@ -16,7 +16,9 @@ pub enum SettingKind {
 }
 
 mod settings_dsl;
-use settings_dsl::{defaults, ifdef, modifier_of, negate_of, type_of, value_of};
+use settings_dsl::{
+    defaults, ifdef, initializer_of, modifier_of, negator_of, referent_of, result_of, storage_of,
+};
 
 defaults! {
     always_query_group_plugin = false

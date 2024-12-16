@@ -188,7 +188,7 @@ impl Sudoers {
     }
 
     pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
-        if self.settings.env_editor {
+        if self.settings.env_editor() {
             for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
                 if let Some(var) = std::env::var_os(key) {
                     let path = Path::new(&var);
