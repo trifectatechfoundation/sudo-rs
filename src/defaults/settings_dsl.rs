@@ -27,33 +27,6 @@ macro_rules! initializer_of {
     ($id:ident, $($_: tt)*) => { ifdef![] };
 }
 
-macro_rules! negator_of {
-    ($id:ident, true) => {
-        false
-    };
-    ($id:ident, false) => {
-        false
-    };
-    ($id:ident, [ $($value: expr),* ]) => {
-        std::collections::HashSet::new()
-    };
-    ($id:ident, $(=int $check: expr;)+ $value: expr) => {
-        ifdef![]
-    };
-    ($id:ident, $(=enum $k: ident;)+ $value: ident) => {
-        ifdef![]
-    };
-    ($id:ident, None) => {
-        ifdef![]
-    };
-    ($id:ident, $value: expr) => {
-        ifdef![]
-    };
-    ($id:ident, $($_: tt)*) => {
-        ifdef![]
-    };
-}
-
 macro_rules! result_of {
     ($id:expr, true) => {
         $id
@@ -134,6 +107,21 @@ macro_rules! modifier_of {
     };
 }
 
+macro_rules! has_standard_negator {
+    (true) => {
+        true
+    };
+    (false) => {
+        true
+    };
+    ([$($_: expr),*]) => {
+        true
+    };
+    ($($_: tt)*) => {
+        false
+    };
+}
+
 // this macro allows us to help the compiler generate more efficient code in 'fn negate'
 // and enables the way 'fn set' is made
 macro_rules! ifdef {
@@ -162,9 +150,9 @@ macro_rules! defaults {
         #[allow(non_camel_case_types)]
         mod enums {
             $($(
-                #[derive(Clone,Copy,Debug)]
+                #[derive(Clone,Copy,Debug,Default)]
                 #[cfg_attr(test, derive(PartialEq, Eq))]
-                pub enum $name { $($key),* }
+                pub enum $name { #[default] $($key),* }
             )?)*
         }
 
@@ -198,12 +186,14 @@ macro_rules! defaults {
         pub fn negate(name: &str) -> Option<SettingsModifier> {
             match name {
                 $(
-                stringify!($name) if ifdef!($($negate)?; true; false) || matches!(stringify!($value), "true" | "false") || stringify!($value).starts_with('[') => {
-                    let _value = ifdef!($($negate)?;
+                stringify!($name) if ifdef!($($negate)?; true; has_standard_negator!($value)) => {
+                    let value = ifdef!($($negate)?;
+                        // this setting has an explicit negation; use that
                         initializer_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $($negate)?);
-                        negator_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)
+                        // for bool and sets, false/empty works (for other types this is dead code)
+                        Default::default()
                     );
-                    Some(Box::new(move |obj: &mut Settings| obj.$name = _value))
+                    Some(Box::new(move |obj: &mut Settings| obj.$name = value))
                 },
                 )*
                 _ => None
@@ -223,10 +213,10 @@ macro_rules! defaults {
 
 pub(super) use defaults;
 pub(super) use emit;
+pub(super) use has_standard_negator;
 pub(super) use ifdef;
 pub(super) use initializer_of;
 pub(super) use modifier_of;
-pub(super) use negator_of;
 pub(super) use referent_of;
 pub(super) use result_of;
 pub(super) use storage_of;

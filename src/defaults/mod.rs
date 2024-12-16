@@ -17,8 +17,8 @@ pub enum SettingKind {
 
 mod settings_dsl;
 use settings_dsl::{
-    defaults, emit, ifdef, initializer_of, modifier_of, negator_of, referent_of, result_of,
-    storage_of,
+    defaults, emit, has_standard_negator, ifdef, initializer_of, modifier_of, referent_of,
+    result_of, storage_of,
 };
 
 defaults! {
