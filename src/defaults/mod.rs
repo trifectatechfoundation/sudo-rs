@@ -1,41 +1,41 @@
 #![forbid(unsafe_code)]
-// FUTURE IDEA: use a representation that allows for more Rust-type structure rather than passing
-// strings around; some settings in sudoers file are more naturally represented like that, such as
-// "verifypw" and "logfile"
-pub enum SudoDefault {
-    Flag(bool),
-    Integer(OptTuple<i64>, fn(&str) -> Option<i64>),
-    Text(OptTuple<Option<&'static str>>),
-    List(&'static [&'static str]),
-    Enum(OptTuple<StrEnum<'static>>),
+pub type SettingsModifier = Box<dyn FnOnce(&mut Settings)>;
+
+pub enum ListMode {
+    Set,
+    Add,
+    Del,
 }
 
-#[derive(Debug)]
-pub struct OptTuple<T> {
-    pub default: T,
-    pub negated: Option<T>,
+#[repr(u32)]
+pub enum SettingKind {
+    Flag(SettingsModifier) = crate::common::HARDENED_ENUM_VALUE_0,
+    Integer(fn(&str) -> Option<SettingsModifier>) = crate::common::HARDENED_ENUM_VALUE_1,
+    Text(fn(&str) -> Option<SettingsModifier>) = crate::common::HARDENED_ENUM_VALUE_2,
+    List(fn(ListMode, Vec<String>) -> SettingsModifier) = crate::common::HARDENED_ENUM_VALUE_3,
 }
-
-mod strenum;
-pub use strenum::StrEnum;
 
 mod settings_dsl;
-use settings_dsl::*;
+use settings_dsl::{
+    defaults, emit, has_standard_negator, ifdef, initializer_of, modifier_of, referent_of,
+    result_of, storage_of,
+};
 
 defaults! {
-    always_query_group_plugin = false
-    always_set_home           = false
-    env_reset                 = true
-    mail_badpass              = true
-    match_group_by_gid        = false
+    always_query_group_plugin = false  #ignored
+    always_set_home           = false  #ignored
+    env_reset                 = true   #ignored
+    mail_badpass              = true   #ignored
+    match_group_by_gid        = false  #ignored
     use_pty                   = true
-    visiblepw                 = false
+    visiblepw                 = false  #ignored
     env_editor                = true
 
     passwd_tries              = 3 [0..=1000]
 
     secure_path               = None (!= None)
-    verifypw                  = "all" (!= "never") [all, always, any, never]
+
+    verifypw                  = all (!= never) [all, always, any, never] #ignored
 
     timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
 
@@ -50,7 +50,7 @@ defaults! {
                                 "BASHOPTS", "SHELLOPTS", "JAVA_TOOL_OPTIONS", "PERLIO_DEBUG",
                                 "PERLLIB", "PERL5LIB", "PERL5OPT", "PERL5DB", "FPATH", "NULLCMD",
                                 "READNULLCMD", "ZDOTDIR", "TMPPREFIX", "PYTHONHOME", "PYTHONPATH",
-                                "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"]
+                                "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"] #ignored
 }
 
 /// A custom parser to parse seconds as fractional "minutes", the format used by
@@ -67,42 +67,70 @@ fn fractional_minutes(input: &str) -> Option<i64> {
 mod test {
     use super::*;
 
+    #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn check() {
-        macro_rules! test {
-            ($name:ident => $value:pat) => {
-                let Some(foo @ $value) = sudo_default(stringify!($name)) else {
-                    unreachable!()
-                };
-                if let SudoDefault::Enum(OptTuple { default, negated }) = foo {
-                    assert!(default
-                        .possible_values
-                        .iter()
-                        .any(|x| *x as *const str == default.get()));
-                    negated.map(|neg| assert!(neg.possible_values.contains(&neg.get())));
-                }
-            };
-        }
-        assert!(sudo_default("bla").is_none());
+        let mut def = Settings::default();
+        assert_eq! { def.always_query_group_plugin, false };
+        assert_eq! { def.always_set_home, false };
+        assert_eq! { def.env_reset, true };
+        assert_eq! { def.mail_badpass, true };
+        assert_eq! { def.match_group_by_gid, false };
+        assert_eq! { def.use_pty, true };
+        assert_eq! { def.visiblepw, false };
+        assert_eq! { def.env_editor, true };
+        assert_eq! { def.passwd_tries, 3 };
+        assert_eq! { def.secure_path, None };
+        assert_eq! { def.env_check, ["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"].iter().map(|s| s.to_string()).collect() };
+        assert_eq! { def.verifypw, enums::verifypw::all };
 
-        use SudoDefault::*;
+        negate("env_check").unwrap()(&mut def);
+        negate("env_reset").unwrap()(&mut def);
+        negate("secure_path").unwrap()(&mut def);
+        negate("verifypw").unwrap()(&mut def);
+        assert_eq! { def.always_query_group_plugin, false };
+        assert_eq! { def.always_set_home, false };
+        assert_eq! { def.env_reset, false };
+        assert_eq! { def.mail_badpass, true };
+        assert_eq! { def.match_group_by_gid, false };
+        assert_eq! { def.use_pty, true };
+        assert_eq! { def.visiblepw, false };
+        assert_eq! { def.env_editor, true };
+        assert_eq! { def.passwd_tries, 3 };
+        assert_eq! { def.secure_path, None };
+        assert! { def.env_check.is_empty() };
+        assert_eq! { def.verifypw, enums::verifypw::never };
 
-        test! { always_query_group_plugin => Flag(false) };
-        test! { always_set_home => Flag(false) };
-        test! { env_reset => Flag(true) };
-        test! { mail_badpass => Flag(true) };
-        test! { match_group_by_gid => Flag(false) };
-        test! { use_pty => Flag(true) };
-        test! { visiblepw => Flag(false) };
-        test! { env_editor => Flag(true) };
-        test! { passwd_tries => Integer(OptTuple { default: 3, negated: None }, _) };
-        test! { secure_path => Text(OptTuple { default: None, negated: Some(None) }) };
-        test! { env_keep => List(_) };
-        test! { env_check => List(["COLORTERM", "LANG", "LANGUAGE", "LC_*", "LINGUAS", "TERM", "TZ"]) };
-        test! { env_delete => List(_) };
-        test! { verifypw => Enum(OptTuple { default: StrEnum { value: "all", possible_values: [_, "always", "any", _] }, negated: Some(StrEnum { value: "never", .. }) }) };
+        let SettingKind::Flag(f) = set("env_reset").unwrap() else {
+            panic!()
+        };
+        f(&mut def);
+        let SettingKind::Text(f) = set("secure_path").unwrap() else {
+            panic!()
+        };
+        f("/bin").unwrap()(&mut def);
+        let SettingKind::Integer(f) = set("passwd_tries").unwrap() else {
+            panic!()
+        };
+        f("5").unwrap()(&mut def);
+        let SettingKind::Text(f) = set("verifypw").unwrap() else {
+            panic!()
+        };
+        f("any").unwrap()(&mut def);
+        assert_eq! { def.always_query_group_plugin, false };
+        assert_eq! { def.always_set_home, false };
+        assert_eq! { def.env_reset, true };
+        assert_eq! { def.mail_badpass, true };
+        assert_eq! { def.match_group_by_gid, false };
+        assert_eq! { def.use_pty, true };
+        assert_eq! { def.visiblepw, false };
+        assert_eq! { def.env_editor, true };
+        assert_eq! { def.passwd_tries, 5 };
+        assert_eq! { def.secure_path, Some("/bin".into()) };
+        assert! { def.env_check.is_empty() };
+        assert_eq! { def.verifypw, enums::verifypw::any };
 
-        let myenum = StrEnum::new("hello", &["hello", "goodbye"]).unwrap();
-        assert!(&myenum as &str == "hello");
+        assert!(set("notanoption").is_none());
+        assert!(f("notanoption").is_none());
     }
 }

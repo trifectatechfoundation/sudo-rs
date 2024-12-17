@@ -250,18 +250,19 @@ fn default_bool_test() {
     let (Sudoers { settings, .. }, _) = analyze(
         Path::new("/etc/fakesudoers"),
         sudoer![
-            "Defaults env_reset",
+            "Defaults env_editor",
             "Defaults !use_pty",
+            "Defaults use_pty",
             "Defaults !env_keep",
             "Defaults !secure_path",
             "Defaults !env_editor"
         ],
     );
-    assert!(settings.flags.contains("env_reset"));
-    assert!(!settings.flags.contains("use_pty"));
-    assert!(settings.list["env_keep"].is_empty());
-    assert_eq!(settings.str_value["secure_path"], None);
-    assert!(!settings.flags.contains("env_editor"));
+    assert!(!settings.env_editor());
+    assert!(settings.use_pty());
+    assert!(settings.env_keep().is_empty());
+    assert_eq!(settings.secure_path(), None);
+    assert!(!settings.env_editor());
 }
 
 #[test]
@@ -279,18 +280,18 @@ fn default_set_test() {
         ],
     );
     assert_eq!(
-        settings.list["env_keep"],
-        ["FOO", "BAR"].into_iter().map(|x| x.to_string()).collect()
+        settings.env_keep(),
+        &["FOO", "BAR"].into_iter().map(|x| x.to_string()).collect()
     );
     assert_eq!(
-        settings.list["env_check"],
-        ["FOO", "XYZZY"]
+        settings.env_check(),
+        &["FOO", "XYZZY"]
             .into_iter()
             .map(|x| x.to_string())
             .collect()
     );
-    assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));
-    assert_eq!(settings.int_value["passwd_tries"], 5);
+    assert_eq!(settings.secure_path(), Some("/etc"));
+    assert_eq!(settings.passwd_tries(), 5);
 
     assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
@@ -302,15 +303,15 @@ fn default_multi_test() {
     let (Sudoers { settings, .. }, _) = analyze(
         Path::new("/etc/fakesudoers"),
         sudoer![
-        "Defaults env_reset, !use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
+        "Defaults !env_editor, use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
     ],
     );
-    assert!(settings.flags.contains("env_reset"));
-    assert!(!settings.flags.contains("use_pty"));
-    assert_eq!(settings.str_value["secure_path"].as_deref(), Some("/etc"));
+    assert!(!settings.env_editor());
+    assert!(settings.use_pty());
+    assert_eq!(settings.secure_path(), Some("/etc"));
     assert_eq!(
-        settings.list["env_keep"],
-        ["FOO".to_string()].into_iter().collect()
+        settings.env_keep(),
+        &["FOO".to_string()].into_iter().collect()
     );
 }
 
