@@ -347,11 +347,13 @@ impl Parse for MetaOrTag {
         };
 
         let result: Modifier = match keyword.as_str() {
+            // we do not support these, and that should make sudo-rs "fail safe"
             "INTERCEPT" | "NOEXEC" => unrecoverable!(
                 pos = start_pos,
                 stream,
                 "NOEXEC and INTERCEPT are not supported by sudo-rs"
             ),
+            // this is less fatal
             "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL" => {
                 eprintln_ignore_io_error!(
                     "warning: {} tags are ignored by sudo-rs",
@@ -375,6 +377,17 @@ impl Parse for MetaOrTag {
                 let path: ChDir = expect_nonterminal(stream)?;
                 Box::new(move |tag| tag.cwd = Some(path.clone()))
             }
+            // we do not support these, and that should make sudo-rs "fail safe"
+            spec @ ("CHROOT" | "TIMEOUT" | "NOTBEFORE" | "NOTAFTER") => unrecoverable!(
+                pos = start_pos,
+                stream,
+                "{spec} is not supported by sudo-rs"
+            ),
+            "ROLE" | "TYPE" => unrecoverable!(
+                pos = start_pos,
+                stream,
+                "role based access control is not yet supported by sudo-rs"
+            ),
 
             "ALL" => return make(MetaOrTag(All)),
             alias => return make(MetaOrTag(Alias(alias.to_string()))),
