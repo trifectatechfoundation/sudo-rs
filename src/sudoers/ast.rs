@@ -81,13 +81,16 @@ pub enum Authenticate {
     Nopasswd = HARDENED_ENUM_VALUE_2,
 }
 
-// A type that represents a hardened bool
-type EnvironmentControl = Qualified<()>;
-
-impl Default for EnvironmentControl {
-    fn default() -> Self {
-        Qualified::Forbid(())
-    }
+#[derive(Copy, Clone, Default, PartialEq)]
+#[cfg_attr(test, derive(Debug, Eq))]
+#[repr(u32)]
+pub enum EnvironmentControl {
+    #[default]
+    Implicit = HARDENED_ENUM_VALUE_0,
+    // PASSWD:
+    Setenv = HARDENED_ENUM_VALUE_1,
+    // NOPASSWD:
+    Nosetenv = HARDENED_ENUM_VALUE_2,
 }
 
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
@@ -105,7 +108,7 @@ impl Tag {
     }
 
     pub fn allows_setenv(&self) -> bool {
-        self.env == Qualified::Allow(())
+        matches!(self.env, EnvironmentControl::Setenv)
     }
 }
 
@@ -381,8 +384,8 @@ impl Parse for MetaOrTag {
             // a parse error elsewhere. 'EXEC' and 'NOINTERCEPT' are the default behaviour.
             "FOLLOW" | "NOFOLLOW" | "EXEC" | "NOINTERCEPT" => switch(|_| {})?,
 
-            "SETENV" => switch(|tag| tag.env = Qualified::Allow(()))?,
-            "NOSETENV" => switch(|tag| tag.env = Qualified::Forbid(()))?,
+            "SETENV" => switch(|tag| tag.env = EnvironmentControl::Setenv)?,
+            "NOSETENV" => switch(|tag| tag.env = EnvironmentControl::Nosetenv)?,
             "PASSWD" => switch(|tag| tag.authenticate = Authenticate::Passwd)?,
             "NOPASSWD" => switch(|tag| tag.authenticate = Authenticate::Nopasswd)?,
 

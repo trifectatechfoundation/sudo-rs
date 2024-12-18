@@ -348,7 +348,16 @@ fn distribute_tags(
                 f(tag);
             }
 
-            Some((last_runas, (tag.clone(), cmd)))
+            let this_tag = match cmd {
+                Qualified::Allow(Meta::All) if tag.env != EnvironmentControl::Nosetenv => Tag {
+                    // "ALL" has an implicit "SETENV" that doesn't distribute
+                    env: EnvironmentControl::Setenv,
+                    ..tag.clone()
+                },
+                _ => tag.clone(),
+            };
+
+            Some((last_runas, (this_tag, cmd)))
         },
     )
 }
