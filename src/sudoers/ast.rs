@@ -8,7 +8,8 @@ use crate::common::{
 };
 
 /// The Sudoers file allows negating items with the exclamation mark.
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[cfg_attr(test, derive(Debug, Eq))]
+#[derive(Clone, PartialEq)]
 #[repr(u32)]
 pub enum Qualified<T> {
     Allow(T) = HARDENED_ENUM_VALUE_0,
@@ -80,17 +81,34 @@ pub enum Authenticate {
     Nopasswd = HARDENED_ENUM_VALUE_2,
 }
 
+#[derive(Copy, Clone, Default, PartialEq)]
+#[cfg_attr(test, derive(Debug, Eq))]
+#[repr(u32)]
+pub enum EnvironmentControl {
+    #[default]
+    Implicit = HARDENED_ENUM_VALUE_0,
+    // PASSWD:
+    Setenv = HARDENED_ENUM_VALUE_1,
+    // NOPASSWD:
+    Nosetenv = HARDENED_ENUM_VALUE_2,
+}
+
 /// Commands in /etc/sudoers can have attributes attached to them, such as NOPASSWD, NOEXEC, ...
 #[derive(Default, Clone, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
 pub struct Tag {
-    pub authenticate: Authenticate,
-    pub cwd: Option<ChDir>,
+    pub(super) authenticate: Authenticate,
+    pub(super) cwd: Option<ChDir>,
+    pub(super) env: EnvironmentControl,
 }
 
 impl Tag {
     pub fn needs_passwd(&self) -> bool {
         matches!(self.authenticate, Authenticate::None | Authenticate::Passwd)
+    }
+
+    pub fn allows_setenv(&self) -> bool {
+        matches!(self.env, EnvironmentControl::Setenv)
     }
 }
 
@@ -337,6 +355,8 @@ pub type Modifier = Box<dyn Fn(&mut Tag)>;
 impl Parse for MetaOrTag {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         use Meta::*;
+
+        let start_pos = stream.get_pos();
         let AliasName(keyword) = try_nonterminal(stream)?;
 
         let mut switch = |modifier: fn(&mut Tag)| {
@@ -345,13 +365,47 @@ impl Parse for MetaOrTag {
         };
 
         let result: Modifier = match keyword.as_str() {
+            // we do not support these, and that should make sudo-rs "fail safe"
+            "INTERCEPT" | "NOEXEC" => unrecoverable!(
+                pos = start_pos,
+                stream,
+                "NOEXEC and INTERCEPT are not supported by sudo-rs"
+            ),
+            // this is less fatal
+            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL" => {
+                eprintln_ignore_io_error!(
+                    "warning: {} tags are ignored by sudo-rs",
+                    keyword.as_str()
+                );
+                switch(|_| {})?
+            }
+
+            // 'FOLLOW' and 'NOFOLLOW' are only usable in a sudoedit context, which will result in
+            // a parse error elsewhere. 'EXEC' and 'NOINTERCEPT' are the default behaviour.
+            "FOLLOW" | "NOFOLLOW" | "EXEC" | "NOINTERCEPT" => switch(|_| {})?,
+
+            "SETENV" => switch(|tag| tag.env = EnvironmentControl::Setenv)?,
+            "NOSETENV" => switch(|tag| tag.env = EnvironmentControl::Nosetenv)?,
             "PASSWD" => switch(|tag| tag.authenticate = Authenticate::Passwd)?,
             "NOPASSWD" => switch(|tag| tag.authenticate = Authenticate::Nopasswd)?,
+
             "CWD" => {
                 expect_syntax('=', stream)?;
                 let path: ChDir = expect_nonterminal(stream)?;
                 Box::new(move |tag| tag.cwd = Some(path.clone()))
             }
+            // we do not support these, and that should make sudo-rs "fail safe"
+            spec @ ("CHROOT" | "TIMEOUT" | "NOTBEFORE" | "NOTAFTER") => unrecoverable!(
+                pos = start_pos,
+                stream,
+                "{spec} is not supported by sudo-rs"
+            ),
+            "ROLE" | "TYPE" => unrecoverable!(
+                pos = start_pos,
+                stream,
+                "role based access control is not yet supported by sudo-rs"
+            ),
+
             "ALL" => return make(MetaOrTag(All)),
             alias => return make(MetaOrTag(Alias(alias.to_string()))),
         };

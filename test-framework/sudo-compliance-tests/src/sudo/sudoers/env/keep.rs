@@ -253,19 +253,42 @@ fn checks_not_applied() -> Result<()> {
 fn can_set_from_commandline() -> Result<()> {
     let name = "CAN_BE_SET";
     let value = "4%2";
-    let env = Env([
-        "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env",
-        &format!("Defaults env_keep = {name}"),
-    ])
-    .build()?;
+    for sudoers in [
+        [
+            "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env",
+            &format!("Defaults env_keep = {name}"),
+        ],
+        [
+            // SETENV overrides checks
+            "ALL ALL=(ALL:ALL) NOPASSWD: SETENV: /usr/bin/env",
+            &format!("Defaults env_delete = {name}"),
+        ],
+        [
+            // ALL has an implicit SETENV
+            "ALL ALL=(ALL:ALL) NOPASSWD: ALL",
+            &format!("Defaults env_delete = {name}"),
+        ],
+        [
+            // SETENV is sticky
+            "ALL ALL=(ALL:ALL) NOPASSWD: SETENV: /bin/ls, (ALL:ALL) /usr/bin/env",
+            &format!("Defaults env_delete = {name}"),
+        ],
+        [
+            // ordering can be important (see below)
+            "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env, ALL",
+            "",
+        ]
+    ] {
+        let env = Env(sudoers).build()?;
 
-    let stdout = Command::new("sudo")
-        .args([format!("{name}={value}"), "env".to_string()])
-        .output(&env)?
-        .stdout()?;
-    let sudo_env = helpers::parse_env_output(&stdout)?;
+        let stdout = Command::new("sudo")
+            .args([format!("{name}={value}"), "env".to_string()])
+            .output(&env)?
+            .stdout()?;
+        let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert_eq!(Some(value), sudo_env.get(name).copied());
+        assert_eq!(Some(value), sudo_env.get(name).copied());
+    }
 
     Ok(())
 }
@@ -274,17 +297,45 @@ fn can_set_from_commandline() -> Result<()> {
 fn cannot_set_from_commandline() -> Result<()> {
     let name = "CANNOT_BE_SET";
     let value = "42";
-    let env = Env(["ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env"]).build()?;
 
-    let output = Command::new("sudo")
+    for sudoers in [
+        ["ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env"],
+        ["ALL ALL=(ALL:ALL) NOPASSWD: NOSETENV: /usr/bin/env"],
+        ["ALL ALL=(ALL:ALL) NOPASSWD: NOSETENV: ALL"],
+        ["ALL ALL=(ALL:ALL) NOPASSWD: NOSETENV: ALL, (ALL:ALL) /usr/bin/env"],
+        ["ALL ALL=(ALL:ALL) NOPASSWD: ALL, /usr/bin/env"],
+    ] {
+        let env = Env(sudoers).build()?;
+
+        let output = Command::new("sudo")
+            .args([format!("{name}={value}"), "env".to_string()])
+            .output(&env)?;
+
+        assert_eq!(Some(1), output.status().code());
+        assert_contains!(
+            output.stderr(),
+            format!("you are not allowed to set the following environment variables: {name}")
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "gh760"]
+fn can_surprisingly_be_set_from_commandline() -> Result<()> {
+    let name = "CAN_BE_SET";
+    let value = "42";
+
+    let env = Env(["ALL ALL=(ALL:ALL) NOPASSWD: NOSETENV: /usr/bin/env, ALL"]).build()?;
+
+    let stdout = Command::new("sudo")
         .args([format!("{name}={value}"), "env".to_string()])
-        .output(&env)?;
+        .output(&env)?
+        .stdout()?;
+    let sudo_env = helpers::parse_env_output(&stdout)?;
 
-    assert_eq!(Some(1), output.status().code());
-    assert_contains!(
-        output.stderr(),
-        format!("you are not allowed to set the following environment variables: {name}")
-    );
+    assert_eq!(Some(value), sudo_env.get(name).copied());
 
     Ok(())
 }
