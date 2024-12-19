@@ -276,8 +276,15 @@ pub fn set_target_user(
 ) {
     use std::os::unix::process::CommandExt;
 
-    // add target group to list of additional groups if not present
-    if !target_user.groups.contains(&target_group.gid) {
+    if let Some(index) = target_user
+        .groups
+        .iter()
+        .position(|id| id == &target_group.gid)
+    {
+        // make sure the requested group id is the first in the list (necessary on FreeBSD)
+        target_user.groups.swap(0, index)
+    } else {
+        // add target group to list of additional groups if not present
         target_user.groups.insert(0, target_group.gid);
     }
 
