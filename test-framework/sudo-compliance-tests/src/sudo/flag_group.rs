@@ -78,6 +78,38 @@ fn adds_group_to_groups_output() -> Result<()> {
 }
 
 #[test]
+fn supplementary_groups_can_be_made_primary() -> Result<()> {
+    let extra_group = "rustaceans";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(User(USERNAME).secondary_group(extra_group))
+        .group(Group(extra_group))
+        .group("secondary-group")
+        .build()?;
+
+    let stdout = Command::new("groups")
+        .as_user(USERNAME)
+        .output(&env)?
+        .stdout()?;
+    let mut groups_without_sudo = stdout.split_ascii_whitespace().collect::<Vec<_>>();
+
+    let stdout = Command::new("sudo")
+        .args(["-g", extra_group, "groups"])
+        .as_user(USERNAME)
+        .output(&env)?
+        .stdout()?;
+
+    let mut groups_with_sudo = stdout.split_ascii_whitespace().collect::<Vec<_>>();
+
+    assert_eq!(groups_with_sudo[0], extra_group);
+
+    groups_without_sudo.sort();
+    groups_with_sudo.sort();
+    assert_eq!(groups_with_sudo, groups_without_sudo);
+
+    Ok(())
+}
+
+#[test]
 fn group_can_be_specified_by_id() -> Result<()> {
     let expected_gid = 1234;
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
