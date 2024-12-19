@@ -150,12 +150,15 @@ pub fn attempt_authenticate<C: Converser>(
             }
 
             // there was an authentication error, we can retry
-            Err(PamError::Pam(PamErrorType::AuthError | PamErrorType::ConversationError, _)) => {
+            Err(PamError::Pam(
+                err_type @ (PamErrorType::AuthError | PamErrorType::ConversationError),
+                _,
+            )) => {
                 max_tries -= 1;
-                if max_tries == 0 {
-                    return Err(Error::MaxAuthAttempts(current_try));
-                } else if non_interactive {
+                if non_interactive || err_type == PamErrorType::ConversationError {
                     return Err(Error::InteractionRequired);
+                } else if max_tries == 0 {
+                    return Err(Error::MaxAuthAttempts(current_try));
                 } else {
                     user_warn!("Authentication failed, try again.");
                 }
