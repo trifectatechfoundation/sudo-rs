@@ -278,7 +278,7 @@ pub fn set_target_user(
 
     // add target group to list of additional groups if not present
     if !target_user.groups.contains(&target_group.gid) {
-        target_user.groups.push(target_group.gid);
+        target_user.groups.insert(0, target_group.gid);
     }
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
