@@ -112,7 +112,7 @@ impl SuContext {
 
             // last argument is the primary group
             group = primary_group.clone();
-            user.groups.push(primary_group.gid);
+            user.groups.insert(0, primary_group.gid);
         }
 
         // add additional group if current user is root
