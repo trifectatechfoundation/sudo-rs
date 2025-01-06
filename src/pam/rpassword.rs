@@ -168,7 +168,6 @@ fn read_unbuffered_with_feedback(
         }
     }
 
-
     Ok(password)
 }
 
@@ -209,16 +208,11 @@ impl Terminal<'_> {
 
     /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
     pub fn read_password_with_feedback(&mut self) -> io::Result<PamBuffer> {
-        let (source, sink) = match self {
-            Terminal::StdIE(x, y) => (x as &mut dyn io::Read, y as &mut dyn io::Write),
-            Terminal::Tty(x) => (
-                &mut &*x as &mut dyn io::Read,
-                &mut &*x as &mut dyn io::Write,
-            ),
-        };
-
         if let Some(hide_input) = HiddenInput::new(true)? {
-            read_unbuffered_with_feedback(source, sink, &hide_input)
+            match self {
+                Terminal::StdIE(x, y) => read_unbuffered_with_feedback(x, y, &hide_input),
+                Terminal::Tty(x) => read_unbuffered_with_feedback(&mut &*x, &mut &*x, &hide_input),
+            }
         } else {
             read_unbuffered(self.source())
         }
