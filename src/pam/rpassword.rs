@@ -14,7 +14,7 @@
 ///   (although much more robust than in the original code)
 ///
 use std::io::{self, Error, ErrorKind, Read};
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd};
 use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
@@ -36,13 +36,12 @@ impl HiddenInput {
             // if we have nothing to show, we have nothing to hide
             return Ok(None);
         };
-        let fd = tty.as_raw_fd();
 
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
         // terminal back to its original state.
-        let mut term = safe_tcgetattr(fd)?;
-        let term_orig = safe_tcgetattr(fd)?;
+        let mut term = safe_tcgetattr(&tty)?;
+        let term_orig = safe_tcgetattr(&tty)?;
 
         // Hide the password. This is what makes this function useful.
         term.c_lflag &= !ECHO;
@@ -52,7 +51,7 @@ impl HiddenInput {
 
         // Save the settings for now.
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
-        cerr(unsafe { tcsetattr(fd, TCSANOW, &term) })?;
+        cerr(unsafe { tcsetattr(tty.as_raw_fd(), TCSANOW, &term) })?;
 
         Ok(Some(HiddenInput { tty, term_orig }))
     }
@@ -68,10 +67,10 @@ impl Drop for HiddenInput {
     }
 }
 
-fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
+fn safe_tcgetattr(tty: impl AsFd) -> io::Result<termios> {
     let mut term = mem::MaybeUninit::<termios>::uninit();
     // SAFETY: we are passing tcgetattr a pointer to valid memory
-    cerr(unsafe { ::libc::tcgetattr(fd, term.as_mut_ptr()) })?;
+    cerr(unsafe { ::libc::tcgetattr(tty.as_fd().as_raw_fd(), term.as_mut_ptr()) })?;
     // SAFETY: if the previous call was a success, `tcgetattr` has initialized `term`
     Ok(unsafe { term.assume_init() })
 }
