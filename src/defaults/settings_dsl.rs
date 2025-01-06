@@ -24,7 +24,7 @@ macro_rules! initializer_of {
     ($id:ident, $(=enum $k: ident;)+ $value: ident) => { $crate::defaults::enums::$id::$value };
     ($id:ident, None) => { None };
     ($id:ident, $value: expr) => { Some($value.into()) };
-    ($id:ident, $($_: tt)*) => { ifdef![] };
+    ($id:ident, $($_: tt)*) => { return None };
 }
 
 macro_rules! result_of {
@@ -130,13 +130,6 @@ macro_rules! ifdef {
     };
     ($($_: expr)+; $then: expr; $else: expr) => {
         $then
-    };
-
-    () => {
-        return None
-    };
-    ($body: expr) => {
-        $body
     };
 }
 
