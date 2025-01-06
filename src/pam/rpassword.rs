@@ -76,7 +76,7 @@ fn safe_tcgetattr(tty: impl AsFd) -> io::Result<termios> {
 }
 
 /// Reads a password from the given file descriptor
-fn read_unbuffered(source: &mut impl io::Read) -> io::Result<PamBuffer> {
+fn read_unbuffered(source: &mut dyn io::Read) -> io::Result<PamBuffer> {
     let mut password = PamBuffer::default();
     let mut pwd_iter = password.iter_mut();
 
@@ -98,7 +98,7 @@ fn read_unbuffered(source: &mut impl io::Read) -> io::Result<PamBuffer> {
 }
 
 /// Write something and immediately flush
-fn write_unbuffered(sink: &mut impl io::Write, text: &str) -> io::Result<()> {
+fn write_unbuffered(sink: &mut dyn io::Write, text: &str) -> io::Result<()> {
     sink.write_all(text.as_bytes())?;
     sink.flush()
 }
@@ -127,19 +127,19 @@ impl Terminal<'_> {
 
     /// Reads input with TTY echo disabled
     pub fn read_password(&mut self) -> io::Result<PamBuffer> {
-        let mut input = self.source();
+        let input = self.source();
         let _hide_input = HiddenInput::new()?;
-        read_unbuffered(&mut input)
+        read_unbuffered(input)
     }
 
     /// Reads input with TTY echo enabled
     pub fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        read_unbuffered(&mut self.source())
+        read_unbuffered(self.source())
     }
 
     /// Display information
     pub fn prompt(&mut self, text: &str) -> io::Result<()> {
-        write_unbuffered(&mut self.sink(), text)
+        write_unbuffered(self.sink(), text)
     }
 
     // boilerplate reduction functions
