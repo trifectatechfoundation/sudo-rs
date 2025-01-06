@@ -35,7 +35,7 @@ impl PamAuthenticator<CLIConverser> {
                 context.stdin,
                 context.non_interactive,
                 context.password_feedback,
-                &context.current_user.name,
+                &context.auth_user.name,
                 &context.current_user.name,
             )
         })

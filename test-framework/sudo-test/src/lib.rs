@@ -119,6 +119,7 @@ pub struct EnvBuilder {
     groups: HashMap<Groupname, Group>,
     hostname: Option<String>,
     users: HashMap<Username, User>,
+    user_passwords: HashMap<String, String>,
 }
 
 impl EnvBuilder {
@@ -190,6 +191,24 @@ impl EnvBuilder {
             username
         );
         self.users.insert(username.to_string(), user);
+
+        self
+    }
+
+    /// Sets the password for the specified `user` to the test environment
+    pub fn user_password(&mut self, username: &str, password: &str) -> &mut Self {
+        assert!(
+            !self.user_passwords.contains_key(username),
+            "password for user {} has already been declared",
+            username
+        );
+        assert!(
+            !self.users.contains_key(username),
+            "password for user {} should be set as part of the .user() call",
+            username
+        );
+        self.user_passwords
+            .insert(username.to_string(), password.to_string());
 
         self
     }
@@ -270,6 +289,24 @@ impl EnvBuilder {
         for user in self.users.values().filter(|user| user.id.is_none()) {
             user.create(&container)?;
             usernames.insert(user.name.to_string());
+        }
+
+        for (username, password) in &self.user_passwords {
+            if cfg!(target_os = "freebsd") {
+                container
+                    .output(
+                        Command::new("pw")
+                            .args(["usermod", "-n", username, "-h", "0"])
+                            .stdin(password),
+                    )?
+                    .assert_success()?;
+            } else if cfg!(target_os = "linux") {
+                container
+                    .output(Command::new("chpasswd").stdin(format!("{username}:{password}")))?
+                    .assert_success()?;
+            } else {
+                todo!();
+            }
         }
 
         for directory in self.directories.values() {

@@ -212,7 +212,8 @@ fn build_context(
     let secure_path: String = pre
         .secure_path()
         .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
-    Context::build_from_options(cmd_opts, secure_path)
+    let rootpw = pre.rootpw();
+    Context::build_from_options(cmd_opts, secure_path, rootpw)
 }
 
 /// This should determine what the authentication status for the given record

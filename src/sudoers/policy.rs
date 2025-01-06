@@ -99,12 +99,17 @@ impl Policy for Judgement {
 
 pub trait PreJudgementPolicy {
     fn secure_path(&self) -> Option<String>;
+    fn rootpw(&self) -> bool;
     fn validate_authorization(&self) -> Authorization;
 }
 
 impl PreJudgementPolicy for Sudoers {
     fn secure_path(&self) -> Option<String> {
         self.settings.secure_path().as_ref().map(|s| s.to_string())
+    }
+
+    fn rootpw(&self) -> bool {
+        self.settings.rootpw()
     }
 
     fn validate_authorization(&self) -> Authorization {

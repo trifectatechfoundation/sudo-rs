@@ -31,6 +31,7 @@ defaults! {
     visiblepw                 = false  #ignored
     pwfeedback                = false
     env_editor                = true
+    rootpw                    = false
 
     passwd_tries              = 3 [0..=1000]
 
