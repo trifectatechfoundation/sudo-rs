@@ -126,7 +126,7 @@ fn read_unbuffered_with_feedback(
 
         if read_byte == b'\n' || read_byte == b'\r' {
             erase_feedback(sink, i);
-            sink.write(&[b'\n'])?;
+            let _ = sink.write(b"\n");
             break;
         }
 
@@ -152,10 +152,11 @@ fn read_unbuffered_with_feedback(
                 i -= 1;
             }
         } else {
+            #[allow(clippy::collapsible_else_if)]
             if let Some(dest) = password.get_mut(i) {
                 *dest = read_byte;
                 i += 1;
-                let _ = sink.write(&[b'*']);
+                let _ = sink.write(b"*");
             } else {
                 erase_feedback(sink, i);
 
@@ -166,6 +167,7 @@ fn read_unbuffered_with_feedback(
             }
         }
     }
+
 
     Ok(password)
 }
