@@ -17,19 +17,19 @@ use std::io::{self, Error, ErrorKind, Read};
 use std::os::fd::{AsFd, AsRawFd};
 use std::{fs, mem};
 
-use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
+use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
 use crate::cutils::cerr;
 
 use super::securemem::PamBuffer;
 
-pub struct HiddenInput {
+struct HiddenInput {
     tty: fs::File,
     term_orig: termios,
 }
 
 impl HiddenInput {
-    fn new() -> io::Result<Option<HiddenInput>> {
+    fn new(feedback: bool) -> io::Result<Option<HiddenInput>> {
         // control ourselves that we are really talking to a TTY
         // mitigates: https://marc.info/?l=oss-security&m=168164424404224
         let Ok(tty) = fs::File::open("/dev/tty") else {
@@ -48,6 +48,11 @@ impl HiddenInput {
 
         // But don't hide the NL character when the user hits ENTER.
         term.c_lflag |= ECHONL;
+
+        if feedback {
+            // Disable canonical mode to read character by character when pwfeedback is enabled.
+            term.c_lflag &= !ICANON;
+        }
 
         // Save the settings for now.
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
@@ -97,6 +102,74 @@ fn read_unbuffered(source: &mut dyn io::Read) -> io::Result<PamBuffer> {
     Ok(password)
 }
 
+const BACKSPACE: u8 = 8;
+
+fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
+    for _ in 0..i {
+        if sink.write(&[BACKSPACE, b' ', BACKSPACE]).is_err() {
+            return;
+        }
+    }
+}
+
+/// Reads a password from the given file descriptor while showing feedback to the user.
+fn read_unbuffered_with_feedback(
+    source: &mut dyn io::Read,
+    sink: &mut dyn io::Write,
+    hide_input: &HiddenInput,
+) -> io::Result<PamBuffer> {
+    let mut password = PamBuffer::default();
+    let mut i = 0;
+
+    for read_byte in source.bytes() {
+        let read_byte = read_byte?;
+
+        if read_byte == b'\n' || read_byte == b'\r' {
+            erase_feedback(sink, i);
+            sink.write(&[b'\n'])?;
+            break;
+        }
+
+        if read_byte == hide_input.term_orig.c_cc[VEOF] {
+            while i > 0 {
+                password[i - 1] = 0;
+                i -= 1;
+                let _ = sink.write(&[BACKSPACE, b' ', BACKSPACE]);
+            }
+            break;
+        }
+
+        if read_byte == hide_input.term_orig.c_cc[VERASE] {
+            if i > 0 {
+                password[i - 1] = 0;
+                i -= 1;
+                let _ = sink.write(&[BACKSPACE, b' ', BACKSPACE]);
+            }
+        } else if read_byte == hide_input.term_orig.c_cc[VKILL] {
+            erase_feedback(sink, i);
+            while i > 0 {
+                password[i - 1] = 0;
+                i -= 1;
+            }
+        } else {
+            if let Some(dest) = password.get_mut(i) {
+                *dest = read_byte;
+                i += 1;
+                let _ = sink.write(&[b'*']);
+            } else {
+                erase_feedback(sink, i);
+
+                return Err(Error::new(
+                    ErrorKind::OutOfMemory,
+                    "incorrect password attempt",
+                ));
+            }
+        }
+    }
+
+    Ok(password)
+}
+
 /// Write something and immediately flush
 fn write_unbuffered(sink: &mut dyn io::Write, text: &str) -> io::Result<()> {
     sink.write_all(text.as_bytes())?;
@@ -128,8 +201,25 @@ impl Terminal<'_> {
     /// Reads input with TTY echo disabled
     pub fn read_password(&mut self) -> io::Result<PamBuffer> {
         let input = self.source();
-        let _hide_input = HiddenInput::new()?;
+        let _hide_input = HiddenInput::new(false)?;
         read_unbuffered(input)
+    }
+
+    /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
+    pub fn read_password_with_feedback(&mut self) -> io::Result<PamBuffer> {
+        let (source, sink) = match self {
+            Terminal::StdIE(x, y) => (x as &mut dyn io::Read, y as &mut dyn io::Write),
+            Terminal::Tty(x) => (
+                &mut &*x as &mut dyn io::Read,
+                &mut &*x as &mut dyn io::Write,
+            ),
+        };
+
+        if let Some(hide_input) = HiddenInput::new(true)? {
+            read_unbuffered_with_feedback(source, sink, &hide_input)
+        } else {
+            read_unbuffered(self.source())
+        }
     }
 
     /// Reads input with TTY echo enabled
