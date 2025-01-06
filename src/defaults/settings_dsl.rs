@@ -53,57 +53,58 @@ macro_rules! modifier_of {
         $crate::defaults::SettingKind::Flag(Box::new(move |obj: &mut Settings| obj.$id = true))
     };
     ($id:ident, [ $($value: expr),* ]) => {
-        $crate::defaults::SettingKind::List(
-            |mode, list|
-                Box::new(move |obj: &mut Settings|
-                                   match mode {
-                                      ListMode::Set => obj.$id = list.into_iter().collect(),
-                                      ListMode::Add => obj.$id.extend(list),
-                                      ListMode::Del => for key in list {
-                                                           obj.$id.remove(&key);
-                                                       },
-                                   })
-        )
+        $crate::defaults::SettingKind::List(|mode, list| {
+            Box::new(move |obj: &mut Settings| match mode {
+                ListMode::Set => obj.$id = list.into_iter().collect(),
+                ListMode::Add => obj.$id.extend(list),
+                ListMode::Del => {
+                    for key in list {
+                        obj.$id.remove(&key);
+                    }
+                }
+            })
+        })
     };
     ($id:ident, =int $first:literal ..= $last: literal $(@ $radix: literal)?; $value: expr) => {
         #[allow(clippy::from_str_radix_10)]
-        $crate::defaults::SettingKind::Integer(
-            |text| i64::from_str_radix(text, 10$(*0 + $radix)?)
-                            .ok()
-                            .filter(|val| ($first ..= $last)
-                            .contains(val))
-                            .map(|i| Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>)
-        )
+        $crate::defaults::SettingKind::Integer(|text| {
+            i64::from_str_radix(text, 10$(*0 + $radix)?)
+                .ok()
+                .filter(|val| ($first ..= $last).contains(val))
+                .map(|i| {
+                    Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>
+                })
+        })
     };
     ($id:ident, =int $fn: expr; $value: expr) => {
-        $crate::defaults::SettingKind::Integer(
-            |text| $fn(&text).map(|i| Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>)
-        )
+        $crate::defaults::SettingKind::Integer(|text| {
+            $fn(&text).map(|i| {
+                Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>
+            })
+        })
     };
     ($id:ident, $(=int $check: expr;)+ $value: expr) => { compile_error!("bla") };
     ($id:ident, $(=enum $key: ident;)+ $value: ident) => {
         $crate::defaults::SettingKind::Text(|key| match key {
             $(
-            stringify!($key) => { Some(Box::new(move |obj: &mut Settings| obj.$id = $crate::defaults::enums::$id::$key)) },
+            stringify!($key) => {
+                Some(Box::new(move |obj: &mut Settings| obj.$id = $crate::defaults::enums::$id::$key))
+            },
             )*
             _ => None,
         })
     };
     ($id:ident, None) => {
-        $crate::defaults::SettingKind::Text(
-            |text| {
-                let text = text.into();
-                Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)))
-            }
-        )
+        $crate::defaults::SettingKind::Text(|text| {
+            let text = text.into();
+            Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)))
+        })
     };
     ($id:ident, $value: expr) => {
-        $crate::defaults::SettingKind::Text(
-            |text| {
-                let text = text.into();
-                Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)))
-            }
-        )
+        $crate::defaults::SettingKind::Text(|text| {
+            let text = text.into();
+            Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)))
+        })
     };
 }
 
