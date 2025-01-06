@@ -40,6 +40,7 @@ pub struct AuthorizationAllowed {
     pub must_authenticate: bool,
     pub allowed_attempts: u16,
     pub prior_validity: Duration,
+    pub trust_environment: bool,
 }
 
 #[must_use]
@@ -57,6 +58,7 @@ impl Policy for Judgement {
             let valid_seconds = self.settings.timestamp_timeout();
             Authorization::Allowed(AuthorizationAllowed {
                 must_authenticate: tag.needs_passwd(),
+                trust_environment: tag.allows_setenv(),
                 allowed_attempts,
                 prior_validity: Duration::seconds(valid_seconds),
             })
@@ -103,6 +105,7 @@ impl PreJudgementPolicy for Sudoers {
     fn validate_authorization(&self) -> Authorization {
         Authorization::Allowed(AuthorizationAllowed {
             must_authenticate: true,
+            trust_environment: false,
             allowed_attempts: self.settings.passwd_tries().try_into().unwrap(),
             prior_validity: Duration::seconds(self.settings.timestamp_timeout()),
         })
@@ -135,6 +138,7 @@ mod test {
             judge.authorization(),
             Authorization::Allowed(AuthorizationAllowed {
                 must_authenticate: true,
+                trust_environment: false,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
             })
@@ -144,6 +148,7 @@ mod test {
             judge.authorization(),
             Authorization::Allowed(AuthorizationAllowed {
                 must_authenticate: false,
+                trust_environment: false,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
             })
