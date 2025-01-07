@@ -102,9 +102,8 @@ fn read_unbuffered(source: &mut dyn io::Read) -> io::Result<PamBuffer> {
     Ok(password)
 }
 
-const BACKSPACE: u8 = 8;
-
 fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
+    const BACKSPACE: u8 = 0x08;
     for _ in 0..i {
         if sink.write(&[BACKSPACE, b' ', BACKSPACE]).is_err() {
             return;
@@ -119,46 +118,43 @@ fn read_unbuffered_with_feedback(
     hide_input: &HiddenInput,
 ) -> io::Result<PamBuffer> {
     let mut password = PamBuffer::default();
-    let mut i = 0;
+    let mut pw_len = 0;
 
+    // invariant: the amount of nonzero-bytes in the buffer correspond
+    // with the amount of asterisks on the terminal (both tracked in `pw_len`)
     for read_byte in source.bytes() {
         let read_byte = read_byte?;
 
         if read_byte == b'\n' || read_byte == b'\r' {
-            erase_feedback(sink, i);
+            erase_feedback(sink, pw_len);
             let _ = sink.write(b"\n");
             break;
         }
 
         if read_byte == hide_input.term_orig.c_cc[VEOF] {
-            while i > 0 {
-                password[i - 1] = 0;
-                i -= 1;
-                let _ = sink.write(&[BACKSPACE, b' ', BACKSPACE]);
-            }
+            erase_feedback(sink, pw_len);
+            password.fill(0);
             break;
         }
 
         if read_byte == hide_input.term_orig.c_cc[VERASE] {
-            if i > 0 {
-                password[i - 1] = 0;
-                i -= 1;
-                let _ = sink.write(&[BACKSPACE, b' ', BACKSPACE]);
+            if pw_len > 0 {
+                erase_feedback(sink, 1);
+                password[pw_len - 1] = 0;
+                pw_len -= 1;
             }
         } else if read_byte == hide_input.term_orig.c_cc[VKILL] {
-            erase_feedback(sink, i);
-            while i > 0 {
-                password[i - 1] = 0;
-                i -= 1;
-            }
+            erase_feedback(sink, pw_len);
+            password.fill(0);
+            pw_len = 0;
         } else {
             #[allow(clippy::collapsible_else_if)]
-            if let Some(dest) = password.get_mut(i) {
+            if let Some(dest) = password.get_mut(pw_len) {
                 *dest = read_byte;
-                i += 1;
+                pw_len += 1;
                 let _ = sink.write(b"*");
             } else {
-                erase_feedback(sink, i);
+                erase_feedback(sink, pw_len);
 
                 return Err(Error::new(
                     ErrorKind::OutOfMemory,
