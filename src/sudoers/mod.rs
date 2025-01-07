@@ -14,17 +14,19 @@ use std::path::{Path, PathBuf};
 use std::{io, mem};
 
 use crate::common::resolve::resolve_path;
+use crate::defaults;
 use crate::log::auth_warn;
 use crate::system::interface::{GroupId, UnixGroup, UnixUser, UserId};
 use crate::system::{self, can_execute};
 use ast::*;
 use tokens::*;
 
+pub type Settings = defaults::Settings;
+
 /// How many nested include files do we allow?
 const INCLUDE_LIMIT: u8 = 128;
 
 /// Export some necessary symbols from modules
-pub use ast::TextEnum;
 pub struct Error {
     pub source: Option<PathBuf>,
     pub location: Option<basic_parser::Position>,
@@ -186,7 +188,7 @@ impl Sudoers {
     }
 
     pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
-        if self.settings.flags.contains("env_editor") {
+        if self.settings.env_editor() {
             for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
                 if let Some(var) = std::env::var_os(key) {
                     let path = Path::new(&var);
@@ -521,62 +523,11 @@ fn match_identifier(user: &impl UnixUser, ident: &ast::Identifier) -> bool {
     }
 }
 
-#[derive(Clone)]
-pub struct Settings {
-    pub flags: HashSet<String>,
-    pub str_value: HashMap<String, Option<Box<str>>>,
-    pub enum_value: HashMap<String, TextEnum>,
-    pub int_value: HashMap<String, i64>,
-    pub list: HashMap<String, HashSet<String>>,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        let mut this = Settings {
-            flags: Default::default(),
-            str_value: Default::default(),
-            enum_value: Default::default(),
-            int_value: Default::default(),
-            list: Default::default(),
-        };
-
-        use crate::defaults::{sudo_default, OptTuple, SudoDefault};
-        for key in crate::defaults::ALL_PARAMS.iter() {
-            match sudo_default(key).expect("internal error") {
-                SudoDefault::Flag(default) => {
-                    if default {
-                        this.flags.insert(key.to_string());
-                    }
-                }
-                SudoDefault::Text(OptTuple { default, .. }) => {
-                    this.str_value
-                        .insert(key.to_string(), default.map(|x| x.into()));
-                }
-                SudoDefault::Enum(OptTuple { default, .. }) => {
-                    this.enum_value.insert(key.to_string(), default);
-                }
-                SudoDefault::Integer(OptTuple { default, .. }, _) => {
-                    this.int_value.insert(key.to_string(), default);
-                }
-                SudoDefault::List(default) => {
-                    this.list.insert(
-                        key.to_string(),
-                        default.iter().map(|x| x.to_string()).collect(),
-                    );
-                }
-            }
-        }
-
-        this
-    }
-}
-
 /// Process a sudoers-parsing file into a workable AST
 fn analyze(
     path: &Path,
     sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
 ) -> (Sudoers, Vec<Error>) {
-    use ConfigValue::*;
     use Directive::*;
 
     let mut result: Sudoers = Default::default();
@@ -652,8 +603,8 @@ fn analyze(
                     Sudo::Decl(RunasAlias(mut def)) => cfg.aliases.runas.1.append(&mut def),
 
                     Sudo::Decl(Defaults(params)) => {
-                        for (name, value) in params {
-                            set_default(cfg, name, value)
+                        for modifier in params {
+                            modifier(&mut cfg.settings);
                         }
                     }
 
@@ -707,39 +658,6 @@ fn analyze(
                     message,
                 }),
                 Err(_) => panic!("internal parser error"),
-            }
-        }
-    }
-
-    fn set_default(cfg: &mut Sudoers, name: String, value: ConfigValue) {
-        match value {
-            Flag(value) => {
-                if value {
-                    cfg.settings.flags.insert(name);
-                } else {
-                    cfg.settings.flags.remove(&name);
-                }
-            }
-            List(mode, values) => {
-                let slot: &mut _ = cfg.settings.list.entry(name).or_default();
-                match mode {
-                    Mode::Set => *slot = values.into_iter().collect(),
-                    Mode::Add => slot.extend(values),
-                    Mode::Del => {
-                        for key in values {
-                            slot.remove(&key);
-                        }
-                    }
-                }
-            }
-            Text(value) => {
-                cfg.settings.str_value.insert(name, value);
-            }
-            Enum(value) => {
-                cfg.settings.enum_value.insert(name, value);
-            }
-            Num(value) => {
-                cfg.settings.int_value.insert(name, value);
             }
         }
     }

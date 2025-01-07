@@ -8,6 +8,7 @@ pub trait UserFriendly {
 #[cfg(not(test))]
 mod names {
     use super::*;
+    use crate::defaults;
     use crate::sudoers::ast::*;
     use crate::sudoers::tokens;
 
@@ -101,7 +102,7 @@ mod names {
         const DESCRIPTION: &'static str = "directory or '*'";
     }
 
-    impl UserFriendly for (String, ConfigValue) {
+    impl UserFriendly for defaults::SettingsModifier {
         const DESCRIPTION: &'static str = "parameter";
     }
 

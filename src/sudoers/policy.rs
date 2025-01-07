@@ -54,8 +54,8 @@ pub enum DirChange<'a> {
 impl Policy for Judgement {
     fn authorization(&self) -> Authorization {
         if let Some(tag) = &self.flags {
-            let allowed_attempts = self.settings.int_value["passwd_tries"].try_into().unwrap();
-            let valid_seconds = self.settings.int_value["timestamp_timeout"];
+            let allowed_attempts = self.settings.passwd_tries().try_into().unwrap();
+            let valid_seconds = self.settings.timestamp_timeout();
             Authorization::Allowed(AuthorizationAllowed {
                 must_authenticate: tag.needs_passwd(),
                 trust_environment: tag.allows_setenv(),
@@ -68,11 +68,11 @@ impl Policy for Judgement {
     }
 
     fn env_keep(&self) -> &HashSet<String> {
-        &self.settings.list["env_keep"]
+        self.settings.env_keep()
     }
 
     fn env_check(&self) -> &HashSet<String> {
-        &self.settings.list["env_check"]
+        self.settings.env_check()
     }
 
     fn chdir(&self) -> DirChange {
@@ -84,13 +84,11 @@ impl Policy for Judgement {
     }
 
     fn secure_path(&self) -> Option<String> {
-        self.settings.str_value["secure_path"]
-            .as_ref()
-            .map(|s| s.to_string())
+        self.settings.secure_path().as_ref().map(|s| s.to_string())
     }
 
     fn use_pty(&self) -> bool {
-        self.settings.flags.contains("use_pty")
+        self.settings.use_pty()
     }
 }
 
@@ -101,17 +99,15 @@ pub trait PreJudgementPolicy {
 
 impl PreJudgementPolicy for Sudoers {
     fn secure_path(&self) -> Option<String> {
-        self.settings.str_value["secure_path"]
-            .as_ref()
-            .map(|s| s.to_string())
+        self.settings.secure_path().as_ref().map(|s| s.to_string())
     }
 
     fn validate_authorization(&self) -> Authorization {
         Authorization::Allowed(AuthorizationAllowed {
             must_authenticate: true,
             trust_environment: false,
-            allowed_attempts: self.settings.int_value["passwd_tries"].try_into().unwrap(),
-            prior_validity: Duration::seconds(self.settings.int_value["timestamp_timeout"]),
+            allowed_attempts: self.settings.passwd_tries().try_into().unwrap(),
+            prior_validity: Duration::seconds(self.settings.timestamp_timeout()),
         })
     }
 }

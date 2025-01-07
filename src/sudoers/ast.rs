@@ -6,6 +6,7 @@ use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, HARDENED_ENUM_VALUE_3,
     HARDENED_ENUM_VALUE_4,
 };
+use crate::defaults;
 
 /// The Sudoers file allows negating items with the exclamation mark.
 #[cfg_attr(test, derive(Debug, Eq))]
@@ -133,25 +134,7 @@ pub enum Directive {
     HostAlias(Defs<Hostname>) = HARDENED_ENUM_VALUE_1,
     CmndAlias(Defs<Command>) = HARDENED_ENUM_VALUE_2,
     RunasAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
-    Defaults(Vec<(String, ConfigValue)>) = HARDENED_ENUM_VALUE_4,
-}
-
-pub type TextEnum = crate::defaults::StrEnum<'static>;
-
-#[repr(u32)]
-pub enum ConfigValue {
-    Flag(bool) = HARDENED_ENUM_VALUE_0,
-    Text(Option<Box<str>>) = HARDENED_ENUM_VALUE_1,
-    Num(i64) = HARDENED_ENUM_VALUE_2,
-    List(Mode, Vec<String>) = HARDENED_ENUM_VALUE_3,
-    Enum(TextEnum) = HARDENED_ENUM_VALUE_4,
-}
-
-#[repr(u32)]
-pub enum Mode {
-    Add = HARDENED_ENUM_VALUE_0,
-    Set = HARDENED_ENUM_VALUE_1,
-    Del = HARDENED_ENUM_VALUE_2,
+    Defaults(Vec<defaults::SettingsModifier>) = HARDENED_ENUM_VALUE_4,
 }
 
 /// The Sudoers file can contain permissions and directives
@@ -600,9 +583,6 @@ fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
     make(result)
 }
 
-use crate::defaults::sudo_default;
-use crate::defaults::SudoDefault as Setting;
-
 /// grammar:
 /// ```text
 /// name = definition [ : name = definiton [ : ... ] ]
@@ -659,7 +639,7 @@ fn get_directive(
 /// ```text
 /// parameter = name [+-]?= ...
 /// ```
-impl Parse for (String, ConfigValue) {
+impl Parse for defaults::SettingsModifier {
     fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
         let id_pos = stream.get_pos();
 
@@ -691,14 +671,15 @@ impl Parse for (String, ConfigValue) {
         };
 
         // Parse the remainder of a list variable
-        let list_items = |mode: Mode, name: String, cfg: Setting, stream: &mut _| {
-            expect_syntax('=', stream)?;
-            if !matches!(cfg, Setting::List(_)) {
-                unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
-            }
+        let list_items =
+            |mode: defaults::ListMode, name: String, cfg: defaults::SettingKind, stream: &mut _| {
+                expect_syntax('=', stream)?;
+                let defaults::SettingKind::List(checker) = cfg else {
+                    unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
+                };
 
-            make((name, ConfigValue::List(mode, parse_vars(stream)?)))
-        };
+                make(checker(mode, parse_vars(stream)?))
+            };
 
         // Parse a text parameter
         let text_item = |stream: &mut _| {
@@ -712,54 +693,42 @@ impl Parse for (String, ConfigValue) {
             }
         };
 
-        use crate::defaults::OptTuple;
-
         if is_syntax('!', stream)? {
             let value_pos = stream.get_pos();
             let DefaultName(name) = expect_nonterminal(stream)?;
-            let value = match sudo_default(&name) {
-                Some(Setting::Flag(_)) => ConfigValue::Flag(false),
-                Some(Setting::List(_)) => ConfigValue::List(Mode::Set, vec![]),
-                Some(Setting::Text(OptTuple {
-                    negated: Some(val), ..
-                })) => ConfigValue::Text(val.map(|x| x.into())),
-                Some(Setting::Enum(OptTuple {
-                    negated: Some(val), ..
-                })) => ConfigValue::Enum(val),
-                Some(Setting::Integer(
-                    OptTuple {
-                        negated: Some(val), ..
-                    },
-                    _checker,
-                )) => ConfigValue::Num(val),
-                None => unrecoverable!(pos = value_pos, stream, "unknown setting: '{name}'"),
-                _ => unrecoverable!(
-                    pos = value_pos,
-                    stream,
-                    "'{name}' cannot be used in a boolean context"
-                ),
+            let Some(modifier) = defaults::negate(&name) else {
+                if defaults::set(&name).is_some() {
+                    unrecoverable!(pos = value_pos, stream, "unknown setting: '{name}'");
+                } else {
+                    unrecoverable!(
+                        pos = value_pos,
+                        stream,
+                        "'{name}' cannot be used in a boolean context"
+                    );
+                }
             };
-            make((name, value))
+
+            make(modifier)
         } else {
             let DefaultName(name) = try_nonterminal(stream)?;
-            let Some(cfg) = sudo_default(&name) else {
+            let Some(cfg) = defaults::set(&name) else {
                 unrecoverable!(pos = id_pos, stream, "unknown setting: '{name}'");
             };
 
             if is_syntax('+', stream)? {
-                list_items(Mode::Add, name, cfg, stream)
+                list_items(defaults::ListMode::Add, name, cfg, stream)
             } else if is_syntax('-', stream)? {
-                list_items(Mode::Del, name, cfg, stream)
+                list_items(defaults::ListMode::Del, name, cfg, stream)
             } else if is_syntax('=', stream)? {
                 let value_pos = stream.get_pos();
                 match cfg {
-                    Setting::Flag(_) => {
+                    defaults::SettingKind::Flag(_) => {
                         unrecoverable!(stream, "can't assign to boolean setting '{name}'")
                     }
-                    Setting::Integer(_, checker) => {
+                    defaults::SettingKind::Integer(checker) => {
                         let Numeric(denotation) = expect_nonterminal(stream)?;
-                        if let Some(value) = checker(&denotation) {
-                            make((name, ConfigValue::Num(value)))
+                        if let Some(modifier) = checker(&denotation) {
+                            make(modifier)
                         } else {
                             unrecoverable!(
                                 pos = value_pos,
@@ -768,34 +737,32 @@ impl Parse for (String, ConfigValue) {
                             );
                         }
                     }
-                    Setting::List(_) => {
+                    defaults::SettingKind::List(checker) => {
                         let items = parse_vars(stream)?;
-                        make((name, ConfigValue::List(Mode::Set, items)))
+
+                        make(checker(defaults::ListMode::Set, items))
                     }
-                    Setting::Text(_) => {
+                    defaults::SettingKind::Text(checker) => {
                         let text = text_item(stream)?;
-                        make((name, ConfigValue::Text(Some(text.into_boxed_str()))))
-                    }
-                    Setting::Enum(OptTuple { default: key, .. }) => {
-                        let text = text_item(stream)?;
-                        let Some(value) = key.alt(&text) else {
+                        let Some(modifier) = checker(&text) else {
                             unrecoverable!(
                                 pos = value_pos,
                                 stream,
                                 "'{text}' is not a valid value for {name}"
                             );
                         };
-                        make((name, ConfigValue::Enum(value)))
+                        make(modifier)
                     }
                 }
             } else {
-                if !matches!(cfg, Setting::Flag(_)) {
+                let defaults::SettingKind::Flag(modifier) = cfg else {
                     unrecoverable!(pos = id_pos, stream, "'{name}' is not a boolean setting");
-                }
-                make((name, ConfigValue::Flag(true)))
+                };
+
+                make(modifier)
             }
         }
     }
 }
 
-impl Many for (String, ConfigValue) {}
+impl Many for defaults::SettingsModifier {}
