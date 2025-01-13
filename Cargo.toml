@@ -47,3 +47,4 @@ opt-level = "s"
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = { level = "deny" }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(unprivileged_for_testing_only)'] }
