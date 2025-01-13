@@ -112,7 +112,7 @@ pub(crate) fn resolve_target_user_and_group(
         // when -u is specified but -g is not specified, default -g to the primary group of the specified user
         (Some(_), None) => {
             if let Some(user) = &target_user {
-                target_group = Group::from_gid(user.gid)?;
+                target_group = Some(user.primary_group()?);
             }
         }
         // when no -u or -g is specified, default to root:root
@@ -279,7 +279,7 @@ mod tests {
         // fallback to root
         let (user, group) = resolve_target_user_and_group(&None, &None, &current_user).unwrap();
         assert_eq!(user.name, "root");
-        assert_eq!(group.name, ROOT_GROUP_NAME);
+        assert_eq!(group.name.unwrap(), ROOT_GROUP_NAME);
 
         // unknown user
         let result =
@@ -296,7 +296,7 @@ mod tests {
             resolve_target_user_and_group(&None, &Some(ROOT_GROUP_NAME.into()), &current_user)
                 .unwrap();
         assert_eq!(user.name, current_user.name);
-        assert_eq!(group.name, ROOT_GROUP_NAME);
+        assert_eq!(group.name.unwrap(), ROOT_GROUP_NAME);
 
         // fallback to current users group when no group specified
         let (user, group) =

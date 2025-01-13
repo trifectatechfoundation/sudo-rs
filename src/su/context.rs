@@ -99,8 +99,7 @@ impl SuContext {
         }
 
         // resolve target group
-        let mut group =
-            Group::from_gid(user.gid)?.ok_or_else(|| Error::GroupNotFound(user.gid.to_string()))?;
+        let mut group = user.primary_group()?;
 
         if !options.supp_group.is_empty() || !options.group.is_empty() {
             user.groups.clear();

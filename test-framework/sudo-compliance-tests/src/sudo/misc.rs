@@ -240,7 +240,6 @@ fn long_username() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh771"]
 fn missing_primary_group() -> Result<()> {
     let username = "user";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
