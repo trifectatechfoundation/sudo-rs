@@ -1,11 +1,12 @@
+#![forbid(unsafe_code)]
+
 mod cli;
 mod help;
 
 use std::{
-    ffi::{CString, OsString},
     fs::{File, Permissions},
     io::{self, Read, Seek, Write},
-    os::unix::prelude::{MetadataExt, OsStringExt, PermissionsExt},
+    os::unix::prelude::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
 };
@@ -15,7 +16,7 @@ use crate::{
     sudoers::Sudoers,
     system::{
         can_execute,
-        file::{Chown, FileLock},
+        file::{create_temporary_dir, Chown, FileLock},
         signal::{consts::*, register_handlers, SignalStream},
         User,
     },
@@ -321,18 +322,4 @@ fn editor_path_fallback() -> io::Result<PathBuf> {
         io::ErrorKind::NotFound,
         "cannot find text editor",
     ))
-}
-
-fn create_temporary_dir() -> io::Result<PathBuf> {
-    let template = cstr!("/tmp/sudoers-XXXXXX").to_owned();
-
-    let ptr = unsafe { libc::mkdtemp(template.into_raw()) };
-
-    if ptr.is_null() {
-        return Err(io::Error::last_os_error());
-    }
-
-    let path = OsString::from_vec(unsafe { CString::from_raw(ptr) }.into_bytes()).into();
-
-    Ok(path)
 }

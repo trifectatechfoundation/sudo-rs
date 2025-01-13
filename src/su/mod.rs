@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use crate::common::error::Error;
 use crate::exec::{ExecOutput, ExitReason, RunOptions};
 use crate::log::user_warn;
