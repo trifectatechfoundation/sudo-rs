@@ -140,6 +140,8 @@ pub(crate) enum ForkResult {
 /// Must not be called in multithreaded programs.
 pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
     // FIXME add debug assertion that we are not currently using multiple threads.
+    // SAFETY: Calling async-signal-unsafe functions after fork is safe as the program is single
+    // threaded at this point according to the safety invariant of this function.
     let pid = cerr(unsafe { libc::fork() })?;
     if pid == 0 {
         Ok(ForkResult::Child)
@@ -292,6 +294,7 @@ pub fn set_target_user(
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
     // for the std implementation of the libc calls to `setgroups`, `setgid` and `setuid`
+    // SAFETY: Setuid, setgid and setgroups are async-signal-safe.
     unsafe {
         cmd.pre_exec(move || {
             cerr(libc::setgroups(
@@ -407,19 +410,19 @@ impl User {
         // SAFETY: All pointers were initialized by a successful call to `getpwXXX_r` as per the
         // safety invariant of this function.
         unsafe {
-        Ok(User {
-            uid: UserId::new(pwd.pw_uid),
-            gid: GroupId::new(pwd.pw_gid),
-            name: SudoString::new(string_from_ptr(pwd.pw_name))?,
-            gecos: string_from_ptr(pwd.pw_gecos),
-            home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
-            shell: os_string_from_ptr(pwd.pw_shell).into(),
-            passwd: string_from_ptr(pwd.pw_passwd),
-            groups: groups_buffer
-                .iter()
-                .map(|id| GroupId::new(*id))
-                .collect::<Vec<_>>(),
-        })
+            Ok(User {
+                uid: UserId::new(pwd.pw_uid),
+                gid: GroupId::new(pwd.pw_gid),
+                name: SudoString::new(string_from_ptr(pwd.pw_name))?,
+                gecos: string_from_ptr(pwd.pw_gecos),
+                home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
+                shell: os_string_from_ptr(pwd.pw_shell).into(),
+                passwd: string_from_ptr(pwd.pw_passwd),
+                groups: groups_buffer
+                    .iter()
+                    .map(|id| GroupId::new(*id))
+                    .collect::<Vec<_>>(),
+            })
         }
     }
 
