@@ -197,6 +197,10 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             context.use_pty = false
         }
 
+        if policy.pwfeedback() {
+            context.password_feedback = true;
+        }
+
         Ok(())
     }
 }

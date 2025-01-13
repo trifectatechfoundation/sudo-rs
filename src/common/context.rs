@@ -46,6 +46,7 @@ pub struct Context {
     pub process: Process,
     // policy
     pub use_pty: bool,
+    pub password_feedback: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -89,6 +90,7 @@ impl Context {
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
+            password_feedback: false,
         })
     }
 }

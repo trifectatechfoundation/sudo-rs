@@ -378,11 +378,13 @@ impl PamContext<CLIConverser> {
         name: &str,
         use_stdin: bool,
         no_interact: bool,
+        password_feedback: bool,
     ) -> PamContextBuilder<CLIConverser> {
         PamContextBuilder::default().converser(CLIConverser {
             name: name.to_owned(),
             use_stdin,
             no_interact,
+            password_feedback,
         })
     }
 }

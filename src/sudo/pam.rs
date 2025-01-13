@@ -34,6 +34,7 @@ impl PamAuthenticator<CLIConverser> {
                 matches!(context.launch, LaunchType::Shell),
                 context.stdin,
                 context.non_interactive,
+                context.password_feedback,
                 &context.current_user.name,
                 &context.current_user.name,
             )
@@ -107,6 +108,7 @@ pub fn init_pam(
     is_shell: bool,
     use_stdin: bool,
     non_interactive: bool,
+    password_feedback: bool,
     auth_user: &str,
     requesting_user: &str,
 ) -> PamResult<PamContext<CLIConverser>> {
@@ -116,7 +118,7 @@ pub fn init_pam(
     } else {
         "sudo"
     };
-    let mut pam = PamContext::builder_cli("sudo", use_stdin, non_interactive)
+    let mut pam = PamContext::builder_cli("sudo", use_stdin, non_interactive, password_feedback)
         .service_name(service_name)
         .build()?;
     pam.mark_silent(!is_shell && !is_login_shell);

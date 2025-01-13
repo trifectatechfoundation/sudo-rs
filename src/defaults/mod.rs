@@ -29,6 +29,7 @@ defaults! {
     match_group_by_gid        = false  #ignored
     use_pty                   = true
     visiblepw                 = false  #ignored
+    pwfeedback                = false
     env_editor                = true
 
     passwd_tries              = 3 [0..=1000]

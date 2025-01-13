@@ -25,6 +25,7 @@ pub trait Policy {
     fn secure_path(&self) -> Option<String>;
 
     fn use_pty(&self) -> bool;
+    fn pwfeedback(&self) -> bool;
 }
 
 #[must_use]
@@ -89,6 +90,10 @@ impl Policy for Judgement {
 
     fn use_pty(&self) -> bool {
         self.settings.use_pty()
+    }
+
+    fn pwfeedback(&self) -> bool {
+        self.settings.pwfeedback()
     }
 }
 

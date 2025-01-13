@@ -127,6 +127,7 @@ pub struct CLIConverser {
     pub(super) name: String,
     pub(super) use_stdin: bool,
     pub(super) no_interact: bool,
+    pub(super) password_feedback: bool,
 }
 
 use rpassword::Terminal;
@@ -157,7 +158,11 @@ impl SequentialConverser for CLIConverser {
         }
         let mut tty = self.open()?;
         tty.prompt(&format!("[{}: authenticate] {msg}", self.name))?;
-        Ok(tty.read_password()?)
+        if self.password_feedback {
+            Ok(tty.read_password_with_feedback()?)
+        } else {
+            Ok(tty.read_password()?)
+        }
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {

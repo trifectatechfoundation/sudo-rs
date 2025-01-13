@@ -14,35 +14,34 @@
 ///   (although much more robust than in the original code)
 ///
 use std::io::{self, Error, ErrorKind, Read};
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd};
 use std::{fs, mem};
 
-use libc::{tcsetattr, termios, ECHO, ECHONL, TCSANOW};
+use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
 use crate::cutils::cerr;
 
 use super::securemem::PamBuffer;
 
-pub struct HiddenInput {
+struct HiddenInput {
     tty: fs::File,
     term_orig: termios,
 }
 
 impl HiddenInput {
-    fn new() -> io::Result<Option<HiddenInput>> {
+    fn new(feedback: bool) -> io::Result<Option<HiddenInput>> {
         // control ourselves that we are really talking to a TTY
         // mitigates: https://marc.info/?l=oss-security&m=168164424404224
         let Ok(tty) = fs::File::open("/dev/tty") else {
             // if we have nothing to show, we have nothing to hide
             return Ok(None);
         };
-        let fd = tty.as_raw_fd();
 
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
         // terminal back to its original state.
-        let mut term = safe_tcgetattr(fd)?;
-        let term_orig = safe_tcgetattr(fd)?;
+        let mut term = safe_tcgetattr(&tty)?;
+        let term_orig = safe_tcgetattr(&tty)?;
 
         // Hide the password. This is what makes this function useful.
         term.c_lflag &= !ECHO;
@@ -50,9 +49,14 @@ impl HiddenInput {
         // But don't hide the NL character when the user hits ENTER.
         term.c_lflag |= ECHONL;
 
+        if feedback {
+            // Disable canonical mode to read character by character when pwfeedback is enabled.
+            term.c_lflag &= !ICANON;
+        }
+
         // Save the settings for now.
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
-        cerr(unsafe { tcsetattr(fd, TCSANOW, &term) })?;
+        cerr(unsafe { tcsetattr(tty.as_raw_fd(), TCSANOW, &term) })?;
 
         Ok(Some(HiddenInput { tty, term_orig }))
     }
@@ -68,16 +72,16 @@ impl Drop for HiddenInput {
     }
 }
 
-fn safe_tcgetattr(fd: RawFd) -> io::Result<termios> {
+fn safe_tcgetattr(tty: impl AsFd) -> io::Result<termios> {
     let mut term = mem::MaybeUninit::<termios>::uninit();
     // SAFETY: we are passing tcgetattr a pointer to valid memory
-    cerr(unsafe { ::libc::tcgetattr(fd, term.as_mut_ptr()) })?;
+    cerr(unsafe { ::libc::tcgetattr(tty.as_fd().as_raw_fd(), term.as_mut_ptr()) })?;
     // SAFETY: if the previous call was a success, `tcgetattr` has initialized `term`
     Ok(unsafe { term.assume_init() })
 }
 
 /// Reads a password from the given file descriptor
-fn read_unbuffered(source: &mut impl io::Read) -> io::Result<PamBuffer> {
+fn read_unbuffered(source: &mut dyn io::Read) -> io::Result<PamBuffer> {
     let mut password = PamBuffer::default();
     let mut pwd_iter = password.iter_mut();
 
@@ -98,8 +102,73 @@ fn read_unbuffered(source: &mut impl io::Read) -> io::Result<PamBuffer> {
     Ok(password)
 }
 
+fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
+    const BACKSPACE: u8 = 0x08;
+    for _ in 0..i {
+        if sink.write(&[BACKSPACE, b' ', BACKSPACE]).is_err() {
+            return;
+        }
+    }
+}
+
+/// Reads a password from the given file descriptor while showing feedback to the user.
+fn read_unbuffered_with_feedback(
+    source: &mut dyn io::Read,
+    sink: &mut dyn io::Write,
+    hide_input: &HiddenInput,
+) -> io::Result<PamBuffer> {
+    let mut password = PamBuffer::default();
+    let mut pw_len = 0;
+
+    // invariant: the amount of nonzero-bytes in the buffer correspond
+    // with the amount of asterisks on the terminal (both tracked in `pw_len`)
+    for read_byte in source.bytes() {
+        let read_byte = read_byte?;
+
+        if read_byte == b'\n' || read_byte == b'\r' {
+            erase_feedback(sink, pw_len);
+            let _ = sink.write(b"\n");
+            break;
+        }
+
+        if read_byte == hide_input.term_orig.c_cc[VEOF] {
+            erase_feedback(sink, pw_len);
+            password.fill(0);
+            break;
+        }
+
+        if read_byte == hide_input.term_orig.c_cc[VERASE] {
+            if pw_len > 0 {
+                erase_feedback(sink, 1);
+                password[pw_len - 1] = 0;
+                pw_len -= 1;
+            }
+        } else if read_byte == hide_input.term_orig.c_cc[VKILL] {
+            erase_feedback(sink, pw_len);
+            password.fill(0);
+            pw_len = 0;
+        } else {
+            #[allow(clippy::collapsible_else_if)]
+            if let Some(dest) = password.get_mut(pw_len) {
+                *dest = read_byte;
+                pw_len += 1;
+                let _ = sink.write(b"*");
+            } else {
+                erase_feedback(sink, pw_len);
+
+                return Err(Error::new(
+                    ErrorKind::OutOfMemory,
+                    "incorrect password attempt",
+                ));
+            }
+        }
+    }
+
+    Ok(password)
+}
+
 /// Write something and immediately flush
-fn write_unbuffered(sink: &mut impl io::Write, text: &str) -> io::Result<()> {
+fn write_unbuffered(sink: &mut dyn io::Write, text: &str) -> io::Result<()> {
     sink.write_all(text.as_bytes())?;
     sink.flush()
 }
@@ -128,19 +197,31 @@ impl Terminal<'_> {
 
     /// Reads input with TTY echo disabled
     pub fn read_password(&mut self) -> io::Result<PamBuffer> {
-        let mut input = self.source();
-        let _hide_input = HiddenInput::new()?;
-        read_unbuffered(&mut input)
+        let input = self.source();
+        let _hide_input = HiddenInput::new(false)?;
+        read_unbuffered(input)
+    }
+
+    /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
+    pub fn read_password_with_feedback(&mut self) -> io::Result<PamBuffer> {
+        if let Some(hide_input) = HiddenInput::new(true)? {
+            match self {
+                Terminal::StdIE(x, y) => read_unbuffered_with_feedback(x, y, &hide_input),
+                Terminal::Tty(x) => read_unbuffered_with_feedback(&mut &*x, &mut &*x, &hide_input),
+            }
+        } else {
+            read_unbuffered(self.source())
+        }
     }
 
     /// Reads input with TTY echo enabled
     pub fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        read_unbuffered(&mut self.source())
+        read_unbuffered(self.source())
     }
 
     /// Display information
     pub fn prompt(&mut self, text: &str) -> io::Result<()> {
-        write_unbuffered(&mut self.sink(), text)
+        write_unbuffered(self.sink(), text)
     }
 
     // boilerplate reduction functions
