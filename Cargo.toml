@@ -44,3 +44,6 @@ dev = []
 strip = "symbols"
 lto = true
 opt-level = "s"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = { level = "deny" }

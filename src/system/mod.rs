@@ -160,7 +160,8 @@ unsafe fn fork_for_test(child_func: impl FnOnce() -> std::convert::Infallible) -
     use std::panic::{catch_unwind, AssertUnwindSafe};
     use std::process::exit;
 
-    match fork().unwrap() {
+    // SAFETY: Not really safe, but this is test only code.
+    match unsafe { fork() }.unwrap() {
         ForkResult::Child => {
             // Make sure that panics in the child always abort the process.
             let err = match catch_unwind(AssertUnwindSafe(child_func)) {
@@ -371,7 +372,7 @@ pub struct User {
 
 impl User {
     /// # Safety
-    /// This function expects `pwd` to be a result from a succesful call to `getpwXXX_r`.
+    /// This function expects `pwd` to be a result from a successful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
         let mut buf_len: libc::c_int = 32;
@@ -403,6 +404,9 @@ impl User {
             panic!("invalid groups count returned from getgrouplist, this should not happen")
         });
 
+        // SAFETY: All pointers were initialized by a successful call to `getpwXXX_r` as per the
+        // safety invariant of this function.
+        unsafe {
         Ok(User {
             uid: UserId::new(pwd.pw_uid),
             gid: GroupId::new(pwd.pw_gid),
@@ -416,6 +420,7 @@ impl User {
                 .map(|id| GroupId::new(*id))
                 .collect::<Vec<_>>(),
         })
+        }
     }
 
     pub fn from_uid(uid: UserId) -> Result<Option<User>, Error> {
@@ -508,13 +513,16 @@ pub struct Group {
 
 impl Group {
     /// # Safety
-    /// This function expects `grp` to be a result from a succesful call to `getgrXXX_r`.
+    /// This function expects `grp` to be a result from a successful call to `getgrXXX_r`.
     /// In particular the grp.gr_mem pointer is assumed to be non-null, and pointing to a
     /// null-terminated list; the pointed-to strings are expected to be null-terminated.
     unsafe fn from_libc(grp: &libc::group) -> Group {
+        // SAFETY: The name pointer is initialized by a successful call to `getgrXXX_r` as per the
+        // safety invariant of this function.
+        let name = unsafe { string_from_ptr(grp.gr_name) };
         Group {
             gid: GroupId::new(grp.gr_gid),
-            name: string_from_ptr(grp.gr_name),
+            name,
         }
     }
 
