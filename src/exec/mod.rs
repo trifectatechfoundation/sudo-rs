@@ -83,6 +83,8 @@ pub fn run_command(
     if let Some(path) = path {
         let is_chdir = options.chdir().is_some();
 
+        // SAFETY: Chdir as used internally by set_current_dir is async-signal-safe. The logger we
+        // use is also async-signal-safe.
         unsafe {
             command.pre_exec(move || {
                 if let Err(err) = env::set_current_dir(&path) {
