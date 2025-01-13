@@ -47,6 +47,10 @@ const VERSION: &str = if let Some(version_override) = std::option_env!("SUDO_RS_
 };
 
 pub(crate) fn candidate_sudoers_file() -> PathBuf {
+    if cfg!(unprivileged_for_testing_only) {
+        return PathBuf::from("./sudoers");
+    }
+
     let mut path = if cfg!(target_os = "freebsd") {
         option_env!("LOCALBASE").unwrap_or("/usr/local").into()
     } else {
@@ -122,12 +126,27 @@ fn sudo_process() -> Result<(), Error> {
     }
 }
 
+#[cfg(all(not(debug_assertions), unprivileged_for_testing_only))]
+compile_error!(
+    "unprivileged-for-testing-only feature must not be enabled in production as it is insecure"
+);
+
 fn self_check() -> Result<(), Error> {
-    let euid = User::effective_uid();
-    if euid == UserId::ROOT {
-        Ok(())
+    #[allow(clippy::collapsible_else_if)]
+    if cfg!(unprivileged_for_testing_only) {
+        // Make sure we unprivileged-for-testing-only is not enabled in production
+        // by forbidding setuid when it is enabled.
+        if User::effective_uid() == UserId::ROOT || User::effective_uid() != User::real_uid() {
+            Err(Error::SelfCheckMustBeUnprivileged)
+        } else {
+            Ok(())
+        }
     } else {
-        Err(Error::SelfCheck)
+        if User::effective_uid() == UserId::ROOT {
+            Ok(())
+        } else {
+            Err(Error::SelfCheck)
+        }
     }
 }
 

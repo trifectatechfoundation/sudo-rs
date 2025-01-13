@@ -37,6 +37,10 @@ pub fn secure_open_cookie_file(path: impl AsRef<Path>) -> io::Result<File> {
 }
 
 fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
+    if cfg!(unprivileged_for_testing_only) {
+        return Ok(());
+    }
+
     let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
 
     let path_mode = meta.permissions().mode();

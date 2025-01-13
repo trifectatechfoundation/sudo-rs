@@ -61,6 +61,7 @@ lto = true
 opt-level = "s"
 
 [lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(unprivileged_for_testing_only)'] }
 unsafe_op_in_unsafe_fn = { level = "deny" }
 
 [lints.clippy]

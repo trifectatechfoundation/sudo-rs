@@ -13,6 +13,7 @@ pub enum Error {
         other_user: Option<SudoString>,
     },
     SelfCheck,
+    SelfCheckMustBeUnprivileged,
     KernelCheck,
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
@@ -61,6 +62,10 @@ impl fmt::Display for Error {
             Error::SelfCheck => {
                 f.write_str("sudo must be owned by uid 0 and have the setuid bit set")
             }
+            Error::SelfCheckMustBeUnprivileged => f.write_str(
+                "when the unprivileged-for-testing-only feature is enabled \
+                 sudo may not run as root and may not have the setuid bit set",
+            ),
             Error::KernelCheck => f.write_str("sudo-rs needs a Linux kernel newer than v5.9"),
             Error::CommandNotFound(p) => write!(f, "'{}': command not found", p.display()),
             Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
