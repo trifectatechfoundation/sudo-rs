@@ -60,6 +60,14 @@ impl Container {
     pub fn new_with_hostname(image: &str, hostname: Option<&str>) -> Result<Self> {
         let mut docker_run = docker_command();
         docker_run.args(["run", "--detach"]);
+        if !crate::is_original_sudo() {
+            // Disable network access for the containers. This removes the overhead of setting up a
+            // new network namespace and associated firewall rule adjustments. We still need to keep
+            // network access enabled for original sudo however as it needs to be able to resolve
+            // it's own hostname to a fully qualified domain name, which isn't possible with
+            // `--net=none`.
+            docker_run.arg("--net=none");
+        }
         if let Some(hostname) = hostname {
             docker_run.args(["--hostname", hostname]);
         }
