@@ -13,6 +13,7 @@ pub enum Error {
         other_user: Option<SudoString>,
     },
     SelfCheckSetuid,
+    SelfCheckMustBeUnprivileged,
     SelfCheckNoNewPrivs,
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
@@ -68,6 +69,10 @@ impl fmt::Display for Error {
             Error::SelfCheckSetuid => {
                 xlat_write!(f, "sudo must be owned by uid 0 and have the setuid bit set")
             }
+            Error::SelfCheckMustBeUnprivileged => f.write_str(
+                "when the unprivileged-for-testing-only feature is enabled \
+                 sudo may not run as root and may not have the setuid bit set",
+            ),
             Error::SelfCheckNoNewPrivs => {
                 xlat_write!(
                     f,

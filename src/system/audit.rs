@@ -55,10 +55,12 @@ pub(crate) fn sudo_call<T>(
     let mut target_groups = target_user.groups.clone();
     inject_group(target_group.gid, &mut target_groups);
 
-    if cfg!(test)
-        && target_user.uid == cur_user_id
-        && target_group.gid == cur_group_id
-        && target_groups.iter().collect::<HashSet<_>>() == cur_groups.iter().collect::<HashSet<_>>()
+    if cfg!(unprivileged_for_testing_only)
+        || (cfg!(test)
+            && target_user.uid == cur_user_id
+            && target_group.gid == cur_group_id
+            && target_groups.iter().collect::<HashSet<_>>()
+                == cur_groups.iter().collect::<HashSet<_>>())
     {
         // we are not actually switching users, simply run the closure
         // (this would also be safe in production mode, but it is a needless check)
@@ -147,6 +149,10 @@ pub fn zoneinfo_path() -> Option<&'static str> {
 }
 
 fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
+    if cfg!(unprivileged_for_testing_only) {
+        return Ok(());
+    }
+
     let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
 
     let path_mode = meta.permissions().mode();
