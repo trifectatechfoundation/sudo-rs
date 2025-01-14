@@ -160,7 +160,7 @@ impl UnixGroup for super::Group {
         self.gid
     }
     fn try_as_name(&self) -> Option<&str> {
-        Some(&self.name)
+        self.name.as_deref()
     }
 }
 

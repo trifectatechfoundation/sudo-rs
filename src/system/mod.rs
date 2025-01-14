@@ -479,6 +479,12 @@ impl User {
         Self::from_uid(Self::real_uid())
     }
 
+    pub fn primary_group(&self) -> std::io::Result<Group> {
+        // Use from_gid_unchecked here to ensure that we can still resolve when
+        // the /etc/group entry for the primary group is missing.
+        Group::from_gid_unchecked(self.gid)
+    }
+
     pub fn from_name(name_c: &CStr) -> Result<Option<User>, Error> {
         let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
         let mut buf = vec![0; max_pw_size as usize];
@@ -511,7 +517,7 @@ impl User {
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Group {
     pub gid: GroupId,
-    pub name: String,
+    pub name: Option<String>,
 }
 
 impl Group {
@@ -525,11 +531,12 @@ impl Group {
         let name = unsafe { string_from_ptr(grp.gr_name) };
         Group {
             gid: GroupId::new(grp.gr_gid),
-            name,
+            name: Some(name),
         }
     }
 
-    pub fn from_gid(gid: GroupId) -> std::io::Result<Option<Group>> {
+    /// Lookup group for gid without returning an error when a /etc/group entry is missing.
+    fn from_gid_unchecked(gid: GroupId) -> std::io::Result<Group> {
         let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
         let mut buf = vec![0; max_gr_size as usize];
         let mut grp = MaybeUninit::uninit();
@@ -545,13 +552,23 @@ impl Group {
             )
         })?;
         if grp_ptr.is_null() {
-            Ok(None)
+            Ok(Group { gid, name: None })
         } else {
             // SAFETY: grp_ptr was not null, and getgrgid_r succeeded, so we have assurances that
             // the `grp` structure was written to by getgrgid_r
             let grp = unsafe { grp.assume_init() };
             // SAFETY: `pwd` was obtained by a call to getgrXXX_r, as required.
-            Ok(Some(unsafe { Group::from_libc(&grp) }))
+            Ok(unsafe { Group::from_libc(&grp) })
+        }
+    }
+
+    pub fn from_gid(gid: GroupId) -> std::io::Result<Option<Group>> {
+        let group = Self::from_gid_unchecked(gid)?;
+        if group.name.is_none() {
+            // No entry in /etc/group
+            Ok(None)
+        } else {
+            Ok(Some(group))
         }
     }
 
@@ -947,7 +964,7 @@ mod tests {
         for &(id, name) in fixed_groups {
             let root = Group::from_gid(id).unwrap().unwrap();
             assert_eq!(root.gid, id);
-            assert_eq!(root.name, name);
+            assert_eq!(root.name.unwrap(), name);
         }
     }
 
@@ -978,7 +995,7 @@ mod tests {
                     }
                 },
                 Group {
-                    name: name.to_string(),
+                    name: Some(name.to_string()),
                     gid: GroupId::new(gid),
                 }
             )

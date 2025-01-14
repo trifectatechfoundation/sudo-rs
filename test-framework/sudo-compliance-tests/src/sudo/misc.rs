@@ -217,11 +217,31 @@ fn does_not_panic_on_io_errors_cli_error() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh771"]
 fn long_username() -> Result<()> {
     // `useradd` limits usernames to 32 characters
     // directly write to `/etc/passwd` to work around this limitation
     let username = "a".repeat(33);
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {username}:x:1000:1000::/tmp:/bin/sh >> /etc/passwd && echo {username}:x:1000: >> /etc/group"
+        ))
+        .output(&env)?
+        .assert_success()?;
+
+    Command::new("sudo")
+        .arg("-u")
+        .arg(username)
+        .arg("true")
+        .output(&env)?
+        .assert_success()
+}
+
+#[test]
+fn missing_primary_group() -> Result<()> {
+    let username = "user";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
 
     Command::new("sh")
