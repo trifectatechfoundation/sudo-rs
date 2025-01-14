@@ -50,7 +50,21 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
+  compliance-tests-detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      updated: ${{ steps.filter.outputs.test-framework }}
+    steps:
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        id: filter
+        with:
+          filters: |
+            test-framework:
+              - 'test-framework/**'
+
   compliance-tests-og:
+    needs: compliance-tests-detect-changes
+    if: ${{ needs.compliance-tests-detect-changes.outputs.updated != 'false' }}
     runs-on: ubuntu-latest
     env:
       SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
@@ -130,6 +144,8 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   compliance-tests-lint:
+    needs: compliance-tests-detect-changes
+    if: ${{ needs.compliance-tests-detect-changes.outputs.updated != 'false' }}
     runs-on: ubuntu-latest
 
     steps:
