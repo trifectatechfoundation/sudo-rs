@@ -82,7 +82,7 @@ impl AuthUser {
 
     pub fn resolve_root_for_rootpw() -> Result<Self, Error> {
         Ok(Self(
-            User::from_uid(UserId::ROOT)?.ok_or(Error::UserNotFound("current user".to_string()))?,
+            User::from_uid(UserId::ROOT)?.ok_or(Error::UserNotFound("root".to_string()))?,
         ))
     }
 }
