@@ -3,13 +3,15 @@ use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use crate::common::context::OptionsForContext;
-use crate::common::resolve::CurrentUser;
+use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
 use crate::sudo::env::environment;
 use crate::sudo::Duration;
-use crate::sudoers::{Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy};
+use crate::sudoers::{
+    AuthenticatingUser, Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy,
+};
 use crate::system::interface::UserId;
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
@@ -60,7 +62,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
         let Authorization::Allowed(auth) = policy.authorization() else {
             return Err(Error::Authorization(context.current_user.name.to_string()));
         };
-        self.apply_policy_to_context(&mut context, &policy)?;
+        self.apply_policy_to_context(&mut context, &auth, &policy)?;
         self.auth_and_update_record_file(&context, &auth)?;
 
         // build environment
@@ -117,13 +119,20 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
     pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
         let pre = self.policy.init()?;
-        let context = build_context(cmd_opts.into(), &pre)?;
+        let mut context = build_context(cmd_opts.into(), &pre)?;
 
         match pre.validate_authorization() {
             Authorization::Forbidden => {
                 return Err(Error::Authorization(context.current_user.name.to_string()));
             }
             Authorization::Allowed(auth) => {
+                context.auth_user = match auth.credential {
+                    AuthenticatingUser::InvokingUser => {
+                        AuthUser::from_current_user(context.current_user.clone())
+                    }
+                    AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
+                };
+
                 self.auth_and_update_record_file(&context, &auth)?;
             }
         }
@@ -170,6 +179,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     fn apply_policy_to_context(
         &mut self,
         context: &mut Context,
+        auth: &AuthorizationAllowed,
         policy: &<Policy as PolicyPlugin>::Policy,
     ) -> Result<(), crate::common::Error> {
         // see if the chdir flag is permitted
@@ -192,14 +202,16 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             context.chdir = Some(dir.expand_tilde_in_path(&context.target_user.name)?)
         }
 
-        // override the default pty behaviour if indicated
-        if !policy.use_pty() {
-            context.use_pty = false
-        }
-
-        if policy.pwfeedback() {
-            context.password_feedback = true;
-        }
+        // in case the user could set these from the commandline, something more fancy
+        // could be needed, but here we copy these -- perhaps we should split up the Context type
+        context.use_pty = policy.use_pty();
+        context.password_feedback = policy.pwfeedback();
+        context.auth_user = match auth.credential {
+            AuthenticatingUser::InvokingUser => {
+                AuthUser::from_current_user(context.current_user.clone())
+            }
+            AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
+        };
 
         Ok(())
     }
@@ -212,8 +224,7 @@ fn build_context(
     let secure_path: String = pre
         .secure_path()
         .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
-    let auth_user = pre.authenticate_as();
-    Context::build_from_options(cmd_opts, secure_path, auth_user)
+    Context::build_from_options(cmd_opts, secure_path)
 }
 
 /// This should determine what the authentication status for the given record

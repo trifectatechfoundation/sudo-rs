@@ -37,11 +37,13 @@ pub enum Authorization {
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
+#[must_use]
 pub struct AuthorizationAllowed {
     pub must_authenticate: bool,
     pub allowed_attempts: u16,
     pub prior_validity: Duration,
     pub trust_environment: bool,
+    pub credential: AuthenticatingUser,
 }
 
 #[must_use]
@@ -69,6 +71,11 @@ impl Policy for Judgement {
                 trust_environment: tag.allows_setenv(),
                 allowed_attempts,
                 prior_validity: Duration::seconds(valid_seconds),
+                credential: if self.settings.rootpw() {
+                    AuthenticatingUser::Root
+                } else {
+                    AuthenticatingUser::InvokingUser
+                },
             })
         } else {
             Authorization::Forbidden
@@ -106,7 +113,6 @@ impl Policy for Judgement {
 
 pub trait PreJudgementPolicy {
     fn secure_path(&self) -> Option<String>;
-    fn authenticate_as(&self) -> AuthenticatingUser;
     fn validate_authorization(&self) -> Authorization;
 }
 
@@ -114,21 +120,17 @@ impl PreJudgementPolicy for Sudoers {
     fn secure_path(&self) -> Option<String> {
         self.settings.secure_path().as_ref().map(|s| s.to_string())
     }
-
-    fn authenticate_as(&self) -> AuthenticatingUser {
-        if self.settings.rootpw() {
-            AuthenticatingUser::Root
-        } else {
-            AuthenticatingUser::InvokingUser
-        }
-    }
-
     fn validate_authorization(&self) -> Authorization {
         Authorization::Allowed(AuthorizationAllowed {
             must_authenticate: true,
             trust_environment: false,
             allowed_attempts: self.settings.passwd_tries().try_into().unwrap(),
             prior_validity: Duration::seconds(self.settings.timestamp_timeout()),
+            credential: if self.settings.rootpw() {
+                AuthenticatingUser::Root
+            } else {
+                AuthenticatingUser::InvokingUser
+            },
         })
     }
 }
@@ -162,6 +164,7 @@ mod test {
                 trust_environment: false,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
+                credential: AuthenticatingUser::InvokingUser,
             })
         );
         judge.mod_flag(|tag| tag.authenticate = Authenticate::Nopasswd);
@@ -172,6 +175,7 @@ mod test {
                 trust_environment: false,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
+                credential: AuthenticatingUser::InvokingUser,
             })
         );
     }
