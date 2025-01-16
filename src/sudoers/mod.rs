@@ -61,7 +61,9 @@ pub struct Judgement {
 
 mod policy;
 
-pub use policy::{Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy};
+pub use policy::{
+    AuthenticatingUser, Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy,
+};
 
 pub use self::entry::Entry;
 

@@ -52,6 +52,13 @@ pub enum DirChange<'a> {
     Any = HARDENED_ENUM_VALUE_1,
 }
 
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
+pub enum AuthenticatingUser {
+    InvokingUser = HARDENED_ENUM_VALUE_0,
+    Root = HARDENED_ENUM_VALUE_1,
+}
+
 impl Policy for Judgement {
     fn authorization(&self) -> Authorization {
         if let Some(tag) = &self.flags {
@@ -99,12 +106,21 @@ impl Policy for Judgement {
 
 pub trait PreJudgementPolicy {
     fn secure_path(&self) -> Option<String>;
+    fn authenticate_as(&self) -> AuthenticatingUser;
     fn validate_authorization(&self) -> Authorization;
 }
 
 impl PreJudgementPolicy for Sudoers {
     fn secure_path(&self) -> Option<String> {
         self.settings.secure_path().as_ref().map(|s| s.to_string())
+    }
+
+    fn authenticate_as(&self) -> AuthenticatingUser {
+        if self.settings.rootpw() {
+            AuthenticatingUser::Root
+        } else {
+            AuthenticatingUser::InvokingUser
+        }
     }
 
     fn validate_authorization(&self) -> Authorization {

@@ -1,3 +1,4 @@
+use crate::system::interface::UserId;
 use crate::system::{Group, User};
 use core::fmt;
 use std::{
@@ -68,6 +69,29 @@ impl CurrentUser {
         Ok(Self {
             inner: User::real()?.ok_or(Error::UserNotFound("current user".to_string()))?,
         })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AuthUser(User);
+
+impl AuthUser {
+    pub fn from_current_user(user: CurrentUser) -> Self {
+        Self(user.inner)
+    }
+
+    pub fn resolve_root_for_rootpw() -> Result<Self, Error> {
+        Ok(Self(
+            User::from_uid(UserId::ROOT)?.ok_or(Error::UserNotFound("root".to_string()))?,
+        ))
+    }
+}
+
+impl ops::Deref for AuthUser {
+    type Target = User;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

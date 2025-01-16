@@ -1,3 +1,4 @@
+use sudo_test::User;
 use sudo_test::{helpers::assert_ls_output, Command, Env, BIN_SUDO};
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
@@ -258,4 +259,57 @@ fn missing_primary_group() -> Result<()> {
         .arg("true")
         .output(&env)?
         .assert_success()
+}
+
+#[test]
+fn rootpw_option_works() -> Result<()> {
+    const PASSWORD: &str = "passw0rd";
+    const ROOT_PASSWORD: &str = "r00t";
+
+    let env = Env(format!(
+        "Defaults rootpw\nDefaults passwd_tries=1\n{USERNAME} ALL=(ALL:ALL) ALL"
+    ))
+    .user_password("root", ROOT_PASSWORD)
+    .user(User(USERNAME).password(PASSWORD))
+    .build()?;
+
+    // User password is not accepted when rootpw is enabled
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD} | sudo -S true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(!output.status().success());
+
+    // Root password is accepted when rootpw is enabled
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(output.status().success());
+
+    Ok(())
+}
+
+#[test]
+fn rootpw_option_doesnt_affect_authorization() -> Result<()> {
+    const PASSWORD: &str = "passw0rd";
+    const ROOT_PASSWORD: &str = "r00t";
+
+    let env = Env("Defaults rootpw\nroot ALL=(ALL:ALL) ALL")
+        .user_password("root", ROOT_PASSWORD)
+        .user(User(USERNAME).password(PASSWORD))
+        .build()?;
+
+    // Even though we accept the root password when rootpw is enabled, we still check that the
+    // actual invoking user is authorized to run the command.
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(!output.status().success());
+
+    Ok(())
 }
