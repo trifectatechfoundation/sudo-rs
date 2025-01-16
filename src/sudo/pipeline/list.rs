@@ -1,10 +1,10 @@
 use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
-    common::{Context, Error},
+    common::{resolve::AuthUser, Context, Error},
     pam::CLIConverser,
     sudo::{cli::SudoListOptions, pam::PamAuthenticator, SudoersPolicy},
-    sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
+    sudoers::{AuthenticatingUser, Authorization, ListRequest, Policy, Request, Sudoers},
     system::{interface::UserId, User},
 };
 
@@ -25,14 +25,14 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
         let original_command = cmd_opts.positional_args.first().cloned();
 
         let sudoers = self.policy.init()?;
-        let context = super::build_context(cmd_opts.into(), &sudoers)?;
+        let mut context = super::build_context(cmd_opts.into(), &sudoers)?;
 
         if original_command.is_some() && !context.command.resolved {
             return Err(Error::CommandNotFound(context.command.command));
         }
 
         if self
-            .auth_invoking_user(&context, &sudoers, &original_command, &other_user)?
+            .auth_invoking_user(&mut context, &sudoers, &original_command, &other_user)?
             .is_break()
         {
             return Ok(());
@@ -69,7 +69,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
 
     fn auth_invoking_user(
         &mut self,
-        context: &Context,
+        context: &mut Context,
         sudoers: &Sudoers,
         original_command: &Option<String>,
         other_user: &Option<User>,
@@ -82,6 +82,12 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
             sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
         match judgement.authorization() {
             Authorization::Allowed(auth) => {
+                context.auth_user = match auth.credential {
+                    AuthenticatingUser::InvokingUser => {
+                        AuthUser::from_current_user(context.current_user.clone())
+                    }
+                    AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
+                };
                 self.auth_and_update_record_file(context, &auth)?;
                 Ok(ControlFlow::Continue(()))
             }
