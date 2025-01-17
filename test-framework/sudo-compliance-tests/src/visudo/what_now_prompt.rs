@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile};
+use sudo_test::{Command, Env, EnvNoImplicit, TextFile};
 
 use crate::{
     visudo::{CHMOD_EXEC, DEFAULT_EDITOR, ETC_SUDOERS, LOGS_PATH},
@@ -54,7 +54,7 @@ fn on_e_re_edits() -> Result<()> {
 #[test]
 fn on_x_closes_without_saving_changes() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
+    let env = EnvNoImplicit(expected)
         .file(DEFAULT_EDITOR, TextFile(editor()).chmod(CHMOD_EXEC))
         .build()?;
 

@@ -70,6 +70,24 @@ pub struct Env {
 #[allow(non_snake_case)]
 pub fn Env(sudoers: impl Into<TextFile>) -> EnvBuilder {
     let mut builder = EnvBuilder::default();
+    let mut sudoers: TextFile = sudoers.into();
+    // Change a couple of flags to match the defaults of sudo-rs. In particular some sudo builds
+    // have lecture or mailing enabled by default while sudo-rs doesn't implement those at all.
+    // And fqdn breaks when --net=none passed to docker and sudo-rs doesn't implement it either.
+    sudoers.contents.insert_str(0, "Defaults !fqdn, !lecture, !mailerpath\n");
+    builder.file(ETC_SUDOERS, sudoers);
+    if cfg!(target_os = "freebsd") {
+        // Many tests expect the users group to exist, but FreeBSD doesn't actually use it.
+        builder.group("users");
+    }
+    builder
+}
+
+/// creates a new test environment builder that contains the specified `/etc/sudoers` file without
+/// any implicit extra rules
+#[allow(non_snake_case)]
+pub fn EnvNoImplicit(sudoers: impl Into<TextFile>) -> EnvBuilder {
+    let mut builder = EnvBuilder::default();
     builder.file(ETC_SUDOERS, sudoers);
     if cfg!(target_os = "freebsd") {
         // Many tests expect the users group to exist, but FreeBSD doesn't actually use it.
