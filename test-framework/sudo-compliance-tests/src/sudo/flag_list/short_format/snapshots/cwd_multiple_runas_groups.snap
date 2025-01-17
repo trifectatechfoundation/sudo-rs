@@ -1,8 +1,10 @@
 ---
-source: sudo-compliance-tests/src/sudo/flag_list/short_format.rs
-assertion_line: 97
+source: sudo-compliance-tests/src/sudo/flag_list/short_format/mod.rs
 expression: stdout
 ---
+Matching Defaults entries for root on container:
+    !fqdn, !lecture, !mailerpath
+
 User root may run the following commands on container:
     (root) CWD=* /usr/bin/true
     (ferris) CWD=* /usr/bin/false
