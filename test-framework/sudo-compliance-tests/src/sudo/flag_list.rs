@@ -83,7 +83,10 @@ fn lists_privileges_for_root() -> Result<()> {
     assert!(output.status().success());
 
     let expected = format!(
-        "User root may run the following commands on {hostname}:
+        "Matching Defaults entries for root on {hostname}:
+    !fqdn, !lecture, !mailerpath
+
+User root may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
@@ -102,7 +105,10 @@ fn works_with_long_form_list_flag() -> Result<()> {
     assert!(output.status().success());
 
     let expected = format!(
-        "User root may run the following commands on {hostname}:
+        "Matching Defaults entries for root on {hostname}:
+    !fqdn, !lecture, !mailerpath
+
+User root may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
@@ -128,7 +134,10 @@ fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "User {USERNAME} may run the following commands on {hostname}:
+        "Matching Defaults entries for {USERNAME} on {hostname}:
+    !fqdn, !lecture, !mailerpath
+
+User {USERNAME} may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
@@ -153,7 +162,10 @@ fn works_with_uppercase_u_flag() -> Result<()> {
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "User {USERNAME} may run the following commands on {hostname}:
+        "Matching Defaults entries for {USERNAME} on {hostname}:
+    !fqdn, !lecture, !mailerpath
+
+User {USERNAME} may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
@@ -247,7 +259,10 @@ fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "User {USERNAME} may run the following commands on {hostname}:\n
+        "Matching Defaults entries for {USERNAME} on {hostname}:
+    !fqdn, !lecture, !mailerpath
+
+User {USERNAME} may run the following commands on {hostname}:\n
 Sudoers entry:
     RunAsUsers: ALL
     RunAsGroups: ALL
@@ -348,7 +363,10 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "User {USERNAME} may run the following commands on {hostname}:
+        "Matching Defaults entries for {USERNAME} on {hostname}:
+    !fqdn, !lecture, !mailerpath
+
+User {USERNAME} may run the following commands on {hostname}:
     ({USERNAME} : ALL) {BIN_TRUE}
     (ALL : ALL) {BIN_PWD}
     (root : ALL) {BIN_FALSE}

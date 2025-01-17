@@ -1,3 +1,4 @@
+use sudo_test::EnvNoImplicit;
 use sudo_test::{helpers::assert_ls_output, Command, Env, TextFile, ROOT_GROUP};
 
 use crate::{
@@ -133,7 +134,7 @@ echo '{expected}' > $2"#
 fn etc_sudoers_is_not_modified() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let unexpected = SUDOERS_ROOT_ALL;
-    let env = Env(expected)
+    let env = EnvNoImplicit(expected)
         .file(
             DEFAULT_EDITOR,
             TextFile(format!(
