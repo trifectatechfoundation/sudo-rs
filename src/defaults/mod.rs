@@ -25,6 +25,9 @@ defaults! {
     always_query_group_plugin = false  #ignored
     always_set_home           = false  #ignored
     env_reset                 = true   #ignored
+    fqdn                      = false  #ignored
+    lecture                   = false  #ignored
+    mailerpath                = None (!= None) #ignored
     mail_badpass              = true   #ignored
     match_group_by_gid        = false  #ignored
     use_pty                   = true
