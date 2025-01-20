@@ -35,15 +35,9 @@ impl PamMessageStyle {
     }
 }
 
-/// A PamMessage contains the data in a single message of a pam conversation.
-pub struct PamMessage {
-    pub msg: String,
-    pub style: PamMessageStyle,
-}
-
 pub trait Converser {
-    /// Handle a single message.
-    fn handle_message(&self, msg: &PamMessage) -> PamResult<Option<PamBuffer>>;
+    /// Handle a single message in a conversation.
+    fn handle_message(&self, style: PamMessageStyle, msg: &str) -> PamResult<Option<PamBuffer>>;
 }
 
 pub trait SequentialConverser: Converser {
@@ -68,22 +62,14 @@ impl<T> Converser for T
 where
     T: SequentialConverser,
 {
-    fn handle_message(&self, msg: &PamMessage) -> PamResult<Option<PamBuffer>> {
+    fn handle_message(&self, style: PamMessageStyle, msg: &str) -> PamResult<Option<PamBuffer>> {
         use PamMessageStyle::*;
 
-        match msg.style {
-            PromptEchoOn => {
-                self.handle_normal_prompt(&msg.msg).map(Some)
-            }
-            PromptEchoOff => {
-                self.handle_hidden_prompt(&msg.msg).map(Some)
-            }
-            ErrorMessage => {
-                self.handle_error(&msg.msg).map(|()| None)
-            }
-            TextInfo => {
-                self.handle_info(&msg.msg).map(|()| None)
-            }
+        match style {
+            PromptEchoOn => self.handle_normal_prompt(msg).map(Some),
+            PromptEchoOff => self.handle_hidden_prompt(msg).map(Some),
+            ErrorMessage => self.handle_error(msg).map(|()| None),
+            TextInfo => self.handle_info(msg).map(|()| None),
         }
     }
 }
@@ -200,15 +186,10 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
                 return PamErrorType::ConversationError;
             };
 
-            let msg = PamMessage {
-                msg,
-                style,
-            };
-
             // send the conversation off to the Rust part
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
-            let Ok(resp_buf) = app_data.converser.handle_message(&msg) else {
+            let Ok(resp_buf) = app_data.converser.handle_message(style, &msg) else {
                 return PamErrorType::ConversationError;
             };
 
@@ -250,6 +231,11 @@ mod test {
     use super::*;
     use std::pin::Pin;
     use PamMessageStyle::*;
+
+    struct PamMessage {
+        msg: String,
+        style: PamMessageStyle,
+    }
 
     impl SequentialConverser for String {
         fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
@@ -330,10 +316,7 @@ mod test {
 
     fn msg(style: PamMessageStyle, msg: &str) -> PamMessage {
         let msg = msg.to_string();
-        PamMessage {
-            style,
-            msg,
-        }
+        PamMessage { style, msg }
     }
 
     // sanity check on the test cases; lib.rs is expected to manage the lifetime of the pointer
