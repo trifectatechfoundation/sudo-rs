@@ -162,14 +162,21 @@ fn test_environment_variable_filtering() {
             .try_into_run()
             .ok()
             .unwrap();
-        let settings = crate::sudoers::Judgement::default();
+        let settings = crate::defaults::Settings::default();
         let context = create_test_context(&options);
         let resulting_env = get_target_environment(
             initial_env.clone(),
             HashMap::new(),
             Vec::new(),
             &context,
-            &settings,
+            &crate::sudoers::Restrictions {
+                env_keep: settings.env_keep(),
+                env_check: settings.env_check(),
+                path: settings.secure_path(),
+                use_pty: true,
+                chdir: crate::sudoers::DirChange::Strict(None),
+                trust_environment: false,
+            },
         )
         .unwrap();
 

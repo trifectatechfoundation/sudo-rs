@@ -54,6 +54,7 @@ pub struct ListRequest<'a, User: UnixUser, Group: UnixGroup> {
 }
 
 #[derive(Default)]
+#[cfg_attr(test, derive(Clone))]
 pub struct Judgement {
     flags: Option<Tag>,
     settings: Settings,
@@ -62,7 +63,8 @@ pub struct Judgement {
 mod policy;
 
 pub use policy::{
-    AuthenticatingUser, Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy,
+    AuthenticatingUser, Authentication, Authorization, DirChange, Policy, PreJudgementPolicy,
+    Restrictions,
 };
 
 pub use self::entry::Entry;

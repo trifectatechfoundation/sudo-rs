@@ -10,7 +10,8 @@ use crate::log::{auth_info, auth_warn};
 use crate::sudo::env::environment;
 use crate::sudo::Duration;
 use crate::sudoers::{
-    AuthenticatingUser, Authorization, AuthorizationAllowed, DirChange, Policy, PreJudgementPolicy,
+    AuthenticatingUser, Authentication, Authorization, DirChange, Policy, PreJudgementPolicy,
+    Restrictions,
 };
 use crate::system::interface::UserId;
 use crate::system::term::current_tty_name;
@@ -59,17 +60,17 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         let policy = self.policy.judge(pre, &context)?;
 
-        let Authorization::Allowed(auth) = policy.authorization() else {
+        let Authorization::Allowed(auth, controls) = policy.authorization() else {
             return Err(Error::Authorization(context.current_user.name.to_string()));
         };
-        self.apply_policy_to_context(&mut context, &auth, &policy)?;
-        self.auth_and_update_record_file(&context, &auth)?;
+        self.apply_policy_to_context(&mut context, &auth, &controls)?;
+        self.auth_and_update_record_file(&mut context, &auth)?;
 
         // build environment
         let additional_env = self.authenticator.pre_exec(&context.target_user.name)?;
 
         let current_env = environment::system_environment();
-        let (checked_vars, trusted_vars) = if auth.trust_environment {
+        let (checked_vars, trusted_vars) = if controls.trust_environment {
             (vec![], pipe_opts.user_requested_env_vars)
         } else {
             (pipe_opts.user_requested_env_vars, vec![])
@@ -80,7 +81,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             additional_env,
             checked_vars,
             &context,
-            &policy,
+            &controls,
         )?;
 
         environment::dangerous_extend(&mut target_env, trusted_vars);
@@ -125,15 +126,8 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             Authorization::Forbidden => {
                 return Err(Error::Authorization(context.current_user.name.to_string()));
             }
-            Authorization::Allowed(auth) => {
-                context.auth_user = match auth.credential {
-                    AuthenticatingUser::InvokingUser => {
-                        AuthUser::from_current_user(context.current_user.clone())
-                    }
-                    AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
-                };
-
-                self.auth_and_update_record_file(&context, &auth)?;
+            Authorization::Allowed(auth, ()) => {
+                self.auth_and_update_record_file(&mut context, &auth)?;
             }
         }
 
@@ -142,13 +136,14 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
     fn auth_and_update_record_file(
         &mut self,
-        context: &Context,
-        &AuthorizationAllowed {
+        context: &mut Context,
+        &Authentication {
             must_authenticate,
             prior_validity,
             allowed_attempts,
+            ref credential,
             ..
-        }: &AuthorizationAllowed,
+        }: &Authentication,
     ) -> Result<(), Error> {
         let scope = RecordScope::for_process(&Process::new());
         let mut auth_status = determine_auth_status(
@@ -159,6 +154,14 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             &context.current_user,
             prior_validity,
         );
+
+        context.auth_user = match credential {
+            AuthenticatingUser::InvokingUser => {
+                AuthUser::from_current_user(context.current_user.clone())
+            }
+            AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
+        };
+
         self.authenticator.init(context)?;
         if auth_status.must_authenticate {
             self.authenticator
@@ -179,11 +182,11 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     fn apply_policy_to_context(
         &mut self,
         context: &mut Context,
-        auth: &AuthorizationAllowed,
-        policy: &<Policy as PolicyPlugin>::Policy,
+        auth: &Authentication,
+        controls: &Restrictions,
     ) -> Result<(), crate::common::Error> {
         // see if the chdir flag is permitted
-        match policy.chdir() {
+        match controls.chdir {
             DirChange::Any => {}
             DirChange::Strict(optdir) => {
                 if let Some(chdir) = &context.chdir {
@@ -204,14 +207,8 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
 
         // in case the user could set these from the commandline, something more fancy
         // could be needed, but here we copy these -- perhaps we should split up the Context type
-        context.use_pty = policy.use_pty();
-        context.password_feedback = policy.pwfeedback();
-        context.auth_user = match auth.credential {
-            AuthenticatingUser::InvokingUser => {
-                AuthUser::from_current_user(context.current_user.clone())
-            }
-            AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
-        };
+        context.use_pty = controls.use_pty;
+        context.password_feedback = auth.pwfeedback;
 
         Ok(())
     }
