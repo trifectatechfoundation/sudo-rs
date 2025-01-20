@@ -4,14 +4,14 @@ pub trait CharStream {
     fn get_pos(&self) -> (usize, usize);
 }
 
-pub struct PeekableWithPos<Iter: Iterator> {
-    iter: std::iter::Peekable<Iter>,
+pub struct PeekableWithPos<'a> {
+    iter: std::iter::Peekable<std::str::Chars<'a>>,
     line: usize,
     col: usize,
 }
 
-impl<Iter: Iterator<Item = char>> PeekableWithPos<Iter> {
-    pub fn new(src: Iter) -> Self {
+impl<'a> PeekableWithPos<'a> {
+    pub fn new(src: std::str::Chars<'a>) -> Self {
         PeekableWithPos {
             iter: src.peekable(),
             line: 1,
@@ -20,7 +20,7 @@ impl<Iter: Iterator<Item = char>> PeekableWithPos<Iter> {
     }
 }
 
-impl<Iter: Iterator<Item = char>> CharStream for PeekableWithPos<Iter> {
+impl CharStream for PeekableWithPos<'_> {
     fn advance(&mut self) {
         match self.iter.next() {
             Some('\n') => {
@@ -42,27 +42,12 @@ impl<Iter: Iterator<Item = char>> CharStream for PeekableWithPos<Iter> {
 }
 
 #[cfg(test)]
-impl<Iter: Iterator<Item = char>> CharStream for std::iter::Peekable<Iter> {
-    fn advance(&mut self) {
-        self.next();
-    }
-
-    fn peek(&mut self) -> Option<char> {
-        self.peek().cloned()
-    }
-
-    fn get_pos(&self) -> (usize, usize) {
-        (0, 0)
-    }
-}
-
-#[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
     fn test_iter() {
-        let mut stream = PeekableWithPos::<std::str::Chars>::new("12\n3\n".chars());
+        let mut stream = PeekableWithPos::new("12\n3\n".chars());
         assert_eq!(stream.peek(), Some('1'));
         stream.advance();
         assert_eq!(stream.peek(), Some('2'));
