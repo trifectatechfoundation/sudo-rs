@@ -181,42 +181,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
     appdata_ptr: *mut libc::c_void,
 ) -> libc::c_int {
     let result = std::panic::catch_unwind(|| {
-        // convert the input messages to Rust types
-        let mut messages = Vec::with_capacity(num_msg as usize);
-        for i in 0..num_msg as isize {
-            // SAFETY: the PAM contract ensures that `num_msg` does not exceed the amount
-            // of messages presented to this function in `msg`, and that it is not being
-            // written to at the same time as we are reading it. Note that the reference
-            // we create does not escape this loopy body.
-            let message: &pam_message = unsafe { &**msg.offset(i) };
-
-            // SAFETY: PAM ensures that the messages passed are properly null-terminated
-            let msg = unsafe { string_from_ptr(message.msg) };
-            let style = if let Some(style) = PamMessageStyle::from_int(message.msg_style) {
-                style
-            } else {
-                // early return if there is a failure to convert, pam would have given us nonsense
-                return PamErrorType::ConversationError;
-            };
-
-            messages.push(PamMessage {
-                msg,
-                style,
-                response: None,
-            });
-        }
-
-        for message in &mut messages {
-            // send the conversation of to the Rust part
-            // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
-            let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
-            if app_data.converser.handle_message(message).is_err() {
-                return PamErrorType::ConversationError;
-            }
-        }
-
-        // Conversation should now contain response messages
-        // allocate enough memory for the responses, set it to zero
+        // Allocate enough memory for the responses, which are initialized with zero.
         // SAFETY: this will either allocate the required amount of (initialized) bytes,
         // or return a null pointer.
         let temp_resp = unsafe {
@@ -229,8 +194,37 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             return PamErrorType::BufferError;
         }
 
-        // Store the responses
-        for (i, msg) in messages.into_iter().enumerate() {
+        for i in 0..num_msg as usize {
+            // convert the input messages to Rust types
+            // SAFETY: the PAM contract ensures that `num_msg` does not exceed the amount
+            // of messages presented to this function in `msg`, and that it is not being
+            // written to at the same time as we are reading it. Note that the reference
+            // we create does not escape this loopy body.
+            let message: &pam_message = unsafe { &**msg.add(i) };
+
+            // SAFETY: PAM ensures that the messages passed are properly null-terminated
+            let msg = unsafe { string_from_ptr(message.msg) };
+            let style = if let Some(style) = PamMessageStyle::from_int(message.msg_style) {
+                style
+            } else {
+                // early return if there is a failure to convert, pam would have given us nonsense
+                return PamErrorType::ConversationError;
+            };
+
+            let mut msg = PamMessage {
+                msg,
+                style,
+                response: None,
+            };
+
+            // send the conversation off to the Rust part
+            // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
+            let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
+            if app_data.converser.handle_message(&mut msg).is_err() {
+                return PamErrorType::ConversationError;
+            }
+
+            // Store the response
             // SAFETY: `i` will not exceed `num_msg` by the way `conversation_messages`
             // is constructed, so `temp_resp` will have allocated-and-initialized data at
             // the required offset that only we have a writable pointer to.
