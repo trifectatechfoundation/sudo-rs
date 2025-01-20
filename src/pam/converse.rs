@@ -36,11 +36,6 @@ impl PamMessageStyle {
 }
 
 pub trait Converser {
-    /// Handle a single message in a conversation.
-    fn handle_message(&self, style: PamMessageStyle, msg: &str) -> PamResult<Option<PamBuffer>>;
-}
-
-pub trait SequentialConverser: Converser {
     /// Handle a normal prompt, i.e. present some message and ask for a value.
     /// The value is not considered a secret.
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer>;
@@ -58,19 +53,19 @@ pub trait SequentialConverser: Converser {
     fn handle_info(&self, msg: &str) -> PamResult<()>;
 }
 
-impl<T> Converser for T
-where
-    T: SequentialConverser,
-{
-    fn handle_message(&self, style: PamMessageStyle, msg: &str) -> PamResult<Option<PamBuffer>> {
-        use PamMessageStyle::*;
+/// Handle a single message in a conversation.
+fn handle_message<C: Converser>(
+    converser: &C,
+    style: PamMessageStyle,
+    msg: &str,
+) -> PamResult<Option<PamBuffer>> {
+    use PamMessageStyle::*;
 
-        match style {
-            PromptEchoOn => self.handle_normal_prompt(msg).map(Some),
-            PromptEchoOff => self.handle_hidden_prompt(msg).map(Some),
-            ErrorMessage => self.handle_error(msg).map(|()| None),
-            TextInfo => self.handle_info(msg).map(|()| None),
-        }
+    match style {
+        PromptEchoOn => converser.handle_normal_prompt(msg).map(Some),
+        PromptEchoOff => converser.handle_hidden_prompt(msg).map(Some),
+        ErrorMessage => converser.handle_error(msg).map(|()| None),
+        TextInfo => converser.handle_info(msg).map(|()| None),
     }
 }
 
@@ -95,7 +90,7 @@ impl CLIConverser {
     }
 }
 
-impl SequentialConverser for CLIConverser {
+impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         if self.no_interact {
             return Err(PamError::InteractionRequired);
@@ -189,7 +184,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             // send the conversation off to the Rust part
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
-            let Ok(resp_buf) = app_data.converser.handle_message(style, &msg) else {
+            let Ok(resp_buf) = handle_message(&app_data.converser, style, &msg) else {
                 return PamErrorType::ConversationError;
             };
 
@@ -237,7 +232,7 @@ mod test {
         style: PamMessageStyle,
     }
 
-    impl SequentialConverser for String {
+    impl Converser for String {
         fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
             Ok(PamBuffer::new(format!("{self} says {msg}").into_bytes()))
         }
