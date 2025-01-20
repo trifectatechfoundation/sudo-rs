@@ -50,29 +50,9 @@ impl PamMessage {
     }
 }
 
-/// Contains the conversation messages and allows setting responses to
-/// each of these messages.
-///
-/// Note that generally there will only be one message in each conversation
-/// because of historical reasons, and instead multiple conversations will
-/// be started for individual messages.
-pub struct Conversation<'a> {
-    messages: &'a mut [PamMessage],
-}
-
-impl<'a> Conversation<'a> {
-    /// Get a mutable iterator of the messages in this conversation.
-    ///
-    /// This can be used to add the resulting values to the messages.
-    pub fn messages_mut(self) -> impl Iterator<Item = &'a mut PamMessage> {
-        self.messages.iter_mut()
-    }
-}
-
 pub trait Converser {
-    /// Handle all the message in the given conversation. They may all be
-    /// handled in sequence or at the same time if possible.
-    fn handle_conversation(&self, conversation: Conversation<'_>) -> PamResult<()>;
+    /// Handle a single message.
+    fn handle_message(&self, msg: &mut PamMessage) -> PamResult<()>;
 }
 
 pub trait SequentialConverser: Converser {
@@ -97,23 +77,21 @@ impl<T> Converser for T
 where
     T: SequentialConverser,
 {
-    fn handle_conversation(&self, conversation: Conversation<'_>) -> PamResult<()> {
+    fn handle_message(&self, msg: &mut PamMessage) -> PamResult<()> {
         use PamMessageStyle::*;
 
-        for msg in conversation.messages_mut() {
-            match msg.style {
-                PromptEchoOn => {
-                    msg.set_response(self.handle_normal_prompt(&msg.msg)?);
-                }
-                PromptEchoOff => {
-                    msg.set_response(self.handle_hidden_prompt(&msg.msg)?);
-                }
-                ErrorMessage => {
-                    self.handle_error(&msg.msg)?;
-                }
-                TextInfo => {
-                    self.handle_info(&msg.msg)?;
-                }
+        match msg.style {
+            PromptEchoOn => {
+                msg.set_response(self.handle_normal_prompt(&msg.msg)?);
+            }
+            PromptEchoOff => {
+                msg.set_response(self.handle_hidden_prompt(&msg.msg)?);
+            }
+            ErrorMessage => {
+                self.handle_error(&msg.msg)?;
+            }
+            TextInfo => {
+                self.handle_info(&msg.msg)?;
             }
         }
 
@@ -228,17 +206,13 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             });
         }
 
-        // send the conversation of to the Rust part
-        // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
-        let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
-        if app_data
-            .converser
-            .handle_conversation(Conversation {
-                messages: messages.as_mut_slice(),
-            })
-            .is_err()
-        {
-            return PamErrorType::ConversationError;
+        for message in &mut messages {
+            // send the conversation of to the Rust part
+            // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
+            let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
+            if app_data.converser.handle_message(message).is_err() {
+                return PamErrorType::ConversationError;
+            }
         }
 
         // Conversation should now contain response messages
