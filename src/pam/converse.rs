@@ -35,24 +35,15 @@ impl PamMessageStyle {
     }
 }
 
-/// A PamMessage contains the data in a single message of a pam conversation
-/// and contains the response to that message.
+/// A PamMessage contains the data in a single message of a pam conversation.
 pub struct PamMessage {
     pub msg: String,
     pub style: PamMessageStyle,
-    response: Option<PamBuffer>,
-}
-
-impl PamMessage {
-    /// Set a response value to the message.
-    pub fn set_response(&mut self, resp: PamBuffer) {
-        self.response = Some(resp);
-    }
 }
 
 pub trait Converser {
     /// Handle a single message.
-    fn handle_message(&self, msg: &mut PamMessage) -> PamResult<()>;
+    fn handle_message(&self, msg: &PamMessage) -> PamResult<Option<PamBuffer>>;
 }
 
 pub trait SequentialConverser: Converser {
@@ -77,25 +68,23 @@ impl<T> Converser for T
 where
     T: SequentialConverser,
 {
-    fn handle_message(&self, msg: &mut PamMessage) -> PamResult<()> {
+    fn handle_message(&self, msg: &PamMessage) -> PamResult<Option<PamBuffer>> {
         use PamMessageStyle::*;
 
         match msg.style {
             PromptEchoOn => {
-                msg.set_response(self.handle_normal_prompt(&msg.msg)?);
+                self.handle_normal_prompt(&msg.msg).map(Some)
             }
             PromptEchoOff => {
-                msg.set_response(self.handle_hidden_prompt(&msg.msg)?);
+                self.handle_hidden_prompt(&msg.msg).map(Some)
             }
             ErrorMessage => {
-                self.handle_error(&msg.msg)?;
+                self.handle_error(&msg.msg).map(|()| None)
             }
             TextInfo => {
-                self.handle_info(&msg.msg)?;
+                self.handle_info(&msg.msg).map(|()| None)
             }
         }
-
-        Ok(())
     }
 }
 
@@ -211,18 +200,17 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
                 return PamErrorType::ConversationError;
             };
 
-            let mut msg = PamMessage {
+            let msg = PamMessage {
                 msg,
                 style,
-                response: None,
             };
 
             // send the conversation off to the Rust part
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
-            if app_data.converser.handle_message(&mut msg).is_err() {
+            let Ok(resp_buf) = app_data.converser.handle_message(&msg) else {
                 return PamErrorType::ConversationError;
-            }
+            };
 
             // Store the response
             // SAFETY: `i` will not exceed `num_msg` by the way `conversation_messages`
@@ -230,7 +218,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             // the required offset that only we have a writable pointer to.
             let response: &mut pam_response = unsafe { &mut *(temp_resp.add(i)) };
 
-            if let Some(secbuf) = msg.response {
+            if let Some(secbuf) = resp_buf {
                 response.resp = secbuf.leak().as_ptr().cast();
             }
         }
@@ -345,7 +333,6 @@ mod test {
         PamMessage {
             style,
             msg,
-            response: None,
         }
     }
 
