@@ -3,6 +3,7 @@
 use crate::common::resolve::CurrentUser;
 use crate::common::{Context, Error};
 use crate::log::dev_info;
+use crate::sudoers::{Judgement, Sudoers};
 use crate::system::interface::UserId;
 use crate::system::kernel::kernel_check;
 use crate::system::timestamp::RecordScope;
@@ -69,14 +70,11 @@ pub(crate) fn candidate_sudoers_file() -> &'static Path {
 pub(crate) struct SudoersPolicy {}
 
 impl PolicyPlugin for SudoersPolicy {
-    type PreJudgementPolicy = crate::sudoers::Sudoers;
-    type Policy = crate::sudoers::Judgement;
-
-    fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error> {
+    fn init(&mut self) -> Result<Sudoers, Error> {
         let sudoers_path = candidate_sudoers_file();
 
-        let (sudoers, syntax_errors) = crate::sudoers::Sudoers::open(sudoers_path)
-            .map_err(|e| Error::Configuration(format!("{e}")))?;
+        let (sudoers, syntax_errors) =
+            Sudoers::open(sudoers_path).map_err(|e| Error::Configuration(format!("{e}")))?;
 
         for crate::sudoers::Error {
             source,
@@ -91,11 +89,7 @@ impl PolicyPlugin for SudoersPolicy {
         Ok(sudoers)
     }
 
-    fn judge(
-        &mut self,
-        pre: Self::PreJudgementPolicy,
-        context: &Context,
-    ) -> Result<Self::Policy, Error> {
+    fn judge(&mut self, pre: Sudoers, context: &Context) -> Result<Judgement, Error> {
         Ok(pre.check(
             &*context.current_user,
             &context.hostname,

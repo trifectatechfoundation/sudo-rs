@@ -10,8 +10,7 @@ use crate::log::{auth_info, auth_warn};
 use crate::sudo::env::environment;
 use crate::sudo::Duration;
 use crate::sudoers::{
-    AuthenticatingUser, Authentication, Authorization, DirChange, Policy, PreJudgementPolicy,
-    Restrictions,
+    AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
 };
 use crate::system::interface::UserId;
 use crate::system::term::current_tty_name;
@@ -21,15 +20,8 @@ use crate::system::{escape_os_str_lossy, Process};
 mod list;
 
 pub trait PolicyPlugin {
-    type PreJudgementPolicy: PreJudgementPolicy;
-    type Policy: Policy;
-
-    fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error>;
-    fn judge(
-        &mut self,
-        pre: Self::PreJudgementPolicy,
-        context: &Context,
-    ) -> Result<Self::Policy, Error>;
+    fn init(&mut self) -> Result<Sudoers, Error>;
+    fn judge(&mut self, pre: Sudoers, context: &Context) -> Result<Judgement, Error>;
 }
 
 pub trait AuthPlugin {
@@ -214,12 +206,10 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     }
 }
 
-fn build_context(
-    cmd_opts: OptionsForContext,
-    pre: &dyn PreJudgementPolicy,
-) -> Result<Context, Error> {
+fn build_context(cmd_opts: OptionsForContext, pre: &Sudoers) -> Result<Context, Error> {
     let secure_path: String = pre
         .secure_path()
+        .map(|s| s.to_owned())
         .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
     Context::build_from_options(cmd_opts, secure_path)
 }
