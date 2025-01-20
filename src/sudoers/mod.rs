@@ -268,7 +268,7 @@ fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Pars
 
     use basic_parser::parse_lines;
     use char_stream::*;
-    Ok(parse_lines(&mut PeekableWithPos::new(buffer.chars())))
+    Ok(parse_lines(&mut CharStream::new(buffer.chars())))
 }
 
 fn open_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {

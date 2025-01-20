@@ -1,18 +1,12 @@
-pub trait CharStream {
-    fn advance(&mut self);
-    fn peek(&mut self) -> Option<char>;
-    fn get_pos(&self) -> (usize, usize);
-}
-
-pub struct PeekableWithPos<'a> {
+pub struct CharStream<'a> {
     iter: std::iter::Peekable<std::str::Chars<'a>>,
     line: usize,
     col: usize,
 }
 
-impl<'a> PeekableWithPos<'a> {
+impl<'a> CharStream<'a> {
     pub fn new(src: std::str::Chars<'a>) -> Self {
-        PeekableWithPos {
+        CharStream {
             iter: src.peekable(),
             line: 1,
             col: 1,
@@ -20,8 +14,8 @@ impl<'a> PeekableWithPos<'a> {
     }
 }
 
-impl CharStream for PeekableWithPos<'_> {
-    fn advance(&mut self) {
+impl CharStream<'_> {
+    pub fn advance(&mut self) {
         match self.iter.next() {
             Some('\n') => {
                 self.line += 1;
@@ -32,11 +26,11 @@ impl CharStream for PeekableWithPos<'_> {
         }
     }
 
-    fn peek(&mut self) -> Option<char> {
+    pub fn peek(&mut self) -> Option<char> {
         self.iter.peek().cloned()
     }
 
-    fn get_pos(&self) -> (usize, usize) {
+    pub fn get_pos(&self) -> (usize, usize) {
         (self.line, self.col)
     }
 }
@@ -47,7 +41,7 @@ mod test {
 
     #[test]
     fn test_iter() {
-        let mut stream = PeekableWithPos::new("12\n3\n".chars());
+        let mut stream = CharStream::new("12\n3\n".chars());
         assert_eq!(stream.peek(), Some('1'));
         stream.advance();
         assert_eq!(stream.peek(), Some('2'));
