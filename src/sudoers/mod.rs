@@ -386,11 +386,11 @@ where
 {
     let mut result = None;
     for item in items {
-        let (judgement, who) = match item.clone().to_inner() {
+        let (judgement, who) = match item.as_inner() {
             Qualified::Forbid(x) => (false, x),
             Qualified::Allow(x) => (true, x),
         };
-        let info = || item.to_info();
+        let info = || item.into_info();
         match who {
             Meta::All => result = judgement.then(info),
             Meta::Only(ident) if matches(ident) => result = judgement.then(info),
@@ -413,8 +413,8 @@ where
 trait WithInfo: Clone {
     type Item;
     type Info;
-    fn to_inner(self) -> Self::Item;
-    fn to_info(self) -> Self::Info;
+    fn as_inner(&self) -> Self::Item;
+    fn into_info(self) -> Self::Info;
 }
 
 /// A specific interface for `Spec<T>` --- we can't make a generic one;
@@ -422,20 +422,20 @@ trait WithInfo: Clone {
 impl<'a, T> WithInfo for &'a Spec<T> {
     type Item = &'a Spec<T>;
     type Info = ();
-    fn to_inner(self) -> &'a Spec<T> {
+    fn as_inner(&self) -> &'a Spec<T> {
         self
     }
-    fn to_info(self) {}
+    fn into_info(self) {}
 }
 
 /// A commandspec can be "tagged"
 impl<'a> WithInfo for (Tag, &'a Spec<Command>) {
     type Item = &'a Spec<Command>;
     type Info = Tag;
-    fn to_inner(self) -> &'a Spec<Command> {
+    fn as_inner(&self) -> &'a Spec<Command> {
         self.1
     }
-    fn to_info(self) -> Tag {
+    fn into_info(self) -> Tag {
         self.0
     }
 }
