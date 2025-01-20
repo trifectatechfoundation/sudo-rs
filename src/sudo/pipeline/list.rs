@@ -4,7 +4,7 @@ use crate::{
     common::{Context, Error},
     pam::CLIConverser,
     sudo::{cli::SudoListOptions, pam::PamAuthenticator, SudoersPolicy},
-    sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
+    sudoers::{Authorization, ListRequest, Request, Sudoers},
     system::{interface::UserId, User},
 };
 

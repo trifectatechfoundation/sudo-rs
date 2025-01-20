@@ -10,12 +10,6 @@ use crate::system::time::Duration;
 /// than just the sudoers file.
 use std::collections::HashSet;
 
-pub trait Policy {
-    fn authorization(&self) -> Authorization<Restrictions> {
-        Authorization::Forbidden
-    }
-}
-
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[repr(u32)]
@@ -76,8 +70,8 @@ pub enum AuthenticatingUser {
     Root = HARDENED_ENUM_VALUE_1,
 }
 
-impl Policy for Judgement {
-    fn authorization(&self) -> Authorization<Restrictions> {
+impl Judgement {
+    pub fn authorization(&self) -> Authorization<Restrictions> {
         if let Some(tag) = &self.flags {
             Authorization::Allowed(
                 Authentication {
@@ -103,16 +97,12 @@ impl Policy for Judgement {
     }
 }
 
-pub trait PreJudgementPolicy {
-    fn secure_path(&self) -> Option<String>;
-    fn validate_authorization(&self) -> Authorization<()>;
-}
-
-impl PreJudgementPolicy for Sudoers {
-    fn secure_path(&self) -> Option<String> {
-        self.settings.secure_path().as_ref().map(|s| s.to_string())
+impl Sudoers {
+    pub fn secure_path(&self) -> Option<&str> {
+        self.settings.secure_path()
     }
-    fn validate_authorization(&self) -> Authorization<()> {
+
+    pub fn validate_authorization(&self) -> Authorization<()> {
         Authorization::Allowed(self.settings.to_auth(), ())
     }
 }
