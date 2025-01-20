@@ -56,15 +56,15 @@ impl PamMessage {
 /// Note that generally there will only be one message in each conversation
 /// because of historical reasons, and instead multiple conversations will
 /// be started for individual messages.
-pub struct Conversation {
-    messages: Vec<PamMessage>,
+pub struct Conversation<'a> {
+    messages: &'a mut [PamMessage],
 }
 
-impl Conversation {
+impl<'a> Conversation<'a> {
     /// Get a mutable iterator of the messages in this conversation.
     ///
     /// This can be used to add the resulting values to the messages.
-    pub fn messages_mut(&mut self) -> impl Iterator<Item = &mut PamMessage> {
+    pub fn messages_mut(self) -> impl Iterator<Item = &'a mut PamMessage> {
         self.messages.iter_mut()
     }
 }
@@ -72,7 +72,7 @@ impl Conversation {
 pub trait Converser {
     /// Handle all the message in the given conversation. They may all be
     /// handled in sequence or at the same time if possible.
-    fn handle_conversation(&self, conversation: &mut Conversation) -> PamResult<()>;
+    fn handle_conversation(&self, conversation: Conversation<'_>) -> PamResult<()>;
 }
 
 pub trait SequentialConverser: Converser {
@@ -97,7 +97,7 @@ impl<T> Converser for T
 where
     T: SequentialConverser,
 {
-    fn handle_conversation(&self, conversation: &mut Conversation) -> PamResult<()> {
+    fn handle_conversation(&self, conversation: Conversation<'_>) -> PamResult<()> {
         use PamMessageStyle::*;
 
         for msg in conversation.messages_mut() {
@@ -204,9 +204,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
 ) -> libc::c_int {
     let result = std::panic::catch_unwind(|| {
         // convert the input messages to Rust types
-        let mut conversation = Conversation {
-            messages: Vec::with_capacity(num_msg as usize),
-        };
+        let mut messages = Vec::with_capacity(num_msg as usize);
         for i in 0..num_msg as isize {
             // SAFETY: the PAM contract ensures that `num_msg` does not exceed the amount
             // of messages presented to this function in `msg`, and that it is not being
@@ -223,7 +221,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
                 return PamErrorType::ConversationError;
             };
 
-            conversation.messages.push(PamMessage {
+            messages.push(PamMessage {
                 msg,
                 style,
                 response: None,
@@ -235,7 +233,9 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
         let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
         if app_data
             .converser
-            .handle_conversation(&mut conversation)
+            .handle_conversation(Conversation {
+                messages: messages.as_mut_slice(),
+            })
             .is_err()
         {
             return PamErrorType::ConversationError;
@@ -256,7 +256,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
         }
 
         // Store the responses
-        for (i, msg) in conversation.messages.into_iter().enumerate() {
+        for (i, msg) in messages.into_iter().enumerate() {
             // SAFETY: `i` will not exceed `num_msg` by the way `conversation_messages`
             // is constructed, so `temp_resp` will have allocated-and-initialized data at
             // the required offset that only we have a writable pointer to.
