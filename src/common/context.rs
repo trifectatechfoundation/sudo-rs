@@ -102,7 +102,6 @@ impl Context {
 mod tests {
     use crate::{
         sudo::SudoAction,
-        sudoers::AuthenticatingUser,
         system::{interface::UserId, Hostname},
     };
     use std::collections::HashMap;

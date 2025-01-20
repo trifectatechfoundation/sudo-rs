@@ -1,10 +1,10 @@
 use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
-    common::{resolve::AuthUser, Context, Error},
+    common::{Context, Error},
     pam::CLIConverser,
     sudo::{cli::SudoListOptions, pam::PamAuthenticator, SudoersPolicy},
-    sudoers::{AuthenticatingUser, Authorization, ListRequest, Policy, Request, Sudoers},
+    sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
     system::{interface::UserId, User},
 };
 
@@ -81,13 +81,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
         let judgement =
             sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
         match judgement.authorization() {
-            Authorization::Allowed(auth) => {
-                context.auth_user = match auth.credential {
-                    AuthenticatingUser::InvokingUser => {
-                        AuthUser::from_current_user(context.current_user.clone())
-                    }
-                    AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
-                };
+            Authorization::Allowed(auth, _) => {
                 self.auth_and_update_record_file(context, &auth)?;
                 Ok(ControlFlow::Continue(()))
             }
