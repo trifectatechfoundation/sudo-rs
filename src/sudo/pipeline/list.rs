@@ -2,15 +2,14 @@ use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
     common::{Context, Error},
-    pam::CLIConverser,
-    sudo::{cli::SudoListOptions, pam::PamAuthenticator, SudoersPolicy},
+    sudo::cli::SudoListOptions,
     sudoers::{Authorization, ListRequest, Request, Sudoers},
     system::{interface::UserId, User},
 };
 
-use super::{Pipeline, PolicyPlugin};
+use super::Pipeline;
 
-impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
+impl<Auth: super::AuthPlugin> Pipeline<Auth> {
     pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoListOptions) -> Result<(), Error> {
         let verbose_list_mode = cmd_opts.list.is_verbose();
         let other_user = cmd_opts
@@ -24,7 +23,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
 
         let original_command = cmd_opts.positional_args.first().cloned();
 
-        let sudoers = self.policy.init()?;
+        let sudoers = super::read_sudoers()?;
         let mut context = super::build_context(cmd_opts.into(), &sudoers)?;
 
         if original_command.is_some() && !context.command.resolved {

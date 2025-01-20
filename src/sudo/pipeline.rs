@@ -2,6 +2,7 @@ use std::ffi::{OsStr, OsString};
 use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
+use super::diagnostic;
 use crate::common::context::OptionsForContext;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
@@ -19,11 +20,6 @@ use crate::system::{escape_os_str_lossy, Process};
 
 mod list;
 
-pub trait PolicyPlugin {
-    fn init(&mut self) -> Result<Sudoers, Error>;
-    fn judge(&mut self, pre: Sudoers, context: &Context) -> Result<Judgement, Error>;
-}
-
 pub trait AuthPlugin {
     fn init(&mut self, context: &Context) -> Result<(), Error>;
     fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error>;
@@ -31,14 +27,45 @@ pub trait AuthPlugin {
     fn cleanup(&mut self);
 }
 
-pub struct Pipeline<Policy: PolicyPlugin, Auth: AuthPlugin> {
-    pub policy: Policy,
+pub struct Pipeline<Auth: AuthPlugin> {
     pub authenticator: Auth,
 }
 
-impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
+fn read_sudoers() -> Result<Sudoers, Error> {
+    let sudoers_path = super::candidate_sudoers_file();
+
+    let (sudoers, syntax_errors) =
+        Sudoers::open(sudoers_path).map_err(|e| Error::Configuration(format!("{e}")))?;
+
+    for crate::sudoers::Error {
+        source,
+        location,
+        message,
+    } in syntax_errors
+    {
+        let path = source.as_deref().unwrap_or(sudoers_path);
+        diagnostic::diagnostic!("{message}", path @ location);
+    }
+
+    Ok(sudoers)
+}
+
+fn judge(policy: Sudoers, context: &Context) -> Result<Judgement, Error> {
+    Ok(policy.check(
+        &*context.current_user,
+        &context.hostname,
+        crate::sudoers::Request {
+            user: &context.target_user,
+            group: &context.target_group,
+            command: &context.command.command,
+            arguments: &context.command.arguments,
+        },
+    ))
+}
+
+impl<Auth: AuthPlugin> Pipeline<Auth> {
     pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
-        let pre = self.policy.init()?;
+        let policy = read_sudoers()?;
 
         let (ctx_opts, pipe_opts) = cmd_opts.into();
 
@@ -48,9 +75,9 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
             )
         }
 
-        let mut context = build_context(ctx_opts, &pre)?;
+        let mut context = build_context(ctx_opts, &policy)?;
 
-        let policy = self.policy.judge(pre, &context)?;
+        let policy = judge(policy, &context)?;
 
         let Authorization::Allowed(auth, controls) = policy.authorization() else {
             return Err(Error::Authorization(context.current_user.name.to_string()));
@@ -111,7 +138,7 @@ impl<Policy: PolicyPlugin, Auth: AuthPlugin> Pipeline<Policy, Auth> {
     }
 
     pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
-        let pre = self.policy.init()?;
+        let pre = read_sudoers()?;
         let mut context = build_context(cmd_opts.into(), &pre)?;
 
         match pre.validate_authorization() {
