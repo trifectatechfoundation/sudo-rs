@@ -151,19 +151,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
     appdata_ptr: *mut libc::c_void,
 ) -> libc::c_int {
     let result = std::panic::catch_unwind(|| {
-        // Allocate enough memory for the responses, which are initialized with zero.
-        // SAFETY: this will either allocate the required amount of (initialized) bytes,
-        // or return a null pointer.
-        let temp_resp = unsafe {
-            libc::calloc(
-                num_msg as libc::size_t,
-                std::mem::size_of::<pam_response>() as libc::size_t,
-            )
-        } as *mut pam_response;
-        if temp_resp.is_null() {
-            return PamErrorType::BufferError;
-        }
-
+        let mut resp_bufs = Vec::with_capacity(num_msg as usize);
         for i in 0..num_msg as usize {
             // convert the input messages to Rust types
             // SAFETY: the PAM contract ensures that `num_msg` does not exceed the amount
@@ -188,7 +176,24 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
                 return PamErrorType::ConversationError;
             };
 
-            // Store the response
+            resp_bufs.push(resp_buf);
+        }
+
+        // Allocate enough memory for the responses, which are initialized with zero.
+        // SAFETY: this will either allocate the required amount of (initialized) bytes,
+        // or return a null pointer.
+        let temp_resp = unsafe {
+            libc::calloc(
+                num_msg as libc::size_t,
+                std::mem::size_of::<pam_response>() as libc::size_t,
+            )
+        } as *mut pam_response;
+        if temp_resp.is_null() {
+            return PamErrorType::BufferError;
+        }
+
+        // Store the responses
+        for (i, resp_buf) in resp_bufs.into_iter().enumerate() {
             // SAFETY: `i` will not exceed `num_msg` by the way `conversation_messages`
             // is constructed, so `temp_resp` will have allocated-and-initialized data at
             // the required offset that only we have a writable pointer to.
