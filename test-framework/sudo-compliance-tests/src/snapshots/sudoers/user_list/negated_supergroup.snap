@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/sudoers/user_list.rs
+source: sudo-compliance-tests/src/sudo/sudoers/user_list.rs
 expression: stderr
 ---
 ferris is not in the sudoers file.

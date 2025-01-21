@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/sudoers/cmnd_alias.rs
+source: sudo-compliance-tests/src/sudo/sudoers/cmnd_alias.rs
 expression: stderr
 ---
 Sorry, user root is not allowed to execute '/usr/bin/ls' as root on [host].

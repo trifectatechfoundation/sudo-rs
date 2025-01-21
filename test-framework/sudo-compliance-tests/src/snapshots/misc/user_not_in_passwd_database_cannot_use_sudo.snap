@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/misc.rs
-expression: output.stderr()
+source: sudo-compliance-tests/src/sudo/misc.rs
+expression: stderr
 ---
 sudo: you do not exist in the passwd database

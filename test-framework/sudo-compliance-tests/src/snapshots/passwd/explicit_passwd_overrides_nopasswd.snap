@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/passwd.rs
+source: sudo-compliance-tests/src/sudo/passwd.rs
 expression: stderr
 ---
 [sudo] password for ferris: 

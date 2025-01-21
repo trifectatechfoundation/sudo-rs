@@ -1,5 +1,5 @@
 ---
 source: sudo-compliance-tests/src/visudo.rs
-expression: stderr
+expression: "stderr.replace(ETC_DIR, \"<ETC_DIR>\")"
 ---
 visudo: unable to re-open temporary file (/tmp/[mkdtemp]/sudoers), <ETC_DIR>/sudoers unchanged: No such file or directory (os error 2)

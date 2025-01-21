@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/flag_login.rs
-expression: output.stderr()
+source: sudo-compliance-tests/src/sudo/flag_login.rs
+expression: stderr
 ---
 sudo: unable to execute /tmp/my-shell: Permission denied

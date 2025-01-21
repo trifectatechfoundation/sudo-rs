@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/flag_user.rs
+source: sudo-compliance-tests/src/sudo/flag_user.rs
 expression: stderr
 ---
 sudo: unknown user #1234
