@@ -11,7 +11,7 @@
 //!
 //! ```ignore
 //! impl<T: Parse> Parse for LinkedList<T> {
-//!     fn parse(stream: &mut impl CharStream) -> Parsed<LinkedList<T>> {
+//!     fn parse(stream: &mut CharStream) -> Parsed<LinkedList<T>> {
 //!         let x = try_nonterminal(stream)?;
 //!         let mut tail = if is_syntax('+', stream)? {
 //!             expect_nonterminal(stream)?
@@ -77,7 +77,7 @@ pub use super::char_stream::CharStream;
 /// advanced beyond the accepted part of the input. i.e. if some input is consumed the method
 /// *MUST* be producing a `Some` value.
 pub trait Parse {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self>
+    fn parse(stream: &mut CharStream) -> Parsed<Self>
     where
         Self: Sized;
 }
@@ -87,7 +87,7 @@ pub trait Parse {
 /// (this can facilitate an easy switch to a different method of stream representation in the future).
 /// Unlike `Parse` implementations this *does not* consume trailing whitespace.
 /// This function is modelled on `next_if` on `std::Peekable`.
-pub fn accept_if(predicate: impl Fn(char) -> bool, stream: &mut impl CharStream) -> Option<char> {
+pub fn accept_if(predicate: impl Fn(char) -> bool, stream: &mut CharStream) -> Option<char> {
     let c = stream.peek()?;
     if predicate(c) {
         stream.advance();
@@ -110,7 +110,7 @@ struct Comment;
 /// Accept zero or more whitespace characters; fails if the whitespace is not "leading" to something
 /// (which can be used to detect end-of-input).
 impl Parse for LeadingWhitespace {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let eat_space = |stream: &mut _| accept_if(|c| "\t ".contains(c), stream);
         while eat_space(stream).is_some() {}
 
@@ -126,7 +126,7 @@ impl Parse for LeadingWhitespace {
 /// always succeeds (unless some serious error occurs). This parser also accepts comments,
 /// since those can form part of trailing white space.
 impl Parse for TrailingWhitespace {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         loop {
             let _ = LeadingWhitespace::parse(stream); // don't propagate any errors
 
@@ -147,27 +147,27 @@ impl Parse for TrailingWhitespace {
 
 /// Parses a comment
 impl Parse for Comment {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         accept_if(|c| c == '#', stream).ok_or(Status::Reject)?;
         while accept_if(|c| c != '\n', stream).is_some() {}
         make(Comment {})
     }
 }
 
-fn skip_trailing_whitespace(stream: &mut impl CharStream) -> Parsed<()> {
+fn skip_trailing_whitespace(stream: &mut CharStream) -> Parsed<()> {
     TrailingWhitespace::parse(stream)?;
     make(())
 }
 
 /// Adheres to the contract of the [Parse] trait, accepts one character and consumes trailing whitespace.
-pub fn try_syntax(syntax: char, stream: &mut impl CharStream) -> Parsed<()> {
+pub fn try_syntax(syntax: char, stream: &mut CharStream) -> Parsed<()> {
     accept_if(|c| c == syntax, stream).ok_or(Status::Reject)?;
     skip_trailing_whitespace(stream)?;
     make(())
 }
 
 /// Similar to [try_syntax], but aborts parsing if the expected character is not found.
-pub fn expect_syntax(syntax: char, stream: &mut impl CharStream) -> Parsed<()> {
+pub fn expect_syntax(syntax: char, stream: &mut CharStream) -> Parsed<()> {
     if try_syntax(syntax, stream).is_err() {
         let str = if let Some(c) = stream.peek() {
             c.to_string()
@@ -180,14 +180,14 @@ pub fn expect_syntax(syntax: char, stream: &mut impl CharStream) -> Parsed<()> {
 }
 
 /// Convenience function: usually try_syntax is called as a test criterion; if this returns true, the input was consumed.
-pub fn is_syntax(syntax: char, stream: &mut impl CharStream) -> Parsed<bool> {
+pub fn is_syntax(syntax: char, stream: &mut CharStream) -> Parsed<bool> {
     let result = maybe(try_syntax(syntax, stream))?;
     make(result.is_some())
 }
 
 /// Interface for working with types that implement the [Parse] trait; this allows parsing to use
 /// type inference. Use this instead of calling [Parse::parse] directly.
-pub fn try_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
+pub fn try_nonterminal<T: Parse>(stream: &mut CharStream) -> Parsed<T> {
     let result = T::parse(stream)?;
     skip_trailing_whitespace(stream)?;
     make(result)
@@ -197,7 +197,7 @@ pub fn try_nonterminal<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 /// the given type or gives a fatal parse error if this did not succeed.
 use super::ast_names::UserFriendly;
 
-pub fn expect_nonterminal<T: Parse + UserFriendly>(stream: &mut impl CharStream) -> Parsed<T> {
+pub fn expect_nonterminal<T: Parse + UserFriendly>(stream: &mut CharStream) -> Parsed<T> {
     let begin_pos = stream.get_pos();
     match try_nonterminal(stream) {
         Err(Status::Reject) => {
@@ -228,10 +228,10 @@ pub trait Token: Sized {
 
 /// Implementation of the [Parse] trait for anything that implements [Token]
 impl<T: Token> Parse for T {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         fn accept_escaped<T: Token>(
             pred: fn(char) -> bool,
-            stream: &mut impl CharStream,
+            stream: &mut CharStream,
         ) -> Parsed<char> {
             const ESCAPE: char = '\\';
             if T::ALLOW_ESCAPE && accept_if(|c| c == ESCAPE, stream).is_some() {
@@ -267,7 +267,7 @@ impl<T: Token> Parse for T {
 
 /// Parser for `Option<T>` (this can be used to make the code more readable)
 impl<T: Parse> Parse for Option<T> {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         maybe(T::parse(stream))
     }
 }
@@ -276,7 +276,7 @@ impl<T: Parse> Parse for Option<T> {
 pub(super) fn parse_list<T: Parse + UserFriendly>(
     sep_by: char,
     max: usize,
-    stream: &mut impl CharStream,
+    stream: &mut CharStream,
 ) -> Parsed<Vec<T>> {
     let mut elems = Vec::new();
     elems.push(try_nonterminal(stream)?);
@@ -300,13 +300,13 @@ pub trait Many {
 /// Generic implementation for parsing multiple items of a type `T` that implements the [Parse] and
 /// [Many] traits.
 impl<T: Parse + Many + UserFriendly> Parse for Vec<T> {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         parse_list(T::SEP, T::LIMIT, stream)
     }
 }
 
 /// Entry point utility function; parse a `Vec<T>` but with fatal error recovery per line
-pub fn parse_lines<T, Stream: CharStream>(stream: &mut Stream) -> Vec<Parsed<T>>
+pub fn parse_lines<T>(stream: &mut CharStream) -> Vec<Parsed<T>>
 where
     T: Parse + UserFriendly,
 {
@@ -329,7 +329,7 @@ where
                 } else {
                     "garbage at end of line"
                 };
-                let error = |stream: &mut Stream| unrecoverable!(stream, "{msg}");
+                let error = |stream: &mut CharStream| unrecoverable!(stream, "{msg}");
                 result.push(error(stream));
             }
             while accept_if(|c| c != '\n', stream).is_some() {}
@@ -340,7 +340,7 @@ where
 }
 
 #[cfg(test)]
-fn expect_complete<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
+fn expect_complete<T: Parse>(stream: &mut CharStream) -> Parsed<T> {
     let result = expect_nonterminal(stream)?;
     if let Some(c) = stream.peek() {
         unrecoverable!(stream, "garbage at end of line: {c}")
@@ -352,7 +352,7 @@ fn expect_complete<T: Parse>(stream: &mut impl CharStream) -> Parsed<T> {
 /// AST constructors by hand.
 #[cfg(test)]
 pub fn parse_string<T: Parse>(text: &str) -> Parsed<T> {
-    expect_complete(&mut text.chars().peekable())
+    expect_complete(&mut CharStream::new(text.chars()))
 }
 
 #[cfg(test)]
@@ -388,7 +388,7 @@ mod test {
 
     #[test]
     fn lines_test() {
-        let input = |text: &str| parse_lines(&mut text.chars().peekable());
+        let input = |text: &str| parse_lines(&mut CharStream::new(text.chars()));
 
         let s = |text: &str| Ok(text.to_string());
         assert_eq!(input("hello\nworld\n"), vec![s("hello"), s("world")]);

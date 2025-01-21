@@ -198,7 +198,7 @@ impl Sudo {
 ///            | #<numerical id>
 /// ```
 impl Parse for Identifier {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         if accept_if(|c| c == '#', stream).is_some() {
             let Digits(guid) = expect_nonterminal(stream)?;
             make(Identifier::ID(guid))
@@ -219,7 +219,7 @@ impl Many for Identifier {}
 /// This computes the correct negation with multiple exclamation marks in the parsing stage so we
 /// are not bothered by it later.
 impl<T: Parse + UserFriendly> Parse for Qualified<T> {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         if is_syntax('!', stream)? {
             let mut neg = true;
             while is_syntax('!', stream)? {
@@ -245,7 +245,7 @@ impl<T: Many> Many for Qualified<T> {
 
 /// Helper function for parsing `Meta<T>` things where T is not a token
 fn parse_meta<T: Parse>(
-    stream: &mut impl CharStream,
+    stream: &mut CharStream,
     embed: impl FnOnce(SudoString) -> T,
 ) -> Parsed<Meta<T>> {
     if let Some(meta) = try_nonterminal(stream)? {
@@ -261,7 +261,7 @@ fn parse_meta<T: Parse>(
 
 /// Since Identifier is not a token, add the parser for `Meta<Identifier>`
 impl Parse for Meta<Identifier> {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         parse_meta(stream, Identifier::Name)
     }
 }
@@ -274,7 +274,7 @@ impl Parse for Meta<Identifier> {
 ///          | +netgroup
 /// ```
 impl Parse for UserSpecifier {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let userspec = if accept_if(|c| c == '%', stream).is_some() {
             let ctor = if accept_if(|c| c == ':', stream).is_some() {
                 UserSpecifier::NonunixGroup
@@ -299,7 +299,7 @@ impl Many for UserSpecifier {}
 
 /// UserSpecifier is not a token, implement the parser for `Meta<UserSpecifier>`
 impl Parse for Meta<UserSpecifier> {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         parse_meta(stream, |name| UserSpecifier::User(Identifier::Name(name)))
     }
 }
@@ -309,7 +309,7 @@ impl Parse for Meta<UserSpecifier> {
 /// runas = "(", userlist, (":", grouplist?)?, ")"
 /// ```
 impl Parse for RunAs {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         try_syntax('(', stream)?;
         let users = try_nonterminal(stream).unwrap_or_default();
         let groups = maybe(try_syntax(':', stream).and_then(|_| try_nonterminal(stream)))?
@@ -336,7 +336,7 @@ pub type Modifier = Box<dyn Fn(&mut Tag)>;
 // to be more general, we impl Parse for Meta<Tag> so a future tag like "AFOOBAR" can be added with no problem
 
 impl Parse for MetaOrTag {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         use Meta::*;
 
         let start_pos = stream.get_pos();
@@ -402,7 +402,7 @@ impl Parse for MetaOrTag {
 /// commandspec = [tag modifiers]*, command
 /// ```
 impl Parse for CommandSpec {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let mut tags = vec![];
         while let Some(MetaOrTag(keyword)) = try_nonterminal(stream)? {
             use Qualified::Allow;
@@ -450,7 +450,7 @@ impl Parse for CommandSpec {
 /// (host,runas,commandspec) = hostlist, "=", [runas?, commandspec]+
 /// ```
 impl Parse for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let hosts = try_nonterminal(stream)?;
         expect_syntax('=', stream)?;
         let runas_cmds = expect_nonterminal(stream)?;
@@ -471,7 +471,7 @@ impl Many for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
 /// (runas,commandspec) = runas?, commandspec
 /// ```
 impl Parse for (Option<RunAs>, CommandSpec) {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let runas: Option<RunAs> = try_nonterminal(stream)?;
         let cmd = if runas.is_some() {
             expect_nonterminal(stream)?
@@ -502,7 +502,7 @@ impl Parse for Sudo {
     //   "User_Alias, user machine = command"
     // but accept:
     //   "user, User_Alias machine = command"; this does the same
-    fn parse(stream: &mut impl CharStream) -> Parsed<Sudo> {
+    fn parse(stream: &mut CharStream) -> Parsed<Sudo> {
         if accept_if(|c| c == '@', stream).is_some() {
             return parse_include(stream);
         }
@@ -553,8 +553,8 @@ impl Parse for Sudo {
 }
 
 /// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
-fn parse_include(stream: &mut impl CharStream) -> Parsed<Sudo> {
-    fn get_path(stream: &mut impl CharStream) -> Parsed<String> {
+fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
+    fn get_path(stream: &mut CharStream) -> Parsed<String> {
         if accept_if(|c| c == '"', stream).is_some() {
             let QuotedInclude(path) = expect_nonterminal(stream)?;
             expect_syntax('"', stream)?;
@@ -593,7 +593,7 @@ where
     T: UserFriendly,
     Meta<T>: Parse + Many,
 {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let begin_pos = stream.get_pos();
         let AliasName(name) = try_nonterminal(stream)?;
         if name == "ALL" {
@@ -615,7 +615,7 @@ impl<T> Many for Def<T> {
 
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
-    stream: &mut impl CharStream,
+    stream: &mut CharStream,
 ) -> Parsed<Directive> {
     use super::ast::Directive::*;
     use super::ast::Meta::*;
@@ -640,7 +640,7 @@ fn get_directive(
 /// parameter = name [+-]?= ...
 /// ```
 impl Parse for defaults::SettingsModifier {
-    fn parse(stream: &mut impl CharStream) -> Parsed<Self> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let id_pos = stream.get_pos();
 
         // Parse multiple entries enclosed in quotes (for list-like Defaults-settings)

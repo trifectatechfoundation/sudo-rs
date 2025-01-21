@@ -111,21 +111,11 @@ impl FromStr for UserId {
 /// (which we may decide over time), as well as to make explicit what functionality a user-representation must have; this
 /// interface is not set in stone and "easy" to change.
 pub trait UnixUser {
-    fn has_name(&self, _name: &str) -> bool {
-        false
-    }
-    fn has_uid(&self, _uid: UserId) -> bool {
-        false
-    }
-    fn is_root(&self) -> bool {
-        false
-    }
-    fn in_group_by_name(&self, _name: &CStr) -> bool {
-        false
-    }
-    fn in_group_by_gid(&self, _gid: GroupId) -> bool {
-        false
-    }
+    fn has_name(&self, _name: &str) -> bool;
+    fn has_uid(&self, _uid: UserId) -> bool;
+    fn is_root(&self) -> bool;
+    fn in_group_by_name(&self, _name: &CStr) -> bool;
+    fn in_group_by_gid(&self, _gid: GroupId) -> bool;
 }
 
 pub trait UnixGroup {
@@ -204,15 +194,5 @@ mod test {
             GroupId::new(0),
         );
         test_group(group(cstr!("daemon")), "daemon", GroupId::new(1));
-    }
-
-    impl UnixUser for () {}
-
-    #[test]
-    fn test_default() {
-        assert!(!().has_name("root"));
-        assert!(!().has_uid(UserId::ROOT));
-        assert!(!().is_root());
-        assert!(!().in_group_by_name(cstr!("root")));
     }
 }
