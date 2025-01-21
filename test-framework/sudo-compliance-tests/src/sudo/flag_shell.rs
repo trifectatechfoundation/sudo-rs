@@ -68,6 +68,21 @@ echo $0";
 }
 
 #[test]
+fn shell_is_canonicalized() -> Result<()> {
+    let shell_path = "/bin/bash";
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/bash")
+        .build()?;
+
+    Command::new("env")
+        .arg(format!("SHELL={shell_path}"))
+        .args(["sudo", "-s", "true"])
+        .output(&env)?
+        .stdout()?;
+
+    Ok(())
+}
+
+#[test]
 fn argument_is_invoked_with_dash_c_flag() -> Result<()> {
     let shell_path = "/root/my-shell";
     let my_shell = "#!/bin/sh
