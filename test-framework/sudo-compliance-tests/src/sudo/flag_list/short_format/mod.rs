@@ -5,7 +5,11 @@ use crate::{Result, HOSTNAME};
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
-            filters => vec![(BIN_LS, "<BIN_LS>")],
+            filters => vec![
+                (BIN_LS, "<BIN_LS>"),
+                ("Matching Defaults entries for root on container:
+    !fqdn, !lecture, !mailerpath
+", "")],
             prepend_module_to_snapshot => false,
         }, {
             insta::assert_snapshot!($($tt)*)

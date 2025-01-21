@@ -1,7 +1,8 @@
 use std::{thread, time::Duration};
 
 use sudo_test::{
-    helpers::assert_ls_output, Command, Env, TextFile, ETC_DIR, ETC_SUDOERS, ROOT_GROUP,
+    helpers::assert_ls_output, Command, Env, EnvNoImplicit, TextFile, ETC_DIR, ETC_SUDOERS,
+    ROOT_GROUP,
 };
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
@@ -207,7 +208,7 @@ echo '{expected}' >> $2"#
 #[test]
 fn stderr_message_when_file_is_not_modified() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
+    let env = EnvNoImplicit(expected)
         .file(
             DEFAULT_EDITOR,
             TextFile(
@@ -244,7 +245,7 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
 #[test]
 fn does_not_save_the_file_if_there_are_syntax_errors() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
+    let env = EnvNoImplicit(expected)
         .file(
             DEFAULT_EDITOR,
             TextFile(
@@ -274,7 +275,7 @@ echo 'this is fine' > $2",
 #[test]
 fn editor_exits_with_a_nonzero_code() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+    let env = EnvNoImplicit(SUDOERS_ALL_ALL_NOPASSWD)
         .file(
             DEFAULT_EDITOR,
             TextFile(
@@ -332,7 +333,7 @@ rm $2",
 #[test]
 fn temp_file_initial_contents() -> Result<()> {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
-    let env = Env(expected)
+    let env = EnvNoImplicit(expected)
         .file(
             DEFAULT_EDITOR,
             TextFile(format!(
