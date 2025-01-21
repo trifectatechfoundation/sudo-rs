@@ -67,6 +67,40 @@ echo $0";
     Ok(())
 }
 
+#[ignore = "gh962"]
+#[test]
+fn shell_is_partially_canonicalized() -> Result<()> {
+    let shell_path = "/tmp/mybash";
+    let bin_link = "/tmp/bin";
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/bash").build()?;
+
+    Command::new("ln")
+        .args(["-s", "/usr/bin/bash", shell_path])
+        .output(&env)?
+        .assert_success()?;
+
+    Command::new("ln")
+        .args(["-s", "/usr/bin", bin_link])
+        .output(&env)?
+        .assert_success()?;
+
+    let output = Command::new("env")
+        .arg(format!("SHELL={shell_path}"))
+        .args(["sudo", "-s", "true"])
+        .output(&env)?;
+
+    assert!(!output.status().success());
+
+    let output = Command::new("env")
+        .arg(format!("SHELL={bin_link}/bash"))
+        .args(["sudo", "-s", "true"])
+        .output(&env)?;
+
+    assert!(output.status().success());
+
+    Ok(())
+}
+
 #[test]
 fn argument_is_invoked_with_dash_c_flag() -> Result<()> {
     let shell_path = "/root/my-shell";
