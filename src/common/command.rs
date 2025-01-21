@@ -77,13 +77,13 @@ impl CommandAndArguments {
                     None => resolved = false,
                 }
             }
+        }
 
-            // resolve symlinks, even if the command was obtained through a PATH or SHELL
-            // once again, failure to canonicalize should not stop the pipeline
-            match canonicalize(&command) {
-                Ok(canon_path) => command = canon_path,
-                Err(_) => resolved = false,
-            }
+        // resolve symlinks, even if the command was obtained through a PATH or SHELL
+        // once again, failure to canonicalize should not stop the pipeline
+        match canonicalize(&command) {
+            Ok(canon_path) => command = canon_path,
+            Err(_) => resolved = false,
         }
 
         CommandAndArguments {
@@ -168,7 +168,7 @@ mod test {
             CommandAndArguments {
                 command: "shell".into(),
                 arguments: vec!["-c".into(), "ls hello".into()],
-                resolved: true,
+                resolved: false,
                 arg0: None,
             }
         );
