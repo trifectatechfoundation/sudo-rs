@@ -399,7 +399,7 @@ where
 }
 
 /// A interface to access optional "satellite data"
-trait WithInfo: Clone {
+trait WithInfo {
     type Item;
     type Info;
     fn as_inner(&self) -> Self::Item;
