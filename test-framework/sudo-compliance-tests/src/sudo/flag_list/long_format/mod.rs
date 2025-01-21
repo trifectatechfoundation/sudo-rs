@@ -8,6 +8,9 @@ macro_rules! assert_snapshot {
             filters => vec![
                 (BIN_LS, "<BIN_LS>"),
                 (&format!("Sudoers entry: {ETC_SUDOERS}"), "Sudoers entry:"),
+                ("Matching Defaults entries for root on container:
+    !fqdn, !lecture, !mailerpath
+", "")
             ],
             prepend_module_to_snapshot => false,
         }, {

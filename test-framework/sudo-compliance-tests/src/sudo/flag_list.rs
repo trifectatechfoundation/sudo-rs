@@ -13,6 +13,23 @@ mod not_allowed;
 mod short_format;
 mod sudoers_list;
 
+// sudo-rs doesn't yet support showing Defaults in the `-l` output, so strip
+// them with og-sudo to get the same output between both.
+fn strip_matching_defaults_message(s: &str) -> &str {
+    if s.starts_with("Matching Defaults entries for") {
+        s.split_once("\n")
+            .unwrap()
+            .1
+            .split_once("\n")
+            .unwrap()
+            .1
+            .strip_prefix("\n")
+            .unwrap()
+    } else {
+        s
+    }
+}
+
 #[test]
 fn root_cannot_use_list_when_empty_sudoers() -> Result<()> {
     let hostname = "container";
@@ -83,14 +100,11 @@ fn lists_privileges_for_root() -> Result<()> {
     assert!(output.status().success());
 
     let expected = format!(
-        "Matching Defaults entries for root on {hostname}:
-    !fqdn, !lecture, !mailerpath
-
-User root may run the following commands on {hostname}:
+        "User root may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
-    assert_eq!(actual, expected);
+    assert_eq!(strip_matching_defaults_message(&actual), expected);
 
     Ok(())
 }
@@ -105,14 +119,11 @@ fn works_with_long_form_list_flag() -> Result<()> {
     assert!(output.status().success());
 
     let expected = format!(
-        "Matching Defaults entries for root on {hostname}:
-    !fqdn, !lecture, !mailerpath
-
-User root may run the following commands on {hostname}:
+        "User root may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
-    assert_eq!(actual, expected);
+    assert_eq!(strip_matching_defaults_message(&actual), expected);
 
     Ok(())
 }
@@ -134,14 +145,11 @@ fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "Matching Defaults entries for {USERNAME} on {hostname}:
-    !fqdn, !lecture, !mailerpath
-
-User {USERNAME} may run the following commands on {hostname}:
+        "User {USERNAME} may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
-    assert_eq!(actual, expected);
+    assert_eq!(strip_matching_defaults_message(&actual), expected);
 
     Ok(())
 }
@@ -162,14 +170,11 @@ fn works_with_uppercase_u_flag() -> Result<()> {
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "Matching Defaults entries for {USERNAME} on {hostname}:
-    !fqdn, !lecture, !mailerpath
-
-User {USERNAME} may run the following commands on {hostname}:
+        "User {USERNAME} may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
     let actual = output.stdout()?;
-    assert_eq!(actual, expected);
+    assert_eq!(strip_matching_defaults_message(&actual), expected);
 
     Ok(())
 }
@@ -259,10 +264,7 @@ fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "Matching Defaults entries for {USERNAME} on {hostname}:
-    !fqdn, !lecture, !mailerpath
-
-User {USERNAME} may run the following commands on {hostname}:\n
+        "User {USERNAME} may run the following commands on {hostname}:\n
 Sudoers entry:
     RunAsUsers: ALL
     RunAsGroups: ALL
@@ -272,7 +274,8 @@ Sudoers entry:
     );
     let actual = output.stdout()?;
     assert_eq!(
-        actual.replace(&format!("Sudoers entry: {ETC_SUDOERS}"), "Sudoers entry:"),
+        strip_matching_defaults_message(&actual)
+            .replace(&format!("Sudoers entry: {ETC_SUDOERS}"), "Sudoers entry:"),
         expected
     );
 
@@ -363,17 +366,14 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
     assert!(output.stderr().is_empty());
 
     let expected = format!(
-        "Matching Defaults entries for {USERNAME} on {hostname}:
-    !fqdn, !lecture, !mailerpath
-
-User {USERNAME} may run the following commands on {hostname}:
+        "User {USERNAME} may run the following commands on {hostname}:
     ({USERNAME} : ALL) {BIN_TRUE}
     (ALL : ALL) {BIN_PWD}
     (root : ALL) {BIN_FALSE}
     (root : ALL) /usr/bin/whoami"
     );
     let actual = output.stdout()?;
-    assert_eq!(actual, expected);
+    assert_eq!(strip_matching_defaults_message(&actual), expected);
 
     Ok(())
 }
