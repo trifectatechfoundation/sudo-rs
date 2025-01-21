@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/sudoers/secure_path.rs
-expression: output.stderr()
+source: sudo-compliance-tests/src/sudo/sudoers/secure_path.rs
+expression: stderr
 ---
 sudo: true: command not found

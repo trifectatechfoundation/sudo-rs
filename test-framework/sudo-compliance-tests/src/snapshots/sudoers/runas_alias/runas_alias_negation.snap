@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/sudoers/runas_alias.rs
+source: sudo-compliance-tests/src/sudo/sudoers/runas_alias.rs
 expression: stderr
 ---
 [sudo] password for ferris: Sorry, user ferris is not allowed to execute '/usr/bin/true' as root on [host].

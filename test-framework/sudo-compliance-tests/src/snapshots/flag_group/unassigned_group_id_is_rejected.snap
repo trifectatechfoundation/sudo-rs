@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/flag_group.rs
+source: sudo-compliance-tests/src/sudo/flag_group.rs
 expression: stderr
 ---
 sudo: unknown group #1234

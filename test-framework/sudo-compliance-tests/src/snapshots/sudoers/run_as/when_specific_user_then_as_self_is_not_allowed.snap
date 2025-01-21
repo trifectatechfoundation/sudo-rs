@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/sudoers/run_as.rs
+source: sudo-compliance-tests/src/sudo/sudoers/run_as.rs
 expression: stderr
 ---
 Sorry, user root is not allowed to execute '/usr/bin/true' as root on [host].

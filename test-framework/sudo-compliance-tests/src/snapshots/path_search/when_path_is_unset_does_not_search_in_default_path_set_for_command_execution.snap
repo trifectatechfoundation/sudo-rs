@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/path_search.rs
-expression: output.stderr()
+source: sudo-compliance-tests/src/sudo/path_search.rs
+expression: stderr
 ---
 sudo: my-script: command not found

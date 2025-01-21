@@ -1,5 +1,5 @@
 ---
-source: sudo-compliance-tests/src/flag_login.rs
-expression: output.stderr()
+source: sudo-compliance-tests/src/sudo/flag_login.rs
+expression: stderr
 ---
 sudo: unable to change directory to /home/ferris: No such file or directory
