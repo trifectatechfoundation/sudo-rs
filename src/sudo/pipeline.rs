@@ -48,7 +48,7 @@ fn read_sudoers() -> Result<Sudoers, Error> {
     Ok(sudoers)
 }
 
-fn judge(policy: Sudoers, context: &Context) -> Result<Judgement, Error> {
+fn judge(mut policy: Sudoers, context: &Context) -> Result<Judgement, Error> {
     Ok(policy.check(
         &*context.current_user,
         &context.hostname,

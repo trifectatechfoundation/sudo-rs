@@ -129,11 +129,15 @@ impl Sudoers {
     }
 
     pub fn check<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
-        &self,
+        &mut self,
         am_user: &User,
         on_host: &system::Hostname,
         request: Request<User, Group>,
     ) -> Judgement {
+        self.specify_host_and_user(on_host, am_user);
+        self.specify_runas(request.user);
+        self.specify_command(request.command, request.arguments);
+
         // exception: if user is root or does not switch users, NOPASSWD is implied
         let skip_passwd =
             am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));

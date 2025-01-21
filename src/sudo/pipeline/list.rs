@@ -23,7 +23,7 @@ impl<Auth: super::AuthPlugin> Pipeline<Auth> {
 
         let original_command = cmd_opts.positional_args.first().cloned();
 
-        let sudoers = super::read_sudoers()?;
+        let mut sudoers = super::read_sudoers()?;
 
         let mut context = Context::build_from_options(cmd_opts.into(), sudoers.secure_path())?;
 
@@ -43,7 +43,7 @@ impl<Auth: super::AuthPlugin> Pipeline<Auth> {
         }
 
         if let Some(original_command) = original_command {
-            check_sudo_command_perms(&original_command, &context, &other_user, &sudoers)?;
+            check_sudo_command_perms(&original_command, &context, &other_user, &mut sudoers)?;
         } else {
             let invoking_user = other_user.as_ref().unwrap_or(&context.current_user);
             println_ignore_io_error!(
@@ -148,7 +148,7 @@ fn check_sudo_command_perms(
     original_command: &str,
     context: &Context,
     other_user: &Option<User>,
-    sudoers: &Sudoers,
+    sudoers: &mut Sudoers,
 ) -> Result<(), Error> {
     let user = other_user.as_ref().unwrap_or(&context.current_user);
 
