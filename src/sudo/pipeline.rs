@@ -3,7 +3,6 @@ use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use super::diagnostic;
-use crate::common::context::OptionsForContext;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
 use crate::exec::{ExecOutput, ExitReason};
@@ -75,7 +74,7 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
             )
         }
 
-        let mut context = build_context(ctx_opts, &policy)?;
+        let mut context = Context::build_from_options(ctx_opts, policy.secure_path())?;
 
         let policy = judge(policy, &context)?;
 
@@ -138,10 +137,10 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
     }
 
     pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
-        let pre = read_sudoers()?;
-        let mut context = build_context(cmd_opts.into(), &pre)?;
+        let policy = read_sudoers()?;
+        let mut context = Context::build_from_options(cmd_opts.into(), policy.secure_path())?;
 
-        match pre.validate_authorization() {
+        match policy.validate_authorization() {
             Authorization::Forbidden => {
                 return Err(Error::Authorization(context.current_user.name.to_string()));
             }
@@ -231,14 +230,6 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
 
         Ok(())
     }
-}
-
-fn build_context(cmd_opts: OptionsForContext, pre: &Sudoers) -> Result<Context, Error> {
-    let secure_path: String = pre
-        .secure_path()
-        .map(|s| s.to_owned())
-        .unwrap_or_else(|| std::env::var("PATH").unwrap_or_default());
-    Context::build_from_options(cmd_opts, secure_path)
 }
 
 /// This should determine what the authentication status for the given record

@@ -62,7 +62,7 @@ pub enum LaunchType {
 impl Context {
     pub fn build_from_options(
         sudo_options: OptionsForContext,
-        path: String,
+        secure_path: Option<&str>,
     ) -> Result<Context, Error> {
         let hostname = Hostname::resolve();
         let current_user = CurrentUser::resolve()?;
@@ -76,7 +76,18 @@ impl Context {
                 // FIXME `Default` is being used as `Option::None`
                 Default::default()
             }
-            _ => CommandAndArguments::build_from_args(shell, sudo_options.positional_args, &path),
+            _ => {
+                let system_path;
+
+                let path = if let Some(path) = secure_path {
+                    path
+                } else {
+                    system_path = std::env::var("PATH").unwrap_or_default();
+                    system_path.as_ref()
+                };
+
+                CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
+            }
         };
 
         Ok(Context {
@@ -117,7 +128,7 @@ mod tests {
             .unwrap();
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
         let (ctx_opts, _pipe_opts) = options.into();
-        let context = Context::build_from_options(ctx_opts, path.to_string()).unwrap();
+        let context = Context::build_from_options(ctx_opts, Some(path)).unwrap();
 
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
