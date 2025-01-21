@@ -32,6 +32,22 @@ impl<T> Qualified<T> {
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
+/// A generic mapping function (only used for turning `Spec<SimpleCommand>` into `Spec<Command>`)
+impl<T> Spec<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> Spec<U> {
+        let transform = |meta| match meta {
+            Meta::All => Meta::All,
+            Meta::Alias(alias) => Meta::Alias(alias),
+            Meta::Only(x) => Meta::Only(f(x)),
+        };
+
+        match self {
+            Qualified::Allow(x) => Qualified::Allow(transform(x)),
+            Qualified::Forbid(x) => Qualified::Forbid(transform(x)),
+        }
+    }
+}
+
 /// An identifier is a name or a #number
 #[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]

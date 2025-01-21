@@ -34,11 +34,14 @@ pub struct Error {
     pub message: String,
 }
 
+type Customiser<T> = (Vec<defaults::SettingsModifier>, SpecList<T>);
+
 #[derive(Default)]
 pub struct Sudoers {
     rules: Vec<PermissionSpec>,
     aliases: AliasTable,
     settings: Settings,
+    customisers: CustomiserTable,
 }
 
 /// A structure that represents what the user wants to do
@@ -84,6 +87,47 @@ impl Sudoers {
         Ok(analyze(path.as_ref(), sudoers))
     }
 
+    fn specify_host_and_user<User: UnixUser + PartialEq<User>>(
+        &mut self,
+        hostname: &system::Hostname,
+        user: &User,
+    ) {
+        let host_customisers = std::mem::take(&mut self.customisers.host);
+        let user_customisers = std::mem::take(&mut self.customisers.user);
+        specialise_setting(
+            &mut self.settings,
+            host_customisers,
+            &match_token(hostname),
+            &self.aliases.host,
+        );
+        specialise_setting(
+            &mut self.settings,
+            user_customisers,
+            &match_user(user),
+            &self.aliases.user,
+        );
+    }
+
+    fn specify_runas<User: UnixUser + PartialEq<User>>(&mut self, run_as: &User) {
+        let customisers = std::mem::take(&mut self.customisers.runas);
+        specialise_setting(
+            &mut self.settings,
+            customisers,
+            &match_user(run_as),
+            &self.aliases.runas,
+        );
+    }
+
+    fn specify_command(&mut self, command: &Path, arguments: &[String]) {
+        let customisers = std::mem::take(&mut self.customisers.cmnd);
+        specialise_setting(
+            &mut self.settings,
+            customisers,
+            &match_command((command, arguments)),
+            &self.aliases.cmnd,
+        );
+    }
+
     pub fn check<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         &self,
         am_user: &User,
@@ -103,7 +147,7 @@ impl Sudoers {
 
         Judgement {
             flags,
-            settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
+            settings: self.settings.clone(),
         }
     }
 
@@ -264,12 +308,22 @@ fn open_subsudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
     read_sudoers(source)
 }
 
+// note: trying to DRY using GAT's is tempting but doesn't make the code any shorter
+
 #[derive(Default)]
-pub(super) struct AliasTable {
+struct AliasTable {
     user: VecOrd<Def<UserSpecifier>>,
-    host: VecOrd<Def<tokens::Hostname>>,
+    host: VecOrd<Def<Hostname>>,
     cmnd: VecOrd<Def<Command>>,
     runas: VecOrd<Def<UserSpecifier>>,
+}
+
+#[derive(Default)]
+struct CustomiserTable {
+    user: Vec<Customiser<UserSpecifier>>,
+    host: Vec<Customiser<Hostname>>,
+    cmnd: Vec<Customiser<Command>>,
+    runas: Vec<Customiser<UserSpecifier>>,
 }
 
 /// A vector with a list defining the order in which it needs to be processed
@@ -429,6 +483,23 @@ impl<'a> WithInfo for (Tag, &'a Spec<Command>) {
     }
 }
 
+/// Apply a specialization to the Setings object, used for "specific" Defaults
+fn specialise_setting<T>(
+    settings: &mut Settings,
+    customisers: impl IntoIterator<Item = Customiser<T>>,
+    matcher: &impl Fn(&T) -> bool,
+    alias_defs: &VecOrd<Def<T>>,
+) {
+    let aliases = get_aliases(alias_defs, matcher);
+    for (modifiers, list) in customisers {
+        if find_item(&list, matcher, &aliases).is_some() {
+            for modifier in modifiers {
+                modifier(settings);
+            }
+        }
+    }
+}
+
 /// Now follow a collection of functions used as closures for `find_item`
 fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
     move |spec| match spec {
@@ -585,16 +656,28 @@ fn analyze(
 
                     Sudo::Spec(permission) => cfg.rules.push(permission),
 
-                    Sudo::Decl(UserAlias(mut def)) => cfg.aliases.user.1.append(&mut def),
                     Sudo::Decl(HostAlias(mut def)) => cfg.aliases.host.1.append(&mut def),
-                    Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
+                    Sudo::Decl(UserAlias(mut def)) => cfg.aliases.user.1.append(&mut def),
                     Sudo::Decl(RunasAlias(mut def)) => cfg.aliases.runas.1.append(&mut def),
+                    Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
 
-                    Sudo::Decl(Defaults(params, scope)) => {
-                        for modifier in params {
-                            modifier(&mut cfg.settings);
+                    Sudo::Decl(Defaults(params, scope)) => match scope {
+                        ConfigScope::Generic => {
+                            for modifier in params {
+                                modifier(&mut cfg.settings)
+                            }
                         }
-                    }
+                        ConfigScope::Host(specs) => cfg.customisers.host.push((params, specs)),
+                        ConfigScope::User(specs) => cfg.customisers.user.push((params, specs)),
+                        ConfigScope::RunAs(specs) => cfg.customisers.runas.push((params, specs)),
+                        ConfigScope::Command(specs) => cfg.customisers.cmnd.push((
+                            params,
+                            specs
+                                .into_iter()
+                                .map(|spec| spec.map(|simple_command| (simple_command, None)))
+                                .collect(),
+                        )),
+                    },
 
                     Sudo::Include(path, span) => include(
                         cfg,

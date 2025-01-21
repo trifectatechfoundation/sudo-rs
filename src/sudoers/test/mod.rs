@@ -92,19 +92,19 @@ fn permission_test() {
 
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-            let (Sudoers { rules,aliases,settings }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
+            let (Sudoers { rules,aliases,settings, customisers }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
-            assert_eq!(Sudoers { rules, aliases, settings }.check(&Named($user), &system::Hostname::fake($server), req).flags, None);
+            assert_eq!(Sudoers { rules, aliases, settings, customisers }.check(&Named($user), &system::Hostname::fake($server), req).flags, None);
         }
     }
 
     macro_rules! pass {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
-            let (Sudoers { rules,aliases,settings }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
+            let (Sudoers { rules,aliases,settings, customisers }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
-            let result = Sudoers { rules, aliases, settings }.check(&Named($user), &system::Hostname::fake($server), req).flags;
+            let result = Sudoers { rules, aliases, settings, customisers }.check(&Named($user), &system::Hostname::fake($server), req).flags;
             assert!(!result.is_none());
             $(
                 let result = result.unwrap();
