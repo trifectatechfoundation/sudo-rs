@@ -36,14 +36,14 @@ pub fn kernel_check() -> Result<(), Error> {
     }
 }
 
-#[cfg(target_os = "freebsd")]
+#[cfg(any(target_os = "freebsd", target_os = "macos"))]
 pub fn kernel_check() -> Result<(), Error> {
     // the kernel check doesn't make much sense on FreeBSD (we need FreeBSD 8.0 or newer,
     // which is comparatively ancient compared to Linux 5.9)
     Ok(())
 }
 
-#[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
+#[cfg(not(any(target_os = "freebsd", target_os = "linux", target_os = "macos")))]
 pub fn kernel_check() -> Result<(), Error> {
-    compile_error!("sudo-rs only works on Linux and FreeBSD")
+    compile_error!("sudo-rs only works on Linux, FreeBSD and MacOS")
 }

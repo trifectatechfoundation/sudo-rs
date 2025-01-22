@@ -388,8 +388,8 @@ impl User {
             let result = unsafe {
                 libc::getgrouplist(
                     pwd.pw_name,
-                    pwd.pw_gid,
-                    groups_buffer.as_mut_ptr(),
+                    pwd.pw_gid as _,
+                    groups_buffer.as_mut_ptr() as _,
                     &mut buf_len,
                 )
             };
