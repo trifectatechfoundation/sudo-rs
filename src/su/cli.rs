@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem, path::PathBuf};
+use std::{mem, path::PathBuf};
 
 use crate::common::SudoString;
 
@@ -138,20 +138,20 @@ impl TryFrom<SuOptions> for SuRunOptions {
 }
 
 fn reject_all(context: &str, opts: SuOptions) -> Result<(), String> {
-    macro_rules! tuple {
-        ($expr:expr) => {
-            (&$expr as &dyn IsAbsent, {
-                let name = concat!("--", stringify!($expr));
-                if name.contains('_') {
-                    Cow::Owned(name.replace('_', "-"))
-                } else {
-                    Cow::Borrowed(name)
-                }
-            })
+    macro_rules! ensure_options_absent {
+        ($($opt:ident,)*) => {
+            let SuOptions {
+                $($opt),*
+            } = opts;
+
+            $(if !$opt.is_absent() {
+                let name = concat!("--", stringify!($opt)).replace('_', "-");
+                return Err(format!("{context} conflicts with {name}"));
+            })*
         };
     }
 
-    let SuOptions {
+    ensure_options_absent! {
         command,
         group,
         help,
@@ -163,35 +163,13 @@ fn reject_all(context: &str, opts: SuOptions) -> Result<(), String> {
         version,
         whitelist_environment,
         positional_args,
-    } = opts;
+    };
 
-    let flags = [
-        tuple!(command),
-        tuple!(group),
-        tuple!(help),
-        tuple!(login),
-        tuple!(preserve_environment),
-        tuple!(pty),
-        tuple!(shell),
-        tuple!(supp_group),
-        tuple!(version),
-        tuple!(whitelist_environment),
-    ];
-    for (value, name) in flags {
-        ensure_is_absent(context, value, &name)?;
+    if !positional_args.is_absent() {
+        return Err(format!("{context} conflicts with positional argument"));
     }
-
-    ensure_is_absent(context, &positional_args, "positional argument")?;
 
     Ok(())
-}
-
-fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(), String> {
-    if thing.is_absent() {
-        Ok(())
-    } else {
-        Err(format!("{context} conflicts with {name}"))
-    }
 }
 
 trait IsAbsent {
