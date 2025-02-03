@@ -22,6 +22,7 @@ use ast::*;
 use tokens::*;
 
 pub type Settings = defaults::Settings;
+pub use basic_parser::Span;
 
 /// How many nested include files do we allow?
 const INCLUDE_LIMIT: u8 = 128;
@@ -29,7 +30,7 @@ const INCLUDE_LIMIT: u8 = 128;
 /// Export some necessary symbols from modules
 pub struct Error {
     pub source: Option<PathBuf>,
-    pub location: Option<basic_parser::Position>,
+    pub location: Option<basic_parser::Span>,
     pub message: String,
 }
 
