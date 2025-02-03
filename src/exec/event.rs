@@ -11,7 +11,7 @@ use crate::{cutils::cerr, log::dev_debug};
 
 pub(super) trait Process: Sized {
     /// IO Events that this process should handle.
-    type Event: Copy + Eq + Debug;
+    type Event: Copy + Debug;
     /// Reason why the event loop should break.
     ///
     /// See [`EventRegistry::set_break`] for more information.
