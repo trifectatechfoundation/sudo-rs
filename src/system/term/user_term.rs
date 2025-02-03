@@ -6,7 +6,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{self, Read, Write},
     mem::MaybeUninit,
-    os::fd::{AsRawFd, RawFd},
+    os::fd::{AsFd, AsRawFd, BorrowedFd},
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -174,9 +174,9 @@ impl UserTerm {
     }
 
     /// Copy the settings of the user's terminal to the `dst` terminal.
-    pub fn copy_to<D: AsRawFd>(&self, dst: &D) -> io::Result<()> {
+    pub fn copy_to<D: AsFd>(&self, dst: &D) -> io::Result<()> {
         let src = self.tty.as_raw_fd();
-        let dst = dst.as_raw_fd();
+        let dst = dst.as_fd().as_raw_fd();
 
         // SAFETY: tt_src and tt_dst will be initialized by `tcgetattr`.
         let (tt_src, mut tt_dst) = unsafe {
@@ -292,9 +292,9 @@ impl UserTerm {
     }
 }
 
-impl AsRawFd for UserTerm {
-    fn as_raw_fd(&self) -> RawFd {
-        self.tty.as_raw_fd()
+impl AsFd for UserTerm {
+    fn as_fd(&self) -> BorrowedFd {
+        self.tty.as_fd()
     }
 }
 

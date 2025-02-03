@@ -2,7 +2,7 @@ use std::{
     ffi::c_int,
     io,
     mem::size_of,
-    os::fd::{AsRawFd, RawFd},
+    os::fd::{AsFd, BorrowedFd},
 };
 
 use crate::{
@@ -190,9 +190,9 @@ impl ParentBackchannel {
     }
 }
 
-impl AsRawFd for ParentBackchannel {
-    fn as_raw_fd(&self) -> RawFd {
-        self.socket.as_raw_fd()
+impl AsFd for ParentBackchannel {
+    fn as_fd(&self) -> BorrowedFd {
+        self.socket.as_fd()
     }
 }
 
@@ -309,8 +309,8 @@ impl MonitorBackchannel {
     }
 }
 
-impl AsRawFd for MonitorBackchannel {
-    fn as_raw_fd(&self) -> RawFd {
-        self.socket.as_raw_fd()
+impl AsFd for MonitorBackchannel {
+    fn as_fd(&self) -> BorrowedFd {
+        self.socket.as_fd()
     }
 }

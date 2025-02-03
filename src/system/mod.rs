@@ -9,7 +9,7 @@ use std::{
     mem::MaybeUninit,
     ops,
     os::{
-        fd::AsRawFd,
+        fd::{AsFd, AsRawFd},
         unix::{self, prelude::OsStrExt},
     },
     path::{Path, PathBuf},
@@ -72,8 +72,8 @@ impl FileCloser {
         }
     }
 
-    pub(crate) fn except<F: AsRawFd>(&mut self, fd: &F) {
-        self.fds.insert(fd.as_raw_fd() as c_uint);
+    pub(crate) fn except<F: AsFd>(&mut self, fd: &F) {
+        self.fds.insert(fd.as_fd().as_raw_fd() as c_uint);
     }
 
     /// Close every file descriptor that is not one of the IO streams or one of the file
@@ -909,7 +909,10 @@ pub(crate) const ROOT_GROUP_NAME: &str = "wheel";
 mod tests {
     use std::{
         io::{self, Read, Write},
-        os::{fd::AsRawFd, unix::net::UnixStream},
+        os::{
+            fd::{AsFd, AsRawFd},
+            unix::net::UnixStream,
+        },
         process::exit,
     };
 
@@ -1093,8 +1096,8 @@ mod tests {
         );
     }
 
-    fn is_closed<F: AsRawFd>(fd: &F) -> bool {
-        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFD) })
+    fn is_closed<F: AsFd>(fd: &F) -> bool {
+        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_fd().as_raw_fd(), libc::F_GETFD) })
             .is_err_and(|err| err.raw_os_error() == Some(libc::EBADF))
     }
 

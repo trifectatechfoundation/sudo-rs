@@ -1,7 +1,7 @@
 use std::{
     fmt::Debug,
     io,
-    os::fd::{AsRawFd, RawFd},
+    os::fd::{AsFd, AsRawFd, RawFd},
 };
 
 use libc::{c_short, pollfd, POLLIN, POLLOUT};
@@ -103,6 +103,7 @@ pub enum PollEvent {
 }
 
 struct PollFd<T: Process> {
+    // FIXME ensure that the fd is not closed while the event registry is still open
     raw_fd: RawFd,
     event_flags: c_short,
     should_poll: bool,
@@ -126,7 +127,7 @@ impl<T: Process> EventRegistry<T> {
 
     /// Set the `fd` descriptor to be polled for `poll_event` events and produce `event` when `fd` is
     /// ready.
-    pub(super) fn register_event<F: AsRawFd>(
+    pub(super) fn register_event<F: AsFd>(
         &mut self,
         fd: &F,
         poll_event: PollEvent,
@@ -135,7 +136,7 @@ impl<T: Process> EventRegistry<T> {
         let id = EventId(self.poll_fds.len());
 
         self.poll_fds.push(PollFd {
-            raw_fd: fd.as_raw_fd(),
+            raw_fd: fd.as_fd().as_raw_fd(),
             event_flags: match poll_event {
                 PollEvent::Readable => POLLIN,
                 PollEvent::Writable => POLLOUT,
