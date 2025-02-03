@@ -142,8 +142,8 @@ pub enum Directive {
 pub enum Sudo {
     Spec(PermissionSpec) = HARDENED_ENUM_VALUE_0,
     Decl(Directive) = HARDENED_ENUM_VALUE_1,
-    Include(String) = HARDENED_ENUM_VALUE_2,
-    IncludeDir(String) = HARDENED_ENUM_VALUE_3,
+    Include(String, Span) = HARDENED_ENUM_VALUE_2,
+    IncludeDir(String, Span) = HARDENED_ENUM_VALUE_3,
     LineComment = HARDENED_ENUM_VALUE_4,
 }
 
@@ -175,7 +175,7 @@ impl Sudo {
 
     #[cfg(test)]
     pub fn as_include(&self) -> &str {
-        if let Self::Include(v) = self {
+        if let Self::Include(v, _) = self {
             v
         } else {
             panic!()
@@ -554,11 +554,11 @@ impl Parse for Sudo {
 
 /// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
 fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
-    fn get_path(stream: &mut CharStream) -> Parsed<String> {
-        if accept_if(|c| c == '"', stream).is_some() {
+    fn get_path(stream: &mut CharStream, key_pos: (usize, usize)) -> Parsed<(String, Span)> {
+        let path = if accept_if(|c| c == '"', stream).is_some() {
             let QuotedInclude(path) = expect_nonterminal(stream)?;
             expect_syntax('"', stream)?;
-            make(path)
+            path
         } else {
             let value_pos = stream.get_pos();
             let IncludePath(path) = expect_nonterminal(stream)?;
@@ -569,14 +569,27 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
                     "use quotes around filenames or escape whitespace"
                 )
             }
-            make(path)
-        }
+            path
+        };
+        make((
+            path,
+            Span {
+                start: key_pos,
+                end: stream.get_pos(),
+            },
+        ))
     }
 
     let key_pos = stream.get_pos();
     let result = match try_nonterminal(stream)? {
-        Some(Username(key)) if key == "include" => Sudo::Include(get_path(stream)?),
-        Some(Username(key)) if key == "includedir" => Sudo::IncludeDir(get_path(stream)?),
+        Some(Username(key)) if key == "include" => {
+            let (path, span) = get_path(stream, key_pos)?;
+            Sudo::Include(path, span)
+        }
+        Some(Username(key)) if key == "includedir" => {
+            let (path, span) = get_path(stream, key_pos)?;
+            Sudo::IncludeDir(path, span)
+        }
         _ => unrecoverable!(pos = key_pos, stream, "unknown directive"),
     };
 
