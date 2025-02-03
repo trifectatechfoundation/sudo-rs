@@ -1,4 +1,3 @@
-use crate::common::resolve::AuthUser;
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::system::{Group, Hostname, Process, User};
 
@@ -44,7 +43,6 @@ pub struct Context {
     // system
     pub hostname: Hostname,
     pub current_user: CurrentUser,
-    pub auth_user: AuthUser,
     pub process: Process,
     // policy
     pub use_pty: bool,
@@ -102,7 +100,6 @@ impl Context {
             stdin: sudo_options.stdin,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            auth_user: AuthUser::resolve_root_for_rootpw()?,
             use_pty: true,
             password_feedback: false,
         })
