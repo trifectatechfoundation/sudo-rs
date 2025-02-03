@@ -20,7 +20,7 @@ use crate::system::{escape_os_str_lossy, Process};
 mod list;
 
 pub trait AuthPlugin {
-    fn init(&mut self, context: &Context) -> Result<(), Error>;
+    fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error>;
     fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error>;
     fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error>;
     fn cleanup(&mut self);
@@ -173,14 +173,14 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
             prior_validity,
         );
 
-        context.auth_user = match credential {
+        let auth_user = match credential {
             AuthenticatingUser::InvokingUser => {
                 AuthUser::from_current_user(context.current_user.clone())
             }
             AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
         };
 
-        self.authenticator.init(context)?;
+        self.authenticator.init(context, auth_user)?;
         if auth_status.must_authenticate {
             self.authenticator
                 .authenticate(context.non_interactive, allowed_attempts)?;
