@@ -1,6 +1,9 @@
 use std::{
     ffi::{CStr, OsStr, OsString},
-    os::unix::prelude::OsStrExt,
+    os::{
+        fd::{AsRawFd, BorrowedFd},
+        unix::prelude::OsStrExt,
+    },
 };
 
 pub fn cerr<Int: Copy + TryInto<libc::c_long>>(res: Int) -> std::io::Result<Int> {
@@ -69,13 +72,13 @@ pub unsafe fn os_string_from_ptr(ptr: *const libc::c_char) -> OsString {
 /// Rust's standard library IsTerminal just directly calls isatty, which
 /// we don't want since this performs IOCTL calls on them and file descriptors are under
 /// the control of the user; so this checks if they are a character device first.
-pub fn safe_isatty(fildes: libc::c_int) -> bool {
+pub fn safe_isatty(fildes: BorrowedFd) -> bool {
     // The Rust standard library doesn't have FileTypeExt on Std{in,out,err}, so we
     // can't just use FileTypeExt::is_char_device and have to resort to libc::fstat.
     let mut maybe_stat = std::mem::MaybeUninit::<libc::stat>::uninit();
 
     // SAFETY: we are passing fstat a pointer to valid memory
-    if unsafe { libc::fstat(fildes, maybe_stat.as_mut_ptr()) } == 0 {
+    if unsafe { libc::fstat(fildes.as_raw_fd(), maybe_stat.as_mut_ptr()) } == 0 {
         // SAFETY: if `fstat` returned 0, maybe_stat will be initialized
         let mode = unsafe { maybe_stat.assume_init() }.st_mode;
 
@@ -84,7 +87,7 @@ pub fn safe_isatty(fildes: libc::c_int) -> bool {
 
         if is_char_device {
             // SAFETY: isatty will return 0 or 1
-            unsafe { libc::isatty(fildes) != 0 }
+            unsafe { libc::isatty(fildes.as_raw_fd()) != 0 }
         } else {
             false
         }
@@ -115,29 +118,15 @@ mod test {
 
     #[test]
     fn test_tty() {
+        use crate::system::term::Pty;
         use std::fs::File;
-        use std::os::fd::AsRawFd;
-        assert!(!super::safe_isatty(
-            File::open("/bin/sh").unwrap().as_raw_fd()
-        ));
-        assert!(!super::safe_isatty(-837492));
-        let (mut leader, mut follower) = Default::default();
-        assert!(
-            unsafe {
-                libc::openpty(
-                    &mut leader,
-                    &mut follower,
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                )
-            } == 0
-        );
-        assert!(super::safe_isatty(leader));
-        assert!(super::safe_isatty(follower));
-        unsafe {
-            libc::close(follower);
-            libc::close(leader);
-        }
+        use std::os::fd::{AsFd, BorrowedFd};
+        assert!(!super::safe_isatty(File::open("/bin/sh").unwrap().as_fd()));
+        assert!(!super::safe_isatty(unsafe {
+            BorrowedFd::borrow_raw(-837492)
+        }));
+        let pty = Pty::open().unwrap();
+        assert!(super::safe_isatty(pty.leader.as_fd()));
+        assert!(super::safe_isatty(pty.follower.as_fd()));
     }
 }

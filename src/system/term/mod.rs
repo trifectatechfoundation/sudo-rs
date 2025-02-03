@@ -5,7 +5,7 @@ use std::{
     fmt,
     fs::File,
     io,
-    os::fd::{AsRawFd, FromRawFd, OwnedFd},
+    os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
     ptr::null_mut,
 };
 
@@ -115,9 +115,9 @@ impl io::Write for PtyLeader {
     }
 }
 
-impl AsRawFd for PtyLeader {
-    fn as_raw_fd(&self) -> std::os::fd::RawFd {
-        self.file.as_raw_fd()
+impl AsFd for PtyLeader {
+    fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
+        self.file.as_fd()
     }
 }
 
@@ -131,9 +131,9 @@ impl PtyFollower {
     }
 }
 
-impl AsRawFd for PtyFollower {
-    fn as_raw_fd(&self) -> std::os::fd::RawFd {
-        self.file.as_raw_fd()
+impl AsFd for PtyFollower {
+    fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
+        self.file.as_fd()
     }
 }
 
@@ -144,11 +144,11 @@ impl From<PtyFollower> for std::process::Stdio {
 }
 
 mod sealed {
-    use std::os::fd::AsRawFd;
+    use std::os::fd::AsFd;
 
     pub(crate) trait Sealed {}
 
-    impl<F: AsRawFd> Sealed for F {}
+    impl<F: AsFd> Sealed for F {}
 }
 
 pub(crate) trait Terminal: sealed::Sealed {
@@ -160,24 +160,24 @@ pub(crate) trait Terminal: sealed::Sealed {
     fn tcgetsid(&self) -> io::Result<ProcessId>;
 }
 
-impl<F: AsRawFd> Terminal for F {
+impl<F: AsFd> Terminal for F {
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
         // SAFETY: tcgetpgrp cannot cause UB
-        let id = cerr(unsafe { libc::tcgetpgrp(self.as_raw_fd()) })?;
+        let id = cerr(unsafe { libc::tcgetpgrp(self.as_fd().as_raw_fd()) })?;
         Ok(ProcessId::new(id))
     }
     /// Set the foreground process group ID associated with this terminal to `pgrp`.
     fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()> {
         // SAFETY: tcsetpgrp cannot cause UB
-        cerr(unsafe { libc::tcsetpgrp(self.as_raw_fd(), pgrp.inner()) }).map(|_| ())
+        cerr(unsafe { libc::tcsetpgrp(self.as_fd().as_raw_fd(), pgrp.inner()) }).map(|_| ())
     }
 
     /// Make the given terminal the controlling terminal of the calling process.
     fn make_controlling_terminal(&self) -> io::Result<()> {
         // SAFETY: this is a correct way to call the TIOCSCTTY ioctl, see:
         // https://www.man7.org/linux/man-pages/man2/TIOCNOTTY.2const.html
-        cerr(unsafe { libc::ioctl(self.as_raw_fd(), libc::TIOCSCTTY, 0) })?;
+        cerr(unsafe { libc::ioctl(self.as_fd().as_raw_fd(), libc::TIOCSCTTY, 0) })?;
         Ok(())
     }
 
@@ -185,24 +185,24 @@ impl<F: AsRawFd> Terminal for F {
     fn ttyname(&self) -> io::Result<OsString> {
         let mut buf: [libc::c_char; 1024] = [0; 1024];
 
-        if !safe_isatty(self.as_raw_fd()) {
+        if !safe_isatty(self.as_fd()) {
             return Err(io::ErrorKind::Unsupported.into());
         }
 
         // SAFETY: `buf` is a valid and initialized pointer, and its  correct length is passed
-        cerr(unsafe { libc::ttyname_r(self.as_raw_fd(), buf.as_mut_ptr(), buf.len()) })?;
+        cerr(unsafe { libc::ttyname_r(self.as_fd().as_raw_fd(), buf.as_mut_ptr(), buf.len()) })?;
         // SAFETY: `buf` will have been initialized by the `ttyname_r` call, if it succeeded
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
     }
 
     /// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
     fn is_terminal(&self) -> bool {
-        safe_isatty(self.as_raw_fd())
+        safe_isatty(self.as_fd())
     }
 
     fn tcgetsid(&self) -> io::Result<ProcessId> {
         // SAFETY: tcgetsid cannot cause UB
-        let id = cerr(unsafe { libc::tcgetsid(self.as_raw_fd()) })?;
+        let id = cerr(unsafe { libc::tcgetsid(self.as_fd().as_raw_fd()) })?;
         Ok(ProcessId::new(id))
     }
 }

@@ -3,7 +3,7 @@ mod ring_buffer;
 use std::{
     io::{self, Read, Write},
     marker::PhantomData,
-    os::fd::AsRawFd,
+    os::fd::AsFd,
 };
 
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process};
@@ -18,7 +18,7 @@ pub(super) struct Pipe<L, R> {
     buffer_rl: Buffer<R, L>,
 }
 
-impl<L: Read + Write + AsRawFd, R: Read + Write + AsRawFd> Pipe<L, R> {
+impl<L: Read + Write + AsFd, R: Read + Write + AsFd> Pipe<L, R> {
     /// Create a new pipe between two read-write types and register them to be polled.
     pub fn new<T: Process>(
         left: L,

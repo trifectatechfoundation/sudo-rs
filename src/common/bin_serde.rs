@@ -3,7 +3,10 @@ use sealed::DeSerializeBytes;
 use std::{
     io::{self, Read, Write},
     marker::PhantomData,
-    os::{fd::AsRawFd, unix::net::UnixStream},
+    os::{
+        fd::{AsFd, BorrowedFd},
+        unix::net::UnixStream,
+    },
 };
 
 mod sealed {
@@ -83,9 +86,9 @@ impl<R: DeSerialize, W: DeSerialize> BinPipe<R, W> {
     }
 }
 
-impl<R: DeSerialize, W: DeSerialize> AsRawFd for BinPipe<R, W> {
-    fn as_raw_fd(&self) -> std::os::fd::RawFd {
-        self.sock.as_raw_fd()
+impl<R: DeSerialize, W: DeSerialize> AsFd for BinPipe<R, W> {
+    fn as_fd(&self) -> BorrowedFd {
+        self.sock.as_fd()
     }
 }
 

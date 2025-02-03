@@ -2,7 +2,7 @@ use std::{
     io,
     mem::MaybeUninit,
     os::{
-        fd::{AsRawFd, RawFd},
+        fd::{AsFd, AsRawFd, BorrowedFd},
         unix::net::UnixStream,
     },
     sync::OnceLock,
@@ -37,7 +37,7 @@ pub(super) unsafe fn send_siginfo(
 /// [`super::SignalHandlerBehavior::Stream`] behavior.
 ///
 /// This is a singleton type. Meaning that there will be only one value of this type during the
-/// execution of a program.  
+/// execution of a program.
 pub(crate) struct SignalStream {
     rx: UnixStream,
     tx: UnixStream,
@@ -105,8 +105,8 @@ pub(crate) fn register_handlers<const N: usize>(
     Ok(handlers.map(|(_, handler)| unsafe { handler.assume_init() }))
 }
 
-impl AsRawFd for SignalStream {
-    fn as_raw_fd(&self) -> RawFd {
-        self.rx.as_raw_fd()
+impl AsFd for SignalStream {
+    fn as_fd(&self) -> BorrowedFd {
+        self.rx.as_fd()
     }
 }
