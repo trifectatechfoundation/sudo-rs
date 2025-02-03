@@ -620,10 +620,14 @@ fn analyze(
 
                     Sudo::IncludeDir(path) => {
                         if path.contains("%h") {
-                            diagnostics.push(Error{
-                                    source: Some(cur_path.to_owned()),
-                                    location: None,
-                                    message: format!("cannot open sudoers file {path}: percent escape %h in includedir is unsupported")});
+                            diagnostics.push(Error {
+                                source: Some(cur_path.to_owned()),
+                                location: None,
+                                message: format!(
+                                    "cannot open sudoers file {path}: \
+                                     percent escape %h in includedir is unsupported"
+                                ),
+                            });
                             continue;
                         }
 
