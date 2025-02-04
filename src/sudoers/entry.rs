@@ -38,12 +38,13 @@ impl<'a> Entry<'a> {
     }
 }
 
-static EMPTY_RUNAS: RunAs = RunAs {
-    users: Vec::new(),
-    groups: Vec::new(),
-};
+fn root_runas() -> RunAs {
+    let name = User::from_uid(UserId::ROOT)
+        .ok()
+        .flatten()
+        .map(|u| u.name)
+        .unwrap_or(SudoString::new("root".into()).unwrap());
 
-fn singular_runas(name: SudoString) -> RunAs {
     let name = UserSpecifier::User(Identifier::Name(name));
     let name = Qualified::Allow(Meta::Only(name));
 
@@ -57,14 +58,8 @@ impl fmt::Display for Entry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { run_as, cmd_specs } = self;
 
-        let run_as_root = &singular_runas(
-            User::from_uid(UserId::ROOT)
-                .ok()
-                .flatten()
-                .map(|u| u.name)
-                .unwrap_or(SudoString::new("root".into()).unwrap()),
-        );
-        let run_as = run_as.unwrap_or(run_as_root);
+        let root_runas = root_runas();
+        let run_as = run_as.unwrap_or(&root_runas);
 
         f.write_str("    (")?;
         write_users(run_as, f)?;
