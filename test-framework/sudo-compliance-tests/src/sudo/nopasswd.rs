@@ -74,7 +74,6 @@ fn nopasswd_tag_for_command() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh530"]
 fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
     let env = Env(format!(
         "ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, PASSWD: {BIN_LS}"
@@ -90,17 +89,10 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
     assert!(output.status().success());
 
     let actual = output.stdout()?;
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            actual,
-            format!("User {USERNAME} may run the following commands")
-        );
-    } else {
-        assert_contains!(
-            actual,
-            format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
-        );
-    }
+    assert_contains!(
+        actual,
+        format!("User {USERNAME} may run the following commands")
+    );
 
     Ok(())
 }
