@@ -11,7 +11,7 @@ use crate::{cutils::cerr, log::dev_debug};
 
 pub(super) trait Process: Sized {
     /// IO Events that this process should handle.
-    type Event: Copy + Eq + Debug;
+    type Event: Copy + Debug;
     /// Reason why the event loop should break.
     ///
     /// See [`EventRegistry::set_break`] for more information.
@@ -208,8 +208,7 @@ impl<T: Process> EventRegistry<T> {
         self.status = Status::Stop(StopReason::Exit(reason));
     }
 
-    /// Return whether a break reason has been set already. This function will return `false` after
-    /// [`EventRegistry::event_loop`] has been called.
+    /// Return whether a break reason has been set already.
     pub(super) fn got_break(&self) -> bool {
         self.status.is_break()
     }
@@ -219,7 +218,7 @@ impl<T: Process> EventRegistry<T> {
     /// The event loop will continue indefinitely unless you call [`EventRegistry::set_break`] or
     /// [`EventRegistry::set_exit`].
     #[track_caller]
-    pub(super) fn event_loop(&mut self, process: &mut T) -> StopReason<T> {
+    pub(super) fn event_loop(mut self, process: &mut T) -> StopReason<T> {
         let mut event_queue = Vec::with_capacity(self.poll_fds.len());
 
         loop {
@@ -232,7 +231,7 @@ impl<T: Process> EventRegistry<T> {
                 }
 
                 for event in event_queue.drain(..) {
-                    process.on_event(event, self);
+                    process.on_event(event, &mut self);
 
                     if let Some(reason) = self.status.take_exit() {
                         return StopReason::Exit(reason);

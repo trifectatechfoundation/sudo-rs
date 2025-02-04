@@ -235,7 +235,7 @@ pub(in crate::exec) fn exec_pty(
         }
     }
 
-    let exit_reason = closure.run(&mut registry);
+    let exit_reason = closure.run(registry);
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
 
     // Flush the terminal
@@ -350,7 +350,7 @@ impl ParentClosure {
         })
     }
 
-    fn run(&mut self, registry: &mut EventRegistry<Self>) -> io::Result<ExitReason> {
+    fn run(&mut self, registry: EventRegistry<Self>) -> io::Result<ExitReason> {
         match registry.event_loop(self) {
             StopReason::Break(err) | StopReason::Exit(ParentExit::Backchannel(err)) => Err(err),
             StopReason::Exit(ParentExit::Command(exit_reason)) => Ok(exit_reason),
