@@ -324,3 +324,10 @@ fn multiple_lines() -> Result<()> {
     assert_snapshot!(stdout);
     Ok(())
 }
+
+#[test]
+fn empty_runas_with_colon() -> Result<()> {
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = (:) {BIN_TRUE} "))?;
+    assert_snapshot!(stdout);
+    Ok(())
+}
