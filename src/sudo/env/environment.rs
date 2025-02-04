@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::common::{CommandAndArguments, Context, Error};
-use crate::sudoers::Policy;
+use crate::sudoers::Restrictions;
 use crate::system::PATH_MAX;
 
 use super::wildcard_match::wildcard_match;
@@ -47,7 +47,7 @@ fn format_command(command_and_arguments: &CommandAndArguments) -> OsString {
 /// Construct sudo-specific environment variables
 fn add_extra_env(
     context: &Context,
-    cfg: &impl Policy,
+    cfg: &Restrictions,
     sudo_ps1: Option<OsString>,
     environment: &mut Environment,
 ) {
@@ -101,7 +101,7 @@ fn add_extra_env(
     }
 
     // Overwrite PATH when secure_path is set
-    if let Some(secure_path) = cfg.secure_path() {
+    if let Some(secure_path) = &cfg.path {
         // assign path by env path or secure_path configuration
         environment.insert("PATH".into(), secure_path.into());
     }
@@ -168,25 +168,25 @@ fn in_table(needle: &OsStr, haystack: &HashSet<String>) -> bool {
 }
 
 /// Determine whether a specific environment variable should be kept
-fn should_keep(key: &OsStr, value: &OsStr, cfg: &impl Policy) -> bool {
+fn should_keep(key: &OsStr, value: &OsStr, cfg: &Restrictions) -> bool {
     if value.as_bytes().starts_with("()".as_bytes()) {
         return false;
     }
 
-    if cfg.secure_path().is_some() && key == "PATH" {
+    if cfg.path.is_some() && key == "PATH" {
         return false;
     }
 
     if key == "TZ" {
-        return in_table(key, cfg.env_keep())
-            || (in_table(key, cfg.env_check()) && is_safe_tz(value.as_bytes()));
+        return in_table(key, cfg.env_keep)
+            || (in_table(key, cfg.env_check) && is_safe_tz(value.as_bytes()));
     }
 
-    if in_table(key, cfg.env_check()) {
+    if in_table(key, cfg.env_check) {
         return !value.as_bytes().iter().any(|c| *c == b'%' || *c == b'/');
     }
 
-    in_table(key, cfg.env_keep())
+    in_table(key, cfg.env_keep)
 }
 
 /// Construct the final environment from the current one and a sudo context
@@ -207,7 +207,7 @@ pub fn get_target_environment(
     additional_env: impl IntoIterator<Item = (OsString, OsString)>,
     user_override: Vec<(String, String)>,
     context: &Context,
-    settings: &impl Policy,
+    settings: &Restrictions,
 ) -> Result<Environment, Error> {
     // retrieve SUDO_PS1 value to set a PS1 value as additional environment
     let sudo_ps1 = current_env.get(OsStr::new("SUDO_PS1")).cloned();
@@ -254,7 +254,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::{is_safe_tz, should_keep, PATH_ZONEINFO};
-    use crate::sudoers::Policy;
     use std::{collections::HashSet, ffi::OsStr};
 
     struct TestConfiguration {
@@ -263,32 +262,21 @@ mod tests {
         path: Option<String>,
     }
 
-    impl Policy for TestConfiguration {
-        fn env_keep(&self) -> &HashSet<String> {
-            &self.keep
-        }
-
-        fn env_check(&self) -> &HashSet<String> {
-            &self.check
-        }
-
-        fn secure_path(&self) -> Option<String> {
-            self.path.clone()
-        }
-
-        fn use_pty(&self) -> bool {
-            true
-        }
-
-        fn pwfeedback(&self) -> bool {
-            false
-        }
-    }
-
     impl TestConfiguration {
         pub fn check_should_keep(&self, key: &str, value: &str, expected: bool) {
             assert_eq!(
-                should_keep(OsStr::new(key), OsStr::new(value), self),
+                should_keep(
+                    OsStr::new(key),
+                    OsStr::new(value),
+                    &crate::sudoers::Restrictions {
+                        env_keep: &self.keep,
+                        env_check: &self.check,
+                        path: self.path.as_deref(),
+                        chdir: crate::sudoers::DirChange::Strict(None),
+                        trust_environment: false,
+                        use_pty: true,
+                    }
+                ),
                 expected,
                 "{} should {}",
                 key,

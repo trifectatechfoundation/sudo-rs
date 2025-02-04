@@ -1,6 +1,7 @@
 use std::ffi::OsString;
 
 use crate::common::context::LaunchType;
+use crate::common::resolve::AuthUser;
 use crate::common::{error::Error, Context};
 use crate::log::{dev_info, user_warn};
 use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
@@ -8,7 +9,7 @@ use crate::system::term::current_tty_name;
 
 use super::pipeline::AuthPlugin;
 
-type PamBuilder<C> = dyn Fn(&Context) -> PamResult<PamContext<C>>;
+type PamBuilder<C> = dyn Fn(&Context, AuthUser) -> PamResult<PamContext<C>>;
 
 pub struct PamAuthenticator<C: Converser> {
     builder: Box<PamBuilder<C>>,
@@ -17,7 +18,7 @@ pub struct PamAuthenticator<C: Converser> {
 
 impl<C: Converser> PamAuthenticator<C> {
     fn new(
-        initializer: impl Fn(&Context) -> PamResult<PamContext<C>> + 'static,
+        initializer: impl Fn(&Context, AuthUser) -> PamResult<PamContext<C>> + 'static,
     ) -> PamAuthenticator<C> {
         PamAuthenticator {
             builder: Box::new(initializer),
@@ -28,14 +29,14 @@ impl<C: Converser> PamAuthenticator<C> {
 
 impl PamAuthenticator<CLIConverser> {
     pub fn new_cli() -> PamAuthenticator<CLIConverser> {
-        PamAuthenticator::new(|context| {
+        PamAuthenticator::new(|context, auth_user| {
             init_pam(
                 matches!(context.launch, LaunchType::Login),
                 matches!(context.launch, LaunchType::Shell),
                 context.stdin,
                 context.non_interactive,
                 context.password_feedback,
-                &context.auth_user.name,
+                &auth_user.name,
                 &context.current_user.name,
             )
         })
@@ -43,8 +44,8 @@ impl PamAuthenticator<CLIConverser> {
 }
 
 impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
-    fn init(&mut self, context: &Context) -> Result<(), Error> {
-        self.pam = Some((self.builder)(context)?);
+    fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error> {
+        self.pam = Some((self.builder)(context, auth_user)?);
         Ok(())
     }
 

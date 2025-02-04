@@ -10,38 +10,49 @@ use crate::system::time::Duration;
 /// than just the sudoers file.
 use std::collections::HashSet;
 
-pub trait Policy {
-    fn authorization(&self) -> Authorization {
-        Authorization::Forbidden
-    }
-
-    fn chdir(&self) -> DirChange {
-        DirChange::Strict(None)
-    }
-
-    fn env_keep(&self) -> &HashSet<String>;
-    fn env_check(&self) -> &HashSet<String>;
-
-    fn secure_path(&self) -> Option<String>;
-
-    fn use_pty(&self) -> bool;
-    fn pwfeedback(&self) -> bool;
-}
-
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[repr(u32)]
-pub enum Authorization {
-    Allowed(AuthorizationAllowed) = HARDENED_ENUM_VALUE_0,
+pub enum Authorization<T = ()> {
+    Allowed(Authentication, T) = HARDENED_ENUM_VALUE_0,
     Forbidden = HARDENED_ENUM_VALUE_1,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
-pub struct AuthorizationAllowed {
+#[must_use]
+pub struct Authentication {
     pub must_authenticate: bool,
+    pub credential: AuthenticatingUser,
     pub allowed_attempts: u16,
     pub prior_validity: Duration,
+    pub pwfeedback: bool,
+}
+
+impl super::Settings {
+    fn to_auth(&self) -> Authentication {
+        Authentication {
+            must_authenticate: true,
+            allowed_attempts: self.passwd_tries().try_into().unwrap(),
+            prior_validity: Duration::seconds(self.timestamp_timeout()),
+            pwfeedback: self.pwfeedback(),
+            credential: if self.rootpw() {
+                AuthenticatingUser::Root
+            } else {
+                AuthenticatingUser::InvokingUser
+            },
+        }
+    }
+}
+
+#[must_use]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct Restrictions<'a> {
+    pub use_pty: bool,
     pub trust_environment: bool,
+    pub env_keep: &'a HashSet<String>,
+    pub env_check: &'a HashSet<String>,
+    pub chdir: DirChange<'a>,
+    pub path: Option<&'a str>,
 }
 
 #[must_use]
@@ -59,77 +70,40 @@ pub enum AuthenticatingUser {
     Root = HARDENED_ENUM_VALUE_1,
 }
 
-impl Policy for Judgement {
-    fn authorization(&self) -> Authorization {
+impl Judgement {
+    pub fn authorization(&self) -> Authorization<Restrictions> {
         if let Some(tag) = &self.flags {
-            let allowed_attempts = self.settings.passwd_tries().try_into().unwrap();
-            let valid_seconds = self.settings.timestamp_timeout();
-            Authorization::Allowed(AuthorizationAllowed {
-                must_authenticate: tag.needs_passwd(),
-                trust_environment: tag.allows_setenv(),
-                allowed_attempts,
-                prior_validity: Duration::seconds(valid_seconds),
-            })
+            Authorization::Allowed(
+                Authentication {
+                    must_authenticate: tag.needs_passwd(),
+                    ..self.settings.to_auth()
+                },
+                Restrictions {
+                    use_pty: self.settings.use_pty(),
+                    trust_environment: tag.allows_setenv(),
+                    env_keep: self.settings.env_keep(),
+                    env_check: self.settings.env_check(),
+                    chdir: match tag.cwd.as_ref() {
+                        None => DirChange::Strict(None),
+                        Some(super::ChDir::Any) => DirChange::Any,
+                        Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
+                    },
+                    path: self.settings.secure_path(),
+                },
+            )
         } else {
             Authorization::Forbidden
         }
     }
-
-    fn env_keep(&self) -> &HashSet<String> {
-        self.settings.env_keep()
-    }
-
-    fn env_check(&self) -> &HashSet<String> {
-        self.settings.env_check()
-    }
-
-    fn chdir(&self) -> DirChange {
-        match self.flags.as_ref().expect("not authorized").cwd.as_ref() {
-            None => DirChange::Strict(None),
-            Some(super::ChDir::Any) => DirChange::Any,
-            Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
-        }
-    }
-
-    fn secure_path(&self) -> Option<String> {
-        self.settings.secure_path().as_ref().map(|s| s.to_string())
-    }
-
-    fn use_pty(&self) -> bool {
-        self.settings.use_pty()
-    }
-
-    fn pwfeedback(&self) -> bool {
-        self.settings.pwfeedback()
-    }
 }
 
-pub trait PreJudgementPolicy {
-    fn secure_path(&self) -> Option<String>;
-    fn authenticate_as(&self) -> AuthenticatingUser;
-    fn validate_authorization(&self) -> Authorization;
-}
-
-impl PreJudgementPolicy for Sudoers {
-    fn secure_path(&self) -> Option<String> {
-        self.settings.secure_path().as_ref().map(|s| s.to_string())
+impl Sudoers {
+    pub fn secure_path(&self) -> Option<&str> {
+        self.settings.secure_path()
     }
 
-    fn authenticate_as(&self) -> AuthenticatingUser {
-        if self.settings.rootpw() {
-            AuthenticatingUser::Root
-        } else {
-            AuthenticatingUser::InvokingUser
-        }
-    }
-
-    fn validate_authorization(&self) -> Authorization {
-        Authorization::Allowed(AuthorizationAllowed {
-            must_authenticate: true,
-            trust_environment: false,
-            allowed_attempts: self.settings.passwd_tries().try_into().unwrap(),
-            prior_validity: Duration::seconds(self.settings.timestamp_timeout()),
-        })
+    pub fn validate_authorization(&self) -> Authorization<()> {
+        Authorization::Allowed(self.settings.to_auth(), ())
     }
 }
 
@@ -149,31 +123,41 @@ mod test {
         }
     }
 
-    // TODO: refactor the tag-updates to be more readable
     #[test]
     fn authority_xlat_test() {
         let mut judge: Judgement = Default::default();
         assert_eq!(judge.authorization(), Authorization::Forbidden);
         judge.mod_flag(|tag| tag.authenticate = Authenticate::Passwd);
+        let Authorization::Allowed(auth, restrictions) = judge.authorization() else {
+            panic!();
+        };
         assert_eq!(
-            judge.authorization(),
-            Authorization::Allowed(AuthorizationAllowed {
+            auth,
+            Authentication {
                 must_authenticate: true,
-                trust_environment: false,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
-            })
+                credential: AuthenticatingUser::InvokingUser,
+                pwfeedback: false,
+            },
         );
+
+        let mut judge = judge.clone();
         judge.mod_flag(|tag| tag.authenticate = Authenticate::Nopasswd);
+        let Authorization::Allowed(auth, restrictions2) = judge.authorization() else {
+            panic!();
+        };
         assert_eq!(
-            judge.authorization(),
-            Authorization::Allowed(AuthorizationAllowed {
+            auth,
+            Authentication {
                 must_authenticate: false,
-                trust_environment: false,
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
-            })
+                credential: AuthenticatingUser::InvokingUser,
+                pwfeedback: false,
+            },
         );
+        assert_eq!(restrictions, restrictions2);
     }
 
     #[test]
@@ -182,12 +166,18 @@ mod test {
             flags: Some(Tag::default()),
             ..Default::default()
         };
-        assert_eq!(judge.chdir(), DirChange::Strict(None));
+        fn chdir(judge: &mut Judgement) -> DirChange {
+            let Authorization::Allowed(_, ctl) = judge.authorization() else {
+                panic!()
+            };
+            ctl.chdir
+        }
+        assert_eq!(chdir(&mut judge), DirChange::Strict(None));
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Any));
-        assert_eq!(judge.chdir(), DirChange::Any);
+        assert_eq!(chdir(&mut judge), DirChange::Any);
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/usr".into())));
-        assert_eq!(judge.chdir(), (DirChange::Strict(Some(&"/usr".into()))));
+        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/usr".into()))));
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/bin".into())));
-        assert_eq!(judge.chdir(), (DirChange::Strict(Some(&"/bin".into()))));
+        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/bin".into()))));
     }
 }

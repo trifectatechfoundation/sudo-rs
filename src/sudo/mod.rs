@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::common::resolve::CurrentUser;
-use crate::common::{Context, Error};
+use crate::common::Error;
 use crate::log::dev_info;
 use crate::system::interface::UserId;
 use crate::system::kernel::kernel_check;
@@ -14,7 +14,7 @@ pub use cli::SudoAction;
 #[cfg(not(test))]
 use cli::SudoAction;
 use pam::PamAuthenticator;
-use pipeline::{Pipeline, PolicyPlugin};
+use pipeline::Pipeline;
 use std::path::Path;
 
 mod cli;
@@ -65,50 +65,6 @@ pub(crate) fn candidate_sudoers_file() -> &'static Path {
     file
 }
 
-#[derive(Default)]
-pub(crate) struct SudoersPolicy {}
-
-impl PolicyPlugin for SudoersPolicy {
-    type PreJudgementPolicy = crate::sudoers::Sudoers;
-    type Policy = crate::sudoers::Judgement;
-
-    fn init(&mut self) -> Result<Self::PreJudgementPolicy, Error> {
-        let sudoers_path = candidate_sudoers_file();
-
-        let (sudoers, syntax_errors) = crate::sudoers::Sudoers::open(sudoers_path)
-            .map_err(|e| Error::Configuration(format!("{e}")))?;
-
-        for crate::sudoers::Error {
-            source,
-            location,
-            message,
-        } in syntax_errors
-        {
-            let path = source.as_deref().unwrap_or(sudoers_path);
-            diagnostic::diagnostic!("{message}", path @ location);
-        }
-
-        Ok(sudoers)
-    }
-
-    fn judge(
-        &mut self,
-        pre: Self::PreJudgementPolicy,
-        context: &Context,
-    ) -> Result<Self::Policy, Error> {
-        Ok(pre.check(
-            &*context.current_user,
-            &context.hostname,
-            crate::sudoers::Request {
-                user: &context.target_user,
-                group: &context.target_group,
-                command: &context.command.command,
-                arguments: &context.command.arguments,
-            },
-        ))
-    }
-}
-
 fn sudo_process() -> Result<(), Error> {
     crate::log::SudoLogger::new("sudo: ").into_global_logger();
 
@@ -118,7 +74,6 @@ fn sudo_process() -> Result<(), Error> {
     kernel_check()?;
 
     let pipeline = Pipeline {
-        policy: SudoersPolicy::default(),
         authenticator: PamAuthenticator::new_cli(),
     };
 

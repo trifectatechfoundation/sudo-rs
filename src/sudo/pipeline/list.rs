@@ -2,15 +2,14 @@ use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
     common::{Context, Error},
-    pam::CLIConverser,
-    sudo::{cli::SudoListOptions, pam::PamAuthenticator, SudoersPolicy},
-    sudoers::{Authorization, ListRequest, Policy, Request, Sudoers},
+    sudo::cli::SudoListOptions,
+    sudoers::{Authorization, ListRequest, Request, Sudoers},
     system::{interface::UserId, User},
 };
 
-use super::{Pipeline, PolicyPlugin};
+use super::Pipeline;
 
-impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
+impl<Auth: super::AuthPlugin> Pipeline<Auth> {
     pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoListOptions) -> Result<(), Error> {
         let verbose_list_mode = cmd_opts.list.is_verbose();
         let other_user = cmd_opts
@@ -24,15 +23,16 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
 
         let original_command = cmd_opts.positional_args.first().cloned();
 
-        let sudoers = self.policy.init()?;
-        let context = super::build_context(cmd_opts.into(), &sudoers)?;
+        let sudoers = super::read_sudoers()?;
+
+        let mut context = Context::build_from_options(cmd_opts.into(), sudoers.secure_path())?;
 
         if original_command.is_some() && !context.command.resolved {
             return Err(Error::CommandNotFound(context.command.command));
         }
 
         if self
-            .auth_invoking_user(&context, &sudoers, &original_command, &other_user)?
+            .auth_invoking_user(&mut context, &sudoers, &original_command, &other_user)?
             .is_break()
         {
             return Ok(());
@@ -69,7 +69,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
 
     fn auth_invoking_user(
         &mut self,
-        context: &Context,
+        context: &mut Context,
         sudoers: &Sudoers,
         original_command: &Option<String>,
         other_user: &Option<User>,
@@ -81,7 +81,7 @@ impl Pipeline<SudoersPolicy, PamAuthenticator<CLIConverser>> {
         let judgement =
             sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
         match judgement.authorization() {
-            Authorization::Allowed(auth) => {
+            Authorization::Allowed(auth, _) => {
                 self.auth_and_update_record_file(context, &auth)?;
                 Ok(ControlFlow::Continue(()))
             }

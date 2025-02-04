@@ -1,4 +1,4 @@
-use crate::common::resolve::{AuthUser, CurrentUser};
+use crate::common::resolve::CurrentUser;
 use crate::common::{CommandAndArguments, Context};
 use crate::sudo::{
     cli::{SudoAction, SudoRunOptions},
@@ -94,8 +94,6 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
         groups: vec![],
     });
 
-    let auth_user = AuthUser::from_current_user(current_user.clone());
-
     let current_group = Group {
         gid: GroupId::new(1000),
         name: Some("test".to_string()),
@@ -121,7 +119,6 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
         hostname: Hostname::fake("test-ubuntu"),
         command,
         current_user: current_user.clone(),
-        auth_user,
         target_user: if sudo_options.user.as_deref() == Some("test") {
             current_user.into()
         } else {
@@ -162,14 +159,21 @@ fn test_environment_variable_filtering() {
             .try_into_run()
             .ok()
             .unwrap();
-        let settings = crate::sudoers::Judgement::default();
+        let settings = crate::defaults::Settings::default();
         let context = create_test_context(&options);
         let resulting_env = get_target_environment(
             initial_env.clone(),
             HashMap::new(),
             Vec::new(),
             &context,
-            &settings,
+            &crate::sudoers::Restrictions {
+                env_keep: settings.env_keep(),
+                env_check: settings.env_check(),
+                path: settings.secure_path(),
+                use_pty: true,
+                chdir: crate::sudoers::DirChange::Strict(None),
+                trust_environment: false,
+            },
         )
         .unwrap();
 

@@ -1,6 +1,4 @@
-use crate::common::resolve::AuthUser;
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
-use crate::sudoers::AuthenticatingUser;
 use crate::system::{Group, Hostname, Process, User};
 
 use super::resolve::CurrentUser;
@@ -45,7 +43,6 @@ pub struct Context {
     // system
     pub hostname: Hostname,
     pub current_user: CurrentUser,
-    pub auth_user: AuthUser,
     pub process: Process,
     // policy
     pub use_pty: bool,
@@ -63,15 +60,10 @@ pub enum LaunchType {
 impl Context {
     pub fn build_from_options(
         sudo_options: OptionsForContext,
-        path: String,
-        auth_user: AuthenticatingUser,
+        secure_path: Option<&str>,
     ) -> Result<Context, Error> {
         let hostname = Hostname::resolve();
         let current_user = CurrentUser::resolve()?;
-        let auth_user = match auth_user {
-            AuthenticatingUser::InvokingUser => AuthUser::from_current_user(current_user.clone()),
-            AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
-        };
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
         let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
@@ -82,14 +74,24 @@ impl Context {
                 // FIXME `Default` is being used as `Option::None`
                 Default::default()
             }
-            _ => CommandAndArguments::build_from_args(shell, sudo_options.positional_args, &path),
+            _ => {
+                let system_path;
+
+                let path = if let Some(path) = secure_path {
+                    path
+                } else {
+                    system_path = std::env::var("PATH").unwrap_or_default();
+                    system_path.as_ref()
+                };
+
+                CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
+            }
         };
 
         Ok(Context {
             hostname,
             command,
             current_user,
-            auth_user,
             target_user,
             target_group,
             use_session_records: !sudo_options.reset_timestamp,
@@ -108,7 +110,6 @@ impl Context {
 mod tests {
     use crate::{
         sudo::SudoAction,
-        sudoers::AuthenticatingUser,
         system::{interface::UserId, Hostname},
     };
     use std::collections::HashMap;
@@ -124,12 +125,7 @@ mod tests {
             .unwrap();
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
         let (ctx_opts, _pipe_opts) = options.into();
-        let context = Context::build_from_options(
-            ctx_opts,
-            path.to_string(),
-            AuthenticatingUser::InvokingUser,
-        )
-        .unwrap();
+        let context = Context::build_from_options(ctx_opts, Some(path)).unwrap();
 
         let mut target_environment = HashMap::new();
         target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
