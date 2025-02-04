@@ -4,6 +4,10 @@ use crate::sudoers::{
     ast::{Identifier, Qualified, UserSpecifier},
     tokens::{ChDir, Meta},
 };
+use crate::{
+    common::{resolve::CurrentUser, SudoString},
+    system::{interface::UserId, User},
+};
 
 use self::verbose::Verbose;
 
@@ -39,11 +43,28 @@ static EMPTY_RUNAS: RunAs = RunAs {
     groups: Vec::new(),
 };
 
+fn singular_runas(name: SudoString) -> RunAs {
+    let name = UserSpecifier::User(Identifier::Name(name));
+    let name = Qualified::Allow(Meta::Only(name));
+
+    RunAs {
+        users: vec![name],
+        groups: vec![],
+    }
+}
+
 impl fmt::Display for Entry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { run_as, cmd_specs } = self;
 
-        let run_as = run_as.unwrap_or(&EMPTY_RUNAS);
+        let run_as_root = &singular_runas(
+            User::from_uid(UserId::ROOT)
+                .ok()
+                .flatten()
+                .map(|u| u.name)
+                .unwrap_or(SudoString::new("root".into()).unwrap()),
+        );
+        let run_as = run_as.unwrap_or(run_as_root);
 
         f.write_str("    (")?;
         write_users(run_as, f)?;
@@ -72,8 +93,10 @@ impl fmt::Display for Entry<'_> {
 
 fn write_users(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
     if run_as.users.is_empty() {
-        // XXX assumes that the superuser is called "root"
-        f.write_str("root")?;
+        match CurrentUser::resolve() {
+            Ok(u) => f.write_str(&u.name)?,
+            _ => f.write_str("?")?,
+        };
     }
 
     let mut is_first_user = true;
