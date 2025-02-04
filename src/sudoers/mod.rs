@@ -222,19 +222,19 @@ fn group_cmd_specs_per_runas<'a>(
         groups: Vec::new(),
     };
 
-    let mut runas = None;
+    let mut last_runas = None;
     let mut collected_specs = vec![];
 
-    for (new_runas, (tag, spec)) in cmnd_specs {
-        if let Some(new_runas) = new_runas {
+    for (runas, (tag, spec)) in cmnd_specs {
+        if runas.map(|r| r as *const _) != last_runas.map(|r| r as *const _) {
             if !collected_specs.is_empty() {
                 entries.push(Entry::new(
-                    runas.take().unwrap_or(&EMPTY_RUNAS),
+                    last_runas.take().unwrap_or(&EMPTY_RUNAS),
                     mem::take(&mut collected_specs),
                 ));
             }
 
-            runas = Some(new_runas);
+            last_runas = runas;
         }
 
         let (negate, meta) = match spec {
@@ -257,7 +257,10 @@ fn group_cmd_specs_per_runas<'a>(
     }
 
     if !collected_specs.is_empty() {
-        entries.push(Entry::new(runas.unwrap_or(&EMPTY_RUNAS), collected_specs));
+        entries.push(Entry::new(
+            last_runas.unwrap_or(&EMPTY_RUNAS),
+            collected_specs,
+        ));
     }
 }
 
