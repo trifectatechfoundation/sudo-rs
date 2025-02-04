@@ -12,8 +12,9 @@ use crate::{
 use self::verbose::Verbose;
 
 use super::{
-    ast::{Authenticate, RunAs, Tag},
+    ast::{Authenticate, Def, RunAs, Tag},
     tokens::Command,
+    VecOrd,
 };
 
 mod verbose;
@@ -21,16 +22,22 @@ mod verbose;
 pub struct Entry<'a> {
     run_as: Option<&'a RunAs>,
     cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+    cmd_alias: &'a VecOrd<Def<Command>>,
 }
 
 impl<'a> Entry<'a> {
     pub(super) fn new(
         run_as: Option<&'a RunAs>,
         cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+        cmd_alias: &'a VecOrd<Def<Command>>,
     ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
 
-        Self { run_as, cmd_specs }
+        Self {
+            run_as,
+            cmd_specs,
+            cmd_alias,
+        }
     }
 
     pub fn verbose(self) -> impl fmt::Display + 'a {
@@ -56,7 +63,11 @@ fn root_runas() -> RunAs {
 
 impl fmt::Display for Entry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { run_as, cmd_specs } = self;
+        let Self {
+            run_as,
+            cmd_specs,
+            cmd_alias,
+        } = self;
 
         let root_runas = root_runas();
         let run_as = run_as.unwrap_or(&root_runas);
@@ -79,7 +90,7 @@ impl fmt::Display for Entry<'_> {
 
             write_tag(f, tag, last_tag)?;
             last_tag = Some(tag);
-            write_spec(f, spec)?;
+            write_spec(f, spec, cmd_alias, true, ", ")?;
         }
 
         Ok(())
@@ -208,17 +219,29 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
     Ok(())
 }
 
-fn write_spec(f: &mut fmt::Formatter, spec: &Qualified<&Meta<Command>>) -> fmt::Result {
+fn write_spec(
+    f: &mut fmt::Formatter,
+    spec: &Qualified<&Meta<Command>>,
+    alias_list: &VecOrd<Def<Command>>,
+    mut sign: bool,
+    separator: &str,
+) -> fmt::Result {
     let meta = match spec {
         Qualified::Allow(meta) => meta,
         Qualified::Forbid(meta) => {
-            f.write_str("!")?;
+            sign = !sign;
             meta
         }
     };
 
     match meta {
+        Meta::All | Meta::Only(_) if !sign => f.write_str("!")?,
+        _ => {}
+    }
+
+    match meta {
         Meta::All => f.write_str("ALL")?,
+
         Meta::Only((cmd, args)) => {
             write!(f, "{cmd}")?;
             if let Some(args) = args {
@@ -227,7 +250,22 @@ fn write_spec(f: &mut fmt::Formatter, spec: &Qualified<&Meta<Command>>) -> fmt::
                 }
             }
         }
-        Meta::Alias(alias) => f.write_str(alias)?,
+        Meta::Alias(alias) => {
+            // this will terminate, since AliasTable has been checked by sanitize_alias_table
+            if let Some(Def(_, spec_list)) = super::elems(alias_list).find(|Def(id, _)| id == alias)
+            {
+                let mut is_first_iteration = true;
+                for spec in spec_list {
+                    if !is_first_iteration {
+                        f.write_str(separator)?;
+                    }
+                    write_spec(f, &spec.as_ref(), alias_list, sign, separator)?;
+                    is_first_iteration = false;
+                }
+            } else {
+                f.write_str("???")?
+            }
+        }
     }
 
     Ok(())

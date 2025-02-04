@@ -180,10 +180,9 @@ impl Sudoers {
         // ensure `sudo $command` and `sudo --list` use the same permission checking logic
         let user_specs = self.matching_user_specs(invoking_user, hostname);
 
-        let cmnd_aliases = unfold_alias_table(&self.aliases.cmnd);
         let mut entries = vec![];
         for cmd_specs in user_specs {
-            group_cmd_specs_per_runas(cmd_specs, &mut entries, &cmnd_aliases);
+            group_cmd_specs_per_runas(cmd_specs, &mut entries, &self.aliases.cmnd);
         }
 
         entries
@@ -215,7 +214,7 @@ impl Sudoers {
 fn group_cmd_specs_per_runas<'a>(
     cmnd_specs: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
     entries: &mut Vec<Entry<'a>>,
-    cmnd_aliases: &HashMap<&String, &'a Vec<Spec<Command>>>,
+    cmnd_aliases: &'a VecOrd<Def<Command>>,
 ) {
     let mut last_runas = None;
     let mut collected_specs = vec![];
@@ -223,33 +222,21 @@ fn group_cmd_specs_per_runas<'a>(
     for (runas, (tag, spec)) in cmnd_specs {
         if runas.map(|r| r as *const _) != last_runas.map(|r| r as *const _) {
             if !collected_specs.is_empty() {
-                entries.push(Entry::new(last_runas, mem::take(&mut collected_specs)));
+                entries.push(Entry::new(
+                    last_runas,
+                    mem::take(&mut collected_specs),
+                    cmnd_aliases,
+                ));
             }
 
             last_runas = runas;
         }
 
-        let (negate, meta) = match spec {
-            Qualified::Allow(meta) => (false, meta),
-            Qualified::Forbid(meta) => (true, meta),
-        };
-
-        if let Meta::Alias(alias_name) = meta {
-            if let Some(specs) = cmnd_aliases.get(alias_name) {
-                // expand Cmnd_Alias
-                for spec in specs.iter() {
-                    let new_spec = if negate { spec.negate() } else { spec.as_ref() };
-
-                    collected_specs.push((tag.clone(), new_spec))
-                }
-            }
-        } else {
-            collected_specs.push((tag, spec.as_ref()));
-        }
+        collected_specs.push((tag, spec.as_ref()));
     }
 
     if !collected_specs.is_empty() {
-        entries.push(Entry::new(last_runas, collected_specs));
+        entries.push(Entry::new(last_runas, collected_specs, cmnd_aliases));
     }
 }
 
@@ -480,10 +467,6 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command
         cmdpat.matches_path_with(cmd, opts)
             && argpat.as_ref().map_or(true, |vec| args == vec.as_ref())
     }
-}
-
-fn unfold_alias_table<T>(table: &VecOrd<Def<T>>) -> HashMap<&String, &Vec<Qualified<Meta<T>>>> {
-    elems(table).map(|Def(id, list)| (id, list)).collect()
 }
 
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;

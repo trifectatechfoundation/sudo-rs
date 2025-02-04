@@ -25,13 +25,6 @@ impl<T> Qualified<T> {
         }
     }
 
-    pub fn negate(&self) -> Qualified<&T> {
-        match self {
-            Qualified::Allow(item) => Qualified::Forbid(item),
-            Qualified::Forbid(item) => Qualified::Allow(item),
-        }
-    }
-
     #[cfg(test)]
     pub fn as_allow(&self) -> Option<&T> {
         if let Self::Allow(v) = self {
