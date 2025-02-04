@@ -15,13 +15,13 @@ use super::{
 mod verbose;
 
 pub struct Entry<'a> {
-    run_as: &'a RunAs,
+    run_as: Option<&'a RunAs>,
     cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
 }
 
 impl<'a> Entry<'a> {
     pub(super) fn new(
-        run_as: &'a RunAs,
+        run_as: Option<&'a RunAs>,
         cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
     ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
@@ -34,9 +34,16 @@ impl<'a> Entry<'a> {
     }
 }
 
+static EMPTY_RUNAS: RunAs = RunAs {
+    users: Vec::new(),
+    groups: Vec::new(),
+};
+
 impl fmt::Display for Entry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self { run_as, cmd_specs } = self;
+
+        let run_as = run_as.unwrap_or(&EMPTY_RUNAS);
 
         f.write_str("    (")?;
         write_users(run_as, f)?;

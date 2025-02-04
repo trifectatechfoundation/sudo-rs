@@ -6,12 +6,14 @@ use crate::sudoers::{
 };
 
 use super::Entry;
+use super::EMPTY_RUNAS;
 
 pub struct Verbose<'a>(pub Entry<'a>);
 
 impl fmt::Display for Verbose<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self(Entry { run_as, cmd_specs }) = self;
+        let run_as = run_as.unwrap_or(&EMPTY_RUNAS);
 
         let mut last_tag = None;
         for (tag, cmd_spec) in cmd_specs {

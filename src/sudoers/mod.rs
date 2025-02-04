@@ -217,21 +217,13 @@ fn group_cmd_specs_per_runas<'a>(
     entries: &mut Vec<Entry<'a>>,
     cmnd_aliases: &HashMap<&String, &'a Vec<Spec<Command>>>,
 ) {
-    static EMPTY_RUNAS: RunAs = RunAs {
-        users: Vec::new(),
-        groups: Vec::new(),
-    };
-
     let mut last_runas = None;
     let mut collected_specs = vec![];
 
     for (runas, (tag, spec)) in cmnd_specs {
         if runas.map(|r| r as *const _) != last_runas.map(|r| r as *const _) {
             if !collected_specs.is_empty() {
-                entries.push(Entry::new(
-                    last_runas.take().unwrap_or(&EMPTY_RUNAS),
-                    mem::take(&mut collected_specs),
-                ));
+                entries.push(Entry::new(last_runas, mem::take(&mut collected_specs)));
             }
 
             last_runas = runas;
@@ -257,10 +249,7 @@ fn group_cmd_specs_per_runas<'a>(
     }
 
     if !collected_specs.is_empty() {
-        entries.push(Entry::new(
-            last_runas.unwrap_or(&EMPTY_RUNAS),
-            collected_specs,
-        ));
+        entries.push(Entry::new(last_runas, collected_specs));
     }
 }
 
