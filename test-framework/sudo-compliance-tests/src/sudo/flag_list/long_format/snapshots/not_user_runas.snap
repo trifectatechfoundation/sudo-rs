@@ -2,7 +2,13 @@
 source: sudo-compliance-tests/src/sudo/flag_list/long_format/mod.rs
 expression: stdout
 ---
-User root may run the following commands on container:
+User ferruccio may run the following commands on container:
+
+Sudoers entry:
+    RunAsUsers: root
+    Options: !authenticate
+    Commands:
+	/tmp
 
 Sudoers entry:
     RunAsUsers: !ferris

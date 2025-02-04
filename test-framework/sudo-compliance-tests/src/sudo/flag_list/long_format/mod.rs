@@ -8,7 +8,7 @@ macro_rules! assert_snapshot {
             filters => vec![
                 (BIN_LS, "<BIN_LS>"),
                 (&format!("Sudoers entry: {ETC_SUDOERS}"), "Sudoers entry:"),
-                ("Matching Defaults entries for root on container:
+                ("Matching Defaults entries for ferruccio on container:
     !fqdn, !lecture, !mailerpath
 ", "")
             ],
@@ -24,8 +24,11 @@ macro_rules! assert_snapshot {
 // sudoers entries
 
 fn sudo_ll_of(sudoers: &str) -> Result<String> {
-    let env = Env(sudoers).hostname(HOSTNAME).build()?;
+    let user = "ferruccio";
+    let sudoers = ["ALL ALL = NOPASSWD: /tmp", sudoers].join("\n");
+    let env = Env(sudoers).hostname(HOSTNAME).user(user).build()?;
     Command::new("sudo")
+        .as_user(user)
         .args(["-l", "-l"])
         .output(&env)?
         .stdout()
