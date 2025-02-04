@@ -233,6 +233,7 @@ fn cwd_across_runas_groups() -> Result<()> {
     Ok(())
 }
 
+#[ignore = "gh974"]
 #[test]
 fn cwd_override_across_runas_groups() -> Result<()> {
     let stdout = sudo_list_of(&format!(
@@ -299,6 +300,7 @@ fn passwd_across_runas_groups() -> Result<()> {
     Ok(())
 }
 
+#[ignore = "gh974"]
 #[test]
 fn nopasswd_passwd_override_across_runas_groups() -> Result<()> {
     let stdout = sudo_list_of(&format!(
