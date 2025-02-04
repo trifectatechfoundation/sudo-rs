@@ -286,6 +286,22 @@ fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Res
     Ok(())
 }
 
+#[test]
+fn runas_specifiers_distribute() -> Result<()> {
+    let env = Env(format!("ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: /tmp/foo, ALL"))
+        .user(USERNAME)
+        .group(GROUPNAME)
+        .build()?;
+
+    Command::new("sudo")
+        .args(["-g", GROUPNAME, "true"])
+        .as_user(USERNAME)
+        .output(&env)?
+        .assert_success()?;
+
+    Ok(())
+}
+
 // `man sudoers` says in the 'Runas_Spec' section
 // "If no Runas_Spec is specified, the command may only be run as root and the group, if specified, must be one that root is a member of."
 #[test]
