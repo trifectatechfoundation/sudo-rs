@@ -345,8 +345,8 @@ fn distribute_tags(
 ) -> impl Iterator<Item = (Option<&RunAs>, (Tag, &Spec<Command>))> {
     runas_cmds.iter().scan(
         (None, Default::default()),
-        |(mut last_runas, tag), (runas, CommandSpec(mods, cmd))| {
-            last_runas = runas.as_ref().or(last_runas);
+        |(last_runas, tag), (runas, CommandSpec(mods, cmd))| {
+            *last_runas = runas.as_ref().or(*last_runas);
             for f in mods {
                 f(tag);
             }
@@ -360,7 +360,7 @@ fn distribute_tags(
                 _ => tag.clone(),
             };
 
-            Some((last_runas, (this_tag, cmd)))
+            Some((*last_runas, (this_tag, cmd)))
         },
     )
 }
