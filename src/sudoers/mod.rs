@@ -182,7 +182,7 @@ impl Sudoers {
 
         let mut entries = vec![];
         for cmd_specs in user_specs {
-            group_cmd_specs_per_runas(cmd_specs, &mut entries, &self.aliases.cmnd);
+            group_cmd_specs_per_runas(cmd_specs, &mut entries, &self.aliases.cmnd.1);
         }
 
         entries
@@ -214,7 +214,7 @@ impl Sudoers {
 fn group_cmd_specs_per_runas<'a>(
     cmnd_specs: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
     entries: &mut Vec<Entry<'a>>,
-    cmnd_aliases: &'a VecOrd<Def<Command>>,
+    cmnd_aliases: &'a [Def<Command>],
 ) {
     let mut last_runas = None;
     let mut collected_specs = vec![];

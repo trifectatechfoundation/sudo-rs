@@ -14,7 +14,6 @@ use self::verbose::Verbose;
 use super::{
     ast::{Authenticate, Def, RunAs, Tag},
     tokens::Command,
-    VecOrd,
 };
 
 mod verbose;
@@ -22,14 +21,14 @@ mod verbose;
 pub struct Entry<'a> {
     run_as: Option<&'a RunAs>,
     cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
-    cmd_alias: &'a VecOrd<Def<Command>>,
+    cmd_alias: &'a [Def<Command>],
 }
 
 impl<'a> Entry<'a> {
     pub(super) fn new(
         run_as: Option<&'a RunAs>,
         cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
-        cmd_alias: &'a VecOrd<Def<Command>>,
+        cmd_alias: &'a [Def<Command>],
     ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
 
@@ -222,7 +221,7 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
 fn write_spec(
     f: &mut fmt::Formatter,
     spec: &Qualified<&Meta<Command>>,
-    alias_list: &VecOrd<Def<Command>>,
+    alias_list: &[Def<Command>],
     mut sign: bool,
     separator: &str,
 ) -> fmt::Result {
@@ -252,8 +251,7 @@ fn write_spec(
         }
         Meta::Alias(alias) => {
             // this will terminate, since AliasTable has been checked by sanitize_alias_table
-            if let Some(Def(_, spec_list)) = super::elems(alias_list).find(|Def(id, _)| id == alias)
-            {
+            if let Some(Def(_, spec_list)) = alias_list.iter().find(|Def(id, _)| id == alias) {
                 let mut is_first_iteration = true;
                 for spec in spec_list {
                     if !is_first_iteration {
