@@ -1,14 +1,15 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::ops::Range;
 use std::path::Path;
 
-pub(crate) fn cited_error(message: &str, range: Range<(usize, usize)>, path: impl AsRef<Path>) {
+use crate::sudoers::Span;
+
+pub(crate) fn cited_error(message: &str, span: Span, path: impl AsRef<Path>) {
     let path_str = path.as_ref().display();
-    let Range {
+    let Span {
         start: (line, col),
         end: (end_line, mut end_col),
-    } = range;
+    } = span;
     eprintln_ignore_io_error!("{path_str}:{line}:{col}: {message}");
 
     // we won't try to "span" errors across multiple lines

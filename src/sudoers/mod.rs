@@ -22,6 +22,7 @@ use ast::*;
 use tokens::*;
 
 pub type Settings = defaults::Settings;
+pub use basic_parser::Span;
 
 /// How many nested include files do we allow?
 const INCLUDE_LIMIT: u8 = 128;
@@ -29,7 +30,7 @@ const INCLUDE_LIMIT: u8 = 128;
 /// Export some necessary symbols from modules
 pub struct Error {
     pub source: Option<PathBuf>,
-    pub location: Option<basic_parser::Position>,
+    pub location: Option<basic_parser::Span>,
     pub message: String,
 }
 
@@ -548,6 +549,7 @@ fn analyze(
     fn include(
         cfg: &mut Sudoers,
         parent: &Path,
+        span: Span,
         path: &Path,
         diagnostics: &mut Vec<Error>,
         count: &mut u8,
@@ -555,7 +557,7 @@ fn analyze(
         if *count >= INCLUDE_LIMIT {
             diagnostics.push(Error {
                 source: Some(parent.to_owned()),
-                location: None,
+                location: Some(span),
                 message: format!("include file limit reached opening '{}'", path.display()),
             })
         // FIXME: this will cause an error in `visudo` if we open a non-privileged sudoers file
@@ -576,7 +578,7 @@ fn analyze(
 
                     diagnostics.push(Error {
                         source: Some(parent.to_owned()),
-                        location: None,
+                        location: Some(span),
                         message,
                     })
                 }
@@ -609,20 +611,25 @@ fn analyze(
                         }
                     }
 
-                    Sudo::Include(path) => include(
+                    Sudo::Include(path, span) => include(
                         cfg,
                         cur_path,
+                        span,
                         &resolve_relative(cur_path, path),
                         diagnostics,
                         safety_count,
                     ),
 
-                    Sudo::IncludeDir(path) => {
+                    Sudo::IncludeDir(path, span) => {
                         if path.contains("%h") {
-                            diagnostics.push(Error{
-                                    source: Some(cur_path.to_owned()),
-                                    location: None,
-                                    message: format!("cannot open sudoers file {path}: percent escape %h in includedir is unsupported")});
+                            diagnostics.push(Error {
+                                source: Some(cur_path.to_owned()),
+                                location: Some(span),
+                                message: format!(
+                                    "cannot open sudoers file {path}: \
+                                     percent escape %h in includedir is unsupported"
+                                ),
+                            });
                             continue;
                         }
 
@@ -630,7 +637,7 @@ fn analyze(
                         let Ok(files) = std::fs::read_dir(&path) else {
                             diagnostics.push(Error {
                                 source: Some(cur_path.to_owned()),
-                                location: None,
+                                location: Some(span),
                                 message: format!("cannot open sudoers file {}", path.display()),
                             });
                             continue;
@@ -648,7 +655,14 @@ fn analyze(
                             .collect::<Vec<_>>();
                         safe_files.sort();
                         for file in safe_files {
-                            include(cfg, cur_path, file.as_ref(), diagnostics, safety_count)
+                            include(
+                                cfg,
+                                cur_path,
+                                span,
+                                file.as_ref(),
+                                diagnostics,
+                                safety_count,
+                            )
                         }
                     }
                 },

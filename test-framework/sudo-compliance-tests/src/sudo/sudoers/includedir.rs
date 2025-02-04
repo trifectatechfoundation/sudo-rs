@@ -81,10 +81,7 @@ fn directory_does_not_exist_is_not_fatal() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert!(stderr.is_empty());
     } else {
-        assert_contains!(
-            stderr,
-            "sudo-rs: cannot open sudoers file /etc/does-not-exist"
-        );
+        assert_contains!(stderr, "cannot open sudoers file /etc/does-not-exist");
     }
 
     Ok(())
@@ -192,7 +189,7 @@ fn include_loop() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers.d/a: too many levels of includes")
     } else {
-        format!("sudo-rs: include file limit reached opening '{ETC_DIR}/sudoers.d/a'")
+        format!("include file limit reached opening '{ETC_DIR}/sudoers.d/a'")
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -227,7 +224,7 @@ fn statements_prior_to_include_loop_are_evaluated() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers.d/a: too many levels of includes")
     } else {
-        format!("sudo-rs: include file limit reached opening '{ETC_DIR}/sudoers.d/a'")
+        format!("include file limit reached opening '{ETC_DIR}/sudoers.d/a'")
     };
 
     assert_contains!(output.stderr(), diagnostic);
@@ -350,7 +347,7 @@ fn ignores_directory_with_bad_perms() -> Result<()> {
         ]
     } else {
         [
-            format!("sudo-rs: {ETC_DIR}/sudoers2.d cannot be world-writable"),
+            format!("{ETC_DIR}/sudoers2.d cannot be world-writable"),
             "I'm sorry root. I'm afraid I can't do that".to_owned(),
         ]
     };
@@ -380,7 +377,7 @@ fn ignores_directory_with_bad_ownership() -> Result<()> {
         ]
     } else {
         [
-            format!("sudo-rs: {ETC_DIR}/sudoers2.d must be owned by root"),
+            format!("{ETC_DIR}/sudoers2.d must be owned by root"),
             "I'm sorry root. I'm afraid I can't do that".to_owned(),
         ]
     };

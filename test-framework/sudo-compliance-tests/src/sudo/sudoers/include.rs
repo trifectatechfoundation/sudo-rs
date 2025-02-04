@@ -37,7 +37,7 @@ fn file_does_not_exist() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to open /etc/sudoers2: No such file or directory"
     } else {
-        "sudo-rs: cannot open sudoers file '/etc/sudoers2'"
+        "cannot open sudoers file '/etc/sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
     Ok(())
@@ -128,7 +128,7 @@ fn include_loop_error_messages() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers2: too many levels of includes"
     } else {
-        "sudo-rs: include file limit reached opening '/etc/sudoers2'"
+        "include file limit reached opening '/etc/sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -147,7 +147,7 @@ fn include_loop_not_fatal() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers2: too many levels of includes"
     } else {
-        "sudo-rs: include file limit reached opening '/etc/sudoers2'"
+        "include file limit reached opening '/etc/sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -170,7 +170,7 @@ fn permissions_check() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2 is world writable"
     } else {
-        "sudo-rs: /etc/sudoers2 cannot be world-writable"
+        "/etc/sudoers2 cannot be world-writable"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -189,7 +189,7 @@ fn permissions_check_not_fatal() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("sudo: {ETC_DIR}/sudoers2 is world writable")
     } else {
-        format!("sudo-rs: {ETC_DIR}/sudoers2 cannot be world-writable")
+        format!("{ETC_DIR}/sudoers2 cannot be world-writable")
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -213,7 +213,7 @@ fn ownership_check() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
     } else {
-        "sudo-rs: /etc/sudoers2 must be owned by root"
+        "/etc/sudoers2 must be owned by root"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -233,7 +233,7 @@ fn ownership_check_not_fatal() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
     } else {
-        "sudo-rs: /etc/sudoers2 must be owned by root"
+        "/etc/sudoers2 must be owned by root"
     };
     assert_contains!(output.stderr(), diagnostic);
 
@@ -284,7 +284,7 @@ fn relative_path_grandparent_directory() -> Result<()> {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("sudo: unable to open {path}: No such file or directory")
     } else {
-        format!("sudo-rs: cannot open sudoers file '{path}'")
+        format!("cannot open sudoers file '{path}'")
     };
     assert_contains!(output.stderr(), diagnostic);
     Ok(())

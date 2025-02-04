@@ -386,7 +386,14 @@ fn gh676_percent_h_escape_unsupported() {
     assert_eq!(
         errs[0].message,
         "cannot open sudoers file /etc/%h: percent escape %h in includedir is unsupported"
-    )
+    );
+    assert_eq!(
+        errs[0].location,
+        Some(Span {
+            start: (1, 2),
+            end: (1, 23)
+        })
+    );
 }
 
 #[test]

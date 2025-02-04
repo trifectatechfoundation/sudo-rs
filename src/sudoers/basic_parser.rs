@@ -28,12 +28,17 @@
 /// Type holding a parsed object (or error information if parsing failed)
 pub type Parsed<T> = Result<T, Status>;
 
-pub type Position = std::ops::Range<(usize, usize)>;
+#[derive(Copy, Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct Span {
+    pub start: (usize, usize),
+    pub end: (usize, usize),
+}
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub enum Status {
-    Fatal(Position, String), // not recoverable; stream in inconsistent state
-    Reject,                  // parsing failed by no input consumed
+    Fatal(Span, String), // not recoverable; stream in inconsistent state
+    Reject,              // parsing failed by no input consumed
 }
 
 pub fn make<T>(value: T) -> Parsed<T> {
@@ -46,14 +51,12 @@ pub fn reject<T>() -> Parsed<T> {
 
 macro_rules! unrecoverable {
     (pos=$pos:expr, $stream:ident, $($str:expr),*) => {
-        return Err(crate::sudoers::basic_parser::Status::Fatal($pos .. CharStream::get_pos($stream), format![$($str),*]))
+        return Err(crate::sudoers::basic_parser::Status::Fatal(Span { start: $pos, end: CharStream::get_pos($stream)}, format![$($str),*]))
     };
-    ($stream:ident, $($str:expr),*) => {
-        {
-            let pos = CharStream::get_pos($stream);
-            return Err(crate::sudoers::basic_parser::Status::Fatal(pos .. pos, format![$($str),*]))
-        }
-    };
+    ($stream:ident, $($str:expr),*) => {{
+        let pos = CharStream::get_pos($stream);
+        return Err(crate::sudoers::basic_parser::Status::Fatal(Span { start: pos, end: pos }, format![$($str),*]))
+    }};
     ($($str:expr),*) => {
         return Err(crate::basic_parser::Status::Fatal(Default::default(), format![$($str),*]))
     };
