@@ -257,8 +257,14 @@ fn edit_sudoers_file(
 
         writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
 
-        for crate::sudoers::Error { message, .. } in errors {
-            writeln!(stderr, "syntax error: {message}")?;
+        for crate::sudoers::Error {
+            message,
+            source,
+            location,
+        } in errors
+        {
+            let path = source.as_deref().unwrap_or(sudoers_path);
+            diagnostic::diagnostic!("syntax error: {message}", path @ location);
         }
 
         writeln!(stderr)?;
