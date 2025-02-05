@@ -10,8 +10,8 @@ mod entry;
 mod tokens;
 
 use std::collections::{HashMap, HashSet};
+use std::io;
 use std::path::{Path, PathBuf};
-use std::{io, mem};
 
 use crate::common::resolve::resolve_path;
 use crate::defaults;
@@ -204,14 +204,18 @@ impl Sudoers {
     }
 }
 
+// a `take_while` variant that does not consume the first non-matching item
+fn peeking_take_while<'a, T>(
+    iter: &'a mut std::iter::Peekable<impl Iterator<Item = T>>,
+    pred: impl Fn(&T) -> bool + 'a,
+) -> impl Iterator<Item = T> + 'a {
+    std::iter::from_fn(move || iter.next_if(&pred))
+}
+
 fn group_cmd_specs_per_runas<'a>(
     cmnd_specs: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
     cmnd_aliases: &'a [Def<Command>],
 ) -> impl Iterator<Item = Entry<'a>> {
-    let mut entries = vec![];
-    let mut last_runas = None;
-    let mut collected_specs = vec![];
-
     // `distribute_tags` will have given every spec a reference to the "runas specification"
     // that applies to it. The output of sudo --list splits the CmndSpec list based on that:
     // every line only has a single "runas" specifier. So we need to combine them for that.
@@ -221,24 +225,19 @@ fn group_cmd_specs_per_runas<'a>(
     // once a RunAs is parsed, it will have a unique identifier in the form of its address.
     let origin = |runas: Option<&RunAs>| runas.map(|r| r as *const _);
 
-    for (runas, (tag, spec)) in cmnd_specs {
-        if origin(runas) != origin(last_runas) {
-            if !collected_specs.is_empty() {
-                entries.push(Entry::new(
-                    last_runas,
-                    mem::take(&mut collected_specs),
-                    cmnd_aliases,
-                ));
-            }
+    let mut cmnd_specs = cmnd_specs.peekable();
+    let mut entries = vec![];
 
-            last_runas = runas;
-        }
+    while let Some(&(cur_runas, _)) = cmnd_specs.peek() {
+        let specs = peeking_take_while(&mut cmnd_specs, |&(runas, _)| {
+            origin(runas) == origin(cur_runas)
+        });
 
-        collected_specs.push((tag, spec));
-    }
-
-    if !collected_specs.is_empty() {
-        entries.push(Entry::new(last_runas, collected_specs, cmnd_aliases));
+        entries.push(Entry::new(
+            cur_runas,
+            specs.map(|x| x.1).collect(),
+            cmnd_aliases,
+        ));
     }
 
     entries.into_iter()
