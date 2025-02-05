@@ -34,19 +34,41 @@ pub struct PamContext<C: Converser> {
     session_started: bool,
 }
 
-pub struct PamContextBuilder<C> {
-    converser: C,
-    service_name: String,
-    target_user: Option<String>,
-}
-
-impl<C: Converser> PamContextBuilder<C> {
-    /// Build the PamContext based on the current configuration.
+impl PamContext<CLIConverser> {
+    /// Build the PamContext with the CLI conversation function.
+    ///
+    /// The target user is optional and may also be set after the context was
+    /// constructed or not set at all in which case PAM will ask for a
+    /// username.
     ///
     /// This function will error when initialization of the PAM session somehow failed.
-    pub fn build(self) -> PamResult<PamContext<C>> {
-        let c_service_name = CString::new(self.service_name)?;
-        let c_user = self.target_user.map(CString::new).transpose()?;
+    pub fn new_cli(
+        converser_name: &str,
+        service_name: &str,
+        use_stdin: bool,
+        no_interact: bool,
+        password_feedback: bool,
+        target_user: Option<&str>,
+    ) -> PamResult<PamContext<CLIConverser>> {
+        let converser = CLIConverser {
+            name: converser_name.to_owned(),
+            use_stdin,
+            no_interact,
+            password_feedback,
+        };
+
+        Self::new(converser, service_name, target_user)
+    }
+}
+
+impl<C: Converser> PamContext<C> {
+    fn new(
+        converser: C,
+        service_name: &str,
+        target_user: Option<&str>,
+    ) -> PamResult<PamContext<C>> {
+        let c_service_name = CString::new(service_name)?;
+        let c_user = target_user.map(CString::new).transpose()?;
         let c_user_ptr = match c_user {
             Some(ref c) => c.as_ptr(),
             None => std::ptr::null(),
@@ -54,7 +76,7 @@ impl<C: Converser> PamContextBuilder<C> {
 
         // this will be de-allocated explicitly in this type's drop method
         let data_ptr = Box::into_raw(Box::new(ConverserData {
-            converser: self.converser,
+            converser,
             panicked: false,
         }));
 
@@ -89,18 +111,6 @@ impl<C: Converser> PamContextBuilder<C> {
         }
     }
 
-    /// Set a target user that should be inserted into the pam context.
-    ///
-    /// The target user is optional and may also be set after the context was
-    /// constructed or not set at all in which case PAM will ask for a
-    /// username.
-    pub fn target_user<T: Into<String>>(mut self, user: T) -> PamContextBuilder<C> {
-        self.target_user = Some(user.into());
-        self
-    }
-}
-
-impl<C: Converser> PamContext<C> {
     /// Set whether output of pam calls should be silent or not, by default
     /// PAM calls are not silent.
     pub fn mark_silent(&mut self, silent: bool) {
@@ -339,28 +349,6 @@ impl<C: Converser> PamContext<C> {
     pub fn has_panicked(&self) -> bool {
         // SAFETY: self.data_ptr was created by Box::into_raw
         unsafe { (*self.data_ptr).panicked }
-    }
-}
-
-impl PamContext<CLIConverser> {
-    /// Create a builder that uses the CLI conversation function.
-    pub fn builder_cli(
-        converser_name: &str,
-        service_name: &str,
-        use_stdin: bool,
-        no_interact: bool,
-        password_feedback: bool,
-    ) -> PamContextBuilder<CLIConverser> {
-        PamContextBuilder {
-            converser: CLIConverser {
-                name: converser_name.to_owned(),
-                use_stdin,
-                no_interact,
-                password_feedback,
-            },
-            service_name: service_name.to_owned(),
-            target_user: None,
-        }
     }
 }
 

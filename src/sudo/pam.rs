@@ -119,14 +119,14 @@ pub fn init_pam(
     } else {
         "sudo"
     };
-    let mut pam = PamContext::builder_cli(
+    let mut pam = PamContext::new_cli(
         "sudo",
         service_name,
         use_stdin,
         non_interactive,
         password_feedback,
-    )
-    .build()?;
+        None,
+    )?;
     pam.mark_silent(!is_shell && !is_login_shell);
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
