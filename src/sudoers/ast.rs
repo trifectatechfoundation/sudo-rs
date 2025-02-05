@@ -18,13 +18,6 @@ pub enum Qualified<T> {
 }
 
 impl<T> Qualified<T> {
-    pub fn as_ref(&self) -> Qualified<&T> {
-        match self {
-            Qualified::Allow(item) => Qualified::Allow(item),
-            Qualified::Forbid(item) => Qualified::Forbid(item),
-        }
-    }
-
     #[cfg(test)]
     pub fn as_allow(&self) -> Option<&T> {
         if let Self::Allow(v) = self {

@@ -225,7 +225,7 @@ fn group_cmd_specs_per_runas<'a>(
             last_runas = runas;
         }
 
-        collected_specs.push((tag, spec.as_ref()));
+        collected_specs.push((tag, spec));
     }
 
     if !collected_specs.is_empty() {

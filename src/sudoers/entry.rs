@@ -20,14 +20,14 @@ mod verbose;
 
 pub struct Entry<'a> {
     run_as: Option<&'a RunAs>,
-    cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+    cmd_specs: Vec<(Tag, &'a Qualified<Meta<Command>>)>,
     cmd_alias: &'a [Def<Command>],
 }
 
 impl<'a> Entry<'a> {
     pub(super) fn new(
         run_as: Option<&'a RunAs>,
-        cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+        cmd_specs: Vec<(Tag, &'a Qualified<Meta<Command>>)>,
         cmd_alias: &'a [Def<Command>],
     ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
@@ -220,7 +220,7 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
 
 fn write_spec(
     f: &mut fmt::Formatter,
-    spec: &Qualified<&Meta<Command>>,
+    spec: &Qualified<Meta<Command>>,
     alias_list: &[Def<Command>],
     mut sign: bool,
     separator: &str,
@@ -257,7 +257,7 @@ fn write_spec(
                     if !is_first_iteration {
                         f.write_str(separator)?;
                     }
-                    write_spec(f, &spec.as_ref(), alias_list, sign, separator)?;
+                    write_spec(f, spec, alias_list, sign, separator)?;
                     is_first_iteration = false;
                 }
             } else {
