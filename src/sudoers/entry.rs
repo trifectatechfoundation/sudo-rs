@@ -4,29 +4,39 @@ use crate::sudoers::{
     ast::{Identifier, Qualified, UserSpecifier},
     tokens::{ChDir, Meta},
 };
+use crate::{
+    common::{resolve::CurrentUser, SudoString},
+    system::{interface::UserId, User},
+};
 
 use self::verbose::Verbose;
 
 use super::{
-    ast::{Authenticate, RunAs, Tag},
+    ast::{Authenticate, Def, RunAs, Tag},
     tokens::Command,
 };
 
 mod verbose;
 
 pub struct Entry<'a> {
-    run_as: &'a RunAs,
-    cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+    run_as: Option<&'a RunAs>,
+    cmd_specs: Vec<(Tag, &'a Qualified<Meta<Command>>)>,
+    cmd_alias: &'a [Def<Command>],
 }
 
 impl<'a> Entry<'a> {
     pub(super) fn new(
-        run_as: &'a RunAs,
-        cmd_specs: Vec<(Tag, Qualified<&'a Meta<Command>>)>,
+        run_as: Option<&'a RunAs>,
+        cmd_specs: Vec<(Tag, &'a Qualified<Meta<Command>>)>,
+        cmd_alias: &'a [Def<Command>],
     ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
 
-        Self { run_as, cmd_specs }
+        Self {
+            run_as,
+            cmd_specs,
+            cmd_alias,
+        }
     }
 
     pub fn verbose(self) -> impl fmt::Display + 'a {
@@ -34,9 +44,32 @@ impl<'a> Entry<'a> {
     }
 }
 
+fn root_runas() -> RunAs {
+    let name = User::from_uid(UserId::ROOT)
+        .ok()
+        .flatten()
+        .map(|u| u.name)
+        .unwrap_or(SudoString::new("root".into()).unwrap());
+
+    let name = UserSpecifier::User(Identifier::Name(name));
+    let name = Qualified::Allow(Meta::Only(name));
+
+    RunAs {
+        users: vec![name],
+        groups: vec![],
+    }
+}
+
 impl fmt::Display for Entry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self { run_as, cmd_specs } = self;
+        let Self {
+            run_as,
+            cmd_specs,
+            cmd_alias,
+        } = self;
+
+        let root_runas = root_runas();
+        let run_as = run_as.unwrap_or(&root_runas);
 
         f.write_str("    (")?;
         write_users(run_as, f)?;
@@ -56,7 +89,7 @@ impl fmt::Display for Entry<'_> {
 
             write_tag(f, tag, last_tag)?;
             last_tag = Some(tag);
-            write_spec(f, spec)?;
+            write_spec(f, spec, cmd_alias, true, ", ")?;
         }
 
         Ok(())
@@ -65,8 +98,10 @@ impl fmt::Display for Entry<'_> {
 
 fn write_users(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
     if run_as.users.is_empty() {
-        // XXX assumes that the superuser is called "root"
-        f.write_str("root")?;
+        match CurrentUser::resolve() {
+            Ok(u) => f.write_str(&u.name)?,
+            _ => f.write_str("?")?,
+        };
     }
 
     let mut is_first_user = true;
@@ -183,17 +218,29 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
     Ok(())
 }
 
-fn write_spec(f: &mut fmt::Formatter, spec: &Qualified<&Meta<Command>>) -> fmt::Result {
+fn write_spec(
+    f: &mut fmt::Formatter,
+    spec: &Qualified<Meta<Command>>,
+    alias_list: &[Def<Command>],
+    mut sign: bool,
+    separator: &str,
+) -> fmt::Result {
     let meta = match spec {
         Qualified::Allow(meta) => meta,
         Qualified::Forbid(meta) => {
-            f.write_str("!")?;
+            sign = !sign;
             meta
         }
     };
 
     match meta {
+        Meta::All | Meta::Only(_) if !sign => f.write_str("!")?,
+        _ => {}
+    }
+
+    match meta {
         Meta::All => f.write_str("ALL")?,
+
         Meta::Only((cmd, args)) => {
             write!(f, "{cmd}")?;
             if let Some(args) = args {
@@ -202,7 +249,21 @@ fn write_spec(f: &mut fmt::Formatter, spec: &Qualified<&Meta<Command>>) -> fmt::
                 }
             }
         }
-        Meta::Alias(alias) => f.write_str(alias)?,
+        Meta::Alias(alias) => {
+            // this will terminate, since AliasTable has been checked by sanitize_alias_table
+            if let Some(Def(_, spec_list)) = alias_list.iter().find(|Def(id, _)| id == alias) {
+                let mut is_first_iteration = true;
+                for spec in spec_list {
+                    if !is_first_iteration {
+                        f.write_str(separator)?;
+                    }
+                    write_spec(f, spec, alias_list, sign, separator)?;
+                    is_first_iteration = false;
+                }
+            } else {
+                f.write_str("???")?
+            }
+        }
     }
 
     Ok(())

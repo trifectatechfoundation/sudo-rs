@@ -4,4 +4,4 @@ expression: stdout
 ---
 User ferruccio may run the following commands on container:
     (root) NOPASSWD: /tmp
-    (%:#0) ALL
+    (ferruccio) /usr/bin/true

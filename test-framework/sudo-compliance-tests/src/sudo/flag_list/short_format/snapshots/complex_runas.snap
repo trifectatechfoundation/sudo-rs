@@ -2,5 +2,6 @@
 source: sudo-compliance-tests/src/sudo/flag_list/short_format/mod.rs
 expression: stdout
 ---
-User root may run the following commands on container:
+User ferruccio may run the following commands on container:
+    (root) NOPASSWD: /tmp
     (!ferris, root : crabs, !root) ALL

@@ -7,7 +7,7 @@ macro_rules! assert_snapshot {
         insta::with_settings!({
             filters => vec![
                 (BIN_LS, "<BIN_LS>"),
-                ("Matching Defaults entries for root on container:
+                ("Matching Defaults entries for ferruccio on container:
     !fqdn, !lecture, !mailerpath
 ", "")],
             prepend_module_to_snapshot => false,
@@ -22,8 +22,14 @@ macro_rules! assert_snapshot {
 // sudoers entries
 
 fn sudo_list_of(sudoers: &str) -> Result<String> {
-    let env = Env(sudoers).hostname(HOSTNAME).build()?;
-    Command::new("sudo").arg("-l").output(&env)?.stdout()
+    let user = "ferruccio";
+    let sudoers = ["ALL ALL = NOPASSWD: /tmp", sudoers].join("\n");
+    let env = Env(sudoers).hostname(HOSTNAME).user(user).build()?;
+    Command::new("sudo")
+        .as_user(user)
+        .arg("-l")
+        .output(&env)?
+        .stdout()
 }
 
 #[test]
@@ -233,7 +239,6 @@ fn cwd_across_runas_groups() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh974"]
 #[test]
 fn cwd_override_across_runas_groups() -> Result<()> {
     let stdout = sudo_list_of(&format!(
@@ -300,7 +305,6 @@ fn passwd_across_runas_groups() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh974"]
 #[test]
 fn nopasswd_passwd_override_across_runas_groups() -> Result<()> {
     let stdout = sudo_list_of(&format!(
@@ -323,6 +327,13 @@ fn multiple_lines() -> Result<()> {
         " ALL  ALL  = {BIN_TRUE} , {BIN_FALSE}
  root ALL = {BIN_LS} "
     ))?;
+    assert_snapshot!(stdout);
+    Ok(())
+}
+
+#[test]
+fn empty_runas_with_colon() -> Result<()> {
+    let stdout = sudo_list_of(&format!(" ALL  ALL  = (:) {BIN_TRUE} "))?;
     assert_snapshot!(stdout);
     Ok(())
 }

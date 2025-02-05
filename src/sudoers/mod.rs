@@ -67,6 +67,8 @@ pub use policy::{AuthenticatingUser, Authentication, Authorization, DirChange, R
 
 pub use self::entry::Entry;
 
+type MatchedCommand<'a> = (Option<&'a RunAs>, (Tag, &'a Spec<Command>));
+
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
     pub fn open(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), io::Error> {
@@ -147,12 +149,11 @@ impl Sudoers {
     ///
     /// the outer iterator are the `User_Spec`s; the inner iterator are the `Cmnd_Spec`s of
     /// said `User_Spec`s
-    fn matching_user_specs<'a: 'b + 'c, 'b: 'c, 'c, User: UnixUser + PartialEq<User>>(
+    fn matching_user_specs<'a, User: UnixUser + PartialEq<User>>(
         &'a self,
-        invoking_user: &'b User,
-        hostname: &'c system::Hostname,
-    ) -> impl Iterator<Item = impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))> + 'b>
-           + 'c {
+        invoking_user: &'a User,
+        hostname: &'a system::Hostname,
+    ) -> impl Iterator<Item = impl Iterator<Item = MatchedCommand<'a>>> {
         let Self { rules, aliases, .. } = self;
         let user_aliases = get_aliases(&aliases.user, &match_user(invoking_user));
         let host_aliases = get_aliases(&aliases.host, &match_token(hostname));
@@ -170,23 +171,14 @@ impl Sudoers {
             })
     }
 
-    /// returns `User_Spec`s that match `invoking_user` and `hostname` in a print-able format
     pub fn matching_entries<'a, User: UnixUser + PartialEq<User>>(
         &'a self,
-        invoking_user: &User,
-        hostname: &system::Hostname,
-    ) -> Vec<Entry<'a>> {
-        // NOTE this method MUST NOT perform any filtering that `Self::check` does not do to
-        // ensure `sudo $command` and `sudo --list` use the same permission checking logic
+        invoking_user: &'a User,
+        hostname: &'a system::Hostname,
+    ) -> impl Iterator<Item = Entry<'a>> {
         let user_specs = self.matching_user_specs(invoking_user, hostname);
 
-        let cmnd_aliases = unfold_alias_table(&self.aliases.cmnd);
-        let mut entries = vec![];
-        for cmd_specs in user_specs {
-            group_cmd_specs_per_runas(cmd_specs, &mut entries, &cmnd_aliases);
-        }
-
-        entries
+        user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd.1))
     }
 
     pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
@@ -214,51 +206,42 @@ impl Sudoers {
 
 fn group_cmd_specs_per_runas<'a>(
     cmnd_specs: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
-    entries: &mut Vec<Entry<'a>>,
-    cmnd_aliases: &HashMap<&String, &'a Vec<Spec<Command>>>,
-) {
-    static EMPTY_RUNAS: RunAs = RunAs {
-        users: Vec::new(),
-        groups: Vec::new(),
-    };
-
-    let mut runas = None;
+    cmnd_aliases: &'a [Def<Command>],
+) -> impl Iterator<Item = Entry<'a>> {
+    let mut entries = vec![];
+    let mut last_runas = None;
     let mut collected_specs = vec![];
 
-    for (new_runas, (tag, spec)) in cmnd_specs {
-        if let Some(new_runas) = new_runas {
+    // `distribute_tags` will have given every spec a reference to the "runas specification"
+    // that applies to it. The output of sudo --list splits the CmndSpec list based on that:
+    // every line only has a single "runas" specifier. So we need to combine them for that.
+    //
+    // But sudo --list also outputs lines that are from different lines in the sudoers file on
+    // different lines in the output of sudo --list, so we cannot compare "by value". Luckily,
+    // once a RunAs is parsed, it will have a unique identifier in the form of its address.
+    let origin = |runas: Option<&RunAs>| runas.map(|r| r as *const _);
+
+    for (runas, (tag, spec)) in cmnd_specs {
+        if origin(runas) != origin(last_runas) {
             if !collected_specs.is_empty() {
                 entries.push(Entry::new(
-                    runas.take().unwrap_or(&EMPTY_RUNAS),
+                    last_runas,
                     mem::take(&mut collected_specs),
+                    cmnd_aliases,
                 ));
             }
 
-            runas = Some(new_runas);
+            last_runas = runas;
         }
 
-        let (negate, meta) = match spec {
-            Qualified::Allow(meta) => (false, meta),
-            Qualified::Forbid(meta) => (true, meta),
-        };
-
-        if let Meta::Alias(alias_name) = meta {
-            if let Some(specs) = cmnd_aliases.get(alias_name) {
-                // expand Cmnd_Alias
-                for spec in specs.iter() {
-                    let new_spec = if negate { spec.negate() } else { spec.as_ref() };
-
-                    collected_specs.push((tag.clone(), new_spec))
-                }
-            }
-        } else {
-            collected_specs.push((tag, spec.as_ref()));
-        }
+        collected_specs.push((tag, spec));
     }
 
     if !collected_specs.is_empty() {
-        entries.push(Entry::new(runas.unwrap_or(&EMPTY_RUNAS), collected_specs));
+        entries.push(Entry::new(last_runas, collected_specs, cmnd_aliases));
     }
+
+    entries.into_iter()
 }
 
 fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
@@ -290,10 +273,18 @@ pub(super) struct AliasTable {
 }
 
 /// A vector with a list defining the order in which it needs to be processed
-type VecOrd<T> = (Vec<usize>, Vec<T>);
+struct VecOrd<T>(Vec<usize>, Vec<T>);
 
-fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
-    vec.0.iter().map(|&i| &vec.1[i])
+impl<T> Default for VecOrd<T> {
+    fn default() -> Self {
+        VecOrd(Vec::default(), Vec::default())
+    }
+}
+
+impl<T> VecOrd<T> {
+    fn iter(&self) -> impl Iterator<Item = &T> {
+        self.0.iter().map(|&i| &self.1[i])
+    }
 }
 
 /// Check if the user `am_user` is allowed to run `cmdline` on machine `on_host` as the requested
@@ -315,8 +306,6 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
     let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
-    // NOTE to ensure `sudo $command` and `sudo --list` behave the same, both this function and
-    // `Sudoers::matching_entries` must call this `matching_user_specs` method
     let matching_user_specs = sudoers.matching_user_specs(am_user, on_host).flatten();
 
     let allowed_commands = matching_user_specs.filter_map(|(runas, cmdspec)| {
@@ -490,10 +479,6 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command
     }
 }
 
-fn unfold_alias_table<T>(table: &VecOrd<Def<T>>) -> HashMap<&String, &Vec<Qualified<Meta<T>>>> {
-    elems(table).map(|Def(id, list)| (id, list)).collect()
-}
-
 /// Find all the aliases that a object is a member of; this requires [sanitize_alias_table] to have run first;
 /// I.e. this function should not be "pub".
 fn get_aliases<Predicate, T>(table: &VecOrd<Def<T>>, pred: &Predicate) -> FoundAliases
@@ -504,7 +489,7 @@ where
     let all = Qualified::Allow(Meta::All);
 
     let mut set = HashMap::new();
-    for Def(id, list) in elems(table) {
+    for Def(id, list) in table.iter() {
         if find_item(list, &pred, &set).is_some() {
             set.insert(id.clone(), true);
         } else if find_item(once(&all).chain(list), &pred, &set).is_none() {

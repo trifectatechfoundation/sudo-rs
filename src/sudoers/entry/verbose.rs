@@ -11,7 +11,14 @@ pub struct Verbose<'a>(pub Entry<'a>);
 
 impl fmt::Display for Verbose<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(Entry { run_as, cmd_specs }) = self;
+        let Self(Entry {
+            run_as,
+            cmd_specs,
+            cmd_alias,
+        }) = self;
+
+        let root_runas = super::root_runas();
+        let run_as = run_as.unwrap_or(&root_runas);
 
         let mut last_tag = None;
         for (tag, cmd_spec) in cmd_specs {
@@ -28,7 +35,7 @@ impl fmt::Display for Verbose<'_> {
             last_tag = Some(tag);
 
             f.write_str("\n\t")?;
-            super::write_spec(f, cmd_spec)?;
+            super::write_spec(f, cmd_spec, cmd_alias, true, "\n\t")?;
         }
 
         Ok(())
