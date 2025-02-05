@@ -226,21 +226,22 @@ fn group_cmd_specs_per_runas<'a>(
     let origin = |runas: Option<&RunAs>| runas.map(|r| r as *const _);
 
     let mut cmnd_specs = cmnd_specs.peekable();
-    let mut entries = vec![];
 
-    while let Some(&(cur_runas, _)) = cmnd_specs.peek() {
-        let specs = peeking_take_while(&mut cmnd_specs, |&(runas, _)| {
-            origin(runas) == origin(cur_runas)
-        });
+    std::iter::from_fn(move || {
+        if let Some(&(cur_runas, _)) = cmnd_specs.peek() {
+            let specs = peeking_take_while(&mut cmnd_specs, |&(runas, _)| {
+                origin(runas) == origin(cur_runas)
+            });
 
-        entries.push(Entry::new(
-            cur_runas,
-            specs.map(|x| x.1).collect(),
-            cmnd_aliases,
-        ));
-    }
-
-    entries.into_iter()
+            Some(Entry::new(
+                cur_runas,
+                specs.map(|x| x.1).collect(),
+                cmnd_aliases,
+            ))
+        } else {
+            None
+        }
+    })
 }
 
 fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
