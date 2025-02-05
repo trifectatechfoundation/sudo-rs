@@ -218,8 +218,7 @@ impl fmt::Display for PamError {
 }
 
 impl PamError {
-    /// Create a new PamError based on the error number from pam and a handle to a pam session
-    /// The handle to the pam session is allowed to be null
+    /// Create a new PamError based on the error number from pam.
     pub(super) fn from_pam(errno: libc::c_int) -> PamError {
         let tp = PamErrorType::from_int(errno);
         PamError::Pam(tp)
