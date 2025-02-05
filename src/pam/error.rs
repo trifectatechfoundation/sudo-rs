@@ -171,11 +171,8 @@ impl PamErrorType {
 pub enum PamError {
     UnexpectedNulByte(NulError),
     Utf8Error(Utf8Error),
-    InvalidState,
-    Pam(PamErrorType, String),
+    Pam(PamErrorType),
     IoError(std::io::Error),
-    SessionAlreadyOpen,
-    SessionNotOpen,
     EnvListFailure,
     InteractionRequired,
 }
@@ -203,18 +200,20 @@ impl fmt::Display for PamError {
         match self {
             PamError::UnexpectedNulByte(_) => write!(f, "Unexpected nul byte in input"),
             PamError::Utf8Error(_) => write!(f, "Could not read input data as UTF-8 string"),
-            PamError::InvalidState => {
+            PamError::Pam(PamErrorType::AuthError) => {
+                write!(f, "Account validation failure, is your account locked?")
+            }
+            PamError::Pam(PamErrorType::NewAuthTokenRequired) => {
                 write!(
                     f,
-                    "Could not initiate pam because the state is not complete"
+                    "Account or password is expired, reset your password and try again"
                 )
             }
-            PamError::Pam(tp, msg) => write!(f, "PAM returned an error ({tp:?}): {msg}"),
-            PamError::IoError(e) => write!(f, "IO error: {e}"),
-            PamError::SessionAlreadyOpen => {
-                write!(f, "Cannot open session while one is already open")
+            PamError::Pam(PamErrorType::AuthTokenExpired) => {
+                write!(f, "Password expired, contact your system administrator")
             }
-            PamError::SessionNotOpen => write!(f, "Cannot close session while none is open"),
+            PamError::Pam(tp) => write!(f, "PAM error: {}", tp.get_err_msg()),
+            PamError::IoError(e) => write!(f, "IO error: {e}"),
             PamError::EnvListFailure => {
                 write!(
                     f,
@@ -227,12 +226,10 @@ impl fmt::Display for PamError {
 }
 
 impl PamError {
-    /// Create a new PamError based on the error number from pam and a handle to a pam session
-    /// The handle to the pam session is allowed to be null
+    /// Create a new PamError based on the error number from pam.
     pub(super) fn from_pam(errno: libc::c_int) -> PamError {
         let tp = PamErrorType::from_int(errno);
-        let msg = tp.get_err_msg();
-        PamError::Pam(tp, msg)
+        PamError::Pam(tp)
     }
 }
 

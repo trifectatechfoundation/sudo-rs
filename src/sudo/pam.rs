@@ -98,9 +98,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
             .as_mut()
             .expect("Pam must be initialized before cleanup");
 
-        // closing the pam session is best effort, if any error occurs we cannot
-        // do anything with it
-        let _ = pam.close_session();
+        pam.close_session();
     }
 }
 
@@ -119,9 +117,14 @@ pub fn init_pam(
     } else {
         "sudo"
     };
-    let mut pam = PamContext::builder_cli("sudo", use_stdin, non_interactive, password_feedback)
-        .service_name(service_name)
-        .build()?;
+    let mut pam = PamContext::new_cli(
+        "sudo",
+        service_name,
+        use_stdin,
+        non_interactive,
+        password_feedback,
+        None,
+    )?;
     pam.mark_silent(!is_shell && !is_login_shell);
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
@@ -148,12 +151,12 @@ pub fn attempt_authenticate<C: Converser>(
             Ok(_) => break,
 
             // maxtries was reached, pam does not allow any more tries
-            Err(PamError::Pam(PamErrorType::MaxTries, _)) => {
+            Err(PamError::Pam(PamErrorType::MaxTries)) => {
                 return Err(Error::MaxAuthAttempts(current_try));
             }
 
             // there was an authentication error, we can retry
-            Err(PamError::Pam(PamErrorType::AuthError | PamErrorType::ConversationError, _)) => {
+            Err(PamError::Pam(PamErrorType::AuthError | PamErrorType::ConversationError)) => {
                 max_tries -= 1;
                 if max_tries == 0 {
                     return Err(Error::MaxAuthAttempts(current_try));

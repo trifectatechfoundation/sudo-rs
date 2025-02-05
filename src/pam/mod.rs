@@ -1,5 +1,6 @@
 use std::{
     ffi::{CStr, CString, OsStr, OsString},
+    io,
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
     ptr::NonNull,
@@ -34,103 +35,81 @@ pub struct PamContext<C: Converser> {
     session_started: bool,
 }
 
-pub struct PamContextBuilder<C> {
-    converser: Option<C>,
-    service_name: Option<String>,
-    target_user: Option<String>,
-}
-
-impl<C: Converser> PamContextBuilder<C> {
-    /// Build the PamContext based on the current configuration.
-    ///
-    /// This function will error when the required settings have not yet been
-    /// set, or when initialization of the PAM session somehow failed.
-    pub fn build(self) -> PamResult<PamContext<C>> {
-        if let (Some(converser), Some(service_name)) = (self.converser, self.service_name) {
-            let c_service_name = CString::new(service_name)?;
-            let c_user = self.target_user.map(CString::new).transpose()?;
-            let c_user_ptr = match c_user {
-                Some(ref c) => c.as_ptr(),
-                None => std::ptr::null(),
-            };
-
-            // this will be de-allocated explicitly in this type's drop method
-            let data_ptr = Box::into_raw(Box::new(ConverserData {
-                converser,
-                panicked: false,
-            }));
-
-            let mut pamh = std::ptr::null_mut();
-            // SAFETY: we are passing the required fields to `pam_start`; in particular, the value
-            // of `pamh` set above is not used, but will be overwritten by `pam_start`.
-            let res = unsafe {
-                pam_start(
-                    c_service_name.as_ptr(),
-                    c_user_ptr,
-                    &pam_conv {
-                        conv: Some(converse::converse::<C>),
-                        appdata_ptr: data_ptr as *mut libc::c_void,
-                    },
-                    &mut pamh,
-                )
-            };
-
-            pam_err(res)?;
-
-            if pamh.is_null() {
-                Err(PamError::InvalidState)
-            } else {
-                Ok(PamContext {
-                    data_ptr,
-                    pamh,
-                    silent: false,
-                    allow_null_auth_token: true,
-                    last_pam_status: None,
-                    session_started: false,
-                })
-            }
-        } else {
-            Err(PamError::InvalidState)
-        }
-    }
-
-    /// Set a converser implementation that will be used for the PAM conversation.
-    pub fn converser(mut self, converser: C) -> PamContextBuilder<C> {
-        self.converser = Some(converser);
-        self
-    }
-
-    /// Set the service name for the PAM session.
-    ///
-    /// Note that the service name should be based on a static string and not
-    /// based on the name of the binary.
-    pub fn service_name<T: Into<String>>(mut self, name: T) -> PamContextBuilder<C> {
-        self.service_name = Some(name.into());
-        self
-    }
-
-    /// Set a target user that should be inserted into the pam context.
+impl PamContext<CLIConverser> {
+    /// Build the PamContext with the CLI conversation function.
     ///
     /// The target user is optional and may also be set after the context was
     /// constructed or not set at all in which case PAM will ask for a
     /// username.
-    pub fn target_user<T: Into<String>>(mut self, user: T) -> PamContextBuilder<C> {
-        self.target_user = Some(user.into());
-        self
-    }
-}
+    ///
+    /// This function will error when initialization of the PAM session somehow failed.
+    pub fn new_cli(
+        converser_name: &str,
+        service_name: &str,
+        use_stdin: bool,
+        no_interact: bool,
+        password_feedback: bool,
+        target_user: Option<&str>,
+    ) -> PamResult<PamContext<CLIConverser>> {
+        let converser = CLIConverser {
+            name: converser_name.to_owned(),
+            use_stdin,
+            no_interact,
+            password_feedback,
+        };
 
-impl<C> Default for PamContextBuilder<C> {
-    fn default() -> Self {
-        Self {
-            converser: None,
-            service_name: None,
-            target_user: None,
-        }
+        Self::new(converser, service_name, target_user)
     }
 }
 
 impl<C: Converser> PamContext<C> {
+    fn new(
+        converser: C,
+        service_name: &str,
+        target_user: Option<&str>,
+    ) -> PamResult<PamContext<C>> {
+        let c_service_name = CString::new(service_name)?;
+        let c_user = target_user.map(CString::new).transpose()?;
+        let c_user_ptr = match c_user {
+            Some(ref c) => c.as_ptr(),
+            None => std::ptr::null(),
+        };
+
+        // this will be de-allocated explicitly in this type's drop method
+        let data_ptr = Box::into_raw(Box::new(ConverserData {
+            converser,
+            panicked: false,
+        }));
+
+        let mut pamh = std::ptr::null_mut();
+        // SAFETY: we are passing the required fields to `pam_start`; in particular, the value
+        // of `pamh` set above is not used, but will be overwritten by `pam_start`.
+        let res = unsafe {
+            pam_start(
+                c_service_name.as_ptr(),
+                c_user_ptr,
+                &pam_conv {
+                    conv: Some(converse::converse::<C>),
+                    appdata_ptr: data_ptr as *mut libc::c_void,
+                },
+                &mut pamh,
+            )
+        };
+
+        pam_err(res)?;
+
+        assert!(!pamh.is_null());
+
+        Ok(PamContext {
+            data_ptr,
+            pamh,
+            silent: false,
+            allow_null_auth_token: true,
+            last_pam_status: None,
+            session_started: false,
+        })
+    }
+
     /// Set whether output of pam calls should be silent or not, by default
     /// PAM calls are not silent.
     pub fn mark_silent(&mut self, silent: bool) {
@@ -192,7 +171,7 @@ impl<C: Converser> PamContext<C> {
         let check_val = self.validate_account();
         match check_val {
             Ok(()) => Ok(()),
-            Err(PamError::Pam(PamErrorType::NewAuthTokenRequired, _)) => {
+            Err(PamError::Pam(PamErrorType::NewAuthTokenRequired)) => {
                 self.change_auth_token(true)?;
                 Ok(())
             }
@@ -223,7 +202,10 @@ impl<C: Converser> PamContext<C> {
         // safety check to make sure that we were not passed a null pointer by PAM,
         // or that in fact PAM did not write to `data` at all.
         if data.is_null() {
-            return Err(PamError::InvalidState);
+            return Err(PamError::IoError(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "PAM didn't return username",
+            )));
         }
 
         // SAFETY: the contract for `pam_get_item` ensures that if `data` was touched by
@@ -292,25 +274,22 @@ impl<C: Converser> PamContext<C> {
 
     /// Start a user session for the authenticated user.
     pub fn open_session(&mut self) -> PamResult<()> {
-        if !self.session_started {
-            // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
-            pam_err(unsafe { pam_open_session(self.pamh, self.silent_flag()) })?;
-            self.session_started = true;
-            Ok(())
-        } else {
-            Err(PamError::SessionAlreadyOpen)
-        }
+        assert!(!self.session_started);
+
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
+        pam_err(unsafe { pam_open_session(self.pamh, self.silent_flag()) })?;
+        self.session_started = true;
+        Ok(())
     }
 
     /// End the user session.
-    pub fn close_session(&mut self) -> PamResult<()> {
+    pub fn close_session(&mut self) {
+        // closing the pam session is best effort, if any error occurs we cannot
+        // do anything with it
         if self.session_started {
             // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
-            pam_err(unsafe { pam_close_session(self.pamh, self.silent_flag()) })?;
+            let _ = pam_err(unsafe { pam_close_session(self.pamh, self.silent_flag()) });
             self.session_started = false;
-            Ok(())
-        } else {
-            Err(PamError::SessionNotOpen)
         }
     }
 
@@ -372,29 +351,12 @@ impl<C: Converser> PamContext<C> {
     }
 }
 
-impl PamContext<CLIConverser> {
-    /// Create a builder that uses the CLI conversation function.
-    pub fn builder_cli(
-        name: &str,
-        use_stdin: bool,
-        no_interact: bool,
-        password_feedback: bool,
-    ) -> PamContextBuilder<CLIConverser> {
-        PamContextBuilder::default().converser(CLIConverser {
-            name: name.to_owned(),
-            use_stdin,
-            no_interact,
-            password_feedback,
-        })
-    }
-}
-
 impl<C: Converser> Drop for PamContext<C> {
     fn drop(&mut self) {
         // data_ptr's pointee is de-allocated in this scope
         // SAFETY: self.data_ptr was created by Box::into_raw
         let _data = unsafe { Box::from_raw(self.data_ptr) };
-        let _ = self.close_session();
+        self.close_session();
 
         // It looks like PAM_DATA_SILENT is important to set for our sudo context, but
         // it is unclear what it really does and does not do, other than the vague

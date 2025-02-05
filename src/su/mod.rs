@@ -33,10 +33,7 @@ fn authenticate(
         "su"
     };
     let use_stdin = true;
-    let mut pam = PamContext::builder_cli("su", use_stdin, false, false)
-        .target_user(user)
-        .service_name(context)
-        .build()?;
+    let mut pam = PamContext::new_cli("su", context, use_stdin, false, false, Some(user))?;
     pam.set_requesting_user(requesting_user)?;
 
     // attempt to set the TTY this session is communicating on
@@ -59,12 +56,12 @@ fn authenticate(
             Ok(_) => break,
 
             // maxtries was reached, pam does not allow any more tries
-            Err(PamError::Pam(PamErrorType::MaxTries, _)) => {
+            Err(PamError::Pam(PamErrorType::MaxTries)) => {
                 return Err(Error::MaxAuthAttempts(current_try));
             }
 
             // there was an authentication error, we can retry
-            Err(PamError::Pam(PamErrorType::AuthError, _)) => {
+            Err(PamError::Pam(PamErrorType::AuthError)) => {
                 max_tries -= 1;
                 if max_tries == 0 {
                     return Err(Error::MaxAuthAttempts(current_try));
@@ -112,9 +109,7 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
         restore_signal_handlers,
     } = crate::exec::run_command(&context, environment)?;
 
-    // closing the pam session is best effort, if any error occurs we cannot
-    // do anything with it
-    let _ = pam.close_session();
+    pam.close_session();
 
     // Run any clean-up code before this line.
     restore_signal_handlers();

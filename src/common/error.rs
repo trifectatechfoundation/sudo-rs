@@ -80,7 +80,7 @@ impl fmt::Display for Error {
             }
             Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
             Error::Options(e) => write!(f, "{e}"),
-            Error::Pam(e) => write!(f, "PAM error: {e}"),
+            Error::Pam(e) => write!(f, "{e}"),
             Error::Io(location, e) => {
                 if let Some(path) = location {
                     write!(f, "cannot execute '{}': {e}", path.display())
