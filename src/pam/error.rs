@@ -173,7 +173,6 @@ pub enum PamError {
     Utf8Error(Utf8Error),
     Pam(PamErrorType),
     IoError(std::io::Error),
-    SessionAlreadyOpen,
     EnvListFailure,
     InteractionRequired,
 }
@@ -215,9 +214,6 @@ impl fmt::Display for PamError {
             }
             PamError::Pam(tp) => write!(f, "PAM error: {}", tp.get_err_msg()),
             PamError::IoError(e) => write!(f, "IO error: {e}"),
-            PamError::SessionAlreadyOpen => {
-                write!(f, "Cannot open session while one is already open")
-            }
             PamError::EnvListFailure => {
                 write!(
                     f,

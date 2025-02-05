@@ -274,14 +274,12 @@ impl<C: Converser> PamContext<C> {
 
     /// Start a user session for the authenticated user.
     pub fn open_session(&mut self) -> PamResult<()> {
-        if !self.session_started {
-            // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
-            pam_err(unsafe { pam_open_session(self.pamh, self.silent_flag()) })?;
-            self.session_started = true;
-            Ok(())
-        } else {
-            Err(PamError::SessionAlreadyOpen)
-        }
+        assert!(!self.session_started);
+
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
+        pam_err(unsafe { pam_open_session(self.pamh, self.silent_flag()) })?;
+        self.session_started = true;
+        Ok(())
     }
 
     /// End the user session.
