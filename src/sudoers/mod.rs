@@ -212,8 +212,17 @@ fn group_cmd_specs_per_runas<'a>(
     let mut last_runas = None;
     let mut collected_specs = vec![];
 
+    // `distribute_tags` will have given every spec a reference to the "runas specification"
+    // that applies to it. The output of sudo --list splits the CmndSpec list based on that:
+    // every line only has a single "runas" specifier. So we need to combine them for that.
+    //
+    // But sudo --list also outputs lines that are from different lines in the sudoers file on
+    // different lines in the output of sudo --list, so we cannot compare "by value". Luckily,
+    // once a RunAs is parsed, it will have a unique identifier in the form of its address.
+    let origin = |runas: Option<&RunAs>| runas.map(|r| r as *const _);
+
     for (runas, (tag, spec)) in cmnd_specs {
-        if runas.map(|r| r as *const _) != last_runas.map(|r| r as *const _) {
+        if origin(runas) != origin(last_runas) {
             if !collected_specs.is_empty() {
                 entries.push(Entry::new(
                     last_runas,
