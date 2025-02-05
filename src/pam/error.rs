@@ -174,7 +174,6 @@ pub enum PamError {
     Pam(PamErrorType),
     IoError(std::io::Error),
     SessionAlreadyOpen,
-    SessionNotOpen,
     EnvListFailure,
     InteractionRequired,
 }
@@ -207,7 +206,6 @@ impl fmt::Display for PamError {
             PamError::SessionAlreadyOpen => {
                 write!(f, "Cannot open session while one is already open")
             }
-            PamError::SessionNotOpen => write!(f, "Cannot close session while none is open"),
             PamError::EnvListFailure => {
                 write!(
                     f,

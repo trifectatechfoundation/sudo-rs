@@ -109,9 +109,7 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
         restore_signal_handlers,
     } = crate::exec::run_command(&context, environment)?;
 
-    // closing the pam session is best effort, if any error occurs we cannot
-    // do anything with it
-    let _ = pam.close_session();
+    pam.close_session();
 
     // Run any clean-up code before this line.
     restore_signal_handlers();

@@ -285,14 +285,13 @@ impl<C: Converser> PamContext<C> {
     }
 
     /// End the user session.
-    pub fn close_session(&mut self) -> PamResult<()> {
+    pub fn close_session(&mut self) {
+        // closing the pam session is best effort, if any error occurs we cannot
+        // do anything with it
         if self.session_started {
             // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
-            pam_err(unsafe { pam_close_session(self.pamh, self.silent_flag()) })?;
+            let _ = pam_err(unsafe { pam_close_session(self.pamh, self.silent_flag()) });
             self.session_started = false;
-            Ok(())
-        } else {
-            Err(PamError::SessionNotOpen)
         }
     }
 
@@ -359,7 +358,7 @@ impl<C: Converser> Drop for PamContext<C> {
         // data_ptr's pointee is de-allocated in this scope
         // SAFETY: self.data_ptr was created by Box::into_raw
         let _data = unsafe { Box::from_raw(self.data_ptr) };
-        let _ = self.close_session();
+        self.close_session();
 
         // It looks like PAM_DATA_SILENT is important to set for our sudo context, but
         // it is unclear what it really does and does not do, other than the vague

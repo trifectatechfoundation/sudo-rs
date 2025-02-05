@@ -98,9 +98,7 @@ impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
             .as_mut()
             .expect("Pam must be initialized before cleanup");
 
-        // closing the pam session is best effort, if any error occurs we cannot
-        // do anything with it
-        let _ = pam.close_session();
+        pam.close_session();
     }
 }
 
