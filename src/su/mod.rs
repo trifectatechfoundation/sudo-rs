@@ -59,12 +59,12 @@ fn authenticate(
             Ok(_) => break,
 
             // maxtries was reached, pam does not allow any more tries
-            Err(PamError::Pam(PamErrorType::MaxTries, _)) => {
+            Err(PamError::Pam(PamErrorType::MaxTries)) => {
                 return Err(Error::MaxAuthAttempts(current_try));
             }
 
             // there was an authentication error, we can retry
-            Err(PamError::Pam(PamErrorType::AuthError, _)) => {
+            Err(PamError::Pam(PamErrorType::AuthError)) => {
                 max_tries -= 1;
                 if max_tries == 0 {
                     return Err(Error::MaxAuthAttempts(current_try));

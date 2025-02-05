@@ -172,7 +172,7 @@ pub enum PamError {
     UnexpectedNulByte(NulError),
     Utf8Error(Utf8Error),
     InvalidState,
-    Pam(PamErrorType, String),
+    Pam(PamErrorType),
     IoError(std::io::Error),
     SessionAlreadyOpen,
     SessionNotOpen,
@@ -209,7 +209,7 @@ impl fmt::Display for PamError {
                     "Could not initiate pam because the state is not complete"
                 )
             }
-            PamError::Pam(tp, msg) => write!(f, "PAM returned an error ({tp:?}): {msg}"),
+            PamError::Pam(tp) => write!(f, "PAM returned an error ({tp:?}): {}", tp.get_err_msg()),
             PamError::IoError(e) => write!(f, "IO error: {e}"),
             PamError::SessionAlreadyOpen => {
                 write!(f, "Cannot open session while one is already open")
@@ -231,8 +231,7 @@ impl PamError {
     /// The handle to the pam session is allowed to be null
     pub(super) fn from_pam(errno: libc::c_int) -> PamError {
         let tp = PamErrorType::from_int(errno);
-        let msg = tp.get_err_msg();
-        PamError::Pam(tp, msg)
+        PamError::Pam(tp)
     }
 }
 

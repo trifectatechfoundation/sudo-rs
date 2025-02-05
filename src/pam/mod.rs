@@ -192,7 +192,7 @@ impl<C: Converser> PamContext<C> {
         let check_val = self.validate_account();
         match check_val {
             Ok(()) => Ok(()),
-            Err(PamError::Pam(PamErrorType::NewAuthTokenRequired, _)) => {
+            Err(PamError::Pam(PamErrorType::NewAuthTokenRequired)) => {
                 self.change_auth_token(true)?;
                 Ok(())
             }
