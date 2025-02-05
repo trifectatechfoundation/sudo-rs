@@ -201,7 +201,19 @@ impl fmt::Display for PamError {
         match self {
             PamError::UnexpectedNulByte(_) => write!(f, "Unexpected nul byte in input"),
             PamError::Utf8Error(_) => write!(f, "Could not read input data as UTF-8 string"),
-            PamError::Pam(tp) => write!(f, "PAM returned an error ({tp:?}): {}", tp.get_err_msg()),
+            PamError::Pam(PamErrorType::AuthError) => {
+                write!(f, "Account validation failure, is your account locked?")
+            }
+            PamError::Pam(PamErrorType::NewAuthTokenRequired) => {
+                write!(
+                    f,
+                    "Account or password is expired, reset your password and try again"
+                )
+            }
+            PamError::Pam(PamErrorType::AuthTokenExpired) => {
+                write!(f, "Password expired, contact your system administrator")
+            }
+            PamError::Pam(tp) => write!(f, "PAM error: {}", tp.get_err_msg()),
             PamError::IoError(e) => write!(f, "IO error: {e}"),
             PamError::SessionAlreadyOpen => {
                 write!(f, "Cannot open session while one is already open")
