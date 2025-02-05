@@ -35,7 +35,7 @@ pub struct PamContext<C: Converser> {
 }
 
 pub struct PamContextBuilder<C> {
-    converser: Option<C>,
+    converser: C,
     service_name: Option<String>,
     target_user: Option<String>,
 }
@@ -46,7 +46,7 @@ impl<C: Converser> PamContextBuilder<C> {
     /// This function will error when the required settings have not yet been
     /// set, or when initialization of the PAM session somehow failed.
     pub fn build(self) -> PamResult<PamContext<C>> {
-        if let (Some(converser), Some(service_name)) = (self.converser, self.service_name) {
+        if let Some(service_name) = self.service_name {
             let c_service_name = CString::new(service_name)?;
             let c_user = self.target_user.map(CString::new).transpose()?;
             let c_user_ptr = match c_user {
@@ -56,7 +56,7 @@ impl<C: Converser> PamContextBuilder<C> {
 
             // this will be de-allocated explicitly in this type's drop method
             let data_ptr = Box::into_raw(Box::new(ConverserData {
-                converser,
+                converser: self.converser,
                 panicked: false,
             }));
 
@@ -94,12 +94,6 @@ impl<C: Converser> PamContextBuilder<C> {
         }
     }
 
-    /// Set a converser implementation that will be used for the PAM conversation.
-    pub fn converser(mut self, converser: C) -> PamContextBuilder<C> {
-        self.converser = Some(converser);
-        self
-    }
-
     /// Set the service name for the PAM session.
     ///
     /// Note that the service name should be based on a static string and not
@@ -117,16 +111,6 @@ impl<C: Converser> PamContextBuilder<C> {
     pub fn target_user<T: Into<String>>(mut self, user: T) -> PamContextBuilder<C> {
         self.target_user = Some(user.into());
         self
-    }
-}
-
-impl<C> Default for PamContextBuilder<C> {
-    fn default() -> Self {
-        Self {
-            converser: None,
-            service_name: None,
-            target_user: None,
-        }
     }
 }
 
@@ -380,12 +364,16 @@ impl PamContext<CLIConverser> {
         no_interact: bool,
         password_feedback: bool,
     ) -> PamContextBuilder<CLIConverser> {
-        PamContextBuilder::default().converser(CLIConverser {
-            name: name.to_owned(),
-            use_stdin,
-            no_interact,
-            password_feedback,
-        })
+        PamContextBuilder {
+            converser: CLIConverser {
+                name: name.to_owned(),
+                use_stdin,
+                no_interact,
+                password_feedback,
+            },
+            service_name: None,
+            target_user: None,
+        }
     }
 }
 
