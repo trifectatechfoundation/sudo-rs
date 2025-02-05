@@ -175,17 +175,10 @@ impl Sudoers {
         &'a self,
         invoking_user: &'a User,
         hostname: &'a system::Hostname,
-    ) -> Vec<Entry<'a>> {
-        // NOTE this method MUST NOT perform any filtering that `Self::check` does not do to
-        // ensure `sudo $command` and `sudo --list` use the same permission checking logic
+    ) -> impl Iterator<Item = Entry<'a>> {
         let user_specs = self.matching_user_specs(invoking_user, hostname);
 
-        let mut entries = vec![];
-        for cmd_specs in user_specs {
-            group_cmd_specs_per_runas(cmd_specs, &mut entries, &self.aliases.cmnd.1);
-        }
-
-        entries
+        user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd.1))
     }
 
     pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
@@ -213,9 +206,9 @@ impl Sudoers {
 
 fn group_cmd_specs_per_runas<'a>(
     cmnd_specs: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
-    entries: &mut Vec<Entry<'a>>,
     cmnd_aliases: &'a [Def<Command>],
-) {
+) -> impl Iterator<Item = Entry<'a>> {
+    let mut entries = vec![];
     let mut last_runas = None;
     let mut collected_specs = vec![];
 
@@ -238,6 +231,8 @@ fn group_cmd_specs_per_runas<'a>(
     if !collected_specs.is_empty() {
         entries.push(Entry::new(last_runas, collected_specs, cmnd_aliases));
     }
+
+    entries.into_iter()
 }
 
 fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
@@ -294,8 +289,6 @@ fn check_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
     let runas_user_aliases = get_aliases(&aliases.runas, &match_user(request.user));
     let runas_group_aliases = get_aliases(&aliases.runas, &match_group_alias(request.group));
 
-    // NOTE to ensure `sudo $command` and `sudo --list` behave the same, both this function and
-    // `Sudoers::matching_entries` must call this `matching_user_specs` method
     let matching_user_specs = sudoers.matching_user_specs(am_user, on_host).flatten();
 
     let allowed_commands = matching_user_specs.filter_map(|(runas, cmdspec)| {
