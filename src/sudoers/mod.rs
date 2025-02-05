@@ -273,10 +273,18 @@ pub(super) struct AliasTable {
 }
 
 /// A vector with a list defining the order in which it needs to be processed
-type VecOrd<T> = (Vec<usize>, Vec<T>);
+struct VecOrd<T>(Vec<usize>, Vec<T>);
 
-fn elems<T>(vec: &VecOrd<T>) -> impl Iterator<Item = &T> {
-    vec.0.iter().map(|&i| &vec.1[i])
+impl<T> Default for VecOrd<T> {
+    fn default() -> Self {
+        VecOrd(Vec::default(), Vec::default())
+    }
+}
+
+impl<T> VecOrd<T> {
+    fn iter(&self) -> impl Iterator<Item = &T> {
+        self.0.iter().map(|&i| &self.1[i])
+    }
 }
 
 /// Check if the user `am_user` is allowed to run `cmdline` on machine `on_host` as the requested
@@ -481,7 +489,7 @@ where
     let all = Qualified::Allow(Meta::All);
 
     let mut set = HashMap::new();
-    for Def(id, list) in elems(table) {
+    for Def(id, list) in table.iter() {
         if find_item(list, &pred, &set).is_some() {
             set.insert(id.clone(), true);
         } else if find_item(once(&all).chain(list), &pred, &set).is_none() {
