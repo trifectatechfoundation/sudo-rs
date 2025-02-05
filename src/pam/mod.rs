@@ -1,5 +1,6 @@
 use std::{
     ffi::{CStr, CString, OsStr, OsString},
+    io,
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
     ptr::NonNull,
@@ -97,18 +98,16 @@ impl<C: Converser> PamContext<C> {
 
         pam_err(res)?;
 
-        if pamh.is_null() {
-            Err(PamError::InvalidState)
-        } else {
-            Ok(PamContext {
-                data_ptr,
-                pamh,
-                silent: false,
-                allow_null_auth_token: true,
-                last_pam_status: None,
-                session_started: false,
-            })
-        }
+        assert!(!pamh.is_null());
+
+        Ok(PamContext {
+            data_ptr,
+            pamh,
+            silent: false,
+            allow_null_auth_token: true,
+            last_pam_status: None,
+            session_started: false,
+        })
     }
 
     /// Set whether output of pam calls should be silent or not, by default
@@ -203,7 +202,10 @@ impl<C: Converser> PamContext<C> {
         // safety check to make sure that we were not passed a null pointer by PAM,
         // or that in fact PAM did not write to `data` at all.
         if data.is_null() {
-            return Err(PamError::InvalidState);
+            return Err(PamError::IoError(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "PAM didn't return username",
+            )));
         }
 
         // SAFETY: the contract for `pam_get_item` ensures that if `data` was touched by

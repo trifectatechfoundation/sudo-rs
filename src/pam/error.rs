@@ -171,7 +171,6 @@ impl PamErrorType {
 pub enum PamError {
     UnexpectedNulByte(NulError),
     Utf8Error(Utf8Error),
-    InvalidState,
     Pam(PamErrorType),
     IoError(std::io::Error),
     SessionAlreadyOpen,
@@ -203,12 +202,6 @@ impl fmt::Display for PamError {
         match self {
             PamError::UnexpectedNulByte(_) => write!(f, "Unexpected nul byte in input"),
             PamError::Utf8Error(_) => write!(f, "Could not read input data as UTF-8 string"),
-            PamError::InvalidState => {
-                write!(
-                    f,
-                    "Could not initiate pam because the state is not complete"
-                )
-            }
             PamError::Pam(tp) => write!(f, "PAM returned an error ({tp:?}): {}", tp.get_err_msg()),
             PamError::IoError(e) => write!(f, "IO error: {e}"),
             PamError::SessionAlreadyOpen => {
