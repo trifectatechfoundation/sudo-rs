@@ -33,9 +33,8 @@ fn authenticate(
         "su"
     };
     let use_stdin = true;
-    let mut pam = PamContext::builder_cli("su", use_stdin, false, false)
+    let mut pam = PamContext::builder_cli("su", context, use_stdin, false, false)
         .target_user(user)
-        .service_name(context)
         .build()?;
     pam.set_requesting_user(requesting_user)?;
 

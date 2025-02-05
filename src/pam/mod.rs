@@ -36,71 +36,57 @@ pub struct PamContext<C: Converser> {
 
 pub struct PamContextBuilder<C> {
     converser: C,
-    service_name: Option<String>,
+    service_name: String,
     target_user: Option<String>,
 }
 
 impl<C: Converser> PamContextBuilder<C> {
     /// Build the PamContext based on the current configuration.
     ///
-    /// This function will error when the required settings have not yet been
-    /// set, or when initialization of the PAM session somehow failed.
+    /// This function will error when initialization of the PAM session somehow failed.
     pub fn build(self) -> PamResult<PamContext<C>> {
-        if let Some(service_name) = self.service_name {
-            let c_service_name = CString::new(service_name)?;
-            let c_user = self.target_user.map(CString::new).transpose()?;
-            let c_user_ptr = match c_user {
-                Some(ref c) => c.as_ptr(),
-                None => std::ptr::null(),
-            };
+        let c_service_name = CString::new(self.service_name)?;
+        let c_user = self.target_user.map(CString::new).transpose()?;
+        let c_user_ptr = match c_user {
+            Some(ref c) => c.as_ptr(),
+            None => std::ptr::null(),
+        };
 
-            // this will be de-allocated explicitly in this type's drop method
-            let data_ptr = Box::into_raw(Box::new(ConverserData {
-                converser: self.converser,
-                panicked: false,
-            }));
+        // this will be de-allocated explicitly in this type's drop method
+        let data_ptr = Box::into_raw(Box::new(ConverserData {
+            converser: self.converser,
+            panicked: false,
+        }));
 
-            let mut pamh = std::ptr::null_mut();
-            // SAFETY: we are passing the required fields to `pam_start`; in particular, the value
-            // of `pamh` set above is not used, but will be overwritten by `pam_start`.
-            let res = unsafe {
-                pam_start(
-                    c_service_name.as_ptr(),
-                    c_user_ptr,
-                    &pam_conv {
-                        conv: Some(converse::converse::<C>),
-                        appdata_ptr: data_ptr as *mut libc::c_void,
-                    },
-                    &mut pamh,
-                )
-            };
+        let mut pamh = std::ptr::null_mut();
+        // SAFETY: we are passing the required fields to `pam_start`; in particular, the value
+        // of `pamh` set above is not used, but will be overwritten by `pam_start`.
+        let res = unsafe {
+            pam_start(
+                c_service_name.as_ptr(),
+                c_user_ptr,
+                &pam_conv {
+                    conv: Some(converse::converse::<C>),
+                    appdata_ptr: data_ptr as *mut libc::c_void,
+                },
+                &mut pamh,
+            )
+        };
 
-            pam_err(res)?;
+        pam_err(res)?;
 
-            if pamh.is_null() {
-                Err(PamError::InvalidState)
-            } else {
-                Ok(PamContext {
-                    data_ptr,
-                    pamh,
-                    silent: false,
-                    allow_null_auth_token: true,
-                    last_pam_status: None,
-                    session_started: false,
-                })
-            }
-        } else {
+        if pamh.is_null() {
             Err(PamError::InvalidState)
+        } else {
+            Ok(PamContext {
+                data_ptr,
+                pamh,
+                silent: false,
+                allow_null_auth_token: true,
+                last_pam_status: None,
+                session_started: false,
+            })
         }
-    }
-
-    /// Set the service name for the PAM session.
-    ///
-    /// Note that the service name should be based on a static string and not
-    /// based on the name of the binary.
-    pub fn service_name<T: Into<String>>(mut self, name: T) -> PamContextBuilder<C> {
-        self.service_name = Some(name.into());
-        self
     }
 
     /// Set a target user that should be inserted into the pam context.
@@ -359,19 +345,20 @@ impl<C: Converser> PamContext<C> {
 impl PamContext<CLIConverser> {
     /// Create a builder that uses the CLI conversation function.
     pub fn builder_cli(
-        name: &str,
+        converser_name: &str,
+        service_name: &str,
         use_stdin: bool,
         no_interact: bool,
         password_feedback: bool,
     ) -> PamContextBuilder<CLIConverser> {
         PamContextBuilder {
             converser: CLIConverser {
-                name: name.to_owned(),
+                name: converser_name.to_owned(),
                 use_stdin,
                 no_interact,
                 password_feedback,
             },
-            service_name: None,
+            service_name: service_name.to_owned(),
             target_user: None,
         }
     }
