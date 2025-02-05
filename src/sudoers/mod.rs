@@ -67,6 +67,8 @@ pub use policy::{AuthenticatingUser, Authentication, Authorization, DirChange, R
 
 pub use self::entry::Entry;
 
+type MatchedCommand<'a> = (Option<&'a RunAs>, (Tag, &'a Spec<Command>));
+
 /// This function takes a file argument for a sudoers file and processes it.
 impl Sudoers {
     pub fn open(path: impl AsRef<Path>) -> Result<(Sudoers, Vec<Error>), io::Error> {
@@ -147,12 +149,11 @@ impl Sudoers {
     ///
     /// the outer iterator are the `User_Spec`s; the inner iterator are the `Cmnd_Spec`s of
     /// said `User_Spec`s
-    fn matching_user_specs<'a: 'b + 'c, 'b: 'c, 'c, User: UnixUser + PartialEq<User>>(
+    fn matching_user_specs<'a, User: UnixUser + PartialEq<User>>(
         &'a self,
-        invoking_user: &'b User,
-        hostname: &'c system::Hostname,
-    ) -> impl Iterator<Item = impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))> + 'b>
-           + 'c {
+        invoking_user: &'a User,
+        hostname: &'a system::Hostname,
+    ) -> impl Iterator<Item = impl Iterator<Item = MatchedCommand<'a>>> {
         let Self { rules, aliases, .. } = self;
         let user_aliases = get_aliases(&aliases.user, &match_user(invoking_user));
         let host_aliases = get_aliases(&aliases.host, &match_token(hostname));
@@ -170,11 +171,10 @@ impl Sudoers {
             })
     }
 
-    /// returns `User_Spec`s that match `invoking_user` and `hostname` in a print-able format
     pub fn matching_entries<'a, User: UnixUser + PartialEq<User>>(
         &'a self,
-        invoking_user: &User,
-        hostname: &system::Hostname,
+        invoking_user: &'a User,
+        hostname: &'a system::Hostname,
     ) -> Vec<Entry<'a>> {
         // NOTE this method MUST NOT perform any filtering that `Self::check` does not do to
         // ensure `sudo $command` and `sudo --list` use the same permission checking logic
