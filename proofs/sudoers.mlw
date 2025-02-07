@@ -7,10 +7,11 @@ use array.Array
 use option.Option
 use ref.Ref
 use int.Int
+use witness.Witness
 
 (* loose models for the types in sudoers::Ast *)
 type metavar 'a = All | Only 'a
-type qualified 'a = Yes 'a | No 'a
+type qualified 'a = Allow 'a | Forbid 'a
 type spec 'tag 'a = { inner: qualified (metavar 'a); info: 'tag }
 
 predicate contains (pred: 'a -> bool) (a: array 'a)
@@ -18,13 +19,13 @@ predicate contains (pred: 'a -> bool) (a: array 'a)
 
 function who (item: spec 'tag 'a): metavar 'a
   = match item.inner with
-    | Yes x -> x
-    | No x -> x
+    | Allow x -> x
+    | Forbid x -> x
     end
 
 function condition (item: spec 'tag 'a): option 'tag
   = match item with
-    | { inner = Yes _; info = tag } -> Some tag
+    | { inner = Allow _; info = tag } -> Some tag
     | _ -> None
     end
 
@@ -37,14 +38,17 @@ function matched_by (pred: 'a -> bool) (item: spec 'tag 'a): bool
 let function bool_then (b: bool) (x: 'a): option 'a
   = if b then Some x else None
 
-predicate final_match (pred: 'a -> bool) (a: array 'a) (f: 'a -> 'b) (x: 'b)
-  = exists i. 0 <= i < length a /\ pred a[i] /\ f a[i] = x /\ forall k. i < k < length a -> not pred a[k]
+predicate is_final_match (pred: 'a -> bool) (a: array 'a) (i: int)
+  = 0 <= i < length a /\ pred a[i] /\ forall k. i < k < length a -> not pred a[k]
+
+function final_match (pred: 'a -> bool) (items: array 'a): 'a
+  = items[witness (is_final_match pred items)]
 
 (* Why3 model of the sudoers::find_item function *)
 let find_item (items: array (spec 'tag 'a)) (pred: 'a -> bool): option 'tag
     returns {
-      | Some tag -> final_match (matched_by pred) items condition (Some tag)
-      | None     -> not contains (matched_by pred) items \/ final_match (matched_by pred) items condition None
+      | Some tag -> contains (matched_by pred) items && condition (final_match (matched_by pred) items) = Some tag
+      | None     -> contains (matched_by pred) items -> condition (final_match (matched_by pred) items) = None
     }
 
 = let result = ref None in
@@ -54,13 +58,13 @@ let find_item (items: array (spec 'tag 'a)) (pred: 'a -> bool): option 'tag
                   exists j.  0 <= j < i /\ matched_by pred items[j] /\ Some tag = condition items[j] /\
                   forall k. j < k < i -> not matched_by pred items[k] }
     let (judgement, who) = match items[i].inner with
-      | No x -> (false, x)
-      | Yes x -> (true, x)
+      | Forbid x -> (false, x)
+      | Allow x -> (true, x)
     end in
     let info = items[i].info in
     match who with
       | All -> result := judgement.bool_then(info)
-      | Only id -> if pred id then result := judgement.bool_then(info);
+      | Only id -> if pred id then result := judgement.bool_then(info)
     end;
   done;
 
