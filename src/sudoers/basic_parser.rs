@@ -85,21 +85,6 @@ pub trait Parse {
         Self: Sized;
 }
 
-/// Primitive function: accepts one character that satisfies `predicate`. This is used in the majority
-/// of all the other `Parse` implementations instead of interfacing with the iterator directly
-/// (this can facilitate an easy switch to a different method of stream representation in the future).
-/// Unlike `Parse` implementations this *does not* consume trailing whitespace.
-/// This function is modelled on `next_if` on `std::Peekable`.
-pub fn accept_if(predicate: impl Fn(char) -> bool, stream: &mut CharStream) -> Option<char> {
-    let c = stream.peek()?;
-    if predicate(c) {
-        stream.advance();
-        Some(c)
-    } else {
-        None
-    }
-}
-
 /// Structures representing whitespace (trailing whitespace can contain comments)
 #[cfg_attr(test, derive(PartialEq, Eq))]
 struct LeadingWhitespace;
@@ -114,7 +99,7 @@ struct Comment;
 /// (which can be used to detect end-of-input).
 impl Parse for LeadingWhitespace {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
-        let eat_space = |stream: &mut _| accept_if(|c| "\t ".contains(c), stream);
+        let eat_space = |stream: &mut CharStream| stream.next_if(|c| "\t ".contains(c));
         while eat_space(stream).is_some() {}
 
         if stream.peek().is_some() {
@@ -134,9 +119,9 @@ impl Parse for TrailingWhitespace {
             let _ = LeadingWhitespace::parse(stream); // don't propagate any errors
 
             // line continuations
-            if accept_if(|c| c == '\\', stream).is_some() {
+            if stream.eat_char('\\') {
                 // do the equivalent of expect_syntax('\n', stream)?, without recursion
-                if accept_if(|c| c == '\n', stream).is_none() {
+                if !stream.eat_char('\n') {
                     unrecoverable!(stream, "stray escape sequence")
                 }
             } else {
@@ -151,8 +136,10 @@ impl Parse for TrailingWhitespace {
 /// Parses a comment
 impl Parse for Comment {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
-        accept_if(|c| c == '#', stream).ok_or(Status::Reject)?;
-        while accept_if(|c| c != '\n', stream).is_some() {}
+        if !stream.eat_char('#') {
+            return Err(Status::Reject);
+        }
+        while stream.eat_not_char('\n') {}
         make(Comment {})
     }
 }
@@ -164,7 +151,9 @@ fn skip_trailing_whitespace(stream: &mut CharStream) -> Parsed<()> {
 
 /// Adheres to the contract of the [Parse] trait, accepts one character and consumes trailing whitespace.
 pub fn try_syntax(syntax: char, stream: &mut CharStream) -> Parsed<()> {
-    accept_if(|c| c == syntax, stream).ok_or(Status::Reject)?;
+    if !stream.eat_char(syntax) {
+        return Err(Status::Reject);
+    }
     skip_trailing_whitespace(stream)?;
     make(())
 }
@@ -237,15 +226,15 @@ impl<T: Token> Parse for T {
             stream: &mut CharStream,
         ) -> Parsed<char> {
             const ESCAPE: char = '\\';
-            if T::ALLOW_ESCAPE && accept_if(|c| c == ESCAPE, stream).is_some() {
-                if let Some(c) = accept_if(T::escaped, stream) {
+            if T::ALLOW_ESCAPE && stream.eat_char(ESCAPE) {
+                if let Some(c) = stream.next_if(T::escaped) {
                     Ok(c)
                 } else if pred(ESCAPE) {
                     Ok(ESCAPE)
                 } else {
                     unrecoverable!(stream, "illegal escape sequence")
                 }
-            } else if let Some(c) = accept_if(pred, stream) {
+            } else if let Some(c) = stream.next_if(pred) {
                 Ok(c)
             } else {
                 reject()
@@ -325,7 +314,7 @@ where
         result.push(item);
 
         let _ = maybe(Comment::parse(stream));
-        if accept_if(|c| c == '\n', stream).is_none() {
+        if !stream.eat_char('\n') {
             if parsed_item_ok {
                 let msg = if stream.peek().is_none() {
                     "missing line terminator at end of file"
@@ -335,7 +324,7 @@ where
                 let error = |stream: &mut CharStream| unrecoverable!(stream, "{msg}");
                 result.push(error(stream));
             }
-            while accept_if(|c| c != '\n', stream).is_some() {}
+            while stream.eat_not_char('\n') {}
         }
     }
 
