@@ -36,7 +36,7 @@ pub(crate) struct SuContext {
     options: SuRunOptions,
     pub(crate) environment: Environment,
     user: User,
-    requesting_user: CurrentUser,
+    pub(crate) requesting_user: CurrentUser,
     group: Group,
     pub(crate) process: Process,
 }
@@ -235,10 +235,6 @@ impl RunOptions for SuContext {
 
     fn user(&self) -> &crate::system::User {
         &self.user
-    }
-
-    fn requesting_user(&self) -> &User {
-        &self.requesting_user
     }
 
     fn group(&self) -> &crate::system::Group {

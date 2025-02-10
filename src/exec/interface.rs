@@ -15,7 +15,6 @@ pub trait RunOptions {
     fn chdir(&self) -> Option<&SudoPath>;
     fn is_login(&self) -> bool;
     fn user(&self) -> &User;
-    fn requesting_user(&self) -> &User;
     fn group(&self) -> &Group;
     fn pid(&self) -> ProcessId;
 
@@ -49,10 +48,6 @@ impl RunOptions for Context {
 
     fn user(&self) -> &User {
         &self.target_user
-    }
-
-    fn requesting_user(&self) -> &User {
-        &self.current_user
     }
 
     fn group(&self) -> &Group {
