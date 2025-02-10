@@ -38,7 +38,6 @@ fn root_can_become_another_user_by_name() -> Result<()> {
     Ok(())
 }
 
-#[ignore = "gh680"]
 #[test]
 fn uppercase_u_flag_fails() -> Result<()> {
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).user(USERNAME).build()?;
@@ -52,7 +51,11 @@ fn uppercase_u_flag_fails() -> Result<()> {
     let stderr = output.stderr();
     assert_contains!(
         stderr,
-        "sudo: the -U option may only be used with the -l option"
+        if sudo_test::is_original_sudo() {
+            "sudo: the -U option may only be used with the -l option"
+        } else {
+            "conflicts with --other-user"
+        }
     );
 
     Ok(())
