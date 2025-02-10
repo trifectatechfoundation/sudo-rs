@@ -7,19 +7,18 @@ use crate::log::{dev_info, user_warn};
 use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
 use crate::system::term::current_tty_name;
 
-use super::pipeline::AuthPlugin;
-pub struct PamAuthenticator {
+pub(super) struct PamAuthenticator {
     pam: Option<PamContext<CLIConverser>>,
 }
 
 impl PamAuthenticator {
-    pub fn new_cli() -> PamAuthenticator {
+    pub(super) fn new_cli() -> PamAuthenticator {
         PamAuthenticator { pam: None }
     }
 }
 
-impl AuthPlugin for PamAuthenticator {
-    fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error> {
+impl PamAuthenticator {
+    pub(super) fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error> {
         self.pam = Some(init_pam(
             matches!(context.launch, LaunchType::Login),
             matches!(context.launch, LaunchType::Shell),
@@ -32,7 +31,7 @@ impl AuthPlugin for PamAuthenticator {
         Ok(())
     }
 
-    fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error> {
+    pub(super) fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error> {
         let pam = self
             .pam
             .as_mut()
@@ -43,7 +42,7 @@ impl AuthPlugin for PamAuthenticator {
         Ok(())
     }
 
-    fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error> {
+    pub(super) fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error> {
         let pam = self
             .pam
             .as_mut()
@@ -75,7 +74,7 @@ impl AuthPlugin for PamAuthenticator {
         Ok(env_vars)
     }
 
-    fn cleanup(&mut self) {
+    pub(super) fn cleanup(&mut self) {
         let pam = self
             .pam
             .as_mut()
@@ -85,7 +84,7 @@ impl AuthPlugin for PamAuthenticator {
     }
 }
 
-pub fn init_pam(
+fn init_pam(
     is_login_shell: bool,
     is_shell: bool,
     use_stdin: bool,
@@ -120,7 +119,7 @@ pub fn init_pam(
     Ok(pam)
 }
 
-pub fn attempt_authenticate<C: Converser>(
+fn attempt_authenticate<C: Converser>(
     pam: &mut PamContext<C>,
     non_interactive: bool,
     mut max_tries: u16,
