@@ -733,7 +733,7 @@ fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(
     if thing.is_absent() {
         Ok(())
     } else {
-        Err(format!("{context} conflicts with {name}"))
+        Err(format!("{context} cannot be used together with {name}"))
     }
 }
 
@@ -795,7 +795,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     }
 
     ensure_is_absent(context, &env_var_list, "environment variable")?;
-    ensure_is_absent(context, &positional_args, "positional argument")?;
+    ensure_is_absent(context, &positional_args, "command")?;
 
     Ok(())
 }

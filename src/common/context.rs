@@ -92,13 +92,9 @@ impl Context {
             resolve_launch_and_shell(&sudo_options, &self.current_user, &self.target_user);
 
         let command = match sudo_options.action {
-            ContextAction::Validate | ContextAction::List
-                if sudo_options.positional_args.is_empty() =>
+            ContextAction::Run | ContextAction::List
+                if !sudo_options.positional_args.is_empty() =>
             {
-                // FIXME `Default` is being used as `Option::None`
-                Default::default()
-            }
-            _ => {
                 let system_path;
 
                 let path = if let Some(path) = secure_path {
@@ -110,6 +106,9 @@ impl Context {
 
                 CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
             }
+
+            // FIXME `Default` is being used as `Option::None`
+            _ => Default::default(),
         };
 
         Ok(Self {
