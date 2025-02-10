@@ -9,7 +9,7 @@ use crate::{
 
 use super::Pipeline;
 
-impl<Auth: super::AuthPlugin> Pipeline<Auth> {
+impl Pipeline {
     pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoListOptions) -> Result<(), Error> {
         let verbose_list_mode = cmd_opts.list.is_verbose();
         let other_user = cmd_opts
