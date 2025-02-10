@@ -1,5 +1,5 @@
-use sudo_test::EnvNoImplicit;
 use sudo_test::{helpers::assert_ls_output, Command, Env, TextFile, ROOT_GROUP};
+use sudo_test::{is_original_sudo, EnvNoImplicit};
 
 use crate::{
     visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
@@ -35,7 +35,16 @@ fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() ->
         .output(&env)?
         .stdout()?;
 
-    assert_ls_output(&ls_output, "-rw-r-----", "root", ROOT_GROUP);
+    assert_ls_output(
+        &ls_output,
+        if cfg!(target_os = "freebsd") && is_original_sudo() {
+            "-rw-------"
+        } else {
+            "-rw-r-----"
+        },
+        "root",
+        ROOT_GROUP,
+    );
 
     Ok(())
 }
@@ -211,7 +220,11 @@ fn regular_user_can_create_file() -> Result<()> {
 
     assert_ls_output(
         &ls_output,
-        "-rw-r-----",
+        if cfg!(target_os = "freebsd") && is_original_sudo() {
+            "-rw-------"
+        } else {
+            "-rw-r-----"
+        },
         USERNAME,
         if cfg!(target_os = "freebsd") {
             "wheel"
