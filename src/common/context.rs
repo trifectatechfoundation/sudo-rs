@@ -16,6 +16,7 @@ pub enum ContextAction {
 }
 
 // this is a bit of a hack to keep the existing `Context` API working
+#[derive(Clone)]
 pub struct OptionsForContext {
     pub chdir: Option<SudoPath>,
     pub group: Option<SudoString>,
@@ -49,24 +50,47 @@ pub struct Context {
     pub password_feedback: bool,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 #[repr(u32)]
 pub enum LaunchType {
+    #[default]
     Direct = HARDENED_ENUM_VALUE_0,
     Shell = HARDENED_ENUM_VALUE_1,
     Login = HARDENED_ENUM_VALUE_2,
 }
 
 impl Context {
-    pub fn build_from_options(
-        sudo_options: OptionsForContext,
-        secure_path: Option<&str>,
-    ) -> Result<Context, Error> {
+    pub fn build_from_options(sudo_options: OptionsForContext) -> Result<Context, Error> {
         let hostname = Hostname::resolve();
         let current_user = CurrentUser::resolve()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
-        let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
+
+        Ok(Context {
+            hostname,
+            command: Default::default(),
+            current_user,
+            target_user,
+            target_group,
+            use_session_records: !sudo_options.reset_timestamp,
+            launch: Default::default(),
+            chdir: sudo_options.chdir,
+            stdin: sudo_options.stdin,
+            non_interactive: sudo_options.non_interactive,
+            process: Process::new(),
+            use_pty: true,
+            password_feedback: false,
+        })
+    }
+
+    pub fn supply_command(
+        self,
+        sudo_options: OptionsForContext,
+        secure_path: Option<&str>,
+    ) -> Result<Context, Error> {
+        let (launch, shell) =
+            resolve_launch_and_shell(&sudo_options, &self.current_user, &self.target_user);
+
         let command = match sudo_options.action {
             ContextAction::Validate | ContextAction::List
                 if sudo_options.positional_args.is_empty() =>
@@ -88,20 +112,10 @@ impl Context {
             }
         };
 
-        Ok(Context {
-            hostname,
-            command,
-            current_user,
-            target_user,
-            target_group,
-            use_session_records: !sudo_options.reset_timestamp,
+        Ok(Self {
             launch,
-            chdir: sudo_options.chdir,
-            stdin: sudo_options.stdin,
-            non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
-            use_pty: true,
-            password_feedback: false,
+            command,
+            ..self
         })
     }
 }

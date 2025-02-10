@@ -73,7 +73,8 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
             )
         }
 
-        let mut context = Context::build_from_options(ctx_opts, policy.search_path())?;
+        let mut context = Context::build_from_options(ctx_opts.clone())?
+            .supply_command(ctx_opts, policy.search_path())?;
 
         let policy = judge(policy, &context)?;
 
@@ -137,7 +138,9 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
 
     pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
         let mut policy = read_sudoers()?;
-        let mut context = Context::build_from_options(cmd_opts.into(), policy.search_path())?;
+        let ctx_opts: crate::common::context::OptionsForContext = cmd_opts.into();
+        let mut context = Context::build_from_options(ctx_opts.clone())?
+            .supply_command(ctx_opts, policy.search_path())?;
 
         match policy.validate_authorization() {
             Authorization::Forbidden => {

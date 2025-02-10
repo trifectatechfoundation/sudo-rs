@@ -25,7 +25,9 @@ impl<Auth: super::AuthPlugin> Pipeline<Auth> {
 
         let mut sudoers = super::read_sudoers()?;
 
-        let mut context = Context::build_from_options(cmd_opts.into(), sudoers.search_path())?;
+        let ctx_opts: crate::common::context::OptionsForContext = cmd_opts.into();
+        let mut context = Context::build_from_options(ctx_opts.clone())?
+            .supply_command(ctx_opts, sudoers.search_path())?;
 
         if original_command.is_some() && !context.command.resolved {
             return Err(Error::CommandNotFound(context.command.command));
