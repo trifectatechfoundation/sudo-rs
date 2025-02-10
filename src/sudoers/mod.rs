@@ -707,7 +707,7 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
                 let Def(_, members) = &self.table[pos];
                 for elem in members {
                     let Meta::Alias(name) = remqualify(elem) else {
-                        break;
+                        continue;
                     };
                     let Some(dependency) = self.table.iter().position(|Def(id, _)| id == name)
                     else {
