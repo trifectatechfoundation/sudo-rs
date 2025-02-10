@@ -1,74 +1,11 @@
 use std::ffi::OsString;
 
-use crate::common::context::LaunchType;
-use crate::common::resolve::AuthUser;
-use crate::common::{error::Error, Context};
+use crate::common::error::Error;
 use crate::log::{dev_info, user_warn};
 use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
 use crate::system::term::current_tty_name;
 
-pub(super) struct PamAuthenticator {
-    pam: PamContext,
-}
-
-impl PamAuthenticator {
-    pub(super) fn new_cli(context: &Context, auth_user: AuthUser) -> Result<PamAuthenticator, Error> {
-        Ok(PamAuthenticator {
-            pam: init_pam(
-                matches!(context.launch, LaunchType::Login),
-                matches!(context.launch, LaunchType::Shell),
-                context.stdin,
-                context.non_interactive,
-                context.password_feedback,
-                &auth_user.name,
-                &context.current_user.name,
-            )?,
-        })
-    }
-}
-
-impl PamAuthenticator {
-    pub(super) fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error> {
-        attempt_authenticate(&mut self.pam, non_interactive, max_tries)?;
-
-        Ok(())
-    }
-
-    pub(super) fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error> {
-        let pam = &mut self.pam;
-
-        // make sure that the user that needed to authenticate has a valid token
-        pam.validate_account_or_change_auth_token()?;
-
-        // check what the current user in PAM is
-        let user = pam.get_user()?;
-        if user != target_user {
-            // switch pam over to the target user
-            pam.set_user(target_user)?;
-
-            // make sure that credentials are loaded for the target user
-            // errors are ignored because not all modules support this functionality
-            if let Err(e) = pam.credentials_reinitialize() {
-                dev_info!(
-                    "PAM gave an error while trying to re-initialize credentials: {:?}",
-                    e
-                );
-            }
-        }
-
-        pam.open_session()?;
-
-        let env_vars = pam.env()?;
-
-        Ok(env_vars)
-    }
-
-    pub(super) fn cleanup(&mut self) {
-        self.pam.close_session();
-    }
-}
-
-fn init_pam(
+pub(super) fn init_pam(
     is_login_shell: bool,
     is_shell: bool,
     use_stdin: bool,
@@ -103,7 +40,7 @@ fn init_pam(
     Ok(pam)
 }
 
-fn attempt_authenticate(
+pub(super) fn attempt_authenticate(
     pam: &mut PamContext,
     non_interactive: bool,
     mut max_tries: u16,
@@ -140,4 +77,34 @@ fn attempt_authenticate(
     }
 
     Ok(())
+}
+
+pub(super) fn pre_exec(
+    pam: &mut PamContext,
+    target_user: &str,
+) -> Result<Vec<(OsString, OsString)>, Error> {
+    // make sure that the user that needed to authenticate has a valid token
+    pam.validate_account_or_change_auth_token()?;
+
+    // check what the current user in PAM is
+    let user = pam.get_user()?;
+    if user != target_user {
+        // switch pam over to the target user
+        pam.set_user(target_user)?;
+
+        // make sure that credentials are loaded for the target user
+        // errors are ignored because not all modules support this functionality
+        if let Err(e) = pam.credentials_reinitialize() {
+            dev_info!(
+                "PAM gave an error while trying to re-initialize credentials: {:?}",
+                e
+            );
+        }
+    }
+
+    pam.open_session()?;
+
+    let env_vars = pam.env()?;
+
+    Ok(env_vars)
 }

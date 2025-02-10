@@ -3,12 +3,14 @@ use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use super::diagnostic;
+use crate::common::context::LaunchType;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
+use crate::pam::PamContext;
 use crate::sudo::env::environment;
-use crate::sudo::pam::PamAuthenticator;
+use crate::sudo::pam::{attempt_authenticate, init_pam, pre_exec};
 use crate::sudo::Duration;
 use crate::sudoers::{
     AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
@@ -74,10 +76,10 @@ impl Pipeline {
         };
 
         self.apply_policy_to_context(&mut context, &auth, &controls)?;
-        let mut authenticator = self.auth_and_update_record_file(&mut context, &auth)?;
+        let mut pam_context = self.auth_and_update_record_file(&mut context, &auth)?;
 
         // build environment
-        let additional_env = authenticator.pre_exec(&context.target_user.name)?;
+        let additional_env = pre_exec(&mut pam_context, &context.target_user.name)?;
 
         let current_env = environment::system_environment();
         let (checked_vars, trusted_vars) = if controls.trust_environment {
@@ -108,7 +110,7 @@ impl Pipeline {
             Err(Error::CommandNotFound(context.command.command))
         };
 
-        authenticator.cleanup();
+        pam_context.close_session();
 
         let ExecOutput {
             command_exit_reason,
@@ -155,7 +157,7 @@ impl Pipeline {
             ref credential,
             ..
         }: &Authentication,
-    ) -> Result<PamAuthenticator, Error> {
+    ) -> Result<PamContext, Error> {
         let scope = RecordScope::for_process(&Process::new());
         let mut auth_status = determine_auth_status(
             must_authenticate,
@@ -172,9 +174,17 @@ impl Pipeline {
             AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
         };
 
-        let mut authenticator = PamAuthenticator::new_cli(context, auth_user)?;
+        let mut pam_context = init_pam(
+            matches!(context.launch, LaunchType::Login),
+            matches!(context.launch, LaunchType::Shell),
+            context.stdin,
+            context.non_interactive,
+            context.password_feedback,
+            &auth_user.name,
+            &context.current_user.name,
+        )?;
         if auth_status.must_authenticate {
-            authenticator.authenticate(context.non_interactive, allowed_attempts)?;
+            attempt_authenticate(&mut pam_context, context.non_interactive, allowed_attempts)?;
             if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
                 match record_file.create(scope, context.current_user.uid) {
                     Ok(_) => (),
@@ -185,7 +195,7 @@ impl Pipeline {
             }
         }
 
-        Ok(authenticator)
+        Ok(pam_context)
     }
 
     fn apply_policy_to_context(
