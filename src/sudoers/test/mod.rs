@@ -215,6 +215,7 @@ fn permission_test() {
     pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/true" => [authenticate: Authenticate::Nopasswd]);
     FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/ls");
     FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/true");
+    pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/ls, /bin/true"], "user" => request! { sudo }, "server"; "/bin/true");
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
