@@ -144,11 +144,11 @@ pub enum Directive {
 pub enum ConfigScope {
     // "Defaults entries are parsed in the following order:
     // generic, host and user Defaults first, then runas Defaults and finally command defaults."
-    Generic,
-    Host(SpecList<Hostname>),
-    User(SpecList<UserSpecifier>),
-    RunAs(SpecList<UserSpecifier>),
-    Command(SpecList<SimpleCommand>),
+    Generic = HARDENED_ENUM_VALUE_0,
+    Host(SpecList<Hostname>) = HARDENED_ENUM_VALUE_1,
+    User(SpecList<UserSpecifier>) = HARDENED_ENUM_VALUE_2,
+    RunAs(SpecList<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
+    Command(SpecList<SimpleCommand>) = HARDENED_ENUM_VALUE_4,
 }
 
 /// The Sudoers file can contain permissions and directives
@@ -640,6 +640,11 @@ impl<T> Many for Def<T> {
     const SEP: char = ':';
 }
 
+// NOTE: This function is a bit of a hack, since it relies on the fact that all directives
+// occur in the spot of a username, and are of a form that would otherwise be a legal user name.
+// I.e. after a valid username has been parsed, we check if it isn't actually a valid start of a
+// directive. A more robust solution would be to use the approach taken by the `MetaOrTag` above.
+
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut CharStream,
@@ -659,6 +664,8 @@ fn get_directive(
         "Cmnd_Alias" | "Cmd_Alias" => make(CmndAlias(expect_nonterminal(stream)?)),
         "Runas_Alias" => make(RunasAlias(expect_nonterminal(stream)?)),
         "Defaults" => {
+            //HACK: this avoids having to add "Defaults@" etc as separate tokens; but relying
+            //on positional information during parsing is of course, cheating.
             let allow_scope_modifier = stream.get_pos().0 == begin_pos.0
                 && stream.get_pos().1 - begin_pos.1 == "Defaults".len();
 

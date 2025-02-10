@@ -34,7 +34,13 @@ pub struct Error {
     pub message: String,
 }
 
-type Customiser<T> = (Vec<defaults::SettingsModifier>, SpecList<T>);
+/// A "Customiser" represents a "Defaults" setting that has 'late binding'; i.e.
+/// cannot be determined simply by reading a sudoers configuration. This is used
+/// for Defaults@host, Defaults:user, Defaults>runas and Defaults!cmd.
+///
+/// I.e. the Setting modifications in the second part of the tuple only apply for
+/// items explicitly matched by the first part of the tuple.
+type Customiser<T> = (SpecList<T>, Vec<defaults::SettingsModifier>);
 
 #[derive(Default)]
 pub struct Sudoers {
@@ -87,10 +93,11 @@ impl Sudoers {
         Ok(analyze(path.as_ref(), sudoers))
     }
 
-    fn specify_host_and_user<User: UnixUser + PartialEq<User>>(
+    fn specify_host_user_runas<User: UnixUser + PartialEq<User>>(
         &mut self,
         hostname: &system::Hostname,
-        user: &User,
+        requesting_user: &User,
+        target_user: &User,
     ) {
         let host_customisers = std::mem::take(&mut self.customisers.host);
         let user_customisers = std::mem::take(&mut self.customisers.user);
@@ -103,17 +110,15 @@ impl Sudoers {
         specialise_setting(
             &mut self.settings,
             user_customisers,
-            &match_user(user),
+            &match_user(requesting_user),
             &self.aliases.user,
         );
-    }
 
-    fn specify_runas<User: UnixUser + PartialEq<User>>(&mut self, run_as: &User) {
-        let customisers = std::mem::take(&mut self.customisers.runas);
+        let runas_customisers = std::mem::take(&mut self.customisers.runas);
         specialise_setting(
             &mut self.settings,
-            customisers,
-            &match_user(run_as),
+            runas_customisers,
+            &match_user(target_user),
             &self.aliases.runas,
         );
     }
@@ -134,8 +139,7 @@ impl Sudoers {
         on_host: &system::Hostname,
         request: Request<User, Group>,
     ) -> Judgement {
-        self.specify_host_and_user(on_host, am_user);
-        self.specify_runas(request.user);
+        self.specify_host_user_runas(on_host, am_user, request.user);
         self.specify_command(request.command, request.arguments);
 
         // exception: if user is root or does not switch users, NOPASSWD is implied
@@ -487,7 +491,7 @@ impl<'a> WithInfo for (Tag, &'a Spec<Command>) {
     }
 }
 
-/// Apply a specialization to the Setings object, used for "specific" Defaults
+/// Apply a specialization to the Settings object, used for "specific" Defaults
 fn specialise_setting<T>(
     settings: &mut Settings,
     customisers: impl IntoIterator<Item = Customiser<T>>,
@@ -495,7 +499,7 @@ fn specialise_setting<T>(
     alias_defs: &VecOrd<Def<T>>,
 ) {
     let aliases = get_aliases(alias_defs, matcher);
-    for (modifiers, list) in customisers {
+    for (list, modifiers) in customisers {
         if find_item(&list, matcher, &aliases).is_some() {
             for modifier in modifiers {
                 modifier(settings);
@@ -671,15 +675,15 @@ fn analyze(
                                 modifier(&mut cfg.settings)
                             }
                         }
-                        ConfigScope::Host(specs) => cfg.customisers.host.push((params, specs)),
-                        ConfigScope::User(specs) => cfg.customisers.user.push((params, specs)),
-                        ConfigScope::RunAs(specs) => cfg.customisers.runas.push((params, specs)),
+                        ConfigScope::Host(specs) => cfg.customisers.host.push((specs, params)),
+                        ConfigScope::User(specs) => cfg.customisers.user.push((specs, params)),
+                        ConfigScope::RunAs(specs) => cfg.customisers.runas.push((specs, params)),
                         ConfigScope::Command(specs) => cfg.customisers.cmnd.push((
-                            params,
                             specs
                                 .into_iter()
                                 .map(|spec| spec.map(|simple_command| (simple_command, None)))
                                 .collect(),
+                            params,
                         )),
                     },
 

@@ -470,14 +470,22 @@ fn default_specific_test() {
     assert_eq!(settings.secure_path(), None);
 
     let (mut mod_sudoers, _) = sudoers();
-    mod_sudoers.specify_host_and_user(&system::Hostname::fake("host"), &Named("user"));
+    mod_sudoers.specify_host_user_runas(
+        &system::Hostname::fake("host"),
+        &Named("user"),
+        &Named("root"),
+    );
     assert!(!mod_sudoers.settings.env_editor());
     assert!(mod_sudoers.settings.use_pty());
     assert!(mod_sudoers.settings.env_keep().contains("COLORS"));
     assert_eq!(mod_sudoers.settings.secure_path(), None);
 
     let (mut mod_sudoers, _) = sudoers();
-    mod_sudoers.specify_runas(&Named("runas"));
+    mod_sudoers.specify_host_user_runas(
+        &system::Hostname::fake("machine"),
+        &Named("admin"),
+        &Named("runas"),
+    );
     assert!(mod_sudoers.settings.env_editor());
     assert!(!mod_sudoers.settings.use_pty());
     assert!(mod_sudoers.settings.env_keep().contains("COLORS"));
@@ -486,8 +494,11 @@ fn default_specific_test() {
     assert!(mod_sudoers.settings.env_keep().is_empty());
 
     let (mut mod_sudoers, _) = sudoers();
-    mod_sudoers.specify_host_and_user(&system::Hostname::fake("machine"), &Named("admin"));
-    mod_sudoers.specify_runas(&Named("self"));
+    mod_sudoers.specify_host_user_runas(
+        &system::Hostname::fake("machine"),
+        &Named("admin"),
+        &Named("self"),
+    );
     mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["thrice".to_string()]);
     assert!(settings.env_editor());
     assert!(!settings.use_pty());
