@@ -2,7 +2,6 @@
 
 use std::{borrow::Cow, mem};
 
-use crate::common::context::{ContextAction, OptionsForContext};
 use crate::common::{SudoPath, SudoString};
 
 pub mod help;
@@ -798,107 +797,4 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     ensure_is_absent(context, &positional_args, "command")?;
 
     Ok(())
-}
-
-impl From<SudoListOptions> for OptionsForContext {
-    fn from(opts: SudoListOptions) -> Self {
-        let SudoListOptions {
-            group,
-            non_interactive,
-            positional_args,
-            reset_timestamp,
-            stdin,
-            user,
-
-            list: _,
-            other_user: _,
-        } = opts;
-
-        Self {
-            action: ContextAction::List,
-
-            group,
-            non_interactive,
-            positional_args,
-            reset_timestamp,
-            stdin,
-            user,
-
-            chdir: None,
-            login: false,
-            shell: false,
-        }
-    }
-}
-
-impl From<SudoValidateOptions> for OptionsForContext {
-    fn from(opts: SudoValidateOptions) -> Self {
-        let SudoValidateOptions {
-            group,
-            non_interactive,
-            reset_timestamp,
-            stdin,
-            user,
-        } = opts;
-
-        Self {
-            action: ContextAction::Validate,
-
-            group,
-            non_interactive,
-            reset_timestamp,
-            stdin,
-            user,
-
-            chdir: None,
-            login: false,
-            positional_args: vec![],
-            shell: false,
-        }
-    }
-}
-
-pub struct OptionsForPipeline {
-    pub preserve_env: PreserveEnv,
-    pub user_requested_env_vars: Vec<(String, String)>,
-}
-
-impl SudoRunOptions {
-    pub fn into(self) -> (OptionsForContext, OptionsForPipeline) {
-        let SudoRunOptions {
-            chdir,
-            group,
-            login,
-            non_interactive,
-            positional_args,
-            reset_timestamp,
-            shell,
-            stdin,
-            user,
-
-            env_var_list,
-            preserve_env,
-        } = self;
-
-        let ctx_opts = OptionsForContext {
-            action: ContextAction::Run,
-
-            chdir,
-            group,
-            login,
-            non_interactive,
-            positional_args,
-            reset_timestamp,
-            shell,
-            stdin,
-            user,
-        };
-
-        let pipe_opts = OptionsForPipeline {
-            preserve_env,
-            user_requested_env_vars: env_var_list,
-        };
-
-        (ctx_opts, pipe_opts)
-    }
 }
