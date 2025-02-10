@@ -35,7 +35,7 @@ impl fmt::Display for Verbose<'_> {
             last_tag = Some(tag);
 
             f.write_str("\n\t")?;
-            super::write_spec(f, cmd_spec, cmd_alias, true, "\n\t")?;
+            super::write_spec(f, cmd_spec, cmd_alias.iter().rev(), true, "\n\t")?;
         }
 
         Ok(())
