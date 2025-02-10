@@ -1,4 +1,4 @@
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsStr;
 use std::process::exit;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
@@ -8,6 +8,7 @@ use crate::common::{Context, Error};
 use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
 use crate::sudo::env::environment;
+use crate::sudo::pam::PamAuthenticator;
 use crate::sudo::Duration;
 use crate::sudoers::{
     AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
@@ -18,15 +19,8 @@ use crate::system::{escape_os_str_lossy, Process};
 
 mod list;
 
-pub trait AuthPlugin {
-    fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error>;
-    fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error>;
-    fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error>;
-    fn cleanup(&mut self);
-}
-
-pub struct Pipeline<Auth: AuthPlugin> {
-    pub authenticator: Auth,
+pub struct Pipeline {
+    pub authenticator: PamAuthenticator,
 }
 
 fn read_sudoers() -> Result<Sudoers, Error> {
@@ -61,7 +55,7 @@ fn judge(mut policy: Sudoers, context: &Context) -> Result<Judgement, Error> {
     ))
 }
 
-impl<Auth: AuthPlugin> Pipeline<Auth> {
+impl Pipeline {
     pub fn run(mut self, mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
         let mut policy = read_sudoers()?;
 
