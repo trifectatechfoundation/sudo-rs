@@ -431,6 +431,16 @@ fn useralias_underscore_regression() {
         .is_alias());
 }
 
+#[test]
+fn regression_check_recursion() {
+    let (_, error) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer!["User_Alias A=user, B", "User_Alias B=A"],
+    );
+
+    assert!(!error.is_empty());
+}
+
 fn test_topo_sort(n: usize) {
     let alias = |s: &str| Qualified::Allow(Meta::<UserSpecifier>::Alias(s.to_string()));
     let stop = || Qualified::Allow(Meta::<UserSpecifier>::All);
