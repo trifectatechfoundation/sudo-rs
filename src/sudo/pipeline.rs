@@ -63,7 +63,7 @@ fn judge(mut policy: Sudoers, context: &Context) -> Result<Judgement, Error> {
 
 impl<Auth: AuthPlugin> Pipeline<Auth> {
     pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
-        let policy = read_sudoers()?;
+        let mut policy = read_sudoers()?;
 
         let (ctx_opts, pipe_opts) = cmd_opts.into();
 
@@ -73,7 +73,7 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
             )
         }
 
-        let mut context = Context::build_from_options(ctx_opts, policy.secure_path())?;
+        let mut context = Context::build_from_options(ctx_opts, policy.search_path())?;
 
         let policy = judge(policy, &context)?;
 
@@ -136,8 +136,8 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
     }
 
     pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
-        let policy = read_sudoers()?;
-        let mut context = Context::build_from_options(cmd_opts.into(), policy.secure_path())?;
+        let mut policy = read_sudoers()?;
+        let mut context = Context::build_from_options(cmd_opts.into(), policy.search_path())?;
 
         match policy.validate_authorization() {
             Authorization::Forbidden => {
