@@ -44,7 +44,7 @@ fn three_retries_allowed_by_default() -> Result<()> {
     };
     assert_contains!(output.stderr(), diagnostic);
 
-    let password_prompt = if sudo_test::is_original_sudo() {
+    let password_prompt = if sudo_test::is_original_sudo() && cfg!(target_os = "linux") {
         "password for ferris:"
     } else {
         "Password:"
@@ -88,7 +88,7 @@ Defaults passwd_tries=2"
     };
     assert_contains!(stderr, diagnostic);
 
-    let password_prompt = if sudo_test::is_original_sudo() {
+    let password_prompt = if sudo_test::is_original_sudo() && cfg!(target_os = "linux") {
         "password for ferris:"
     } else {
         "Password:"

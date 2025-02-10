@@ -18,7 +18,11 @@ ALL ALL=(ALL:ALL) ALL")
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("[sudo] password for {USERNAME}:")
+        if cfg!(not(target_os = "linux")) {
+            "Password:".to_owned()
+        } else {
+            format!("[sudo] password for {USERNAME}:")
+        }
     } else {
         "[sudo: authenticate] Password:".to_string()
     };
@@ -48,7 +52,11 @@ fn other_user_has_nopasswd_tag() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("[sudo] password for {USERNAME}:")
+        if cfg!(not(target_os = "linux")) {
+            "Password:".to_owned()
+        } else {
+            format!("[sudo] password for {USERNAME}:")
+        }
     } else {
         "[sudo: authenticate] Password:".to_string()
     };
