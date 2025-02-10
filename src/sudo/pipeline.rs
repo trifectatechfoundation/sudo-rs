@@ -12,7 +12,6 @@ use crate::sudo::Duration;
 use crate::sudoers::{
     AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
 };
-use crate::system::interface::UserId;
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{escape_os_str_lossy, Process};
@@ -168,7 +167,6 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
             must_authenticate,
             context.use_session_records,
             scope,
-            context.current_user.uid,
             &context.current_user,
             prior_validity,
         );
@@ -238,7 +236,6 @@ fn determine_auth_status(
     must_policy_authenticate: bool,
     use_session_records: bool,
     record_for: Option<RecordScope>,
-    auth_uid: UserId,
     current_user: &CurrentUser,
     prior_validity: Duration,
 ) -> AuthStatus {
@@ -247,7 +244,7 @@ fn determine_auth_status(
     } else if let (true, Some(record_for)) = (use_session_records, record_for) {
         match SessionRecordFile::open_for_user(current_user, prior_validity) {
             Ok(mut sr) => {
-                match sr.touch(record_for, auth_uid) {
+                match sr.touch(record_for, current_user.uid) {
                     // if a record was found and updated within the timeout, we do not need to authenticate
                     Ok(TouchResult::Updated { .. }) => AuthStatus::new(false, Some(sr)),
                     Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => {
