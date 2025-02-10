@@ -13,7 +13,6 @@ use cli::help;
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
 use cli::SudoAction;
-use pam::PamAuthenticator;
 use pipeline::Pipeline;
 use std::path::Path;
 
@@ -75,9 +74,7 @@ fn sudo_process() -> Result<(), Error> {
     self_check()?;
     kernel_check()?;
 
-    let pipeline = Pipeline {
-        authenticator: PamAuthenticator::new_cli(),
-    };
+    let pipeline = Pipeline {};
 
     // parse cli options
     match SudoAction::from_env() {

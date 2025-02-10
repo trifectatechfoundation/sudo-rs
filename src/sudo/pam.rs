@@ -8,45 +8,34 @@ use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
 use crate::system::term::current_tty_name;
 
 pub(super) struct PamAuthenticator {
-    pam: Option<PamContext>,
+    pam: PamContext,
 }
 
 impl PamAuthenticator {
-    pub(super) fn new_cli() -> PamAuthenticator {
-        PamAuthenticator { pam: None }
+    pub(super) fn new_cli(context: &Context, auth_user: AuthUser) -> Result<PamAuthenticator, Error> {
+        Ok(PamAuthenticator {
+            pam: init_pam(
+                matches!(context.launch, LaunchType::Login),
+                matches!(context.launch, LaunchType::Shell),
+                context.stdin,
+                context.non_interactive,
+                context.password_feedback,
+                &auth_user.name,
+                &context.current_user.name,
+            )?,
+        })
     }
 }
 
 impl PamAuthenticator {
-    pub(super) fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error> {
-        self.pam = Some(init_pam(
-            matches!(context.launch, LaunchType::Login),
-            matches!(context.launch, LaunchType::Shell),
-            context.stdin,
-            context.non_interactive,
-            context.password_feedback,
-            &auth_user.name,
-            &context.current_user.name,
-        )?);
-        Ok(())
-    }
-
     pub(super) fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error> {
-        let pam = self
-            .pam
-            .as_mut()
-            .expect("Pam must be initialized before authenticate");
-
-        attempt_authenticate(pam, non_interactive, max_tries)?;
+        attempt_authenticate(&mut self.pam, non_interactive, max_tries)?;
 
         Ok(())
     }
 
     pub(super) fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error> {
-        let pam = self
-            .pam
-            .as_mut()
-            .expect("Pam must be initialized before pre_exec");
+        let pam = &mut self.pam;
 
         // make sure that the user that needed to authenticate has a valid token
         pam.validate_account_or_change_auth_token()?;
@@ -75,12 +64,7 @@ impl PamAuthenticator {
     }
 
     pub(super) fn cleanup(&mut self) {
-        let pam = self
-            .pam
-            .as_mut()
-            .expect("Pam must be initialized before cleanup");
-
-        pam.close_session();
+        self.pam.close_session();
     }
 }
 
