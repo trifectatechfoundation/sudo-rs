@@ -8,44 +8,27 @@ use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, Pa
 use crate::system::term::current_tty_name;
 
 use super::pipeline::AuthPlugin;
-
-type PamBuilder<C> = dyn Fn(&Context, AuthUser) -> PamResult<PamContext<C>>;
-
-pub struct PamAuthenticator<C: Converser> {
-    builder: Box<PamBuilder<C>>,
-    pam: Option<PamContext<C>>,
+pub struct PamAuthenticator {
+    pam: Option<PamContext<CLIConverser>>,
 }
 
-impl<C: Converser> PamAuthenticator<C> {
-    fn new(
-        initializer: impl Fn(&Context, AuthUser) -> PamResult<PamContext<C>> + 'static,
-    ) -> PamAuthenticator<C> {
-        PamAuthenticator {
-            builder: Box::new(initializer),
-            pam: None,
-        }
+impl PamAuthenticator {
+    pub fn new_cli() -> PamAuthenticator {
+        PamAuthenticator { pam: None }
     }
 }
 
-impl PamAuthenticator<CLIConverser> {
-    pub fn new_cli() -> PamAuthenticator<CLIConverser> {
-        PamAuthenticator::new(|context, auth_user| {
-            init_pam(
-                matches!(context.launch, LaunchType::Login),
-                matches!(context.launch, LaunchType::Shell),
-                context.stdin,
-                context.non_interactive,
-                context.password_feedback,
-                &auth_user.name,
-                &context.current_user.name,
-            )
-        })
-    }
-}
-
-impl<C: Converser> AuthPlugin for PamAuthenticator<C> {
+impl AuthPlugin for PamAuthenticator {
     fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error> {
-        self.pam = Some((self.builder)(context, auth_user)?);
+        self.pam = Some(init_pam(
+            matches!(context.launch, LaunchType::Login),
+            matches!(context.launch, LaunchType::Shell),
+            context.stdin,
+            context.non_interactive,
+            context.password_feedback,
+            &auth_user.name,
+            &context.current_user.name,
+        )?);
         Ok(())
     }
 
