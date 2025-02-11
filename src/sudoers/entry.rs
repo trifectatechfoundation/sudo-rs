@@ -3,6 +3,7 @@ use core::fmt;
 use crate::sudoers::{
     ast::{Identifier, Qualified, UserSpecifier},
     tokens::{ChDir, Meta},
+    VecOrd,
 };
 use crate::{
     common::{resolve::CurrentUser, SudoString},
@@ -21,14 +22,14 @@ mod verbose;
 pub struct Entry<'a> {
     run_as: Option<&'a RunAs>,
     cmd_specs: Vec<(Tag, &'a Qualified<Meta<Command>>)>,
-    cmd_alias: &'a [Def<Command>],
+    cmd_alias: &'a VecOrd<Def<Command>>,
 }
 
 impl<'a> Entry<'a> {
     pub(super) fn new(
         run_as: Option<&'a RunAs>,
         cmd_specs: Vec<(Tag, &'a Qualified<Meta<Command>>)>,
-        cmd_alias: &'a [Def<Command>],
+        cmd_alias: &'a VecOrd<Def<Command>>,
     ) -> Self {
         debug_assert!(!cmd_specs.is_empty());
 
@@ -89,7 +90,10 @@ impl fmt::Display for Entry<'_> {
 
             write_tag(f, tag, last_tag)?;
             last_tag = Some(tag);
-            write_spec(f, spec, cmd_alias, true, ", ")?;
+
+            // cmd_alias is to be topologically sorted (dependencies come before dependents),
+            // the argument to write_spec needs to have dependents before dependencies.
+            write_spec(f, spec, cmd_alias.iter().rev(), true, ", ")?;
         }
 
         Ok(())
@@ -218,10 +222,10 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::
     Ok(())
 }
 
-fn write_spec(
+fn write_spec<'a>(
     f: &mut fmt::Formatter,
     spec: &Qualified<Meta<Command>>,
-    alias_list: &[Def<Command>],
+    mut alias_list: impl Iterator<Item = &'a Def<Command>> + Clone,
     mut sign: bool,
     separator: &str,
 ) -> fmt::Result {
@@ -250,14 +254,17 @@ fn write_spec(
             }
         }
         Meta::Alias(alias) => {
-            // this will terminate, since AliasTable has been checked by sanitize_alias_table
-            if let Some(Def(_, spec_list)) = alias_list.iter().find(|Def(id, _)| id == alias) {
+            if let Some(Def(_, spec_list)) = alias_list.find(|Def(id, _)| id == alias) {
                 let mut is_first_iteration = true;
                 for spec in spec_list {
                     if !is_first_iteration {
                         f.write_str(separator)?;
                     }
-                    write_spec(f, spec, alias_list, sign, separator)?;
+                    // 1) this recursion will terminate, since "alias_list" has become smaller
+                    //    by the "alias_list.find()" above
+                    // 2) to get the correct macro expansion, alias_list has to be (reverse-)topologically
+                    //    sorted so that "later" definitions do not refer back to "earlier" definitons.
+                    write_spec(f, spec, alias_list.clone(), sign, separator)?;
                     is_first_iteration = false;
                 }
             } else {

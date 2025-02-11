@@ -178,7 +178,7 @@ impl Sudoers {
     ) -> impl Iterator<Item = Entry<'a>> {
         let user_specs = self.matching_user_specs(invoking_user, hostname);
 
-        user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd.1))
+        user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd))
     }
 
     pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
@@ -214,7 +214,7 @@ fn peeking_take_while<'a, T>(
 
 fn group_cmd_specs_per_runas<'a>(
     cmnd_specs: impl Iterator<Item = (Option<&'a RunAs>, (Tag, &'a Spec<Command>))>,
-    cmnd_aliases: &'a [Def<Command>],
+    cmnd_aliases: &'a VecOrd<Def<Command>>,
 ) -> impl Iterator<Item = Entry<'a>> {
     // `distribute_tags` will have given every spec a reference to the "runas specification"
     // that applies to it. The output of sudo --list splits the CmndSpec list based on that:
@@ -282,7 +282,7 @@ impl<T> Default for VecOrd<T> {
 }
 
 impl<T> VecOrd<T> {
-    fn iter(&self) -> impl Iterator<Item = &T> {
+    fn iter(&self) -> impl DoubleEndedIterator<Item = &T> + Clone {
         self.0.iter().map(|&i| &self.1[i])
     }
 }
@@ -707,7 +707,7 @@ fn sanitize_alias_table<T>(table: &Vec<Def<T>>, diagnostics: &mut Vec<Error>) ->
                 let Def(_, members) = &self.table[pos];
                 for elem in members {
                     let Meta::Alias(name) = remqualify(elem) else {
-                        break;
+                        continue;
                     };
                     let Some(dependency) = self.table.iter().position(|Def(id, _)| id == name)
                     else {

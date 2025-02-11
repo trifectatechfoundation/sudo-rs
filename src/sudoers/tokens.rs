@@ -142,11 +142,11 @@ impl Token for AliasName {
     }
 
     fn accept_1st(c: char) -> bool {
-        c.is_ascii_uppercase() || c.is_ascii_digit()
+        c.is_ascii_uppercase()
     }
 
     fn accept(c: char) -> bool {
-        Self::accept_1st(c) || c == '_'
+        Self::accept_1st(c) || c.is_ascii_digit() || c == '_'
     }
 }
 
