@@ -1,7 +1,7 @@
 task:
   name: Cirrus CI / freebsd unit tests
   freebsd_instance:
-    image_family: freebsd-14-1
+    image_family: freebsd-14-2
     memory: 2GB
   setup_rust_script:
     - pkg install -y git-tiny
