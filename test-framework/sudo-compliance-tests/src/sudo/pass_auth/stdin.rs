@@ -97,7 +97,11 @@ fn input_longer_than_max_pam_response_size_is_handled_gracefully() -> Result<()>
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_contains!(stderr, "sudo: 2 incorrect password attempts");
+        if cfg!(target_os = "freebsd") {
+            assert_contains!(stderr, "sudo: 1 incorrect password attempt");
+        } else {
+            assert_contains!(stderr, "sudo: 2 incorrect password attempts");
+        }
     } else {
         assert_contains!(stderr, "incorrect authentication attempt");
         assert_not_contains!(stderr, "panic");

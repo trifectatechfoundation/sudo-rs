@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, EnvNoImplicit, TextFile};
+use sudo_test::{is_original_sudo, Command, Env, EnvNoImplicit, TextFile};
 
 use crate::{
     visudo::{CHMOD_EXEC, DEFAULT_EDITOR, ETC_SUDOERS, LOGS_PATH},
@@ -46,7 +46,13 @@ fn on_e_re_edits() -> Result<()> {
 
     let num_times_called = lines.len();
     assert_eq!(2, num_times_called);
-    assert_eq!(lines[0], lines[1]);
+    if is_original_sudo() && cfg!(target_os = "freebsd") {
+        // On FreeBSD we have to name our editor vi, which seems to trigger a special case in sudo.
+        assert_eq!(lines[0], "-- /usr/local/etc/sudoers.tmp");
+        assert_eq!(lines[1], "+1 -- /usr/local/etc/sudoers.tmp");
+    } else {
+        assert_eq!(lines[0], lines[1]);
+    }
 
     Ok(())
 }
