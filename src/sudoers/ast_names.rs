@@ -40,6 +40,10 @@ mod names {
         const DESCRIPTION: &'static str = "path to binary (or sudoedit)";
     }
 
+    impl UserFriendly for tokens::SimpleCommand {
+        const DESCRIPTION: &'static str = "path to binary (or sudoedit)";
+    }
+
     impl UserFriendly
         for (
             SpecList<tokens::Hostname>,

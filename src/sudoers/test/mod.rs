@@ -92,19 +92,19 @@ fn permission_test() {
 
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
-            let (Sudoers { rules,aliases,settings }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
+            let (Sudoers { rules,aliases,settings, customisers }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
-            assert_eq!(Sudoers { rules, aliases, settings }.check(&Named($user), &system::Hostname::fake($server), req).flags, None);
+            assert_eq!(Sudoers { rules, aliases, settings, customisers }.check(&Named($user), &system::Hostname::fake($server), req).flags, None);
         }
     }
 
     macro_rules! pass {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
-            let (Sudoers { rules,aliases,settings }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
+            let (Sudoers { rules,aliases,settings, customisers }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
             let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
-            let result = Sudoers { rules, aliases, settings }.check(&Named($user), &system::Hostname::fake($server), req).flags;
+            let result = Sudoers { rules, aliases, settings, customisers }.check(&Named($user), &system::Hostname::fake($server), req).flags;
             assert!(!result.is_none());
             $(
                 let result = result.unwrap();
@@ -215,6 +215,7 @@ fn permission_test() {
     pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/true" => [authenticate: Authenticate::Nopasswd]);
     FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { sudo }, "server"; "/bin/ls");
     FAIL!(["user ALL=(root) /bin/ls, (sudo) /bin/true"], "user" => request! { root }, "server"; "/bin/true");
+    pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/ls, /bin/true"], "user" => request! { sudo }, "server"; "/bin/true");
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
 
@@ -419,6 +420,94 @@ fn alias_all_regression() {
 #[test]
 fn defaults_regression() {
     assert!(try_parse_line("Defaults .mymachine=ALL").is_none())
+}
+
+#[test]
+fn specific_defaults() {
+    assert!(parse_line("Defaults !use_pty").is_decl());
+    assert!(try_parse_line("Defaults!use_pty").is_none());
+    assert!(parse_line("Defaults!/bin/bash !use_pty").is_decl());
+    assert!(try_parse_line("Defaults!/bin/bash!use_pty").is_none());
+    assert!(try_parse_line("Defaults !/bin/bash !use_pty").is_none());
+    assert!(try_parse_line("Defaults !/bin/bash").is_none());
+    assert!(parse_line("Defaults@host !use_pty").is_decl());
+    assert!(parse_line("Defaults@host!use_pty").is_decl());
+    assert!(try_parse_line("Defaults @host!use_pty").is_none());
+    assert!(try_parse_line("Defaults @host !use_pty").is_none());
+    assert!(parse_line("Defaults:user !use_pty").is_decl());
+    assert!(parse_line("Defaults:user!use_pty").is_decl());
+    assert!(try_parse_line("Defaults :user!use_pty").is_none());
+    assert!(try_parse_line("Defaults :user !use_pty").is_none());
+    assert!(parse_line("Defaults>user !use_pty").is_decl());
+    assert!(parse_line("Defaults>user!use_pty").is_decl());
+    assert!(try_parse_line("Defaults >user!use_pty").is_none());
+    assert!(try_parse_line("Defaults >user !use_pty").is_none());
+}
+
+#[test]
+fn default_specific_test() {
+    let sudoers = || {
+        analyze(
+            Path::new("/etc/fakesudoers"),
+            sudoer![
+                "Defaults env_editor",
+                "Defaults@host !env_editor",
+                "Defaults:user use_pty",
+                "Defaults !use_pty",
+                "Defaults>runas secure_path=\"/bin\"",
+                "Defaults !secure_path",
+                "Defaults!/bin/foo !env_keep",
+                "Defaults!RR use_pty",
+                "Cmnd_Alias RR=/usr/bin/rr twice"
+            ],
+        )
+    };
+
+    let (Sudoers { settings, .. }, _) = sudoers();
+    assert!(settings.env_editor());
+    assert!(!settings.use_pty());
+    assert!(settings.env_keep().contains("COLORS"));
+    assert_eq!(settings.secure_path(), None);
+
+    let (mut mod_sudoers, _) = sudoers();
+    mod_sudoers.specify_host_user_runas(
+        &system::Hostname::fake("host"),
+        &Named("user"),
+        &Named("root"),
+    );
+    assert!(!mod_sudoers.settings.env_editor());
+    assert!(mod_sudoers.settings.use_pty());
+    assert!(mod_sudoers.settings.env_keep().contains("COLORS"));
+    assert_eq!(mod_sudoers.settings.secure_path(), None);
+
+    let (mut mod_sudoers, _) = sudoers();
+    mod_sudoers.specify_host_user_runas(
+        &system::Hostname::fake("machine"),
+        &Named("admin"),
+        &Named("runas"),
+    );
+    assert!(mod_sudoers.settings.env_editor());
+    assert!(!mod_sudoers.settings.use_pty());
+    assert!(mod_sudoers.settings.env_keep().contains("COLORS"));
+    assert_eq!(mod_sudoers.settings.secure_path(), Some("/bin"));
+    mod_sudoers.specify_command(Path::new("/bin/foo"), &["".to_string(), "a".to_string()]);
+    assert!(mod_sudoers.settings.env_keep().is_empty());
+
+    let (mut mod_sudoers, _) = sudoers();
+    mod_sudoers.specify_host_user_runas(
+        &system::Hostname::fake("machine"),
+        &Named("admin"),
+        &Named("self"),
+    );
+    mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["thrice".to_string()]);
+    assert!(settings.env_editor());
+    assert!(!settings.use_pty());
+    assert!(settings.env_keep().contains("COLORS"));
+    assert_eq!(settings.secure_path(), None);
+
+    let (mut mod_sudoers, _) = sudoers();
+    mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["twice".to_string()]);
+    assert!(mod_sudoers.settings.use_pty());
 }
 
 #[test]

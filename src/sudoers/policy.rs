@@ -98,7 +98,7 @@ impl Judgement {
 }
 
 impl Sudoers {
-    pub fn secure_path(&self) -> Option<&str> {
+    pub fn search_path(&mut self) -> Option<&str> {
         self.settings.secure_path()
     }
 

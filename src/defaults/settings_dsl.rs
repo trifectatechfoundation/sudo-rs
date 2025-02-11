@@ -72,14 +72,14 @@ macro_rules! modifier_of {
                 .ok()
                 .filter(|val| ($first ..= $last).contains(val))
                 .map(|i| {
-                    Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>
+                    Box::new(move |obj: &mut Settings| obj.$id = i) as SettingsModifier
                 })
         })
     };
     ($id:ident, =int $fn: expr; $value: expr) => {
         $crate::defaults::SettingKind::Integer(|text| {
             $fn(&text).map(|i| {
-                Box::new(move |obj: &mut Settings| obj.$id = i) as Box<dyn FnOnce(&mut Settings)>
+                Box::new(move |obj: &mut Settings| obj.$id = i) as SettingsModifier
             })
         })
     };

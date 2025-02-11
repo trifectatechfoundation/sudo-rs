@@ -32,6 +32,22 @@ impl<T> Qualified<T> {
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
 
+/// A generic mapping function (only used for turning `Spec<SimpleCommand>` into `Spec<Command>`)
+impl<T> Spec<T> {
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> Spec<U> {
+        let transform = |meta| match meta {
+            Meta::All => Meta::All,
+            Meta::Alias(alias) => Meta::Alias(alias),
+            Meta::Only(x) => Meta::Only(f(x)),
+        };
+
+        match self {
+            Qualified::Allow(x) => Qualified::Allow(transform(x)),
+            Qualified::Forbid(x) => Qualified::Forbid(transform(x)),
+        }
+    }
+}
+
 /// An identifier is a name or a #number
 #[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]
@@ -120,7 +136,19 @@ pub enum Directive {
     HostAlias(Defs<Hostname>) = HARDENED_ENUM_VALUE_1,
     CmndAlias(Defs<Command>) = HARDENED_ENUM_VALUE_2,
     RunasAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
-    Defaults(Vec<defaults::SettingsModifier>) = HARDENED_ENUM_VALUE_4,
+    Defaults(Vec<defaults::SettingsModifier>, ConfigScope) = HARDENED_ENUM_VALUE_4,
+}
+
+/// AST object for the 'context' (host, user, cmnd, runas) of a Defaults directive
+#[repr(u32)]
+pub enum ConfigScope {
+    // "Defaults entries are parsed in the following order:
+    // generic, host and user Defaults first, then runas Defaults and finally command defaults."
+    Generic = HARDENED_ENUM_VALUE_0,
+    Host(SpecList<Hostname>) = HARDENED_ENUM_VALUE_1,
+    User(SpecList<UserSpecifier>) = HARDENED_ENUM_VALUE_2,
+    RunAs(SpecList<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
+    Command(SpecList<SimpleCommand>) = HARDENED_ENUM_VALUE_4,
 }
 
 /// The Sudoers file can contain permissions and directives
@@ -522,7 +550,7 @@ impl Parse for Sudo {
         if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
             // element 1 always exists (parse_list fails on an empty list)
             let key = &users[0];
-            if let Some(directive) = maybe(get_directive(key, stream))? {
+            if let Some(directive) = maybe(get_directive(key, stream, start_pos))? {
                 if users.len() != 1 {
                     unrecoverable!(pos = start_pos, stream, "invalid user name list");
                 }
@@ -612,9 +640,15 @@ impl<T> Many for Def<T> {
     const SEP: char = ':';
 }
 
+// NOTE: This function is a bit of a hack, since it relies on the fact that all directives
+// occur in the spot of a username, and are of a form that would otherwise be a legal user name.
+// I.e. after a valid username has been parsed, we check if it isn't actually a valid start of a
+// directive. A more robust solution would be to use the approach taken by the `MetaOrTag` above.
+
 fn get_directive(
     perhaps_keyword: &Spec<UserSpecifier>,
     stream: &mut CharStream,
+    begin_pos: (usize, usize),
 ) -> Parsed<Directive> {
     use super::ast::Directive::*;
     use super::ast::Meta::*;
@@ -629,7 +663,30 @@ fn get_directive(
         "Host_Alias" => make(HostAlias(expect_nonterminal(stream)?)),
         "Cmnd_Alias" | "Cmd_Alias" => make(CmndAlias(expect_nonterminal(stream)?)),
         "Runas_Alias" => make(RunasAlias(expect_nonterminal(stream)?)),
-        "Defaults" => make(Defaults(expect_nonterminal(stream)?)),
+        "Defaults" => {
+            //HACK: this avoids having to add "Defaults@" etc as separate tokens; but relying
+            //on positional information during parsing is of course, cheating.
+            let allow_scope_modifier = stream.get_pos().0 == begin_pos.0
+                && stream.get_pos().1 - begin_pos.1 == "Defaults".len();
+
+            let scope = if allow_scope_modifier {
+                if is_syntax('@', stream)? {
+                    ConfigScope::Host(expect_nonterminal(stream)?)
+                } else if is_syntax(':', stream)? {
+                    ConfigScope::User(expect_nonterminal(stream)?)
+                } else if is_syntax('!', stream)? {
+                    ConfigScope::Command(expect_nonterminal(stream)?)
+                } else if is_syntax('>', stream)? {
+                    ConfigScope::RunAs(expect_nonterminal(stream)?)
+                } else {
+                    ConfigScope::Generic
+                }
+            } else {
+                ConfigScope::Generic
+            };
+
+            make(Defaults(expect_nonterminal(stream)?, scope))
+        }
         _ => reject(),
     }
 }
