@@ -11,6 +11,7 @@ pub(super) fn init_pam(
     use_stdin: bool,
     non_interactive: bool,
     password_feedback: bool,
+    auth_prompt: Option<String>,
     auth_user: &str,
     requesting_user: &str,
 ) -> PamResult<PamContext> {
@@ -25,6 +26,7 @@ pub(super) fn init_pam(
         use_stdin,
         non_interactive,
         password_feedback,
+        auth_prompt,
         None,
     )?;
     pam.mark_silent(!is_shell && !is_login_shell);

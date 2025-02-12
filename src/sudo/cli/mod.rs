@@ -173,6 +173,8 @@ pub struct SudoValidateOptions {
     pub non_interactive: bool,
     // -S
     pub stdin: bool,
+    // -p
+    pub prompt: Option<String>,
     // -g
     pub group: Option<SudoString>,
     // -u
@@ -190,6 +192,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
+        let prompt = mem::take(&mut opts.prompt);
         let group = mem::take(&mut opts.group);
         let user = mem::take(&mut opts.user);
 
@@ -199,6 +202,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
             reset_timestamp,
             non_interactive,
             stdin,
+            prompt,
             group,
             user,
         })
@@ -214,6 +218,8 @@ pub struct SudoEditOptions {
     pub non_interactive: bool,
     // -S
     pub stdin: bool,
+    // -p
+    pub prompt: Option<String>,
     // -D
     pub chdir: Option<SudoPath>,
     // -g
@@ -234,6 +240,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
+        let prompt = mem::take(&mut opts.prompt);
         let chdir = mem::take(&mut opts.chdir);
         let group = mem::take(&mut opts.group);
         let user = mem::take(&mut opts.user);
@@ -249,6 +256,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
             reset_timestamp,
             non_interactive,
             stdin,
+            prompt,
             chdir,
             group,
             user,
@@ -268,6 +276,8 @@ pub struct SudoListOptions {
     pub non_interactive: bool,
     // -S
     pub stdin: bool,
+    // -p
+    pub prompt: Option<String>,
     // -g
     pub group: Option<SudoString>,
     // -U
@@ -286,6 +296,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
+        let prompt = mem::take(&mut opts.prompt);
         let group = mem::take(&mut opts.group);
         let other_user = mem::take(&mut opts.other_user);
         let user = mem::take(&mut opts.user);
@@ -306,6 +317,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
             reset_timestamp,
             non_interactive,
             stdin,
+            prompt,
             group,
             other_user,
             user,
@@ -324,6 +336,8 @@ pub struct SudoRunOptions {
     pub non_interactive: bool,
     // -S
     pub stdin: bool,
+    // -p
+    pub prompt: Option<String>,
     // -D
     pub chdir: Option<SudoPath>,
     // -g
@@ -347,6 +361,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
+        let prompt = mem::take(&mut opts.prompt);
         let chdir = mem::take(&mut opts.chdir);
         let group = mem::take(&mut opts.group);
         let user = mem::take(&mut opts.user);
@@ -381,6 +396,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
             reset_timestamp,
             non_interactive,
             stdin,
+            prompt,
             chdir,
             group,
             user,
@@ -410,6 +426,8 @@ struct SudoOptions {
     shell: bool,
     // -S
     stdin: bool,
+    // -p
+    prompt: Option<String>,
     // -u
     user: Option<SudoString>,
 
@@ -480,9 +498,16 @@ enum SudoArg {
 }
 
 impl SudoArg {
-    const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'g', 'h', 'R', 'U', 'u'];
-    const TAKES_ARGUMENT: &'static [&'static str] =
-        &["chdir", "group", "host", "chroot", "other-user", "user"];
+    const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'g', 'h', 'p', 'R', 'U', 'u'];
+    const TAKES_ARGUMENT: &'static [&'static str] = &[
+        "chdir",
+        "group",
+        "host",
+        "chroot",
+        "other-user",
+        "user",
+        "prompt",
+    ];
 
     /// argument assignments and shorthand options preprocessing
     fn normalize_arguments<I>(iter: I) -> Result<Vec<Self>, String>
@@ -667,6 +692,9 @@ impl SudoOptions {
                     "-g" | "--group" => {
                         options.group = Some(SudoString::from_cli_string(value));
                     }
+                    "-p" | "--prompt" => {
+                        options.prompt = Some(value);
+                    }
                     "-U" | "--other-user" => {
                         options.other_user = Some(SudoString::from_cli_string(value));
                     }
@@ -759,6 +787,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
         preserve_env,
         shell,
         stdin,
+        prompt,
         user,
         env_var_list,
         edit,
@@ -785,6 +814,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
         tuple!(reset_timestamp),
         tuple!(shell),
         tuple!(stdin),
+        tuple!(prompt),
         tuple!(user),
         tuple!(validate),
         tuple!(version),

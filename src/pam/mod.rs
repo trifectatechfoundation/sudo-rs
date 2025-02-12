@@ -49,6 +49,7 @@ impl PamContext {
         use_stdin: bool,
         no_interact: bool,
         password_feedback: bool,
+        auth_prompt: Option<String>,
         target_user: Option<&str>,
     ) -> PamResult<PamContext> {
         let converser = CLIConverser {
@@ -69,6 +70,7 @@ impl PamContext {
             converser,
             converser_name: converser_name.to_owned(),
             no_interact,
+            auth_prompt,
             panicked: false,
         }));
 
