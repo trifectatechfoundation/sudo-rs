@@ -1,33 +1,13 @@
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
+use crate::sudo::{SudoListOptions, SudoRunOptions, SudoValidateOptions};
+use crate::sudoers::Sudoers;
 use crate::system::{Group, Hostname, Process, User};
 
-use super::resolve::CurrentUser;
 use super::{
     command::CommandAndArguments,
-    resolve::{resolve_launch_and_shell, resolve_target_user_and_group},
-    Error, SudoPath, SudoString,
+    resolve::{resolve_shell, resolve_target_user_and_group, CurrentUser},
+    Error, SudoPath,
 };
-
-#[derive(Clone, Copy)]
-pub enum ContextAction {
-    List,
-    Run,
-    Validate,
-}
-
-// this is a bit of a hack to keep the existing `Context` API working
-pub struct OptionsForContext {
-    pub chdir: Option<SudoPath>,
-    pub group: Option<SudoString>,
-    pub login: bool,
-    pub non_interactive: bool,
-    pub positional_args: Vec<String>,
-    pub reset_timestamp: bool,
-    pub shell: bool,
-    pub stdin: bool,
-    pub user: Option<SudoString>,
-    pub action: ContextAction,
-}
 
 #[derive(Debug)]
 pub struct Context {
@@ -49,43 +29,49 @@ pub struct Context {
     pub password_feedback: bool,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(u32)]
 pub enum LaunchType {
+    #[default]
     Direct = HARDENED_ENUM_VALUE_0,
     Shell = HARDENED_ENUM_VALUE_1,
     Login = HARDENED_ENUM_VALUE_2,
 }
 
 impl Context {
-    pub fn build_from_options(
-        sudo_options: OptionsForContext,
-        secure_path: Option<&str>,
+    pub fn from_run_opts(
+        sudo_options: SudoRunOptions,
+        policy: &mut Sudoers,
     ) -> Result<Context, Error> {
         let hostname = Hostname::resolve();
         let current_user = CurrentUser::resolve()?;
+
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
-        let (launch, shell) = resolve_launch_and_shell(&sudo_options, &current_user, &target_user);
-        let command = match sudo_options.action {
-            ContextAction::Validate | ContextAction::List
-                if sudo_options.positional_args.is_empty() =>
-            {
-                // FIXME `Default` is being used as `Option::None`
-                Default::default()
-            }
-            _ => {
-                let system_path;
 
-                let path = if let Some(path) = secure_path {
-                    path
-                } else {
-                    system_path = std::env::var("PATH").unwrap_or_default();
-                    system_path.as_ref()
-                };
+        let launch = if sudo_options.login {
+            LaunchType::Login
+        } else if sudo_options.shell {
+            LaunchType::Shell
+        } else {
+            LaunchType::Direct
+        };
 
-                CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
-            }
+        let shell = resolve_shell(launch, &current_user, &target_user);
+
+        let override_path = policy.search_path(&hostname, &current_user, &target_user);
+
+        let command = {
+            let system_path;
+
+            let path = if let Some(path) = override_path {
+                path
+            } else {
+                system_path = std::env::var("PATH").unwrap_or_default();
+                system_path.as_ref()
+            };
+
+            CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
         };
 
         Ok(Context {
@@ -104,6 +90,72 @@ impl Context {
             password_feedback: false,
         })
     }
+
+    pub fn from_validate_opts(sudo_options: SudoValidateOptions) -> Result<Context, Error> {
+        let hostname = Hostname::resolve();
+        let current_user = CurrentUser::resolve()?;
+        let (target_user, target_group) =
+            resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
+
+        Ok(Context {
+            hostname,
+            command: Default::default(),
+            current_user,
+            target_user,
+            target_group,
+            use_session_records: !sudo_options.reset_timestamp,
+            launch: Default::default(),
+            chdir: None,
+            stdin: sudo_options.stdin,
+            non_interactive: sudo_options.non_interactive,
+            process: Process::new(),
+            use_pty: true,
+            password_feedback: false,
+        })
+    }
+
+    pub fn from_list_opts(
+        sudo_options: SudoListOptions,
+        policy: &mut Sudoers,
+    ) -> Result<Context, Error> {
+        let hostname = Hostname::resolve();
+        let current_user = CurrentUser::resolve()?;
+        let (target_user, target_group) =
+            resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
+
+        let override_path = policy.search_path(&hostname, &current_user, &target_user);
+
+        let command = if sudo_options.positional_args.is_empty() {
+            Default::default()
+        } else {
+            let system_path;
+
+            let path = if let Some(path) = override_path {
+                path
+            } else {
+                system_path = std::env::var("PATH").unwrap_or_default();
+                system_path.as_ref()
+            };
+
+            CommandAndArguments::build_from_args(None, sudo_options.positional_args, path)
+        };
+
+        Ok(Context {
+            hostname,
+            command,
+            current_user,
+            target_user,
+            target_group,
+            use_session_records: !sudo_options.reset_timestamp,
+            launch: Default::default(),
+            chdir: None,
+            stdin: sudo_options.stdin,
+            non_interactive: sudo_options.non_interactive,
+            process: Process::new(),
+            use_pty: true,
+            password_feedback: false,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -112,23 +164,18 @@ mod tests {
         sudo::SudoAction,
         system::{interface::UserId, Hostname},
     };
-    use std::collections::HashMap;
 
     use super::Context;
 
     #[test]
-    fn test_build_context() {
+    fn test_build_run_context() {
         let options = SudoAction::try_parse_from(["sudo", "echo", "hello"])
             .unwrap()
             .try_into_run()
             .ok()
             .unwrap();
-        let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-        let (ctx_opts, _pipe_opts) = options.into();
-        let context = Context::build_from_options(ctx_opts, Some(path)).unwrap();
 
-        let mut target_environment = HashMap::new();
-        target_environment.insert("SUDO_USER".to_string(), context.current_user.name.clone());
+        let context = Context::from_run_opts(options, &mut Default::default()).unwrap();
 
         if cfg!(target_os = "linux") {
             // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu

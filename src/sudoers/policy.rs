@@ -2,7 +2,7 @@ use super::Sudoers;
 
 use super::Judgement;
 use crate::common::{SudoPath, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
-use crate::system::time::Duration;
+use crate::system::{time::Duration, Hostname, User};
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
 /// permission check.
 ///
@@ -98,7 +98,13 @@ impl Judgement {
 }
 
 impl Sudoers {
-    pub fn search_path(&mut self) -> Option<&str> {
+    pub fn search_path(
+        &mut self,
+        on_host: &Hostname,
+        current_user: &User,
+        target_user: &User,
+    ) -> Option<&str> {
+        self.specify_host_user_runas(on_host, current_user, target_user);
         self.settings.secure_path()
     }
 

@@ -89,7 +89,7 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
 
     // authenticate the target user
     let mut pam: PamContext<CLIConverser> = authenticate(
-        &context.requesting_user().name,
+        &context.requesting_user.name,
         &context.user().name,
         context.is_login(),
     )?;

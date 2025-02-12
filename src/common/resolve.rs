@@ -11,10 +11,7 @@ use std::{
 };
 
 use super::SudoString;
-use super::{
-    context::{LaunchType, OptionsForContext},
-    Error,
-};
+use super::{context::LaunchType, Error};
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
@@ -97,21 +94,21 @@ impl ops::Deref for AuthUser {
 
 type Shell = Option<PathBuf>;
 
-pub(super) fn resolve_launch_and_shell(
-    sudo_options: &OptionsForContext,
+pub(super) fn resolve_shell(
+    launch_type: LaunchType,
     current_user: &User,
     target_user: &User,
-) -> (LaunchType, Shell) {
-    if sudo_options.login {
-        (LaunchType::Login, Some(target_user.shell.clone()))
-    } else if sudo_options.shell {
-        let shell = env::var("SHELL")
-            .map(|s| s.into())
-            .unwrap_or_else(|_| current_user.shell.clone());
+) -> Shell {
+    match launch_type {
+        LaunchType::Login => Some(target_user.shell.clone()),
 
-        (LaunchType::Shell, Some(shell))
-    } else {
-        (LaunchType::Direct, None)
+        LaunchType::Shell => Some(
+            env::var("SHELL")
+                .map(|s| s.into())
+                .unwrap_or_else(|_| current_user.shell.clone()),
+        ),
+
+        LaunchType::Direct => None,
     }
 }
 

@@ -54,7 +54,7 @@ fn uppercase_u_flag_fails() -> Result<()> {
         if sudo_test::is_original_sudo() {
             "sudo: the -U option may only be used with the -l option"
         } else {
-            "conflicts with --other-user"
+            "cannot be used together with --other-user"
         }
     );
 

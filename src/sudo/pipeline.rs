@@ -62,24 +62,25 @@ fn judge(mut policy: Sudoers, context: &Context) -> Result<Judgement, Error> {
 }
 
 impl<Auth: AuthPlugin> Pipeline<Auth> {
-    pub fn run(mut self, cmd_opts: SudoRunOptions) -> Result<(), Error> {
+    pub fn run(mut self, mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
         let mut policy = read_sudoers()?;
 
-        let (ctx_opts, pipe_opts) = cmd_opts.into();
+        let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
 
-        if !pipe_opts.preserve_env.is_nothing() {
+        if !cmd_opts.preserve_env.is_nothing() {
             eprintln_ignore_io_error!(
                 "warning: `--preserve-env` has not yet been implemented and will be ignored"
             )
         }
 
-        let mut context = Context::build_from_options(ctx_opts, policy.search_path())?;
+        let mut context = Context::from_run_opts(cmd_opts, &mut policy)?;
 
         let policy = judge(policy, &context)?;
 
         let Authorization::Allowed(auth, controls) = policy.authorization() else {
             return Err(Error::Authorization(context.current_user.name.to_string()));
         };
+
         self.apply_policy_to_context(&mut context, &auth, &controls)?;
         self.auth_and_update_record_file(&mut context, &auth)?;
 
@@ -88,9 +89,9 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
 
         let current_env = environment::system_environment();
         let (checked_vars, trusted_vars) = if controls.trust_environment {
-            (vec![], pipe_opts.user_requested_env_vars)
+            (vec![], user_requested_env_vars)
         } else {
-            (pipe_opts.user_requested_env_vars, vec![])
+            (user_requested_env_vars, vec![])
         };
 
         let mut target_env = environment::get_target_environment(
@@ -136,8 +137,9 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
     }
 
     pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
-        let mut policy = read_sudoers()?;
-        let mut context = Context::build_from_options(cmd_opts.into(), policy.search_path())?;
+        let policy = read_sudoers()?;
+
+        let mut context = Context::from_validate_opts(cmd_opts)?;
 
         match policy.validate_authorization() {
             Authorization::Forbidden => {

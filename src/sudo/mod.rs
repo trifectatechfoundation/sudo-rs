@@ -10,7 +10,7 @@ use crate::system::User;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
 use cli::help;
 #[cfg(test)]
-pub use cli::SudoAction;
+pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
 use cli::SudoAction;
 use pam::PamAuthenticator;
@@ -18,7 +18,9 @@ use pipeline::Pipeline;
 use std::path::Path;
 
 mod cli;
-pub mod diagnostic;
+pub(crate) use cli::{SudoListOptions, SudoRunOptions, SudoValidateOptions};
+
+pub(crate) mod diagnostic;
 mod env;
 mod pam;
 mod pipeline;
