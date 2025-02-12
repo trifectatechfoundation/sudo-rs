@@ -72,12 +72,19 @@ fn handle_message<C: Converser>(
             if app_data.no_interact {
                 return Err(PamError::InteractionRequired);
             }
+            let final_prompt = match app_data.auth_prompt.as_deref().unwrap_or("authenticate") {
+                "" => {
+                    // Suppress password prompt entirely when -p '' is passed.
+                    String::new()
+                }
+                prompt => {
+                    // FIXME handle %H, %h, %p, %U, %u and %%
+                    format!("[{}: {prompt}] {msg}", app_data.converser_name)
+                }
+            };
             app_data
                 .converser
-                .handle_hidden_prompt(&format!(
-                    "[{}: authenticate] {msg}",
-                    app_data.converser_name
-                ))
+                .handle_hidden_prompt(&final_prompt)
                 .map(Some)
         }
         ErrorMessage => app_data.converser.handle_error(msg).map(|()| None),
@@ -138,6 +145,7 @@ pub(super) struct ConverserData<C> {
     pub(super) converser: C,
     pub(super) converser_name: String,
     pub(super) no_interact: bool,
+    pub(super) auth_prompt: Option<String>,
     pub(super) panicked: bool,
 }
 
@@ -361,6 +369,7 @@ mod test {
             converser: "tux".to_string(),
             converser_name: "tux".to_string(),
             no_interact: false,
+            auth_prompt: None,
             panicked: false,
         });
         let cookie = PamConvBorrow::new(hello.as_mut());

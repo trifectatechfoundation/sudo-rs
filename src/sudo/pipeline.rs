@@ -178,6 +178,7 @@ fn auth_and_update_record_file(
         context.stdin,
         context.non_interactive,
         context.password_feedback,
+        context.prompt.clone(),
         &auth_user.name,
         &context.current_user.name,
     )?;
