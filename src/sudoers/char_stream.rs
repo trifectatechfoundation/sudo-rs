@@ -32,8 +32,8 @@ impl CharStream<'_> {
         self.next_if(|c| c == expect_char).is_some()
     }
 
-    pub fn eat_not_char(&mut self, expect_not_char: char) -> bool {
-        self.next_if(|c| c != expect_not_char).is_some()
+    pub fn skip_to_newline(&mut self) {
+        while self.next_if(|c| c != '\n').is_some() {}
     }
 
     pub fn peek(&mut self) -> Option<char> {

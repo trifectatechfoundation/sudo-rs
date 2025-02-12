@@ -540,7 +540,7 @@ impl Parse for Sudo {
                 // the failed "try_nonterminal::<Identifier>" will have consumed the '#'
                 // the most ignominious part of sudoers: having to parse bits of comments
                 parse_include(stream).or_else(|_| {
-                    while stream.eat_not_char('\n') {}
+                    stream.skip_to_newline();
                     make(Sudo::LineComment)
                 })
             };

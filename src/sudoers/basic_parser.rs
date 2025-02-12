@@ -139,7 +139,7 @@ impl Parse for Comment {
         if !stream.eat_char('#') {
             return Err(Status::Reject);
         }
-        while stream.eat_not_char('\n') {}
+        stream.skip_to_newline();
         make(Comment {})
     }
 }
@@ -324,7 +324,7 @@ where
                 let error = |stream: &mut CharStream| unrecoverable!(stream, "{msg}");
                 result.push(error(stream));
             }
-            while stream.eat_not_char('\n') {}
+            stream.skip_to_newline();
         }
     }
 
