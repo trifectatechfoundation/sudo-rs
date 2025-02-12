@@ -5,7 +5,9 @@ use crate::{Result, USERNAME};
 #[test]
 fn when_other_user_is_self() -> Result<()> {
     let env = Env("Defaults !lecture
-ALL ALL=(ALL:ALL) ALL").user(USERNAME).build()?;
+ALL ALL=(ALL:ALL) ALL")
+    .user(USERNAME)
+    .build()?;
 
     let output = Command::new("sudo")
         .args(["-S", "-l", "-U", USERNAME])

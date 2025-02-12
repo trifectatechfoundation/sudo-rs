@@ -277,7 +277,7 @@ fn can_set_from_commandline() -> Result<()> {
             // ordering can be important (see below)
             "ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/env, ALL",
             "",
-        ]
+        ],
     ] {
         let env = Env(sudoers).build()?;
 
