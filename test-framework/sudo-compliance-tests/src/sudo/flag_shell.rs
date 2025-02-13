@@ -42,6 +42,9 @@ fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_data
         .output(&env)?
         .stdout()?;
 
+    // /bin will be resolved to /usr/bin by sudo-rs
+    let output = output.replace("/usr/bin", "/bin");
+
     assert_eq!(invoking_users_shell, output);
 
     Ok(())
@@ -67,20 +70,19 @@ echo $0";
     Ok(())
 }
 
-#[ignore = "gh962"]
 #[test]
 fn shell_is_partially_canonicalized() -> Result<()> {
-    let shell_path = "/tmp/mybash";
+    let shell_path = "/tmp/mysh";
     let bin_link = "/tmp/bin";
-    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/bash").build()?;
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/sh").build()?;
 
     Command::new("ln")
-        .args(["-s", "/usr/bin/bash", shell_path])
+        .args(["-s", "/bin/sh", shell_path])
         .output(&env)?
         .assert_success()?;
 
     Command::new("ln")
-        .args(["-s", "/usr/bin", bin_link])
+        .args(["-s", "/bin", bin_link])
         .output(&env)?
         .assert_success()?;
 
@@ -92,7 +94,7 @@ fn shell_is_partially_canonicalized() -> Result<()> {
     assert!(!output.status().success());
 
     let output = Command::new("env")
-        .arg(format!("SHELL={bin_link}/bash"))
+        .arg(format!("SHELL={bin_link}/sh"))
         .args(["sudo", "-s", "true"])
         .output(&env)?;
 
@@ -212,7 +214,11 @@ fn shell_is_not_invoked_as_a_login_shell() -> Result<()> {
 
     // man bash says "A login shell is one whose first character of argument zero is a -"
     assert_ne!("-sh", actual);
-    assert_eq!("/bin/sh", actual);
+
+    // sudo-rs and ogsudo will show paths differently; and the location of sh is different on
+    // modern Debian (/usr/bin/sh, symlinked as /bin/sh) and modern FreeBSD (/bin/sh); all we need
+    // to check is that it is executed without a dash in front.
+    assert_contains!(actual, "/bin/sh");
 
     Ok(())
 }
@@ -234,7 +240,7 @@ fn shell_does_not_exist() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(stderr, "'/root/my-shell': No such file or directory");
+        assert_contains!(stderr, "'/root/my-shell': command not found");
     }
 
     Ok(())
