@@ -132,10 +132,18 @@ fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Re
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
-        assert_contains!(
-            stderr,
-            format!("[sudo] password for {USERNAME}: \nsudo: no password was provided\nsudo: a password is required")
-        );
+        if cfg!(not(target_os = "linux")) {
+            assert_contains!(
+                stderr,
+                "Password: \nsudo: no password was provided\nsudo: a password is required"
+                    .to_owned()
+            );
+        } else {
+            assert_contains!(
+                stderr,
+                format!("[sudo] password for {USERNAME}: \nsudo: no password was provided\nsudo: a password is required")
+            );
+        }
     } else {
         assert_contains!(
             stderr,

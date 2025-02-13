@@ -288,10 +288,12 @@ fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Res
 
 #[test]
 fn runas_specifiers_distribute() -> Result<()> {
-    let env = Env(format!("ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: /tmp/foo, ALL"))
-        .user(USERNAME)
-        .group(GROUPNAME)
-        .build()?;
+    let env = Env(format!(
+        "ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: /tmp/foo, ALL"
+    ))
+    .user(USERNAME)
+    .group(GROUPNAME)
+    .build()?;
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])

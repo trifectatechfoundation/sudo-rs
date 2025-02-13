@@ -5,7 +5,14 @@ use crate::{Result, SUDOERS_NO_LECTURE, USERNAME};
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
-            filters => vec![(r"[[:xdigit:]]{12}", "[host]")],
+            filters => if cfg!(target_os = "linux") {
+                vec![(r"[[:xdigit:]]{12}", "[host]")]
+            } else {
+                vec![
+                    (r"[[:xdigit:]]{12}", "[host]"),
+                    ("Password:", "[sudo] password for ferris: "),
+                ]
+            },
             prepend_module_to_snapshot => false,
             snapshot_path => "../snapshots/passwd",
         }, {

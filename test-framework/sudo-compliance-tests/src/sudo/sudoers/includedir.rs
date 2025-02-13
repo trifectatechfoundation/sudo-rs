@@ -158,7 +158,11 @@ fn ignores_and_warns_about_file_with_bad_ownership() -> Result<()> {
 
     assert!(output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("{ETC_DIR}/sudoers.d/a is owned by uid 1000, should be 0")
+        if cfg!(target_os = "freebsd") {
+            format!("{ETC_DIR}/sudoers.d/a is owned by uid 1001, should be 0")
+        } else {
+            format!("{ETC_DIR}/sudoers.d/a is owned by uid 1000, should be 0")
+        }
     } else {
         format!("{ETC_DIR}/sudoers.d/a must be owned by root")
     };
@@ -372,7 +376,11 @@ fn ignores_directory_with_bad_ownership() -> Result<()> {
     assert_eq!(Some(1), output.status().code());
     let diagnostics = if sudo_test::is_original_sudo() {
         [
-            format!("sudo: {ETC_DIR}/sudoers2.d is owned by uid 1000, should be 0"),
+            if cfg!(target_os = "freebsd") {
+                format!("sudo: {ETC_DIR}/sudoers2.d is owned by uid 1001, should be 0")
+            } else {
+                format!("sudo: {ETC_DIR}/sudoers2.d is owned by uid 1000, should be 0")
+            },
             "root is not in the sudoers file".to_owned(),
         ]
     } else {

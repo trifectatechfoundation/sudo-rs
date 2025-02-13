@@ -218,6 +218,10 @@ fn does_not_panic_on_io_errors_cli_error() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "FreeBSD uses a binary database as canonical source of users"
+)]
 fn long_username() -> Result<()> {
     // `useradd` limits usernames to 32 characters
     // directly write to `/etc/passwd` to work around this limitation
@@ -241,6 +245,10 @@ fn long_username() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "FreeBSD uses a binary database as canonical source of users"
+)]
 fn missing_primary_group() -> Result<()> {
     let username = "user";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;

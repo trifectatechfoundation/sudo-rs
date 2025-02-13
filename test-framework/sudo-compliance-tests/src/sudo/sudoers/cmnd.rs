@@ -1,14 +1,17 @@
 //! Test the Cmnd_Spec component of the user specification: <user> ALL=(ALL:ALL) <cmnd_spec>
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env, TextFile, BIN_LS, BIN_TRUE};
+use sudo_test::{Command, Env, TextFile, BIN_LS, BIN_TRUE, ETC_SUDOERS};
 
 use crate::{Result, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
         insta::with_settings!({
-            filters => vec![(r"[[:xdigit:]]{12}", "[host]")],
+            filters => vec![
+                (r"[[:xdigit:]]{12}", "[host]"),
+                (ETC_SUDOERS, "/etc/sudoers"),
+            ],
             prepend_module_to_snapshot => false,
             snapshot_path => "../../snapshots/sudoers/cmnd",
         }, {

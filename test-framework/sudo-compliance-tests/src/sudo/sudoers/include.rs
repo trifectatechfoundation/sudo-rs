@@ -211,7 +211,11 @@ fn ownership_check() -> Result<()> {
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
     let diagnostic = if sudo_test::is_original_sudo() {
-        "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
+        if cfg!(target_os = "freebsd") {
+            "sudo: /etc/sudoers2 is owned by uid 1001, should be 0"
+        } else {
+            "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
+        }
     } else {
         "/etc/sudoers2 must be owned by root"
     };
@@ -231,7 +235,11 @@ fn ownership_check_not_fatal() -> Result<()> {
 
     assert!(output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
-        "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
+        if cfg!(target_os = "freebsd") {
+            "sudo: /etc/sudoers2 is owned by uid 1001, should be 0"
+        } else {
+            "sudo: /etc/sudoers2 is owned by uid 1000, should be 0"
+        }
     } else {
         "/etc/sudoers2 must be owned by root"
     };

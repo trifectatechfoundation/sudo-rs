@@ -62,8 +62,10 @@ impl Container {
         docker_run.args(["run", "--detach"]);
         // Disable network access for the containers. This removes the overhead
         // of setting up a new network namespace and associated firewall rule
-        // adjustments.
-        docker_run.arg("--net=none");
+        // adjustments. On FreeBSD it seems to introduce extra overhead however.
+        if cfg!(not(target_os = "freebsd")) {
+            docker_run.arg("--net=none");
+        }
         if let Some(hostname) = hostname {
             docker_run.args(["--hostname", hostname]);
         }

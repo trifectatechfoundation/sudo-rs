@@ -53,7 +53,10 @@ impl Drop for Rsyslogd<'_> {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "Logging not really functional on FreeBSD even with og-sudo")]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "Logging not really functional on FreeBSD even with og-sudo"
+)]
 fn rsyslogd_works() -> Result<()> {
     let env = Env("").build()?;
     let rsyslog = Rsyslogd::start(&env)?;

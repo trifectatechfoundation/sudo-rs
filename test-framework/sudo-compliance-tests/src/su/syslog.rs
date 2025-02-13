@@ -9,7 +9,10 @@ fn wait_until_rsyslogd_starts_up() {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "Logging not really functional on FreeBSD even with og-sudo")]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "Logging not really functional on FreeBSD even with og-sudo"
+)]
 fn logs_every_session() -> Result<()> {
     let invoking_user = USERNAME;
     let invoking_userid = 1000;
@@ -57,7 +60,10 @@ fn logs_every_session() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "Logging not really functional on FreeBSD even with og-sudo")]
+#[cfg_attr(
+    target_os = "freebsd",
+    ignore = "Logging not really functional on FreeBSD even with og-sudo"
+)]
 fn logs_every_failed_authentication_attempt() -> Result<()> {
     let invoking_user = USERNAME;
     let invoking_userid = 1000;
