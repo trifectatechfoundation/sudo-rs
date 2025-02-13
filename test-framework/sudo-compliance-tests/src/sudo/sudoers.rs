@@ -15,6 +15,7 @@ mod includedir;
 mod run_as;
 mod runas_alias;
 mod secure_path;
+mod specific_defaults;
 mod timestamp_timeout;
 mod user_list;
 
