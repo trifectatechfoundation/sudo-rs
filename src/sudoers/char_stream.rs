@@ -15,8 +15,9 @@ impl<'a> CharStream<'a> {
 }
 
 impl CharStream<'_> {
-    pub fn advance(&mut self) {
-        match self.iter.next() {
+    pub fn next_if(&mut self, f: impl FnOnce(char) -> bool) -> Option<char> {
+        let item = self.iter.next_if(|&c| f(c));
+        match item {
             Some('\n') => {
                 self.line += 1;
                 self.col = 1;
@@ -24,6 +25,15 @@ impl CharStream<'_> {
             Some(_) => self.col += 1,
             _ => {}
         }
+        item
+    }
+
+    pub fn eat_char(&mut self, expect_char: char) -> bool {
+        self.next_if(|c| c == expect_char).is_some()
+    }
+
+    pub fn skip_to_newline(&mut self) {
+        while self.next_if(|c| c != '\n').is_some() {}
     }
 
     pub fn peek(&mut self) -> Option<char> {
@@ -43,12 +53,12 @@ mod test {
     fn test_iter() {
         let mut stream = CharStream::new("12\n3\n".chars());
         assert_eq!(stream.peek(), Some('1'));
-        stream.advance();
+        assert!(stream.eat_char('1'));
         assert_eq!(stream.peek(), Some('2'));
-        stream.advance();
-        stream.advance();
+        assert!(stream.eat_char('2'));
+        assert!(stream.eat_char('\n'));
         assert_eq!(stream.peek(), Some('3'));
-        stream.advance();
+        assert!(stream.eat_char('3'));
         assert_eq!(stream.get_pos(), (2, 2));
     }
 }
