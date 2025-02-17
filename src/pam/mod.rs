@@ -54,7 +54,6 @@ impl PamContext {
         let converser = CLIConverser {
             name: converser_name.to_owned(),
             use_stdin,
-            no_interact,
             password_feedback,
         };
 
@@ -68,6 +67,7 @@ impl PamContext {
         // this will be de-allocated explicitly in this type's drop method
         let data_ptr = Box::into_raw(Box::new(ConverserData {
             converser,
+            no_interact,
             panicked: false,
         }));
 
