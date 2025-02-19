@@ -12,9 +12,9 @@ session    required   pam_limits.so
 
 #[test]
 #[cfg_attr(
-     target_os = "freebsd",
-     ignore = "FreeBSD doesn't support /etc/security"
- )]
+    target_os = "freebsd",
+    ignore = "FreeBSD doesn't support /etc/security"
+)]
 fn etc_security_limits_rules_apply_according_to_the_target_user() -> Result<()> {
     let target_user = "ghost";
     let original = "2048";
