@@ -67,6 +67,7 @@ impl PamContext {
         // this will be de-allocated explicitly in this type's drop method
         let data_ptr = Box::into_raw(Box::new(ConverserData {
             converser,
+            converser_name: converser_name.to_owned(),
             no_interact,
             panicked: false,
         }));

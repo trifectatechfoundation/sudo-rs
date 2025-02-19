@@ -72,7 +72,13 @@ fn handle_message<C: Converser>(
             if app_data.no_interact {
                 return Err(PamError::InteractionRequired);
             }
-            app_data.converser.handle_hidden_prompt(msg).map(Some)
+            app_data
+                .converser
+                .handle_hidden_prompt(&format!(
+                    "[{}: authenticate] {msg}",
+                    app_data.converser_name
+                ))
+                .map(Some)
         }
         ErrorMessage => app_data.converser.handle_error(msg).map(|()| None),
         TextInfo => app_data.converser.handle_info(msg).map(|()| None),
@@ -108,7 +114,7 @@ impl Converser for CLIConverser {
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let mut tty = self.open()?;
-        tty.prompt(&format!("[{}: authenticate] {msg}", self.name))?;
+        tty.prompt(msg)?;
         if self.password_feedback {
             Ok(tty.read_password_with_feedback()?)
         } else {
@@ -130,6 +136,7 @@ impl Converser for CLIConverser {
 /// Helper struct that contains the converser as well as panic boolean
 pub(super) struct ConverserData<C> {
     pub(super) converser: C,
+    pub(super) converser_name: String,
     pub(super) no_interact: bool,
     pub(super) panicked: bool,
 }
@@ -247,9 +254,7 @@ mod test {
         }
 
         fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-            Ok(PamBuffer::new(
-                format!("{self}s secret is {msg}").into_bytes(),
-            ))
+            Ok(PamBuffer::new(msg.as_bytes().to_vec()))
         }
 
         fn handle_error(&self, msg: &str) -> PamResult<()> {
@@ -354,6 +359,7 @@ mod test {
     fn miri_pam_gpt() {
         let mut hello = Box::pin(ConverserData {
             converser: "tux".to_string(),
+            converser_name: "tux".to_string(),
             no_interact: false,
             panicked: false,
         });
@@ -369,7 +375,7 @@ mod test {
 
         assert_eq!(
             dummy_pam(&[msg(PromptEchoOff, "fish")], pam_conv),
-            vec![Some("tuxs secret is fish".to_string())]
+            vec![Some("[tux: authenticate] fish".to_string())]
         );
 
         assert_eq!(dummy_pam(&[msg(TextInfo, "mars")], pam_conv), vec![None]);
@@ -384,7 +390,7 @@ mod test {
                 pam_conv
             ),
             vec![
-                Some("tuxs secret is banging the rocks together".to_string()),
+                Some("[tux: authenticate] banging the rocks together".to_string()),
                 None,
                 Some("tux says ".to_string()),
             ]
