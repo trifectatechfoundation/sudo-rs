@@ -468,14 +468,14 @@ fn default_specific_test() {
         analyze(
             Path::new("/etc/fakesudoers"),
             sudoer![
+                "Defaults!RR use_pty",
                 "Defaults env_editor",
                 "Defaults@host !env_editor",
-                "Defaults:user use_pty",
                 "Defaults !use_pty",
-                "Defaults>runas secure_path=\"/bin\"",
+                "Defaults:user use_pty",
                 "Defaults !secure_path",
+                "Defaults>runas secure_path=\"/bin\"",
                 "Defaults!/bin/foo !env_keep",
-                "Defaults!RR use_pty",
                 "Cmnd_Alias RR=/usr/bin/rr twice"
             ],
         )
