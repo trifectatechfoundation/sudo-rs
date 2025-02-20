@@ -253,3 +253,55 @@ fn securepath_can_be_per_command() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn order_is_linear() -> Result<()> {
+    for (sudoers, host_dominates) in [
+        (
+            format!(
+                "
+        Defaults@container env_keep = BAR
+        Defaults:{USERNAME} env_keep = FOO
+        ALL ALL=NOPASSWD: ALL
+        "
+            ),
+            false,
+        ),
+        (
+            format!(
+                "
+        Defaults:{USERNAME} env_keep = FOO
+        Defaults@container env_keep = BAR
+        ALL ALL=NOPASSWD: ALL
+        "
+            ),
+            true,
+        ),
+    ] {
+        let env = Env(sudoers)
+            .user(User(USERNAME).password("passw0rd"))
+            .hostname("container")
+            .build()?;
+
+        for user in ["root", USERNAME] {
+            let output = Command::new("env")
+                .args(["FOO=foo", "BAR=bar"])
+                .args(["sudo", "env"])
+                .as_user(user)
+                .output(&env)?;
+            assert!(output.status().success());
+
+            let stdout = output.stdout()?;
+            let env_vars = helpers::parse_env_output(&stdout)?;
+            if user != "root" && !host_dominates {
+                assert_eq!(env_vars["FOO"], "foo");
+                assert!(!env_vars.contains_key("BAR"));
+            } else {
+                assert_eq!(env_vars["BAR"], "bar");
+                assert!(!env_vars.contains_key("FOO"));
+            }
+        }
+    }
+
+    Ok(())
+}
