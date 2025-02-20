@@ -255,11 +255,12 @@ fn securepath_can_be_per_command() -> Result<()> {
 }
 
 #[test]
-fn order_is_linear() -> Result<()> {
+fn order_is_mostly_linear() -> Result<()> {
     for (sudoers, host_dominates) in [
         (
             format!(
                 "
+        Defaults>root env_keep = \"BAR FOO\"
         Defaults@container env_keep = BAR
         Defaults:{USERNAME} env_keep = FOO
         ALL ALL=NOPASSWD: ALL
@@ -270,6 +271,7 @@ fn order_is_linear() -> Result<()> {
         (
             format!(
                 "
+        Defaults>root env_keep = \"BAR FOO\"
         Defaults:{USERNAME} env_keep = FOO
         Defaults@container env_keep = BAR
         ALL ALL=NOPASSWD: ALL
@@ -302,6 +304,61 @@ fn order_is_linear() -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+#[test]
+fn generic_defaults_are_not_overridden() -> Result<()> {
+    let env = Env(
+        "
+        Defaults@container !env_keep
+        Defaults env_keep = \"BAR FOO\"
+        ALL ALL=NOPASSWD: ALL
+        "
+    )
+    .hostname("container")
+    .build()?;
+
+    let output = Command::new("env")
+        .args(["FOO=foo", "BAR=bar"])
+        .args(["sudo", "env"])
+        .output(&env)?;
+    assert!(output.status().success());
+
+    let stdout = output.stdout()?;
+    let env_vars = helpers::parse_env_output(&stdout)?;
+    assert_eq!(env_vars["FOO"], "foo");
+    assert_eq!(env_vars["BAR"], "bar");
+
+    Ok(())
+}
+
+#[test]
+fn command_defaults_override_others() -> Result<()> {
+    let env = Env(format!(
+        "
+        Defaults!/bin/env env_keep = \"BAR FOO\"
+        Defaults:{USERNAME} env_keep = FOO
+        Defaults@container env_keep = BAR
+        ALL ALL=NOPASSWD: ALL
+        "
+    ))
+    .user(User(USERNAME).password("passw0rd"))
+    .hostname("container")
+    .build()?;
+
+    let output = Command::new("env")
+        .args(["FOO=foo", "BAR=bar"])
+        .args(["sudo", "env"])
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(output.status().success());
+
+    let stdout = output.stdout()?;
+    let env_vars = helpers::parse_env_output(&stdout)?;
+    assert_eq!(env_vars["FOO"], "foo");
+    assert_eq!(env_vars["BAR"], "bar");
 
     Ok(())
 }
