@@ -100,6 +100,13 @@ fn shell_is_partially_canonicalized() -> Result<()> {
 
     assert!(output.status().success());
 
+    let output = Command::new("env")
+        .arg("SHELL=/bin/ls")
+        .args(["sudo", "-s", "true"])
+        .output(&env)?;
+
+    assert!(!output.status().success());
+
     Ok(())
 }
 
