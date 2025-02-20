@@ -243,7 +243,13 @@ impl Sudoers {
         user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd))
     }
 
-    pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
+    pub(crate) fn solve_editor_path<User: UnixUser + PartialEq<User>>(
+        mut self,
+        on_host: &system::Hostname,
+        am_user: &User,
+        target_user: &User,
+    ) -> Option<PathBuf> {
+        self.specify_host_user_runas(on_host, am_user, target_user);
         if self.settings.env_editor() {
             for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
                 if let Some(var) = std::env::var_os(key) {

@@ -12,13 +12,14 @@ use std::{
 };
 
 use crate::{
+    common::resolve::CurrentUser,
     sudo::{candidate_sudoers_file, diagnostic},
     sudoers::Sudoers,
     system::{
         can_execute,
         file::{create_temporary_dir, Chown, FileLock},
         signal::{consts::*, register_handlers, SignalStream},
-        User,
+        Hostname, User,
     },
 };
 
@@ -210,8 +211,22 @@ fn edit_sudoers_file(
     mut tmp_file: File,
     tmp_path: &Path,
 ) -> io::Result<()> {
+    let mut stderr = io::stderr();
+
     let mut editor_path = None;
     let mut sudoers_contents = Vec::new();
+
+    // Since visudo is meant to run as root, resolve shouldn't fail
+    let current_user: User = match CurrentUser::resolve() {
+        Ok(user) => user.into(),
+        Err(err) => {
+            writeln!(stderr, "visudo: cannot resolve : {err}")?;
+            return Ok(());
+        }
+    };
+
+    let host_name = Hostname::resolve();
+
     if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
         sudoers_file.read_to_end(&mut sudoers_contents)?;
@@ -223,7 +238,7 @@ fn edit_sudoers_file(
         let (sudoers, errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
 
         if errors.is_empty() {
-            editor_path = sudoers.solve_editor_path();
+            editor_path = sudoers.solve_editor_path(&host_name, &current_user, &current_user);
         }
     }
 
@@ -232,7 +247,6 @@ fn edit_sudoers_file(
         None => editor_path_fallback()?,
     };
 
-    let mut stderr = io::stderr();
     loop {
         Command::new(&editor_path)
             .arg("--")
