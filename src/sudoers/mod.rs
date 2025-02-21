@@ -40,7 +40,7 @@ pub struct Error {
 ///
 /// I.e. the Setting modifications in the second part of the tuple only apply for
 /// items explicitly matched by the first part of the tuple.
-type Customiser<T> = (SpecList<T>, Vec<defaults::SettingsModifier>);
+type Customiser<Scope> = (Scope, Vec<defaults::SettingsModifier>);
 
 #[derive(Default)]
 pub struct Sudoers {
@@ -99,38 +99,48 @@ impl Sudoers {
         requesting_user: &User,
         target_user: &User,
     ) {
-        let host_customisers = std::mem::take(&mut self.customisers.host);
-        let user_customisers = std::mem::take(&mut self.customisers.user);
-        specialise_setting(
-            &mut self.settings,
-            host_customisers,
-            &match_token(hostname),
-            &self.aliases.host,
-        );
-        specialise_setting(
-            &mut self.settings,
-            user_customisers,
-            &match_user(requesting_user),
-            &self.aliases.user,
-        );
+        let customisers = std::mem::take(&mut self.customisers.non_cmnd);
 
-        let runas_customisers = std::mem::take(&mut self.customisers.runas);
-        specialise_setting(
-            &mut self.settings,
-            runas_customisers,
-            &match_user(target_user),
-            &self.aliases.runas,
-        );
+        let host_matcher = &match_token(hostname);
+        let user_matcher = &match_user(requesting_user);
+        let runas_matcher = &match_user(target_user);
+
+        let host_aliases = get_aliases(&self.aliases.host, host_matcher);
+        let user_aliases = get_aliases(&self.aliases.user, user_matcher);
+        let runas_aliases = get_aliases(&self.aliases.runas, runas_matcher);
+
+        let match_scope = |scope| match scope {
+            ConfigScope::Generic => true,
+            ConfigScope::Host(list) => find_item(&list, host_matcher, &host_aliases).is_some(),
+            ConfigScope::User(list) => find_item(&list, user_matcher, &user_aliases).is_some(),
+            ConfigScope::RunAs(list) => find_item(&list, runas_matcher, &runas_aliases).is_some(),
+            ConfigScope::Command(_list) => {
+                unreachable!("command-specific defaults are filtered out")
+            }
+        };
+
+        for (scope, modifiers) in customisers {
+            if match_scope(scope) {
+                for modifier in modifiers {
+                    modifier(&mut self.settings);
+                }
+            }
+        }
     }
 
     fn specify_command(&mut self, command: &Path, arguments: &[String]) {
         let customisers = std::mem::take(&mut self.customisers.cmnd);
-        specialise_setting(
-            &mut self.settings,
-            customisers,
-            &match_command((command, arguments)),
-            &self.aliases.cmnd,
-        );
+
+        let cmnd_matcher = &match_command((command, arguments));
+        let cmnd_aliases = get_aliases(&self.aliases.cmnd, cmnd_matcher);
+
+        for (scope, modifiers) in customisers {
+            if find_item(&scope, cmnd_matcher, &cmnd_aliases).is_some() {
+                for modifier in modifiers {
+                    modifier(&mut self.settings);
+                }
+            }
+        }
     }
 
     pub fn check<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
@@ -233,7 +243,13 @@ impl Sudoers {
         user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd))
     }
 
-    pub(crate) fn solve_editor_path(&self) -> Option<PathBuf> {
+    pub(crate) fn solve_editor_path<User: UnixUser + PartialEq<User>>(
+        mut self,
+        on_host: &system::Hostname,
+        am_user: &User,
+        target_user: &User,
+    ) -> Option<PathBuf> {
+        self.specify_host_user_runas(on_host, am_user, target_user);
         if self.settings.env_editor() {
             for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
                 if let Some(var) = std::env::var_os(key) {
@@ -328,10 +344,8 @@ struct AliasTable {
 
 #[derive(Default)]
 struct CustomiserTable {
-    user: Vec<Customiser<UserSpecifier>>,
-    host: Vec<Customiser<Hostname>>,
-    cmnd: Vec<Customiser<Command>>,
-    runas: Vec<Customiser<UserSpecifier>>,
+    non_cmnd: Vec<Customiser<ConfigScope>>,
+    cmnd: Vec<Customiser<SpecList<Command>>>,
 }
 
 /// A vector with a list defining the order in which it needs to be processed
@@ -488,23 +502,6 @@ impl<'a> WithInfo for (Tag, &'a Spec<Command>) {
     }
     fn into_info(self) -> Tag {
         self.0
-    }
-}
-
-/// Apply a specialization to the Settings object, used for "specific" Defaults
-fn specialise_setting<T>(
-    settings: &mut Settings,
-    customisers: impl IntoIterator<Item = Customiser<T>>,
-    matcher: &impl Fn(&T) -> bool,
-    alias_defs: &VecOrd<Def<T>>,
-) {
-    let aliases = get_aliases(alias_defs, matcher);
-    for (list, modifiers) in customisers {
-        if find_item(&list, matcher, &aliases).is_some() {
-            for modifier in modifiers {
-                modifier(settings);
-            }
-        }
     }
 }
 
@@ -669,23 +666,19 @@ fn analyze(
                     Sudo::Decl(RunasAlias(mut def)) => cfg.aliases.runas.1.append(&mut def),
                     Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
 
-                    Sudo::Decl(Defaults(params, scope)) => match scope {
-                        ConfigScope::Generic => {
-                            for modifier in params {
-                                modifier(&mut cfg.settings)
-                            }
+                    Sudo::Decl(Defaults(params, scope)) => {
+                        if let ConfigScope::Command(specs) = scope {
+                            cfg.customisers.cmnd.push((
+                                specs
+                                    .into_iter()
+                                    .map(|spec| spec.map(|simple_command| (simple_command, None)))
+                                    .collect(),
+                                params,
+                            ));
+                        } else {
+                            cfg.customisers.non_cmnd.push((scope, params));
                         }
-                        ConfigScope::Host(specs) => cfg.customisers.host.push((specs, params)),
-                        ConfigScope::User(specs) => cfg.customisers.user.push((specs, params)),
-                        ConfigScope::RunAs(specs) => cfg.customisers.runas.push((specs, params)),
-                        ConfigScope::Command(specs) => cfg.customisers.cmnd.push((
-                            specs
-                                .into_iter()
-                                .map(|spec| spec.map(|simple_command| (simple_command, None)))
-                                .collect(),
-                            params,
-                        )),
-                    },
+                    }
 
                     Sudo::Include(path, span) => include(
                         cfg,
