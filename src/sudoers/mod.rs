@@ -40,7 +40,7 @@ pub struct Error {
 ///
 /// I.e. the Setting modifications in the second part of the tuple only apply for
 /// items explicitly matched by the first part of the tuple.
-type Customiser<Scope = ConfigScope> = (Scope, Vec<defaults::SettingsModifier>);
+type Customiser<Scope> = (Scope, Vec<defaults::SettingsModifier>);
 
 #[derive(Default)]
 pub struct Sudoers {
@@ -344,7 +344,7 @@ struct AliasTable {
 
 #[derive(Default)]
 struct CustomiserTable {
-    non_cmnd: Vec<Customiser>,
+    non_cmnd: Vec<Customiser<ConfigScope>>,
     cmnd: Vec<Customiser<SpecList<Command>>>,
 }
 
