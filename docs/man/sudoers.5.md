@@ -16,7 +16,7 @@ The format used by sudo-rs is a subset of the one used by the sudo-project as ma
 
 The sudoers security policy requires that most users authenticate themselves before they can use sudo.  A password is not required if the invoking user is root, if the target user is the same as the invoking user, or if the policy has disabled authentication for the user or command.  Unlike `su`, when `sudo-rs` requires authentication, it validates the invoking user's credentials, not the target user's (or root's) credentials.  This can be changed via the *rootpw* flag, described later.
 
-`sudo-rs` uses per-user time stamp files for credential caching.  Once a user has been authenticated, a record is written containing the user-ID that was used to authenticate, the terminal session ID, the start time of the session leader (or parent process) and a time stamp (using a monotonic clock if one is available).  The user may then use sudo without a password for a short period of time (15 minutes unless overridden by the timestamp_timeout option).  By default, `sudo-rs` uses a separate record for each terminal, which means that a user's login sessions are authenticated separately.  The timestamp_type option can be used to select the type of time stamp record sudoers will use.
+`sudo-rs` uses per-user timestamp files for credential caching.  Once a user has been authenticated, a record is written containing the user-ID that was used to authenticate, the terminal session ID, the start time of the session leader (or parent process) and a timestamp (using a monotonic clock if one is available).  The user may then use sudo without a password for a short period of time (15 minutes unless overridden by the timestamp_timeout option).  By default, `sudo-rs` uses a separate record for each terminal, which means that a user's login sessions are authenticated separately.  The timestamp_type option can be used to select the type of timestamp record sudoers will use.
 
 ## Logging
 
@@ -368,7 +368,7 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 * timestamp_timeout
 
-  Number of minutes that can elapse before sudo will ask for a passwd again.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 15.  Set this to 0 to always prompt for a password.  If set to a value less than 0 the user's time stamp will not expire until the system is rebooted.  This can be used to allow users to create or delete their own time stamps via “sudo -v” and “sudo -k” respectively.
+  Number of minutes that can elapse before sudo will ask for a passwd again.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 15.  Set this to 0 to always prompt for a password.  If set to a value less than 0 the user's timestamp will not expire until the system is rebooted.  This can be used to allow users to create or delete their own timestamps via “sudo -v” and “sudo -k” respectively.
 
 ## Strings that can be used in a boolean context:
 
@@ -408,7 +408,7 @@ sudo-rs logs events via syslog(3).
 
      /etc/sudoers              List of who can run what (sudo-compatible)
 
-     /run/sudo/ts              Directory containing time stamps for the sudoers security policy
+     /run/sudo/ts              Directory containing timestamps for the sudoers security policy
 
 ## SECURITY NOTES
 
@@ -439,13 +439,13 @@ Once sudo executes a program, that program is free to do whatever it pleases, in
 
 sudo-rs currently doesn't offer Todd Miller's sudo's protection mechanisms; i.e. be very careful that when a user is not supposed to receive shell access, that the commands that they have access to does not allow escaping to the shell.
 
-### Time stamp file checks
+### Timestamp file checks
 
-sudo-rs will check the ownership of its time stamp directory (/run/sudo/ts by default) and ignore the directory's contents if it is not owned by root or if it is writable by a user other than root.
+sudo-rs will check the ownership of its timestamp directory (/run/sudo/ts by default) and ignore the directory's contents if it is not owned by root or if it is writable by a user other than root.
 
-While the time stamp directory should be cleared at reboot time, to avoid potential problems, sudo-rs will ignore time stamp files that date from before the machine booted on systems where the boot time is available.
+While the timestamp directory should be cleared at reboot time, to avoid potential problems, sudo-rs will ignore timestamp files that date from before the machine booted on systems where the boot time is available.
 
-Some systems with graphical desktop environments allow unprivileged users to change the system clock.  Since sudo-rs relies on the system clock for time stamp validation, it may be possible on such systems for a user to run sudo for longer than *timestamp_timeout* by setting the clock back.  To combat this, `sudo-rs` uses a monotonic clock (which never moves backwards) for its time stamps if the system supports it.  sudo-rs will not honor time stamps set far in the future.
+Some systems with graphical desktop environments allow unprivileged users to change the system clock.  Since sudo-rs relies on the system clock for timestamp validation, it may be possible on such systems for a user to run sudo for longer than *timestamp_timeout* by setting the clock back.  To combat this, `sudo-rs` uses a monotonic clock (which never moves backwards) for its timestamps if the system supports it.  sudo-rs will not honor timestamps set far in the future.
 
 ## SEE ALSO
 
