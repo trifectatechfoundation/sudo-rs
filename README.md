@@ -20,6 +20,22 @@ or newer is necessary to run sudo-rs.
 
 The recommended way to start using `sudo-rs` is via the package manager of your Linux distribution.
 
+### Debian/Ubuntu
+If you are running Debian 13 (trixie) or later, or Ubuntu 24.04 (Noble Numbat) or later, you can use:
+```sh
+apt-get install sudo-rs
+```
+This will offer the functionality using the commands `su-rs` and `sudo-rs`. If you want to invoke sudo-rs
+via the usual commands `sudo` and `su` instead, prepend `/usr/lib/cargo/bin` to your current `$PATH` variable.
+
+### Fedora
+
+If you are running Fedora 38 or later, you can use:
+```sh
+dnf install sudo-rs
+```
+This will offer the functionality using the commands `su-rs` and `sudo-rs`.
+
 ### Arch Linux
 
 Arch Linux can be installed via AUR [sudo-rs](https://aur.archlinux.org/packages/sudo-rs) or [sudo-rs-git](https://aur.archlinux.org/packages/sudo-rs-git).
@@ -30,28 +46,13 @@ Note: [AUR usage help](https://wiki.archlinux.org/title/AUR_helpers)
 yay -Syu sudo-rs
 ```
 
-### Debian/Ubuntu
-If you are running Debian 13 (trixie) or later, or Ubuntu 24.04 (Noble Numbat) or later, you can use:
-```sh
-sudo apt-get install sudo-rs
-```
-This will offer the functionality using the commands `su-rs` and `sudo-rs`. If you want to invoke sudo-rs
-via the usual commands `sudo` and `su` instead, prepend `/usr/lib/cargo/bin` to your current `$PATH` variable.
-
-### Fedora
-
-If you are running Fedora 38 or later, you can use:
-```sh
-sudo dnf install sudo-rs
-```
-This will offer the functionality using the commands `su-rs` and `sudo-rs`.
-
 ### Installing our pre-compiled x86-64 binaries
 
 You can also switch to sudo-rs manually by using our pre-compiled tarballs.
 We currently only offer these for x86-64 systems.
 
-We recommend installing sudo-rs and su-s in your `/usr/local` hierarchy using the commands:
+We recommend installing sudo-rs and su-s in your `/usr/local` hierarchy so it can co-exist with
+your existing sudo installation. You can achieve this using the commands:
 ```sh
 sudo tar -C /usr/local -xvf sudo-VERSION.tar.gz
 ```
@@ -59,7 +60,31 @@ and for su-rs:
 ```sh
 sudo tar -C /usr/local -xvf su-VERSION.tar.gz
 ```
-This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo` and `su`.
+This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo` and `su`; it
+will also install our version of `visudo` in that location.
+
+Of course, if you **don't** have Todd Miller's `sudo` installed, you also have to make sure that:
+
+* You manually create a `/etc/sudoers` or `/etc/sudoers-rs` file, this could be as simple as:
+
+      Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+      %sudo ALL=(ALL:ALL) ALL
+
+  `sudo-rs` will try to process `/etc/sudoers-rs` exists if it exists, otherwise it will use `/etc/sudoers`.
+  For an explanation of the sudoers syntax you can look at the
+  [sudoers man page](https://www.sudo.ws/docs/man/sudoers.man/).
+
+* (Strongly recommended) You create `/etc/pam.d/sudo` and `/etc/pam.d/sudo-i` files that contain:
+
+      session required pam_limits.so
+
+      @include common-auth
+      @include common-account
+      @include common-session-noninteractive
+
+  If you don't do this, either a "fallback" PAM policy will be used or `sudo-rs` will simply refuse to run
+  since it cannot initialize PAM. On FreeBSD, you may want to put these files in `/usr/local/etc/pam.d` instead.
 
 ### Building from source
 
@@ -92,12 +117,8 @@ On operating systems other than Linux we also require an environment variable
 early stage of supporting non-Linux OSes. If you are unsure about how to set
 this up, then the current version of sudo is not intended for you.
 
-Sudo-rs needs the sudoers configuration file. The sudoers configuration file
-will be loaded from `/etc/sudoers-rs` if that file exists, otherwise the
-original `/etc/sudoers` location will be used. You must make sure that a valid
-sudoers configuration exists at that location. For an explanation of the
-sudoers syntax you can look at the
-[original sudo man page](https://www.sudo.ws/docs/man/sudoers.man/).
+Sudo-rs then also needs the configuration files; please follow the installation
+suggestions in the previous sction.
 
 ### Feature flags
 By default, sudo-rs will use the PAM service name `sudo`. On Debian and Fedora
@@ -132,10 +153,8 @@ Some other notable restrictions to be aware of:
 
 * Some functionality is not yet supported; in particular `sudoedit` and preventing shell
   escapes using `NOEXEC` and `NOINTERCEPT`.
-* Per-user, per-command, per-host `Defaults` sudoers entries for finer-grained control
-  are not (yet) supported.
-* Sudo-rs always uses PAM for authentication at this time, your system must be
-  set up for PAM. Sudo-rs will use the `sudo` service configuration. This also means
+* Sudo-rs always uses PAM for authentication, so your system must be set up for PAM.
+  Sudo-rs will use the `sudo` and `sudo-i` service configuration. This also means
   that resource limits, umasks, etc have to be configured via PAM and not through
   the sudoers file.
 * sudo-rs will not include the sendmail support of original sudo.
@@ -165,7 +184,7 @@ decent usage. Finally, of course, a feature should not compromise the safety of
 the whole program.
 
 Our `su` implementation is made using the building blocks we created for our
-sudo implementation.  It will be suitable replacement for the `su` distributed
+sudo implementation.  It is a suitable replacement for the `su` distributed
 by [util-linux].
 
 [util-linux]: https://github.com/util-linux/util-linux
