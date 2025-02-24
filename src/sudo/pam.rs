@@ -4,11 +4,11 @@ use crate::common::context::LaunchType;
 use crate::common::resolve::AuthUser;
 use crate::common::{error::Error, Context};
 use crate::log::{dev_info, user_warn};
-use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
+use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
 use crate::system::term::current_tty_name;
 
 pub(super) struct PamAuthenticator {
-    pam: Option<PamContext<CLIConverser>>,
+    pam: Option<PamContext>,
 }
 
 impl PamAuthenticator {
@@ -92,7 +92,7 @@ fn init_pam(
     password_feedback: bool,
     auth_user: &str,
     requesting_user: &str,
-) -> PamResult<PamContext<CLIConverser>> {
+) -> PamResult<PamContext> {
     let service_name = if is_login_shell && cfg!(feature = "pam-login") {
         "sudo-i"
     } else {
@@ -119,8 +119,8 @@ fn init_pam(
     Ok(pam)
 }
 
-fn attempt_authenticate<C: Converser>(
-    pam: &mut PamContext<C>,
+fn attempt_authenticate(
+    pam: &mut PamContext,
     non_interactive: bool,
     mut max_tries: u16,
 ) -> Result<(), Error> {
