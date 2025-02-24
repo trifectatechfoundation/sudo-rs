@@ -7,114 +7,108 @@ use crate::{
     system::{interface::UserId, User},
 };
 
-use super::Pipeline;
+use super::auth_and_update_record_file;
 
-impl Pipeline {
-    pub(in crate::sudo) fn run_list(mut self, cmd_opts: SudoListOptions) -> Result<(), Error> {
-        let verbose_list_mode = cmd_opts.list.is_verbose();
-        let other_user = cmd_opts
-            .other_user
-            .as_ref()
-            .map(|username| {
-                User::from_name(username.as_cstr())?
-                    .ok_or_else(|| Error::UserNotFound(username.clone().into()))
-            })
-            .transpose()?;
+pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> {
+    let verbose_list_mode = cmd_opts.list.is_verbose();
+    let other_user = cmd_opts
+        .other_user
+        .as_ref()
+        .map(|username| {
+            User::from_name(username.as_cstr())?
+                .ok_or_else(|| Error::UserNotFound(username.clone().into()))
+        })
+        .transpose()?;
 
-        let original_command = cmd_opts.positional_args.first().cloned();
+    let original_command = cmd_opts.positional_args.first().cloned();
 
-        let mut sudoers = super::read_sudoers()?;
+    let mut sudoers = super::read_sudoers()?;
 
-        let mut context = Context::from_list_opts(cmd_opts, &mut sudoers)?;
+    let mut context = Context::from_list_opts(cmd_opts, &mut sudoers)?;
 
-        if original_command.is_some() && !context.command.resolved {
-            return Err(Error::CommandNotFound(context.command.command));
-        }
-
-        if self
-            .auth_invoking_user(&mut context, &sudoers, &original_command, &other_user)?
-            .is_break()
-        {
-            return Ok(());
-        }
-
-        if let Some(other_user) = &other_user {
-            check_other_users_list_perms(other_user, &context, &sudoers, &original_command)?;
-        }
-
-        if let Some(original_command) = original_command {
-            check_sudo_command_perms(&original_command, &context, &other_user, &mut sudoers)?;
-        } else {
-            let invoking_user = other_user.as_ref().unwrap_or(&context.current_user);
-            println_ignore_io_error!(
-                "User {} may run the following commands on {}:",
-                invoking_user.name,
-                context.hostname
-            );
-
-            let matching_entries = sudoers.matching_entries(invoking_user, &context.hostname);
-
-            for entry in matching_entries {
-                if verbose_list_mode {
-                    let entry = entry.verbose();
-                    println_ignore_io_error!("{entry}");
-                } else {
-                    println_ignore_io_error!("{entry}");
-                }
-            }
-        }
-
-        Ok(())
+    if original_command.is_some() && !context.command.resolved {
+        return Err(Error::CommandNotFound(context.command.command));
     }
 
-    fn auth_invoking_user(
-        &mut self,
-        context: &mut Context,
-        sudoers: &Sudoers,
-        original_command: &Option<String>,
-        other_user: &Option<User>,
-    ) -> Result<ControlFlow<(), ()>, Error> {
-        let list_request = ListRequest {
-            target_user: &context.target_user,
-            target_group: &context.target_group,
-        };
-        let judgement =
-            sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
-        match judgement.authorization() {
-            Authorization::Allowed(auth, _) => {
-                self.auth_and_update_record_file(context, &auth)?;
-                Ok(ControlFlow::Continue(()))
+    if auth_invoking_user(&mut context, &sudoers, &original_command, &other_user)?.is_break() {
+        return Ok(());
+    }
+
+    if let Some(other_user) = &other_user {
+        check_other_users_list_perms(other_user, &context, &sudoers, &original_command)?;
+    }
+
+    if let Some(original_command) = original_command {
+        check_sudo_command_perms(&original_command, &context, &other_user, &mut sudoers)?;
+    } else {
+        let invoking_user = other_user.as_ref().unwrap_or(&context.current_user);
+        println_ignore_io_error!(
+            "User {} may run the following commands on {}:",
+            invoking_user.name,
+            context.hostname
+        );
+
+        let matching_entries = sudoers.matching_entries(invoking_user, &context.hostname);
+
+        for entry in matching_entries {
+            if verbose_list_mode {
+                let entry = entry.verbose();
+                println_ignore_io_error!("{entry}");
+            } else {
+                println_ignore_io_error!("{entry}");
             }
+        }
+    }
 
-            Authorization::Forbidden => {
-                if context.current_user.uid == UserId::ROOT {
-                    if original_command.is_some() {
-                        return Err(Error::Silent);
-                    }
+    Ok(())
+}
 
-                    println_ignore_io_error!(
-                        "User {} is not allowed to run sudo on {}.",
-                        other_user.as_ref().unwrap_or(&context.current_user).name,
-                        context.hostname
-                    );
+fn auth_invoking_user(
+    context: &mut Context,
+    sudoers: &Sudoers,
+    original_command: &Option<String>,
+    other_user: &Option<User>,
+) -> Result<ControlFlow<(), ()>, Error> {
+    let list_request = ListRequest {
+        target_user: &context.target_user,
+        target_group: &context.target_group,
+    };
+    let judgement =
+        sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
+    match judgement.authorization() {
+        Authorization::Allowed(auth, _) => {
+            auth_and_update_record_file(context, &auth)?;
+            Ok(ControlFlow::Continue(()))
+        }
 
-                    // this branch does not result in exit code 1 but no further information should
-                    // be printed in this case
-                    Ok(ControlFlow::Break(()))
-                } else {
-                    let command = if other_user.is_none() {
-                        "sudo".into()
-                    } else {
-                        format_list_command(original_command)
-                    };
-
-                    Err(Error::NotAllowed {
-                        username: context.current_user.name.clone(),
-                        command,
-                        hostname: context.hostname.clone(),
-                        other_user: other_user.as_ref().map(|user| &user.name).cloned(),
-                    })
+        Authorization::Forbidden => {
+            if context.current_user.uid == UserId::ROOT {
+                if original_command.is_some() {
+                    return Err(Error::Silent);
                 }
+
+                println_ignore_io_error!(
+                    "User {} is not allowed to run sudo on {}.",
+                    other_user.as_ref().unwrap_or(&context.current_user).name,
+                    context.hostname
+                );
+
+                // this branch does not result in exit code 1 but no further information should
+                // be printed in this case
+                Ok(ControlFlow::Break(()))
+            } else {
+                let command = if other_user.is_none() {
+                    "sudo".into()
+                } else {
+                    format_list_command(original_command)
+                };
+
+                Err(Error::NotAllowed {
+                    username: context.current_user.name.clone(),
+                    command,
+                    hostname: context.hostname.clone(),
+                    other_user: other_user.as_ref().map(|user| &user.name).cloned(),
+                })
             }
         }
     }

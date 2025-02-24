@@ -21,7 +21,7 @@ use crate::system::{escape_os_str_lossy, Process};
 
 mod list;
 
-pub struct Pipeline {}
+pub(super) use list::run_list;
 
 fn read_sudoers() -> Result<Sudoers, Error> {
     let sudoers_path = super::candidate_sudoers_file();
@@ -55,182 +55,178 @@ fn judge(mut policy: Sudoers, context: &Context) -> Result<Judgement, Error> {
     ))
 }
 
-impl Pipeline {
-    pub fn run(mut self, mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
-        let mut policy = read_sudoers()?;
+pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
+    let mut policy = read_sudoers()?;
 
-        let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
+    let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
 
-        if !cmd_opts.preserve_env.is_nothing() {
-            eprintln_ignore_io_error!(
-                "warning: `--preserve-env` has not yet been implemented and will be ignored"
-            )
+    if !cmd_opts.preserve_env.is_nothing() {
+        eprintln_ignore_io_error!(
+            "warning: `--preserve-env` has not yet been implemented and will be ignored"
+        )
+    }
+
+    let mut context = Context::from_run_opts(cmd_opts, &mut policy)?;
+
+    let policy = judge(policy, &context)?;
+
+    let Authorization::Allowed(auth, controls) = policy.authorization() else {
+        return Err(Error::Authorization(context.current_user.name.to_string()));
+    };
+
+    apply_policy_to_context(&mut context, &auth, &controls)?;
+    let mut pam_context = auth_and_update_record_file(&mut context, &auth)?;
+
+    // build environment
+    let additional_env = pre_exec(&mut pam_context, &context.target_user.name)?;
+
+    let current_env = environment::system_environment();
+    let (checked_vars, trusted_vars) = if controls.trust_environment {
+        (vec![], user_requested_env_vars)
+    } else {
+        (user_requested_env_vars, vec![])
+    };
+
+    let mut target_env = environment::get_target_environment(
+        current_env,
+        additional_env,
+        checked_vars,
+        &context,
+        &controls,
+    )?;
+
+    environment::dangerous_extend(&mut target_env, trusted_vars);
+
+    let pid = context.process.pid;
+
+    // run command and return corresponding exit code
+    let exec_result = if context.command.resolved {
+        log_command_execution(&context);
+
+        crate::exec::run_command(&context, target_env)
+            .map_err(|io_error| Error::Io(Some(context.command.command), io_error))
+    } else {
+        Err(Error::CommandNotFound(context.command.command))
+    };
+
+    pam_context.close_session();
+
+    let ExecOutput {
+        command_exit_reason,
+        restore_signal_handlers,
+    } = exec_result?;
+
+    // Run any clean-up code before this line.
+    restore_signal_handlers();
+
+    match command_exit_reason {
+        ExitReason::Code(code) => exit(code),
+        ExitReason::Signal(signal) => {
+            crate::system::kill(pid, signal)?;
         }
+    }
 
-        let mut context = Context::from_run_opts(cmd_opts, &mut policy)?;
+    Ok(())
+}
 
-        let policy = judge(policy, &context)?;
+pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
+    let policy = read_sudoers()?;
 
-        let Authorization::Allowed(auth, controls) = policy.authorization() else {
+    let mut context = Context::from_validate_opts(cmd_opts)?;
+
+    match policy.validate_authorization() {
+        Authorization::Forbidden => {
             return Err(Error::Authorization(context.current_user.name.to_string()));
-        };
-
-        self.apply_policy_to_context(&mut context, &auth, &controls)?;
-        let mut pam_context = self.auth_and_update_record_file(&mut context, &auth)?;
-
-        // build environment
-        let additional_env = pre_exec(&mut pam_context, &context.target_user.name)?;
-
-        let current_env = environment::system_environment();
-        let (checked_vars, trusted_vars) = if controls.trust_environment {
-            (vec![], user_requested_env_vars)
-        } else {
-            (user_requested_env_vars, vec![])
-        };
-
-        let mut target_env = environment::get_target_environment(
-            current_env,
-            additional_env,
-            checked_vars,
-            &context,
-            &controls,
-        )?;
-
-        environment::dangerous_extend(&mut target_env, trusted_vars);
-
-        let pid = context.process.pid;
-
-        // run command and return corresponding exit code
-        let exec_result = if context.command.resolved {
-            log_command_execution(&context);
-
-            crate::exec::run_command(&context, target_env)
-                .map_err(|io_error| Error::Io(Some(context.command.command), io_error))
-        } else {
-            Err(Error::CommandNotFound(context.command.command))
-        };
-
-        pam_context.close_session();
-
-        let ExecOutput {
-            command_exit_reason,
-            restore_signal_handlers,
-        } = exec_result?;
-
-        // Run any clean-up code before this line.
-        restore_signal_handlers();
-
-        match command_exit_reason {
-            ExitReason::Code(code) => exit(code),
-            ExitReason::Signal(signal) => {
-                crate::system::kill(pid, signal)?;
-            }
         }
-
-        Ok(())
+        Authorization::Allowed(auth, ()) => {
+            auth_and_update_record_file(&mut context, &auth)?;
+        }
     }
 
-    pub fn run_validate(mut self, cmd_opts: SudoValidateOptions) -> Result<(), Error> {
-        let policy = read_sudoers()?;
+    Ok(())
+}
 
-        let mut context = Context::from_validate_opts(cmd_opts)?;
+fn auth_and_update_record_file(
+    context: &mut Context,
+    &Authentication {
+        must_authenticate,
+        prior_validity,
+        allowed_attempts,
+        ref credential,
+        ..
+    }: &Authentication,
+) -> Result<PamContext, Error> {
+    let scope = RecordScope::for_process(&Process::new());
+    let mut auth_status = determine_auth_status(
+        must_authenticate,
+        context.use_session_records,
+        scope,
+        &context.current_user,
+        prior_validity,
+    );
 
-        match policy.validate_authorization() {
-            Authorization::Forbidden => {
-                return Err(Error::Authorization(context.current_user.name.to_string()));
-            }
-            Authorization::Allowed(auth, ()) => {
-                self.auth_and_update_record_file(&mut context, &auth)?;
-            }
+    let auth_user = match credential {
+        AuthenticatingUser::InvokingUser => {
+            AuthUser::from_current_user(context.current_user.clone())
         }
+        AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
+    };
 
-        Ok(())
-    }
-
-    fn auth_and_update_record_file(
-        &mut self,
-        context: &mut Context,
-        &Authentication {
-            must_authenticate,
-            prior_validity,
-            allowed_attempts,
-            ref credential,
-            ..
-        }: &Authentication,
-    ) -> Result<PamContext, Error> {
-        let scope = RecordScope::for_process(&Process::new());
-        let mut auth_status = determine_auth_status(
-            must_authenticate,
-            context.use_session_records,
-            scope,
-            &context.current_user,
-            prior_validity,
-        );
-
-        let auth_user = match credential {
-            AuthenticatingUser::InvokingUser => {
-                AuthUser::from_current_user(context.current_user.clone())
-            }
-            AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
-        };
-
-        let mut pam_context = init_pam(
-            matches!(context.launch, LaunchType::Login),
-            matches!(context.launch, LaunchType::Shell),
-            context.stdin,
-            context.non_interactive,
-            context.password_feedback,
-            &auth_user.name,
-            &context.current_user.name,
-        )?;
-        if auth_status.must_authenticate {
-            attempt_authenticate(&mut pam_context, context.non_interactive, allowed_attempts)?;
-            if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
-                match record_file.create(scope, context.current_user.uid) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        auth_warn!("Could not update session record file with new record: {e}");
-                    }
+    let mut pam_context = init_pam(
+        matches!(context.launch, LaunchType::Login),
+        matches!(context.launch, LaunchType::Shell),
+        context.stdin,
+        context.non_interactive,
+        context.password_feedback,
+        &auth_user.name,
+        &context.current_user.name,
+    )?;
+    if auth_status.must_authenticate {
+        attempt_authenticate(&mut pam_context, context.non_interactive, allowed_attempts)?;
+        if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+            match record_file.create(scope, context.current_user.uid) {
+                Ok(_) => (),
+                Err(e) => {
+                    auth_warn!("Could not update session record file with new record: {e}");
                 }
             }
         }
-
-        Ok(pam_context)
     }
 
-    fn apply_policy_to_context(
-        &mut self,
-        context: &mut Context,
-        auth: &Authentication,
-        controls: &Restrictions,
-    ) -> Result<(), crate::common::Error> {
-        // see if the chdir flag is permitted
-        match controls.chdir {
-            DirChange::Any => {}
-            DirChange::Strict(optdir) => {
-                if let Some(chdir) = &context.chdir {
-                    return Err(Error::ChDirNotAllowed {
-                        chdir: chdir.clone(),
-                        command: context.command.command.clone(),
-                    });
-                } else {
-                    context.chdir = optdir.cloned();
-                }
+    Ok(pam_context)
+}
+
+fn apply_policy_to_context(
+    context: &mut Context,
+    auth: &Authentication,
+    controls: &Restrictions,
+) -> Result<(), crate::common::Error> {
+    // see if the chdir flag is permitted
+    match controls.chdir {
+        DirChange::Any => {}
+        DirChange::Strict(optdir) => {
+            if let Some(chdir) = &context.chdir {
+                return Err(Error::ChDirNotAllowed {
+                    chdir: chdir.clone(),
+                    command: context.command.command.clone(),
+                });
+            } else {
+                context.chdir = optdir.cloned();
             }
         }
-
-        // expand tildes in the path with the users home directory
-        if let Some(dir) = context.chdir.take() {
-            context.chdir = Some(dir.expand_tilde_in_path(&context.target_user.name)?)
-        }
-
-        // in case the user could set these from the commandline, something more fancy
-        // could be needed, but here we copy these -- perhaps we should split up the Context type
-        context.use_pty = controls.use_pty;
-        context.password_feedback = auth.pwfeedback;
-
-        Ok(())
     }
+
+    // expand tildes in the path with the users home directory
+    if let Some(dir) = context.chdir.take() {
+        context.chdir = Some(dir.expand_tilde_in_path(&context.target_user.name)?)
+    }
+
+    // in case the user could set these from the commandline, something more fancy
+    // could be needed, but here we copy these -- perhaps we should split up the Context type
+    context.use_pty = controls.use_pty;
+    context.password_feedback = auth.pwfeedback;
+
+    Ok(())
 }
 
 /// This should determine what the authentication status for the given record
