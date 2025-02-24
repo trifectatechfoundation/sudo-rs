@@ -337,7 +337,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Run rustfmt
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all -- --check
+          cargo fmt --manifest-path test-framework/Cargo.toml --all -- --check
 
   clippy:
     needs: format

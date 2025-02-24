@@ -310,13 +310,11 @@ fn order_is_mostly_linear() -> Result<()> {
 
 #[test]
 fn generic_defaults_are_not_overridden() -> Result<()> {
-    let env = Env(
-        "
+    let env = Env("
         Defaults@container !env_keep
         Defaults env_keep = \"BAR FOO\"
         ALL ALL=NOPASSWD: ALL
-        "
-    )
+        ")
     .hostname("container")
     .build()?;
 
