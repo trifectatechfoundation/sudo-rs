@@ -24,10 +24,10 @@ pub mod sys;
 #[cfg(target_os = "freebsd")]
 const PAM_DATA_SILENT: std::ffi::c_int = 0;
 
-pub use converse::{CLIConverser, Converser};
+pub use converse::CLIConverser;
 
-pub struct PamContext<C: Converser> {
-    data_ptr: *mut ConverserData<C>,
+pub struct PamContext {
+    data_ptr: *mut ConverserData<CLIConverser>,
     pamh: *mut pam_handle_t,
     silent: bool,
     allow_null_auth_token: bool,
@@ -35,7 +35,7 @@ pub struct PamContext<C: Converser> {
     session_started: bool,
 }
 
-impl PamContext<CLIConverser> {
+impl PamContext {
     /// Build the PamContext with the CLI conversation function.
     ///
     /// The target user is optional and may also be set after the context was
@@ -50,7 +50,7 @@ impl PamContext<CLIConverser> {
         no_interact: bool,
         password_feedback: bool,
         target_user: Option<&str>,
-    ) -> PamResult<PamContext<CLIConverser>> {
+    ) -> PamResult<PamContext> {
         let converser = CLIConverser {
             name: converser_name.to_owned(),
             use_stdin,
@@ -58,16 +58,6 @@ impl PamContext<CLIConverser> {
             password_feedback,
         };
 
-        Self::new(converser, service_name, target_user)
-    }
-}
-
-impl<C: Converser> PamContext<C> {
-    fn new(
-        converser: C,
-        service_name: &str,
-        target_user: Option<&str>,
-    ) -> PamResult<PamContext<C>> {
         let c_service_name = CString::new(service_name)?;
         let c_user = target_user.map(CString::new).transpose()?;
         let c_user_ptr = match c_user {
@@ -89,7 +79,7 @@ impl<C: Converser> PamContext<C> {
                 c_service_name.as_ptr(),
                 c_user_ptr,
                 &pam_conv {
-                    conv: Some(converse::converse::<C>),
+                    conv: Some(converse::converse::<CLIConverser>),
                     appdata_ptr: data_ptr as *mut libc::c_void,
                 },
                 &mut pamh,
@@ -351,7 +341,7 @@ impl<C: Converser> PamContext<C> {
     }
 }
 
-impl<C: Converser> Drop for PamContext<C> {
+impl Drop for PamContext {
     fn drop(&mut self) {
         // data_ptr's pointee is de-allocated in this scope
         // SAFETY: self.data_ptr was created by Box::into_raw
