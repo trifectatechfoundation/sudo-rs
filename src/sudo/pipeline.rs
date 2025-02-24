@@ -10,7 +10,7 @@ use crate::exec::{ExecOutput, ExitReason};
 use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
-use crate::sudo::pam::{attempt_authenticate, init_pam, pre_exec};
+use crate::sudo::pam::{attempt_authenticate, init_pam, pre_exec, InitPamArgs};
 use crate::sudo::Duration;
 use crate::sudoers::{
     AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
@@ -172,16 +172,18 @@ fn auth_and_update_record_file(
         AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
     };
 
-    let mut pam_context = init_pam(
-        matches!(context.launch, LaunchType::Login),
-        matches!(context.launch, LaunchType::Shell),
-        context.stdin,
-        context.non_interactive,
-        context.password_feedback,
-        context.prompt.clone(),
-        &auth_user.name,
-        &context.current_user.name,
-    )?;
+    let mut pam_context = init_pam(InitPamArgs {
+        is_login_shell: matches!(context.launch, LaunchType::Login),
+        is_shell: matches!(context.launch, LaunchType::Shell),
+        use_stdin: context.stdin,
+        non_interactive: context.non_interactive,
+        password_feedback: context.password_feedback,
+        auth_prompt: context.prompt.clone(),
+        auth_user: &auth_user.name,
+        requesting_user: &context.current_user.name,
+        target_user: &context.target_user.name,
+        hostname: &context.hostname,
+    })?;
     if auth_status.must_authenticate {
         attempt_authenticate(&mut pam_context, context.non_interactive, allowed_attempts)?;
         if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {

@@ -72,13 +72,12 @@ fn handle_message<C: Converser>(
             if app_data.no_interact {
                 return Err(PamError::InteractionRequired);
             }
-            let final_prompt = match app_data.auth_prompt.as_deref().unwrap_or("authenticate") {
-                "" => {
+            let final_prompt = match app_data.auth_prompt.as_deref() {
+                None => {
                     // Suppress password prompt entirely when -p '' is passed.
                     String::new()
                 }
-                prompt => {
-                    // FIXME handle %H, %h, %p, %U, %u and %%
+                Some(prompt) => {
                     format!("[{}: {prompt}] {msg}", app_data.converser_name)
                 }
             };
@@ -369,7 +368,7 @@ mod test {
             converser: "tux".to_string(),
             converser_name: "tux".to_string(),
             no_interact: false,
-            auth_prompt: None,
+            auth_prompt: Some("authenticate".to_owned()),
             panicked: false,
         });
         let cookie = PamConvBorrow::new(hello.as_mut());
