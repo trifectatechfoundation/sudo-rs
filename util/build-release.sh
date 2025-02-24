@@ -37,10 +37,12 @@ set -x
 umask u=rwx,g=rx,o=rx
 mkdir -p "$target_dir_sudo/bin"
 mkdir -p "$target_dir_sudo/share/man/man8"
+mkdir -p "$target_dir_sudo/share/man/man5"
 cp "$PROJECT_DIR/target/release/sudo" "$target_dir_sudo/bin/sudo"
 cp "$PROJECT_DIR/target/release/visudo" "$target_dir_sudo/bin/visudo"
 cp "$PROJECT_DIR/target/docs/man/sudo.8" "$target_dir_sudo/share/man/man8/sudo.8"
 cp "$PROJECT_DIR/target/docs/man/visudo.8" "$target_dir_sudo/share/man/man8/visudo.8"
+cp "$PROJECT_DIR/target/docs/man/sudoers.5" "$target_dir_sudo/share/man/man5/sudoers.5"
 mkdir -p "$target_dir_sudo/share/doc/sudo-rs/sudo"
 cp "$PROJECT_DIR/README.md" "$target_dir_sudo/share/doc/sudo-rs/sudo/README.md"
 cp "$PROJECT_DIR/CHANGELOG.md" "$target_dir_sudo/share/doc/sudo-rs/sudo/CHANGELOG.md"
