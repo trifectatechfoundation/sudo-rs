@@ -77,10 +77,9 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
         .collect()
 }
 
-fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
+fn create_test_context(sudo_options: SudoRunOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
-    let command =
-        CommandAndArguments::build_from_args(None, sudo_options.positional_args.clone(), &path);
+    let command = CommandAndArguments::build_from_args(None, sudo_options.positional_args, &path);
 
     let current_user = CurrentUser::fake(User {
         uid: UserId::new(1000),
@@ -130,8 +129,9 @@ fn create_test_context(sudo_options: &SudoRunOptions) -> Context {
             root_group
         },
         launch: crate::common::context::LaunchType::Direct,
-        chdir: sudo_options.chdir.clone(),
+        chdir: sudo_options.chdir,
         stdin: sudo_options.stdin,
+        prompt: sudo_options.prompt,
         non_interactive: sudo_options.non_interactive,
         process: Process::new(),
         use_session_records: false,
@@ -160,7 +160,7 @@ fn test_environment_variable_filtering() {
             .ok()
             .unwrap();
         let settings = crate::defaults::Settings::default();
-        let context = create_test_context(&options);
+        let context = create_test_context(options);
         let resulting_env = get_target_environment(
             initial_env.clone(),
             HashMap::new(),

@@ -55,17 +55,39 @@ pub trait Converser {
 
 /// Handle a single message in a conversation.
 fn handle_message<C: Converser>(
-    converser: &C,
+    app_data: &ConverserData<C>,
     style: PamMessageStyle,
     msg: &str,
 ) -> PamResult<Option<PamBuffer>> {
     use PamMessageStyle::*;
 
     match style {
-        PromptEchoOn => converser.handle_normal_prompt(msg).map(Some),
-        PromptEchoOff => converser.handle_hidden_prompt(msg).map(Some),
-        ErrorMessage => converser.handle_error(msg).map(|()| None),
-        TextInfo => converser.handle_info(msg).map(|()| None),
+        PromptEchoOn => {
+            if app_data.no_interact {
+                return Err(PamError::InteractionRequired);
+            }
+            app_data.converser.handle_normal_prompt(msg).map(Some)
+        }
+        PromptEchoOff => {
+            if app_data.no_interact {
+                return Err(PamError::InteractionRequired);
+            }
+            let final_prompt = match app_data.auth_prompt.as_deref() {
+                None => {
+                    // Suppress password prompt entirely when -p '' is passed.
+                    String::new()
+                }
+                Some(prompt) => {
+                    format!("[{}: {prompt}] {msg}", app_data.converser_name)
+                }
+            };
+            app_data
+                .converser
+                .handle_hidden_prompt(&final_prompt)
+                .map(Some)
+        }
+        ErrorMessage => app_data.converser.handle_error(msg).map(|()| None),
+        TextInfo => app_data.converser.handle_info(msg).map(|()| None),
     }
 }
 
@@ -74,7 +96,6 @@ fn handle_message<C: Converser>(
 pub struct CLIConverser {
     pub(super) name: String,
     pub(super) use_stdin: bool,
-    pub(super) no_interact: bool,
     pub(super) password_feedback: bool,
 }
 
@@ -92,20 +113,14 @@ impl CLIConverser {
 
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        if self.no_interact {
-            return Err(PamError::InteractionRequired);
-        }
         let mut tty = self.open()?;
         tty.prompt(&format!("[{}: input needed] {msg} ", self.name))?;
         Ok(tty.read_cleartext()?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        if self.no_interact {
-            return Err(PamError::InteractionRequired);
-        }
         let mut tty = self.open()?;
-        tty.prompt(&format!("[{}: authenticate] {msg}", self.name))?;
+        tty.prompt(msg)?;
         if self.password_feedback {
             Ok(tty.read_password_with_feedback()?)
         } else {
@@ -127,6 +142,9 @@ impl Converser for CLIConverser {
 /// Helper struct that contains the converser as well as panic boolean
 pub(super) struct ConverserData<C> {
     pub(super) converser: C,
+    pub(super) converser_name: String,
+    pub(super) no_interact: bool,
+    pub(super) auth_prompt: Option<String>,
     pub(super) panicked: bool,
 }
 
@@ -172,7 +190,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             // send the conversation off to the Rust part
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
-            let Ok(resp_buf) = handle_message(&app_data.converser, style, &msg) else {
+            let Ok(resp_buf) = handle_message(app_data, style, &msg) else {
                 return PamErrorType::ConversationError;
             };
 
@@ -243,9 +261,7 @@ mod test {
         }
 
         fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-            Ok(PamBuffer::new(
-                format!("{self}s secret is {msg}").into_bytes(),
-            ))
+            Ok(PamBuffer::new(msg.as_bytes().to_vec()))
         }
 
         fn handle_error(&self, msg: &str) -> PamResult<()> {
@@ -350,6 +366,9 @@ mod test {
     fn miri_pam_gpt() {
         let mut hello = Box::pin(ConverserData {
             converser: "tux".to_string(),
+            converser_name: "tux".to_string(),
+            no_interact: false,
+            auth_prompt: Some("authenticate".to_owned()),
             panicked: false,
         });
         let cookie = PamConvBorrow::new(hello.as_mut());
@@ -364,7 +383,7 @@ mod test {
 
         assert_eq!(
             dummy_pam(&[msg(PromptEchoOff, "fish")], pam_conv),
-            vec![Some("tuxs secret is fish".to_string())]
+            vec![Some("[tux: authenticate] fish".to_string())]
         );
 
         assert_eq!(dummy_pam(&[msg(TextInfo, "mars")], pam_conv), vec![None]);
@@ -379,7 +398,7 @@ mod test {
                 pam_conv
             ),
             vec![
-                Some("tuxs secret is banging the rocks together".to_string()),
+                Some("[tux: authenticate] banging the rocks together".to_string()),
                 None,
                 Some("tux says ".to_string()),
             ]
