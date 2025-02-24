@@ -49,7 +49,6 @@ impl PamContext {
         use_stdin: bool,
         no_interact: bool,
         password_feedback: bool,
-        auth_prompt: Option<String>,
         target_user: Option<&str>,
     ) -> PamResult<PamContext> {
         let converser = CLIConverser {
@@ -70,7 +69,7 @@ impl PamContext {
             converser,
             converser_name: converser_name.to_owned(),
             no_interact,
-            auth_prompt,
+            auth_prompt: Some("authenticate".to_owned()),
             panicked: false,
         }));
 
@@ -101,6 +100,12 @@ impl PamContext {
             last_pam_status: None,
             session_started: false,
         })
+    }
+
+    pub fn set_auth_prompt(&mut self, prompt: Option<String>) {
+        unsafe {
+            (*self.data_ptr).auth_prompt = prompt;
+        }
     }
 
     /// Set whether output of pam calls should be silent or not, by default
