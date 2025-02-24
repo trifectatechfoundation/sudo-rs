@@ -34,6 +34,7 @@ rm -rf "$target_sudo"
 set -x
 
 # Build sudo
+umask u=rwx,g=rx,o=rx
 mkdir -p "$target_dir_sudo/bin"
 mkdir -p "$target_dir_sudo/share/man/man8"
 cp "$PROJECT_DIR/target/release/sudo" "$target_dir_sudo/bin/sudo"
@@ -54,7 +55,7 @@ set -x
 chown -R root:root "$target_dir_sudo"
 chmod +xs "$target_dir_sudo/bin/sudo"
 chmod +x "$target_dir_sudo/bin/visudo"
-(cd $target_dir_sudo && tar --mtime="UTC $DATE 00:00:00" --use-compress-program='gzip -9n' -cpvf "$target_sudo" *)
+(cd $target_dir_sudo && tar --mtime="UTC $DATE 00:00:00" --sort=name --use-compress-program='gzip -9n' -cpvf "$target_sudo" *)
 EOF
 
 # Build su
@@ -75,7 +76,7 @@ set -eo pipefail
 set -x
 chown -R root:root "$target_dir_su"
 chmod +xs "$target_dir_su/bin/su"
-(cd $target_dir_su && tar --mtime="UTC $DATE 00:00:00" --use-compress-program='gzip -9n' -cpvf "$target_su" *)
+(cd $target_dir_su && tar --mtime="UTC $DATE 00:00:00" --sort=name --use-compress-program='gzip -9n' -cpvf "$target_su" *)
 EOF
 
 (cd $TARGET_DIR_BASE && sha256sum -b *-$SUDO_RS_VERSION.tar.gz > "$TARGET_DIR_BASE/SHA256SUMS")
