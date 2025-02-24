@@ -498,9 +498,9 @@ enum SudoArg {
 }
 
 impl SudoArg {
-    const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'g', 'h', 'R', 'U', 'u'];
+    const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'g', 'h', 'p', 'R', 'U', 'u'];
     const TAKES_ARGUMENT: &'static [&'static str] =
-        &["chdir", "group", "host", "chroot", "other-user", "user"];
+        &["chdir", "group", "host", "chroot", "other-user", "user", "prompt"];
 
     /// argument assignments and shorthand options preprocessing
     fn normalize_arguments<I>(iter: I) -> Result<Vec<Self>, String>
