@@ -1,7 +1,7 @@
 mod check;
 mod keep;
 
-use sudo_test::{Command, Env};
+use sudo_test::{is_original_sudo, Command, Env};
 
 use crate::{helpers, EnvList, Result, SUDOERS_ALL_ALL_NOPASSWD};
 
@@ -470,11 +470,17 @@ fn key_value_syntax_needs_double_quotes(env_list: EnvList) -> Result<()> {
     ])
     .build()?;
 
-    let stdout = Command::new("env")
+    let output = Command::new("env")
         .arg(format!("{env_name}={env_val}"))
         .args(["sudo", "env"])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)?;
+    if !is_original_sudo() {
+        assert!(output
+            .stderr()
+            .contains("double quotes are required for VAR=value pairs"));
+    }
+
+    let stdout = output.stdout()?;
     let sudo_env = helpers::parse_env_output(&stdout)?;
 
     assert_eq!(None, sudo_env.get(env_name));
