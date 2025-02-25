@@ -721,8 +721,11 @@ impl Parse for defaults::SettingsModifier {
                 make(result)
             } else {
                 let EnvVar(name) = expect_nonterminal(stream)?;
-
-                make(vec![name])
+                if is_syntax('=', stream)? {
+                    unrecoverable!(stream, "double quotes are required for VAR=value pairs")
+                } else {
+                    make(vec![name])
+                }
             }
         };
 
