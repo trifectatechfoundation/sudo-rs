@@ -76,7 +76,6 @@ fn key_value_no_match() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh345"]
 fn key_value_syntax_needs_double_quotes() -> Result<()> {
     super::key_value_syntax_needs_double_quotes(ENV_LIST)
 }
