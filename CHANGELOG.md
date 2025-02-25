@@ -1,12 +1,26 @@
 # Changelog
 
-## [0.2.4-dev] - 2025-mm-dd
+## [0.2.4] - 2025-02-25
+
+### Added
+- Support for 'SETENV:' and corresponding 'sudo VAR=value command' syntax
+- Support for 'Defaults rootpw'
+- Support for 'Defaults pwfeedback'
+- Support for host/user/runas/command-specific Defaults
 
 ### Changed
-- Portability: sudo-rs now works on FreeBSD!
+- Portability: sudo-rs now has experimental support for FreeBSD!
+- `pam-login` feature now controls if PAM service name 'sudo-i' is used
 
 ### Fixed
 - Bug in syslog writer could cause sudo to hang (#856)
+- SHELL was not canonicalized when using 'sudo -s' or 'sudo -i' (#962)
+- RunAs_Spec was not carried over on the same /etc/sudoers line (#974)
+- sudo --list did not unfold multiple-level aliases (#978)
+- The man page for sudoers was missing (#943)
+
+### Other
+- sudo-rs copyright changed to Trifecta Tech Foundation
 
 ## [0.2.3] - 2024-07-11
 

@@ -2,7 +2,7 @@
 
 docs_dir="docs/man"
 output_dir="target/docs/man"
-files=("sudo.8" "visudo.8" "su.1")
+files=("sudo.8" "visudo.8" "sudoers.5" "su.1")
 
 mkdir -p "$output_dir"
 

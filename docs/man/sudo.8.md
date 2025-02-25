@@ -1,5 +1,5 @@
 <!-- ---
-title: SUDO(8) sudo-rs 0.2.3 | sudo-rs
+title: SUDO(8) sudo-rs 0.2.4 | sudo-rs
 --- -->
 
 # NAME
@@ -8,7 +8,7 @@ title: SUDO(8) sudo-rs 0.2.3 | sudo-rs
 
 # SYNOPSIS
 
-`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-knS`] [`-i` | `-s`] [<*command*>] \
+`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-knS`] [`-i` | `-s`] [`VAR=value`] [<*command*>] \
 `sudo` `-h` | `-K` | `-k` | `-V`
 
 # DESCRIPTION
@@ -74,8 +74,7 @@ even if that process runs in its own pseudo terminal.
 `-s`, `--shell`
 :   Run the shell specified by the `SHELL` environment variable. If no shell
     was specified, the shell from the user's password database entry will be
-    used instead. If a *command* is specified, it is passed to the shell using
-    the `-c` option.
+    used instead. If a *command* is specified, it is passed to the shell using the `-c` option.
 
 `-u` *user*, `--user`=*user*
 :   Run the *command* as another user than the default (**root**).
@@ -90,6 +89,10 @@ even if that process runs in its own pseudo terminal.
 `--`
 :   Indicates the end of the sudo-rs options and start of the *command*.
 
+Environment variables to be set for the command may be passed on the command line in the form of VAR=value. Variables passed on the command line are subject to restrictions imposed by the security policy.
+Variables passed on the command line are subject to the same restrictions as normal environment variables with one important exception: If the command to be run has the SETENV tag set or the command matched is ALL,
+the user may set variables that would otherwise be forbidden. See [sudoers(5)](sudoers.5.md) for more information.
+
 # SEE ALSO
 
-[su(1)](su.1.md), sudoers(5), [visudo(8)](visudo.8.md)
+[su(1)](su.1.md), [sudoers(5)](sudoers.5.md), [visudo(8)](visudo.8.md)
