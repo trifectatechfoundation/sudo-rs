@@ -99,6 +99,16 @@ sudoers configuration exists at that location. For an explanation of the
 sudoers syntax you can look at the
 [original sudo man page](https://www.sudo.ws/docs/man/sudoers.man/).
 
+### Feature flags
+By default, sudo-rs will use the PAM service name `sudo`. On Debian and Fedora
+systems, it is customary that the name `sudo-i` is used when the `-i / --login`
+command line option is used. To get this behaviour, enable the `pam-login`
+feature when building:
+```
+cargo build --release --features pam-login
+```
+This feature is enabled on our pre-supplied binaries.
+
 [rustup]: https://rustup.rs/
 
 ## Differences from original sudo

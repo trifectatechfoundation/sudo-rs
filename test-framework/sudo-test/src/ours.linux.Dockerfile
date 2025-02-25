@@ -5,7 +5,7 @@ RUN apt-get update && \
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
-RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --features="dev" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
+RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --features="dev,pam-login" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
 # set setuid on install
 RUN install -m 4755 build/sudo /usr/bin/sudo && \
     install -m 4755 build/su /usr/bin/su && \

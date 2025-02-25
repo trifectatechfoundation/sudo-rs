@@ -38,6 +38,11 @@ pretty_assertions = "1.2.1"
 
 [features]
 default = []
+
+# when enabled, use "sudo-i" PAM service name for sudo -i
+pam-login = []
+
+# enable dev-logging (used for development only)
 dev = []
 
 [profile.release]

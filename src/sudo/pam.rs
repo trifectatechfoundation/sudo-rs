@@ -94,8 +94,7 @@ pub fn init_pam(
     auth_user: &str,
     requesting_user: &str,
 ) -> PamResult<PamContext<CLIConverser>> {
-    // FIXME make it configurable by the packager
-    let service_name = if is_login_shell && cfg!(target_os = "linux") {
+    let service_name = if is_login_shell && cfg!(feature = "pam-login") {
         "sudo-i"
     } else {
         "sudo"
