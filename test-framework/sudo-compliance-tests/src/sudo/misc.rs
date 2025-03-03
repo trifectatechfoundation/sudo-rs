@@ -321,3 +321,89 @@ fn rootpw_option_doesnt_affect_authorization() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn targetpw_option_works() -> Result<()> {
+    const PASSWORD: &str = "passw0rd";
+    const PASSWORD2: &str = "notr00t";
+
+    let env = Env(format!(
+        "Defaults targetpw\nDefaults passwd_tries=1\n{USERNAME} ALL=(ALL:ALL) ALL"
+    ))
+    .user(User(USERNAME).password(PASSWORD))
+    .user(User("user2").password(PASSWORD2))
+    .build()?;
+
+    // User password is not accepted when targetpw is enabled
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD} | sudo -S -u user2 true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(!output.status().success());
+
+    // Target user password is accepted when targetpw is enabled
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD2} | sudo -S -u user2 true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(output.status().success());
+
+    Ok(())
+}
+
+#[test]
+fn targetpw_option_doesnt_affect_authorization() -> Result<()> {
+    const PASSWORD: &str = "passw0rd";
+    const PASSWORD2: &str = "notr00t";
+
+    let env = Env("Defaults targetpw\nuser2 ALL=(ALL:ALL) ALL")
+        .user(User(USERNAME).password(PASSWORD))
+        .user(User("user2").password(PASSWORD2))
+        .build()?;
+
+    // Even though we accept the target user password when targetpw is enabled,
+    // we still check that the actual invoking user is authorized to run the command.
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD2} | sudo -S -u user2 true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(!output.status().success());
+
+    Ok(())
+}
+
+#[test]
+fn rootpw_takes_priority_over_targetpw() -> Result<()> {
+    const PASSWORD: &str = "passw0rd";
+    const PASSWORD2: &str = "notr00t";
+    const ROOT_PASSWORD: &str = "r00t";
+
+    let env = Env(format!(
+        "Defaults rootpw, targetpw\nDefaults passwd_tries=1\n{USERNAME} ALL=(ALL:ALL) ALL"
+    ))
+    .user_password("root", ROOT_PASSWORD)
+    .user(User(USERNAME).password(PASSWORD))
+    .user(User("user2").password(PASSWORD2))
+    .build()?;
+
+    // Root password is accepted when targetpw is enabled
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {ROOT_PASSWORD} | sudo -S -u user2 true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(output.status().success());
+
+    // Target user password is not accepted when targetpw is enabled
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD2} | sudo -S -u user2 true"))
+        .as_user(USERNAME)
+        .output(&env)?;
+    assert!(!output.status().success());
+
+    Ok(())
+}

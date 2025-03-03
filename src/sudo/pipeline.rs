@@ -169,6 +169,9 @@ fn auth_and_update_record_file(
             AuthUser::from_current_user(context.current_user.clone())
         }
         AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
+        AuthenticatingUser::TargetUser => {
+            AuthUser::from_user_for_targetpw(context.target_user.clone())
+        }
     };
 
     let mut pam_context = init_pam(InitPamArgs {

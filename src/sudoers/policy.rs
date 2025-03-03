@@ -1,7 +1,9 @@
 use super::Sudoers;
 
 use super::Judgement;
-use crate::common::{SudoPath, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
+use crate::common::{
+    SudoPath, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2,
+};
 use crate::system::{time::Duration, Hostname, User};
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
 /// permission check.
@@ -37,6 +39,8 @@ impl super::Settings {
             pwfeedback: self.pwfeedback(),
             credential: if self.rootpw() {
                 AuthenticatingUser::Root
+            } else if self.targetpw() {
+                AuthenticatingUser::TargetUser
             } else {
                 AuthenticatingUser::InvokingUser
             },
@@ -68,6 +72,7 @@ pub enum DirChange<'a> {
 pub enum AuthenticatingUser {
     InvokingUser = HARDENED_ENUM_VALUE_0,
     Root = HARDENED_ENUM_VALUE_1,
+    TargetUser = HARDENED_ENUM_VALUE_2,
 }
 
 impl Judgement {
