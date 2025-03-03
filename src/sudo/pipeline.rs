@@ -178,6 +178,9 @@ impl<Auth: AuthPlugin> Pipeline<Auth> {
                 AuthUser::from_current_user(context.current_user.clone())
             }
             AuthenticatingUser::Root => AuthUser::resolve_root_for_rootpw()?,
+            AuthenticatingUser::TargetUser => {
+                AuthUser::from_user_for_targetpw(context.target_user.clone())
+            }
         };
 
         self.authenticator.init(context, auth_user)?;
