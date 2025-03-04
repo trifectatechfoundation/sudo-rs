@@ -149,10 +149,8 @@ impl Drop for Container {
             let _ = self.copy_profraw_data(dir);
         }
 
-        // running this to completion would block the current thread for several seconds so just
-        // fire and forget
         let _ = docker_command()
-            .args(["rm", "-f", &self.id])
+            .args(["kill", &self.id])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
