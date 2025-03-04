@@ -13,8 +13,6 @@ use cli::help;
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
 use cli::SudoAction;
-use pam::PamAuthenticator;
-use pipeline::Pipeline;
 use std::path::Path;
 
 mod cli;
@@ -75,10 +73,6 @@ fn sudo_process() -> Result<(), Error> {
     self_check()?;
     kernel_check()?;
 
-    let pipeline = Pipeline {
-        authenticator: PamAuthenticator::new_cli(),
-    };
-
     // parse cli options
     match SudoAction::from_env() {
         Ok(action) => match action {
@@ -106,7 +100,7 @@ fn sudo_process() -> Result<(), Error> {
                 }
                 Ok(())
             }
-            SudoAction::Validate(options) => pipeline.run_validate(options),
+            SudoAction::Validate(options) => pipeline::run_validate(options),
             SudoAction::Run(options) => {
                 // special case for when no command is given
                 if options.positional_args.is_empty() && !options.shell && !options.login {
@@ -115,10 +109,10 @@ fn sudo_process() -> Result<(), Error> {
                 } else {
                     unstable_warning();
 
-                    pipeline.run(options)
+                    pipeline::run(options)
                 }
             }
-            SudoAction::List(options) => pipeline.run_list(options),
+            SudoAction::List(options) => pipeline::run_list(options),
             SudoAction::Edit(_) => {
                 eprintln_ignore_io_error!("error: `--edit` flag has not yet been implemented");
                 std::process::exit(1);
