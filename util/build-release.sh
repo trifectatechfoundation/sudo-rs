@@ -51,7 +51,7 @@ cp "$PROJECT_DIR/COPYRIGHT" "$target_dir_sudo/share/doc/sudo-rs/sudo/COPYRIGHT"
 cp "$PROJECT_DIR/LICENSE-APACHE" "$target_dir_sudo/share/doc/sudo-rs/sudo/LICENSE-APACHE"
 cp "$PROJECT_DIR/LICENSE-MIT" "$target_dir_sudo/share/doc/sudo-rs/sudo/LICENSE-MIT"
 
-fakeroot -- <<EOF
+fakeroot -- bash <<EOF
 set -eo pipefail
 set -x
 chown -R root:root "$target_dir_sudo"
@@ -73,7 +73,7 @@ cp "$PROJECT_DIR/COPYRIGHT" "$target_dir_su/share/doc/sudo-rs/su/COPYRIGHT"
 cp "$PROJECT_DIR/LICENSE-APACHE" "$target_dir_su/share/doc/sudo-rs/su/LICENSE-APACHE"
 cp "$PROJECT_DIR/LICENSE-MIT" "$target_dir_su/share/doc/sudo-rs/su/LICENSE-MIT"
 
-fakeroot -- <<EOF
+fakeroot -- bash <<EOF
 set -eo pipefail
 set -x
 chown -R root:root "$target_dir_su"
