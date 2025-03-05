@@ -205,7 +205,7 @@ fn exec_command(
     // foreground.
     if foreground {
         while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
-            std::thread::sleep(std::time::Duration::from_micros(1));
+            std::thread::yield_now();
         }
     }
 
