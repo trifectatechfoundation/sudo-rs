@@ -23,22 +23,17 @@ mod env;
 mod pam;
 mod pipeline;
 
-/// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
+#[cfg_attr(not(feature = "dev"), allow(dead_code))]
 fn unstable_warning() {
-    if cfg!(all(target_os = "linux", not(feature = "dev"))) {
-        return;
-    }
-
     let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
 
     if check_var != "I accept that my system may break unexpectedly" {
         eprintln_ignore_io_error!(
             "WARNING!
-Sudo-rs is in the early stages of supporting OSes other than Linux and could potentially
+Sudo-rs is compiled with development logs on, which means it is less secure and could potentially
 break your system. We recommend that you do not run this on any production environment.
-To turn off this warning and start using sudo-rs set the environment variable
-SUDO_RS_IS_UNSTABLE to the value `I accept that my system may break unexpectedly`. If
-you are unsure how to do this then this software is not suited for you at this time."
+To turn off this warning and use sudo-rs you need to set the environment variable
+SUDO_RS_IS_UNSTABLE to the value `I accept that my system may break unexpectedly`."
         );
 
         std::process::exit(1);
@@ -107,6 +102,7 @@ fn sudo_process() -> Result<(), Error> {
                     eprintln_ignore_io_error!("{}", help::USAGE_MSG);
                     std::process::exit(1);
                 } else {
+                    #[cfg(feature = "dev")]
                     unstable_warning();
 
                     pipeline::run(options)
