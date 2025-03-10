@@ -61,7 +61,7 @@ pub fn run_command(
         let mut process_name = qualified_path
             .file_name()
             .map(|osstr| osstr.as_bytes().to_vec())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
         process_name.insert(0, b'-');
         command.arg0(OsStr::from_bytes(&process_name));
     }
