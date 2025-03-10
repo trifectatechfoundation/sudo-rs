@@ -1,5 +1,5 @@
 use std::io::{self, ErrorKind};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::system::interface::ProcessId;
 use crate::{
@@ -8,9 +8,9 @@ use crate::{
 };
 
 pub trait RunOptions {
-    fn command(&self) -> io::Result<&PathBuf>;
-    fn arguments(&self) -> &Vec<String>;
-    fn arg0(&self) -> Option<&PathBuf>;
+    fn command(&self) -> io::Result<&Path>;
+    fn arguments(&self) -> &[String];
+    fn arg0(&self) -> Option<&Path>;
     fn chdir(&self) -> Option<&Path>;
     fn is_login(&self) -> bool;
     fn user(&self) -> &User;
@@ -21,7 +21,7 @@ pub trait RunOptions {
 }
 
 impl RunOptions for Context {
-    fn command(&self) -> io::Result<&PathBuf> {
+    fn command(&self) -> io::Result<&Path> {
         if self.command.resolved {
             Ok(&self.command.command)
         } else {
@@ -29,12 +29,12 @@ impl RunOptions for Context {
         }
     }
 
-    fn arguments(&self) -> &Vec<String> {
+    fn arguments(&self) -> &[String] {
         &self.command.arguments
     }
 
-    fn arg0(&self) -> Option<&PathBuf> {
-        self.command.arg0.as_ref()
+    fn arg0(&self) -> Option<&Path> {
+        self.command.arg0.as_ref().map(|arg0| &**arg0)
     }
 
     fn chdir(&self) -> Option<&Path> {
