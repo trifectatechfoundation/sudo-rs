@@ -18,6 +18,7 @@ use crate::{
     system::{
         can_execute,
         file::{create_temporary_dir, Chown, FileLock},
+        interface::{GroupId, UserId},
         signal::{consts::*, register_handlers, SignalStream},
         Hostname, User,
     },
@@ -35,6 +36,16 @@ macro_rules! io_msg {
 }
 
 pub fn main() {
+    if User::effective_uid() != User::real_uid() || User::effective_gid() != User::real_gid() {
+        println_ignore_io_error!(
+            "Visudo must not be installed as setuid binary.\n\
+             Please notify your packager about this misconfiguration.\n\
+             To prevent privilege escalation visudo will now abort.
+             "
+        );
+        std::process::exit(1);
+    }
+
     let options = match VisudoOptions::from_env() {
         Ok(options) => options,
         Err(error) => {
@@ -157,7 +168,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     }
 
     if owner || file_arg.is_none() {
-        sudoers_file.chown(User::real_uid(), User::real_gid())?;
+        sudoers_file.chown(UserId::ROOT, GroupId::new(0))?;
     }
 
     let signal_stream = SignalStream::init()?;
