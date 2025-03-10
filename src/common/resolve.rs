@@ -82,6 +82,10 @@ impl AuthUser {
             User::from_uid(UserId::ROOT)?.ok_or(Error::UserNotFound("root".to_string()))?,
         ))
     }
+
+    pub fn from_user_for_targetpw(user: User) -> Self {
+        Self(user)
+    }
 }
 
 impl ops::Deref for AuthUser {
