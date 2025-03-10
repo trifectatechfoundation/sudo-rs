@@ -68,11 +68,8 @@ jobs:
           echo
 
           # Extract the first changelog entry from CHANGELOG.md
-          # FIXME there is probably an easier way to do this
-          cat CHANGELOG.md | tail +3 | sed -z 's/\n/$$$/g' | sed 's/$## /\$\n## /g' | head -1 | \
-            tr -d '\n' | sed 's/\$\$\$/\n/g' | tail +3 > changes.md
           echo "Changelog:"
-          cat changes.md
+          sed -n '4,${ /^## /q; p; }' CHANGELOG.md
 
       - name: Create release
         env:
