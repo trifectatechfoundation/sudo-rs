@@ -2,18 +2,15 @@ use std::{
     collections::HashMap,
     env,
     ffi::OsString,
-    fs, io,
+    fs,
     path::{Path, PathBuf},
 };
 
+use crate::common::{error::Error, resolve::CurrentUser};
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
 use crate::{common::resolve::is_valid_executable, system::interface::UserId};
-use crate::{
-    common::{error::Error, resolve::CurrentUser},
-    system::interface::ProcessId,
-};
 
 type Environment = HashMap<OsString, OsString>;
 
@@ -30,9 +27,9 @@ const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
 pub(crate) struct SuContext {
     command: PathBuf,
     arguments: Vec<String>,
-    options: SuRunOptions,
+    pub(crate) options: SuRunOptions,
     pub(crate) environment: Environment,
-    user: User,
+    pub(crate) user: User,
     pub(crate) requesting_user: CurrentUser,
     group: Group,
     pub(crate) process: Process,
@@ -209,41 +206,20 @@ impl SuContext {
     }
 }
 
-impl RunOptions for SuContext {
-    fn command(&self) -> io::Result<&Path> {
-        Ok(&self.command)
-    }
+impl SuContext {
+    pub(crate) fn as_run_options(&self) -> RunOptions<'_> {
+        RunOptions {
+            command: &self.command,
+            arguments: &self.arguments,
+            arg0: None,
+            chdir: None,
+            is_login: self.options.login,
+            user: &self.user,
+            group: &self.group,
+            pid: self.process.pid,
 
-    fn arguments(&self) -> &[String] {
-        &self.arguments
-    }
-
-    fn arg0(&self) -> Option<&Path> {
-        None
-    }
-
-    fn chdir(&self) -> Option<&Path> {
-        None
-    }
-
-    fn is_login(&self) -> bool {
-        self.options.login
-    }
-
-    fn user(&self) -> &crate::system::User {
-        &self.user
-    }
-
-    fn group(&self) -> &crate::system::Group {
-        &self.group
-    }
-
-    fn pid(&self) -> ProcessId {
-        self.process.pid
-    }
-
-    fn use_pty(&self) -> bool {
-        true
+            use_pty: true,
+        }
     }
 }
 
