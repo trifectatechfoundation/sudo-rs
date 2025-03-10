@@ -366,10 +366,8 @@ pub struct User {
     pub uid: UserId,
     pub gid: GroupId,
     pub name: SudoString,
-    pub gecos: String,
     pub home: SudoPath,
     pub shell: PathBuf,
-    pub passwd: String,
     pub groups: Vec<GroupId>,
 }
 
@@ -414,10 +412,8 @@ impl User {
                 uid: UserId::new(pwd.pw_uid),
                 gid: GroupId::new(pwd.pw_gid),
                 name: SudoString::new(string_from_ptr(pwd.pw_name))?,
-                gecos: string_from_ptr(pwd.pw_gecos),
                 home: SudoPath::new(os_string_from_ptr(pwd.pw_dir).into())?,
                 shell: os_string_from_ptr(pwd.pw_shell).into(),
-                passwd: string_from_ptr(pwd.pw_passwd),
                 groups: groups_buffer
                     .iter()
                     .map(|id| GroupId::new(*id))
