@@ -35,6 +35,16 @@ macro_rules! io_msg {
 }
 
 pub fn main() {
+    if User::effective_uid() != User::real_uid() || User::effective_gid() != User::real_gid() {
+        println_ignore_io_error!(
+            "Visudo must not be installed as setuid binary.\n\
+             Please notify your packager about this misconfiguration.\n\
+             To prevent privilege escalation visudo will now abort.
+             "
+        );
+        std::process::exit(1);
+    }
+
     let options = match VisudoOptions::from_env() {
         Ok(options) => options,
         Err(error) => {
