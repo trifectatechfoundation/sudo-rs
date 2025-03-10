@@ -704,10 +704,11 @@ impl Parse for defaults::SettingsModifier {
             if stream.eat_char('"') {
                 let mut result = Vec::new();
                 while let Some(EnvVar(name)) = try_nonterminal(stream)? {
-                    result.push(name);
                     if is_syntax('=', stream)? {
-                        let EnvVar(_) = expect_nonterminal(stream)?;
-                        unrecoverable!(stream, "values in environment variables not yet supported")
+                        let StringParameter(value) = expect_nonterminal(stream)?;
+                        result.push(name + "=" + &value);
+                    } else {
+                        result.push(name);
                     }
                     if result.len() > Identifier::LIMIT {
                         unrecoverable!(stream, "environment variable list too long")

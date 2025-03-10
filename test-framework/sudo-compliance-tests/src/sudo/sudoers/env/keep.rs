@@ -65,7 +65,6 @@ fn if_value_starts_with_parentheses_variable_is_removed() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh344"]
 fn key_value_matches() -> Result<()> {
     super::key_value_matches(ENV_LIST)
 }
