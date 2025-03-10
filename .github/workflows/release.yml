@@ -1,0 +1,82 @@
+# To run the release workflow push a tag with the expected SHA256SUMS as tag message body.
+
+name: Release
+
+on:
+  push:
+    tags: '*'
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions: read-all
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Sanity checks
+        run: |
+          # Check if the tag has a signature to prevent accidentally pushing an unsigned tag.
+          git tag -l --format='%(contents:signature)' "$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')" | grep --quiet SIGNATURE || (echo "Tag not signed"; exit 1)
+
+      - name: Run build
+        run: ./util/build-release.sh
+
+      # Upload the built tarballs first before comparing checksums to help with debugging.
+      - name: Upload artifacts
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: release_files
+          path: |
+            target/pkg/SHA256SUMS
+            target/pkg/*.tar.gz
+
+      - name: Compare checksums
+        run: |
+          # GHA makes the tag point to the commit rather than the tag object.
+          # Remove the tag and fetch it again to get the real tag object.
+          git tag -d "$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')"
+          git fetch https://github.com/bjorn3/sudo-rs.git --tags
+
+          # Get the expected checksums from the tag message.
+          git tag -l --format='%(contents:body)' "$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')" | tr -s '\n' > expected_checksums.txt
+
+          # Check that the actual checksums match what we expected. If not fail
+          # the release and have the person doing the release check again for
+          # reproducability problems.
+          cat expected_checksums.txt
+          diff -u expected_checksums.txt target/pkg/SHA256SUMS
+
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+       contents: write
+    needs: build
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Download artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: release_files
+          path: release_files
+
+      - name: Prepare release
+        run: |
+          echo "Release files:"
+          ls -l release_files
+          echo
+
+          # Extract the first changelog entry from CHANGELOG.md
+          echo "Changelog:"
+          sed -n '4,${ /^## /q; p; }' CHANGELOG.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF" --draft \
+            --title "Version $(echo "$GITHUB_REF" | sed 's/refs\/tags\///')" \
+            --notes-file changes.md release_files/* \
+            --verify-tag
+          echo "Draft release successfully created. Please review and publish."
