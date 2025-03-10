@@ -210,15 +210,15 @@ impl SuContext {
 }
 
 impl RunOptions for SuContext {
-    fn command(&self) -> io::Result<&PathBuf> {
+    fn command(&self) -> io::Result<&Path> {
         Ok(&self.command)
     }
 
-    fn arguments(&self) -> &Vec<String> {
+    fn arguments(&self) -> &[String] {
         &self.arguments
     }
 
-    fn arg0(&self) -> Option<&PathBuf> {
+    fn arg0(&self) -> Option<&Path> {
         None
     }
 
