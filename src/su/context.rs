@@ -9,13 +9,10 @@ use std::{
 use crate::exec::RunOptions;
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
+use crate::{common::resolve::is_valid_executable, system::interface::UserId};
 use crate::{
     common::{error::Error, resolve::CurrentUser},
     system::interface::ProcessId,
-};
-use crate::{
-    common::{resolve::is_valid_executable, SudoPath},
-    system::interface::UserId,
 };
 
 type Environment = HashMap<OsString, OsString>;
@@ -225,7 +222,7 @@ impl RunOptions for SuContext {
         None
     }
 
-    fn chdir(&self) -> Option<&SudoPath> {
+    fn chdir(&self) -> Option<&Path> {
         None
     }
 
