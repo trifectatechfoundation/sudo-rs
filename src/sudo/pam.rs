@@ -1,99 +1,37 @@
 use std::ffi::OsString;
 
-use crate::common::context::LaunchType;
-use crate::common::resolve::AuthUser;
-use crate::common::{error::Error, Context};
+use crate::common::error::Error;
 use crate::log::{dev_info, user_warn};
-use crate::pam::{CLIConverser, Converser, PamContext, PamError, PamErrorType, PamResult};
+use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
 use crate::system::term::current_tty_name;
 
-use super::pipeline::AuthPlugin;
-pub struct PamAuthenticator {
-    pam: Option<PamContext<CLIConverser>>,
+pub(super) struct InitPamArgs<'a> {
+    pub(super) is_login_shell: bool,
+    pub(super) is_shell: bool,
+    pub(super) use_stdin: bool,
+    pub(super) non_interactive: bool,
+    pub(super) password_feedback: bool,
+    pub(super) auth_prompt: Option<String>,
+    pub(super) auth_user: &'a str,
+    pub(super) requesting_user: &'a str,
+    pub(super) target_user: &'a str,
+    pub(super) hostname: &'a str,
 }
 
-impl PamAuthenticator {
-    pub fn new_cli() -> PamAuthenticator {
-        PamAuthenticator { pam: None }
-    }
-}
-
-impl AuthPlugin for PamAuthenticator {
-    fn init(&mut self, context: &Context, auth_user: AuthUser) -> Result<(), Error> {
-        self.pam = Some(init_pam(
-            matches!(context.launch, LaunchType::Login),
-            matches!(context.launch, LaunchType::Shell),
-            context.stdin,
-            context.non_interactive,
-            context.password_feedback,
-            &auth_user.name,
-            &context.current_user.name,
-        )?);
-        Ok(())
-    }
-
-    fn authenticate(&mut self, non_interactive: bool, max_tries: u16) -> Result<(), Error> {
-        let pam = self
-            .pam
-            .as_mut()
-            .expect("Pam must be initialized before authenticate");
-
-        attempt_authenticate(pam, non_interactive, max_tries)?;
-
-        Ok(())
-    }
-
-    fn pre_exec(&mut self, target_user: &str) -> Result<Vec<(OsString, OsString)>, Error> {
-        let pam = self
-            .pam
-            .as_mut()
-            .expect("Pam must be initialized before pre_exec");
-
-        // make sure that the user that needed to authenticate has a valid token
-        pam.validate_account_or_change_auth_token()?;
-
-        // check what the current user in PAM is
-        let user = pam.get_user()?;
-        if user != target_user {
-            // switch pam over to the target user
-            pam.set_user(target_user)?;
-
-            // make sure that credentials are loaded for the target user
-            // errors are ignored because not all modules support this functionality
-            if let Err(e) = pam.credentials_reinitialize() {
-                dev_info!(
-                    "PAM gave an error while trying to re-initialize credentials: {:?}",
-                    e
-                );
-            }
-        }
-
-        pam.open_session()?;
-
-        let env_vars = pam.env()?;
-
-        Ok(env_vars)
-    }
-
-    fn cleanup(&mut self) {
-        let pam = self
-            .pam
-            .as_mut()
-            .expect("Pam must be initialized before cleanup");
-
-        pam.close_session();
-    }
-}
-
-pub fn init_pam(
-    is_login_shell: bool,
-    is_shell: bool,
-    use_stdin: bool,
-    non_interactive: bool,
-    password_feedback: bool,
-    auth_user: &str,
-    requesting_user: &str,
-) -> PamResult<PamContext<CLIConverser>> {
+pub(super) fn init_pam(
+    InitPamArgs {
+        is_login_shell,
+        is_shell,
+        use_stdin,
+        non_interactive,
+        password_feedback,
+        auth_prompt,
+        auth_user,
+        requesting_user,
+        target_user,
+        hostname,
+    }: InitPamArgs,
+) -> PamResult<PamContext> {
     let service_name = if is_login_shell && cfg!(feature = "pam-login") {
         "sudo-i"
     } else {
@@ -112,6 +50,33 @@ pub fn init_pam(
     pam.set_requesting_user(requesting_user)?;
     pam.set_user(auth_user)?;
 
+    match auth_prompt.as_deref() {
+        None => {}
+        Some("") => pam.set_auth_prompt(None),
+        Some(auth_prompt) => {
+            let mut final_prompt = String::new();
+            let mut chars = auth_prompt.chars();
+            while let Some(c) = chars.next() {
+                if c != '%' {
+                    final_prompt.push(c);
+                    continue;
+                }
+                match chars.next() {
+                    Some('H' | 'h') => final_prompt.push_str(hostname),
+                    Some('p') => final_prompt.push_str(auth_user),
+                    Some('U') => final_prompt.push_str(target_user),
+                    Some('u') => final_prompt.push_str(requesting_user),
+                    Some('%') | None => final_prompt.push('%'),
+                    Some(c) => {
+                        final_prompt.push('%');
+                        final_prompt.push(c);
+                    }
+                }
+            }
+            pam.set_auth_prompt(Some(final_prompt));
+        }
+    }
+
     // attempt to set the TTY this session is communicating on
     if let Ok(pam_tty) = current_tty_name() {
         pam.set_tty(&pam_tty)?;
@@ -120,8 +85,8 @@ pub fn init_pam(
     Ok(pam)
 }
 
-pub fn attempt_authenticate<C: Converser>(
-    pam: &mut PamContext<C>,
+pub(super) fn attempt_authenticate(
+    pam: &mut PamContext,
     non_interactive: bool,
     mut max_tries: u16,
 ) -> Result<(), Error> {
@@ -157,4 +122,34 @@ pub fn attempt_authenticate<C: Converser>(
     }
 
     Ok(())
+}
+
+pub(super) fn pre_exec(
+    pam: &mut PamContext,
+    target_user: &str,
+) -> Result<Vec<(OsString, OsString)>, Error> {
+    // make sure that the user that needed to authenticate has a valid token
+    pam.validate_account_or_change_auth_token()?;
+
+    // check what the current user in PAM is
+    let user = pam.get_user()?;
+    if user != target_user {
+        // switch pam over to the target user
+        pam.set_user(target_user)?;
+
+        // make sure that credentials are loaded for the target user
+        // errors are ignored because not all modules support this functionality
+        if let Err(e) = pam.credentials_reinitialize() {
+            dev_info!(
+                "PAM gave an error while trying to re-initialize credentials: {:?}",
+                e
+            );
+        }
+    }
+
+    pam.open_session()?;
+
+    let env_vars = pam.env()?;
+
+    Ok(env_vars)
 }

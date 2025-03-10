@@ -3,7 +3,7 @@
 use crate::common::error::Error;
 use crate::exec::{ExecOutput, ExitReason, RunOptions};
 use crate::log::user_warn;
-use crate::pam::{CLIConverser, PamContext, PamError, PamErrorType};
+use crate::pam::{PamContext, PamError, PamErrorType};
 use crate::system::term::current_tty_name;
 
 use std::{env, process};
@@ -21,11 +21,7 @@ mod help;
 const DEFAULT_USER: &str = "root";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn authenticate(
-    requesting_user: &str,
-    user: &str,
-    login: bool,
-) -> Result<PamContext<CLIConverser>, Error> {
+fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamContext, Error> {
     // FIXME make it configurable by the packager
     let context = if login && cfg!(target_os = "linux") {
         "su-l"
@@ -88,7 +84,7 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
     let context = SuContext::from_env(options)?;
 
     // authenticate the target user
-    let mut pam: PamContext<CLIConverser> = authenticate(
+    let mut pam: PamContext = authenticate(
         &context.requesting_user.name,
         &context.user().name,
         context.is_login(),

@@ -7,6 +7,7 @@ mod flag_help;
 mod flag_list;
 mod flag_login;
 mod flag_non_interactive;
+mod flag_prompt;
 mod flag_shell;
 mod flag_user;
 mod flag_version;
