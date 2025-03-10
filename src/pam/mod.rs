@@ -54,7 +54,6 @@ impl PamContext {
         let converser = CLIConverser {
             name: converser_name.to_owned(),
             use_stdin,
-            no_interact,
             password_feedback,
         };
 
@@ -68,6 +67,9 @@ impl PamContext {
         // this will be de-allocated explicitly in this type's drop method
         let data_ptr = Box::into_raw(Box::new(ConverserData {
             converser,
+            converser_name: converser_name.to_owned(),
+            no_interact,
+            auth_prompt: Some("authenticate".to_owned()),
             panicked: false,
         }));
 
@@ -98,6 +100,12 @@ impl PamContext {
             last_pam_status: None,
             session_started: false,
         })
+    }
+
+    pub fn set_auth_prompt(&mut self, prompt: Option<String>) {
+        unsafe {
+            (*self.data_ptr).auth_prompt = prompt;
+        }
     }
 
     /// Set whether output of pam calls should be silent or not, by default

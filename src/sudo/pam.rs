@@ -5,14 +5,32 @@ use crate::log::{dev_info, user_warn};
 use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
 use crate::system::term::current_tty_name;
 
+pub(super) struct InitPamArgs<'a> {
+    pub(super) is_login_shell: bool,
+    pub(super) is_shell: bool,
+    pub(super) use_stdin: bool,
+    pub(super) non_interactive: bool,
+    pub(super) password_feedback: bool,
+    pub(super) auth_prompt: Option<String>,
+    pub(super) auth_user: &'a str,
+    pub(super) requesting_user: &'a str,
+    pub(super) target_user: &'a str,
+    pub(super) hostname: &'a str,
+}
+
 pub(super) fn init_pam(
-    is_login_shell: bool,
-    is_shell: bool,
-    use_stdin: bool,
-    non_interactive: bool,
-    password_feedback: bool,
-    auth_user: &str,
-    requesting_user: &str,
+    InitPamArgs {
+        is_login_shell,
+        is_shell,
+        use_stdin,
+        non_interactive,
+        password_feedback,
+        auth_prompt,
+        auth_user,
+        requesting_user,
+        target_user,
+        hostname,
+    }: InitPamArgs,
 ) -> PamResult<PamContext> {
     let service_name = if is_login_shell && cfg!(feature = "pam-login") {
         "sudo-i"
@@ -31,6 +49,33 @@ pub(super) fn init_pam(
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
     pam.set_user(auth_user)?;
+
+    match auth_prompt.as_deref() {
+        None => {}
+        Some("") => pam.set_auth_prompt(None),
+        Some(auth_prompt) => {
+            let mut final_prompt = String::new();
+            let mut chars = auth_prompt.chars();
+            while let Some(c) = chars.next() {
+                if c != '%' {
+                    final_prompt.push(c);
+                    continue;
+                }
+                match chars.next() {
+                    Some('H' | 'h') => final_prompt.push_str(hostname),
+                    Some('p') => final_prompt.push_str(auth_user),
+                    Some('U') => final_prompt.push_str(target_user),
+                    Some('u') => final_prompt.push_str(requesting_user),
+                    Some('%') | None => final_prompt.push('%'),
+                    Some(c) => {
+                        final_prompt.push('%');
+                        final_prompt.push(c);
+                    }
+                }
+            }
+            pam.set_auth_prompt(Some(final_prompt));
+        }
+    }
 
     // attempt to set the TTY this session is communicating on
     if let Ok(pam_tty) = current_tty_name() {
