@@ -144,8 +144,12 @@ pub(in crate::exec) fn exec_pty(
     }
 
     // Start in raw mode unless we're part of a pipeline or backgrounded.
-    if foreground && !pipeline && !exec_bg && user_tty.set_raw_mode(false).is_ok() {
-        term_raw = true;
+    if foreground && !pipeline && !exec_bg {
+        // Clearer this way that set_raw_mode only conditionally runs
+        #[allow(clippy::collapsible_if)]
+        if user_tty.set_raw_mode(false).is_ok() {
+            term_raw = true;
+        }
     }
 
     let tty_size = tty_pipe.left().get_size().map_err(|err| {
