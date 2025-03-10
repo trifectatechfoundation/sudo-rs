@@ -109,11 +109,6 @@ cargo build --release
 This produces a binary `target/release/sudo`. However, this binary must have
 the setuid flag set and must be owned by the root user in order to provide any
 useful functionality. Consult your operating system manual for details.
-On operating systems other than Linux we also require an environment variable
-`SUDO_RS_IS_UNSTABLE` to be set, and it must have the value
-`I accept that my system may break unexpectedly`. This because we are in an
-early stage of supporting non-Linux OSes. If you are unsure about how to set
-this up, then the current version of sudo is not intended for you.
 
 Sudo-rs then also needs the configuration files; please follow the installation
 suggestions in the previous section.
