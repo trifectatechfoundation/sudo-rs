@@ -5,9 +5,6 @@ use std::{
 };
 
 /// A timestamp relative to `CLOCK_BOOTTIME` on most systems.
-///
-/// On FreeBSD it is relative to `CLOCK_REALTIME` as that is what the kernel uses for the start time
-/// of processes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SystemTime {
     secs: i64,
@@ -26,14 +23,7 @@ impl SystemTime {
         let mut spec = MaybeUninit::<libc::timespec>::uninit();
         // SAFETY: valid pointer is passed to clock_gettime
         crate::cutils::cerr(unsafe {
-            libc::clock_gettime(
-                if cfg!(target_os = "freebsd") {
-                    libc::CLOCK_REALTIME
-                } else {
-                    libc::CLOCK_BOOTTIME
-                },
-                spec.as_mut_ptr(),
-            )
+            libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr())
         })?;
         // SAFETY: The `libc::clock_gettime` will correctly initialize `spec`,
         // otherwise it will return early with the `?` operator.
