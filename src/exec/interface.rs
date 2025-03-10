@@ -7,57 +7,36 @@ use crate::{
     system::{Group, User},
 };
 
-pub trait RunOptions {
-    fn command(&self) -> io::Result<&Path>;
-    fn arguments(&self) -> &[String];
-    fn arg0(&self) -> Option<&Path>;
-    fn chdir(&self) -> Option<&Path>;
-    fn is_login(&self) -> bool;
-    fn user(&self) -> &User;
-    fn group(&self) -> &Group;
-    fn pid(&self) -> ProcessId;
+pub struct RunOptions<'a> {
+    pub command: &'a Path,
+    pub arguments: &'a [String],
+    pub arg0: Option<&'a Path>,
+    pub chdir: Option<&'a Path>,
+    pub is_login: bool,
+    pub user: &'a User,
+    pub group: &'a Group,
+    pub pid: ProcessId,
 
-    fn use_pty(&self) -> bool;
+    pub use_pty: bool,
 }
 
-impl RunOptions for Context {
-    fn command(&self) -> io::Result<&Path> {
-        if self.command.resolved {
-            Ok(&self.command.command)
-        } else {
-            Err(ErrorKind::NotFound.into())
-        }
-    }
+impl Context {
+    pub(crate) fn try_as_run_options(&self) -> io::Result<RunOptions<'_>> {
+        Ok(RunOptions {
+            command: if self.command.resolved {
+                &self.command.command
+            } else {
+                return Err(ErrorKind::NotFound.into());
+            },
+            arguments: &self.command.arguments,
+            arg0: self.command.arg0.as_deref(),
+            chdir: self.chdir.as_deref(),
+            is_login: self.launch == LaunchType::Login,
+            user: &self.target_user,
+            group: &self.target_group,
+            pid: self.process.pid,
 
-    fn arguments(&self) -> &[String] {
-        &self.command.arguments
-    }
-
-    fn arg0(&self) -> Option<&Path> {
-        self.command.arg0.as_ref().map(|arg0| &**arg0)
-    }
-
-    fn chdir(&self) -> Option<&Path> {
-        self.chdir.as_ref().map(|chdir| &**chdir)
-    }
-
-    fn is_login(&self) -> bool {
-        self.launch == LaunchType::Login
-    }
-
-    fn user(&self) -> &User {
-        &self.target_user
-    }
-
-    fn group(&self) -> &Group {
-        &self.target_group
-    }
-
-    fn pid(&self) -> ProcessId {
-        self.process.pid
-    }
-
-    fn use_pty(&self) -> bool {
-        self.use_pty
+            use_pty: self.use_pty,
+        })
     }
 }
