@@ -1,7 +1,6 @@
 use std::io::{self, ErrorKind};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use crate::common::SudoPath;
 use crate::system::interface::ProcessId;
 use crate::{
     common::{context::LaunchType, Context},
@@ -12,7 +11,7 @@ pub trait RunOptions {
     fn command(&self) -> io::Result<&PathBuf>;
     fn arguments(&self) -> &Vec<String>;
     fn arg0(&self) -> Option<&PathBuf>;
-    fn chdir(&self) -> Option<&SudoPath>;
+    fn chdir(&self) -> Option<&Path>;
     fn is_login(&self) -> bool;
     fn user(&self) -> &User;
     fn group(&self) -> &Group;
@@ -38,8 +37,8 @@ impl RunOptions for Context {
         self.command.arg0.as_ref()
     }
 
-    fn chdir(&self) -> Option<&SudoPath> {
-        self.chdir.as_ref()
+    fn chdir(&self) -> Option<&Path> {
+        self.chdir.as_ref().map(|chdir| &**chdir)
     }
 
     fn is_login(&self) -> bool {

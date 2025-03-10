@@ -69,8 +69,13 @@ pub fn run_command(
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
     let path = options
         .chdir()
-        .cloned()
-        .or_else(|| options.is_login().then(|| options.user().home.clone()));
+        .map(|chdir| chdir.to_owned())
+        .or_else(|| {
+            options
+                .is_login()
+                .then(|| options.user().home.clone().into())
+        })
+        .clone();
 
     // set target user and groups
     set_target_user(
