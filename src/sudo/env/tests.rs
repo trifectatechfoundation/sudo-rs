@@ -86,10 +86,8 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         gid: GroupId::new(1000),
 
         name: "test".into(),
-        gecos: String::new(),
         home: "/home/test".into(),
         shell: "/bin/sh".into(),
-        passwd: String::new(),
         groups: vec![],
     });
 
@@ -102,10 +100,8 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         uid: UserId::ROOT,
         gid: GroupId::new(0),
         name: "root".into(),
-        gecos: String::new(),
         home: "/root".into(),
         shell: "/bin/bash".into(),
-        passwd: String::new(),
         groups: vec![],
     };
 
