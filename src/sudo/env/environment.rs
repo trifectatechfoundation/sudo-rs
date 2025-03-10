@@ -161,10 +161,15 @@ fn is_safe_tz(value: &[u8]) -> bool {
 }
 
 /// Check whether the needle exists in a haystack, in which the haystack is a list of patterns, possibly containing wildcards
-fn in_table(needle: &OsStr, haystack: &HashSet<String>) -> bool {
-    haystack
-        .iter()
-        .any(|pattern| wildcard_match(needle.as_bytes(), pattern.as_bytes()))
+fn in_table(needle: (&OsStr, &OsStr), haystack: &HashSet<String>) -> bool {
+    haystack.iter().any(|pattern| {
+        if let Some((key, value)) = pattern.split_once('=') {
+            wildcard_match(needle.0.as_bytes(), key.as_bytes())
+                && wildcard_match(needle.1.as_bytes(), value.as_bytes())
+        } else {
+            wildcard_match(needle.0.as_bytes(), pattern.as_bytes())
+        }
+    })
 }
 
 /// Determine whether a specific environment variable should be kept
@@ -178,15 +183,15 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &Restrictions) -> bool {
     }
 
     if key == "TZ" {
-        return in_table(key, cfg.env_keep)
-            || (in_table(key, cfg.env_check) && is_safe_tz(value.as_bytes()));
+        return in_table((key, value), cfg.env_keep)
+            || (in_table((key, value), cfg.env_check) && is_safe_tz(value.as_bytes()));
     }
 
-    if in_table(key, cfg.env_check) {
+    if in_table((key, value), cfg.env_check) {
         return !value.as_bytes().iter().any(|c| *c == b'%' || *c == b'/');
     }
 
-    in_table(key, cfg.env_keep)
+    in_table((key, value), cfg.env_keep)
 }
 
 /// Construct the final environment from the current one and a sudo context
