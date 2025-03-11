@@ -1,0 +1,10 @@
+@(,,4755) bin/sudo%%RS_SUFFIX%%
+sbin/visudo%%RS_SUFFIX%%
+share/man/man5/sudoers%%RS_SUFFIX%%.5.gz
+share/man/man8/sudo%%RS_SUFFIX%%.8.gz
+share/man/man8/visudo%%RS_SUFFIX%%.8.gz
+%%NO_COEXIST%%@sample etc/pam.d/sudo.default etc/pam.d/sudo
+%%NO_COEXIST%%@sample etc/sudoers.dist etc/sudoers
+@dir etc/sudoers.d
+@dir /var/db/sudo
+@dir /var/run/sudo
