@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::common::error::Error;
-use crate::exec::{ExecOutput, ExitReason, RunOptions};
+use crate::exec::{ExecOutput, ExitReason};
 use crate::log::user_warn;
 use crate::pam::{PamContext, PamError, PamErrorType};
 use crate::system::term::current_tty_name;
@@ -86,8 +86,8 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
     // authenticate the target user
     let mut pam: PamContext = authenticate(
         &context.requesting_user.name,
-        &context.user().name,
-        context.is_login(),
+        &context.user.name,
+        context.options.login,
     )?;
 
     // su in all cases uses PAM (pam_getenvlist(3)) to do the
@@ -103,7 +103,7 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
     let ExecOutput {
         command_exit_reason,
         restore_signal_handlers,
-    } = crate::exec::run_command(&context, environment)?;
+    } = crate::exec::run_command(context.as_run_options(), environment)?;
 
     pam.close_session();
 
