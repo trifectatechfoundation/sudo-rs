@@ -69,8 +69,5 @@ root ALL=(ALL:ALL) ALL
 # Defaults targetpw  # Ask for the password of the target user
 # ALL ALL=(ALL:ALL) ALL  # WARNING: only use this together with 'Defaults targetpw'
 
-## Uncomment to show on password prompt which users' password is being expected
-# Defaults passprompt="%p's password:"
-
 ## Read drop-in files from /usr/local/etc/sudoers.d
 @includedir sudoers.d
