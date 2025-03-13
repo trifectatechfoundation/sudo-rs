@@ -19,10 +19,13 @@ DISTVERSIONPREFIX=	v
 BUILD_DEPENDS=		pandoc:${PORTSDIR}/textproc/hs-pandoc
 
 OPTIONS_DEFINE=		COEXIST DOCS
-OPTIONS_DEFAULT=	COEXIST
-OPTIONS_SUB=yes
+OPTIONS_SUB=		yes
 
 COEXIST_DESC=		Install using -rs prefix to coexist with security/sudo
+COEXIST_VARS=		rs_suffix=-rs
+COEXIST_CONFLICTS_INSTALL_OFF=	sudo
+
+PLIST_SUB+=		RS_SUFFIX=${RS_SUFFIX}
 
 PORTDOCS=	CONTRIBUTING.md CHANGELOG.md COPYRIGHT LICENSE-* README.md SECURITY.md
 
@@ -32,19 +35,6 @@ CARGO_CRATES=	diff-0.1.13 \
 		log-0.4.26 \
 		pretty_assertions-1.4.1 \
 		yansi-1.0.1
-
-.include <bsd.port.options.mk>
-
-.if ${PORT_OPTIONS:MCOEXIST}
-RS_SUFFIX=		-rs
-PLIST_SUB+=		DEFAULTSUDO="@comment "
-.else
-RS_SUFFIX=
-PLIST_SUB+=		DEFAULTSUDO=""
-CONFLICTS_INSTALL=	sudo
-.endif
-
-PLIST_SUB+=	RS_SUFFIX=${RS_SUFFIX}
 
 post-build:
 .for man in sudo.8 visudo.8 sudoers.5
