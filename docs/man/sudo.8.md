@@ -8,7 +8,7 @@ title: SUDO(8) sudo-rs 0.2.4 | sudo-rs
 
 # SYNOPSIS
 
-`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-knS`] [`-i` | `-s`] [`VAR=value`] [<*command*>] \
+`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-BknS`] [`-i` | `-s`] [`VAR=value`] [<*command*>] \
 `sudo` `-h` | `-K` | `-k` | `-V`
 
 # DESCRIPTION
@@ -28,6 +28,9 @@ Some care is taken to pass signals received by sudo-rs to the child process,
 even if that process runs in its own pseudo terminal.
 
 # OPTIONS
+
+`-B`, `--bell`
+: Ring the bell as part of the password prompt when a terminal is present.
 
 `-D` *directory*, `--chdir`=*directory*
 :   Run the *command* in the specified *directory* instead of the current
