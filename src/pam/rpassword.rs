@@ -173,6 +173,12 @@ fn write_unbuffered(sink: &mut dyn io::Write, text: &str) -> io::Result<()> {
     sink.flush()
 }
 
+/// Write bell, then something and immediately flush
+fn write_with_bell_unbuffered(sink: &mut dyn io::Write, text: &str) -> io::Result<()> {
+    sink.write_all(b"\x07")?;
+    write_unbuffered(sink, text)
+}
+
 /// A data structure representing either /dev/tty or /dev/stdin+stderr
 pub enum Terminal<'a> {
     Tty(fs::File),
@@ -222,6 +228,11 @@ impl Terminal<'_> {
     /// Display information
     pub fn prompt(&mut self, text: &str) -> io::Result<()> {
         write_unbuffered(self.sink(), text)
+    }
+
+    /// Display information with bell
+    pub fn prompt_with_bell(&mut self, text: &str) -> io::Result<()> {
+        write_with_bell_unbuffered(self.sink(), text)
     }
 
     // boilerplate reduction functions

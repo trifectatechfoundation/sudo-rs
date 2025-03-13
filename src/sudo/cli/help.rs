@@ -1,13 +1,14 @@
 pub const USAGE_MSG: &str = "\
 usage: sudo -h | -K | -k | -V
-usage: sudo -v [-knS] [-g group] [-u user]
-usage: sudo -l [-knS] [-g group] [-U user] [-u user] [command [arg ...]]
-usage: sudo [-knS] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
-usage: sudo -e [-knS] [-D directory] [-g group] [-u user] file ...";
+usage: sudo -v [-BknS] [-g group] [-u user]
+usage: sudo -l [-BknS] [-g group] [-U user] [-u user] [command [arg ...]]
+usage: sudo [-BknS] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
+usage: sudo -e [-BknS] [-D directory] [-g group] [-u user] file ...";
 
 const DESCRIPTOR: &str = "sudo - run commands as another user";
 
 const HELP_MSG: &str = "Options:
+  -B, --bell                    ring bell when prompting
   -D, --chdir=directory         change the working directory before running command
   -g, --group=group             run command as the specified group name or ID
   -h, --help                    display help message and exit
