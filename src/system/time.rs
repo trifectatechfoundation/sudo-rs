@@ -4,7 +4,7 @@ use std::{
     ops::{Add, Sub},
 };
 
-/// A timestamp relative to `CLOCK_BOOTTIME` on most systems.
+/// A timestamp relative to `CLOCK_BOOTTIME`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SystemTime {
     secs: i64,
