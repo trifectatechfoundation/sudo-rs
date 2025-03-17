@@ -73,10 +73,8 @@ fn auth_invoking_user(
         target_user: &context.target_user,
         target_group: &context.target_group,
     };
-    let judgement =
-        sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request);
-    match judgement.authorization() {
-        Authorization::Allowed(auth, _) => {
+    match sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request) {
+        Authorization::Allowed(auth, ()) => {
             auth_and_update_record_file(context, &auth)?;
             Ok(ControlFlow::Continue(()))
         }
@@ -124,9 +122,9 @@ fn check_other_users_list_perms(
         target_user: &context.target_user,
         target_group: &context.target_group,
     };
-    let judgement = sudoers.check_list_permission(other_user, &context.hostname, list_request);
-
-    if let Authorization::Forbidden = judgement.authorization() {
+    if let Authorization::Forbidden =
+        sudoers.check_list_permission(other_user, &context.hostname, list_request)
+    {
         return Err(Error::NotAllowed {
             username: context.current_user.name.clone(),
             command: format_list_command(original_command),

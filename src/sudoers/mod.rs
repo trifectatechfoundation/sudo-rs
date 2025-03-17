@@ -174,7 +174,7 @@ impl Sudoers {
         invoking_user: &User,
         hostname: &system::Hostname,
         request: ListRequest<User, Group>,
-    ) -> Judgement {
+    ) -> Authorization {
         // exception: if user is root or does not switch users, NOPASSWD is implied
         let skip_passwd = invoking_user.is_root()
             || (request.target_user == invoking_user
@@ -193,15 +193,14 @@ impl Sudoers {
                 }
             });
 
-        if let Some(Tag { authenticate, .. }) = flags.as_mut() {
+        if let Some(tag) = flags.as_mut() {
             if skip_passwd {
-                *authenticate = Authenticate::Nopasswd;
+                tag.authenticate = Authenticate::Nopasswd;
             }
-        }
 
-        Judgement {
-            flags,
-            settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
+            Authorization::Allowed(self.settings.to_auth(Some(tag)), ())
+        } else {
+            Authorization::Forbidden
         }
     }
 
