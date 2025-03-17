@@ -13,7 +13,7 @@ use super::{
     audit::secure_open_cookie_file,
     file::FileLock,
     interface::{DeviceId, ProcessId, UserId},
-    time::{Duration, SystemTime},
+    time::{Duration, ProcessCreateTime, SystemTime},
     Process, WithProcess,
 };
 
@@ -331,11 +331,11 @@ pub enum RecordScope {
     Tty {
         tty_device: DeviceId,
         session_pid: ProcessId,
-        init_time: SystemTime,
+        init_time: ProcessCreateTime,
     },
     Ppid {
         group_pid: ProcessId,
-        init_time: SystemTime,
+        init_time: ProcessCreateTime,
     },
 }
 
@@ -379,7 +379,7 @@ impl RecordScope {
                 let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
                 from.read_exact(&mut buf)?;
                 let session_pid = libc::pid_t::from_le_bytes(buf);
-                let init_time = SystemTime::decode(from)?;
+                let init_time = ProcessCreateTime::decode(from)?;
                 Ok(RecordScope::Tty {
                     tty_device: DeviceId::new(tty_device),
                     session_pid: ProcessId::new(session_pid),
@@ -390,7 +390,7 @@ impl RecordScope {
                 let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
                 from.read_exact(&mut buf)?;
                 let group_pid = libc::pid_t::from_le_bytes(buf);
-                let init_time = SystemTime::decode(from)?;
+                let init_time = ProcessCreateTime::decode(from)?;
                 Ok(RecordScope::Ppid {
                     group_pid: ProcessId::new(group_pid),
                     init_time,
@@ -577,7 +577,7 @@ mod tests {
             RecordScope::Tty {
                 tty_device: DeviceId::new(10),
                 session_pid: ProcessId::new(42),
-                init_time: SystemTime::now().unwrap() - Duration::seconds(150),
+                init_time: ProcessCreateTime::new(1, 0),
             },
             UserId::new(999),
         )
@@ -597,7 +597,7 @@ mod tests {
         let ppid_sample = SessionRecord::new(
             RecordScope::Ppid {
                 group_pid: ProcessId::new(42),
-                init_time: SystemTime::now().unwrap(),
+                init_time: ProcessCreateTime::new(151, 0),
             },
             UserId::new(123),
         )
@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn timestamp_record_matches_works() {
-        let init_time = SystemTime::now().unwrap();
+        let init_time = ProcessCreateTime::new(1, 0);
         let scope = RecordScope::Tty {
             tty_device: DeviceId::new(12),
             session_pid: ProcessId::new(1234),
@@ -642,7 +642,7 @@ mod tests {
             &RecordScope::Tty {
                 tty_device: DeviceId::new(12),
                 session_pid: ProcessId::new(1234),
-                init_time: SystemTime::now().unwrap()
+                init_time: ProcessCreateTime::new(1, 1)
             },
             UserId::new(675),
         ));
@@ -654,7 +654,7 @@ mod tests {
         let scope = RecordScope::Tty {
             tty_device: DeviceId::new(12),
             session_pid: ProcessId::new(1234),
-            init_time: some_time,
+            init_time: ProcessCreateTime::new(0, 0),
         };
         let sample = SessionRecord::init(scope, UserId::new(1234), true, some_time);
 
@@ -719,7 +719,7 @@ mod tests {
         let tty_scope = RecordScope::Tty {
             tty_device: DeviceId::new(0),
             session_pid: ProcessId::new(0),
-            init_time: SystemTime::new(0, 0),
+            init_time: ProcessCreateTime::new(0, 0),
         };
         let auth_user = UserId::new(2424);
         let res = srf.create(tty_scope, auth_user).unwrap();
