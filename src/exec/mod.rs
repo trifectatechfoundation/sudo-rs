@@ -1,5 +1,4 @@
 mod event;
-mod interface;
 mod io_util;
 mod no_pty;
 mod use_pty;
@@ -11,31 +10,40 @@ use std::{
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
+    path::Path,
     process::Command,
     time::Duration,
 };
 
 use crate::{
     exec::no_pty::exec_no_pty,
-    log::dev_info,
-    log::dev_warn,
+    log::{dev_info, dev_warn, user_error},
     system::{
         interface::ProcessId,
         killpg,
         signal::{consts::*, signal_name},
         wait::{Wait, WaitError, WaitOptions},
     },
-    system::{set_target_user, signal::SignalNumber, term::UserTerm},
+    system::{kill, set_target_user, signal::SignalNumber, term::UserTerm, Group, User},
 };
-use crate::{log::user_error, system::kill};
-
-pub use interface::RunOptions;
 
 use self::{
     event::{EventRegistry, Process},
     io_util::was_interrupted,
     use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG},
 };
+
+pub struct RunOptions<'a> {
+    pub command: &'a Path,
+    pub arguments: &'a [String],
+    pub arg0: Option<&'a Path>,
+    pub chdir: Option<&'a Path>,
+    pub is_login: bool,
+    pub user: &'a User,
+    pub group: &'a Group,
+
+    pub use_pty: bool,
+}
 
 /// Based on `ogsudo`s `exec_pty` function.
 ///
