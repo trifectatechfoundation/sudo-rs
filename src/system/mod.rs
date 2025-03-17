@@ -23,7 +23,7 @@ pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
 use libc::STDERR_FILENO;
-use time::SystemTime;
+use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
 
@@ -736,7 +736,7 @@ impl Process {
 
     /// Get the process starting time of a specific process
     #[cfg(target_os = "linux")]
-    pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
+    pub fn starting_time(pid: WithProcess) -> io::Result<ProcessCreateTime> {
         let process_start: u64 = read_proc_stat(pid, 21 /* start_time */)?;
 
         // the startime field is stored in ticks since the system start, so we need to know how many
@@ -749,7 +749,7 @@ impl Process {
         })? as u64;
 
         // finally compute the system time at which the process was started
-        Ok(SystemTime::new(
+        Ok(ProcessCreateTime::new(
             (process_start / ticks_per_second) as i64,
             ((process_start % ticks_per_second) * (1_000_000_000 / ticks_per_second)) as i64,
         ))
@@ -757,7 +757,7 @@ impl Process {
 
     /// Get the process starting time of a specific process
     #[cfg(target_os = "freebsd")]
-    pub fn starting_time(pid: WithProcess) -> io::Result<SystemTime> {
+    pub fn starting_time(pid: WithProcess) -> io::Result<ProcessCreateTime> {
         use std::ffi::c_void;
         use std::ptr;
 
@@ -806,7 +806,10 @@ impl Process {
         }
 
         let ki_start = ki_proc[0].ki_start;
-        Ok(SystemTime::new(ki_start.tv_sec, ki_start.tv_usec * 1000))
+        Ok(ProcessCreateTime::new(
+            ki_start.tv_sec,
+            ki_start.tv_usec * 1000,
+        ))
     }
 }
 
@@ -1013,8 +1016,8 @@ mod tests {
     #[test]
     fn get_process_start_time() {
         let time = super::Process::starting_time(WithProcess::Current).unwrap();
-        let now = super::SystemTime::now().unwrap();
-        assert!(time > now - super::time::Duration::minutes(24 * 60));
+        let now = super::ProcessCreateTime::now().unwrap();
+        assert!(time.secs() > now.secs() - 24 * 60 * 60);
         assert!(time < now);
     }
 

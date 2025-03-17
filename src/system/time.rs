@@ -130,6 +130,68 @@ impl From<libc::timespec> for SystemTime {
     }
 }
 
+/// A timestamp relative to `CLOCK_BOOTTIME` on Linux and relative to `CLOCK_REALTIME` on FreeBSD.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ProcessCreateTime {
+    secs: i64,
+    nsecs: i64,
+}
+
+impl ProcessCreateTime {
+    pub fn new(secs: i64, nsecs: i64) -> ProcessCreateTime {
+        ProcessCreateTime {
+            secs: secs + nsecs.div_euclid(1_000_000_000),
+            nsecs: nsecs.rem_euclid(1_000_000_000),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn now() -> std::io::Result<ProcessCreateTime> {
+        let mut spec = MaybeUninit::<libc::timespec>::uninit();
+        // SAFETY: valid pointer is passed to clock_gettime
+        crate::cutils::cerr(unsafe {
+            libc::clock_gettime(
+                if cfg!(target_os = "freebsd") {
+                    libc::CLOCK_REALTIME
+                } else {
+                    libc::CLOCK_BOOTTIME
+                },
+                spec.as_mut_ptr(),
+            )
+        })?;
+        // SAFETY: The `libc::clock_gettime` will correctly initialize `spec`,
+        // otherwise it will return early with the `?` operator.
+        let spec = unsafe { spec.assume_init() };
+        Ok(ProcessCreateTime::new(spec.tv_sec, spec.tv_nsec))
+    }
+
+    #[cfg(test)]
+    pub(super) fn secs(&self) -> i64 {
+        self.secs
+    }
+
+    pub(super) fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
+        let secs = self.secs.to_ne_bytes();
+        let nsecs = self.nsecs.to_ne_bytes();
+        target.write_all(&secs)?;
+        target.write_all(&nsecs)?;
+        Ok(())
+    }
+
+    pub(super) fn decode(from: &mut impl Read) -> std::io::Result<ProcessCreateTime> {
+        let mut sec_bytes = [0; 8];
+        let mut nsec_bytes = [0; 8];
+
+        from.read_exact(&mut sec_bytes)?;
+        from.read_exact(&mut nsec_bytes)?;
+
+        Ok(ProcessCreateTime::new(
+            i64::from_ne_bytes(sec_bytes),
+            i64::from_ne_bytes(nsec_bytes),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
