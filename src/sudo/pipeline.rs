@@ -5,7 +5,7 @@ use super::cli::{SudoRunOptions, SudoValidateOptions};
 use super::diagnostic;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
-use crate::exec::{ExecOutput, ExitReason};
+use crate::exec::ExitReason;
 use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
@@ -99,7 +99,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     let pid = context.process.pid;
 
     // run command and return corresponding exit code
-    let exec_result = if context.command.resolved {
+    let command_exit_reason = if context.command.resolved {
         log_command_execution(&context);
 
         crate::exec::run_command(
@@ -115,15 +115,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     pam_context.close_session();
 
-    let ExecOutput {
-        command_exit_reason,
-        restore_signal_handlers,
-    } = exec_result?;
-
-    // Run any clean-up code before this line.
-    restore_signal_handlers();
-
-    match command_exit_reason {
+    match command_exit_reason? {
         ExitReason::Code(code) => exit(code),
         ExitReason::Signal(signal) => {
             crate::system::kill(pid, signal)?;

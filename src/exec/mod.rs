@@ -44,7 +44,7 @@ use self::{
 pub fn run_command(
     options: RunOptions<'_>,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
-) -> io::Result<ExecOutput> {
+) -> io::Result<ExitReason> {
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command;
     let mut command = Command::new(qualified_path);
@@ -107,14 +107,6 @@ pub fn run_command(
     } else {
         exec_no_pty(options.pid, command)
     }
-}
-
-/// The output of a command's execution.
-pub struct ExecOutput {
-    /// The exit reason of the executed command,
-    pub command_exit_reason: ExitReason,
-    /// A function to restore the signal handlers that were modified to execute the command.
-    pub restore_signal_handlers: Box<dyn FnOnce()>,
 }
 
 /// Exit reason for the command executed by sudo.
