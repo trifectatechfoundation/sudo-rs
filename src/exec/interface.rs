@@ -1,7 +1,6 @@
 use std::io::{self, ErrorKind};
 use std::path::Path;
 
-use crate::system::interface::ProcessId;
 use crate::{
     common::{context::LaunchType, Context},
     system::{Group, User},
@@ -15,7 +14,6 @@ pub struct RunOptions<'a> {
     pub is_login: bool,
     pub user: &'a User,
     pub group: &'a Group,
-    pub pid: ProcessId,
 
     pub use_pty: bool,
 }
@@ -34,7 +32,6 @@ impl Context {
             is_login: self.launch == LaunchType::Login,
             user: &self.target_user,
             group: &self.target_group,
-            pid: self.process.pid,
 
             use_pty: self.use_pty,
         })

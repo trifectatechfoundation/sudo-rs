@@ -216,7 +216,6 @@ impl SuContext {
             is_login: self.options.login,
             user: &self.user,
             group: &self.group,
-            pid: self.process.pid,
 
             use_pty: true,
         }
