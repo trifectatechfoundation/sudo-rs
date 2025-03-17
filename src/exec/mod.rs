@@ -42,46 +42,43 @@ use self::{
 /// Returns the [`ExitReason`] of the command and a function that restores the default handler for
 /// signals once its called.
 pub fn run_command(
-    options: &impl RunOptions,
+    options: RunOptions<'_>,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
 ) -> io::Result<ExecOutput> {
     // FIXME: should we pipe the stdio streams?
-    let qualified_path = options.command()?;
+    let qualified_path = options.command;
     let mut command = Command::new(qualified_path);
     // reset env and set filtered environment
-    command.args(options.arguments()).env_clear().envs(env);
+    command.args(options.arguments).env_clear().envs(env);
     // set the arg0 to the requested string
     // TODO: this mechanism could perhaps also be used to set the arg0 for login shells, as below
-    if let Some(arg0) = options.arg0() {
+    if let Some(arg0) = options.arg0 {
         command.arg0(arg0);
     }
 
-    if options.is_login() {
+    if options.is_login {
         // signal to the operating system that the command is a login shell by prefixing "-"
         let mut process_name = qualified_path
             .file_name()
             .map(|osstr| osstr.as_bytes().to_vec())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
         process_name.insert(0, b'-');
         command.arg0(OsStr::from_bytes(&process_name));
     }
 
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
     let path = options
-        .chdir()
-        .cloned()
-        .or_else(|| options.is_login().then(|| options.user().home.clone()));
+        .chdir
+        .map(|chdir| chdir.to_owned())
+        .or_else(|| options.is_login.then(|| options.user.home.clone().into()))
+        .clone();
 
     // set target user and groups
-    set_target_user(
-        &mut command,
-        options.user().clone(),
-        options.group().clone(),
-    );
+    set_target_user(&mut command, options.user.clone(), options.group.clone());
 
     // change current directory if necessary.
     if let Some(path) = path {
-        let is_chdir = options.chdir().is_some();
+        let is_chdir = options.chdir.is_some();
 
         // SAFETY: Chdir as used internally by set_current_dir is async-signal-safe. The logger we
         // use is also async-signal-safe.
@@ -99,16 +96,16 @@ pub fn run_command(
         }
     }
 
-    if options.use_pty() {
+    if options.use_pty {
         match UserTerm::open() {
-            Ok(user_tty) => exec_pty(options.pid(), command, user_tty),
+            Ok(user_tty) => exec_pty(options.pid, command, user_tty),
             Err(err) => {
                 dev_info!("Could not open user's terminal, not allocating a pty: {err}");
-                exec_no_pty(options.pid(), command)
+                exec_no_pty(options.pid, command)
             }
         }
     } else {
-        exec_no_pty(options.pid(), command)
+        exec_no_pty(options.pid, command)
     }
 }
 

@@ -102,8 +102,13 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     let exec_result = if context.command.resolved {
         log_command_execution(&context);
 
-        crate::exec::run_command(&context, target_env)
-            .map_err(|io_error| Error::Io(Some(context.command.command), io_error))
+        crate::exec::run_command(
+            context
+                .try_as_run_options()
+                .map_err(|io_error| Error::Io(Some(context.command.command.clone()), io_error))?,
+            target_env,
+        )
+        .map_err(|io_error| Error::Io(Some(context.command.command), io_error))
     } else {
         Err(Error::CommandNotFound(context.command.command))
     };
