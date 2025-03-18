@@ -365,17 +365,23 @@ mod test {
     fn canonicalization() {
         assert_eq!(canonicalize("/").unwrap(), Path::new("/"));
         assert_eq!(canonicalize("").unwrap(), Path::new(""));
-        assert_eq!(
-            canonicalize("/usr/bin/pkill").unwrap(),
-            Path::new("/usr/bin/pkill")
-        );
         if cfg!(any(target_os = "linux", target_os = "macos")) {
+            // this test REQUIRES /usr/bin/unxz to be a symlink for /usr/bin/xz
+            assert_eq!(
+                canonicalize("/usr/bin/unxz").unwrap(),
+                Path::new("/usr/bin/unxz")
+            );
             // this assumes /bin is a symlink on /usr/bin, like it is on modern Debian/Ubuntu
             assert_eq!(
-                canonicalize("/bin/pkill").unwrap(),
-                Path::new("/usr/bin/pkill")
+                canonicalize("/bin/unxz").unwrap(),
+                Path::new("/usr/bin/unxz")
             );
         } else if cfg!(target_os = "freebsd") {
+            // this test REQUIRES /usr/bin/pkill to be a symlink for /usr/bin/pgrep
+            assert_eq!(
+                canonicalize("/usr/bin/pkill").unwrap(),
+                Path::new("/usr/bin/pkill")
+            );
             assert_eq!(canonicalize("/bin/pkill").unwrap(), Path::new("/bin/pkill"));
         } else {
             panic!(
