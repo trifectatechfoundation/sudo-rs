@@ -6,9 +6,7 @@ use std::process::{Command, Stdio};
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
-use crate::exec::{
-    cond_fmt, handle_sigchld, signal_fmt, terminate_process, ExecOutput, HandleSigchld,
-};
+use crate::exec::{cond_fmt, handle_sigchld, signal_fmt, terminate_process, HandleSigchld};
 use crate::exec::{
     io_util::retry_while_interrupted,
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
@@ -33,7 +31,7 @@ pub(in crate::exec) fn exec_pty(
     sudo_pid: ProcessId,
     mut command: Command,
     user_tty: UserTerm,
-) -> io::Result<ExecOutput> {
+) -> io::Result<ExitReason> {
     // Allocate a pseudoterminal.
     let pty = get_pty()?;
 
@@ -258,10 +256,10 @@ pub(in crate::exec) fn exec_pty(
         }
     }
 
-    Ok(ExecOutput {
-        command_exit_reason: exit_reason?,
-        restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
-    })
+    // Restore signal handlers
+    drop(closure.signal_handlers);
+
+    exit_reason
 }
 
 fn get_pty() -> io::Result<Pty> {

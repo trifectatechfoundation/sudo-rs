@@ -1,4 +1,7 @@
+use std::io;
+
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
+use crate::exec::RunOptions;
 use crate::sudo::{SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::system::{Group, Hostname, Process, User};
@@ -158,6 +161,24 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             password_feedback: false,
+        })
+    }
+
+    pub(crate) fn try_as_run_options(&self) -> io::Result<RunOptions<'_>> {
+        Ok(RunOptions {
+            command: if self.command.resolved {
+                &self.command.command
+            } else {
+                return Err(io::ErrorKind::NotFound.into());
+            },
+            arguments: &self.command.arguments,
+            arg0: self.command.arg0.as_deref(),
+            chdir: self.chdir.as_deref(),
+            is_login: self.launch == LaunchType::Login,
+            user: &self.target_user,
+            group: &self.target_group,
+
+            use_pty: self.use_pty,
         })
     }
 }

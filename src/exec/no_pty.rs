@@ -4,7 +4,7 @@ use super::{
     event::PollEvent,
     event::{EventRegistry, Process, StopReason},
     io_util::was_interrupted,
-    terminate_process, ExecOutput, ExitReason, HandleSigchld,
+    terminate_process, ExitReason, HandleSigchld,
 };
 use crate::{
     common::bin_serde::BinPipe,
@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ExecOutput> {
+pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
@@ -107,10 +107,10 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         StopReason::Exit(reason) => reason,
     };
 
-    Ok(crate::exec::ExecOutput {
-        command_exit_reason,
-        restore_signal_handlers: Box::new(move || drop(closure.signal_handlers)),
-    })
+    // Restore signal handlers
+    drop(closure.signal_handlers);
+
+    Ok(command_exit_reason)
 }
 
 struct ExecClosure {
