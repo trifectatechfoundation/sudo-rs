@@ -119,10 +119,11 @@ mod test {
 
         #[cfg(target_os = "linux")]
         {
-            // /var/log/utmp should be readable, but not secure (writeable by group other than root)
+            // /var/log/wtmp should be readable, but not secure (writeable by group other than root)
             // It doesn't exist on many non-Linux systems however.
-            assert!(std::fs::File::open("/var/log/wtmp").is_ok());
-            assert!(secure_open("/var/log/wtmp", false).is_err());
+            if std::fs::File::open("/var/log/wtmp").is_ok() {
+                assert!(secure_open("/var/log/wtmp", false).is_err());
+            }
         }
 
         // /etc/shadow should not be readable

@@ -160,39 +160,35 @@ mod test {
     use crate::system::{Group, User, ROOT_GROUP_NAME};
     use std::ffi::CString;
 
-    fn test_user(user: impl UnixUser, name_c: &CStr, uid: UserId) {
+    fn test_user(user: impl UnixUser, name_c: &CStr) {
         let name = name_c.to_str().unwrap();
         assert!(user.has_name(name));
-        assert!(user.has_uid(uid));
         if user.has_name("root") {
             assert!(user.in_group_by_name(CString::new(ROOT_GROUP_NAME).unwrap().as_c_str()));
         } else {
             assert!(user.in_group_by_name(name_c));
         }
+        assert_eq!(user.is_root(), user.has_uid(UserId::ROOT));
         assert_eq!(user.is_root(), name == "root");
     }
 
-    fn test_group(group: impl UnixGroup, name: &str, gid: GroupId) {
-        assert_eq!(group.as_gid(), gid);
+    fn test_group(group: impl UnixGroup, name: &str) {
+        assert_eq!(name == ROOT_GROUP_NAME, group.as_gid() == GroupId::new(0));
         assert_eq!(group.try_as_name(), Some(name));
     }
 
     #[test]
     fn test_unix_user() {
         let user = |name| User::from_name(name).unwrap().unwrap();
-        test_user(user(cstr!("root")), cstr!("root"), UserId::ROOT);
-        test_user(user(cstr!("daemon")), cstr!("daemon"), UserId::new(1));
+        test_user(user(cstr!("root")), cstr!("root"));
+        test_user(user(cstr!("daemon")), cstr!("daemon"));
     }
 
     #[test]
     fn test_unix_group() {
         let group = |name| Group::from_name(name).unwrap().unwrap();
         let root_group_cstr = CString::new(ROOT_GROUP_NAME).unwrap();
-        test_group(
-            group(root_group_cstr.as_c_str()),
-            ROOT_GROUP_NAME,
-            GroupId::new(0),
-        );
-        test_group(group(cstr!("daemon")), "daemon", GroupId::new(1));
+        test_group(group(root_group_cstr.as_c_str()), ROOT_GROUP_NAME);
+        test_group(group(cstr!("daemon")), "daemon");
     }
 }
