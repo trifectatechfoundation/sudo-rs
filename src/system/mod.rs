@@ -16,6 +16,9 @@ use crate::{
 };
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
+#[cfg(target_os = "macos")]
+use libc::STDERR_FILENO;
+#[cfg(not(target_os = "macos"))]
 use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
 use time::ProcessCreateTime;
 
@@ -37,8 +40,8 @@ pub mod term;
 
 pub mod wait;
 
-#[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
-compile_error!("sudo-rs only works on Linux and FreeBSD");
+#[cfg(not(any(target_os = "freebsd", target_os = "linux", target_os = "macos")))]
+compile_error!("sudo-rs only works on Linux, FreeBSD and MacOS");
 
 pub(crate) fn _exit(status: c_int) -> ! {
     // SAFETY: this function is safe to call
@@ -46,6 +49,7 @@ pub(crate) fn _exit(status: c_int) -> ! {
 }
 
 /// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
+#[cfg(not(target_os = "macos"))]
 pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
     let lowfd = STDERR_FILENO + 1;
 
@@ -74,41 +78,53 @@ pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
 
     match res {
         Err(err) if err.raw_os_error() == Some(ENOSYS) || err.raw_os_error() == Some(EINVAL) => {
-            // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
-            // fallback to finding all open fds using /proc/self/fd.
-
-            // FIXME use /dev/fd on macOS
-            for entry in fs::read_dir("/proc/self/fd")? {
-                let entry = entry?;
-                let file_name = entry.file_name();
-                let file_name = file_name.to_str().ok_or(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "procfs returned non-integer fd name",
-                ))?;
-                if file_name == "." || file_name == ".." {
-                    continue;
-                }
-                let fd = file_name.parse::<c_int>().map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "procfs returned non-integer fd name",
-                    )
-                })?;
-                if fd < lowfd {
-                    continue;
-                }
-                // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
-                // going to need it after exec.
-                unsafe {
-                    cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
-                }
-            }
-
-            Ok(())
+            mark_fds_as_cloexec_fallback(lowfd);
         }
         Err(err) => Err(err),
         Ok(_) => Ok(()),
     }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
+    mark_fds_as_cloexec_fallback(STDERR_FILENO + 1)
+}
+
+fn mark_fds_as_cloexec_fallback(lowfd: i32) -> io::Result<()> {
+    // If the kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
+    // fallback to finding all open fds using /proc/self/fd or /dev/fd
+
+    for entry in fs::read_dir(if cfg!(target_os = "linux") {
+        "/proc/self/fd"
+    } else {
+        "/dev/fd"
+    })? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name = file_name.to_str().ok_or(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "procfs returned non-integer fd name",
+        ))?;
+        if file_name == "." || file_name == ".." {
+            continue;
+        }
+        let fd = file_name.parse::<c_int>().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "procfs returned non-integer fd name",
+            )
+        })?;
+        if fd < lowfd {
+            continue;
+        }
+        // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
+        // going to need it after exec.
+        unsafe {
+            cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
+        }
+    }
+
+    Ok(())
 }
 
 pub(crate) enum ForkResult {

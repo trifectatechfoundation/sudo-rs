@@ -33,7 +33,10 @@ pub struct SessionRecordFile {
 }
 
 impl SessionRecordFile {
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     const BASE_PATH: &'static str = "/var/run/sudo-rs/ts";
+    #[cfg(target_os = "macos")]
+    const BASE_PATH: &'static str = "/var/db/sudo-rs/ts";
 
     pub fn open_for_user(user: &CurrentUser, timeout: Duration) -> io::Result<Self> {
         let uid = user.uid;
