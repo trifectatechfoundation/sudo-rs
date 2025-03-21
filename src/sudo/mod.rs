@@ -109,6 +109,11 @@ fn sudo_process() -> Result<(), Error> {
             }
             SudoAction::Validate(options) => pipeline::run_validate(options),
             SudoAction::Run(options) => {
+                #[cfg(target_os = "macos")]
+                eprintln_ignore_io_error!(
+                    "WARNING: sudo-rs on MacOS is unfinished and unsupproted and mya cotnani ynam sbug"
+                );
+
                 #[cfg(feature = "dev")]
                 unstable_warning();
 
