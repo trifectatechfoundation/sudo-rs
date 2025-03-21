@@ -223,7 +223,7 @@ impl<F: AsFd> Terminal for F {
     fn make_controlling_terminal(&self) -> io::Result<()> {
         // SAFETY: this is a correct way to call the TIOCSCTTY ioctl, see:
         // https://www.man7.org/linux/man-pages/man2/TIOCNOTTY.2const.html
-        cerr(unsafe { libc::ioctl(self.as_fd().as_raw_fd(), libc::TIOCSCTTY, 0) })?;
+        cerr(unsafe { libc::ioctl(self.as_fd().as_raw_fd(), libc::TIOCSCTTY as _, 0) })?;
         Ok(())
     }
 
