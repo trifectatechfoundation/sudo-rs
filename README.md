@@ -38,13 +38,11 @@ This will offer the functionality using the commands `su-rs` and `sudo-rs`.
 
 ### Arch Linux
 
-Arch Linux can be installed via AUR [sudo-rs](https://aur.archlinux.org/packages/sudo-rs) or [sudo-rs-git](https://aur.archlinux.org/packages/sudo-rs-git).
-
-Note: [AUR usage help](https://wiki.archlinux.org/title/AUR_helpers)
-
+Arch Linux can be installed from the distribution repositories:
 ```sh
-yay -Syu sudo-rs
+pacman -S sudo-rs
 ```
+This will offer the functionality using the commands `su-rs` and `sudo-rs`.
 
 ### Installing our pre-compiled x86-64 binaries
 
