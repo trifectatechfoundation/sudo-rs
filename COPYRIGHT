@@ -1,4 +1,5 @@
-Copyright (c) 2022-2024 Trifecta Tech Foundation and contributors
+Copyright (c) 2022-2025 Trifecta Tech Foundation and contributors
+Copyright (c) 1994-1996, 1998-2024 Todd C. Miller <Todd.Miller@sudo.ws>
 
 Except as otherwise noted (below and/or in individual files), sudo-rs is
 licensed under the Apache License, Version 2.0 <LICENSE-APACHE> or
