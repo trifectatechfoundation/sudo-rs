@@ -32,9 +32,9 @@ pub struct Authentication {
 }
 
 impl super::Settings {
-    pub(super) fn to_auth(&self, tag: Option<&Tag>) -> Authentication {
+    pub(super) fn to_auth(&self, tag: &Tag) -> Authentication {
         Authentication {
-            must_authenticate: tag.map_or(true, |tag| tag.needs_passwd()),
+            must_authenticate: tag.needs_passwd(),
             allowed_attempts: self.passwd_tries().try_into().unwrap(),
             prior_validity: Duration::seconds(self.timestamp_timeout()),
             pwfeedback: self.pwfeedback(),
@@ -80,7 +80,7 @@ impl Judgement {
     pub fn authorization(&self) -> Authorization<Restrictions> {
         if let Some(tag) = &self.flags {
             Authorization::Allowed(
-                self.settings.to_auth(Some(tag)),
+                self.settings.to_auth(tag),
                 Restrictions {
                     use_pty: self.settings.use_pty(),
                     trust_environment: tag.allows_setenv(),
@@ -109,10 +109,6 @@ impl Sudoers {
     ) -> Option<&str> {
         self.specify_host_user_runas(on_host, current_user, target_user);
         self.settings.secure_path()
-    }
-
-    pub fn validate_authorization(&self) -> Authorization<()> {
-        Authorization::Allowed(self.settings.to_auth(None), ())
     }
 }
 

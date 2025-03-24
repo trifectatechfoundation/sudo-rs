@@ -198,7 +198,39 @@ impl Sudoers {
                 tag.authenticate = Authenticate::Nopasswd;
             }
 
-            Authorization::Allowed(self.settings.to_auth(Some(tag)), ())
+            Authorization::Allowed(self.settings.to_auth(tag), ())
+        } else {
+            Authorization::Forbidden
+        }
+    }
+
+    pub fn check_validate_permission<User: UnixUser + PartialEq<User>>(
+        &self,
+        invoking_user: &User,
+        hostname: &system::Hostname,
+    ) -> Authorization {
+        // exception: if user is root, NOPASSWD is implied
+        let skip_passwd = invoking_user.is_root();
+
+        let mut flags = self
+            .matching_user_specs(invoking_user, hostname)
+            .flatten()
+            .fold(None::<Tag>, |outcome, (_, (tag, _))| {
+                if let Some(outcome) = outcome {
+                    let new_outcome = if tag.needs_passwd() { tag } else { outcome };
+
+                    Some(new_outcome)
+                } else {
+                    Some(tag)
+                }
+            });
+
+        if let Some(tag) = flags.as_mut() {
+            if skip_passwd {
+                tag.authenticate = Authenticate::Nopasswd;
+            }
+
+            Authorization::Allowed(self.settings.to_auth(tag), ())
         } else {
             Authorization::Forbidden
         }
