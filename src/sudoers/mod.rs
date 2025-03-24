@@ -547,6 +547,7 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
 fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command) -> bool + 'a) {
     let opts = glob::MatchOptions {
         require_literal_separator: true,
+        require_literal_leading_dot: true,
         ..glob::MatchOptions::new()
     };
     move |(cmdpat, argpat)| {
