@@ -39,11 +39,18 @@ pretty_assertions = "1.2.1"
 [features]
 default = []
 
-# when enabled, use "sudo-i" PAM service name for sudo -i
+# when enabled, use "sudo-i" PAM service name for sudo -i instead of "sudo"
+# ONLY ENABLE THIS FEATURE if you know that original sudo uses "sudo-i"
+# on the system you are building sudo for (e.g. Debian, Fedora, but not Arch)
 pam-login = []
 
-# enable dev-logging (used for development only)
+# enable detailed logging (use for development only) to /tmp
+# this will compromise the security of sudo-rs somewhat
 dev = []
+
+# this feature should never be enabled, but it is here to prevent accidental
+# compilation using "cargo --all-features", which should not be used on sudo-rs
+do-not-use-all-features = []
 
 [profile.release]
 strip = "symbols"

@@ -10,4 +10,4 @@ task:
   test_script:
     - . $HOME/.cargo/env
     # We skip a couple of tests which fail when running as root.
-    - cargo test --workspace --all-features --all-targets --release -- --skip group_as_non_root --skip test_secure_open_cookie_file
+    - cargo test --workspace --all-targets --release -- --skip group_as_non_root --skip test_secure_open_cookie_file
