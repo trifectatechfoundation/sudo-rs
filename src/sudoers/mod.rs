@@ -259,7 +259,7 @@ impl Sudoers {
                     }
                     let path = resolve_path(
                         path,
-                        &std::env::var("PATH").unwrap_or(env!("DEFAULT_PATH").to_string()),
+                        &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
                     );
                     if let Some(path) = path {
                         return Some(path);
