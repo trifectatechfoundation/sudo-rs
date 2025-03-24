@@ -32,5 +32,5 @@ fn main() {
 
     println!("cargo:rustc-link-lib=pam");
 
-    println!("cargo:rustc-env=DEFAULT_PATH=\"/bin/:/usr/bin/:/usr/local/bin:/sbin/:/usr/sbin\"")
+    println!("cargo:rustc-env=DEFAULT_PATH=/usr/bin:/bin:/usr/sbin:/sbin");
 }
