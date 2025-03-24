@@ -5,7 +5,7 @@ RUN apt-get update && \
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
-RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --features="dev,pam-login" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
+RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --features="pam-login" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
 # set setuid on install
 RUN install -m 4755 build/sudo /usr/bin/sudo && \
     install -m 4755 build/su /usr/bin/su && \
@@ -18,3 +18,5 @@ RUN chsh -s /bin/sh
 RUN apt-get autoremove -y clang libclang-dev
 # set the default working directory to somewhere world writable so sudo / su can create .profraw files there
 WORKDIR /tmp
+# This env var needs to be set when compiled with the dev feature
+#ENV SUDO_RS_IS_UNSTABLE="I accept that my system may break unexpectedly"
