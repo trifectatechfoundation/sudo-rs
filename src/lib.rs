@@ -16,3 +16,6 @@ mod visudo;
 pub use su::main as su_main;
 pub use sudo::main as sudo_main;
 pub use visudo::main as visudo_main;
+
+#[cfg(feature = "do-not-use-all-features")]
+compile_error!("Refusing to compile using 'cargo --all-features' --- please read the README");

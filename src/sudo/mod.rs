@@ -25,7 +25,7 @@ mod pipeline;
 
 /// show warning message when SUDO_RS_IS_UNSTABLE is not set to the appropriate value
 fn unstable_warning() {
-    if cfg!(target_os = "linux") {
+    if cfg!(all(target_os = "linux", not(feature = "dev"))) {
         return;
     }
 

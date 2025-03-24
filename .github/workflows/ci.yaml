@@ -204,10 +204,10 @@ jobs:
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Build
-        run: cargo build --workspace --all-targets --all-features --release
+        run: cargo build --workspace --all-targets --release
 
       - name: Run tests
-        run: cargo llvm-cov --workspace --all-features --all-targets --release --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --all-targets --release --lcov --output-path lcov.info
 
       - name: Upload code coverage
         uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574
@@ -242,10 +242,10 @@ jobs:
         run: cargo update -Zdirect-minimal-versions
 
       - name: Build
-        run: cargo build --workspace --all-targets --all-features --release
+        run: cargo build --workspace --all-targets --release
 
       - name: Run tests
-        run: cargo test --workspace --all-features --all-targets --release
+        run: cargo test --workspace --all-targets --release
 
   build-and-test-msrv:
     runs-on: ubuntu-latest
@@ -270,10 +270,10 @@ jobs:
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Build
-        run: cargo build --workspace --all-targets --all-features --release
+        run: cargo build --workspace --all-targets --release
 
       - name: Run tests
-        run: cargo test --workspace --all-features --all-targets --release
+        run: cargo test --workspace --all-targets --release
 
   miri:
     needs: build-and-test
@@ -302,7 +302,7 @@ jobs:
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Run tests
-        run: cargo miri test --workspace --all-features miri
+        run: cargo miri test --workspace miri
 
   check-bindings:
     runs-on: ubuntu-latest
@@ -358,7 +358,7 @@ jobs:
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Run clippy
-        run: cargo clippy --no-deps --all-targets --all-features -- --deny warnings
+        run: cargo clippy --no-deps --all-targets -- --deny warnings
 
   docs:
     needs: clippy
@@ -377,7 +377,7 @@ jobs:
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
       - name: Build docs
-        run: cargo doc --no-deps --document-private-items --all-features
+        run: cargo doc --no-deps --document-private-items
 
   audit:
     needs: clippy
