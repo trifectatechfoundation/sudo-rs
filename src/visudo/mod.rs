@@ -4,6 +4,7 @@ mod cli;
 mod help;
 
 use std::{
+    env, ffi,
     fs::{File, Permissions},
     io::{self, Read, Seek, Write},
     os::unix::prelude::{MetadataExt, PermissionsExt},
@@ -14,7 +15,7 @@ use std::{
 use crate::{
     common::resolve::CurrentUser,
     sudo::{candidate_sudoers_file, diagnostic},
-    sudoers::Sudoers,
+    sudoers::{self, Sudoers},
     system::{
         can_execute,
         file::{create_temporary_dir, Chown, FileLock},
@@ -258,14 +259,14 @@ fn edit_sudoers_file(
         None => editor_path_fallback()?,
     };
 
-    loop {
+    'visudo: loop {
         Command::new(&editor_path)
             .arg("--")
             .arg(tmp_path)
             .spawn()?
             .wait_with_output()?;
 
-        let (_sudoers, errors) = File::open(tmp_path)
+        let (sudoers, errors) = File::open(tmp_path)
             .and_then(|reader| Sudoers::read(reader, tmp_path))
             .map_err(|err| {
                 io_msg!(
@@ -277,7 +278,42 @@ fn edit_sudoers_file(
             })?;
 
         if errors.is_empty() {
-            break;
+            if sudo_visudo_is_allowed(sudoers, &host_name) == Some(false) {
+                writeln!(
+                    stderr,
+                    "It looks like you have removed your ability to run 'sudo visudo' again.\n"
+                )?;
+
+                let stdin = io::stdin();
+                let stdout = io::stdout();
+
+                let mut stdin_handle = stdin.lock();
+                let mut stdout_handle = stdout.lock();
+
+                loop {
+                    stdout_handle.write_all(
+                        "What now? (p)roceed anyway / e(x)it without saving / (e)dit again: "
+                            .as_bytes(),
+                    )?;
+                    stdout_handle.flush()?;
+
+                    let mut input = [0u8];
+                    if let Err(err) = stdin_handle.read_exact(&mut input) {
+                        writeln!(stderr, "visudo: cannot read user input: {err}")?;
+                        return Ok(());
+                    }
+
+                    match &input {
+                        b"p" => break,
+                        b"e" => continue 'visudo,
+                        b"x" => return Ok(()),
+                        input => {
+                            writeln!(stderr, "Invalid option: {:?}\n", std::str::from_utf8(input))?
+                        }
+                    }
+                }
+            }
+            break 'visudo;
         }
 
         writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
@@ -312,7 +348,7 @@ fn edit_sudoers_file(
             }
 
             match &input {
-                b"e" => break,
+                b"e" => continue 'visudo,
                 b"x" => return Ok(()),
                 input => writeln!(stderr, "Invalid option: {:?}\n", std::str::from_utf8(input))?,
             }
@@ -352,5 +388,32 @@ fn editor_path_fallback() -> io::Result<PathBuf> {
     Err(io::Error::new(
         io::ErrorKind::NotFound,
         "cannot find text editor",
+    ))
+}
+
+// To detect potential lock-outs if the user called "sudo visudo".
+// Note that SUDO_USER will normally be set by sudo.
+//
+// This returns Some(false) if visudo is forbidden under the given config;
+// Some(true) if it is allowed; and None if it cannot be determined, which
+// will be the case if e.g. visudo was simply run as root.
+fn sudo_visudo_is_allowed(mut sudoers: Sudoers, host_name: &Hostname) -> Option<bool> {
+    let sudo_user =
+        User::from_name(&ffi::CString::new(env::var("SUDO_USER").ok()?).ok()?).ok()??;
+
+    let super_user = User::from_uid(UserId::ROOT).ok()??;
+
+    let request = sudoers::Request {
+        user: &super_user,
+        group: &super_user.primary_group().ok()?,
+        command: &env::current_exe().ok()?,
+        arguments: &[],
+    };
+
+    Some(matches!(
+        sudoers
+            .check(&sudo_user, host_name, request)
+            .authorization(),
+        sudoers::Authorization::Allowed { .. }
     ))
 }
