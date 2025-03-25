@@ -305,11 +305,11 @@ fn edit_sudoers_file(
                 "It looks like you have removed your ability to run 'sudo visudo' again.\n"
             )?;
             match ask_response(
-                b"What now? (p)roceed anyway / e(x)it without saving / (e)dit again: ",
-                b"xep",
+                b"What now? e(x)it without saving / (e)dit again / lock me out and (S)ave: ",
+                b"xeS",
             )? {
                 b'x' => return Ok(()),
-                b'p' => {}
+                b'S' => {}
                 _ => continue,
             }
         }
