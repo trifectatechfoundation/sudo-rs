@@ -10,6 +10,7 @@ use std::{
     os::unix::prelude::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
+    str,
 };
 
 use crate::{
@@ -283,34 +284,13 @@ fn edit_sudoers_file(
                     stderr,
                     "It looks like you have removed your ability to run 'sudo visudo' again.\n"
                 )?;
-
-                let stdin = io::stdin();
-                let stdout = io::stdout();
-
-                let mut stdin_handle = stdin.lock();
-                let mut stdout_handle = stdout.lock();
-
-                loop {
-                    stdout_handle.write_all(
-                        "What now? (p)roceed anyway / e(x)it without saving / (e)dit again: "
-                            .as_bytes(),
-                    )?;
-                    stdout_handle.flush()?;
-
-                    let mut input = [0u8];
-                    if let Err(err) = stdin_handle.read_exact(&mut input) {
-                        writeln!(stderr, "visudo: cannot read user input: {err}")?;
-                        return Ok(());
-                    }
-
-                    match &input {
-                        b"p" => break,
-                        b"e" => continue 'visudo,
-                        b"x" => return Ok(()),
-                        input => {
-                            writeln!(stderr, "Invalid option: {:?}\n", std::str::from_utf8(input))?
-                        }
-                    }
+                match ask_response(
+                    b"What now? (p)roceed anyway / e(x)it without saving / (e)dit again: ",
+                    b"xep",
+                )? {
+                    b'x' => return Ok(()),
+                    b'p' => break 'visudo,
+                    _ => continue 'visudo,
                 }
             }
             break 'visudo;
@@ -330,28 +310,9 @@ fn edit_sudoers_file(
 
         writeln!(stderr)?;
 
-        let stdin = io::stdin();
-        let stdout = io::stdout();
-
-        let mut stdin_handle = stdin.lock();
-        let mut stdout_handle = stdout.lock();
-
-        loop {
-            stdout_handle
-                .write_all("What now? e(x)it without saving / (e)dit again: ".as_bytes())?;
-            stdout_handle.flush()?;
-
-            let mut input = [0u8];
-            if let Err(err) = stdin_handle.read_exact(&mut input) {
-                writeln!(stderr, "visudo: cannot read user input: {err}")?;
-                return Ok(());
-            }
-
-            match &input {
-                b"e" => continue 'visudo,
-                b"x" => return Ok(()),
-                input => writeln!(stderr, "Invalid option: {:?}\n", std::str::from_utf8(input))?,
-            }
+        match ask_response(b"What now? e(x)it without saving / (e)dit again: ", b"xe")? {
+            b'x' => return Ok(()),
+            _ => continue 'visudo,
         }
     }
 
@@ -416,4 +377,44 @@ fn sudo_visudo_is_allowed(mut sudoers: Sudoers, host_name: &Hostname) -> Option<
             .authorization(),
         sudoers::Authorization::Allowed { .. }
     ))
+}
+
+// Make sure that the first valid response is the "safest" choice
+fn ask_response(prompt: &[u8], valid_responses: &[u8]) -> io::Result<u8> {
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    let mut stderr = io::stderr();
+
+    let mut stdin_handle = stdin.lock();
+    let mut stdout_handle = stdout.lock();
+
+    loop {
+        stdout_handle.write_all(prompt)?;
+        stdout_handle.flush()?;
+
+        let mut input = [0u8];
+        if let Err(err) = stdin_handle.read_exact(&mut input) {
+            writeln!(stderr, "visudo: cannot read user input: {err}")?;
+            return Ok(valid_responses[0]);
+        }
+
+        // read the trailing newline
+        loop {
+            let mut skipped = [0u8];
+            match stdin_handle.read_exact(&mut skipped) {
+                Ok(()) if &skipped != b"\n" => continue,
+                _ => break,
+            }
+        }
+
+        if valid_responses.contains(&input[0]) {
+            return Ok(input[0]);
+        } else {
+            writeln!(
+                stderr,
+                "Invalid option: '{}'\n",
+                str::from_utf8(&input).unwrap_or("<INVALID>")
+            )?;
+        }
+    }
 }
