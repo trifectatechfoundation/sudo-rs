@@ -260,7 +260,7 @@ fn edit_sudoers_file(
         None => editor_path_fallback()?,
     };
 
-    'visudo: loop {
+    loop {
         Command::new(&editor_path)
             .arg("--")
             .arg(tmp_path)
@@ -289,11 +289,11 @@ fn edit_sudoers_file(
                     b"xep",
                 )? {
                     b'x' => return Ok(()),
-                    b'p' => break 'visudo,
-                    _ => continue 'visudo,
+                    b'p' => break,
+                    _ => continue,
                 }
             }
-            break 'visudo;
+            break;
         }
 
         writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
@@ -312,7 +312,7 @@ fn edit_sudoers_file(
 
         match ask_response(b"What now? e(x)it without saving / (e)dit again: ", b"xe")? {
             b'x' => return Ok(()),
-            _ => continue 'visudo,
+            _ => continue,
         }
     }
 
