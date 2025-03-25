@@ -289,30 +289,31 @@ fn edit_sudoers_file(
                     b"xep",
                 )? {
                     b'x' => return Ok(()),
-                    b'p' => break,
+                    b'p' => {}
                     _ => continue,
                 }
             }
+
             break;
-        }
+        } else {
+            writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
 
-        writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
+            for crate::sudoers::Error {
+                message,
+                source,
+                location,
+            } in errors
+            {
+                let path = source.as_deref().unwrap_or(sudoers_path);
+                diagnostic::diagnostic!("syntax error: {message}", path @ location);
+            }
 
-        for crate::sudoers::Error {
-            message,
-            source,
-            location,
-        } in errors
-        {
-            let path = source.as_deref().unwrap_or(sudoers_path);
-            diagnostic::diagnostic!("syntax error: {message}", path @ location);
-        }
+            writeln!(stderr)?;
 
-        writeln!(stderr)?;
-
-        match ask_response(b"What now? e(x)it without saving / (e)dit again: ", b"xe")? {
-            b'x' => return Ok(()),
-            _ => continue,
+            match ask_response(b"What now? e(x)it without saving / (e)dit again: ", b"xe")? {
+                b'x' => return Ok(()),
+                _ => continue,
+            }
         }
     }
 
