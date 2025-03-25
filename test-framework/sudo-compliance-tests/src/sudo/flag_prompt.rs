@@ -51,14 +51,14 @@ fn empty_prompt_disables_prompt() -> Result<()> {
 #[test]
 fn show_host_and_users() -> Result<()> {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
-        .hostname("this_host")
+        .hostname("this_host.domain")
         .user(User(USERNAME).password(PASSWORD))
         .build()?;
 
     test_prompt(
         &env,
         "on %H/%h: %u %U",
-        "on this_host/this_host: ferris root",
+        "on this_host.domain/this_host: ferris root",
     )
 }
 

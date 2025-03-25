@@ -72,7 +72,9 @@ even if that process runs in its own pseudo terminal.
 :   Use a custom authentication prompt with optional escape sequences. The
     following percent (‘%’) escape sequences are supported:
 
-         %h  expanded to the local host name
+         %H  expanded to the local host name
+
+         %h  expanded to the local host name without the domain name
 
          %p  expanded to the name of the user whose password is being requested
              (this respects the rootpw, targetpw flags)
