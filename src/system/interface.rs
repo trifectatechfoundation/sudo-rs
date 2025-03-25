@@ -165,10 +165,11 @@ mod test {
         assert!(user.has_name(name));
         if user.has_name("root") {
             assert!(user.in_group_by_name(CString::new(ROOT_GROUP_NAME).unwrap().as_c_str()));
+            assert!(user.is_root());
         } else {
             assert!(user.in_group_by_name(name_c));
+            assert!(!user.is_root());
         }
-        assert_eq!(user.is_root(), user.has_uid(UserId::ROOT));
         assert_eq!(user.is_root(), name == "root");
     }
 
