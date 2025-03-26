@@ -368,7 +368,7 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 * timestamp_timeout
 
-  Number of minutes that can elapse before sudo will ask for a passwd again.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 15.  Set this to 0 to always prompt for a password.  If set to a value less than 0 the user's timestamp will not expire until the system is rebooted.  This can be used to allow users to create or delete their own timestamps via “sudo -v” and “sudo -k” respectively.
+  Number of minutes that can elapse before sudo will ask for a passwd again.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 15.  Set this to 0 to always prompt for a password.
 
 ## Strings that can be used in a boolean context:
 
