@@ -68,6 +68,27 @@ even if that process runs in its own pseudo terminal.
 :   Avoid prompting the user for input of any kind. If any input is required for
     the *command* to run, sudo-rs will display an error message and exit.
 
+`p`, `--prompt`=*prompt*
+:   Use a custom authentication prompt with optional escape sequences. The
+    following percent (‘%’) escape sequences are supported:
+
+         %H  expanded to the local host name
+
+         %h  expanded to the local host name without the domain name
+
+         %p  expanded to the name of the user whose password is being requested
+             (this respects the rootpw, targetpw flags)
+
+         %U  expanded to the login name of the user the command will be run as
+             (defaults to root unless the -u option is also specified)
+
+         %u  expanded to the invoking user's login name
+
+         %%  two consecutive ‘%’ characters are collapsed into a single ‘%’ character
+
+    The custom prompt will override the default prompt or the one specified by the SUDO_PROMPT enviroment variable.
+    No *prompt* will suppress the the prompt provided by PAM, unless the requested *prompt* is empty (`""`)
+
 `-S`, `--stdin`
 :   Read from standard input instead of using the terminal device.
 

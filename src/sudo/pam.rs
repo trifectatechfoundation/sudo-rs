@@ -60,7 +60,9 @@ pub(super) fn init_pam(
                     continue;
                 }
                 match chars.next() {
-                    Some('H' | 'h') => final_prompt.push_str(hostname),
+                    Some('H') => final_prompt.push_str(hostname),
+                    Some('h') => final_prompt
+                        .push_str(hostname.split_once('.').map(|x| x.0).unwrap_or(hostname)),
                     Some('p') => final_prompt.push_str(auth_user),
                     Some('U') => final_prompt.push_str(target_user),
                     Some('u') => final_prompt.push_str(requesting_user),

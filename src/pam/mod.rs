@@ -69,7 +69,10 @@ impl PamContext {
             converser,
             converser_name: converser_name.to_owned(),
             no_interact,
-            auth_prompt: Some("authenticate".to_owned()),
+            auth_prompt: std::env::var("SUDO_PROMPT")
+                .ok()
+                .filter(|s| !s.is_empty())
+                .or(Some("authenticate".to_owned())),
             panicked: false,
         }));
 
@@ -103,6 +106,7 @@ impl PamContext {
     }
 
     pub fn set_auth_prompt(&mut self, prompt: Option<String>) {
+        // SAFETY: self.data_ptr was created by Box::into_raw
         unsafe {
             (*self.data_ptr).auth_prompt = prompt;
         }
