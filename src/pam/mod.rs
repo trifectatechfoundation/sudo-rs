@@ -103,6 +103,7 @@ impl PamContext {
     }
 
     pub fn set_auth_prompt(&mut self, prompt: Option<String>) {
+        // SAFETY: self.data_ptr was created by Box::into_raw
         unsafe {
             (*self.data_ptr).auth_prompt = prompt;
         }
