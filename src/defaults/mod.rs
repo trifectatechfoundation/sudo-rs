@@ -63,9 +63,11 @@ defaults! {
 /// passwd_timeout and timestamp_timeout.
 fn fractional_minutes(input: &str) -> Option<i64> {
     if input.contains('.') {
+        //math note: the token length is capped at 18 characters, so the max value parsed is 1e17;
+        //1e17 * 60 still fits in an i64, so the 'as' can never cause truncation
         Some((input.parse::<f64>().ok()? * 60.0).floor() as i64)
     } else {
-        Some(input.parse::<i64>().ok()? * 60)
+        input.parse::<i64>().ok()?.checked_mul(60)
     }
 }
 
