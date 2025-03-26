@@ -277,20 +277,14 @@ jobs:
 
   build-and-test-fedora:
     runs-on: ubuntu-latest
-    container:
-      image: fedora:latest
+    container: fedora:latest
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Install rustup
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
       - name: Install dependencies
         run: |
-          dnf install -y gcc pam-devel
+          dnf install -y cargo pam-devel
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3
@@ -300,11 +294,16 @@ jobs:
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
+      - name: Reduce privileges
+        run: |
+          useradd builder
+          chown builder .
+
       - name: Build
-        run: cargo build --workspace --all-targets --release
+        run: sudo -ubuilder cargo build --workspace --all-targets --release
 
       - name: Run tests
-        run: cargo test --workspace --all-targets --release
+        run: sudo -ubuilder cargo test --workspace --all-targets --release
 
   miri:
     needs: build-and-test
