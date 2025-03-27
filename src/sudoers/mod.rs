@@ -187,11 +187,7 @@ impl Sudoers {
             .fuse();
 
         let mut flags = specs.next();
-        for tag in specs {
-            if !tag.needs_passwd() {
-                flags = Some(tag)
-            }
-        }
+        flags = specs.find(|tag| !tag.needs_passwd()).or(flags);
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
@@ -219,11 +215,7 @@ impl Sudoers {
             .fuse();
 
         let mut flags = specs.next();
-        for tag in specs {
-            if tag.needs_passwd() {
-                flags = Some(tag)
-            }
-        }
+        flags = specs.find(|tag| tag.needs_passwd()).or(flags);
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
