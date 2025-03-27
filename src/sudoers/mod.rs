@@ -180,16 +180,14 @@ impl Sudoers {
             || (request.target_user == invoking_user
                 && in_group(invoking_user, request.target_group));
 
-        let mut flags = self
-            .matching_user_specs(invoking_user, hostname)
-            .flatten()
-            .fold(None::<Tag>, |outcome, (_, (tag, _))| {
-                if let Some(outcome) = outcome {
-                    Some(if outcome.needs_passwd() { tag } else { outcome })
-                } else {
-                    Some(tag)
-                }
-            });
+        let mut flags = None::<Tag>;
+        for (_, (tag, _)) in self.matching_user_specs(invoking_user, hostname).flatten() {
+            flags = if let Some(outcome) = flags {
+                Some(if outcome.needs_passwd() { tag } else { outcome })
+            } else {
+                Some(tag)
+            }
+        }
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
@@ -210,16 +208,14 @@ impl Sudoers {
         // exception: if user is root, NOPASSWD is implied
         let skip_passwd = invoking_user.is_root();
 
-        let mut flags = self
-            .matching_user_specs(invoking_user, hostname)
-            .flatten()
-            .fold(None::<Tag>, |outcome, (_, (tag, _))| {
-                if let Some(outcome) = outcome {
-                    Some(if tag.needs_passwd() { tag } else { outcome })
-                } else {
-                    Some(tag)
-                }
-            });
+        let mut flags = None::<Tag>;
+        for (_, (tag, _)) in self.matching_user_specs(invoking_user, hostname).flatten() {
+            flags = if let Some(outcome) = flags {
+                Some(if tag.needs_passwd() { tag } else { outcome })
+            } else {
+                Some(tag)
+            }
+        }
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
