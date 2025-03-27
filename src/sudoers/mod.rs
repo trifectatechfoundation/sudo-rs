@@ -185,9 +185,7 @@ impl Sudoers {
             .flatten()
             .fold(None::<Tag>, |outcome, (_, (tag, _))| {
                 if let Some(outcome) = outcome {
-                    let new_outcome = if outcome.needs_passwd() { tag } else { outcome };
-
-                    Some(new_outcome)
+                    Some(if outcome.needs_passwd() { tag } else { outcome })
                 } else {
                     Some(tag)
                 }
@@ -217,9 +215,7 @@ impl Sudoers {
             .flatten()
             .fold(None::<Tag>, |outcome, (_, (tag, _))| {
                 if let Some(outcome) = outcome {
-                    let new_outcome = if tag.needs_passwd() { tag } else { outcome };
-
-                    Some(new_outcome)
+                    Some(if tag.needs_passwd() { tag } else { outcome })
                 } else {
                     Some(tag)
                 }
