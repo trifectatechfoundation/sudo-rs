@@ -174,7 +174,7 @@ impl Sudoers {
         invoking_user: &User,
         hostname: &system::Hostname,
         request: ListRequest<User, Group>,
-    ) -> Judgement {
+    ) -> Authorization {
         // exception: if user is root or does not switch users, NOPASSWD is implied
         let skip_passwd = invoking_user.is_root()
             || (request.target_user == invoking_user
@@ -193,15 +193,46 @@ impl Sudoers {
                 }
             });
 
-        if let Some(Tag { authenticate, .. }) = flags.as_mut() {
+        if let Some(tag) = flags.as_mut() {
             if skip_passwd {
-                *authenticate = Authenticate::Nopasswd;
+                tag.authenticate = Authenticate::Nopasswd;
             }
-        }
 
-        Judgement {
-            flags,
-            settings: self.settings.clone(), // this is wasteful, but in the future this will not be a simple clone and it avoids a lifetime
+            Authorization::Allowed(self.settings.to_auth(tag), ())
+        } else {
+            Authorization::Forbidden
+        }
+    }
+
+    pub fn check_validate_permission<User: UnixUser + PartialEq<User>>(
+        &self,
+        invoking_user: &User,
+        hostname: &system::Hostname,
+    ) -> Authorization {
+        // exception: if user is root, NOPASSWD is implied
+        let skip_passwd = invoking_user.is_root();
+
+        let mut flags = self
+            .matching_user_specs(invoking_user, hostname)
+            .flatten()
+            .fold(None::<Tag>, |outcome, (_, (tag, _))| {
+                if let Some(outcome) = outcome {
+                    let new_outcome = if tag.needs_passwd() { tag } else { outcome };
+
+                    Some(new_outcome)
+                } else {
+                    Some(tag)
+                }
+            });
+
+        if let Some(tag) = flags.as_mut() {
+            if skip_passwd {
+                tag.authenticate = Authenticate::Nopasswd;
+            }
+
+            Authorization::Allowed(self.settings.to_auth(tag), ())
+        } else {
+            Authorization::Forbidden
         }
     }
 
