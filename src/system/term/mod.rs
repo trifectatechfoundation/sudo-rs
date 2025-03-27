@@ -229,6 +229,7 @@ impl fmt::Display for TermSize {
     }
 }
 
+#[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod tests {
     use std::{

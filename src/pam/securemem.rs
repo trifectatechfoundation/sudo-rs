@@ -94,6 +94,7 @@ fn wipe_memory(memory: &mut [u8]) {
     atomic::compiler_fence(atomic::Ordering::SeqCst);
 }
 
+#[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {
     use super::PamBuffer;

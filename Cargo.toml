@@ -59,3 +59,6 @@ opt-level = "s"
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = { level = "deny" }
+
+[lints.clippy]
+undocumented_unsafe_blocks = "warn"

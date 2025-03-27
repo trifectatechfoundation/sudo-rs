@@ -244,6 +244,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
     res.as_int()
 }
 
+#[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {
     use super::*;
