@@ -183,10 +183,11 @@ impl Sudoers {
         let mut specs = self
             .matching_user_specs(invoking_user, hostname)
             .flatten()
+            .map(|(_, (tag, _))| tag)
             .fuse();
 
-        let mut flags = specs.next().map(|(_, (tag, _))| tag);
-        for (_, (tag, _)) in specs {
+        let mut flags = specs.next();
+        for tag in specs {
             if !tag.needs_passwd() {
                 flags = Some(tag)
             }
@@ -214,10 +215,11 @@ impl Sudoers {
         let mut specs = self
             .matching_user_specs(invoking_user, hostname)
             .flatten()
+            .map(|(_, (tag, _))| tag)
             .fuse();
 
-        let mut flags = specs.next().map(|(_, (tag, _))| tag);
-        for (_, (tag, _)) in specs {
+        let mut flags = specs.next();
+        for tag in specs {
             if tag.needs_passwd() {
                 flags = Some(tag)
             }
