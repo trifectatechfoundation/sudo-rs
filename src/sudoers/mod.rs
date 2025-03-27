@@ -180,14 +180,11 @@ impl Sudoers {
             || (request.target_user == invoking_user
                 && in_group(invoking_user, request.target_group));
 
-        let mut specs = self
+        let mut flags = self
             .matching_user_specs(invoking_user, hostname)
             .flatten()
             .map(|(_, (tag, _))| tag)
-            .fuse();
-
-        let mut flags = specs.next();
-        flags = specs.find(|tag| !tag.needs_passwd()).or(flags);
+            .max_by_key(|tag| !tag.needs_passwd());
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
@@ -208,14 +205,11 @@ impl Sudoers {
         // exception: if user is root, NOPASSWD is implied
         let skip_passwd = invoking_user.is_root();
 
-        let mut specs = self
+        let mut flags = self
             .matching_user_specs(invoking_user, hostname)
             .flatten()
             .map(|(_, (tag, _))| tag)
-            .fuse();
-
-        let mut flags = specs.next();
-        flags = specs.find(|tag| tag.needs_passwd()).or(flags);
+            .max_by_key(|tag| tag.needs_passwd());
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
