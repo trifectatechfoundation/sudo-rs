@@ -187,7 +187,7 @@ impl Sudoers {
 
         let mut flags = specs.next().map(|(_, (tag, _))| tag);
         for (_, (tag, _)) in specs {
-            if flags.as_ref().unwrap().needs_passwd() {
+            if !tag.needs_passwd() {
                 flags = Some(tag)
             }
         }
