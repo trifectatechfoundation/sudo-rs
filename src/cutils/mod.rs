@@ -96,6 +96,7 @@ pub fn safe_isatty(fildes: BorrowedFd) -> bool {
     }
 }
 
+#[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {
     use super::{os_string_from_ptr, string_from_ptr};
