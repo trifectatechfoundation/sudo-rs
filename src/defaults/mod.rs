@@ -62,10 +62,11 @@ defaults! {
 /// A custom parser to parse seconds as fractional "minutes", the format used by
 /// passwd_timeout and timestamp_timeout.
 fn fractional_minutes(input: &str) -> Option<i64> {
-    if input.contains('.') {
-        //math note: the token length is capped at 18 characters, so the max value parsed is 1e17;
-        //1e17 * 60 still fits in an i64, so the 'as' can never cause truncation
-        Some((input.parse::<f64>().ok()? * 60.0).floor() as i64)
+    if let Some((integral, fractional)) = input.split_once('.') {
+        let shift = 10i64.pow(fractional.len().try_into().ok()?);
+        let seconds = integral.parse::<i64>().ok()? * shift + fractional.parse::<i64>().ok()?;
+
+        Some(seconds.checked_mul(60)? / shift)
     } else {
         input.parse::<i64>().ok()?.checked_mul(60)
     }
@@ -125,6 +126,10 @@ mod test {
             panic!()
         };
         f("any").unwrap()(&mut def);
+        let SettingKind::Integer(f) = set("timestamp_timeout").unwrap() else {
+            panic!()
+        };
+        f("25.25").unwrap()(&mut def);
         assert_eq! { def.always_query_group_plugin, false };
         assert_eq! { def.always_set_home, false };
         assert_eq! { def.env_reset, true };
@@ -134,6 +139,7 @@ mod test {
         assert_eq! { def.visiblepw, false };
         assert_eq! { def.env_editor, true };
         assert_eq! { def.passwd_tries, 5 };
+        assert_eq! { def.timestamp_timeout, 25*60 + 60/4 };
         assert_eq! { def.secure_path, Some("/bin".into()) };
         assert! { def.env_check.is_empty() };
         assert_eq! { def.verifypw, enums::verifypw::any };
