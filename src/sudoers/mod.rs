@@ -187,11 +187,8 @@ impl Sudoers {
 
         let mut flags = specs.next().map(|(_, (tag, _))| tag);
         for (_, (tag, _)) in specs {
-            flags = if let Some(outcome) = flags {
-                Some(if outcome.needs_passwd() { tag } else { outcome })
-            } else {
-                //unreachable
-                Some(tag)
+            if flags.as_ref().unwrap().needs_passwd() {
+                flags = Some(tag)
             }
         }
 
@@ -221,11 +218,8 @@ impl Sudoers {
 
         let mut flags = specs.next().map(|(_, (tag, _))| tag);
         for (_, (tag, _)) in specs {
-            flags = if let Some(outcome) = flags {
-                Some(if tag.needs_passwd() { tag } else { outcome })
-            } else {
-                //unreachable
-                Some(tag)
+            if tag.needs_passwd() {
+                flags = Some(tag)
             }
         }
 
