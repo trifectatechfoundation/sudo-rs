@@ -278,7 +278,7 @@ fn edit_sudoers_file(
                 )
             })?;
 
-        let true = errors.is_empty() else {
+        if !errors.is_empty() {
             writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
 
             for crate::sudoers::Error {
@@ -297,24 +297,24 @@ fn edit_sudoers_file(
                 b'x' => return Ok(()),
                 _ => continue,
             }
-        };
-
-        if sudo_visudo_is_allowed(sudoers, &host_name) == Some(false) {
-            writeln!(
-                stderr,
-                "It looks like you have removed your ability to run 'sudo visudo' again.\n"
-            )?;
-            match ask_response(
-                b"What now? e(x)it without saving / (e)dit again / lock me out and (S)ave: ",
-                b"xeS",
-            )? {
-                b'x' => return Ok(()),
-                b'S' => {}
-                _ => continue,
+        } else {
+            if sudo_visudo_is_allowed(sudoers, &host_name) == Some(false) {
+                writeln!(
+                    stderr,
+                    "It looks like you have removed your ability to run 'sudo visudo' again.\n"
+                )?;
+                match ask_response(
+                    b"What now? e(x)it without saving / (e)dit again / lock me out and (S)ave: ",
+                    b"xeS",
+                )? {
+                    b'x' => return Ok(()),
+                    b'S' => {}
+                    _ => continue,
+                }
             }
-        }
 
-        break;
+            break;
+        }
     }
 
     let tmp_contents = std::fs::read(tmp_path)?;
