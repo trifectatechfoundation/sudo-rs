@@ -63,10 +63,15 @@ defaults! {
 /// passwd_timeout and timestamp_timeout.
 fn fractional_minutes(input: &str) -> Option<i64> {
     if let Some((integral, fractional)) = input.split_once('.') {
+        // - 'input' is maximally 18 chacters, making fractional.len() at most 17;
+        //   1e17 < 2**63, so the definition of 'shift' will not overflow.
+        // - for the same reason, if both parses in the definition of 'seconds' succeed,
+        //   we will have constructed an integer < 1e17.
+        //-  1e17 * 60 = 6e18 < 9e18 < 2**63, so the final line also will not overflow
         let shift = 10i64.pow(fractional.len().try_into().ok()?);
         let seconds = integral.parse::<i64>().ok()? * shift + fractional.parse::<i64>().ok()?;
 
-        Some(seconds.checked_mul(60)? / shift)
+        Some(seconds * 60 / shift)
     } else {
         input.parse::<i64>().ok()?.checked_mul(60)
     }
