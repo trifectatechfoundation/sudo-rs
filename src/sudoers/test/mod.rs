@@ -245,6 +245,11 @@ fn permission_test() {
     // test the less-intuitive "substition-like" alias mechanism
     FAIL!(["User_Alias FOO=!user", "ALL, FOO ALL=ALL"], "user" => root(), "vm"; "/bin/ls");
     pass!(["User_Alias FOO=!user", "!FOO ALL=ALL"], "user" => root(), "vm"; "/bin/ls");
+
+    // quoting
+    pass!(["a\\,b ALL=ALL"], "a,b" => request! { root, root }, "server"; "/bin/foo");
+    pass!(["\"a,b\" ALL=ALL"], "a,b" => request! { root, root }, "server"; "/bin/foo");
+    pass!(["\"a\\b\" ALL=ALL"], "a\\b" => request! { root, root }, "server"; "/bin/foo");
 }
 
 #[test]

@@ -65,6 +65,9 @@ mod names {
     impl UserFriendly for UserSpecifier {
         const DESCRIPTION: &'static str = "user";
     }
+    impl UserFriendly for tokens::Username {
+        const DESCRIPTION: &'static str = "user";
+    }
 
     impl UserFriendly for tokens::Hostname {
         const DESCRIPTION: &'static str = "host name";
@@ -112,6 +115,10 @@ mod names {
 
     impl<T> UserFriendly for Def<T> {
         const DESCRIPTION: &'static str = "alias definition";
+    }
+
+    impl<T: UserFriendly> UserFriendly for tokens::Unquoted<T> {
+        const DESCRIPTION: &'static str = T::DESCRIPTION;
     }
 }
 

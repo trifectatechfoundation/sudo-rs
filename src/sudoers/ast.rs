@@ -289,23 +289,41 @@ impl Parse for Meta<Identifier> {
 /// ```
 impl Parse for UserSpecifier {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
-        let userspec = if stream.eat_char('%') {
-            let ctor = if stream.eat_char(':') {
-                UserSpecifier::NonunixGroup
+        fn parse_user(stream: &mut CharStream) -> Parsed<UserSpecifier> {
+            let userspec = if stream.eat_char('%') {
+                let ctor = if stream.eat_char(':') {
+                    UserSpecifier::NonunixGroup
+                } else {
+                    UserSpecifier::Group
+                };
+                // in this case we must fail 'hard', since input has been consumed
+                ctor(expect_nonterminal(stream)?)
+            } else if stream.eat_char('+') {
+                // TODO Netgroups
+                unrecoverable!(stream, "netgroups are not supported yet");
             } else {
-                UserSpecifier::Group
+                // in this case we must fail 'softly', since no input has been consumed yet
+                UserSpecifier::User(try_nonterminal(stream)?)
             };
-            // in this case we must fail 'hard', since input has been consumed
-            ctor(expect_nonterminal(stream)?)
-        } else if stream.eat_char('+') {
-            // TODO Netgroups
-            unrecoverable!(stream, "netgroups are not supported yet");
-        } else {
-            // in this case we must fail 'softly', since no input has been consumed yet
-            UserSpecifier::User(try_nonterminal(stream)?)
-        };
 
-        make(userspec)
+            make(userspec)
+        }
+
+        // if we see a quote, first parse the quoted text as a token and then
+        // re-parse whatever we found inside; this is a lazy solution but it works
+        let begin_pos = stream.get_pos();
+        if stream.eat_char('"') {
+            let Unquoted(text, _): Unquoted<Username> = expect_nonterminal(stream)?;
+            let result = parse_user(&mut CharStream::new(text.chars()));
+            if result.is_err() {
+                unrecoverable!(pos = begin_pos, stream, "invalid user")
+            }
+            expect_syntax('"', stream)?;
+
+            result
+        } else {
+            parse_user(stream)
+        }
     }
 }
 
