@@ -280,13 +280,14 @@ impl Token for EnvVar {
     }
 }
 
-pub struct QuotedText(pub String);
+/// A token with a very liberal inner tokenizer; compare StringParameter below
+pub struct QuotedStringParameter(pub String);
 
-impl Token for QuotedText {
+impl Token for QuotedStringParameter {
     const MAX_LEN: usize = 1024;
 
     fn construct(s: String) -> Result<Self, String> {
-        Ok(QuotedText(s))
+        Ok(Self(s))
     }
 
     fn accept(c: char) -> bool {
@@ -299,15 +300,17 @@ impl Token for QuotedText {
     }
 }
 
+/// Similar to QuotedStringParameter but treats backslashes differently
+/// Compare IncludePath below.
 // `@include "some/path"`
 //           ^^^^^^^^^^^
-pub struct QuotedInclude(pub String);
+pub struct QuotedIncludePath(pub String);
 
-impl Token for QuotedInclude {
+impl Token for QuotedIncludePath {
     const MAX_LEN: usize = 1024;
 
     fn construct(s: String) -> Result<Self, String> {
-        Ok(QuotedInclude(s))
+        Ok(Self(s))
     }
 
     fn accept(c: char) -> bool {
@@ -343,7 +346,7 @@ impl Token for IncludePath {
 pub struct StringParameter(pub String);
 
 impl Token for StringParameter {
-    const MAX_LEN: usize = QuotedText::MAX_LEN;
+    const MAX_LEN: usize = QuotedStringParameter::MAX_LEN;
 
     fn construct(s: String) -> Result<Self, String> {
         Ok(StringParameter(s))

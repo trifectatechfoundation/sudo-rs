@@ -570,7 +570,7 @@ impl Parse for Sudo {
 fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
     fn get_path(stream: &mut CharStream, key_pos: (usize, usize)) -> Parsed<(String, Span)> {
         let path = if stream.eat_char('"') {
-            let QuotedInclude(path) = expect_nonterminal(stream)?;
+            let QuotedIncludePath(path) = expect_nonterminal(stream)?;
             expect_syntax('"', stream)?;
             path
         } else {
@@ -744,7 +744,7 @@ impl Parse for defaults::SettingsModifier {
         // Parse a text parameter
         let text_item = |stream: &mut CharStream| {
             if stream.eat_char('"') {
-                let QuotedText(text) = expect_nonterminal(stream)?;
+                let QuotedStringParameter(text) = expect_nonterminal(stream)?;
                 expect_syntax('"', stream)?;
                 make(text)
             } else {

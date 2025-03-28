@@ -70,16 +70,16 @@ mod names {
         const DESCRIPTION: &'static str = "host name";
     }
 
-    impl UserFriendly for tokens::QuotedText {
+    impl UserFriendly for tokens::QuotedStringParameter {
         const DESCRIPTION: &'static str = "non-empty string";
     }
 
-    impl UserFriendly for tokens::QuotedInclude {
+    impl UserFriendly for tokens::QuotedIncludePath {
         const DESCRIPTION: &'static str = "non-empty string";
     }
 
     impl UserFriendly for tokens::StringParameter {
-        const DESCRIPTION: &'static str = tokens::QuotedText::DESCRIPTION;
+        const DESCRIPTION: &'static str = tokens::QuotedStringParameter::DESCRIPTION;
     }
 
     impl UserFriendly for tokens::IncludePath {
