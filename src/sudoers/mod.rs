@@ -183,15 +183,8 @@ impl Sudoers {
         let mut flags = self
             .matching_user_specs(invoking_user, hostname)
             .flatten()
-            .fold(None::<Tag>, |outcome, (_, (tag, _))| {
-                if let Some(outcome) = outcome {
-                    let new_outcome = if outcome.needs_passwd() { tag } else { outcome };
-
-                    Some(new_outcome)
-                } else {
-                    Some(tag)
-                }
-            });
+            .map(|(_, (tag, _))| tag)
+            .max_by_key(|tag| !tag.needs_passwd());
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
@@ -215,15 +208,8 @@ impl Sudoers {
         let mut flags = self
             .matching_user_specs(invoking_user, hostname)
             .flatten()
-            .fold(None::<Tag>, |outcome, (_, (tag, _))| {
-                if let Some(outcome) = outcome {
-                    let new_outcome = if tag.needs_passwd() { tag } else { outcome };
-
-                    Some(new_outcome)
-                } else {
-                    Some(tag)
-                }
-            });
+            .map(|(_, (tag, _))| tag)
+            .max_by_key(|tag| tag.needs_passwd());
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
