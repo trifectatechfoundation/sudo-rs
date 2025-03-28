@@ -17,7 +17,7 @@ mod names {
     }
 
     impl UserFriendly for tokens::Numeric {
-        const DESCRIPTION: &'static str = "number";
+        const DESCRIPTION: &'static str = "nonnegative number";
     }
 
     impl UserFriendly for Identifier {
