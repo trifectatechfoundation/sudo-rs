@@ -403,11 +403,19 @@ impl Token for ChDir {
 /// Some tokens that support escape characters also support being surrounded by quotes to avoid escaping directly.
 pub struct Unquoted<T>(pub String, pub std::marker::PhantomData<T>);
 
-impl<T> Token for Unquoted<T> {
+impl<T: Token> Token for Unquoted<T> {
     const MAX_LEN: usize = 1024;
 
     fn construct(text: String) -> Result<Self, String> {
-        Ok(Self(text, std::marker::PhantomData))
+        let mut quoted = String::new();
+        for ch in text.chars() {
+            if T::escaped(ch) {
+                quoted.push('\\');
+            }
+            quoted.push(ch);
+        }
+
+        Ok(Self(quoted, std::marker::PhantomData))
     }
 
     fn accept(c: char) -> bool {
