@@ -133,6 +133,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         use_session_records: false,
         use_pty: true,
         password_feedback: false,
+        bell: false,
     }
 }
 
