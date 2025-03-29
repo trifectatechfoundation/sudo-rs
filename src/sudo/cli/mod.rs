@@ -199,6 +199,10 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         let group = mem::take(&mut opts.group);
         let user = mem::take(&mut opts.user);
 
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
+
         reject_all("--validate", opts)?;
 
         Ok(Self {
@@ -252,6 +256,10 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         let group = mem::take(&mut opts.group);
         let user = mem::take(&mut opts.user);
         let positional_args = mem::take(&mut opts.positional_args);
+
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
 
         reject_all("--edit", opts)?;
 
@@ -312,6 +320,10 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         let other_user = mem::take(&mut opts.other_user);
         let user = mem::take(&mut opts.user);
         let positional_args = mem::take(&mut opts.positional_args);
+
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
 
         // when present, `-u` must be accompanied by a command
         let has_command = !positional_args.is_empty();
@@ -384,6 +396,10 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         let login = mem::take(&mut opts.login);
         let shell = mem::take(&mut opts.shell);
         let positional_args = mem::take(&mut opts.positional_args);
+
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
 
         let context = match (login, shell, positional_args.is_empty()) {
             (true, false, _) => "--login",
