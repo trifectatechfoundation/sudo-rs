@@ -96,6 +96,7 @@ fn handle_message<C: Converser>(
 pub struct CLIConverser {
     pub(super) name: String,
     pub(super) use_stdin: bool,
+    pub(super) bell: bool,
     pub(super) password_feedback: bool,
 }
 
@@ -120,7 +121,11 @@ impl Converser for CLIConverser {
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let mut tty = self.open()?;
-        tty.prompt(msg)?;
+        if !self.use_stdin && self.bell {
+            tty.prompt_with_bell(msg)?;
+        } else {
+            tty.prompt(msg)?;
+        }
         if self.password_feedback {
             Ok(tty.read_password_with_feedback()?)
         } else {
