@@ -130,7 +130,7 @@ pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
 
     let mut context = Context::from_validate_opts(cmd_opts)?;
 
-    match policy.validate_authorization() {
+    match policy.check_validate_permission(&*context.current_user, &context.hostname) {
         Authorization::Forbidden => {
             return Err(Error::Authorization(context.current_user.name.to_string()));
         }

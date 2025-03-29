@@ -98,7 +98,6 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
 }
 
 #[test]
-#[ignore = "gh439"]
 fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Result<()> {
     let env = Env(format!(
         "{USERNAME}    ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, {BIN_LS}"
@@ -114,7 +113,6 @@ fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Res
 }
 
 #[test]
-#[ignore = "gh439"]
 fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Result<()> {
     let env = Env([
         format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, PASSWD: {BIN_LS}"),
@@ -147,7 +145,7 @@ fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Re
     } else {
         assert_contains!(
             stderr,
-            "[Sudo: authenticate] Password: sudo: Authentication failed, try again.\n[Sudo: authenticate] Password: sudo: Authentication failed, try again.\n[Sudo: authenticate] Password: sudo-rs: Maximum 3 incorrect authentication attempts"
+            "[sudo: authenticate] Password: sudo: Authentication failed, try again.\n[sudo: authenticate] Password: sudo: Authentication failed, try again.\n[sudo: authenticate] Password: sudo-rs: Maximum 3 incorrect authentication attempts"
         );
     }
 
