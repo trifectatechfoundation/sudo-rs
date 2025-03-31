@@ -65,21 +65,24 @@ mod names {
     impl UserFriendly for UserSpecifier {
         const DESCRIPTION: &'static str = "user";
     }
+    impl UserFriendly for tokens::Username {
+        const DESCRIPTION: &'static str = "user";
+    }
 
     impl UserFriendly for tokens::Hostname {
         const DESCRIPTION: &'static str = "host name";
     }
 
-    impl UserFriendly for tokens::QuotedText {
+    impl UserFriendly for tokens::QuotedStringParameter {
         const DESCRIPTION: &'static str = "non-empty string";
     }
 
-    impl UserFriendly for tokens::QuotedInclude {
+    impl UserFriendly for tokens::QuotedIncludePath {
         const DESCRIPTION: &'static str = "non-empty string";
     }
 
     impl UserFriendly for tokens::StringParameter {
-        const DESCRIPTION: &'static str = tokens::QuotedText::DESCRIPTION;
+        const DESCRIPTION: &'static str = tokens::QuotedStringParameter::DESCRIPTION;
     }
 
     impl UserFriendly for tokens::IncludePath {
@@ -112,6 +115,10 @@ mod names {
 
     impl<T> UserFriendly for Def<T> {
         const DESCRIPTION: &'static str = "alias definition";
+    }
+
+    impl<T: UserFriendly> UserFriendly for tokens::Unquoted<T> {
+        const DESCRIPTION: &'static str = T::DESCRIPTION;
     }
 }
 

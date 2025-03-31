@@ -231,6 +231,10 @@ impl<T: Token> Parse for T {
                     Ok(c)
                 } else if pred(ESCAPE) {
                     Ok(ESCAPE)
+                } else if stream.eat_char('\n') {
+                    // we've just consumed some whitespace, we should end
+                    // parsing the token but not abort it
+                    reject()
                 } else {
                     unrecoverable!(stream, "illegal escape sequence")
                 }
