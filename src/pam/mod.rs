@@ -47,11 +47,13 @@ impl PamContext {
         converser_name: &str,
         service_name: &str,
         use_stdin: bool,
+        bell: bool,
         no_interact: bool,
         password_feedback: bool,
         target_user: Option<&str>,
     ) -> PamResult<PamContext> {
         let converser = CLIConverser {
+            bell,
             name: converser_name.to_owned(),
             use_stdin,
             password_feedback,

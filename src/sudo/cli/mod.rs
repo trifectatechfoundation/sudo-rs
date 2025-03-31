@@ -167,6 +167,8 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
 
 // sudo -v [-ABkNnS] [-g group] [-h host] [-p prompt] [-u user]
 pub struct SudoValidateOptions {
+    // -B
+    pub bell: bool,
     // -k
     pub reset_timestamp: bool,
     // -n
@@ -189,6 +191,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         let validate = mem::take(&mut opts.validate);
         debug_assert!(validate);
 
+        let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
@@ -196,9 +199,14 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         let group = mem::take(&mut opts.group);
         let user = mem::take(&mut opts.user);
 
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
+
         reject_all("--validate", opts)?;
 
         Ok(Self {
+            bell,
             reset_timestamp,
             non_interactive,
             stdin,
@@ -212,6 +220,8 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
 // sudo -e [-ABkNnS] [-r role] [-t type] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...
 #[allow(dead_code)]
 pub struct SudoEditOptions {
+    // -B
+    pub bell: bool,
     // -k
     pub reset_timestamp: bool,
     // -n
@@ -237,6 +247,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         let edit = mem::take(&mut opts.edit);
         debug_assert!(edit);
 
+        let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
@@ -246,6 +257,10 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         let user = mem::take(&mut opts.user);
         let positional_args = mem::take(&mut opts.positional_args);
 
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
+
         reject_all("--edit", opts)?;
 
         if positional_args.is_empty() {
@@ -253,6 +268,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         }
 
         Ok(Self {
+            bell,
             reset_timestamp,
             non_interactive,
             stdin,
@@ -267,6 +283,8 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
 
 // sudo -l [-ABkNnS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command [arg ...]]
 pub struct SudoListOptions {
+    // -B
+    pub bell: bool,
     // -l OR -l -l
     pub list: List,
 
@@ -292,6 +310,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
+        let bell = mem::take(&mut opts.bell);
         let list = opts.list.take().unwrap();
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -301,6 +320,10 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         let other_user = mem::take(&mut opts.other_user);
         let user = mem::take(&mut opts.user);
         let positional_args = mem::take(&mut opts.positional_args);
+
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
 
         // when present, `-u` must be accompanied by a command
         let has_command = !positional_args.is_empty();
@@ -313,6 +336,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         reject_all("--list", opts)?;
 
         Ok(Self {
+            bell,
             list,
             reset_timestamp,
             non_interactive,
@@ -328,6 +352,8 @@ impl TryFrom<SudoOptions> for SudoListOptions {
 
 // sudo [-ABbEHnPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i | -s] [command [arg ...]]
 pub struct SudoRunOptions {
+    // -B
+    pub bell: bool,
     // -E
     pub preserve_env: PreserveEnv,
     // -k
@@ -357,6 +383,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
+        let bell = mem::take(&mut opts.bell);
         let preserve_env = mem::take(&mut opts.preserve_env);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -369,6 +396,10 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         let login = mem::take(&mut opts.login);
         let shell = mem::take(&mut opts.shell);
         let positional_args = mem::take(&mut opts.positional_args);
+
+        if bell && stdin {
+            return Err("--bell conflicts with --stdin".into());
+        }
 
         let context = match (login, shell, positional_args.is_empty()) {
             (true, false, _) => "--login",
@@ -392,6 +423,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         reject_all(context, opts)?;
 
         Ok(Self {
+            bell,
             preserve_env,
             reset_timestamp,
             non_interactive,
@@ -410,6 +442,8 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
 
 #[derive(Default)]
 struct SudoOptions {
+    // -B
+    bell: bool,
     // -D
     chdir: Option<SudoPath>,
     // -g
@@ -628,6 +662,9 @@ impl SudoOptions {
         for arg in arg_iter {
             match arg {
                 SudoArg::Flag(flag) => match flag.as_str() {
+                    "-B" | "--bell" => {
+                        options.bell = true;
+                    }
                     "-E" | "--preserve-env" => {
                         options.preserve_env = PreserveEnv::Everything;
                     }
@@ -779,6 +816,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     }
 
     let SudoOptions {
+        bell,
         chdir,
         group,
         login,
@@ -801,6 +839,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     } = opts;
 
     let flags = [
+        tuple!(bell),
         tuple!(chdir),
         tuple!(edit),
         tuple!(group),

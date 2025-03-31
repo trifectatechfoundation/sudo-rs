@@ -168,8 +168,8 @@ fn read_unbuffered_with_feedback(
 }
 
 /// Write something and immediately flush
-fn write_unbuffered(sink: &mut dyn io::Write, text: &str) -> io::Result<()> {
-    sink.write_all(text.as_bytes())?;
+fn write_unbuffered(sink: &mut dyn io::Write, text: &[u8]) -> io::Result<()> {
+    sink.write_all(text)?;
     sink.flush()
 }
 
@@ -221,7 +221,13 @@ impl Terminal<'_> {
 
     /// Display information
     pub fn prompt(&mut self, text: &str) -> io::Result<()> {
-        write_unbuffered(self.sink(), text)
+        write_unbuffered(self.sink(), text.as_bytes())
+    }
+
+    /// Ring the bell
+    pub fn bell(&mut self) -> io::Result<()> {
+        const BELL: &[u8; 1] = b"\x07";
+        write_unbuffered(self.sink(), BELL)
     }
 
     // boilerplate reduction functions
@@ -269,7 +275,7 @@ mod test {
     #[test]
     fn miri_test_write() {
         let mut data = Vec::new();
-        write_unbuffered(&mut data, "prompt").unwrap();
+        write_unbuffered(&mut data, b"prompt").unwrap();
         assert_eq!(std::str::from_utf8(&data).unwrap(), "prompt");
     }
 }
