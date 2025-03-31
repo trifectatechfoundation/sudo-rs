@@ -121,11 +121,10 @@ impl Converser for CLIConverser {
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let mut tty = self.open()?;
-        if !self.use_stdin && self.bell {
-            tty.prompt_with_bell(msg)?;
-        } else {
-            tty.prompt(msg)?;
+        if self.bell && !self.use_stdin {
+            tty.bell()?;
         }
+        tty.prompt(msg)?;
         if self.password_feedback {
             Ok(tty.read_password_with_feedback()?)
         } else {
