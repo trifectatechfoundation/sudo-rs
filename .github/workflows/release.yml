@@ -15,6 +15,11 @@ jobs:
 
       - name: Sanity checks
         run: |
+          # GHA makes the tag point to the commit rather than the tag object.
+          # Remove the tag and fetch it again to get the real tag object.
+          git tag -d "$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')"
+          git fetch https://github.com/trifectatechfoundation/sudo-rs.git --tags
+
           # Check if the tag has a signature to prevent accidentally pushing an unsigned tag.
           git tag -l --format='%(contents:signature)' "$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')" | grep --quiet SIGNATURE || (echo "Tag not signed"; exit 1)
 
@@ -32,11 +37,6 @@ jobs:
 
       - name: Compare checksums
         run: |
-          # GHA makes the tag point to the commit rather than the tag object.
-          # Remove the tag and fetch it again to get the real tag object.
-          git tag -d "$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')"
-          git fetch https://github.com/bjorn3/sudo-rs.git --tags
-
           # Get the expected checksums from the tag message.
           git tag -l --format='%(contents:body)' "$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')" | tr -s '\n' > expected_checksums.txt
 
@@ -69,14 +69,20 @@ jobs:
 
           # Extract the first changelog entry from CHANGELOG.md
           echo "Changelog:"
-          sed -n '4,${ /^## /q; p; }' CHANGELOG.md
+          sed -n '4,${ /^## /q; p; }' CHANGELOG.md | tee changes.md
 
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF" --draft \
-            --title "Version $(echo "$GITHUB_REF" | sed 's/refs\/tags\///')" \
+          # GHA makes the tag point to the commit rather than the tag object.
+          # Remove the tag and fetch it again to get the real tag object.
+          RELEASE="$(echo "$GITHUB_REF" | sed 's/refs\/tags\///')"
+          git tag -d "$RELEASE"
+          git fetch https://github.com/trifectatechfoundation/sudo-rs.git --tags
+
+          gh release create "$RELEASE" --draft \
+            --title "Version ${RELEASE#v}" \
             --notes-file changes.md release_files/* \
             --verify-tag
           echo "Draft release successfully created. Please review and publish."
