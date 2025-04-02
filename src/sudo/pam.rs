@@ -44,12 +44,11 @@ pub(super) fn init_pam(
         bell,
         non_interactive,
         password_feedback,
-        None,
+        Some(auth_user),
     )?;
     pam.mark_silent(matches!(launch, LaunchType::Direct));
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
-    pam.set_user(auth_user)?;
 
     match auth_prompt.as_deref() {
         None => {}
