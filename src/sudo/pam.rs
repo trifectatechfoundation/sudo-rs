@@ -90,6 +90,7 @@ pub(super) fn init_pam(
 
 pub(super) fn attempt_authenticate(
     pam: &mut PamContext,
+    auth_user: &str,
     non_interactive: bool,
     mut max_tries: u16,
 ) -> Result<(), Error> {
@@ -98,7 +99,23 @@ pub(super) fn attempt_authenticate(
         current_try += 1;
         match pam.authenticate() {
             // there was no error, so authentication succeeded
-            Ok(_) => break,
+            Ok(_) => {
+                // Check that no PAM module changed the user.
+                match pam.get_user() {
+                    Ok(pam_user) => {
+                        if pam_user != auth_user {
+                            return Err(Error::InvalidUser(
+                                pam_user,
+                                auth_user.to_string())
+                            );
+                        }
+                    },
+                    Err(e) => {
+                        return Err(e.into());
+                    }
+                }
+                break;
+            }
 
             // maxtries was reached, pam does not allow any more tries
             Err(PamError::Pam(PamErrorType::MaxTries)) => {
