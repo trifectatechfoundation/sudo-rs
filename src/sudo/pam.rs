@@ -44,12 +44,11 @@ pub(super) fn init_pam(
         bell,
         non_interactive,
         password_feedback,
-        None,
+        Some(auth_user),
     )?;
     pam.mark_silent(matches!(launch, LaunchType::Direct));
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
-    pam.set_user(auth_user)?;
 
     match auth_prompt.as_deref() {
         None => {}
@@ -93,12 +92,25 @@ pub(super) fn attempt_authenticate(
     non_interactive: bool,
     mut max_tries: u16,
 ) -> Result<(), Error> {
+    let initial_user = pam.get_user()?;
     let mut current_try = 0;
     loop {
         current_try += 1;
         match pam.authenticate() {
             // there was no error, so authentication succeeded
-            Ok(_) => break,
+            Ok(_) => {
+                // Check that no PAM module changed the user.
+                let current_user = pam.get_user()?;
+                if current_user != initial_user {
+                    dev_info!(
+                        "unable to authenticate '{}' as user '{}'",
+                        initial_user,
+                        pam.get_user()?
+                    );
+                    return Err(Error::InvalidUser(current_user, initial_user));
+                }
+                break;
+            }
 
             // maxtries was reached, pam does not allow any more tries
             Err(PamError::Pam(PamErrorType::MaxTries)) => {

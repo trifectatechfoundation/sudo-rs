@@ -40,8 +40,6 @@ fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamCon
     pam.mark_silent(true);
     pam.mark_allow_null_auth_token(false);
 
-    pam.set_user(user)?;
-
     let mut max_tries = 3;
     let mut current_try = 0;
 
@@ -49,7 +47,18 @@ fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamCon
         current_try += 1;
         match pam.authenticate() {
             // there was no error, so authentication succeeded
-            Ok(_) => break,
+            Ok(_) => {
+                // Check that no PAM module changed the user.
+                let pam_user = match pam.get_user() {
+                    Ok(u) => u,
+                    Err(e) => return Err(e.into()),
+                };
+
+                if pam_user != user {
+                    return Err(Error::InvalidUser(pam_user, user.to_string()));
+                }
+                break;
+            }
 
             // maxtries was reached, pam does not allow any more tries
             Err(PamError::Pam(PamErrorType::MaxTries)) => {
