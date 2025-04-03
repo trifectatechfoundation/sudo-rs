@@ -9,19 +9,24 @@ use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_
 pub struct Username(pub SudoString);
 
 /// A username consists of alphanumeric characters as well as "." and "-", but does not start with an underscore.
+// See: https://systemd.io/USER_NAMES/
 impl Token for Username {
     fn construct(text: String) -> Result<Self, String> {
-        SudoString::new(text)
-            .map_err(|e| e.to_string())
-            .map(Username)
+        if let Some((_, "")) | None = text.split_once('$') {
+            SudoString::new(text)
+                .map_err(|e| e.to_string())
+                .map(Username)
+        } else {
+            Err("embedded $ in username".to_string())
+        }
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_alphanumeric() || ".-_".contains(c)
+        c.is_ascii_alphanumeric() || ".-_@$".contains(c)
     }
 
     fn accept_1st(c: char) -> bool {
-        c != '_' && Self::accept(c)
+        c != '_' && c != '@' && Self::accept(c)
     }
 
     const ALLOW_ESCAPE: bool = true;
