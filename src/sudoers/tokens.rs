@@ -17,11 +17,11 @@ impl Token for Username {
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_alphanumeric() || ".-_".contains(c)
+        c.is_ascii_alphanumeric() || ".-_@".contains(c)
     }
 
     fn accept_1st(c: char) -> bool {
-        c != '_' && Self::accept(c)
+        c != '_' && c != '@' && Self::accept(c)
     }
 
     const ALLOW_ESCAPE: bool = true;
