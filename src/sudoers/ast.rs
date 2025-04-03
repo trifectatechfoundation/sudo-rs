@@ -698,15 +698,31 @@ fn get_directive(
         "Host_Alias" => make(HostAlias(expect_nonterminal(stream)?)),
         "Cmnd_Alias" | "Cmd_Alias" => make(CmndAlias(expect_nonterminal(stream)?)),
         "Runas_Alias" => make(RunasAlias(expect_nonterminal(stream)?)),
-        "Defaults" => {
-            //HACK: this avoids having to add "Defaults@" etc as separate tokens; but relying
-            //on positional information during parsing is of course, cheating.
+        _ if keyword.starts_with("Defaults") => {
+            //HACK #1: no space is allowed between "Defaults" and '!>@:'. The below avoids having to
+            //add "Defaults!" etc as separate tokens; but relying on positional information during
+            //parsing is of course, cheating.
+            //HACK #2: '@' can be part of a username, so it will already have been parsed;
+            //an acceptable hostname is subset of an acceptable username, so that's actually OK.
+            //This resolves an ambiguity in the grammar similarly to how MetaOrTag does that.
+            const DEFAULTS_LEN: usize = "Defaults".len();
             let allow_scope_modifier = stream.get_pos().0 == begin_pos.0
-                && stream.get_pos().1 - begin_pos.1 == "Defaults".len();
+                && (stream.get_pos().1 - begin_pos.1 == DEFAULTS_LEN
+                    || keyword.len() > DEFAULTS_LEN);
 
             let scope = if allow_scope_modifier {
-                if is_syntax('@', stream)? {
-                    ConfigScope::Host(expect_nonterminal(stream)?)
+                if keyword[DEFAULTS_LEN..].starts_with('@') {
+                    let Ok(hostname) = expect_nonterminal(&mut CharStream::new(
+                        keyword[DEFAULTS_LEN + 1..].chars(),
+                    )) else {
+                        unrecoverable!(
+                            pos = begin_pos,
+                            stream,
+                            "expected {}",
+                            Hostname::DESCRIPTION
+                        )
+                    };
+                    ConfigScope::Host(hostname)
                 } else if is_syntax(':', stream)? {
                     ConfigScope::User(expect_nonterminal(stream)?)
                 } else if is_syntax('!', stream)? {
