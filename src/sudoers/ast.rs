@@ -1,5 +1,6 @@
 use super::ast_names::UserFriendly;
 use super::basic_parser::*;
+use super::char_stream::advance;
 use super::tokens::*;
 use crate::common::SudoString;
 use crate::common::{
@@ -312,13 +313,10 @@ impl Parse for UserSpecifier {
         let begin_pos = stream.get_pos();
         if stream.eat_char('"') {
             let Unquoted(text, _): Unquoted<Username> = expect_nonterminal(stream)?;
-            let result = parse_user(&mut CharStream::new(text.chars()));
-            if result.is_err() {
-                unrecoverable!(pos = begin_pos, stream, "invalid user")
-            }
+            let result = parse_user(&mut CharStream::new_with_pos(&text, advance(begin_pos, 1)))?;
             expect_syntax('"', stream)?;
 
-            result
+            Ok(result)
         } else {
             parse_user(stream)
         }
@@ -712,17 +710,12 @@ fn get_directive(
 
             let scope = if allow_scope_modifier {
                 if keyword[DEFAULTS_LEN..].starts_with('@') {
-                    let Ok(hostname) = expect_nonterminal(&mut CharStream::new(
-                        keyword[DEFAULTS_LEN + 1..].chars(),
-                    )) else {
-                        unrecoverable!(
-                            pos = begin_pos,
-                            stream,
-                            "expected {}",
-                            Hostname::DESCRIPTION
-                        )
-                    };
-                    ConfigScope::Host(hostname)
+                    let inner_stream = &mut CharStream::new_with_pos(
+                        &keyword[DEFAULTS_LEN + 1..],
+                        advance(begin_pos, DEFAULTS_LEN + 1),
+                    );
+
+                    ConfigScope::Host(expect_nonterminal(inner_stream)?)
                 } else if is_syntax(':', stream)? {
                     ConfigScope::User(expect_nonterminal(stream)?)
                 } else if is_syntax('!', stream)? {

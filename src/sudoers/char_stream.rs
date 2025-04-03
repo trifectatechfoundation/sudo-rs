@@ -4,13 +4,22 @@ pub struct CharStream<'a> {
     col: usize,
 }
 
+/// Advance the given position by `n` horizontal steps
+pub fn advance(pos: (usize, usize), n: usize) -> (usize, usize) {
+    (pos.0, pos.1 + n)
+}
+
 impl<'a> CharStream<'a> {
-    pub fn new(src: std::str::Chars<'a>) -> Self {
+    pub fn new_with_pos(src: &'a str, (line, col): (usize, usize)) -> Self {
         CharStream {
-            iter: src.peekable(),
-            line: 1,
-            col: 1,
+            iter: src.chars().peekable(),
+            line,
+            col,
         }
+    }
+
+    pub fn new(src: &'a str) -> Self {
+        Self::new_with_pos(src, (1, 1))
     }
 }
 
@@ -51,7 +60,7 @@ mod test {
 
     #[test]
     fn test_iter() {
-        let mut stream = CharStream::new("12\n3\n".chars());
+        let mut stream = CharStream::new("12\n3\n");
         assert_eq!(stream.peek(), Some('1'));
         assert!(stream.eat_char('1'));
         assert_eq!(stream.peek(), Some('2'));
