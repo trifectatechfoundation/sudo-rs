@@ -576,7 +576,13 @@ impl Parse for Sudo {
         }
 
         let start_pos = stream.get_pos();
-        if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
+        if stream.peek() == Some('"') {
+            // a quoted userlist follows; this forces us to read a userlist
+            let users = expect_nonterminal(stream)?;
+            let permissions = expect_nonterminal(stream)?;
+            make(Sudo::Spec(PermissionSpec { users, permissions }))
+        } else if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
+            // this could be the start of a Defaults or Alias definition, so distinguish.
             // element 1 always exists (parse_list fails on an empty list)
             let key = &users[0];
             if let Some(directive) = maybe(get_directive(key, stream, start_pos))? {
