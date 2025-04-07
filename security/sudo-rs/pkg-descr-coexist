@@ -1,0 +1,4 @@
+Sudo-rs is a memory safe re-implementation of the sudo utility.
+
+Use this package to try out sudo-rs safely alongside security/sudo, using the
+commands "sudo-rs" and "visudo-rs".
