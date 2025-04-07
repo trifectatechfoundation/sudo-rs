@@ -15,6 +15,11 @@ LICENSE_FILE_MIT=	${WRKSRC}/LICENSE-MIT
 
 BUILD_DEPENDS=	pandoc:${PORTSDIR}/textproc/hs-pandoc
 
+FLAVORS=		default coexist
+FLAVOR?=		${FLAVORS:[1]}
+coexist_PKGNAMESUFFIX=	-coexist
+coexist_DESCR=		pkg-descr-coexist
+
 USES=		cargo
 
 USE_GITHUB=	yes
@@ -31,17 +36,20 @@ CARGO_CRATES=	diff-0.1.13 \
 CARGO_TEST=	no
 .endif
 
-PLIST_SUB+=	RS_SUFFIX=${RS_SUFFIX}
+.if ${FLAVOR} == default
+CONFLICTS_INSTALL=	sudo
+RS_SUFFIX=
+PLIST_SUB+=		NO_COEXIST=""
+.else
+RS_SUFFIX=		-rs
+PLIST_SUB+=		NO_COEXIST="@comment "
+.endif
+PLIST_SUB+=		RS_SUFFIX=${RS_SUFFIX}
 
 PORTDOCS=	CHANGELOG.md CONTRIBUTING.md COPYRIGHT LICENSE-* README.md \
 		SECURITY.md
 
-OPTIONS_DEFINE=	COEXIST DOCS
-OPTIONS_SUB=	yes
-
-COEXIST_DESC=			Install using -rs suffix to coexist with security/sudo
-COEXIST_CONFLICTS_INSTALL_OFF=	sudo
-COEXIST_VARS=			RS_SUFFIX=-rs
+OPTIONS_DEFINE=	DOCS
 
 post-build:
 .for man in sudo.8 visudo.8 sudoers.5
@@ -60,13 +68,12 @@ post-install:
 	${MKDIR} ${STAGEDIR}/var/db/sudo
 # we are not going to try to replace 'su', since that is part of FreeBSD itself
 	${RM} ${STAGEDIR}${PREFIX}/bin/su
-
-post-install-COEXIST-on:
-	${MV} ${STAGEDIR}${PREFIX}/bin/sudo ${STAGEDIR}${PREFIX}/bin/sudo${RS_SUFFIX}
-
-post-install-COEXIST-off:
+.if ${FLAVOR} == default
 	${INSTALL_DATA} ${FILESDIR}/pam.conf ${STAGEDIR}${PREFIX}/etc/pam.d/sudo.default
 	${INSTALL_DATA} ${FILESDIR}/sudoers ${STAGEDIR}${PREFIX}/etc/sudoers.dist
+.else
+	${MV} ${STAGEDIR}${PREFIX}/bin/sudo ${STAGEDIR}${PREFIX}/bin/sudo${RS_SUFFIX}
+.endif
 
 post-install-DOCS-on:
 	${MKDIR} ${STAGEDIR}${DOCSDIR}
