@@ -23,7 +23,7 @@ mod list;
 pub(super) use list::run_list;
 
 fn read_sudoers() -> Result<Sudoers, Error> {
-    let sudoers_path = super::candidate_sudoers_file();
+    let sudoers_path = &super::candidate_sudoers_file();
 
     let (sudoers, syntax_errors) =
         Sudoers::open(sudoers_path).map_err(|e| Error::Configuration(format!("{e}")))?;
