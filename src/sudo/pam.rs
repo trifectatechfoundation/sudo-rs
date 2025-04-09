@@ -96,25 +96,9 @@ pub(super) fn attempt_authenticate(
     let mut current_try = 0;
     loop {
         current_try += 1;
-        match pam.authenticate() {
+        match pam.authenticate(auth_user) {
             // there was no error, so authentication succeeded
-            Ok(_) => {
-                // Check that no PAM module changed the user.
-                match pam.get_user() {
-                    Ok(pam_user) => {
-                        if pam_user != auth_user {
-                            return Err(Error::InvalidUser(
-                                pam_user,
-                                auth_user.to_string())
-                            );
-                        }
-                    },
-                    Err(e) => {
-                        return Err(e.into());
-                    }
-                }
-                break;
-            }
+            Ok(_) => break,
 
             // maxtries was reached, pam does not allow any more tries
             Err(PamError::Pam(PamErrorType::MaxTries)) => {

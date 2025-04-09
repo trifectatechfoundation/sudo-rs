@@ -45,20 +45,9 @@ fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamCon
 
     loop {
         current_try += 1;
-        match pam.authenticate() {
+        match pam.authenticate(user) {
             // there was no error, so authentication succeeded
-            Ok(_) => {
-                // Check that no PAM module changed the user.
-                let pam_user = match pam.get_user() {
-                    Ok(u) => u,
-                    Err(e) => return Err(e.into()),
-                };
-
-                if pam_user != user {
-                    return Err(Error::InvalidUser(pam_user, user.to_string()));
-                }
-                break;
-            }
+            Ok(_) => break,
 
             // maxtries was reached, pam does not allow any more tries
             Err(PamError::Pam(PamErrorType::MaxTries)) => {

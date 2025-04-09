@@ -32,7 +32,6 @@ pub enum Error {
     MaxAuthAttempts(usize),
     PathValidation(PathBuf),
     StringValidation(String),
-    InvalidUser(String, String),
 }
 
 impl fmt::Display for Error {
@@ -103,12 +102,6 @@ impl fmt::Display for Error {
             }
             Error::PathValidation(path) => {
                 write!(f, "invalid path: {path:?}")
-            }
-            Error::InvalidUser(username, other_user) => {
-                write!(
-                    f,
-                    "Sorry, user {username} is not allowed to authenticate as {other_user}.",
-                )
             }
         }
     }
