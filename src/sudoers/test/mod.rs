@@ -250,6 +250,10 @@ fn permission_test() {
     pass!(["a\\,b ALL=ALL"], "a,b" => request! { root, root }, "server"; "/bin/foo");
     pass!(["\"a,b\" ALL=ALL"], "a,b" => request! { root, root }, "server"; "/bin/foo");
     pass!(["\"a\\b\" ALL=ALL"], "a\\b" => request! { root, root }, "server"; "/bin/foo");
+
+    // apparmor
+    #[cfg(feature = "apparmor")]
+    pass!(["ALL ALL=(ALL:ALL) APPARMOR_PROFILE=unconfined ALL"], "user" => root(), "server"; "/bin/bar" => [apparmor_profile: Some("unconfined".to_string())]);
 }
 
 #[test]
