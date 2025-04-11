@@ -13,7 +13,7 @@ use cli::help;
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
 use cli::SudoAction;
-use std::path::Path;
+use std::path::PathBuf;
 
 mod cli;
 pub(crate) use cli::{SudoListOptions, SudoRunOptions, SudoValidateOptions};
@@ -46,18 +46,19 @@ const VERSION: &str = if let Some(version_override) = std::option_env!("SUDO_RS_
     std::env!("CARGO_PKG_VERSION")
 };
 
-pub(crate) fn candidate_sudoers_file() -> &'static Path {
-    let pb_rs = Path::new("/etc/sudoers-rs");
-    let file = if pb_rs.exists() {
-        pb_rs
-    } else if cfg!(target_os = "freebsd") {
-        // FIXME maybe make this configurable by the packager?
-        Path::new("/usr/local/etc/sudoers")
+pub(crate) fn candidate_sudoers_file() -> PathBuf {
+    let mut path = if cfg!(target_os = "freebsd") {
+        option_env!("LOCALBASE").unwrap_or("/usr/local").into()
     } else {
-        Path::new("/etc/sudoers")
+        PathBuf::from("/")
     };
-    dev_info!("Running with {} file", file.display());
-    file
+    path.push("etc/sudoers-rs");
+    if !path.exists() {
+        path.set_file_name("sudoers");
+    };
+
+    dev_info!("Running with {} file", path.display());
+    path
 }
 
 fn sudo_process() -> Result<(), Error> {
