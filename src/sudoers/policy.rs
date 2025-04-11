@@ -29,6 +29,9 @@ pub struct Authentication {
     pub allowed_attempts: u16,
     pub prior_validity: Duration,
     pub pwfeedback: bool,
+    #[cfg(feature = "apparmor")]
+    #[expect(dead_code)] // TODO: this attribute should be removed
+    pub apparmor_profile: Option<String>,
 }
 
 impl super::Settings {
@@ -45,6 +48,8 @@ impl super::Settings {
             } else {
                 AuthenticatingUser::InvokingUser
             },
+            #[cfg(feature = "apparmor")]
+            apparmor_profile: tag.apparmor_profile.clone(),
         }
     }
 }
