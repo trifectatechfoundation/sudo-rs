@@ -145,7 +145,7 @@ impl PamContext {
     }
 
     /// Run authentication for the account
-    pub fn authenticate(&mut self) -> PamResult<()> {
+    pub fn authenticate(&mut self, for_user: &str) -> PamResult<()> {
         let mut flags = 0;
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
@@ -156,6 +156,19 @@ impl PamContext {
         if self.has_panicked() {
             panic!("Panic during pam authentication");
         }
+
+        // Check that no PAM module changed the user.
+        match self.get_user() {
+            Ok(pam_user) => {
+                if pam_user != for_user {
+                    return Err(PamError::InvalidUser(pam_user, for_user.to_string()));
+                }
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
+
         Ok(())
     }
 

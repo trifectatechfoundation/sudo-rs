@@ -40,14 +40,12 @@ fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamCon
     pam.mark_silent(true);
     pam.mark_allow_null_auth_token(false);
 
-    pam.set_user(user)?;
-
     let mut max_tries = 3;
     let mut current_try = 0;
 
     loop {
         current_try += 1;
-        match pam.authenticate() {
+        match pam.authenticate(user) {
             // there was no error, so authentication succeeded
             Ok(_) => break,
 

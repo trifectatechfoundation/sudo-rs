@@ -44,12 +44,11 @@ pub(super) fn init_pam(
         bell,
         non_interactive,
         password_feedback,
-        None,
+        Some(auth_user),
     )?;
     pam.mark_silent(matches!(launch, LaunchType::Direct));
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;
-    pam.set_user(auth_user)?;
 
     match auth_prompt.as_deref() {
         None => {}
@@ -90,13 +89,14 @@ pub(super) fn init_pam(
 
 pub(super) fn attempt_authenticate(
     pam: &mut PamContext,
+    auth_user: &str,
     non_interactive: bool,
     mut max_tries: u16,
 ) -> Result<(), Error> {
     let mut current_try = 0;
     loop {
         current_try += 1;
-        match pam.authenticate() {
+        match pam.authenticate(auth_user) {
             // there was no error, so authentication succeeded
             Ok(_) => break,
 

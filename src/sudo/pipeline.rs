@@ -184,7 +184,12 @@ fn auth_and_update_record_file(
         hostname: &context.hostname,
     })?;
     if auth_status.must_authenticate {
-        attempt_authenticate(&mut pam_context, context.non_interactive, allowed_attempts)?;
+        attempt_authenticate(
+            &mut pam_context,
+            &auth_user.name,
+            context.non_interactive,
+            allowed_attempts,
+        )?;
         if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
             match record_file.create(scope, context.current_user.uid) {
                 Ok(_) => (),

@@ -175,6 +175,7 @@ pub enum PamError {
     IoError(std::io::Error),
     EnvListFailure,
     InteractionRequired,
+    InvalidUser(String, String),
 }
 
 impl From<std::io::Error> for PamError {
@@ -221,6 +222,12 @@ impl fmt::Display for PamError {
                 )
             }
             PamError::InteractionRequired => write!(f, "Interaction is required"),
+            PamError::InvalidUser(username, other_user) => {
+                write!(
+                    f,
+                    "Sorry, user {username} is not allowed to authenticate as {other_user}.",
+                )
+            }
         }
     }
 }
