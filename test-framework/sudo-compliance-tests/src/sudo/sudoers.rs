@@ -13,6 +13,7 @@ mod host_list;
 mod include;
 mod includedir;
 mod noexec;
+mod passwd_timeout;
 mod run_as;
 mod runas_alias;
 mod secure_path;

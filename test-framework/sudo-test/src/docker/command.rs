@@ -132,6 +132,11 @@ impl Child {
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
         Ok(self.inner.try_wait()?)
     }
+
+    /// Send SIGKILL to the process.
+    pub fn kill(&mut self) -> Result<()> {
+        Ok(self.inner.kill()?)
+    }
 }
 
 /// the output of a finished `Command`
