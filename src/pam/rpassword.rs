@@ -14,12 +14,14 @@
 ///   (although much more robust than in the original code)
 ///
 use std::io::{self, Error, ErrorKind, Read};
-use std::os::fd::{AsFd, AsRawFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
+use std::time::Instant;
 use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
 use crate::cutils::cerr;
+use crate::system::time::Duration;
 
 use super::securemem::PamBuffer;
 
@@ -177,6 +179,66 @@ fn write_unbuffered(sink: &mut dyn io::Write, text: &[u8]) -> io::Result<()> {
     sink.flush()
 }
 
+struct TimeoutRead<'a> {
+    timeout_at: Option<Instant>,
+    fd: BorrowedFd<'a>,
+}
+
+impl<'a> TimeoutRead<'a> {
+    fn new(fd: BorrowedFd<'a>, timeout: Option<Duration>) -> TimeoutRead<'a> {
+        TimeoutRead {
+            timeout_at: timeout.map(|timeout| Instant::now() + timeout.into()),
+            fd,
+        }
+    }
+}
+
+impl io::Read for TimeoutRead<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let pollmask = libc::POLLIN | libc::POLLRDHUP;
+
+        let mut pollfd = [libc::pollfd {
+            fd: self.fd.as_raw_fd(),
+            events: pollmask,
+            revents: 0,
+        }; 1];
+
+        let timeout = match self.timeout_at {
+            Some(timeout_at) => {
+                let now = Instant::now();
+                if now > timeout_at {
+                    return Err(io::Error::from(ErrorKind::TimedOut));
+                }
+
+                (timeout_at - now)
+                    .as_millis()
+                    .try_into()
+                    .unwrap_or(i32::MAX)
+            }
+            None => -1,
+        };
+
+        // SAFETY: pollfd is initialized and its length matches
+        cerr(unsafe { libc::poll(pollfd.as_mut_ptr(), pollfd.len() as u64, timeout) })?;
+
+        // There may yet be data waiting to be read even if POLLHUP is set.
+        if pollfd[0].revents & (pollmask | libc::POLLHUP) > 0 {
+            // SAFETY: buf is initialized and its length matches
+            let ret = cerr(unsafe {
+                libc::read(
+                    self.fd.as_raw_fd(),
+                    buf.as_mut_ptr() as *mut libc::c_void,
+                    buf.len(),
+                )
+            })?;
+
+            Ok(ret as usize)
+        } else {
+            Err(io::Error::from(io::ErrorKind::TimedOut))
+        }
+    }
+}
+
 /// A data structure representing either /dev/tty or /dev/stdin+stderr
 pub enum Terminal<'a> {
     Tty(fs::File),
@@ -201,20 +263,23 @@ impl Terminal<'_> {
 
     /// Reads input with TTY echo disabled
     pub fn read_password(&mut self) -> io::Result<PamBuffer> {
-        let input = self.source();
+        let mut input = self.source_timeout(None);
         let _hide_input = HiddenInput::new(false)?;
-        read_unbuffered(input)
+        read_unbuffered(&mut input)
     }
 
     /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
     pub fn read_password_with_feedback(&mut self) -> io::Result<PamBuffer> {
-        if let Some(hide_input) = HiddenInput::new(true)? {
-            match self {
-                Terminal::StdIE(x, y) => read_unbuffered_with_feedback(x, y, &hide_input),
-                Terminal::Tty(x) => read_unbuffered_with_feedback(&mut &*x, &mut &*x, &hide_input),
+        match (HiddenInput::new(true)?, self) {
+            (Some(hide_input), Terminal::StdIE(stdin, stdout)) => {
+                let mut reader = TimeoutRead::new(stdin.as_fd(), None);
+                read_unbuffered_with_feedback(&mut reader, stdout, &hide_input)
             }
-        } else {
-            read_unbuffered(self.source())
+            (Some(hide_input), Terminal::Tty(file)) => {
+                let mut reader = TimeoutRead::new(file.as_fd(), None);
+                read_unbuffered_with_feedback(&mut reader, &mut &*file, &hide_input)
+            }
+            (None, term) => read_unbuffered(&mut term.source_timeout(None)),
         }
     }
 
@@ -239,6 +304,13 @@ impl Terminal<'_> {
         match self {
             Terminal::StdIE(x, _) => x,
             Terminal::Tty(x) => x,
+        }
+    }
+
+    fn source_timeout(&self, timeout: Option<Duration>) -> TimeoutRead {
+        match self {
+            Terminal::StdIE(stdin, _) => TimeoutRead::new(stdin.as_fd(), timeout),
+            Terminal::Tty(file) => TimeoutRead::new(file.as_fd(), timeout),
         }
     }
 
