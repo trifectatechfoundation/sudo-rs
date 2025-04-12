@@ -29,6 +29,7 @@ pub struct Authentication {
     pub allowed_attempts: u16,
     pub prior_validity: Duration,
     pub pwfeedback: bool,
+    pub password_timeout: Option<Duration>,
 }
 
 impl super::Settings {
@@ -38,6 +39,10 @@ impl super::Settings {
             allowed_attempts: self.passwd_tries().try_into().unwrap(),
             prior_validity: Duration::seconds(self.timestamp_timeout()),
             pwfeedback: self.pwfeedback(),
+            password_timeout: match self.passwd_timeout() {
+                0 => None,
+                timeout => Some(Duration::seconds(timeout)),
+            },
             credential: if self.rootpw() {
                 AuthenticatingUser::Root
             } else if self.targetpw() {
@@ -167,6 +172,7 @@ mod test {
                 prior_validity: Duration::minutes(15),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
+                password_timeout: Some(Duration::seconds(300)),
             },
         );
 
@@ -183,6 +189,7 @@ mod test {
                 prior_validity: Duration::minutes(15),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
+                password_timeout: Some(Duration::seconds(300)),
             },
         );
         assert_eq!(restrictions, restrictions2);

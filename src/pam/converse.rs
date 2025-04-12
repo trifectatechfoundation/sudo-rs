@@ -1,6 +1,7 @@
 use std::io;
 
 use crate::cutils::string_from_ptr;
+use crate::system::time::Duration;
 
 use super::sys::*;
 
@@ -100,6 +101,7 @@ pub struct CLIConverser {
     pub(super) use_stdin: bool,
     pub(super) bell: bool,
     pub(super) password_feedback: bool,
+    pub(super) password_timeout: Option<Duration>,
 }
 
 use rpassword::Terminal;
@@ -128,9 +130,9 @@ impl Converser for CLIConverser {
         }
         tty.prompt(msg)?;
         if self.password_feedback {
-            tty.read_password_with_feedback()
+            tty.read_password_with_feedback(self.password_timeout)
         } else {
-            tty.read_password()
+            tty.read_password(self.password_timeout)
         }
         .map_err(|err| {
             if let io::ErrorKind::TimedOut = err.kind() {
