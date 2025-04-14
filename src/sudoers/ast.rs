@@ -103,6 +103,7 @@ pub struct Tag {
     pub(super) authenticate: Authenticate,
     pub(super) cwd: Option<ChDir>,
     pub(super) env: EnvironmentControl,
+    pub(super) noexec: bool,
 }
 
 impl Tag {
@@ -380,11 +381,11 @@ impl Parse for MetaOrTag {
         };
 
         let result: Modifier = match keyword.as_str() {
-            // we do not support these, and that should make sudo-rs "fail safe"
-            "INTERCEPT" | "NOEXEC" => unrecoverable!(
+            // we do not support this, and that should make sudo-rs "fail safe"
+            "INTERCEPT" => unrecoverable!(
                 pos = start_pos,
                 stream,
-                "NOEXEC and INTERCEPT are not supported by sudo-rs"
+                "INTERCEPT is not supported by sudo-rs"
             ),
             // this is less fatal
             "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL" => {
@@ -396,8 +397,11 @@ impl Parse for MetaOrTag {
             }
 
             // 'FOLLOW' and 'NOFOLLOW' are only usable in a sudoedit context, which will result in
-            // a parse error elsewhere. 'EXEC' and 'NOINTERCEPT' are the default behaviour.
-            "FOLLOW" | "NOFOLLOW" | "EXEC" | "NOINTERCEPT" => switch(|_| {})?,
+            // a parse error elsewhere. 'NOINTERCEPT' is the default behaviour.
+            "FOLLOW" | "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
+
+            "EXEC" => switch(|tag| tag.noexec = false)?,
+            "NOEXEC" => switch(|tag| tag.noexec = true)?,
 
             "SETENV" => switch(|tag| tag.env = EnvironmentControl::Setenv)?,
             "NOSETENV" => switch(|tag| tag.env = EnvironmentControl::Nosetenv)?,

@@ -54,6 +54,7 @@ impl super::Settings {
 pub struct Restrictions<'a> {
     pub use_pty: bool,
     pub trust_environment: bool,
+    pub noexec: bool,
     pub env_keep: &'a HashSet<String>,
     pub env_check: &'a HashSet<String>,
     pub chdir: DirChange<'a>,
@@ -84,6 +85,7 @@ impl Judgement {
                 Restrictions {
                     use_pty: self.settings.use_pty(),
                     trust_environment: tag.allows_setenv(),
+                    noexec: tag.noexec,
                     env_keep: self.settings.env_keep(),
                     env_check: self.settings.env_check(),
                     chdir: match tag.cwd.as_ref() {
