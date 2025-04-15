@@ -1,6 +1,8 @@
 mod event;
 mod io_util;
 mod no_pty;
+#[cfg(target_os = "linux")]
+mod noexec;
 mod use_pty;
 
 use std::{
@@ -45,6 +47,7 @@ pub struct RunOptions<'a> {
     pub group: &'a Group,
 
     pub use_pty: bool,
+    pub noexec: bool,
 }
 
 /// Based on `ogsudo`s `exec_pty` function.
@@ -55,7 +58,7 @@ pub fn run_command(
     options: RunOptions<'_>,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
 ) -> io::Result<ExitReason> {
-    let file_closer = FileCloser::new();
+    let mut file_closer = FileCloser::new();
 
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command;
@@ -76,6 +79,16 @@ pub fn run_command(
             .unwrap_or_default();
         process_name.insert(0, b'-');
         command.arg0(OsStr::from_bytes(&process_name));
+    }
+
+    if options.noexec {
+        #[cfg(target_os = "linux")]
+        noexec::add_noexec_filter(&mut command, &mut file_closer);
+
+        #[cfg(not(target_os = "linux"))]
+        return Err(io::Error::other(
+            "NOEXEC is currently only supported on Linux",
+        ));
     }
 
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
