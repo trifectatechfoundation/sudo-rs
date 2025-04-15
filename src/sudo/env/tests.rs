@@ -133,6 +133,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         use_session_records: false,
         use_pty: true,
         password_feedback: false,
+        noexec: false,
         bell: false,
     }
 }
@@ -170,6 +171,7 @@ fn test_environment_variable_filtering() {
                 use_pty: true,
                 chdir: crate::sudoers::DirChange::Strict(None),
                 trust_environment: false,
+                noexec: false,
             },
         )
         .unwrap();

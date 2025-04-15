@@ -218,6 +218,7 @@ impl SuContext {
             group: &self.group,
 
             use_pty: true,
+            noexec: false,
         }
     }
 }

@@ -4,7 +4,7 @@ use super::Judgement;
 use crate::common::{
     SudoPath, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2,
 };
-use crate::sudoers::ast::Tag;
+use crate::sudoers::ast::{Noexec, Tag};
 use crate::system::{time::Duration, Hostname, User};
 /// Data types and traits that represent what the "terms and conditions" are after a succesful
 /// permission check.
@@ -85,7 +85,11 @@ impl Judgement {
                 Restrictions {
                     use_pty: self.settings.use_pty(),
                     trust_environment: tag.allows_setenv(),
-                    noexec: tag.noexec,
+                    noexec: match tag.noexec {
+                        Noexec::Implicit => self.settings.noexec(),
+                        Noexec::Exec => false,
+                        Noexec::Noexec => true,
+                    },
                     env_keep: self.settings.env_keep(),
                     env_check: self.settings.env_check(),
                     chdir: match tag.cwd.as_ref() {
