@@ -100,7 +100,7 @@ pub enum EnvironmentControl {
 #[derive(Copy, Clone, Default, PartialEq)]
 #[cfg_attr(test, derive(Debug, Eq))]
 #[repr(u32)]
-pub enum Noexec {
+pub enum ExecControl {
     #[default]
     Implicit = HARDENED_ENUM_VALUE_0,
     // PASSWD:
@@ -117,7 +117,7 @@ pub struct Tag {
     pub(super) cwd: Option<ChDir>,
     pub(super) env: EnvironmentControl,
     pub(super) apparmor_profile: Option<String>,
-    pub(super) noexec: Noexec,
+    pub(super) noexec: ExecControl,
 }
 
 impl Tag {
@@ -407,8 +407,8 @@ impl Parse for MetaOrTag {
             // a parse error elsewhere. 'NOINTERCEPT' is the default behaviour.
             "FOLLOW" | "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
 
-            "EXEC" => switch(|tag| tag.noexec = Noexec::Exec)?,
-            "NOEXEC" => switch(|tag| tag.noexec = Noexec::Noexec)?,
+            "EXEC" => switch(|tag| tag.noexec = ExecControl::Exec)?,
+            "NOEXEC" => switch(|tag| tag.noexec = ExecControl::Noexec)?,
 
             "SETENV" => switch(|tag| tag.env = EnvironmentControl::Setenv)?,
             "NOSETENV" => switch(|tag| tag.env = EnvironmentControl::Nosetenv)?,

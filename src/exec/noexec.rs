@@ -26,7 +26,11 @@ const SECCOMP_RET_USER_NOTIF: c_uint = 0x7fc00000;
 const SECCOMP_IOCTL_NOTIF_RECV: c_ulong = 0xc0502100;
 const SECCOMP_IOCTL_NOTIF_SEND: c_ulong = 0xc0182101;
 
+/// # Safety
+///
+/// You must follow the rules of the Linux man page.
 unsafe fn seccomp<T>(operation: c_uint, flags: c_uint, args: *mut T) -> c_int {
+    // SAFETY: By function invariant.
     unsafe { syscall(SYS_seccomp, operation, flags, args) as c_int }
 }
 
@@ -35,9 +39,6 @@ struct NotifyAllocs {
     req_size: usize,
     resp: *mut seccomp_notif_resp,
 }
-
-unsafe impl Send for NotifyAllocs {}
-unsafe impl Sync for NotifyAllocs {}
 
 fn alloc_dynamic<T>(runtime_size: u16) -> (*mut T, usize) {
     const {
@@ -84,6 +85,9 @@ fn alloc_notify_allocs() -> NotifyAllocs {
     }
 }
 
+/// # Safety
+///
+/// The argument must be a valid seccomp_unotify fd.
 unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
     let NotifyAllocs {
         req,
@@ -91,76 +95,83 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         resp,
     } = alloc_notify_allocs();
 
-    unsafe {
-        loop {
-            // SECCOMP_IOCTL_NOTIF_RECV expects the target struct to be zeroed
-            // SAFETY: req is at least req_size bytes big
-            std::ptr::write_bytes(req.cast::<u8>(), 0, req_size);
+    loop {
+        // SECCOMP_IOCTL_NOTIF_RECV expects the target struct to be zeroed
+        // SAFETY: req is at least req_size bytes big.
+        unsafe { std::ptr::write_bytes(req.cast::<u8>(), 0, req_size) };
 
-            // SAFETY: A valid pointer to a seccomp_notify is passed in
-            if ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) == -1 {
-                // SAFETY: Trivial
-                if *__errno_location() == ENOENT {
-                    continue; // Syscall was interrupted
-                }
-                // SAFETY: Not actually unsafe
-                libc::abort();
+        // SAFETY: A valid pointer to a seccomp_notify is passed in.
+        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } == -1 {
+            // SAFETY: Trivial
+            if unsafe { *__errno_location() } == ENOENT {
+                continue; // Syscall was interrupted
             }
+            // SAFETY: Not actually unsafe.
+            unsafe { libc::abort() };
+        }
 
-            // Allow the first execve call as this is sudo itself starting the target executable.
-            // SAFETY: resp is a valid pointer to a seccomp_notify_resp
+        // Allow the first execve call as this is sudo itself starting the target executable.
+        // SAFETY: resp is a valid pointer to a seccomp_notify_resp.
+        unsafe {
             (*resp).id = (*req).id;
             (*resp).val = 0;
             (*resp).error = 0;
             (*resp).flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE as _;
-
-            if ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) == -1 {
-                // SAFETY: Trivial
-                if *__errno_location() == ENOENT {
-                    continue; // Syscall was interrupted
-                }
-                // SAFETY: Not actually unsafe
-                libc::abort();
-            }
-            break;
         }
 
-        loop {
-            // SECCOMP_IOCTL_NOTIF_RECV expects the target struct to be zeroed
-            // SAFETY: req is at least req_size bytes big
-            std::ptr::write_bytes(req.cast::<u8>(), 0, req_size);
-
-            // SAFETY: A valid pointer to a seccomp_notify is passed in
-            if ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) == -1 {
-                // SAFETY: Trivial
-                if *__errno_location() == ENOENT {
-                    continue; // Syscall was interrupted
-                }
-                // SAFETY: Not actually unsafe
-                libc::abort();
+        // SAFETY: A valid pointer to a seccomp_notify_resp is passed in.
+        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } == -1 {
+            // SAFETY: Trivial
+            if unsafe { *__errno_location() } == ENOENT {
+                continue; // Syscall was interrupted
             }
+            // SAFETY: Not actually unsafe.
+            unsafe { libc::abort() };
+        }
 
-            // Set the error code for all syscalls we are notified about to EACCESS.
-            // SAFETY: resp is a valid pointer to a seccomp_notify_resp
+        break;
+    }
+
+    loop {
+        // SECCOMP_IOCTL_NOTIF_RECV expects the target struct to be zeroed
+        // SAFETY: req is at least req_size bytes big.
+        unsafe { std::ptr::write_bytes(req.cast::<u8>(), 0, req_size) };
+
+        // SAFETY: A valid pointer to a seccomp_notify is passed in.
+        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } == -1 {
+            // SAFETY: Trivial
+            if unsafe { *__errno_location() } == ENOENT {
+                continue; // Syscall was interrupted
+            }
+            // SAFETY: Not actually unsafe.
+            unsafe { libc::abort() };
+        }
+
+        // Set the error code for all syscalls we are notified about to EACCESS.
+        // SAFETY: resp is a valid pointer to a seccomp_notify_resp.
+        unsafe {
             (*resp).id = (*req).id;
             (*resp).val = 0;
             (*resp).error = -EACCES;
             (*resp).flags = 0;
+        }
 
-            if ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) == -1 {
-                // SAFETY: Trivial
-                if *__errno_location() == ENOENT {
-                    continue; // Syscall was interrupted
-                }
-                // SAFETY: Not actually unsafe
-                libc::abort();
+        // SAFETY: A valid pointer to a seccomp_notify_resp is passed in.
+        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } == -1 {
+            // SAFETY: Trivial
+            if unsafe { *__errno_location() } == ENOENT {
+                continue; // Syscall was interrupted
             }
+            // SAFETY: Not actually unsafe.
+            unsafe { libc::abort() };
         }
     }
 }
 
 #[repr(C)]
 union SingleRightAnciliaryData {
+    // SAFETY: Not actually unsafe
+    #[allow(clippy::undocumented_unsafe_blocks)] // Clippy doesn't understand the safety comment
     buf: [u8; unsafe { CMSG_SPACE(size_of::<c_int>() as u32) as usize }],
     _align: cmsghdr,
 }
@@ -168,7 +179,6 @@ union SingleRightAnciliaryData {
 pub fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
     let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
 
-    // FIXME spawn thread receiving notify_fd from rx_fd and calling handle_notifications
     thread::spawn(move || {
         let mut data = [0u8; 1];
         let mut iov = iovec {
@@ -176,17 +186,20 @@ pub fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
             iov_len: 1,
         };
 
+        // SAFETY: msghdr can be zero-initialized
         let mut msg: msghdr = unsafe { zeroed() };
         msg.msg_name = ptr::null_mut();
         msg.msg_namelen = 0;
         msg.msg_iov = &mut iov;
         msg.msg_iovlen = 1;
 
+        // SAFETY: SingleRightAnciliaryData can be zero-initialized.
         let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
-        msg.msg_control = &mut control as *mut _ as *mut _;
-        // FIXME stacked borrows violation?
+        // SAFETY: The buf field is valid when zero-initialized.
         msg.msg_controllen = unsafe { control.buf.len() };
+        msg.msg_control = &mut control as *mut _ as *mut _;
 
+        // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
         if unsafe { recvmsg(rx_fd.as_raw_fd(), &mut msg, 0) } == -1 {
             panic!("failed to recvmsg: {}", io::Error::last_os_error());
         }
@@ -195,8 +208,9 @@ pub fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
             unreachable!();
         }
 
-        let cmsgp = unsafe { CMSG_FIRSTHDR(&mut msg) };
-        unsafe {
+        // SAFETY: The kernel correctly initializes everything on recvmsg for this to be safe.
+        let notify_fd = unsafe {
+            let cmsgp = CMSG_FIRSTHDR(&msg);
             if cmsgp.is_null()
                 || (*cmsgp).cmsg_len != CMSG_LEN(size_of::<c_int>() as u32) as usize
                 || (*cmsgp).cmsg_level != SOL_SOCKET
@@ -204,18 +218,18 @@ pub fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
             {
                 unreachable!();
             }
-        }
+            CMSG_DATA(cmsgp).cast::<c_int>().read()
+        };
 
-        let notify_fd = unsafe { CMSG_DATA(cmsgp).cast::<c_int>().read() };
-
-        unsafe {
-            handle_notifications(OwnedFd::from_raw_fd(notify_fd));
-        }
+        // SAFETY: notify_fd is a valid seccomp_unotify fd.
+        unsafe { handle_notifications(OwnedFd::from_raw_fd(notify_fd)) };
     });
 
     file_closer.except(&tx_fd);
 
+    // SAFETY: See individual SAFETY comments
     unsafe {
+        // SAFETY: The closure only calls async-signal-safe functions.
         command.pre_exec(move || {
             // SAFETY: libc unnecessarily marks these functions as unsafe
             let exec_filter: [sock_filter; 5] = [
@@ -262,26 +276,34 @@ pub fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
                 iov_len: 1,
             };
 
+            // SAFETY: msghdr can be zero-initialized
             let mut msg: msghdr = zeroed();
             msg.msg_name = ptr::null_mut();
             msg.msg_namelen = 0;
             msg.msg_iov = &mut iov;
             msg.msg_iovlen = 1;
 
+            // SAFETY: SingleRightAnciliaryData can be zero-initialized.
             let mut control: SingleRightAnciliaryData = zeroed();
-            msg.msg_control = &mut control as *mut _ as *mut _;
-            // FIXME stacked borrows violation?
+            // SAFETY: The buf field is valid when zero-initialized.
             msg.msg_controllen = control.buf.len();
-            let cmsgp = CMSG_FIRSTHDR(&mut msg);
-            (*cmsgp).cmsg_level = SOL_SOCKET;
-            (*cmsgp).cmsg_type = SCM_RIGHTS;
-            (*cmsgp).cmsg_len = CMSG_LEN(size_of::<c_int>() as u32) as usize;
-            ptr::write(CMSG_DATA(cmsgp).cast::<c_int>(), notify_fd);
+            msg.msg_control = &mut control as *mut _ as *mut _;
+            // SAFETY: msg.msg_control is correctly initialized and this follows
+            // the contract of the various CMSG_* macros.
+            {
+                let cmsgp = CMSG_FIRSTHDR(&msg);
+                (*cmsgp).cmsg_level = SOL_SOCKET;
+                (*cmsgp).cmsg_type = SCM_RIGHTS;
+                (*cmsgp).cmsg_len = CMSG_LEN(size_of::<c_int>() as u32) as usize;
+                ptr::write(CMSG_DATA(cmsgp).cast::<c_int>(), notify_fd);
+            }
 
+            // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
             if sendmsg(tx_fd.as_raw_fd(), &msg, 0) == -1 {
                 return Err(io::Error::last_os_error());
             }
 
+            // SAFETY: Nothing will access the notify_fd after this call.
             close(notify_fd);
 
             Ok(())
