@@ -2,15 +2,15 @@
 // see 'Command execution' section in `man sudoers`
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env};
+use sudo_test::{
+    Command, Env, EnvNoImplicit, PAM_D_SUDO_PATH, PAM_D_SU_PATH, STOCK_PAM_D_SU, STOCK_PAM_D_SUDO,
+};
 
 use crate::{helpers, EnvList, Result, SUDOERS_ALL_ALL_NOPASSWD};
 
 const ETC_ENVIRONMENT_PATH: &str = "/etc/environment";
-const PAM_D_SUDO_PATH: &str = "/etc/pam.d/sudo";
 const SECURITY_PAM_ENV_PATH: &str = "/etc/security/pam_env.conf";
 
-const STOCK_PAM_D_SUDO: &str = "#%PAM-1.0\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session-noninteractive";
 const STOCK_SECURITY_PAM_ENV: &str = "";
 
 const PAM_D_SUDO_READENV: &str = "session       required   pam_env.so readenv=1";
@@ -30,7 +30,7 @@ fn remove_comments_and_whitespace(contents: &str) -> String {
 #[test]
 #[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn stock_pam_d_sudo() -> Result<()> {
-    let env = Env("").build()?;
+    let env = EnvNoImplicit("").build()?;
 
     if sudo_test::is_original_sudo() {
         let pam_d_sudo = Command::new("cat")
@@ -38,11 +38,39 @@ fn stock_pam_d_sudo() -> Result<()> {
             .output(&env)?
             .stdout()?;
 
+        let pam_d_sudo = pam_d_sudo.replace(
+            "session    required   pam_env.so readenv=1 user_readenv=0",
+            "",
+        )
+        .replace(
+            "session    required   pam_env.so readenv=1 envfile=/etc/default/locale user_readenv=0",
+            "",
+        );
+
         assert_eq!(
             STOCK_PAM_D_SUDO,
             remove_comments_and_whitespace(&pam_d_sudo),
             "stock {} file has changed; variable `STOCK_PAM_D_SUDO` needs to be updated",
             PAM_D_SUDO_PATH
+        );
+
+        let pam_d_su = Command::new("cat")
+            .arg(PAM_D_SU_PATH)
+            .output(&env)?
+            .stdout()?;
+
+        let pam_d_su = pam_d_su
+            .replace(
+                "session       required   pam_env.so readenv=1 envfile=/etc/default/locale",
+                "",
+            )
+            .replace("session       required   pam_env.so readenv=1", "");
+
+        assert_eq!(
+            STOCK_PAM_D_SU.replace("#%PAM-1.0\n", ""),
+            remove_comments_and_whitespace(&pam_d_su),
+            "stock {} file has changed; variable `STOCK_PAM_D_SU` needs to be updated",
+            PAM_D_SU_PATH
         );
     } else {
         // `PAMD_SUDO_PATH` should not exist in the base image

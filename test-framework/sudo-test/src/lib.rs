@@ -35,6 +35,15 @@ pub fn is_original_sudo() -> bool {
     matches!(SudoUnderTest::from_env(), Ok(SudoUnderTest::Theirs))
 }
 
+/// Location of the sudo pam config
+pub const PAM_D_SUDO_PATH: &str = "/etc/pam.d/sudo";
+/// The default `/etc/pam.d/sudo` on Debian
+pub const STOCK_PAM_D_SUDO: &str = "#%PAM-1.0\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session-noninteractive";
+/// Location of the su pam config
+pub const PAM_D_SU_PATH: &str = "/etc/pam.d/su";
+/// The default `/etc/pam.d/su` on Debian
+pub const STOCK_PAM_D_SU: &str = "#%PAM-1.0\nauth       sufficient pam_rootok.so\nsession    optional   pam_mail.so nopen\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session";
+
 enum SudoUnderTest {
     Ours,
     Theirs,
@@ -78,6 +87,11 @@ pub fn Env(sudoers: impl Into<TextFile>) -> EnvBuilder {
         .contents
         .insert_str(0, "Defaults !fqdn, !lecture, !mailerpath\n");
     builder.file(ETC_SUDOERS, sudoers);
+
+    // Ubuntu uses pam_env to set a bunch of extra env vars that various tests don't expect to be set.
+    builder.default_file(PAM_D_SUDO_PATH, STOCK_PAM_D_SUDO);
+    builder.default_file(PAM_D_SU_PATH, STOCK_PAM_D_SU);
+
     if cfg!(target_os = "freebsd") {
         // Many tests expect the users group to exist, but FreeBSD doesn't actually use it.
         builder.group("users");
@@ -136,6 +150,7 @@ impl Command {
 pub struct EnvBuilder {
     directories: BTreeMap<AbsolutePath, Directory>,
     files: HashMap<AbsolutePath, TextFile>,
+    default_files: HashMap<AbsolutePath, TextFile>,
     groups: HashMap<Groupname, Group>,
     hostname: Option<String>,
     users: HashMap<Username, User>,
@@ -158,6 +173,25 @@ impl EnvBuilder {
         );
 
         self.files.insert(path.to_string(), file.into());
+
+        self
+    }
+
+    /// adds a default for `file` to the test environment at the specified `path`
+    ///
+    /// # Panics
+    ///
+    /// - if `path` is not an absolute path
+    /// - if `path` has previously been declared as default
+    fn default_file(&mut self, path: impl AsRef<str>, file: impl Into<TextFile>) -> &mut Self {
+        let path = path.as_ref();
+        assert!(Path::new(path).is_absolute(), "path must be absolute");
+        assert!(
+            !self.default_files.contains_key(path),
+            "file at {path} has already been declared as default"
+        );
+
+        self.default_files.insert(path.to_string(), file.into());
 
         self
     }
@@ -331,6 +365,10 @@ impl EnvBuilder {
 
         for directory in self.directories.values() {
             directory.create(&container)?;
+        }
+
+        for (path, file) in &self.default_files {
+            file.create(path, &container)?;
         }
 
         for (path, file) in &self.files {
