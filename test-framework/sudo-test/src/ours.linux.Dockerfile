@@ -1,6 +1,6 @@
 FROM rust:1-slim-bookworm
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends clang libclang-dev libpam0g-dev procps sshpass rsyslog
+    apt-get install -y --no-install-recommends libpam0g-dev procps sshpass rsyslog
 # cache the crates.io index in the image for faster local testing
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
@@ -14,8 +14,6 @@ RUN install -m 4755 build/sudo /usr/bin/sudo && \
 RUN mkdir -p /etc/sudoers.d
 # Ensure we use the same shell across OSes
 RUN chsh -s /bin/sh
-# remove build dependencies
-RUN apt-get autoremove -y clang libclang-dev
 # set the default working directory to somewhere world writable so sudo / su can create .profraw files there
 WORKDIR /tmp
 # This env var needs to be set when compiled with the dev feature

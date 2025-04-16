@@ -1,2 +1,2 @@
 FROM rust:1.84-slim-bookworm@sha256:69fbd6ab81b514580bc14f35323fecb09feba9e74c5944ece9a70d9a2a369df0
-RUN apt-get update -y && apt-get install -y clang libclang-dev libpam0g-dev
+RUN apt-get update -y && apt-get install -y libpam0g-dev
