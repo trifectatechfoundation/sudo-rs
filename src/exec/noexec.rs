@@ -2,7 +2,7 @@
 
 use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
 use std::ffi::c_void;
-use std::mem::{offset_of, zeroed};
+use std::mem::{align_of, size_of, zeroed};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
@@ -41,9 +41,8 @@ struct NotifyAllocs {
 }
 
 fn alloc_dynamic<T>(runtime_size: u16) -> (*mut T, usize) {
-    const {
-        assert!(size_of::<T>() > 0);
-    }
+    // FIXME put this in a const block once the MSRV has been bumped enough
+    assert!(size_of::<T>() > 0);
 
     let layout = Layout::from_size_align(
         cmp::max(runtime_size.into(), size_of::<T>()),
@@ -176,7 +175,7 @@ union SingleRightAnciliaryData {
     _align: cmsghdr,
 }
 
-pub fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
+pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
     let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
 
     thread::spawn(move || {
@@ -231,10 +230,15 @@ pub fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
     unsafe {
         // SAFETY: The closure only calls async-signal-safe functions.
         command.pre_exec(move || {
+            // FIXME replace with offset_of!(seccomp_data, nr) once MSRV is bumped to 1.77
+            // SAFETY: seccomp_data can be safely zero-initialized.
+            let dummy: seccomp_data = zeroed();
+            let nr_offset = (&dummy.nr) as *const _ as usize - &dummy as *const _ as usize;
+
             // SAFETY: libc unnecessarily marks these functions as unsafe
             let exec_filter: [sock_filter; 5] = [
                 // Load syscall number into the accumulator
-                BPF_STMT((BPF_LD | BPF_ABS) as _, offset_of!(seccomp_data, nr) as _),
+                BPF_STMT((BPF_LD | BPF_ABS) as _, nr_offset as _),
                 // Jump to user notify for execve/execveat
                 BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, SYS_execve as _, 2, 0),
                 BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, SYS_execveat as _, 1, 0),
