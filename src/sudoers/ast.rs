@@ -103,6 +103,8 @@ pub struct Tag {
     pub(super) authenticate: Authenticate,
     pub(super) cwd: Option<ChDir>,
     pub(super) env: EnvironmentControl,
+    #[cfg(feature = "apparmor")]
+    pub(super) apparmor_profile: Option<String>,
 }
 
 impl Tag {
@@ -418,11 +420,24 @@ impl Parse for MetaOrTag {
             "ROLE" | "TYPE" => unrecoverable!(
                 pos = start_pos,
                 stream,
-                "role based access control is not yet supported by sudo-rs"
+                "SELinux role based access control is not yet supported by sudo-rs"
             ),
 
+            #[cfg(feature = "apparmor")]
+            "APPARMOR_PROFILE" => {
+                expect_syntax('=', stream)?;
+                let StringParameter(profile) = expect_nonterminal(stream)?;
+                Box::new(move |tag| tag.apparmor_profile = Some(profile.clone()))
+            }
+
             "ALL" => return make(MetaOrTag(All)),
-            alias => return make(MetaOrTag(Alias(alias.to_string()))),
+            alias => {
+                if is_syntax('=', stream)? {
+                    unrecoverable!(pos = start_pos, stream, "unsupported modifier '{}'", alias);
+                } else {
+                    return make(MetaOrTag(Alias(alias.to_string())));
+                }
+            }
         };
 
         make(MetaOrTag(Only(result)))
