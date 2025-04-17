@@ -29,6 +29,7 @@ pub enum Error {
     Pam(PamError),
     Io(Option<PathBuf>, std::io::Error),
     MaxAuthAttempts(usize),
+    TimedOut,
     PathValidation(PathBuf),
     StringValidation(String),
     #[cfg(feature = "apparmor")]
@@ -90,6 +91,9 @@ impl fmt::Display for Error {
             }
             Error::MaxAuthAttempts(num) => {
                 write!(f, "Maximum {num} incorrect authentication attempts")
+            }
+            Error::TimedOut => {
+                write!(f, "timed out")
             }
             Error::ChDirNotAllowed { chdir, command } => write!(
                 f,
