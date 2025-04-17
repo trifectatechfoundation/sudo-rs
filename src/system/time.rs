@@ -162,7 +162,13 @@ impl ProcessCreateTime {
         // SAFETY: The `libc::clock_gettime` will correctly initialize `spec`,
         // otherwise it will return early with the `?` operator.
         let spec = unsafe { spec.assume_init() };
-        Ok(ProcessCreateTime::new(spec.tv_sec, spec.tv_nsec))
+
+        // the below conversion is not as useless as clippy thinks, on 32bit systems
+        #[allow(clippy::useless_conversion)]
+        Ok(ProcessCreateTime::new(
+            spec.tv_sec.into(),
+            spec.tv_nsec.into(),
+        ))
     }
 
     #[cfg(test)]
