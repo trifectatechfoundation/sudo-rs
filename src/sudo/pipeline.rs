@@ -232,6 +232,7 @@ fn apply_policy_to_context(
     // could be needed, but here we copy these -- perhaps we should split up the Context type
     context.use_pty = controls.use_pty;
     context.password_feedback = auth.pwfeedback;
+    context.noexec = controls.noexec;
 
     Ok(())
 }

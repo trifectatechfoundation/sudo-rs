@@ -29,6 +29,7 @@ use super::{CommandStatus, SIGCONT_BG};
 
 pub(in crate::exec) fn exec_pty(
     sudo_pid: ProcessId,
+    mut file_closer: FileCloser,
     mut command: Command,
     user_tty: UserTerm,
 ) -> io::Result<ExitReason> {
@@ -57,8 +58,6 @@ pub(in crate::exec) fn exec_pty(
 
     // Fetch the parent process group so we can signals to it.
     let parent_pgrp = getpgrp();
-
-    let mut file_closer = FileCloser::new();
 
     // Set all the IO streams for the command to the follower side of the pty.
     let mut clone_follower = || -> io::Result<PtyFollower> {

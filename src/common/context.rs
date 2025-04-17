@@ -32,6 +32,7 @@ pub struct Context {
     // policy
     pub use_pty: bool,
     pub password_feedback: bool,
+    pub noexec: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -95,6 +96,7 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             password_feedback: false,
+            noexec: false,
         })
     }
 
@@ -120,6 +122,7 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             password_feedback: false,
+            noexec: false,
         })
     }
 
@@ -165,6 +168,7 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             password_feedback: false,
+            noexec: false,
         })
     }
 
@@ -183,6 +187,7 @@ impl Context {
             group: &self.target_group,
 
             use_pty: self.use_pty,
+            noexec: self.noexec,
         })
     }
 }

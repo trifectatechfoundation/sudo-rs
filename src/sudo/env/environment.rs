@@ -280,6 +280,7 @@ mod tests {
                         chdir: crate::sudoers::DirChange::Strict(None),
                         trust_environment: false,
                         use_pty: true,
+                        noexec: false,
                     }
                 ),
                 expected,
