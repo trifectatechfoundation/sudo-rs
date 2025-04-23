@@ -14,6 +14,8 @@ RUN install -m 4755 build/sudo /usr/bin/sudo && \
 RUN mkdir -p /etc/sudoers.d
 # Ensure we use the same shell across OSes
 RUN chsh -s /bin/sh
+# To ensure we can create a user with uid 1000 and to avoid having to use uid 1001 in test expectations
+RUN userdel ubuntu || true
 # set the default working directory to somewhere world writable so sudo / su can create .profraw files there
 WORKDIR /tmp
 # This env var needs to be set when compiled with the dev feature
