@@ -7,7 +7,10 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     env,
     path::Path,
-    sync::Once,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Once,
+    },
 };
 
 use docker::{As, Container};
@@ -284,8 +287,18 @@ impl EnvBuilder {
     /// - if any specified `user` tries to use a user ID that already exists in the base image
     /// - if any specified `group` tries to use a group ID that already exists in the base image
     pub fn build(&self) -> Env {
+        static FAILED: AtomicBool = AtomicBool::new(false);
         static ONCE: Once = Once::new();
-        ONCE.call_once(docker::build_base_image);
+        ONCE.call_once(|| {
+            if std::panic::catch_unwind(docker::build_base_image).is_err() {
+                FAILED.store(true, Ordering::Relaxed);
+            }
+        });
+        if FAILED.load(Ordering::Relaxed) {
+            // Fail the test, but do so silently to reduce the chance the actual error message
+            // disappears from the terminal scrollback buffer.
+            std::panic::resume_unwind(Box::new(()));
+        }
 
         let container = Container::new_with_hostname(base_image(), self.hostname.as_deref());
 
