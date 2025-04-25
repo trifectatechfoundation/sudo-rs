@@ -10,3 +10,7 @@ doctest = false
 pretty_assertions = "1.3.0"
 insta = { version = "1.29.0", features = [ "filters" ] }
 sudo-test.path = "../sudo-test"
+
+[features]
+default = []
+apparmor = ["sudo-test/apparmor"]

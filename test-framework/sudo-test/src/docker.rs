@@ -167,16 +167,41 @@ pub fn build_base_image() {
 
     match SudoUnderTest::from_env() {
         SudoUnderTest::Ours => {
+            #[allow(clippy::vec_init_then_push)]
+            let sudo_build_features: String =
+                env::var("SUDO_BUILD_FEATURES").unwrap_or_else(|_| {
+                    let mut features = vec![];
+
+                    #[cfg(target_os = "freebsd")]
+                    features.push("dev");
+
+                    #[cfg(not(target_os = "freebsd"))]
+                    features.push("pam-login");
+
+                    #[cfg(feature = "apparmor")]
+                    features.push("apparmor");
+
+                    features.join(",")
+                });
+
             // On FreeBSD we build sudo-rs outside of the container. There are no pre-made FreeBSD
             // Rust container images and unlike on Linux we intend to run the exact same FreeBSD
             // version outside of the container and inside.
             if cfg!(target_os = "freebsd") {
                 // Build sudo-rs
                 let mut cargo_cmd = StdCommand::new("cargo");
-                cargo_cmd.args(["build", "--locked", "--features=dev", "--bins"]);
+                cargo_cmd.args([
+                    "build",
+                    "--locked",
+                    "--features",
+                    &sudo_build_features,
+                    "--bins",
+                ]);
                 cargo_cmd.current_dir(&repo_root);
                 if !cargo_cmd.status().unwrap().success() {
-                    eprintln!("`cargo build --locked --features=dev --bins` failed");
+                    eprintln!(
+                        "`cargo build --locked --features \"{sudo_build_features}\" --bins` failed"
+                    );
                     // Panic without panic message and backtrace
                     std::panic::resume_unwind(Box::new(()));
                 }
@@ -193,6 +218,10 @@ pub fn build_base_image() {
                     fs::copy(target_debug_dir.join(f), build_dir.join(f)).unwrap();
                 }
             }
+
+            // set the build features argument for the docker container
+            let sudo_build_features_arg = format!("SUDO_BUILD_FEATURES={sudo_build_features}");
+            cmd.args(["--build-arg", &sudo_build_features_arg]);
 
             // needed for dockerfile-specific dockerignore (e.g. `Dockerfile.dockerignore`) support
             cmd.current_dir(repo_root);

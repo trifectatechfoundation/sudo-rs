@@ -8,3 +8,7 @@ doctest = false
 
 [dependencies]
 tempfile = "3.4.0"
+
+[features]
+default = []
+apparmor = []
