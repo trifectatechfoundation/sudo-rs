@@ -32,6 +32,8 @@ pub enum Error {
     MaxAuthAttempts(usize),
     PathValidation(PathBuf),
     StringValidation(String),
+    #[cfg(feature = "apparmor")]
+    AppArmor(String, std::io::Error),
 }
 
 impl fmt::Display for Error {
@@ -102,6 +104,10 @@ impl fmt::Display for Error {
             }
             Error::PathValidation(path) => {
                 write!(f, "invalid path: {path:?}")
+            }
+            #[cfg(feature = "apparmor")]
+            Error::AppArmor(profile, e) => {
+                write!(f, "could not switch apparmor profile to {profile}: {e}")
             }
         }
     }

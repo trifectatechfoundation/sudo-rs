@@ -1,5 +1,7 @@
 #[macro_use]
 mod macros;
+#[cfg(feature = "apparmor")]
+pub(crate) mod apparmor;
 pub(crate) mod common;
 pub(crate) mod cutils;
 pub(crate) mod defaults;

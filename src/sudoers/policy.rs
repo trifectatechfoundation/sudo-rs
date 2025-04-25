@@ -59,7 +59,6 @@ pub struct Restrictions<'a> {
     pub chdir: DirChange<'a>,
     pub path: Option<&'a str>,
     #[cfg(feature = "apparmor")]
-    #[expect(dead_code)] // TODO: this attribute should be removed
     pub apparmor_profile: Option<String>,
 }
 
