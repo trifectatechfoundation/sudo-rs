@@ -1,12 +1,9 @@
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH},
-    Result,
-};
+use crate::visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH};
 
 #[test]
-fn when_disabled_env_vars_are_ignored() -> Result<()> {
+fn when_disabled_env_vars_are_ignored() {
     let var_names = ["SUDO_EDITOR", "VISUAL", "EDITOR"];
 
     let editor_path = "/tmp/editor";
@@ -20,28 +17,26 @@ rm -f {LOGS_PATH}"
             .chmod(CHMOD_EXEC),
         )
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
     for var_name in var_names {
         Command::new("touch")
             .arg(LOGS_PATH)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
 
         Command::new("env")
             .arg(format!("{var_name}={editor_path}"))
             .arg("visudo")
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
 
         Command::new("sh")
             .arg("-c")
             .arg(format!("test -f {LOGS_PATH}"))
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 struct Fixture {
@@ -52,7 +47,7 @@ struct Fixture {
 }
 
 impl Fixture {
-    fn new() -> Result<Self> {
+    fn new() -> Self {
         let expected = "good-editor was called";
         let unexpected = "bad-editor was called";
         let good_editor_path = "/tmp/good-editor";
@@ -75,87 +70,81 @@ echo {unexpected} >> {LOGS_PATH}"
                 .chmod(CHMOD_EXEC),
             )
             .file(DEFAULT_EDITOR, EDITOR_DUMMY)
-            .build()?;
+            .build();
 
-        Ok(Fixture {
+        Fixture {
             env,
             bad_editor_path,
             good_editor_path,
             expected,
-        })
+        }
     }
 }
 
 #[test]
-fn uses_editor() -> Result<()> {
+fn uses_editor() {
     let Fixture {
         env,
         good_editor_path,
         bad_editor_path: _,
         expected,
-    } = Fixture::new()?;
+    } = Fixture::new();
 
     Command::new("env")
         .arg(format!("EDITOR={good_editor_path}"))
         .arg("visudo")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn visual_has_precedence_over_editor() -> Result<()> {
+fn visual_has_precedence_over_editor() {
     let Fixture {
         env,
         good_editor_path,
         bad_editor_path,
         expected,
-    } = Fixture::new()?;
+    } = Fixture::new();
 
     Command::new("env")
         .arg(format!("VISUAL={good_editor_path}"))
         .arg(format!("EDITOR={bad_editor_path}"))
         .arg("visudo")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn sudo_editor_has_precedence_over_visual() -> Result<()> {
+fn sudo_editor_has_precedence_over_visual() {
     let Fixture {
         env,
         good_editor_path,
         bad_editor_path,
         expected,
-    } = Fixture::new()?;
+    } = Fixture::new();
 
     Command::new("env")
         .arg(format!("SUDO_EDITOR={good_editor_path}"))
         .arg(format!("VISUAL={bad_editor_path}"))
         .arg("visudo")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn falls_back_to_editor_list_when_env_editor_is_not_executable() -> Result<()> {
+fn falls_back_to_editor_list_when_env_editor_is_not_executable() {
     let var_names = ["SUDO_EDITOR", "VISUAL", "EDITOR"];
 
     let expected = "default editor was called";
@@ -170,25 +159,23 @@ echo '{expected}' > {LOGS_PATH}"
             ))
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
     for var_name in var_names {
         Command::new("rm")
             .args(["-f", LOGS_PATH])
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
 
         let output = Command::new("env")
             .arg(format!("{var_name}={editor_path}"))
             .arg("visudo")
-            .output(&env)?;
+            .output(&env);
 
-        output.assert_success()?;
+        output.assert_success();
 
-        let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+        let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
         assert_eq!(expected, actual);
     }
-
-    Ok(())
 }

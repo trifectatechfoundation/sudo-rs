@@ -1,15 +1,15 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
-fn credential_caching_works_with_custom_timeout() -> Result<()> {
+fn credential_caching_works_with_custom_timeout() {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
 Defaults timestamp_timeout=0.1"
     ))
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     // input valid credentials
     // try to sudo without a password
@@ -17,20 +17,18 @@ Defaults timestamp_timeout=0.1"
         .arg("-c")
         .arg(format!("echo {PASSWORD} | sudo -S true; sudo true && true"))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn nonzero() -> Result<()> {
+fn nonzero() {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
 Defaults timestamp_timeout=0.1"
     ))
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     // input valid credentials
     // wait until they expire / timeout
@@ -41,7 +39,7 @@ Defaults timestamp_timeout=0.1"
             "echo {PASSWORD} | sudo -S true; sleep 10; sudo true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -52,18 +50,16 @@ Defaults timestamp_timeout=0.1"
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn zero_always_prompts_for_password() -> Result<()> {
+fn zero_always_prompts_for_password() {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
 Defaults timestamp_timeout=0"
     ))
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     // input valid credentials
     // try to sudo without a password
@@ -71,7 +67,7 @@ Defaults timestamp_timeout=0"
         .arg("-c")
         .arg(format!("echo {PASSWORD} | sudo -S true; sudo true && true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -82,6 +78,4 @@ Defaults timestamp_timeout=0"
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }

@@ -14,32 +14,32 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn just_dash_dash_works() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn just_dash_dash_works() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     Command::new("sudo")
         .args(["--", "true"])
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn dash_dash_after_other_flag_works() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn dash_dash_after_other_flag_works() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     Command::new("sudo")
         .args(["-u", "root", "--", "true"])
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn dash_dash_before_flag_is_an_error() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn dash_dash_before_flag_is_an_error() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let output = Command::new("sudo")
         .args(["--", "-u", "root", "true"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -50,19 +50,17 @@ fn dash_dash_before_flag_is_an_error() -> Result<()> {
     } else {
         assert_contains!(stderr, "'-u': command not found");
     }
-
-    Ok(())
 }
 
 #[test]
 fn dash_flag_space_value_syntax() -> Result<()> {
     let expected = 0;
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let actual = Command::new("sudo")
         .args(["-u", "root", "id", "-u"])
-        .output(&env)?
-        .stdout()?
+        .output(&env)
+        .stdout()
         .parse::<u16>()?;
 
     assert_eq!(expected, actual);
@@ -73,12 +71,12 @@ fn dash_flag_space_value_syntax() -> Result<()> {
 #[test]
 fn dash_flag_no_space_value_syntax() -> Result<()> {
     let expected = 0;
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let actual = Command::new("sudo")
         .args(["-uroot", "id", "-u"])
-        .output(&env)?
-        .stdout()?
+        .output(&env)
+        .stdout()
         .parse::<u16>()?;
 
     assert_eq!(expected, actual);
@@ -87,12 +85,12 @@ fn dash_flag_no_space_value_syntax() -> Result<()> {
 }
 
 #[test]
-fn dash_flag_equal_value_invalid_syntax() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn dash_flag_equal_value_invalid_syntax() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let output = Command::new("sudo")
         .args(["-u=root", "id", "-u"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -103,19 +101,17 @@ fn dash_flag_equal_value_invalid_syntax() -> Result<()> {
         "invalid option"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
 fn dash_dash_flag_space_value_syntax() -> Result<()> {
     let expected = 0;
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let actual = Command::new("sudo")
         .args(["--user", "root", "id", "-u"])
-        .output(&env)?
-        .stdout()?
+        .output(&env)
+        .stdout()
         .parse::<u16>()?;
 
     assert_eq!(expected, actual);
@@ -126,12 +122,12 @@ fn dash_dash_flag_space_value_syntax() -> Result<()> {
 #[test]
 fn dash_dash_flag_equal_value_syntax() -> Result<()> {
     let expected = 0;
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let actual = Command::new("sudo")
         .args(["--user=root", "id", "-u"])
-        .output(&env)?
-        .stdout()?
+        .output(&env)
+        .stdout()
         .parse::<u16>()?;
 
     assert_eq!(expected, actual);
@@ -140,22 +136,21 @@ fn dash_dash_flag_equal_value_syntax() -> Result<()> {
 }
 
 #[test]
-fn lax_validation() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn lax_validation() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
     let output = Command::new("sudo")
         .args(["--remove-timestamp", "-u", "root"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
     assert_contains!(output.stderr(), "usage");
-    Ok(())
 }
 
 #[test]
-fn miscategorized_reset_timestamp_action() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn miscategorized_reset_timestamp_action() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
     let output = Command::new("env")
         .args([
             "SHELL=/usr/bin/false",
@@ -163,10 +158,8 @@ fn miscategorized_reset_timestamp_action() -> Result<()> {
             "--reset-timestamp",
             "--shell",
         ])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-
-    Ok(())
 }

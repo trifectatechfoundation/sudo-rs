@@ -2,76 +2,70 @@ use sudo_test::{Command, Env, TextFile};
 
 use crate::{
     visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, TMP_SUDOERS},
-    Result, USERNAME,
+    USERNAME,
 };
 
 #[test]
-fn when_present_changes_perms_of_existing_file() -> Result<()> {
+fn when_present_changes_perms_of_existing_file() {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(file_path, TextFile("").chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
     Command::new("visudo")
         .args(["--perms", "--file", file_path])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let ls_output = Command::new("ls")
         .args(["-l", file_path])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert!(ls_output.starts_with("-r--r----- "));
-
-    Ok(())
 }
 
 #[test]
-fn when_absent_perms_are_preserved() -> Result<()> {
+fn when_absent_perms_are_preserved() {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(file_path, TextFile("").chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
     Command::new("visudo")
         .args(["--file", file_path])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let ls_output = Command::new("ls")
         .args(["-l", file_path])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert!(ls_output.starts_with("-rwxrwxrwx "));
-
-    Ok(())
 }
 
 #[test]
-fn etc_sudoers_perms_are_always_changed() -> Result<()> {
+fn etc_sudoers_perms_are_always_changed() {
     let file_path = ETC_SUDOERS;
     let env = Env(TextFile("").chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
     let ls_output = Command::new("ls")
         .args(["-l", file_path])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert!(ls_output.starts_with("-r--r----- "));
-
-    Ok(())
 }
 
 #[test]
-fn flag_check() -> Result<()> {
+fn flag_check() {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(
@@ -80,11 +74,11 @@ fn flag_check() -> Result<()> {
         )
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("visudo")
         .args(["--check", "--perms", "--file", file_path])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -92,6 +86,4 @@ fn flag_check() -> Result<()> {
         output.stderr(),
         format!("{file_path}: bad permissions, should be mode 0440")
     );
-
-    Ok(())
 }

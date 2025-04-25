@@ -273,121 +273,111 @@ mod tests {
     const IMAGE: &str = "dougrabson/freebsd14-small:latest";
 
     #[test]
-    fn eventually_removes_container_on_drop() -> Result<()> {
+    fn eventually_removes_container_on_drop() {
         let mut check_cmd = StdCommand::new("docker");
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
         check_cmd.args(["ps", "--all", "--quiet", "--filter"]);
         check_cmd.arg(format!("id={}", docker.id));
 
-        let matches = run(&mut check_cmd, None)?.stdout()?;
+        let matches = run(&mut check_cmd, None).stdout();
         assert_eq!(1, matches.lines().count());
         drop(docker);
 
         // wait for a bit until `stop` and `--rm` have done their work
         thread::sleep(Duration::from_secs(15));
 
-        let matches = run(&mut check_cmd, None)?.stdout()?;
+        let matches = run(&mut check_cmd, None).stdout();
         assert_eq!(0, matches.lines().count());
-
-        Ok(())
     }
 
     #[test]
-    fn exec_as_root_works() -> Result<()> {
-        let docker = Container::new(IMAGE)?;
+    fn exec_as_root_works() {
+        let docker = Container::new(IMAGE);
 
-        docker.output(&Command::new("true"))?.assert_success()?;
+        docker.output(&Command::new("true")).assert_success();
 
-        let output = docker.output(&Command::new("false"))?;
+        let output = docker.output(&Command::new("false"));
         assert_eq!(Some(1), output.status.code());
-
-        Ok(())
     }
 
     #[test]
-    fn exec_as_user_named_root_works() -> Result<()> {
-        let docker = Container::new(IMAGE)?;
+    fn exec_as_user_named_root_works() {
+        let docker = Container::new(IMAGE);
 
         docker
-            .output(Command::new("true").as_user("root"))?
-            .assert_success()
+            .output(Command::new("true").as_user("root"))
+            .assert_success();
     }
 
     #[test]
-    fn exec_as_non_root_user_works() -> Result<()> {
+    fn exec_as_non_root_user_works() {
         let username = "ferris";
 
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
 
         if cfg!(target_os = "linux") {
             docker
-                .output(Command::new("useradd").arg(username))?
-                .assert_success()?;
+                .output(Command::new("useradd").arg(username))
+                .assert_success();
         } else if cfg!(target_os = "freebsd") {
             docker
-                .output(Command::new("pw").args(["useradd", username]))?
-                .assert_success()?;
+                .output(Command::new("pw").args(["useradd", username]))
+                .assert_success();
         } else {
             todo!()
         }
 
         docker
-            .output(Command::new("true").as_user(username))?
-            .assert_success()
+            .output(Command::new("true").as_user(username))
+            .assert_success();
     }
 
     #[test]
-    fn cp_works() -> Result<()> {
+    fn cp_works() {
         let path = "/tmp/file";
         let expected = "Hello, world!";
 
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
 
-        docker.cp(path, expected)?;
+        docker.cp(path, expected);
 
-        let actual = docker.output(Command::new("cat").arg(path))?.stdout()?;
+        let actual = docker.output(Command::new("cat").arg(path)).stdout();
         assert_eq!(expected, actual);
-
-        Ok(())
     }
 
     #[test]
-    fn stdin_works() -> Result<()> {
+    fn stdin_works() {
         let expected = "Hello, root!";
         let filename = "greeting";
 
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
 
         docker
-            .output(Command::new("tee").arg(filename).stdin(expected))?
-            .assert_success()?;
+            .output(Command::new("tee").arg(filename).stdin(expected))
+            .assert_success();
 
-        let actual = docker.output(Command::new("cat").arg(filename))?.stdout()?;
+        let actual = docker.output(Command::new("cat").arg(filename)).stdout();
         assert_eq!(expected, actual);
-
-        Ok(())
     }
 
     #[test]
-    fn spawn_works() -> Result<()> {
-        let docker = Container::new(IMAGE)?;
+    fn spawn_works() {
+        let docker = Container::new(IMAGE);
 
-        let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]))?;
+        let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]));
 
         // `sh` process may not be immediately visible to `pidof` since it was spawned so wait a bit
         thread::sleep(Duration::from_millis(500));
 
         docker
-            .output(Command::new("pidof").arg("sh"))?
-            .assert_success()?;
+            .output(Command::new("pidof").arg("sh"))
+            .assert_success();
 
-        child.wait()?.assert_success()?;
+        child.wait().assert_success();
 
-        let output = docker.output(Command::new("pidof").arg("sh"))?;
+        let output = docker.output(Command::new("pidof").arg("sh"));
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
-
-        Ok(())
     }
 }

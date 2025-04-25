@@ -3,7 +3,7 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, TextFile, BIN_LS, BIN_TRUE, ETC_SUDOERS};
 
-use crate::{Result, USERNAME};
+use crate::USERNAME;
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -21,20 +21,20 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn given_specific_command_then_that_command_is_allowed() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}")).build()?;
+fn given_specific_command_then_that_command_is_allowed() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}")).build();
 
     Command::new("sudo")
         .arg(BIN_TRUE)
-        .output(&env)?
+        .output(&env)
         .assert_success()
 }
 
 #[test]
-fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_LS}")).build()?;
+fn given_specific_command_then_other_command_is_not_allowed() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_LS}")).build();
 
-    let output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
+    let output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -45,28 +45,26 @@ fn given_specific_command_then_other_command_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn given_specific_command_with_nopasswd_tag_then_no_password_auth_is_required() -> Result<()> {
+fn given_specific_command_with_nopasswd_tag_then_no_password_auth_is_required() {
     let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg(BIN_TRUE)
         .as_user(USERNAME)
-        .output(&env)?
+        .output(&env)
         .assert_success()
 }
 
 #[test]
-fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) true").build()?;
+fn command_specified_not_by_absolute_path_is_rejected() {
+    let env = Env("ALL ALL=(ALL:ALL) true").build();
 
-    let output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
+    let output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -77,80 +75,76 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn different() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}, {BIN_LS}")).build()?;
+fn different() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}, {BIN_LS}")).build();
 
     Command::new("sudo")
         .arg(BIN_TRUE)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env)?;
+    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
 
     assert!(output.status().success());
-
-    Ok(())
 }
 
 // it applies not only to the command is next to but to all commands that follow
 #[test]
-fn nopasswd_is_sticky() -> Result<()> {
+fn nopasswd_is_sticky() {
     let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_LS}, {BIN_TRUE}"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg(BIN_TRUE)
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn repeated() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}, {BIN_TRUE}")).build()?;
+fn repeated() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}, {BIN_TRUE}")).build();
 
     Command::new("sudo")
         .arg(BIN_TRUE)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn nopasswd_override() -> Result<()> {
+fn nopasswd_override() {
     let env = Env(format!(
         "ALL ALL=(ALL:ALL) {BIN_TRUE}, NOPASSWD: {BIN_TRUE}"
     ))
     .user(USERNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg(BIN_TRUE)
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn runas_override() -> Result<()> {
+fn runas_override() {
     let env = Env(format!(
         "ALL ALL = (root) {BIN_LS}, ({USERNAME}) {BIN_TRUE}"
     ))
     .user(USERNAME)
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env)?;
+    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
 
     assert!(output.status().success());
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, BIN_LS])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -164,10 +158,10 @@ fn runas_override() -> Result<()> {
 
     Command::new("sudo")
         .args(["-u", "ferris", BIN_TRUE])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
+    let output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -178,46 +172,42 @@ fn runas_override() -> Result<()> {
         "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
+fn runas_override_repeated_cmnd_means_runas_union() {
     let env = Env(format!(
         "ALL ALL = (root) {BIN_TRUE}, ({USERNAME}) {BIN_TRUE}"
     ))
     .user(USERNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .args(["-u", USERNAME, "true"])
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn given_directory_then_commands_in_it_are_allowed() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/").build()?;
+fn given_directory_then_commands_in_it_are_allowed() {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/").build();
 
     Command::new("sudo")
         .arg("/usr/bin/true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn given_directory_then_commands_in_its_subdirectories_are_not_allowed() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/").build()?;
+fn given_directory_then_commands_in_its_subdirectories_are_not_allowed() {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/").build();
 
-    let output = Command::new("sudo").arg("/usr/bin/true").output(&env)?;
+    let output = Command::new("sudo").arg("/usr/bin/true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -228,82 +218,72 @@ fn given_directory_then_commands_in_its_subdirectories_are_not_allowed() -> Resu
         "I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn wildcards_are_allowed_for_dir() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/*/true").build()?;
+fn wildcards_are_allowed_for_dir() {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/*/true").build();
 
     Command::new("sudo")
         .arg("/usr/bin/true")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn wildcards_are_allowed_for_file() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/*").build()?;
+fn wildcards_are_allowed_for_file() {
+    let env = Env("ALL ALL=(ALL:ALL) /usr/bin/*").build();
 
     Command::new("sudo")
         .arg("/usr/bin/true")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 // due to frequent misusage ("sudo: you are doing it wrong"), we explicitly don't support this
 #[test]
 #[ignore = "wontfix"]
-fn wildcards_are_allowed_for_args() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} /root/*")).build()?;
+fn wildcards_are_allowed_for_args() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} /root/*")).build();
 
     Command::new("sudo")
         .arg("true")
         .arg("/root/ hello world")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn arguments_can_be_supplied() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}")).build()?;
+fn arguments_can_be_supplied() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}")).build();
 
     Command::new("sudo")
         .arg("true")
         .arg("/root/ hello world")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .arg("true")
         .arg("foo")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn arguments_can_be_forced() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} hello")).build()?;
+fn arguments_can_be_forced() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} hello")).build();
 
     Command::new("sudo")
         .arg("true")
         .arg("hello")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let output = Command::new("sudo")
         .arg("true")
         .arg("/root/ hello world")
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -314,18 +294,16 @@ fn arguments_can_be_forced() -> Result<()> {
         "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn arguments_can_be_forbidded() -> Result<()> {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} \"\"")).build()?;
+fn arguments_can_be_forbidded() {
+    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} \"\"")).build();
 
     let output = Command::new("sudo")
         .arg("true")
         .arg("/root/ hello world")
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -336,18 +314,16 @@ fn arguments_can_be_forbidded() -> Result<()> {
         "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn wildcards_dont_cross_directory_boundaries() -> Result<()> {
+fn wildcards_dont_cross_directory_boundaries() {
     let env = Env("ALL ALL=(ALL:ALL) /usr/*/foo")
         .directory("/usr/bin/sub")
         .file("/usr/bin/sub/foo", TextFile("").chown("root").chmod("777"))
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("/usr/bin/sub/foo").output(&env)?;
+    let output = Command::new("sudo").arg("/usr/bin/sub/foo").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -358,6 +334,4 @@ fn wildcards_dont_cross_directory_boundaries() -> Result<()> {
         "I'm sorry root. I'm afraid I can't do that"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }

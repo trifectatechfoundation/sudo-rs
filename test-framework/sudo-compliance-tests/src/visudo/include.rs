@@ -1,31 +1,26 @@
 use sudo_test::{Command, Env, TextFile, ETC_DIR};
 
-use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH},
-    Result,
-};
+use crate::visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH};
 
 #[test]
 #[ignore = "gh657"]
-fn prompt() -> Result<()> {
+fn prompt() {
     let env = Env("@include sudoers2")
         .file(format!("{ETC_DIR}/sudoers2"), "")
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
     assert_contains!(
-        output.stdout()?,
+        output.stdout(),
         format!("press return to edit {ETC_DIR}/sudoers2:")
     );
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn calls_editor_on_included_files() -> Result<()> {
+fn calls_editor_on_included_files() {
     let env = Env("@include sudoers2")
         .file(format!("{ETC_DIR}/sudoers2"), "")
         .file(
@@ -36,24 +31,22 @@ echo $@ >> {LOGS_PATH}"
             ))
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
     Command::new("visudo")
         .stdin("\n")
-        .output(&env)?
-        .assert_success()?;
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+        .output(&env)
+        .assert_success();
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let lines = logs.lines().collect::<Vec<_>>();
 
     assert_eq!(2, lines.len());
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn closing_stdin_is_understood_as_yes_to_all() -> Result<()> {
+fn closing_stdin_is_understood_as_yes_to_all() {
     let env = Env("@include sudoers2
 @include sudoers3")
     .file(format!("{ETC_DIR}/sudoers2"), "")
@@ -66,21 +59,19 @@ echo $@ >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
-    .build()?;
+    .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    Command::new("visudo").output(&env).assert_success();
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let lines = logs.lines().collect::<Vec<_>>();
 
     assert_eq!(3, lines.len());
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn edit_order_follows_include_order() -> Result<()> {
+fn edit_order_follows_include_order() {
     let env = Env("# 1
 @include sudoers2
 @include sudoers4")
@@ -99,10 +90,10 @@ cat $2 >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
-    .build()?;
+    .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    Command::new("visudo").output(&env).assert_success();
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let comments = logs
         .lines()
@@ -110,13 +101,11 @@ cat $2 >> {LOGS_PATH}"
         .collect::<Vec<_>>();
 
     assert_eq!(["# 1", "# 2", "# 3", "# 4"], &*comments);
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn include_cycle_does_not_edit_the_same_files_many_times() -> Result<()> {
+fn include_cycle_does_not_edit_the_same_files_many_times() {
     let env = Env("# 1
 @include sudoers2")
     .file(
@@ -132,10 +121,10 @@ cat $2 >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
-    .build()?;
+    .build();
 
-    let output = Command::new("visudo").output(&env)?;
-    output.assert_success()?;
+    let output = Command::new("visudo").output(&env);
+    output.assert_success();
 
     // NOTE ogvisudo reports this twice
     assert_contains!(
@@ -143,7 +132,7 @@ cat $2 >> {LOGS_PATH}"
         format!("{ETC_DIR}/sudoers2: too many levels of includes")
     );
 
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let comments = logs
         .lines()
@@ -151,13 +140,11 @@ cat $2 >> {LOGS_PATH}"
         .collect::<Vec<_>>();
 
     assert_eq!(["# 1", "# 2"], &*comments);
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn does_edit_at_include_added_in_last_edit() -> Result<()> {
+fn does_edit_at_include_added_in_last_edit() {
     let env = Env("# 1")
         .file(format!("{ETC_DIR}/sudoers2"), "# 2")
         .file(
@@ -170,11 +157,11 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
             ))
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let comments = logs
         .lines()
@@ -182,13 +169,11 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
         .collect::<Vec<_>>();
 
     assert_eq!(["# 1", "# 2"], &*comments);
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn does_edit_at_include_removed_in_last_edit() -> Result<()> {
+fn does_edit_at_include_removed_in_last_edit() {
     let env = Env("# 1
 @include sudoers2")
     .file(format!("{ETC_DIR}/sudoers2"), "# 2")
@@ -202,11 +187,11 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
-    .build()?;
+    .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let comments = logs
         .lines()
@@ -214,13 +199,11 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
         .collect::<Vec<_>>();
 
     assert_eq!(["# 1", "# 2"], &*comments);
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn edits_existing_at_includes_first_then_newly_added_at_includes() -> Result<()> {
+fn edits_existing_at_includes_first_then_newly_added_at_includes() {
     let env = Env("# 1
 @include sudoers2")
     .file(format!("{ETC_DIR}/sudoers2"), "# 2")
@@ -235,11 +218,11 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
-    .build()?;
+    .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let comments = logs
         .lines()
@@ -247,12 +230,10 @@ cat /tmp/scratchpad >> {LOGS_PATH}"
         .collect::<Vec<_>>();
 
     assert_eq!(["# 1", "# 2", "# 3"], &*comments);
-
-    Ok(())
 }
 
 #[test]
-fn does_not_edit_files_in_includedir_directories() -> Result<()> {
+fn does_not_edit_files_in_includedir_directories() {
     let env = Env(format!(
         "# 1
     @includedir {ETC_DIR}/sudoers.d"
@@ -266,11 +247,11 @@ cat $2 >> {LOGS_PATH}"
         ))
         .chmod(CHMOD_EXEC),
     )
-    .build()?;
+    .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let logs = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let logs = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     let comments = logs
         .lines()
@@ -278,6 +259,4 @@ cat $2 >> {LOGS_PATH}"
         .collect::<Vec<_>>();
 
     assert_eq!(["# 1"], &*comments);
-
-    Ok(())
 }

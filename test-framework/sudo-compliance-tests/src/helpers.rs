@@ -57,20 +57,18 @@ impl Drop for Rsyslogd<'_> {
     target_os = "freebsd",
     ignore = "Logging not really functional on FreeBSD even with og-sudo"
 )]
-fn rsyslogd_works() -> Result<()> {
-    let env = Env("").build()?;
-    let rsyslog = Rsyslogd::start(&env)?;
+fn rsyslogd_works() {
+    let env = Env("").build();
+    let rsyslog = Rsyslogd::start(&env);
 
-    let auth_log = rsyslog.auth_log()?;
+    let auth_log = rsyslog.auth_log();
     assert_eq!("", auth_log);
 
     Command::new("useradd")
         .arg("ferris")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let auth_log = rsyslog.auth_log()?;
+    let auth_log = rsyslog.auth_log();
     assert_contains!(auth_log, "useradd");
-
-    Ok(())
 }

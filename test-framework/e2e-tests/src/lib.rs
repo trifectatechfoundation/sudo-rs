@@ -4,9 +4,6 @@ mod pty;
 mod regression;
 mod su;
 
-type Error = Box<dyn std::error::Error>;
-type Result<T> = core::result::Result<T, Error>;
-
 const USERNAME: &str = "ferris";
 
 #[test]

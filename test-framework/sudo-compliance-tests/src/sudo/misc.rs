@@ -15,13 +15,13 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn user_not_in_passwd_database_cannot_use_sudo() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user_id(1000)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -32,11 +32,9 @@ fn user_not_in_passwd_database_cannot_use_sudo() -> Result<()> {
     } else {
         assert_contains!(stderr, "user 'current user' not found");
     }
-
-    Ok(())
 }
 
-fn closes_open_file_descriptors(tty: bool) -> Result<()> {
+fn closes_open_file_descriptors(tty: bool) {
     let script_path = "/tmp/script.bash";
     let defaults = if tty {
         "Defaults use_pty"
@@ -48,12 +46,9 @@ fn closes_open_file_descriptors(tty: bool) -> Result<()> {
             script_path,
             include_str!("misc/read-parents-open-file-descriptor.bash"),
         )
-        .build()?;
+        .build();
 
-    let output = Command::new("bash")
-        .arg(script_path)
-        .tty(tty)
-        .output(&env)?;
+    let output = Command::new("bash").arg(script_path).tty(tty).output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -67,33 +62,31 @@ fn closes_open_file_descriptors(tty: bool) -> Result<()> {
         },
         "42: Bad file descriptor"
     );
-
-    Ok(())
 }
 
 #[test]
-fn closes_open_file_descriptors_with_tty() -> Result<()> {
+fn closes_open_file_descriptors_with_tty() {
     closes_open_file_descriptors(true)
 }
 
 #[test]
-fn closes_open_file_descriptors_without_tty() -> Result<()> {
+fn closes_open_file_descriptors_without_tty() {
     closes_open_file_descriptors(false)
 }
 
 #[test]
-fn sudo_binary_lacks_setuid_flag() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+fn sudo_binary_lacks_setuid_flag() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build();
 
     Command::new("chmod")
         .args(["0755", BIN_SUDO])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -102,23 +95,21 @@ fn sudo_binary_lacks_setuid_flag() -> Result<()> {
         output.stderr(),
         "sudo must be owned by uid 0 and have the setuid bit set"
     );
-
-    Ok(())
 }
 
 #[test]
-fn sudo_binary_is_not_owned_by_root() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+fn sudo_binary_is_not_owned_by_root() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build();
 
     Command::new("chown")
         .args([USERNAME, BIN_SUDO])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -127,47 +118,45 @@ fn sudo_binary_is_not_owned_by_root() -> Result<()> {
         output.stderr(),
         "sudo must be owned by uid 0 and have the setuid bit set"
     );
-
-    Ok(())
 }
 
 #[test]
-fn sudo_binary_is_not_owned_by_root_and_ran_as_root() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+fn sudo_binary_is_not_owned_by_root_and_ran_as_root() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build();
 
     Command::new("chmod")
         .args(["0755", BIN_SUDO])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("chown")
         .args([USERNAME, BIN_SUDO])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .arg("true")
         .as_user("root")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn works_when_invoked_through_a_symlink() -> Result<()> {
+fn works_when_invoked_through_a_symlink() {
     let symlink_path = "/tmp/sudo";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build();
 
     Command::new("ln")
         .args(["-s", BIN_SUDO, symlink_path])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     // symlink is not owned by root
     let ls_output = Command::new("ls")
         .args(["-ahl", symlink_path])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     if cfg!(target_os = "freebsd") {
         assert_ls_output(&ls_output, "lrwx------", "ferris", "wheel");
@@ -180,19 +169,19 @@ fn works_when_invoked_through_a_symlink() -> Result<()> {
     Command::new(symlink_path)
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
 fn does_not_panic_on_io_errors_no_command() -> Result<()> {
-    let env = Env("").build()?;
+    let env = Env("").build();
 
     let output = Command::new("bash")
         .args(["-c", "sudo 2>&1 | true; echo \"${PIPESTATUS[0]}\""])
-        .output(&env)?;
+        .output(&env);
 
-    let exit_code = output.stdout()?.parse()?;
+    let exit_code = output.stdout().parse()?;
     assert_ne!(PANIC_EXIT_CODE, exit_code);
     assert_eq!(1, exit_code);
 
@@ -201,16 +190,16 @@ fn does_not_panic_on_io_errors_no_command() -> Result<()> {
 
 #[test]
 fn does_not_panic_on_io_errors_cli_error() -> Result<()> {
-    let env = Env("").build()?;
+    let env = Env("").build();
 
     let output = Command::new("bash")
         .args([
             "-c",
             "sudo --bad-flag 2>&1 | true; echo \"${PIPESTATUS[0]}\"",
         ])
-        .output(&env)?;
+        .output(&env);
 
-    let exit_code = output.stdout()?.parse()?;
+    let exit_code = output.stdout().parse()?;
     assert_ne!(PANIC_EXIT_CODE, exit_code);
     assert_eq!(1, exit_code);
 
@@ -222,26 +211,26 @@ fn does_not_panic_on_io_errors_cli_error() -> Result<()> {
     target_os = "freebsd",
     ignore = "FreeBSD uses a binary database as canonical source of users"
 )]
-fn long_username() -> Result<()> {
+fn long_username() {
     // `useradd` limits usernames to 32 characters
     // directly write to `/etc/passwd` to work around this limitation
     let username = "a".repeat(33);
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     Command::new("sh")
         .arg("-c")
         .arg(format!(
             "echo {username}:x:1000:1000::/tmp:/bin/sh >> /etc/passwd && echo {username}:x:1000: >> /etc/group"
         ))
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .arg("-u")
         .arg(username)
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
@@ -249,28 +238,28 @@ fn long_username() -> Result<()> {
     target_os = "freebsd",
     ignore = "FreeBSD uses a binary database as canonical source of users"
 )]
-fn missing_primary_group() -> Result<()> {
+fn missing_primary_group() {
     let username = "user";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     Command::new("sh")
         .arg("-c")
         .arg(format!(
             "echo {username}:x:1000:1000::/tmp:/bin/sh >> /etc/passwd"
         ))
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .arg("-u")
         .arg(username)
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn rootpw_option_works() -> Result<()> {
+fn rootpw_option_works() {
     const PASSWORD: &str = "passw0rd";
     const ROOT_PASSWORD: &str = "r00t";
 
@@ -279,14 +268,14 @@ fn rootpw_option_works() -> Result<()> {
     ))
     .user_password("root", ROOT_PASSWORD)
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     // User password is not accepted when rootpw is enabled
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("echo {PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(!output.status().success());
 
     // Root password is accepted when rootpw is enabled
@@ -294,21 +283,19 @@ fn rootpw_option_works() -> Result<()> {
         .arg("-c")
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn rootpw_option_doesnt_affect_authorization() -> Result<()> {
+fn rootpw_option_doesnt_affect_authorization() {
     const PASSWORD: &str = "passw0rd";
     const ROOT_PASSWORD: &str = "r00t";
 
     let env = Env("Defaults rootpw\nroot ALL=(ALL:ALL) ALL")
         .user_password("root", ROOT_PASSWORD)
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     // Even though we accept the root password when rootpw is enabled, we still check that the
     // actual invoking user is authorized to run the command.
@@ -316,14 +303,12 @@ fn rootpw_option_doesnt_affect_authorization() -> Result<()> {
         .arg("-c")
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(!output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn targetpw_option_works() -> Result<()> {
+fn targetpw_option_works() {
     const PASSWORD: &str = "passw0rd";
     const PASSWORD2: &str = "notr00t";
 
@@ -332,14 +317,14 @@ fn targetpw_option_works() -> Result<()> {
     ))
     .user(User(USERNAME).password(PASSWORD))
     .user(User("user2").password(PASSWORD2))
-    .build()?;
+    .build();
 
     // User password is not accepted when targetpw is enabled
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("echo {PASSWORD} | sudo -S -u user2 true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(!output.status().success());
 
     // Target user password is accepted when targetpw is enabled
@@ -347,21 +332,19 @@ fn targetpw_option_works() -> Result<()> {
         .arg("-c")
         .arg(format!("echo {PASSWORD2} | sudo -S -u user2 true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn targetpw_option_doesnt_affect_authorization() -> Result<()> {
+fn targetpw_option_doesnt_affect_authorization() {
     const PASSWORD: &str = "passw0rd";
     const PASSWORD2: &str = "notr00t";
 
     let env = Env("Defaults targetpw\nuser2 ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(PASSWORD))
         .user(User("user2").password(PASSWORD2))
-        .build()?;
+        .build();
 
     // Even though we accept the target user password when targetpw is enabled,
     // we still check that the actual invoking user is authorized to run the command.
@@ -369,14 +352,12 @@ fn targetpw_option_doesnt_affect_authorization() -> Result<()> {
         .arg("-c")
         .arg(format!("echo {PASSWORD2} | sudo -S -u user2 true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(!output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn rootpw_takes_priority_over_targetpw() -> Result<()> {
+fn rootpw_takes_priority_over_targetpw() {
     const PASSWORD: &str = "passw0rd";
     const PASSWORD2: &str = "notr00t";
     const ROOT_PASSWORD: &str = "r00t";
@@ -387,14 +368,14 @@ fn rootpw_takes_priority_over_targetpw() -> Result<()> {
     .user_password("root", ROOT_PASSWORD)
     .user(User(USERNAME).password(PASSWORD))
     .user(User("user2").password(PASSWORD2))
-    .build()?;
+    .build();
 
     // Root password is accepted when targetpw is enabled
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S -u user2 true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(output.status().success());
 
     // Target user password is not accepted when targetpw is enabled
@@ -402,8 +383,6 @@ fn rootpw_takes_priority_over_targetpw() -> Result<()> {
         .arg("-c")
         .arg(format!("echo {PASSWORD2} | sudo -S -u user2 true"))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(!output.status().success());
-
-    Ok(())
 }

@@ -1,14 +1,14 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
-fn is_limited_to_a_single_user() -> Result<()> {
+fn is_limited_to_a_single_user() {
     let second_user = "ghost";
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(PASSWORD))
         .user(User(second_user).password(PASSWORD))
-        .build()?;
+        .build();
 
     let child = Command::new("sh")
         .arg("-c")
@@ -16,23 +16,23 @@ fn is_limited_to_a_single_user() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo -S true && true"
         ))
         .as_user(USERNAME)
-        .spawn(&env)?;
+        .spawn(&env);
 
     Command::new("sh")
         .arg("-c")
         .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -K && touch /tmp/barrier2")
         .as_user(second_user)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    child.wait()?.assert_success()
+    child.wait().assert_success();
 }
 
 #[test]
-fn has_a_user_global_effect() -> Result<()> {
+fn has_a_user_global_effect() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let child = Command::new("sh")
     .arg("-c")
@@ -40,16 +40,16 @@ fn has_a_user_global_effect() -> Result<()> {
         "echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; echo | sudo -S true && true"
     ))
     .as_user(USERNAME)
-    .spawn(&env)?;
+    .spawn(&env);
 
     Command::new("sh")
         .arg("-c")
         .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -K && touch /tmp/barrier2")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let output = child.wait()?;
+    let output = child.wait();
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -60,15 +60,13 @@ fn has_a_user_global_effect() -> Result<()> {
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn also_works_locally() -> Result<()> {
+fn also_works_locally() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     // input valid credentials
     // invalidate them
@@ -79,7 +77,7 @@ fn also_works_locally() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -K; sudo true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -90,6 +88,4 @@ fn also_works_locally() -> Result<()> {
         "Authentication failed"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }

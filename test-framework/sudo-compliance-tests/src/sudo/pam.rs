@@ -2,36 +2,36 @@
 
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 mod env;
 
 #[test]
-fn given_pam_permit_then_no_password_auth_required() -> Result<()> {
+fn given_pam_permit_then_no_password_auth_required() {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(USERNAME)
         .file("/etc/pam.d/sudo", "auth sufficient pam_permit.so")
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
+fn given_pam_deny_then_password_auth_always_fails() {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(PASSWORD))
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -42,49 +42,47 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
         "3 incorrect authentication attempts"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn being_root_has_precedence_over_pam() -> Result<()> {
+fn being_root_has_precedence_over_pam() {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["true"])
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn nopasswd_in_sudoers_has_precedence_over_pam() -> Result<()> {
+fn nopasswd_in_sudoers_has_precedence_over_pam() {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn sudo_uses_correct_service_file() -> Result<()> {
+fn sudo_uses_correct_service_file() {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file("/etc/pam.d/sudo", "auth sufficient pam_permit.so")
         .file("/etc/pam.d/sudo-i", "auth requisite pam_deny.so")
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
@@ -92,16 +90,16 @@ fn sudo_uses_correct_service_file() -> Result<()> {
     target_os = "freebsd",
     ignore = "FreeBSD doesn't use sudo-i PAM context"
 )]
-fn sudo_dash_i_uses_correct_service_file() -> Result<()> {
+fn sudo_dash_i_uses_correct_service_file() {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file("/etc/pam.d/sudo-i", "auth sufficient pam_permit.so")
         .file("/etc/pam.d/sudo", "auth requisite pam_deny.so")
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["-i", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }

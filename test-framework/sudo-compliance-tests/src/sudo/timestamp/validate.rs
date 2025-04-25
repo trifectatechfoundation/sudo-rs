@@ -1,15 +1,15 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
-fn revalidation() -> Result<()> {
+fn revalidation() {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
 Defaults timestamp_timeout=0.1"
     ))
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     // input valid credentials
     // revalidate credentials a few times
@@ -20,20 +20,20 @@ Defaults timestamp_timeout=0.1"
         "set -e; echo {PASSWORD} | sudo -S true; for i in $(seq 1 5); do sleep 3; sudo -v; done; sudo true && true"
     ))
     .as_user(USERNAME)
-    .output(&env)?
-    .assert_success()
+    .output(&env)
+    .assert_success();
 }
 
 #[test]
-fn prompts_for_password() -> Result<()> {
+fn prompts_for_password() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .arg("-v")
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -44,6 +44,4 @@ fn prompts_for_password() -> Result<()> {
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }

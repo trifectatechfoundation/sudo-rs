@@ -1,13 +1,13 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
 #[cfg_attr(
     target_os = "freebsd",
     ignore = "FreeBSD doesn't support /etc/security"
 )]
-fn etc_security_limits_rules_apply_according_to_the_target_user() -> Result<()> {
+fn etc_security_limits_rules_apply_according_to_the_target_user() {
     let target_user = "ghost";
     let original = "2048";
     let expected = "1024";
@@ -19,7 +19,7 @@ fn etc_security_limits_rules_apply_according_to_the_target_user() -> Result<()> 
         .file("/etc/security/limits.d/50-test.conf", limits)
         .user(USERNAME)
         .user(User(target_user).password(PASSWORD).shell("/bin/bash"))
-        .build()?;
+        .build();
 
     // this appears to ignore the `limits` rules, perhaps because of docker
     // in any case, the assertion below and the rule above should be enough to check that the
@@ -27,8 +27,8 @@ fn etc_security_limits_rules_apply_according_to_the_target_user() -> Result<()> 
     // let normal_limit = Command::new("bash")
     //     .args(["-c", "ulimit -x"])
     //     .as_user(USERNAME)
-    //     .output(&env)?
-    //     .stdout()?;
+    //     .output(&env)
+    //     .stdout();
 
     // assert_eq!(original, normal_limit);
 
@@ -39,11 +39,9 @@ fn etc_security_limits_rules_apply_according_to_the_target_user() -> Result<()> 
             .args(["-c", "ulimit -x", target_user])
             .stdin(PASSWORD)
             .as_user(invoking_user)
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
 
         assert_eq!(expected, su_limit);
     }
-
-    Ok(())
 }

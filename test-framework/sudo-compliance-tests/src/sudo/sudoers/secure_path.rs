@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, TextFile, BIN_SUDO};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::SUDOERS_ALL_ALL_NOPASSWD;
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -14,31 +14,29 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn if_unset_searches_program_in_invoking_users_path() -> Result<()> {
+fn if_unset_searches_program_in_invoking_users_path() {
     let path = "/root/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(path, TextFile("#!/bin/sh").chmod("100"))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .args([
             "-c",
             &format!("export PATH=/root; cd /; {BIN_SUDO} my-script"),
         ])
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn if_set_searches_program_in_secure_path() -> Result<()> {
+fn if_set_searches_program_in_secure_path() {
     let path = "/root/my-script";
     let env = Env("\
 Defaults secure_path=.:/root
 ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     .file(path, TextFile("#!/bin/sh").chmod("100"))
-    .build()?;
+    .build();
 
     // `true` is in `/usr/bin/`
     let match_in_relative_path_when_path_is_unset =
@@ -62,21 +60,19 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
 
         Command::new("sh")
             .args(["-c", &script])
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn if_set_it_does_not_search_in_original_user_path() -> Result<()> {
+fn if_set_it_does_not_search_in_original_user_path() {
     let env = Env("\
         Defaults secure_path=/root
 ALL ALL=(ALL:ALL) NOPASSWD: ALL")
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -87,18 +83,16 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     } else {
         assert_contains!(stderr, "'true': command not found");
     }
-
-    Ok(())
 }
 
 #[test]
-fn if_set_it_becomes_the_path_set_for_program_execution() -> Result<()> {
+fn if_set_it_becomes_the_path_set_for_program_execution() {
     let secure_path = ".:/root";
     let env = Env(format!(
         "Defaults secure_path={secure_path}
 ALL ALL=(ALL:ALL) NOPASSWD: ALL"
     ))
-    .build()?;
+    .build();
 
     let user_path_set = "cd /; sudo /usr/bin/printenv PATH";
     let user_path_unset = format!("unset PATH; cd /; {BIN_SUDO} /usr/bin/printenv PATH");
@@ -109,11 +103,9 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL"
 
         let path = Command::new("sh")
             .args(["-c", script])
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
 
         assert_eq!(secure_path, &path);
     }
-
-    Ok(())
 }

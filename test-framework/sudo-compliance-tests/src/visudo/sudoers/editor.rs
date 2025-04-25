@@ -1,12 +1,12 @@
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{visudo::CHMOD_EXEC, Result};
+use crate::visudo::CHMOD_EXEC;
 
 use crate::visudo::{DEFAULT_EDITOR, LOGS_PATH};
 
 #[test]
 #[ignore = "gh657"]
-fn it_works() -> Result<()> {
+fn it_works() {
     let expected = "configured editor was called";
     let editor_path = "/usr/bin/my-editor";
     let env = Env(format!("Defaults editor={editor_path}"))
@@ -18,20 +18,18 @@ echo '{expected}' >> {LOGS_PATH}"
             ))
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn fallback() -> Result<()> {
+fn fallback() {
     let expected = "configured editor was called";
     let editor_path = "/usr/bin/my-editor";
 
@@ -47,28 +45,26 @@ echo '{expected}' >> {LOGS_PATH}"
                 ))
                 .chmod(CHMOD_EXEC),
             )
-            .build()?;
+            .build();
 
         Command::new("rm")
             .args(["-f", LOGS_PATH])
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
 
-        Command::new("visudo").output(&env)?.assert_success()?;
-        let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+        Command::new("visudo").output(&env).assert_success();
+        let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
         assert_eq!(expected, actual);
     }
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn no_valid_editor_in_list() -> Result<()> {
-    let env = Env("Defaults editor=/dev/null").build()?;
+fn no_valid_editor_in_list() {
+    let env = Env("Defaults editor=/dev/null").build();
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -76,16 +72,14 @@ fn no_valid_editor_in_list() -> Result<()> {
         "visudo: no editor found (editor path = /dev/null)",
         output.stderr()
     );
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh657"]
-fn editors_must_be_specified_by_absolute_path() -> Result<()> {
-    let env = Env("Defaults editor=true").build()?;
+fn editors_must_be_specified_by_absolute_path() {
+    let env = Env("Defaults editor=true").build();
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -93,12 +87,10 @@ fn editors_must_be_specified_by_absolute_path() -> Result<()> {
         output.stderr(),
         "values for \"editor\" must start with a '/'"
     );
-
-    Ok(())
 }
 
 #[test]
-fn on_invalid_editor_does_not_falls_back_to_configured_default_value() -> Result<()> {
+fn on_invalid_editor_does_not_falls_back_to_configured_default_value() {
     let env = Env("Defaults editor=true")
         .file(
             DEFAULT_EDITOR,
@@ -108,20 +100,18 @@ rm -f {LOGS_PATH}",
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
     Command::new("touch")
         .arg(LOGS_PATH)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
     Command::new("sh")
         .arg("-c")
         .arg(format!("test -f {LOGS_PATH}"))
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }

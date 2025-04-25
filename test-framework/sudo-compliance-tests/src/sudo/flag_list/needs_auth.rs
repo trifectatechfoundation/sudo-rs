@@ -1,18 +1,18 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, USERNAME};
+use crate::USERNAME;
 
 #[test]
-fn when_other_user_is_self() -> Result<()> {
+fn when_other_user_is_self() {
     let env = Env("Defaults !lecture
 ALL ALL=(ALL:ALL) ALL")
     .user(USERNAME)
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .args(["-S", "-l", "-U", USERNAME])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -27,12 +27,10 @@ ALL ALL=(ALL:ALL) ALL")
         "[sudo: authenticate] Password:".to_string()
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn other_user_has_nopasswd_tag() -> Result<()> {
+fn other_user_has_nopasswd_tag() {
     let other_user = "ghost";
     let env = Env(format!(
         "Defaults !lecture
@@ -41,12 +39,12 @@ fn other_user_has_nopasswd_tag() -> Result<()> {
     ))
     .user(USERNAME)
     .user(other_user)
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .args(["-S", "-l", "-U", other_user])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -61,6 +59,4 @@ fn other_user_has_nopasswd_tag() -> Result<()> {
         "[sudo: authenticate] Password:".to_string()
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }

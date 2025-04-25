@@ -1,31 +1,29 @@
 use sudo_test::{Command, Env, TextFile};
 
-use crate::{Result, USERNAME};
+use crate::USERNAME;
 
 #[test]
-fn signal_sent_by_child_process_is_ignored() -> Result<()> {
+fn signal_sent_by_child_process_is_ignored() {
     let script = include_str!("kill-su-parent.sh");
 
     let script_path = "/tmp/script.sh";
     let env = Env("")
         .user(USERNAME)
         .file(script_path, TextFile(script).chmod("777"))
-        .build()?;
+        .build();
 
     let output = Command::new("su")
         .arg("-c")
         .arg(format!("sh {script_path}"))
         .arg("root")
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn signal_is_forwarded_to_child() -> Result<()> {
+fn signal_is_forwarded_to_child() {
     let expected = "got signal";
     let signal = "TERM";
     let expects_signal = "/root/expects-signal.sh";
@@ -33,53 +31,46 @@ fn signal_is_forwarded_to_child() -> Result<()> {
     let env = Env("")
         .file(expects_signal, include_str!("expects-signal.sh"))
         .file(kill_su, include_str!("kill-su.sh"))
-        .build()?;
+        .build();
 
     let child = Command::new("su")
         .arg("-c")
         .arg(format!("exec sh {expects_signal} {signal}"))
-        .spawn(&env)?;
+        .spawn(&env);
 
     Command::new("sh")
         .arg(kill_su)
         .arg(format!("-{signal}"))
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = child.wait()?.stdout()?;
+    let actual = child.wait().stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn child_terminated_by_signal() -> Result<()> {
-    let env = Env("").build()?;
+fn child_terminated_by_signal() {
+    let env = Env("").build();
 
     // child process sends SIGTERM to itself
-    let output = Command::new("su").arg("-c").arg("kill $$").output(&env)?;
+    let output = Command::new("su").arg("-c").arg("kill $$").output(&env);
 
     assert_eq!(Some(143), output.status().code());
     assert!(output.stderr().is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn sigstp_works() -> Result<()> {
+fn sigstp_works() {
     const STOP_DELAY: u64 = 5;
     const NUM_ITERATIONS: usize = 5;
 
     let script_path = "/tmp/script.sh";
     let env = Env("")
         .file(script_path, include_str!("sigtstp.bash"))
-        .build()?;
+        .build();
 
-    let output = Command::new("bash")
-        .arg(script_path)
-        .output(&env)?
-        .stdout()?;
+    let output = Command::new("bash").arg(script_path).output(&env).stdout();
 
     let timestamps = output
         .lines()
@@ -103,33 +94,29 @@ fn sigstp_works() -> Result<()> {
     let did_suspend = suspended_iterations == 1;
 
     assert!(did_suspend);
-
-    Ok(())
 }
 
 #[test]
-fn sigalrm_terminates_command() -> Result<()> {
+fn sigalrm_terminates_command() {
     let expected = "got signal";
     let expects_signal = "/root/expects-signal.sh";
     let kill_su = "/root/kill-su.sh";
     let env = Env("")
         .file(expects_signal, include_str!("expects-signal.sh"))
         .file(kill_su, include_str!("kill-su.sh"))
-        .build()?;
+        .build();
 
     let child = Command::new("su")
         .arg("-c")
         .arg(format!("exec sh {expects_signal} HUP TERM"))
-        .spawn(&env)?;
+        .spawn(&env);
 
     Command::new("sh")
         .args([kill_su, "-ALRM"])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = child.wait()?.stdout()?;
+    let actual = child.wait().stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }

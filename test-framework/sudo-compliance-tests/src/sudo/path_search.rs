@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, TextFile, BIN_SUDO};
 
-use crate::{helpers, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{helpers, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -14,12 +14,12 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn can_find_command_not_visible_to_regular_user() -> Result<()> {
+fn can_find_command_not_visible_to_regular_user() {
     let path = "/root/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
         .file(path, TextFile("#!/bin/sh").chmod("100"))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .args([
@@ -27,26 +27,24 @@ fn can_find_command_not_visible_to_regular_user() -> Result<()> {
             &format!("export PATH=/root; cd /; {BIN_SUDO} my-script"),
         ])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution() -> Result<()> {
+fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution() {
     let path = "/usr/bin/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(path, TextFile("#!/bin/sh").chmod("777"))
-        .build()?;
+        .build();
 
     let default_path = Command::new("sh")
         .args([
             "-c",
             &format!("unset PATH; {BIN_SUDO} /usr/bin/printenv PATH"),
         ])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     // sanity check that `/usr/bin` is in sudo's default PATH
     let default_path = helpers::parse_path(&default_path);
@@ -54,7 +52,7 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
 
     let output = Command::new("sh")
         .args(["-c", &format!("unset PATH; {BIN_SUDO} my-script")])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -65,65 +63,57 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
     } else {
         assert_contains!(stderr, "'my-script': command not found");
     }
-
-    Ok(())
 }
 
 #[test]
-fn ignores_path_for_qualified_commands() -> Result<()> {
+fn ignores_path_for_qualified_commands() {
     let path = "/root/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(path, TextFile("#!/bin/sh").chmod("100"))
-        .build()?;
+        .build();
 
     for param in ["/root/my-script", "./my-script"] {
         Command::new("sh")
             .args(["-c", &format!("cd /root; sudo {param}")])
             .as_user("root")
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn paths_are_matched_using_realpath_in_sudoers() -> Result<()> {
-    let env = Env(["ALL ALL = /tmp/bin/true"]).build()?;
+fn paths_are_matched_using_realpath_in_sudoers() {
+    let env = Env(["ALL ALL = /tmp/bin/true"]).build();
 
     Command::new("ln")
         .args(["-s", "/usr/bin", "/tmp/bin"])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .arg("/usr/bin/true")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn paths_are_matched_using_realpath_in_arguments() -> Result<()> {
-    let env = Env(["ALL ALL = /usr/bin/true"]).build()?;
+fn paths_are_matched_using_realpath_in_arguments() {
+    let env = Env(["ALL ALL = /usr/bin/true"]).build();
 
     Command::new("ln")
         .args(["-s", "/usr/bin", "/tmp/bin"])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .arg("/tmp/bin/true")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn arg0_native_is_passed_from_commandline() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn arg0_native_is_passed_from_commandline() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     // On FreeBSD awk is one of the few programs which print arg0 in error messages. On Linux
     // however it doesn't print arg0 unlike most programs, so we use a random program instead.
@@ -133,70 +123,62 @@ fn arg0_native_is_passed_from_commandline() -> Result<()> {
                 "-c",
                 "ln -s /usr/bin /nib; sudo /nib/awk --invalid-flag; true",
             ])
-            .output(&env)?;
+            .output(&env);
 
         let stderr = output.stderr();
         assert_starts_with!(stderr, "/nib/awk:");
     } else {
         let output = Command::new("sh")
             .args(["-c", "ln -s /bin /nib; sudo /nib/ls --invalid-flag; true"])
-            .output(&env)?;
+            .output(&env);
 
         let stderr = output.stderr();
         assert_starts_with!(stderr, "/nib/ls:");
     }
-
-    Ok(())
 }
 
 #[test]
-fn arg0_native_is_resolved_from_commandline() -> Result<()> {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build()?;
+fn arg0_native_is_resolved_from_commandline() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
 
     let output = Command::new("sh")
         .args([
             "-c",
             "ln -s /bin/ls /bin/foo; sudo foo --invalid-flag; true",
         ])
-        .output(&env)?;
+        .output(&env);
 
     let stderr = output.stderr();
     assert_starts_with!(stderr, "foo: unrecognized option");
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh735"]
-fn arg0_script_is_passed_from_commandline() -> Result<()> {
+fn arg0_script_is_passed_from_commandline() {
     let path = "/bin/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(path, TextFile("#!/bin/sh\necho $0").chmod("777"))
-        .build()?;
+        .build();
 
     let output = Command::new("sh")
         .args(["-c", "ln -s /bin /nib; sudo /nib/my-script"])
-        .output(&env)?;
+        .output(&env);
 
-    let stdout = output.stdout()?;
+    let stdout = output.stdout();
     assert_eq!(stdout, "/nib/my-script");
-
-    Ok(())
 }
 
 #[test]
-fn arg0_script_is_resolved_from_commandline() -> Result<()> {
+fn arg0_script_is_resolved_from_commandline() {
     let path = "/bin/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .file(path, TextFile("#!/bin/sh\necho $0").chmod("777"))
-        .build()?;
+        .build();
 
     let output = Command::new("sh")
         .args(["-c", &format!("ln -s {path} /usr/bin/foo; sudo foo")])
-        .output(&env)?;
+        .output(&env);
 
-    let stdout = output.stdout()?;
+    let stdout = output.stdout();
     assert_eq!(stdout, "/usr/bin/foo");
-
-    Ok(())
 }

@@ -4,7 +4,7 @@ use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
 use crate::{
-    helpers, Result, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH, SUDO_ENV_DEFAULT_TERM,
+    helpers, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH, SUDO_ENV_DEFAULT_TERM,
     SUDO_RS_IS_UNSTABLE, USERNAME,
 };
 
@@ -13,21 +13,21 @@ use crate::{
 // see 'environment' section in`man sudo`
 // see 'command environment' section in`man sudoers`
 #[test]
-fn some_vars_are_set() -> Result<()> {
-    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+fn some_vars_are_set() {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build();
 
-    let stdout = Command::new("env").output(&env)?.stdout()?;
-    let normal_env = helpers::parse_env_output(&stdout)?;
+    let stdout = Command::new("env").output(&env).stdout();
+    let normal_env = helpers::parse_env_output(&stdout);
 
-    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env).stdout();
+    let env_abs_path = Command::new("which").arg("env").output(&env).stdout();
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
         .args(["-i", SUDO_RS_IS_UNSTABLE, &sudo_abs_path, &env_abs_path])
-        .output(&env)?
-        .stdout()?;
-    let mut sudo_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let mut sudo_env = helpers::parse_env_output(&stdout);
 
     // # man sudo
     // "Set to the mail spool of the target user"
@@ -75,13 +75,11 @@ fn some_vars_are_set() -> Result<()> {
 
     let empty = HashMap::new();
     assert_eq!(empty, sudo_env);
-
-    Ok(())
 }
 
 #[test]
-fn most_vars_are_removed() -> Result<()> {
-    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+fn most_vars_are_removed() {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build();
 
     let varname = "SHOULD_BE_REMOVED";
     let set_env_var = format!("export {varname}=1");
@@ -90,33 +88,31 @@ fn most_vars_are_removed() -> Result<()> {
     let stdout = Command::new("sh")
         .arg("-c")
         .arg(format!("{set_env_var}; env"))
-        .output(&env)?
-        .stdout()?;
-    let env_vars = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let env_vars = helpers::parse_env_output(&stdout);
     assert!(env_vars.contains_key(varname));
 
     let stdout = Command::new("sh")
         .arg("-c")
         .arg(format!("{set_env_var}; sudo env"))
-        .output(&env)?
-        .stdout()?;
-    let env_vars = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let env_vars = helpers::parse_env_output(&stdout);
     assert!(!env_vars.contains_key(varname));
-
-    Ok(())
 }
 
 // this complements the `some_vars_are_set` test where the target user is the
 // invoking user
 #[test]
-fn user_dependent_vars() -> Result<()> {
+fn user_dependent_vars() {
     let shell_path = "/tmp/shell";
     let env = Env(SUDOERS_ROOT_ALL_NOPASSWD)
         .user(User(USERNAME).shell(shell_path))
-        .build()?;
+        .build();
 
-    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env).stdout();
+    let env_abs_path = Command::new("which").arg("env").output(&env).stdout();
 
     // run sudo in an empty environment
     let stdout = Command::new("env")
@@ -128,9 +124,9 @@ fn user_dependent_vars() -> Result<()> {
             USERNAME,
             &env_abs_path,
         ])
-        .output(&env)?
-        .stdout()?;
-    let mut sudo_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let mut sudo_env = helpers::parse_env_output(&stdout);
 
     // "The HOME, MAIL, SHELL, LOGNAME and USER environment variables are initialized based on the target user"
     assert_eq!(
@@ -158,16 +154,14 @@ fn user_dependent_vars() -> Result<()> {
     assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.remove("TERM"));
 
     assert_eq!(HashMap::new(), sudo_env);
-
-    Ok(())
 }
 
 #[test]
-fn some_vars_are_preserved() -> Result<()> {
-    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+fn some_vars_are_preserved() {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build();
 
-    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env).stdout();
+    let env_abs_path = Command::new("which").arg("env").output(&env).stdout();
 
     let home = "some-home";
     let mail = "some-mail";
@@ -200,9 +194,9 @@ fn some_vars_are_preserved() -> Result<()> {
             &sudo_abs_path,
             &env_abs_path,
         ])
-        .output(&env)?
-        .stdout()?;
-    let mut sudo_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let mut sudo_env = helpers::parse_env_output(&stdout);
 
     // not preserved
     assert_eq!(Some("/root"), sudo_env.remove("HOME"));
@@ -227,17 +221,15 @@ fn some_vars_are_preserved() -> Result<()> {
     assert_eq!(Some(term), sudo_env.remove("TERM"));
 
     assert_eq!(HashMap::new(), sudo_env);
-
-    Ok(())
 }
 
 // only relevant to preserved env vars
 #[test]
-fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
-    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build()?;
+fn vars_whose_values_start_with_parentheses_are_removed() {
+    let env = Env(SUDOERS_ROOT_ALL_NOPASSWD).build();
 
-    let sudo_abs_path = Command::new("which").arg("sudo").output(&env)?.stdout()?;
-    let env_abs_path = Command::new("which").arg("env").output(&env)?.stdout()?;
+    let sudo_abs_path = Command::new("which").arg("sudo").output(&env).stdout();
+    let env_abs_path = Command::new("which").arg("env").output(&env).stdout();
 
     let stdout = Command::new("env")
         .args([
@@ -249,13 +241,11 @@ fn vars_whose_values_start_with_parentheses_are_removed() -> Result<()> {
             &sudo_abs_path,
             &env_abs_path,
         ])
-        .output(&env)?
-        .stdout()?;
-    let sudo_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let sudo_env = helpers::parse_env_output(&stdout);
 
     assert!(!sudo_env.contains_key("DISPLAY"));
     assert_eq!(Some(SUDO_ENV_DEFAULT_PATH), sudo_env.get("PATH").copied());
     assert_eq!(Some(SUDO_ENV_DEFAULT_TERM), sudo_env.get("TERM").copied());
-
-    Ok(())
 }

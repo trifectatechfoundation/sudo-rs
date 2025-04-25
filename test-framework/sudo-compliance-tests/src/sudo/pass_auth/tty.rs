@@ -1,32 +1,32 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 use super::MAX_PASSWORD_SIZE;
 
 #[test]
-fn correct_password() -> Result<()> {
+fn correct_password() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sshpass")
         .args(["-p", PASSWORD, "sudo", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn incorrect_password() -> Result<()> {
+fn incorrect_password() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password("strong-password"))
-        .build()?;
+        .build();
 
     let output = Command::new("sshpass")
         .args(["-p", "incorrect-password", "sudo", "true"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert!(!output.status().success());
 
     // `sshpass` will override sudo's exit code with the value 5 so we can't check this
@@ -35,20 +35,18 @@ fn incorrect_password() -> Result<()> {
     if sudo_test::is_original_sudo() {
         assert_contains!(output.stderr(), "1 incorrect password attempt");
     }
-
-    Ok(())
 }
 
 #[test]
-fn no_tty() -> Result<()> {
+fn no_tty() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["true"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -57,31 +55,29 @@ fn no_tty() -> Result<()> {
         "Maximum 3 incorrect authentication attempts"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn longest_possible_password_works() -> Result<()> {
+fn longest_possible_password_works() {
     let password = "a".repeat(MAX_PASSWORD_SIZE);
 
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(&password))
-        .build()?;
+        .build();
 
     Command::new("sshpass")
         .args(["-p", &password, "sudo", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Result<()> {
+fn input_longer_than_password_should_not_be_accepted_as_correct_password() {
     let password = "a".repeat(MAX_PASSWORD_SIZE);
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(password))
-        .build()?;
+        .build();
 
     let input_sizes = [MAX_PASSWORD_SIZE + 1, MAX_PASSWORD_SIZE + 2];
 
@@ -90,7 +86,7 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Re
         let output = Command::new("sshpass")
             .args(["-p", &input, "sudo", "true"])
             .as_user(USERNAME)
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         // `sshpass` will override sudo's exit code with the value 5 so we can't check this
@@ -104,6 +100,4 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Re
         };
         assert_contains!(stderr, diagnostic);
     }
-
-    Ok(())
 }

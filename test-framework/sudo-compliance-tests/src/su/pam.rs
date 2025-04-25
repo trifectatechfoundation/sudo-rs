@@ -2,24 +2,24 @@
 
 use sudo_test::{Command, Env, User, BIN_TRUE};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
-fn given_pam_permit_then_no_password_auth_required() -> Result<()> {
+fn given_pam_permit_then_no_password_auth_required() {
     let env = Env("")
         .user(USERNAME)
         .file("/etc/pam.d/su", "auth sufficient pam_permit.so")
-        .build()?;
+        .build();
 
     Command::new("su")
         .args(["-c", BIN_TRUE])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
+fn given_pam_deny_then_password_auth_always_fails() {
     let invoking_user = USERNAME;
     let target_user = "ghost";
 
@@ -27,13 +27,13 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
         .file("/etc/pam.d/su", "auth requisite pam_deny.so")
         .user(invoking_user)
         .user(User(target_user).password(PASSWORD))
-        .build()?;
+        .build();
 
     let output = Command::new("su")
         .args(["-s", BIN_TRUE, target_user])
         .as_user(invoking_user)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -44,24 +44,22 @@ fn given_pam_deny_then_password_auth_always_fails() -> Result<()> {
         "3 incorrect authentication attempts"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn being_root_has_precedence_over_missing_pam_file() -> Result<()> {
-    let env = Env("").build()?;
+fn being_root_has_precedence_over_missing_pam_file() {
+    let env = Env("").build();
 
-    Command::new("su").output(&env)?.assert_success()
+    Command::new("su").output(&env).assert_success();
 }
 
 #[test]
-fn being_root_has_no_precedence_over_pam_deny() -> Result<()> {
+fn being_root_has_no_precedence_over_pam_deny() {
     let env = Env("")
         .file("/etc/pam.d/su", "auth requisite pam_deny.so")
-        .build()?;
+        .build();
 
-    let output = Command::new("su").args(["-c", BIN_TRUE]).output(&env)?;
+    let output = Command::new("su").args(["-c", BIN_TRUE]).output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -72,38 +70,36 @@ fn being_root_has_no_precedence_over_pam_deny() -> Result<()> {
         "3 incorrect authentication attempts"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
 #[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't use /etc/pam.d/su-l")]
-fn su_uses_correct_service_file() -> Result<()> {
+fn su_uses_correct_service_file() {
     let env = Env("")
         .file("/etc/pam.d/su", "auth sufficient pam_permit.so")
         .file("/etc/pam.d/su-l", "auth requisite pam_deny.so")
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("su")
         .args(["-c", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
 #[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't use /etc/pam.d/su-l")]
-fn su_dash_l_uses_correct_service_file() -> Result<()> {
+fn su_dash_l_uses_correct_service_file() {
     let env = Env("")
         .file("/etc/pam.d/su-l", "auth sufficient pam_permit.so")
         .file("/etc/pam.d/su", "auth requisite pam_deny.so")
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("su")
         .args(["-l", "-c", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }

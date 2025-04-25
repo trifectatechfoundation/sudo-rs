@@ -1,12 +1,12 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
-fn it_works() -> Result<()> {
+fn it_works() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     // input valid credentials
     // invalidate them
@@ -17,7 +17,7 @@ fn it_works() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -k; sudo true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -28,15 +28,13 @@ fn it_works() -> Result<()> {
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn has_a_local_effect() -> Result<()> {
+fn has_a_local_effect() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let child = Command::new("sh")
         .arg("-c")
@@ -44,23 +42,23 @@ fn has_a_local_effect() -> Result<()> {
             "set -e; echo {PASSWORD} | sudo -S true; touch /tmp/barrier1; until [ -f /tmp/barrier2 ]; do sleep 1; done; sudo true && true"
         ))
         .as_user(USERNAME)
-        .spawn(&env)?;
+        .spawn(&env);
 
     Command::new("sh")
         .arg("-c")
         .arg("until [ -f /tmp/barrier1 ]; do sleep 1; done; sudo -k; touch /tmp/barrier2")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    child.wait()?.assert_success()
+    child.wait().assert_success();
 }
 
 #[test]
-fn with_command_prompts_for_password() -> Result<()> {
+fn with_command_prompts_for_password() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -68,7 +66,7 @@ fn with_command_prompts_for_password() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -k true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -79,15 +77,13 @@ fn with_command_prompts_for_password() -> Result<()> {
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn with_command_failure_does_not_invalidate_credential_cache() -> Result<()> {
+fn with_command_failure_does_not_invalidate_credential_cache() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     // the first command, `sudo -S true`, succeeds and caches credentials
     //
@@ -105,15 +101,15 @@ fn with_command_failure_does_not_invalidate_credential_cache() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -k true; [ $? -eq 1 ] || exit 2; sudo true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn with_command_success_does_not_invalidate_credential_cache() -> Result<()> {
+fn with_command_success_does_not_invalidate_credential_cache() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     // the first command, `sudo -S true`, succeeds and caches credentials
     //
@@ -127,15 +123,15 @@ fn with_command_success_does_not_invalidate_credential_cache() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; echo {PASSWORD} | sudo -k -S true; sudo true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn with_command_does_not_cache_credentials() -> Result<()> {
+fn with_command_does_not_cache_credentials() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -143,7 +139,7 @@ fn with_command_does_not_cache_credentials() -> Result<()> {
             "echo {PASSWORD} | sudo -k -S true 2>/dev/null || exit 2; sudo true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -154,6 +150,4 @@ fn with_command_does_not_cache_credentials() -> Result<()> {
         "Authentication failed"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }

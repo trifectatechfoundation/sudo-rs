@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, BIN_LS, BIN_TRUE, ETC_SUDOERS};
 
-use crate::{Result, USERNAME};
+use crate::USERNAME;
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -19,73 +19,73 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn cmnd_alias_works() -> Result<()> {
+fn cmnd_alias_works() {
     let env = Env([
         format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
         "ALL ALL=(ALL:ALL) CMDSGROUP".to_owned(),
     ])
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn cmnd_alias_nopasswd() -> Result<()> {
+fn cmnd_alias_nopasswd() {
     let env = Env([
         format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
         "ALL ALL=(ALL:ALL) NOPASSWD: CMDSGROUP".to_owned(),
     ])
     .user(USERNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn cmnd_alias_can_contain_underscore_and_digits() -> Result<()> {
+fn cmnd_alias_can_contain_underscore_and_digits() {
     let env = Env([
         format!("Cmnd_Alias UNDER_SCORE123 = {BIN_TRUE}, {BIN_LS}"),
         "ALL ALL=(ALL:ALL) UNDER_SCORE123".to_owned(),
     ])
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn cmnd_alias_cannot_start_with_underscore() -> Result<()> {
+fn cmnd_alias_cannot_start_with_underscore() {
     let env = Env([
         format!("Cmnd_Alias _INVALID = {BIN_TRUE}"),
         "ALL ALL=(ALL:ALL) NOPASSWD: ALL".to_owned(),
         "ALL ALL=(ALL:ALL) !_INVALID".to_owned(),
     ])
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn unlisted_cmnd_fails() -> Result<()> {
+fn unlisted_cmnd_fails() {
     let env = Env([
         format!("Cmnd_Alias CMDS = {BIN_LS}"),
         "ALL ALL=(ALL:ALL) CMDSGROUP".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
 
@@ -95,19 +95,17 @@ fn unlisted_cmnd_fails() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
+fn command_specified_not_by_absolute_path_is_rejected() {
     let env = Env([
         format!("Cmnd_Alias CMDSGROUP = true, {BIN_LS}"),
         "ALL ALL=(ALL:ALL) CMDSGROUP".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -118,19 +116,17 @@ fn command_specified_not_by_absolute_path_is_rejected() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn command_alias_negation() -> Result<()> {
+fn command_alias_negation() {
     let env = Env([
         format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
         "ALL ALL=(ALL:ALL) !CMDSGROUP".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
 
@@ -140,21 +136,19 @@ fn command_alias_negation() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn combined_cmnd_aliases() -> Result<()> {
+fn combined_cmnd_aliases() {
     let env = Env([
         format!("Cmnd_Alias TRUEGROUP = /usr/bin/sh, {BIN_TRUE}"),
         format!("Cmnd_Alias LSGROUP = {BIN_LS}, /usr/sbin/dump"),
         "Cmnd_Alias BAZ = !TRUEGROUP, LSGROUP".to_owned(),
         "ALL ALL=(ALL:ALL) BAZ".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     let stderr = output.stderr();
@@ -164,43 +158,41 @@ fn combined_cmnd_aliases() -> Result<()> {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
-    let second_output = Command::new("sudo").arg("ls").output(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env);
 
     assert!(second_output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn double_negation() -> Result<()> {
+fn double_negation() {
     let env = Env([
         format!("Cmnd_Alias CMDSGROUP = {BIN_TRUE}, {BIN_LS}"),
         "ALL ALL=(ALL:ALL) !!CMDSGROUP".to_owned(),
     ])
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn negation_not_order_sensitive() -> Result<()> {
+fn negation_not_order_sensitive() {
     let env = Env([
         format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
         format!("Cmnd_Alias LSCMND = {BIN_LS}"),
         "Cmnd_Alias BAZ = TRUECMND, !LSCMND".to_owned(),
         "ALL ALL=(ALL:ALL) BAZ".to_owned(),
     ])
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let output = Command::new("sudo").arg("ls").output(&env)?;
+    let output = Command::new("sudo").arg("ls").output(&env);
     assert!(!output.status().success());
 
     let stderr = output.stderr();
@@ -209,42 +201,38 @@ fn negation_not_order_sensitive() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn negation_combination() -> Result<()> {
+fn negation_combination() {
     let env = Env([
         format!("Cmnd_Alias TRUECMND = !{BIN_TRUE}"),
         format!("Cmnd_Alias LSCMND = {BIN_LS}"),
         "Cmnd_Alias BAZ = !TRUECMND, LSCMND".to_owned(),
         "ALL ALL=(ALL:ALL) BAZ".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(output.status().success());
 
-    let second_output = Command::new("sudo").arg("ls").output(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env);
 
     assert!(second_output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn another_negation_combination() -> Result<()> {
+fn another_negation_combination() {
     let env = Env([
         format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
         format!("Cmnd_Alias LSCMND = {BIN_LS}"),
         "Cmnd_Alias BAZ = TRUECMND, !LSCMND".to_owned(),
         "ALL ALL=(ALL:ALL) !BAZ".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
 
@@ -255,24 +243,22 @@ fn another_negation_combination() -> Result<()> {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
-    let second_output = Command::new("sudo").arg("ls").output(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env);
 
     assert!(second_output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn one_more_negation_combination() -> Result<()> {
+fn one_more_negation_combination() {
     let env = Env([
         format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
         format!("Cmnd_Alias LSCMND = !{BIN_LS}"),
         "Cmnd_Alias BAZ = TRUECMND, LSCMND".to_owned(),
         "ALL ALL=(ALL:ALL) !BAZ".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
 
@@ -283,24 +269,22 @@ fn one_more_negation_combination() -> Result<()> {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
-    let second_output = Command::new("sudo").arg("ls").output(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env);
 
     assert!(second_output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn tripple_negation_combination() -> Result<()> {
+fn tripple_negation_combination() {
     let env = Env([
         format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
         format!("Cmnd_Alias LSCMND = !{BIN_LS}"),
         "Cmnd_Alias BAZ = TRUECMND, !LSCMND".to_owned(),
         "ALL ALL=(ALL:ALL) !BAZ".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
 
@@ -311,7 +295,7 @@ fn tripple_negation_combination() -> Result<()> {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
 
-    let second_output = Command::new("sudo").arg("ls").output(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env);
 
     assert!(!second_output.status().success());
 
@@ -321,46 +305,42 @@ fn tripple_negation_combination() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn comma_listing_works() -> Result<()> {
+fn comma_listing_works() {
     let env = Env([
         format!("Cmnd_Alias TRUEGROUP = /usr/bin/sh, {BIN_TRUE}"),
         format!("Cmnd_Alias LSGROUP = {BIN_LS}, /usr/sbin/dump"),
         "ALL ALL=(ALL:ALL) TRUEGROUP, LSGROUP".to_owned(),
     ])
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(output.status().success());
 
-    let second_output = Command::new("sudo").arg("ls").output(&env)?;
+    let second_output = Command::new("sudo").arg("ls").output(&env);
 
     assert!(second_output.status().success());
-
-    Ok(())
 }
 
 #[test]
-fn runas_override() -> Result<()> {
+fn runas_override() {
     let env = Env([
         format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
         format!("Cmnd_Alias LSCMND = {BIN_LS}"),
         "ALL ALL = (root) LSCMND, (ferris) TRUECMND".to_owned(),
     ])
     .user("ferris")
-    .build()?;
+    .build();
 
-    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env)?;
+    let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
     assert!(output.status().success());
 
     let output = Command::new("sudo")
         .args(["-u", "ferris", BIN_LS])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -374,10 +354,10 @@ fn runas_override() -> Result<()> {
 
     Command::new("sudo")
         .args(["-u", "ferris", BIN_TRUE])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let second_output = Command::new("sudo").arg(BIN_TRUE).output(&env)?;
+    let second_output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
     assert!(!second_output.status().success());
     assert_eq!(Some(1), second_output.status().code());
@@ -388,45 +368,41 @@ fn runas_override() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn runas_override_repeated_cmnd_means_runas_union() -> Result<()> {
+fn runas_override_repeated_cmnd_means_runas_union() {
     let env = Env([
         format!("Cmnd_Alias TRUECMND = {BIN_TRUE}"),
         format!("Cmnd_Alias LSCMND = {BIN_LS}"),
         "ALL ALL = (root) TRUECMND, (ferris) TRUECMND".to_owned(),
     ])
     .user("ferris")
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .args(["-u", "ferris", "true"])
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
 #[ignore = "gh700"]
-fn keywords() -> Result<()> {
+fn keywords() {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);
         let env = Env([
             format!("Cmnd_Alias {bad_keyword} = {BIN_TRUE}"),
             format!("ALL ALL=(ALL:ALL) {bad_keyword}"),
         ])
-        .build()?;
+        .build();
 
-        let output = Command::new("sudo").arg("true").output(&env)?;
+        let output = Command::new("sudo").arg("true").output(&env);
 
         assert_contains!(output.stderr(), "syntax error");
         assert_eq!(*bad_keyword == "ALL", output.status().success());
@@ -438,14 +414,12 @@ fn keywords() -> Result<()> {
             format!("Cmnd_Alias {good_keyword} = {BIN_TRUE}"),
             format!("ALL ALL=(ALL:ALL) {good_keyword}"),
         ])
-        .build()?;
+        .build();
 
-        let output = Command::new("sudo").arg("true").output(&env)?;
+        let output = Command::new("sudo").arg("true").output(&env);
 
         let stderr = output.stderr();
         assert!(stderr.is_empty(), "{}", stderr);
         assert!(output.status().success());
     }
-
-    Ok(())
 }

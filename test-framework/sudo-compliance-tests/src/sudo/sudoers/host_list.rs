@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, LONGEST_HOSTNAME};
+use crate::LONGEST_HOSTNAME;
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -14,25 +14,25 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn given_specific_hostname_then_sudo_from_said_hostname_is_allowed() -> Result<()> {
+fn given_specific_hostname_then_sudo_from_said_hostname_is_allowed() {
     let hostname = "container";
     let env = Env(format!("ALL {hostname} = (ALL:ALL) ALL"))
         .hostname(hostname)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() -> Result<()> {
+fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() {
     let env = Env("ALL remotehost = (ALL:ALL) ALL")
         .hostname("container")
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -43,41 +43,39 @@ fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() -> Re
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn different() -> Result<()> {
+fn different() {
     let env = Env("ALL remotehost, container = (ALL:ALL) ALL")
         .hostname("container")
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn repeated() -> Result<()> {
+fn repeated() {
     let env = Env("ALL container, container = (ALL:ALL) ALL")
         .hostname("container")
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn negation_rejects() -> Result<()> {
+fn negation_rejects() {
     let env = Env("ALL remotehost, !container = (ALL:ALL) ALL")
         .hostname("container")
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -88,30 +86,28 @@ fn negation_rejects() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn double_negative_is_positive() -> Result<()> {
+fn double_negative_is_positive() {
     let env = Env("ALL !!container = (ALL:ALL) ALL")
         .hostname("container")
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn longest_hostname() -> Result<()> {
+fn longest_hostname() {
     let env = Env(format!("ALL {LONGEST_HOSTNAME} = (ALL:ALL) ALL"))
         .hostname(LONGEST_HOSTNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
