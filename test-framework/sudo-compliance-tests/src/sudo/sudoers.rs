@@ -127,7 +127,7 @@ fn can_sudo_if_sudoers_file_is_owner_writable() {
     let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chmod("644")).build();
 
     let output = Command::new("sudo").arg("true").output(&env);
-    assert_eq!(Some(0), output.status().code());
+    output.assert_success();
 }
 
 #[test]

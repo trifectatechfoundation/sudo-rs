@@ -32,7 +32,7 @@ fn logs_every_session() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let auth_log = rsyslogd.auth_log();
 

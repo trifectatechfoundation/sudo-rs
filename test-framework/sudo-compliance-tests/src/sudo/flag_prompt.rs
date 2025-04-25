@@ -9,7 +9,7 @@ fn test_prompt(env: &Env, prompt_str: &str, prompt_res: &str) {
         .as_user(USERNAME)
         .output(env);
 
-    assert!(output.status().success(), "{:?}", output);
+    output.assert_success();
 
     if sudo_test::is_original_sudo() {
         assert_eq!(output.stderr(), prompt_res);
@@ -39,7 +39,7 @@ fn empty_prompt_disables_prompt() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success(), "{:?}", output);
+    output.assert_success();
 
     assert_eq!(output.stderr(), "");
 }
@@ -76,7 +76,7 @@ fn show_auth_user() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success(), "{:?}", output);
+    output.assert_success();
 
     if sudo_test::is_original_sudo() {
         assert_eq!(output.stderr(), "ferris user2 root");

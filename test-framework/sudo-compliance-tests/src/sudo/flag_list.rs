@@ -37,7 +37,7 @@ fn root_cannot_use_list_when_empty_sudoers() {
 
     let output = Command::new("sudo").arg("-l").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let expected = format!("User root is not allowed to run sudo on {hostname}.");
     let actual = output.stdout();
@@ -91,7 +91,7 @@ fn lists_privileges_for_root() {
 
     let output = Command::new("sudo").arg("-l").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let expected = format!(
         "User root may run the following commands on {hostname}:
@@ -108,7 +108,7 @@ fn works_with_long_form_list_flag() {
 
     let output = Command::new("sudo").arg("--list").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let expected = format!(
         "User root may run the following commands on {hostname}:
@@ -131,7 +131,7 @@ fn lists_privileges_for_invoking_user_on_current_host() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
 
     let expected = format!(
@@ -154,7 +154,7 @@ fn works_with_uppercase_u_flag() {
         .args(["-U", USERNAME, "-l"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
 
     let expected = format!(
@@ -174,9 +174,8 @@ fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() {
         .args(["-U", USERNAME, "-l"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
-    assert_eq!(Some(0), output.status().code());
 
     let expected = format!("User {USERNAME} is not allowed to run sudo on {hostname}.");
     let actual = output.stdout();
@@ -240,7 +239,7 @@ fn when_specified_multiple_times_uses_longer_format() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
 
     let expected = format!(
@@ -271,7 +270,7 @@ fn when_command_is_specified_the_fully_qualified_path_is_displayed() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let expected = BIN_TRUE;
     let actual = output.stdout();
@@ -290,7 +289,7 @@ fn when_several_commands_specified_only_first_displayed_with_fully_qualified_pat
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let expected = format!("{BIN_TRUE} ls");
     let actual = output.stdout();
@@ -334,7 +333,7 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() {
         .args(["-l", "-U", USERNAME])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
 
     let expected = format!(
@@ -365,7 +364,7 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() {
         .args(["-l", "-u", another_user, "false", "pwd", "whoami"])
         .output(&env);
 
-    assert!(actual.status().success());
+    actual.assert_success();
     assert_eq!(format!("{BIN_FALSE} pwd whoami"), actual.stdout());
 }
 

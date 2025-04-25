@@ -117,7 +117,7 @@ echo {message}"
         .as_user(invoking_user)
         .output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert_contains!(
         output.stderr(),
         format!("su: using restricted shell {restricted_shell_path}")
@@ -182,7 +182,7 @@ echo {message}"
         .as_user(invoking_user)
         .output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert_contains!(
         output.stderr(),
         format!("su: using restricted shell {restricted_shell_path}")
@@ -228,7 +228,7 @@ fn when_no_etc_shells_file_uses_a_default_list() {
             .as_user(invoking_user)
             .output(&env);
 
-        assert!(output.status().success(), "{}", output.stderr());
+        output.assert_success();
         assert_contains!(
             output.stderr(),
             format!("su: using restricted shell {shell}")
@@ -254,7 +254,7 @@ fn when_no_etc_shells_file_uses_a_default_list() {
             .as_user(invoking_user)
             .output(&env);
 
-        assert!(output.status().success(), "{}", output.stderr());
+        output.assert_success();
         assert_not_contains!(output.stderr(), format!("su: using restricted shell"));
     }
 }
@@ -287,7 +287,7 @@ fn shell_canonical_path_is_not_used_when_determining_if_shell_is_restricted_or_n
         .as_user(invoking_user)
         .output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert_contains!(
         output.stderr(),
         format!("su: using restricted shell {shell}")

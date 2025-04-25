@@ -32,7 +32,7 @@ fn rootpw_can_be_per_host_correct_host() {
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn rootpw_can_be_per_host_incorrect_host() {
         .arg(format!("echo {PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn rootpw_can_be_per_user() {
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn rootpw_can_be_per_runas() {
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn rootpw_can_be_per_general_command() {
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true args"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -191,7 +191,7 @@ fn rootpw_can_be_per_command_w_args() {
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true ignored"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 //note: we don't repeat all of the above combinations, the following tests
@@ -219,7 +219,7 @@ fn securepath_can_be_per_user() {
 
     // Commmand is found in the usual location
     let output = Command::new("sudo").arg("true").output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn securepath_can_be_per_command() {
 
     // Command *is* found, but adopts the secure_path
     let output = Command::new("sudo").arg("env").output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     let stdout = output.stdout();
     let env_vars = helpers::parse_env_output(&stdout);
@@ -275,7 +275,7 @@ fn order_is_mostly_linear() {
                 .args(["sudo", "env"])
                 .as_user(user)
                 .output(&env);
-            assert!(output.status().success());
+            output.assert_success();
 
             let stdout = output.stdout();
             let env_vars = helpers::parse_env_output(&stdout);
@@ -304,7 +304,7 @@ fn generic_defaults_are_not_overridden() {
         .args(["FOO=foo", "BAR=bar"])
         .args(["sudo", "env"])
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     let stdout = output.stdout();
     let env_vars = helpers::parse_env_output(&stdout);
@@ -331,7 +331,7 @@ fn command_defaults_override_others() {
         .args(["sudo", "env"])
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     let stdout = output.stdout();
     let env_vars = helpers::parse_env_output(&stdout);

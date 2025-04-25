@@ -103,7 +103,7 @@ fn combined_host_aliases() {
     .build();
 
     let output = Command::new("sudo").arg("true").output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     let second_env = Env([
         "Host_Alias SERVERS = main, www, mail",
@@ -183,7 +183,7 @@ fn negation_combination() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -199,7 +199,7 @@ fn comma_listing_works() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let second_env = Env([
         "Host_Alias SERVERS = main, www, mail",
         "Host_Alias OTHERHOSTS = foo, bar, baz",
@@ -211,7 +211,7 @@ fn comma_listing_works() {
 
     let second_output = Command::new("sudo").arg("true").output(&second_env);
 
-    assert!(second_output.status().success());
+    second_output.assert_success();
 }
 
 #[test]
@@ -246,6 +246,6 @@ fn keywords() {
 
         let stderr = output.stderr();
         assert!(stderr.is_empty(), "{}", stderr);
-        assert!(output.status().success());
+        output.assert_success();
     }
 }

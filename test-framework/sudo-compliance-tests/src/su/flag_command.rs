@@ -42,7 +42,7 @@ fn when_specified_more_than_once_only_last_value_is_used() {
         .args(["-c", "true"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
     assert!(output.stdout().is_empty());
 }

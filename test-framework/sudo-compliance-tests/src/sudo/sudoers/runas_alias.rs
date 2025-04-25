@@ -430,6 +430,6 @@ fn keywords() {
 
         let stderr = output.stderr();
         assert!(stderr.is_empty(), "{}", stderr);
-        assert!(output.status().success());
+        output.assert_success();
     }
 }

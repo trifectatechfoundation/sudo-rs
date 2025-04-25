@@ -15,7 +15,7 @@ fn no_syntax_errors_and_ok_ownership_and_perms() {
 
     let output = Command::new("visudo").arg("-c").output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert!(output.stderr().is_empty());
     assert_eq!(format!("{ETC_DIR}/sudoers: parsed OK"), output.stdout());
 }
@@ -87,7 +87,7 @@ fn flag_quiet_ok() {
 
     let output = Command::new("visudo").args(["-c", "-q"]).output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
     assert!(output.stdout().is_empty());
 }

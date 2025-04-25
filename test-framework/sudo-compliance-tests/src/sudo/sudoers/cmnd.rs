@@ -88,7 +88,7 @@ fn different() {
 
     let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 // it applies not only to the command is next to but to all commands that follow
@@ -140,7 +140,7 @@ fn runas_override() {
 
     let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, BIN_LS])

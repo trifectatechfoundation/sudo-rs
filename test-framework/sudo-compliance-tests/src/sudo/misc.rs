@@ -284,7 +284,7 @@ fn rootpw_option_works() {
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S true"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -333,7 +333,7 @@ fn targetpw_option_works() {
         .arg(format!("echo {PASSWORD2} | sudo -S -u user2 true"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 #[test]
@@ -376,7 +376,7 @@ fn rootpw_takes_priority_over_targetpw() {
         .arg(format!("echo {ROOT_PASSWORD} | sudo -S -u user2 true"))
         .as_user(USERNAME)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     // Target user password is not accepted when targetpw is enabled
     let output = Command::new("sh")

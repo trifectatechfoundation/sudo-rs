@@ -11,6 +11,6 @@ fn supresses_syntax_error_messages() {
 
     let output = Command::new("visudo").arg("-q").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_not_contains!(output.stderr(), "syntax error");
 }

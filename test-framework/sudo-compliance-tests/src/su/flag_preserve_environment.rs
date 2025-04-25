@@ -119,7 +119,7 @@ echo {message}"
         .as_user(invoking_user)
         .output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert_contains!(
         output.stderr(),
         format!("su: using restricted shell {restricted_shell_path}")

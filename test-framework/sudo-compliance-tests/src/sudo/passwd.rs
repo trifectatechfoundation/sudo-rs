@@ -35,7 +35,7 @@ fn explicit_passwd_overrides_nopasswd() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let second_output = Command::new("sudo")
         .args(["-S", "ls"])

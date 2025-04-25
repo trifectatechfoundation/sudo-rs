@@ -17,7 +17,7 @@ fn default_lecture_shown_once() {
         .as_user(USERNAME)
         .stdin(PASSWORD)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     assert_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
 
@@ -27,7 +27,7 @@ fn default_lecture_shown_once() {
         .args(["-S", "echo", "Yeah!"])
         .output(&env);
 
-    assert!(second_sudo.status().success());
+    second_sudo.assert_success();
     assert_not_contains!(second_sudo.stderr(), OG_SUDO_STANDARD_LECTURE);
 }
 
@@ -43,7 +43,7 @@ fn lecture_in_stderr() {
         .as_user(USERNAME)
         .stdin(PASSWORD)
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     assert_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
 
@@ -92,7 +92,7 @@ fn lecture_never_shown() {
         .args(["-S", "echo", "Yeah!"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_not_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
 }
 
@@ -108,7 +108,7 @@ fn negation_equals_never() {
         .args(["-S", "echo", "Yeah!"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_not_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
 }
 
@@ -123,7 +123,7 @@ fn root_user_lecture_not_shown() {
         .args(["-S", "true"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_not_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
 }
 
@@ -139,6 +139,6 @@ fn nopasswd_lecture_not_shown() {
         .args(["-S", "true"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_not_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
 }

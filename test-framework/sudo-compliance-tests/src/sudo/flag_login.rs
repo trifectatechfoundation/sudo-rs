@@ -24,7 +24,7 @@ fn if_home_directory_does_not_exist_executes_program_without_changing_the_workin
             .arg(format!("cd {expected}; sudo -u {USERNAME} -i pwd"))
             .output(&env);
 
-        assert!(output.status().success());
+        output.assert_success();
 
         let stderr = output.stderr();
         if sudo_test::is_original_sudo() {

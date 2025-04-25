@@ -140,7 +140,7 @@ fn include_loop_not_fatal() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers2: too many levels of includes"
     } else {
@@ -178,7 +178,7 @@ fn permissions_check_not_fatal() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("sudo: {ETC_DIR}/sudoers2 is world writable")
     } else {
@@ -222,7 +222,7 @@ fn ownership_check_not_fatal() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         if cfg!(target_os = "freebsd") {
             "sudo: /etc/sudoers2 is owned by uid 1001, should be 0"

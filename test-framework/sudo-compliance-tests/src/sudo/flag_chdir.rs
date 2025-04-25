@@ -24,8 +24,7 @@ fn cwd_set_to_glob_change_dir() {
     let output = Command::new("sh")
         .args(["-c", "cd /; sudo --chdir /root pwd"])
         .output(&env);
-    assert_eq!(Some(0), output.status().code());
-    assert!(output.status().success());
+    output.assert_success();
     assert_contains!(output.stdout(), "/root");
 }
 

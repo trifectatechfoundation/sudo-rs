@@ -70,7 +70,7 @@ fn directory_does_not_exist_is_not_fatal() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
         assert!(stderr.is_empty());
@@ -117,7 +117,7 @@ fn ignores_and_warns_about_file_with_bad_perms() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers.d/a is world writable")
     } else {
@@ -146,7 +146,7 @@ fn ignores_and_warns_about_file_with_bad_ownership() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         if cfg!(target_os = "freebsd") {
             format!("{ETC_DIR}/sudoers.d/a is owned by uid 1001, should be 0")
@@ -177,7 +177,7 @@ fn include_loop() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers.d/a: too many levels of includes")
     } else {
@@ -209,7 +209,7 @@ fn statements_prior_to_include_loop_are_evaluated() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers.d/a: too many levels of includes")

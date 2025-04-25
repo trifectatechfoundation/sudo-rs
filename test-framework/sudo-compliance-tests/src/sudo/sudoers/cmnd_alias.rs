@@ -160,7 +160,7 @@ fn combined_cmnd_aliases() {
 
     let second_output = Command::new("sudo").arg("ls").output(&env);
 
-    assert!(second_output.status().success());
+    second_output.assert_success();
 }
 
 #[test]
@@ -215,11 +215,11 @@ fn negation_combination() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let second_output = Command::new("sudo").arg("ls").output(&env);
 
-    assert!(second_output.status().success());
+    second_output.assert_success();
 }
 
 #[test]
@@ -245,7 +245,7 @@ fn another_negation_combination() {
 
     let second_output = Command::new("sudo").arg("ls").output(&env);
 
-    assert!(second_output.status().success());
+    second_output.assert_success();
 }
 
 #[test]
@@ -271,7 +271,7 @@ fn one_more_negation_combination() {
 
     let second_output = Command::new("sudo").arg("ls").output(&env);
 
-    assert!(second_output.status().success());
+    second_output.assert_success();
 }
 
 #[test]
@@ -318,11 +318,11 @@ fn comma_listing_works() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let second_output = Command::new("sudo").arg("ls").output(&env);
 
-    assert!(second_output.status().success());
+    second_output.assert_success();
 }
 
 #[test]
@@ -336,7 +336,7 @@ fn runas_override() {
     .build();
 
     let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     let output = Command::new("sudo")
         .args(["-u", "ferris", BIN_LS])
@@ -420,6 +420,6 @@ fn keywords() {
 
         let stderr = output.stderr();
         assert!(stderr.is_empty(), "{}", stderr);
-        assert!(output.status().success());
+        output.assert_success();
     }
 }

@@ -18,7 +18,7 @@ fn signal_sent_by_child_process_is_ignored() {
         .arg("root")
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
 }
 
