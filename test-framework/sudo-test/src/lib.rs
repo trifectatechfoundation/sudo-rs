@@ -368,7 +368,7 @@ impl EnvBuilder {
         }
 
         for (path, file) in &self.default_files {
-            file.create(path, &container)?;
+            file.create(path, &container);
         }
 
         for (path, file) in &self.files {

@@ -54,10 +54,7 @@ fn stock_pam_d_sudo() {
             PAM_D_SUDO_PATH
         );
 
-        let pam_d_su = Command::new("cat")
-            .arg(PAM_D_SU_PATH)
-            .output(&env)?
-            .stdout()?;
+        let pam_d_su = Command::new("cat").arg(PAM_D_SU_PATH).output(&env).stdout();
 
         let pam_d_su = pam_d_su
             .replace(
