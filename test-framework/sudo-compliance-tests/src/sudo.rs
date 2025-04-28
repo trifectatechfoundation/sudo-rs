@@ -1,3 +1,5 @@
+#[cfg(feature = "apparmor")]
+mod apparmor;
 mod child_process;
 mod cli;
 mod env_reset;
