@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUDO_UNDER_TEST: ours
-      SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -69,7 +68,6 @@ jobs:
     if: ${{ needs.compliance-tests-detect-changes.outputs.updated != 'false' }}
     runs-on: ubuntu-latest
     env:
-      SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -100,7 +98,6 @@ jobs:
     timeout-minutes: 20
     env:
       SUDO_TEST_PROFRAW_DIR: /tmp/profraw
-      SUDO_TEST_VERBOSE_DOCKER_BUILD: 1
       CI: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
