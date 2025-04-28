@@ -22,7 +22,8 @@ fn when_invoking_user_is_root() -> Result<()> {
         let stdout = output.stdout()?;
         dbg!(&stdout);
 
-        assert_not_contains!(stdout, "[sudo] password for");
+        assert_not_contains!(stdout, "password");
+        assert_not_contains!(stdout, "authenticate");
         if let ["-U", username] = args {
             assert_contains!(
                 stdout,
@@ -60,7 +61,8 @@ fn when_target_user_is_self() -> Result<()> {
         let stdout = output.stdout()?;
         dbg!(&stdout);
 
-        assert_not_contains!(stdout, "[sudo] password for");
+        assert_not_contains!(stdout, "password");
+        assert_not_contains!(stdout, "authenticate");
         assert_contains!(stdout, BIN_TRUE);
     }
 
@@ -91,7 +93,8 @@ fn when_invoking_user_belongs_to_target_group() -> Result<()> {
         let stdout = output.stdout()?;
         dbg!(&stdout);
 
-        assert_not_contains!(stdout, "[sudo] password for");
+        assert_not_contains!(stdout, "password");
+        assert_not_contains!(stdout, "authenticate");
         assert_contains!(stdout, BIN_TRUE);
     }
 
@@ -117,7 +120,8 @@ fn nopasswd_tag() -> Result<()> {
     let stdout = output.stdout()?;
     dbg!(&stdout);
 
-    assert_not_contains!(stdout, "[sudo] password for");
+    assert_not_contains!(stdout, "password");
+    assert_not_contains!(stdout, "authenticate");
     assert_contains!(
         stdout,
         format!("User {USERNAME} may run the following commands on ")
