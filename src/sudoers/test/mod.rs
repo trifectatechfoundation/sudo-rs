@@ -251,6 +251,10 @@ fn permission_test() {
     pass!(["\"a,b\" ALL=ALL"], "a,b" => request! { root, root }, "server"; "/bin/foo");
     pass!(["\"a\\b\" ALL=ALL"], "a\\b" => request! { root, root }, "server"; "/bin/foo");
 
+    // special chacters
+    pass!(["foo@machine.name ALL=ALL"], "foo@machine.name" => request! { root, root }, "server"; "/bin/foo");
+    pass!(["fnord$ ALL=ALL"], "fnord$" => request! { root, root }, "server"; "/bin/foo");
+
     // apparmor
     #[cfg(feature = "apparmor")]
     pass!(["ALL ALL=(ALL:ALL) APPARMOR_PROFILE=unconfined ALL"], "user" => root(), "server"; "/bin/bar" => [apparmor_profile: Some("unconfined".to_string())]);
@@ -348,6 +352,12 @@ fn default_multi_test() {
 #[should_panic]
 fn invalid_directive() {
     parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");
+}
+
+#[test]
+#[should_panic]
+fn invalid_username() {
+    parse_eval::<ast::Sudo>("User_Alias FOO = $dollar");
 }
 
 #[test]
@@ -469,6 +479,12 @@ fn specific_defaults() {
     assert!(parse_line("Defaults>user!use_pty").is_decl());
     assert!(try_parse_line("Defaults >user!use_pty").is_none());
     assert!(try_parse_line("Defaults >user !use_pty").is_none());
+}
+
+#[test]
+fn at_sign_ambiguity() {
+    assert!(parse_line("Defaults@host env_keep=ALL").is_decl());
+    assert!(parse_line("defaults@host env_keep=ALL").is_spec());
 }
 
 #[test]
