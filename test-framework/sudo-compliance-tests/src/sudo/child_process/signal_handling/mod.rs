@@ -2,30 +2,28 @@ use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env};
 
 use crate::{
-    Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_NOT_USE_PTY, SUDOERS_ROOT_ALL_NOPASSWD,
+    SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_NOT_USE_PTY, SUDOERS_ROOT_ALL_NOPASSWD,
     SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY, USERNAME,
 };
 
 macro_rules! dup {
     ($($(#[$attrs:meta])* $name:ident,)*) => {
         mod tty {
-            use crate::Result;
             $(
                 #[test]
                 $(#[$attrs])*
-                fn $name() -> Result<()> {
-                    super::$name(true)
+                fn $name() {
+                    super::$name(true);
                 }
             )*
         }
 
         mod no_tty {
-            use crate::Result;
             $(
                 #[test]
                 $(#[$attrs])*
-                fn $name() -> Result<()> {
-                    super::$name(false)
+                fn $name() {
+                    super::$name(false);
                 }
             )*
         }
@@ -43,24 +41,24 @@ dup! {
 
 // man sudo > Signal handling
 // "As a special case, sudo will not relay signals that were sent by the command it is running."
-fn signal_sent_by_child_process_is_ignored(tty: bool) -> Result<()> {
+fn signal_sent_by_child_process_is_ignored(tty: bool) {
     let script = include_str!("kill-sudo-parent.sh");
 
     let kill_sudo_parent = "/root/kill-sudo-parent.sh";
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY])
         .user(USERNAME)
         .file(kill_sudo_parent, script)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["sh", kill_sudo_parent])
         .as_user(USERNAME)
         .tty(tty)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
-fn signal_is_forwarded_to_child(tty: bool) -> Result<()> {
+fn signal_is_forwarded_to_child(tty: bool) {
     let expected = "got signal";
     let expects_signal = "/root/expects-signal.sh";
     let kill_sudo = "/root/kill-sudo.sh";
@@ -68,60 +66,56 @@ fn signal_is_forwarded_to_child(tty: bool) -> Result<()> {
         .user(USERNAME)
         .file(expects_signal, include_str!("expects-signal.sh"))
         .file(kill_sudo, include_str!("kill-sudo.sh"))
-        .build()?;
+        .build();
 
     let child = Command::new("sudo")
         .args(["sh", expects_signal, "TERM"])
         .as_user(USERNAME)
-        .spawn(&env)?;
+        .spawn(&env);
 
     Command::new("sh")
         .args([kill_sudo, "-TERM"])
         .tty(tty)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = child.wait()?.stdout()?;
+    let actual = child.wait().stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 // man sudo > Exit value
 // "If the command terminated due to receipt of a signal, sudo will send itself the same signal that terminated the command."
-fn child_terminated_by_signal(tty: bool) -> Result<()> {
+fn child_terminated_by_signal(tty: bool) {
     let env = Env([SUDOERS_USER_ALL_NOPASSWD, SUDOERS_USE_PTY])
         .user(USERNAME)
-        .build()?;
+        .build();
 
     // child process sends SIGTERM to itself
     let output = Command::new("sudo")
         .args(["sh", "-c", "kill $$"])
         .as_user(USERNAME)
         .tty(tty)
-        .output(&env)?;
+        .output(&env);
 
     assert_eq!(Some(143), output.status().code());
     assert!(output.stderr().is_empty());
-
-    Ok(())
 }
 
-fn sigtstp_works(tty: bool) -> Result<()> {
+fn sigtstp_works(tty: bool) {
     const STOP_DELAY: u64 = 5;
     const NUM_ITERATIONS: usize = 5;
 
     let script_path = "/tmp/script.sh";
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USE_PTY])
         .file(script_path, include_str!("sigtstp.bash"))
-        .build()?;
+        .build();
 
     let output = Command::new("bash")
         .arg(script_path)
         .tty(tty)
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     let timestamps = output
         .lines()
@@ -150,11 +144,9 @@ fn sigtstp_works(tty: bool) -> Result<()> {
     let did_suspend = suspended_iterations == 1;
 
     assert!(did_suspend);
-
-    Ok(())
 }
 
-fn sigalrm_terminates_command(tty: bool) -> Result<()> {
+fn sigalrm_terminates_command(tty: bool) {
     let expected = "got signal";
     let expects_signal = "/root/expects-signal.sh";
     let kill_sudo = "/root/kill-sudo.sh";
@@ -162,12 +154,12 @@ fn sigalrm_terminates_command(tty: bool) -> Result<()> {
         .user(USERNAME)
         .file(expects_signal, include_str!("expects-signal.sh"))
         .file(kill_sudo, include_str!("kill-sudo.sh"))
-        .build()?;
+        .build();
 
     let child = Command::new("sudo")
         .args(["sh", expects_signal, "HUP", "TERM"])
         .as_user(USERNAME)
-        .spawn(&env)?;
+        .spawn(&env);
 
     // Wait for expects-signal.sh to install the signal handler
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -175,17 +167,15 @@ fn sigalrm_terminates_command(tty: bool) -> Result<()> {
     Command::new("sh")
         .args([kill_sudo, "-ALRM"])
         .tty(tty)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = child.wait()?.stdout()?;
+    let actual = child.wait().stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
-fn sigchld_is_ignored(tty: bool) -> Result<()> {
+fn sigchld_is_ignored(tty: bool) {
     let expected = "got signal";
     let expects_signal = "/root/expects-signal.sh";
     let kill_sudo = "/root/kill-sudo.sh";
@@ -193,33 +183,31 @@ fn sigchld_is_ignored(tty: bool) -> Result<()> {
         .user(USERNAME)
         .file(expects_signal, include_str!("expects-signal.sh"))
         .file(kill_sudo, include_str!("kill-sudo.sh"))
-        .build()?;
+        .build();
 
     let child = Command::new("sudo")
         .args(["sh", expects_signal, "HUP", "TERM"])
         .as_user(USERNAME)
-        .spawn(&env)?;
+        .spawn(&env);
 
     Command::new("sh")
         .args([kill_sudo, "-CHLD"])
         .tty(tty)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sh")
         .args([kill_sudo, "-ALRM"])
         .tty(tty)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let actual = child.wait()?.stdout()?;
+    let actual = child.wait().stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
-fn sigwinch_works(use_pty: bool) -> Result<()> {
+fn sigwinch_works(use_pty: bool) {
     let print_sizes = "/root/print-sizes.sh";
     let change_size = "/root/change-size.sh";
     let env = Env([
@@ -232,16 +220,16 @@ fn sigwinch_works(use_pty: bool) -> Result<()> {
     ])
     .file(print_sizes, include_str!("print-sizes.sh"))
     .file(change_size, include_str!("change-size.sh"))
-    .build()?;
+    .build();
 
-    let child = Command::new("sh").arg(print_sizes).tty(true).spawn(&env)?;
+    let child = Command::new("sh").arg(print_sizes).tty(true).spawn(&env);
 
     Command::new("sh")
         .arg(change_size)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    let output = child.wait()?.stdout()?;
+    let output = child.wait().stdout();
 
     let lines: Vec<_> = output.lines().collect();
     assert_eq!(lines.len(), 3);
@@ -250,8 +238,6 @@ fn sigwinch_works(use_pty: bool) -> Result<()> {
     // Assert that the terminal size that sudo sees the second time has actually changed to the
     // value set by `change-size.sh`.
     assert_eq!(lines[2].trim(), "42 69");
-
-    Ok(())
 }
 
 #[test]
@@ -259,7 +245,7 @@ fn sigwinch_works(use_pty: bool) -> Result<()> {
     target_os = "freebsd",
     ignore = "gh924: podman on freebsd puts each docker exec command in a jail with separate /dev/pts"
 )]
-fn sigwinch_works_pty() -> Result<()> {
+fn sigwinch_works_pty() {
     sigwinch_works(true)
 }
 
@@ -268,6 +254,6 @@ fn sigwinch_works_pty() -> Result<()> {
     target_os = "freebsd",
     ignore = "gh924: podman on freebsd puts each docker exec command in a jail with separate /dev/pts"
 )]
-fn sigwinch_works_no_pty() -> Result<()> {
+fn sigwinch_works_no_pty() {
     sigwinch_works(false)
 }

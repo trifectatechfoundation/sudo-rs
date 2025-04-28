@@ -116,9 +116,16 @@ impl Child {
     }
 
     /// waits for the child to exit and collects its stdout and stderr
-    pub fn wait(self) -> Result<Output> {
-        let output = self.inner.wait_with_output()?;
-        output.try_into()
+    #[track_caller]
+    pub fn wait(self) -> Output {
+        let res = (|| -> Result<Output> {
+            let output = self.inner.wait_with_output()?;
+            output.try_into()
+        })();
+        match res {
+            Ok(output) => output,
+            Err(err) => panic!("waiting for child failed: {err}"),
+        }
     }
 
     /// attempts to collect the exit status of the child if it has already exited.
@@ -150,26 +157,26 @@ impl Output {
     /// helper method that asserts that the program exited successfully
     ///
     /// if it didn't the error value will include the exit code and the program's stderr
-    pub fn assert_success(&self) -> Result<()> {
-        if self.status.success() {
-            Ok(())
-        } else {
+    #[track_caller]
+    pub fn assert_success(&self) {
+        if !self.status.success() {
             let exit_code = if let Some(code) = self.status.code() {
                 format!("exit code {}", code)
             } else {
                 "a non-zero exit code".to_string()
             };
 
-            Err(format!("program failed with {exit_code}. stderr:\n{}", self.stderr).into())
+            panic!("program failed with {exit_code}. stderr:\n{}", self.stderr);
         }
     }
 
     /// the collected standard output of the finished `Command`
     ///
     /// NOTE this method implicitly runs `assert_success` before granting access to `stdout`
-    pub fn stdout(self) -> Result<String> {
-        self.assert_success()?;
-        Ok(self.stdout)
+    #[track_caller]
+    pub fn stdout(self) -> String {
+        self.assert_success();
+        self.stdout
     }
 
     /// like `stdout` but does not check the exit code

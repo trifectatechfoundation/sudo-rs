@@ -1,35 +1,35 @@
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 use super::MAX_PASSWORD_SIZE;
 
 #[test]
-fn correct_password() -> Result<()> {
+fn correct_password() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn incorrect_password() -> Result<()> {
+fn incorrect_password() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password("strong-password"))
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .as_user(USERNAME)
         .stdin("incorrect-password")
-        .output(&env)?;
+        .output(&env);
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
@@ -39,20 +39,18 @@ fn incorrect_password() -> Result<()> {
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn no_password() -> Result<()> {
+fn no_password() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -61,36 +59,34 @@ fn no_password() -> Result<()> {
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn longest_possible_password_works() -> Result<()> {
+fn longest_possible_password_works() {
     let password = "a".repeat(MAX_PASSWORD_SIZE);
 
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(&password))
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["-S", "true"])
         .stdin(password)
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn input_longer_than_max_pam_response_size_is_handled_gracefully() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) ALL").user(USERNAME).build()?;
+fn input_longer_than_max_pam_response_size_is_handled_gracefully() {
+    let env = Env("ALL ALL=(ALL:ALL) ALL").user(USERNAME).build();
 
     let input = "a".repeat(5 * MAX_PASSWORD_SIZE / 2);
     let output = Command::new("sudo")
         .args(["-S", "true"])
         .stdin(input)
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -106,16 +102,14 @@ fn input_longer_than_max_pam_response_size_is_handled_gracefully() -> Result<()>
         assert_contains!(stderr, "incorrect authentication attempt");
         assert_not_contains!(stderr, "panic");
     }
-
-    Ok(())
 }
 
 #[test]
-fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Result<()> {
+fn input_longer_than_password_should_not_be_accepted_as_correct_password() {
     let password = "a".repeat(MAX_PASSWORD_SIZE);
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(password))
-        .build()?;
+        .build();
 
     let input_sizes = [MAX_PASSWORD_SIZE + 1, MAX_PASSWORD_SIZE + 2];
 
@@ -125,7 +119,7 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Re
             .args(["-S", "true"])
             .stdin(input)
             .as_user(USERNAME)
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -137,6 +131,4 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() -> Re
             assert_contains!(stderr, "incorrect authentication attempt");
         }
     }
-
-    Ok(())
 }

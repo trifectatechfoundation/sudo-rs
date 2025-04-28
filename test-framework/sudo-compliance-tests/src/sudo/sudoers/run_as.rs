@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use sudo_test::{Command, Env, User, BIN_TRUE, ROOT_GROUP};
 
-use crate::{Result, GROUPNAME, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
+use crate::{GROUPNAME, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -20,27 +20,25 @@ macro_rules! assert_snapshot {
 
 // "If both Runas_Lists are empty, the command may only be run as the invoking user."
 #[test]
-fn when_empty_then_explicit_as_self_is_allowed() -> Result<()> {
-    let env = Env("ALL ALL=() NOPASSWD: ALL").user(USERNAME).build()?;
+fn when_empty_then_explicit_as_self_is_allowed() {
+    let env = Env("ALL ALL=() NOPASSWD: ALL").user(USERNAME).build();
 
     for user in ["root", USERNAME] {
         Command::new("sudo")
             .args(["-u", user, "true"])
             .as_user(user)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
-    let env = Env("ALL ALL=() NOPASSWD: ALL").user(USERNAME).build()?;
+fn when_empty_then_as_someone_else_is_not_allowed() {
+    let env = Env("ALL ALL=() NOPASSWD: ALL").user(USERNAME).build();
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "true"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -51,55 +49,49 @@ fn when_empty_then_as_someone_else_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_empty_then_as_own_group_is_allowed() -> Result<()> {
+fn when_empty_then_as_own_group_is_allowed() {
     let env = Env("ALL ALL=() NOPASSWD: ALL")
         .group(USERNAME)
         .user(User(USERNAME).secondary_group(USERNAME))
-        .build()?;
+        .build();
 
     for (user, group) in [("root", ROOT_GROUP), (USERNAME, USERNAME)] {
         Command::new("sudo")
             .args(["-g", group, "true"])
             .as_user(user)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_specific_user_then_as_that_user_is_allowed() -> Result<()> {
+fn when_specific_user_then_as_that_user_is_allowed() {
     let env = Env(format!("ALL ALL=({USERNAME}) NOPASSWD: ALL"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     for user in ["root", USERNAME] {
         Command::new("sudo")
             .args(["-u", USERNAME, "true"])
             .as_user(user)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
+fn when_specific_user_then_as_a_different_user_is_not_allowed() {
     let env = Env("ALL ALL=(ferris) NOPASSWD: ALL")
         .user("ferris")
         .user("ghost")
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-u", "ghost", "true"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -110,15 +102,13 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
-    let env = Env(format!("ALL ALL=({USERNAME}) NOPASSWD: ALL")).build()?;
+fn when_specific_user_then_as_self_is_not_allowed() {
+    let env = Env(format!("ALL ALL=({USERNAME}) NOPASSWD: ALL")).build();
 
-    let output = Command::new("sudo").args(["true"]).output(&env)?;
+    let output = Command::new("sudo").args(["true"]).output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -129,8 +119,6 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
     } else {
         assert_contains!(stderr, "I'm sorry root. I'm afraid I can't do that");
     }
-
-    Ok(())
 }
 
 // "If only the first is specified, the command may be run as any user in the list but no -g option
@@ -139,19 +127,19 @@ fn when_specific_user_then_as_self_is_not_allowed() -> Result<()> {
 // this behaviour in the case that a user specifies its own group
 // however, this test case passes (i.e. the command fails) due to user not being in group
 #[test]
-fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
+fn when_only_user_is_specified_then_group_flag_is_not_allowed() {
     let env = Env(format!("ALL ALL=({USERNAME}) ALL"))
         // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         .user(USERNAME)
         .group(GROUPNAME)
-        .build()?;
+        .build();
 
     for user in ["root", USERNAME] {
         let output = Command::new("sudo")
             .args(["-g", GROUPNAME, "true"])
             .as_user(user)
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -163,43 +151,39 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() -> Result<()> {
         };
         assert_contains!(output.stderr(), diagnostic);
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_specific_group_then_as_that_group_is_allowed() -> Result<()> {
+fn when_specific_group_then_as_that_group_is_allowed() {
     let env = Env(format!("ALL ALL=(:{GROUPNAME}) NOPASSWD: ALL"))
         .user(USERNAME)
         .group(GROUPNAME)
-        .build()?;
+        .build();
 
     for user in ["root", USERNAME] {
         Command::new("sudo")
             .args(["-g", GROUPNAME, "true"])
             .as_user(user)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> {
+fn when_specific_group_then_as_a_different_group_is_not_allowed() {
     let env = Env([&format!("ALL ALL=(:{GROUPNAME})  ALL"), SUDOERS_NO_LECTURE])
         // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         .user(USERNAME)
         .group(GROUPNAME)
         .group("ghosts")
-        .build()?;
+        .build();
 
     for user in ["root", USERNAME] {
         let output = Command::new("sudo")
             .args(["-g", "ghosts", "true"])
             .as_user(user)
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -214,25 +198,23 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() -> Result<()> 
             );
         }
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()> {
+fn when_only_group_is_specified_then_as_some_user_is_not_allowed() {
     let env = Env([&format!("ALL ALL=(:{GROUPNAME})  ALL"), SUDOERS_NO_LECTURE])
         // NOPASSWD does not seem to apply to the regular user so use PAM to avoid password input
         .file("/etc/pam.d/sudo", PAMD_SUDO_PAM_PERMIT)
         .user(USERNAME)
         .user("ghost")
         .group(GROUPNAME)
-        .build()?;
+        .build();
 
     for user in ["root", USERNAME] {
         let output = Command::new("sudo")
             .args(["-u", "ghost", "true"])
             .as_user(user)
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -247,83 +229,75 @@ fn when_only_group_is_specified_then_as_some_user_is_not_allowed() -> Result<()>
             );
         }
     }
-
-    Ok(())
 }
 
 // "If both Runas_Lists are specified, the command may be run with any combination of users and
 // groups listed in their respective Runas_Lists."
 #[test]
-fn when_both_user_and_group_are_specified_then_as_that_user_is_allowed() -> Result<()> {
+fn when_both_user_and_group_are_specified_then_as_that_user_is_allowed() {
     let env = Env(format!("ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: ALL"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     for user in ["root", USERNAME] {
         Command::new("sudo")
             .args(["-u", USERNAME, "true"])
             .as_user(user)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() -> Result<()> {
+fn when_both_user_and_group_are_specified_then_as_that_group_is_allowed() {
     let env = Env(format!("ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: ALL"))
         .user(USERNAME)
         .group(GROUPNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn runas_specifiers_distribute() -> Result<()> {
+fn runas_specifiers_distribute() {
     let env = Env(format!(
         "ALL ALL=({USERNAME}:{GROUPNAME}) NOPASSWD: /tmp/foo, ALL"
     ))
     .user(USERNAME)
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 // `man sudoers` says in the 'Runas_Spec' section
 // "If no Runas_Spec is specified, the command may only be run as root and the group, if specified, must be one that root is a member of."
 #[test]
-fn when_no_run_as_spec_then_target_user_can_be_root() -> Result<()> {
-    let env = Env("ALL ALL=NOPASSWD: ALL").user(USERNAME).build()?;
+fn when_no_run_as_spec_then_target_user_can_be_root() {
+    let env = Env("ALL ALL=NOPASSWD: ALL").user(USERNAME).build();
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()> {
-    let env = Env("ALL ALL=NOPASSWD: ALL").user(USERNAME).build()?;
+fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() {
+    let env = Env("ALL ALL=NOPASSWD: ALL").user(USERNAME).build();
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "true"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -334,26 +308,24 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() -> Result<()>
         "I'm sorry root. I'm afraid I can't do that".to_owned()
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() -> Result<()> {
+fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() {
     if sudo_test::is_original_sudo() {
         // TODO: original sudo should pass this test after 1.9.14b2
-        return Ok(());
+        return;
     }
 
     let env = Env("ALL ALL = NOPASSWD: ALL")
         .user(User(USERNAME))
         .group(GROUPNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-u", "root", "-g", GROUPNAME, "groups"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -364,22 +336,20 @@ fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() -> 
         format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn when_no_run_as_spec_then_a_group_that_root_is_in_may_be_specified() -> Result<()> {
+fn when_no_run_as_spec_then_a_group_that_root_is_in_may_be_specified() {
     let env = Env("ALL ALL = NOPASSWD: ALL")
         .user(User(USERNAME))
         .group(GROUPNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-u", "root", "-g", ROOT_GROUP, "groups"])
         .as_user(USERNAME)
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     let mut actual = output.split_ascii_whitespace().collect::<HashSet<_>>();
 
@@ -388,46 +358,41 @@ fn when_no_run_as_spec_then_a_group_that_root_is_in_may_be_specified() -> Result
         assert!(actual.remove("operator"));
     }
     assert!(actual.is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_allowed(
-) -> Result<()> {
+fn when_both_user_and_group_are_specified_then_as_that_user_with_that_group_is_allowed() {
     let env = Env([&format!(
         "{USERNAME} ALL=(otheruser:{GROUPNAME}) NOPASSWD: ALL"
     )])
     .user(User(USERNAME))
     .user(User("otheruser"))
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
 /// This test tracks [CVE-2009-0034](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2009-0034)
 /// which is explained in more detail [here](https://www.sudo.ws/security/advisories/group_vector/).
-fn supplemental_group_matching() -> Result<()> {
+fn supplemental_group_matching() {
     let other_user = "corro";
 
     let env = Env([&format!("{USERNAME} ALL=(%{GROUPNAME}) NOPASSWD: ALL")])
         .user(User(USERNAME).secondary_group(GROUPNAME))
         .user(User(other_user))
         .group(GROUPNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-u", other_user, "true"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -441,14 +406,12 @@ fn supplemental_group_matching() -> Result<()> {
             format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
-
-    Ok(())
 }
 
 /// This test tracks [CVE-2019-14287](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2019-14287)
 /// which is explained in more detail [here](https://www.sudo.ws/security/advisories/minus_1_uid/).
 #[test]
-fn minus_1_uid() -> Result<()> {
+fn minus_1_uid() {
     let host = "myhost";
 
     let env = Env(format!(
@@ -457,7 +420,7 @@ fn minus_1_uid() -> Result<()> {
     .user(User(USERNAME))
     .group(GROUPNAME)
     .hostname(host)
-    .build()?;
+    .build();
 
     let needle = if sudo_test::is_original_sudo() {
         "unknown user"
@@ -468,25 +431,23 @@ fn minus_1_uid() -> Result<()> {
     for uid in [-1i64, u32::MAX.into()] {
         let output = Command::new("sudo")
             .args(["-u", &format!("#{uid}"), "id", "-u"])
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         assert_contains!(output.stderr(), needle);
     }
-
-    Ok(())
 }
 
 #[test]
-fn null_byte_terminated_username() -> Result<()> {
+fn null_byte_terminated_username() {
     let env = Env("ferris ALL=(root\0:ALL) NOPASSWD: ALL")
         .user("ferris")
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user("ferris")
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     if sudo_test::is_original_sudo() {
@@ -494,20 +455,18 @@ fn null_byte_terminated_username() -> Result<()> {
     } else {
         assert_contains!(output.stderr(), "expecting ')' but found '\0'");
     }
-
-    Ok(())
 }
 
 #[test]
-fn null_byte_terminated_groupname() -> Result<()> {
+fn null_byte_terminated_groupname() {
     let env = Env("ferris ALL=(ALL:root\0) NOPASSWD: ALL")
         .user("ferris")
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user("ferris")
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     if sudo_test::is_original_sudo() {
@@ -515,6 +474,4 @@ fn null_byte_terminated_groupname() -> Result<()> {
     } else {
         assert_contains!(output.stderr(), "expecting ')' but found '\0'");
     }
-
-    Ok(())
 }

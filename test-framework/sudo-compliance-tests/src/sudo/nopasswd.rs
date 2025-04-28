@@ -2,129 +2,127 @@
 
 use sudo_test::{Command, Env, User, BIN_LS, BIN_TRUE};
 
-use crate::{Result, GROUPNAME, SUDOERS_NO_LECTURE, SUDOERS_ROOT_ALL, USERNAME};
+use crate::{GROUPNAME, SUDOERS_NO_LECTURE, SUDOERS_ROOT_ALL, USERNAME};
 
 // NOTE all these tests assume that the invoking user passes the sudoers file 'User_List' criteria
 
 // man sudoers > User Authentication:
 // "A password is not required if the invoking user is root"
 #[test]
-fn user_is_root() -> Result<()> {
-    let env = Env(SUDOERS_ROOT_ALL).build()?;
+fn user_is_root() {
+    let env = Env(SUDOERS_ROOT_ALL).build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 // man sudoers > User Authentication:
 // "A password is not required if (..) the target user is the same as the invoking user"
 #[test]
-fn user_as_themselves() -> Result<()> {
+fn user_as_themselves() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["-u", USERNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn user_as_their_own_group() -> Result<()> {
+fn user_as_their_own_group() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .group(GROUPNAME)
         .user(User(USERNAME).secondary_group(GROUPNAME))
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn nopasswd_tag() -> Result<()> {
+fn nopasswd_tag() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) NOPASSWD: ALL"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn nopasswd_tag_for_command() -> Result<()> {
+fn nopasswd_tag_for_command() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() -> Result<()> {
+fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() {
     let env = Env(format!(
         "ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, PASSWD: {BIN_LS}"
     ))
     .user(USERNAME)
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .arg("-l")
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
 
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_contains!(
         actual,
         format!("User {USERNAME} may run the following commands")
     );
-
-    Ok(())
 }
 
 #[test]
-fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() -> Result<()> {
+fn run_sudo_v_flag_without_pwd_if_nopasswd_is_set_for_all_users_entries() {
     let env = Env(format!(
         "{USERNAME}    ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, {BIN_LS}"
     ))
     .user(USERNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .arg("-v")
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Result<()> {
+fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() {
     let env = Env([
         format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_TRUE}, PASSWD: {BIN_LS}"),
         SUDOERS_NO_LECTURE.to_owned(),
     ])
     .user(USERNAME)
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .args(["-S", "-v"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
 
@@ -148,6 +146,4 @@ fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() -> Re
             "[sudo: authenticate] Password: sudo: Authentication failed, try again.\n[sudo: authenticate] Password: sudo: Authentication failed, try again.\n[sudo: authenticate] Password: sudo-rs: Maximum 3 incorrect authentication attempts"
         );
     }
-
-    Ok(())
 }

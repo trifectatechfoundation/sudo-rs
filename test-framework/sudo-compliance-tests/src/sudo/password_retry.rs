@@ -1,12 +1,12 @@
 use sudo_test::{Command, Env, TextFile, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
-fn can_retry_password() -> Result<()> {
+fn can_retry_password() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
@@ -14,15 +14,15 @@ fn can_retry_password() -> Result<()> {
             "(echo wrong-password; echo {PASSWORD}) | sudo -S true"
         ))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn three_retries_allowed_by_default() -> Result<()> {
+fn three_retries_allowed_by_default() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -30,7 +30,7 @@ fn three_retries_allowed_by_default() -> Result<()> {
             "(for i in $(seq 1 3); do echo wrong-password; done; echo {PASSWORD}) | sudo -S true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -56,18 +56,16 @@ fn three_retries_allowed_by_default() -> Result<()> {
         .count();
 
     assert_eq!(3, num_password_prompts);
-
-    Ok(())
 }
 
 #[test]
-fn defaults_passwd_tries() -> Result<()> {
+fn defaults_passwd_tries() {
     let env = Env(format!(
         "{USERNAME} ALL=(ALL:ALL) ALL
 Defaults passwd_tries=2"
     ))
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -75,7 +73,7 @@ Defaults passwd_tries=2"
             "(for i in $(seq 1 2); do echo wrong-password; done; echo {PASSWORD}) | sudo -S true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -100,8 +98,6 @@ Defaults passwd_tries=2"
         .count();
 
     assert_eq!(2, num_password_prompts);
-
-    Ok(())
 }
 
 // this is a PAM security feature
@@ -110,7 +106,7 @@ Defaults passwd_tries=2"
     target_os = "freebsd",
     ignore = "on FreeBSD retry is immediately allowed"
 )]
-fn retry_is_not_allowed_immediately() -> Result<()> {
+fn retry_is_not_allowed_immediately() {
     let script_path = "/tmp/script.sh";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .file(
@@ -118,23 +114,21 @@ fn retry_is_not_allowed_immediately() -> Result<()> {
             TextFile(include_str!("password_retry/time-password-retry.sh")).chmod("777"),
         )
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
-    let delta_millis = time_password_retry(script_path, env)?;
+    let delta_millis = time_password_retry(script_path, env);
 
     // by default, the retry delay should be around 2 seconds
     // use a lower value to avoid sporadic failures
     assert!(delta_millis >= 1250);
-
-    Ok(())
 }
 
-fn time_password_retry(script_path: &str, env: Env) -> Result<u64> {
+fn time_password_retry(script_path: &str, env: Env) -> u64 {
     let stdout = Command::new("sh")
         .arg(script_path)
         .as_user(USERNAME)
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
     let timestamps = stdout
         .lines()
         .filter_map(|line| line.parse::<u64>().ok())
@@ -142,7 +136,7 @@ fn time_password_retry(script_path: &str, env: Env) -> Result<u64> {
     assert_eq!(2, timestamps.len());
     let delta_millis = timestamps[1] - timestamps[0];
     dbg!(delta_millis);
-    Ok(delta_millis)
+    delta_millis
 }
 
 #[test]
@@ -150,7 +144,7 @@ fn time_password_retry(script_path: &str, env: Env) -> Result<u64> {
     target_os = "freebsd",
     ignore = "/etc/pam.d/common-auth doesn't exist on FreeBSD"
 )]
-fn can_control_retry_delay_using_pam() -> Result<()> {
+fn can_control_retry_delay_using_pam() {
     const NEW_DELAY_MICROS: u32 = 5_000_000;
 
     let script_path = "/tmp/script.sh";
@@ -160,11 +154,11 @@ fn can_control_retry_delay_using_pam() -> Result<()> {
             TextFile(include_str!("password_retry/time-password-retry.sh")).chmod("777"),
         )
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
     let common_auth = Command::new("cat")
         .arg("/etc/pam.d/common-auth")
-        .output(&check_env)?
-        .stdout()?;
+        .output(&check_env)
+        .stdout();
     let common_auth = common_auth
         .lines()
         .filter(|line| !line.trim_start().starts_with('#') && !line.trim().is_empty())
@@ -178,7 +172,7 @@ auth\trequired\t\t\tpam_permit.so",
         "the stock /etc/pam.d/common-auth file has changed; this test needs to be updated"
     );
 
-    let initial_delta_millis = time_password_retry(script_path, check_env)?;
+    let initial_delta_millis = time_password_retry(script_path, check_env);
 
     // increase the retry delay from 2 seconds to 5
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
@@ -196,9 +190,9 @@ auth required pam_permit.so"
             script_path,
             TextFile(include_str!("password_retry/time-password-retry.sh")).chmod("777"),
         )
-        .build()?;
+        .build();
 
-    let newer_delta_millis = time_password_retry(script_path, env)?;
+    let newer_delta_millis = time_password_retry(script_path, env);
 
     // use a lower value to avoid sporadic failures
     assert!(newer_delta_millis >= 3_100);
@@ -209,6 +203,4 @@ auth required pam_permit.so"
 it could be that the image defaults to a high retry delay value; \
 you may want to increase NEW_DELAY_MICROS"
     );
-
-    Ok(())
 }

@@ -31,71 +31,65 @@ fn strip_matching_defaults_message(s: &str) -> &str {
 }
 
 #[test]
-fn root_cannot_use_list_when_empty_sudoers() -> Result<()> {
+fn root_cannot_use_list_when_empty_sudoers() {
     let hostname = "container";
-    let env = Env("").hostname(hostname).build()?;
+    let env = Env("").hostname(hostname).build();
 
-    let output = Command::new("sudo").arg("-l").output(&env)?;
+    let output = Command::new("sudo").arg("-l").output(&env);
 
     assert!(output.status().success());
 
     let expected = format!("User root is not allowed to run sudo on {hostname}.");
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_contains!(actual, expected);
-
-    Ok(())
 }
 
 #[test]
-fn regular_user_can_use_list_regardless_of_which_command_is_allowed_by_sudoers() -> Result<()> {
+fn regular_user_can_use_list_regardless_of_which_command_is_allowed_by_sudoers() {
     let hostname = "container";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) /command/does/not/matter"))
         .user(User(USERNAME).password(PASSWORD))
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-S", "-l"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert_contains!(
-        output.stdout()?,
+        output.stdout(),
         format!("User {USERNAME} may run the following commands on {hostname}:")
     );
-
-    Ok(())
 }
 
 #[test]
-fn regular_user_can_use_list_regardless_of_which_target_user_is_allowed_by_sudoers() -> Result<()> {
+fn regular_user_can_use_list_regardless_of_which_target_user_is_allowed_by_sudoers() {
     let hostname = "container";
     let env = Env(format!("{USERNAME} ALL=(doesnt:matter) ALL"))
         .user(User(USERNAME).password(PASSWORD))
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-S", "-l"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert_contains!(
-        output.stdout()?,
+        output.stdout(),
         format!("User {USERNAME} may run the following commands on {hostname}:")
     );
-
-    Ok(())
 }
 
 #[test]
-fn lists_privileges_for_root() -> Result<()> {
+fn lists_privileges_for_root() {
     let hostname = "container";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).hostname(hostname).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).hostname(hostname).build();
 
-    let output = Command::new("sudo").arg("-l").output(&env)?;
+    let output = Command::new("sudo").arg("-l").output(&env);
 
     assert!(output.status().success());
 
@@ -103,18 +97,16 @@ fn lists_privileges_for_root() -> Result<()> {
         "User root may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(strip_matching_defaults_message(&actual), expected);
-
-    Ok(())
 }
 
 #[test]
-fn works_with_long_form_list_flag() -> Result<()> {
+fn works_with_long_form_list_flag() {
     let hostname = "container";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).hostname(hostname).build()?;
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).hostname(hostname).build();
 
-    let output = Command::new("sudo").arg("--list").output(&env)?;
+    let output = Command::new("sudo").arg("--list").output(&env);
 
     assert!(output.status().success());
 
@@ -122,24 +114,22 @@ fn works_with_long_form_list_flag() -> Result<()> {
         "User root may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(strip_matching_defaults_message(&actual), expected);
-
-    Ok(())
 }
 
 #[test]
-fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
+fn lists_privileges_for_invoking_user_on_current_host() {
     let hostname = "container";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .arg("-l")
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
@@ -148,23 +138,21 @@ fn lists_privileges_for_invoking_user_on_current_host() -> Result<()> {
         "User {USERNAME} may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(strip_matching_defaults_message(&actual), expected);
-
-    Ok(())
 }
 
 #[test]
-fn works_with_uppercase_u_flag() -> Result<()> {
+fn works_with_uppercase_u_flag() {
     let hostname = "container";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-U", USERNAME, "-l"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
@@ -173,66 +161,60 @@ fn works_with_uppercase_u_flag() -> Result<()> {
         "User {USERNAME} may run the following commands on {hostname}:
     (ALL : ALL) NOPASSWD: ALL"
     );
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(strip_matching_defaults_message(&actual), expected);
-
-    Ok(())
 }
 
 #[test]
-fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() -> Result<()> {
+fn fails_with_uppercase_u_flag_when_not_allowed_in_sudoers() {
     let hostname = "container";
-    let env = Env("").user(USERNAME).hostname(hostname).build()?;
+    let env = Env("").user(USERNAME).hostname(hostname).build();
 
     let output = Command::new("sudo")
         .args(["-U", USERNAME, "-l"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
     assert_eq!(Some(0), output.status().code());
 
     let expected = format!("User {USERNAME} is not allowed to run sudo on {hostname}.");
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(actual, expected);
-
-    Ok(())
 }
 
 #[test]
-fn fails_when_user_is_not_allowed_in_sudoers_no_command() -> Result<()> {
+fn fails_when_user_is_not_allowed_in_sudoers_no_command() {
     let hostname = "container";
     let env = Env("")
         .user(User(USERNAME).password(PASSWORD))
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-S", "-l"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
     let diagnostic = format!("Sorry, user {USERNAME} may not run sudo on {hostname}.");
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn does_not_work_with_lowercase_u_flag() -> Result<()> {
+fn does_not_work_with_lowercase_u_flag() {
     let hostname = "container";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, "-l"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
 
@@ -243,22 +225,20 @@ fn does_not_work_with_lowercase_u_flag() -> Result<()> {
         "'--user' flag must be accompanied by a command"
     };
     assert_contains!(actual, diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn when_specified_multiple_times_uses_longer_format() -> Result<()> {
+fn when_specified_multiple_times_uses_longer_format() {
     let hostname = "container";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-l", "-l"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
@@ -272,78 +252,70 @@ Sudoers entry:
     Commands:
 \tALL"
     );
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(
         strip_matching_defaults_message(&actual)
             .replace(&format!("Sudoers entry: {ETC_SUDOERS}"), "Sudoers entry:"),
         expected
     );
-
-    Ok(())
 }
 
 #[test]
-fn when_command_is_specified_the_fully_qualified_path_is_displayed() -> Result<()> {
+fn when_command_is_specified_the_fully_qualified_path_is_displayed() {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/true")
         .user(USERNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-l", "true"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
 
     let expected = BIN_TRUE;
-    let actual = output.stdout()?;
+    let actual = output.stdout();
 
     assert_eq!(actual, expected);
-
-    Ok(())
 }
 
 #[test]
-fn when_several_commands_specified_only_first_displayed_with_fully_qualified_path() -> Result<()> {
+fn when_several_commands_specified_only_first_displayed_with_fully_qualified_path() {
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /usr/bin/true, /bin/ls")
         .user(USERNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-l", "true", "ls"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
 
     let expected = format!("{BIN_TRUE} ls");
-    let actual = output.stdout()?;
+    let actual = output.stdout();
 
     assert_eq!(actual, expected);
-
-    Ok(())
 }
 
 #[test]
-fn when_command_is_forbidden_exit_with_status_1_no_stderr() -> Result<()> {
+fn when_command_is_forbidden_exit_with_status_1_no_stderr() {
     let env = Env(format!("ALL ALL=(ALL:ALL) NOPASSWD: {BIN_FALSE}"))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("sudo")
         .args(["-l", "ls"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
     assert!(output.stderr().is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> {
+fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() {
     let hostname = "container";
     let env = Env(format!(
         "ALL ALL=({USERNAME}:ALL) {BIN_TRUE}
@@ -356,11 +328,11 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
     ))
     .user(USERNAME)
     .hostname(hostname)
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .args(["-l", "-U", USERNAME])
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success());
     assert!(output.stderr().is_empty());
@@ -372,14 +344,12 @@ fn uppercase_u_flag_matches_on_first_component_of_sudoers_rules() -> Result<()> 
     (root : ALL) {BIN_FALSE}
     (root : ALL) /usr/bin/whoami"
     );
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(strip_matching_defaults_message(&actual), expected);
-
-    Ok(())
 }
 
 #[test]
-fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Result<()> {
+fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() {
     let another_user = "another_user";
     let hostname = "container";
     let env = Env(format!(
@@ -389,45 +359,41 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() -> Resul
     ))
     .user(another_user)
     .hostname(hostname)
-    .build()?;
+    .build();
 
     let actual = Command::new("sudo")
         .args(["-l", "-u", another_user, "false", "pwd", "whoami"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(actual.status().success());
-    assert_eq!(format!("{BIN_FALSE} pwd whoami"), actual.stdout()?);
-
-    Ok(())
+    assert_eq!(format!("{BIN_FALSE} pwd whoami"), actual.stdout());
 }
 
 #[test]
-fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() -> Result<()> {
+fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() {
     let another_user = "another_user";
     let hostname = "container";
     let env = Env(format!("{another_user} ALL=(ALL:ALL) {BIN_LS}"))
         .user(another_user)
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let actual = Command::new("sudo")
         .args(["-l", "-u", another_user, "ls"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!actual.status().success());
     assert_eq!(Some(1), actual.status().code());
     assert!(actual.stderr().is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn resolves_command_in_invoking_users_path_fail() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) ALL").build()?;
+fn resolves_command_in_invoking_users_path_fail() {
+    let env = Env("ALL ALL=(ALL:ALL) ALL").build();
 
     let output = Command::new("env")
         .args(["-i", "sudo", "-l", "true"])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -437,52 +403,46 @@ fn resolves_command_in_invoking_users_path_fail() -> Result<()> {
         "sudo-rs: 'true': command not found"
     };
     assert_eq!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn resolves_command_in_invoking_users_path_pass() -> Result<()> {
+fn resolves_command_in_invoking_users_path_pass() {
     let expected = "/tmp/true";
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file(expected, TextFile("").chmod("100"))
-        .build()?;
+        .build();
 
     let output = Command::new("env")
         .args(["-i", "PATH=/tmp", BIN_SUDO, "-l", "true"])
-        .output(&env)?;
+        .output(&env);
 
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(actual, expected);
-
-    Ok(())
 }
 
 #[test]
-fn relative_path_pass() -> Result<()> {
+fn relative_path_pass() {
     let prog_abs_path = "/tmp/true";
     let prog_rel_path = "./true";
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .file(prog_abs_path, TextFile("").chmod("100"))
-        .build()?;
+        .build();
 
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("cd /tmp; sudo -l {prog_rel_path}"))
-        .output(&env)?;
+        .output(&env);
 
-    let actual = output.stdout()?;
+    let actual = output.stdout();
     assert_eq!(prog_rel_path, actual);
-
-    Ok(())
 }
 
 #[test]
-fn relative_path_does_not_exist() -> Result<()> {
+fn relative_path_does_not_exist() {
     let prog_rel_path = "./true";
-    let env = Env("ALL ALL=(ALL:ALL) ALL").build()?;
+    let env = Env("ALL ALL=(ALL:ALL) ALL").build();
 
-    let output = Command::new("sudo").args(["-l", "./true"]).output(&env)?;
+    let output = Command::new("sudo").args(["-l", "./true"]).output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -493,22 +453,20 @@ fn relative_path_does_not_exist() -> Result<()> {
         format!("sudo-rs: '{prog_rel_path}': command not found")
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
 fn does_not_panic_on_io_errors() -> Result<()> {
-    let env = Env("ALL ALL=(ALL:ALL) ALL").build()?;
+    let env = Env("ALL ALL=(ALL:ALL) ALL").build();
     let output = Command::new("bash")
         .args(["-c", "sudo --list | true; echo \"${PIPESTATUS[0]}\""])
-        .output(&env)?;
+        .output(&env);
 
     let stderr = output.stderr();
 
     assert!(stderr.is_empty());
 
-    let stdout = output.stdout()?.parse()?;
+    let stdout = output.stdout().parse()?;
     assert_ne!(PANIC_EXIT_CODE, stdout);
     assert_eq!(0, stdout);
 

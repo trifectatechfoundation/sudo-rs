@@ -1,36 +1,36 @@
 use sudo_test::{Command, Env, TextFile, ETC_DIR, ETC_PARENT_DIR};
 
-use crate::{Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[test]
-fn relative_path() -> Result<()> {
+fn relative_path() {
     let env = Env("@include sudoers2")
         .file(format!("{ETC_DIR}/sudoers2"), SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn absolute_path() -> Result<()> {
+fn absolute_path() {
     let env = Env("@include /root/sudoers")
         .file("/root/sudoers", SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn file_does_not_exist() -> Result<()> {
-    let env = Env("@include /etc/sudoers2").build()?;
+fn file_does_not_exist() {
+    let env = Env("@include /etc/sudoers2").build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -40,88 +40,87 @@ fn file_does_not_exist() -> Result<()> {
         "cannot open sudoers file '/etc/sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
-    Ok(())
 }
 
 #[test]
-fn whitespace_in_name_backslash() -> Result<()> {
+fn whitespace_in_name_backslash() {
     let env = Env(r"@include /etc/sudo\ ers")
         .file("/etc/sudo ers", SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn whitespace_in_name_double_quotes() -> Result<()> {
+fn whitespace_in_name_double_quotes() {
     let env = Env(r#"@include "/etc/sudo ers" "#)
         .file("/etc/sudo ers", SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn old_pound_syntax() -> Result<()> {
+fn old_pound_syntax() {
     let env = Env("#include /etc/sudoers2")
         .file("/etc/sudoers2", SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn backslash_in_name() -> Result<()> {
+fn backslash_in_name() {
     let env = Env(r"@include /etc/sudo\\ers")
         .file(r"/etc/sudo\ers", SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn backslash_in_name_double_quotes() -> Result<()> {
+fn backslash_in_name_double_quotes() {
     let env = Env(r#"@include "/etc/sudo\ers" "#)
         .file(r"/etc/sudo\ers", SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn double_quote_in_name_double_quotes() -> Result<()> {
+fn double_quote_in_name_double_quotes() {
     let env = Env(r#"@include "/etc/sudo\"ers" "#)
         .file(r#"/etc/sudo"ers"#, SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn include_loop_error_messages() -> Result<()> {
+fn include_loop_error_messages() {
     let env = Env("@include /etc/sudoers2")
         .file(r#"/etc/sudoers2"#, format!("@include {ETC_DIR}/sudoers"))
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -131,17 +130,15 @@ fn include_loop_error_messages() -> Result<()> {
         "include file limit reached opening '/etc/sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn include_loop_not_fatal() -> Result<()> {
+fn include_loop_not_fatal() {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include /etc/sudoers2"])
         .file(r#"/etc/sudoers2"#, format!("@include {ETC_DIR}/sudoers"))
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -150,20 +147,18 @@ fn include_loop_not_fatal() -> Result<()> {
         "include file limit reached opening '/etc/sudoers2'"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn permissions_check() -> Result<()> {
+fn permissions_check() {
     let env = Env("@include /etc/sudoers2")
         .file(
             r#"/etc/sudoers2"#,
             TextFile(SUDOERS_ALL_ALL_NOPASSWD).chmod("777"),
         )
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -173,17 +168,15 @@ fn permissions_check() -> Result<()> {
         "/etc/sudoers2 cannot be world-writable"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn permissions_check_not_fatal() -> Result<()> {
+fn permissions_check_not_fatal() {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include sudoers2"])
         .file(format!("{ETC_DIR}/sudoers2"), TextFile("").chmod("777"))
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -192,21 +185,19 @@ fn permissions_check_not_fatal() -> Result<()> {
         format!("{ETC_DIR}/sudoers2 cannot be world-writable")
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn ownership_check() -> Result<()> {
+fn ownership_check() {
     let env = Env("@include /etc/sudoers2")
         .file(
             r#"/etc/sudoers2"#,
             TextFile(SUDOERS_ALL_ALL_NOPASSWD).chown(USERNAME),
         )
         .user(USERNAME)
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -220,18 +211,16 @@ fn ownership_check() -> Result<()> {
         "/etc/sudoers2 must be owned by root"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn ownership_check_not_fatal() -> Result<()> {
+fn ownership_check_not_fatal() {
     let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "@include /etc/sudoers2"])
         .file(r#"/etc/sudoers2"#, TextFile("").chown(USERNAME))
         .user(USERNAME)
-        .build()?;
+        .build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(output.status().success());
     let diagnostic = if sudo_test::is_original_sudo() {
@@ -244,46 +233,44 @@ fn ownership_check_not_fatal() -> Result<()> {
         "/etc/sudoers2 must be owned by root"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "gh676"]
-fn hostname_expansion() -> Result<()> {
+fn hostname_expansion() {
     let hostname = "ship";
     let env = Env("@include /etc/sudoers.%h")
         .file(format!("/etc/sudoers.{hostname}"), SUDOERS_ALL_ALL_NOPASSWD)
         .hostname(hostname)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn relative_path_parent_directory() -> Result<()> {
+fn relative_path_parent_directory() {
     let env = Env("@include ../sudoers2")
         .file(
             format!("{ETC_PARENT_DIR}/sudoers2"),
             SUDOERS_ALL_ALL_NOPASSWD,
         )
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn relative_path_grandparent_directory() -> Result<()> {
+fn relative_path_grandparent_directory() {
     // base path is `/etc/sudoers` or `/usr/local/etc/sudoers` so grandparent does not exist
-    let env = Env("@include ../../sudoers2").build()?;
+    let env = Env("@include ../../sudoers2").build();
 
-    let output = Command::new("sudo").arg("true").output(&env)?;
+    let output = Command::new("sudo").arg("true").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -295,17 +282,16 @@ fn relative_path_grandparent_directory() -> Result<()> {
         format!("cannot open sudoers file '{path}'")
     };
     assert_contains!(output.stderr(), diagnostic);
-    Ok(())
 }
 
 #[test]
-fn relative_path_dot_slash() -> Result<()> {
+fn relative_path_dot_slash() {
     let env = Env("@include ./sudoers2")
         .file(format!("{ETC_DIR}/sudoers2"), SUDOERS_ALL_ALL_NOPASSWD)
-        .build()?;
+        .build();
 
     Command::new("sudo")
         .arg("true")
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }

@@ -1,9 +1,9 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME};
 
 #[test]
-fn flag_uppercase_u() -> Result<()> {
+fn flag_uppercase_u() {
     let other_user = "ghost";
     let hostname = "container";
 
@@ -16,13 +16,13 @@ fn flag_uppercase_u() -> Result<()> {
             .user(User(USERNAME).password(PASSWORD))
             .user(other_user)
             .hostname(hostname)
-            .build()?;
+            .build();
 
         let output = Command::new("sudo")
             .args(["-S", "-U", other_user, "-l"])
             .as_user(USERNAME)
             .stdin(PASSWORD)
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -32,12 +32,10 @@ fn flag_uppercase_u() -> Result<()> {
     );
         assert_contains!(output.stderr(), diagnostic);
     }
-
-    Ok(())
 }
 
 #[test]
-fn flag_uppercase_u_plus_command() -> Result<()> {
+fn flag_uppercase_u_plus_command() {
     let other_user = "ghost";
     let hostname = "container";
 
@@ -48,7 +46,7 @@ fn flag_uppercase_u_plus_command() -> Result<()> {
             .user(User(USERNAME).password(PASSWORD))
             .user(other_user)
             .hostname(hostname)
-            .build()?;
+            .build();
 
         // `-u` has no effect on the diagnostic
         let argss: &[&[&str]] = &[
@@ -63,7 +61,7 @@ fn flag_uppercase_u_plus_command() -> Result<()> {
                 .args(*args)
                 .as_user(USERNAME)
                 .stdin(PASSWORD)
-                .output(&env)?;
+                .output(&env);
 
             assert!(!output.status().success());
             assert_eq!(Some(1), output.status().code());
@@ -80,19 +78,17 @@ fn flag_uppercase_u_plus_command() -> Result<()> {
             }
         }
     }
-
-    Ok(())
 }
 
 #[test]
-fn other_cases() -> Result<()> {
+fn other_cases() {
     let other_user = "ghost";
     let hostname = "container";
     let env = Env("")
         .user(User(USERNAME).password(PASSWORD))
         .user(other_user)
         .hostname(hostname)
-        .build()?;
+        .build();
 
     let argss: &[&[&str]] = &[
         &["-S", "-l"],
@@ -107,7 +103,7 @@ fn other_cases() -> Result<()> {
             .args(*args)
             .as_user(USERNAME)
             .stdin(PASSWORD)
-            .output(&env)?;
+            .output(&env);
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
@@ -115,6 +111,4 @@ fn other_cases() -> Result<()> {
         let diagnostic = format!("Sorry, user {USERNAME} may not run sudo on {hostname}.");
         assert_contains!(output.stderr(), diagnostic);
     }
-
-    Ok(())
 }

@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, GROUPNAME, PASSWORD, SUDOERS_NO_LECTURE, USERNAME};
+use crate::{GROUPNAME, PASSWORD, SUDOERS_NO_LECTURE, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -22,56 +22,52 @@ macro_rules! assert_snapshot {
 }
 
 #[test]
-fn runas_alias_works() -> Result<()> {
+fn runas_alias_works() {
     let env = Env([
         "Runas_Alias OP = root, operator",
         "root ALL=(ALL:ALL) NOPASSWD: ALL",
         &format!("{USERNAME} ALL = (OP) ALL"),
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     for user in ["root", USERNAME] {
         Command::new("sudo")
             .args(["-u", "root", "-S", "true"])
             .as_user(user)
             .stdin(PASSWORD)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
     Command::new("sudo")
         .args(["-S", "true"])
         .as_user("root")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn underscore() -> Result<()> {
+fn underscore() {
     let env = Env([
         "Runas_Alias UNDER_SCORE = root, operator",
         "root ALL=(ALL:ALL) NOPASSWD: ALL",
         &format!("{USERNAME} ALL = (UNDER_SCORE) ALL"),
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     for user in ["root", USERNAME] {
         Command::new("sudo")
             .args(["-u", "root", "-S", "true"])
             .as_user(user)
             .stdin(PASSWORD)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn runas_alias_negation() -> Result<()> {
+fn runas_alias_negation() {
     let env = Env([
         "Runas_Alias OP = root, operator",
         "root ALL = (ALL:ALL) NOPASSWD: ALL",
@@ -79,13 +75,13 @@ fn runas_alias_negation() -> Result<()> {
         SUDOERS_NO_LECTURE,
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .args(["-u", "root", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -98,12 +94,10 @@ fn runas_alias_negation() -> Result<()> {
             format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
-
-    Ok(())
 }
 
 #[test]
-fn negation_on_user() -> Result<()> {
+fn negation_on_user() {
     let env = Env([
         "Runas_Alias OP = !root, operator",
         "root ALL = (ALL:ALL) NOPASSWD: ALL",
@@ -111,13 +105,13 @@ fn negation_on_user() -> Result<()> {
         SUDOERS_NO_LECTURE,
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .args(["-u", "root", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -130,34 +124,30 @@ fn negation_on_user() -> Result<()> {
             format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
-
-    Ok(())
 }
 
 #[test]
-fn double_negation() -> Result<()> {
+fn double_negation() {
     let env = Env([
         "Runas_Alias OP = root, operator",
         "root ALL=(ALL:ALL) NOPASSWD: ALL",
         &format!("{USERNAME} ALL = (!!OP) ALL"),
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     for user in ["root", USERNAME] {
         Command::new("sudo")
             .args(["-u", "root", "-S", "true"])
             .as_user(user)
             .stdin(PASSWORD)
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
+fn when_specific_user_then_as_a_different_user_is_not_allowed() {
     let env = Env([
         &format!("Runas_Alias OP = {USERNAME}, operator"),
         "ALL ALL = (OP) ALL",
@@ -165,13 +155,13 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
     ])
     .user(User(USERNAME).password(PASSWORD))
     .user(User("ghost"))
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .args(["-u", "ghost", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -185,8 +175,6 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
             format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
         );
     }
-
-    Ok(())
 }
 
 // Groupname
@@ -196,7 +184,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() -> Result<()> {
 // but not both together.
 
 #[test]
-fn alias_for_group() -> Result<()> {
+fn alias_for_group() {
     let env = Env([
         &format!("Runas_Alias OP = {GROUPNAME}"),
         &format!("{USERNAME} ALL = (:OP) NOPASSWD: ALL"),
@@ -204,19 +192,17 @@ fn alias_for_group() -> Result<()> {
     .user(User(USERNAME).password(PASSWORD))
     .user(User("otheruser"))
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn when_only_groupname_is_given_user_arg_fails() -> Result<()> {
+fn when_only_groupname_is_given_user_arg_fails() {
     let env = Env([
         &format!("Runas_Alias OP = otheruser, {GROUPNAME}"),
         &format!("{USERNAME} ALL = (:OP) NOPASSWD: ALL"),
@@ -225,19 +211,19 @@ fn when_only_groupname_is_given_user_arg_fails() -> Result<()> {
     .user(User(USERNAME).password(PASSWORD))
     .user(User("otheruser"))
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let output = Command::new("sudo")
         .args(["-u", "otheruser", "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -251,12 +237,10 @@ fn when_only_groupname_is_given_user_arg_fails() -> Result<()> {
             format!("I'm sorry ferris. I'm afraid I can't do that")
         );
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_only_username_is_given_group_arg_fails() -> Result<()> {
+fn when_only_username_is_given_group_arg_fails() {
     let env = Env([
         &format!("Runas_Alias OP = otheruser, {GROUPNAME}"),
         &format!("{USERNAME} ALL = (OP) NOPASSWD: ALL"),
@@ -265,19 +249,19 @@ fn when_only_username_is_given_group_arg_fails() -> Result<()> {
     .user(User(USERNAME).password(PASSWORD))
     .user(User("otheruser"))
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let output = Command::new("sudo")
         .args(["-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -291,12 +275,10 @@ fn when_only_username_is_given_group_arg_fails() -> Result<()> {
             format!("I'm sorry ferris. I'm afraid I can't do that")
         );
     }
-
-    Ok(())
 }
 
 #[test]
-fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
+fn user_and_group_works_when_one_is_passed_as_arg() {
     let env = Env([
         &format!("Runas_Alias OP = otheruser, {GROUPNAME}"),
         &format!("{USERNAME} ALL = (OP,{USERNAME}:OP) NOPASSWD: ALL"),
@@ -304,28 +286,26 @@ fn user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
     .user(User(USERNAME))
     .user(User("otheruser"))
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn user_and_group_succeeds_when_both_are_passed() -> Result<()> {
+fn user_and_group_succeeds_when_both_are_passed() {
     if sudo_test::is_original_sudo() {
         // TODO: original sudo should pass this test after 1.9.14b2
-        return Ok(());
+        return;
     }
 
     let env = Env([
@@ -336,20 +316,18 @@ fn user_and_group_succeeds_when_both_are_passed() -> Result<()> {
     .user(User(USERNAME).password(PASSWORD))
     .user(User("otheruser"))
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<()> {
+fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() {
     let env = Env([
         &format!("Runas_Alias GROUPALIAS = {GROUPNAME}"),
         ("Runas_Alias USERALIAS = otheruser"),
@@ -358,28 +336,26 @@ fn different_aliases_user_and_group_works_when_one_is_passed_as_arg() -> Result<
     .user(USERNAME)
     .user("otheruser")
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .args(["-g", GROUPNAME, "true"])
         .as_user("otheruser")
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn different_aliases_user_and_group_succeeds_when_both_are_passed() -> Result<()> {
+fn different_aliases_user_and_group_succeeds_when_both_are_passed() {
     if sudo_test::is_original_sudo() {
         // TODO: original sudo should pass this test after 1.9.14b2
-        return Ok(());
+        return;
     }
 
     let env = Env([
@@ -391,20 +367,18 @@ fn different_aliases_user_and_group_succeeds_when_both_are_passed() -> Result<()
     .user(User(USERNAME).password(PASSWORD))
     .user(User("otheruser"))
     .group(GROUPNAME)
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-u", "otheruser", "-g", GROUPNAME, "-S", "true"])
         .as_user(USERNAME)
         .stdin(PASSWORD)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn aliases_given_on_one_line_divided_by_colon() -> Result<()> {
+fn aliases_given_on_one_line_divided_by_colon() {
     let env = Env([
         "Runas_Alias GROUPALIAS = ALL : USERALIAS = ALL",
         "ALL ALL = (USERALIAS:GROUPALIAS) NOPASSWD: ALL",
@@ -412,35 +386,33 @@ fn aliases_given_on_one_line_divided_by_colon() -> Result<()> {
     .user(USERNAME)
     .user("otheruser")
     .group("ghost")
-    .build()?;
+    .build();
 
     Command::new("sudo")
         .args(["-u", "otheruser", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     Command::new("sudo")
         .args(["-g", "ghost", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
 #[ignore = "gh700"]
-fn keywords() -> Result<()> {
+fn keywords() {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);
         let env = Env([
             format!("Runas_Alias {bad_keyword} = root"),
             format!("ALL ALL=({bad_keyword}) ALL"),
         ])
-        .build()?;
+        .build();
 
-        let output = Command::new("sudo").arg("true").output(&env)?;
+        let output = Command::new("sudo").arg("true").output(&env);
 
         assert_contains!(output.stderr(), "syntax error");
         assert_eq!(*bad_keyword == "ALL", output.status().success());
@@ -452,14 +424,12 @@ fn keywords() -> Result<()> {
             format!("Runas_Alias {good_keyword} = root"),
             format!("ALL ALL=({good_keyword}) ALL"),
         ])
-        .build()?;
+        .build();
 
-        let output = Command::new("sudo").arg("true").output(&env)?;
+        let output = Command::new("sudo").arg("true").output(&env);
 
         let stderr = output.stderr();
         assert!(stderr.is_empty(), "{}", stderr);
         assert!(output.status().success());
     }
-
-    Ok(())
 }

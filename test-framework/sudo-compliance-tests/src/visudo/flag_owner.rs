@@ -2,77 +2,71 @@ use sudo_test::{Command, Env, TextFile, ROOT_GROUP};
 
 use crate::{
     visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, TMP_SUDOERS},
-    Result, USERNAME,
+    USERNAME,
 };
 
 #[test]
-fn when_present_changes_ownership_of_existing_file() -> Result<()> {
+fn when_present_changes_ownership_of_existing_file() {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(file_path, TextFile("").chown("root:users").chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
     Command::new("visudo")
         .args(["--owner", "--file", file_path])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let ls_output = Command::new("ls")
         .args(["-l", file_path])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert_contains!(ls_output, format!(" root {ROOT_GROUP} "));
-
-    Ok(())
 }
 
 #[test]
-fn when_absent_ownership_is_preserved() -> Result<()> {
+fn when_absent_ownership_is_preserved() {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(file_path, TextFile("").chown("root:users").chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
     Command::new("visudo")
         .args(["--file", file_path])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let ls_output = Command::new("ls")
         .args(["-l", file_path])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert_contains!(ls_output, " root users ");
-
-    Ok(())
 }
 
 #[test]
-fn etc_sudoers_ownership_is_always_changed() -> Result<()> {
+fn etc_sudoers_ownership_is_always_changed() {
     let file_path = ETC_SUDOERS;
     let env = Env(TextFile("").chown(format!("{USERNAME}:users")).chmod("777"))
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .user(USERNAME)
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
     let ls_output = Command::new("ls")
         .args(["-l", file_path])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert_contains!(ls_output, format!(" root {ROOT_GROUP} "));
-
-    Ok(())
 }
 
 #[test]
-fn flag_check() -> Result<()> {
+fn flag_check() {
     let file_path = TMP_SUDOERS;
     let env = Env("")
         .file(
@@ -81,11 +75,11 @@ fn flag_check() -> Result<()> {
         )
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
         .user(USERNAME)
-        .build()?;
+        .build();
 
     let output = Command::new("visudo")
         .args(["--check", "--owner", "--file", file_path])
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -93,6 +87,4 @@ fn flag_check() -> Result<()> {
         output.stderr(),
         format!("{file_path}: wrong owner (uid, gid) should be (0, 0)")
     );
-
-    Ok(())
 }

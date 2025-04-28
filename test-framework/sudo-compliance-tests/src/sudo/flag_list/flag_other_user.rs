@@ -1,14 +1,14 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, USERNAME};
+use crate::USERNAME;
 
 #[test]
-fn other_user_does_not_exist() -> Result<()> {
-    let env = Env("").build()?;
+fn other_user_does_not_exist() {
+    let env = Env("").build();
 
     let output = Command::new("sudo")
         .args(["-l", "-U", USERNAME])
-        .output(&env)?;
+        .output(&env);
 
     eprintln!("{}", output.stderr());
 
@@ -20,6 +20,4 @@ fn other_user_does_not_exist() -> Result<()> {
         format!("sudo-rs: user '{USERNAME}' not found")
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }

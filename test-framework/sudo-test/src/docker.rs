@@ -53,11 +53,11 @@ fn docker_build_command(tag: &str) -> StdCommand {
 
 impl Container {
     #[cfg(test)]
-    fn new(image: &str) -> Result<Self> {
+    fn new(image: &str) -> Self {
         Self::new_with_hostname(image, None)
     }
 
-    pub fn new_with_hostname(image: &str, hostname: Option<&str>) -> Result<Self> {
+    pub fn new_with_hostname(image: &str, hostname: Option<&str>) -> Self {
         let mut docker_run = docker_command();
         docker_run.args(["run", "--detach"]);
         // Disable network access for the containers. This removes the overhead
@@ -70,29 +70,37 @@ impl Container {
             docker_run.args(["--hostname", hostname]);
         }
         docker_run.args(["--rm", image]).args(DOCKER_RUN_COMMAND);
-        let id = run(&mut docker_run, None)?.stdout()?;
-        validate_docker_id(&id, &docker_run)?;
+        let id = run(&mut docker_run, None).stdout();
+        validate_docker_id(&id, &docker_run);
 
-        Ok(Container { id })
+        Container { id }
     }
 
-    pub fn output(&self, cmd: &Command) -> Result<Output> {
+    #[track_caller]
+    pub fn output(&self, cmd: &Command) -> Output {
         run(&mut self.docker_exec(cmd), cmd.get_stdin())
     }
 
-    pub fn spawn(&self, cmd: &Command) -> Result<Child> {
+    #[track_caller]
+    pub fn spawn(&self, cmd: &Command) -> Child {
         let mut docker_exec = self.docker_exec(cmd);
 
         docker_exec.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-        if let Some(stdin) = cmd.get_stdin() {
-            let mut temp_file = tempfile::tempfile()?;
-            temp_file.write_all(stdin.as_bytes())?;
-            temp_file.seek(SeekFrom::Start(0))?;
-            docker_exec.stdin(Stdio::from(temp_file));
-        }
+        let res = (|| -> Result<Child> {
+            if let Some(stdin) = cmd.get_stdin() {
+                let mut temp_file = tempfile::tempfile()?;
+                temp_file.write_all(stdin.as_bytes())?;
+                temp_file.seek(SeekFrom::Start(0))?;
+                docker_exec.stdin(Stdio::from(temp_file));
+            }
 
-        Ok(Child::new(docker_exec.spawn()?))
+            Ok(Child::new(docker_exec.spawn()?))
+        })();
+        match res {
+            Ok(child) => child,
+            Err(err) => panic!("running `{docker_exec:?}` failed: {err}"),
+        }
     }
 
     fn docker_exec(&self, cmd: &Command) -> process::Command {
@@ -113,40 +121,36 @@ impl Container {
         docker_exec
     }
 
-    pub fn cp(&self, path_in_container: &str, file_contents: &str) -> Result<()> {
-        let mut temp_file = NamedTempFile::new()?;
-        fs::write(&mut temp_file, file_contents)?;
+    pub fn cp(&self, path_in_container: &str, file_contents: &str) {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        fs::write(&mut temp_file, file_contents).unwrap();
 
         let src_path = temp_file.path().display().to_string();
         let dest_path = format!("{}:{path_in_container}", self.id);
 
-        run(docker_command().args(["cp", &src_path, &dest_path]), None)?.assert_success()?;
-
-        Ok(())
+        run(docker_command().args(["cp", &src_path, &dest_path]), None).assert_success();
     }
 
-    fn copy_profraw_data(&mut self, profraw_dir: impl AsRef<Path>) -> Result<()> {
+    fn copy_profraw_data(&mut self, profraw_dir: impl AsRef<Path>) {
         let profraw_dir = profraw_dir.as_ref();
-        fs::create_dir_all(profraw_dir)?;
+        fs::create_dir_all(profraw_dir).unwrap();
 
         self.output(Command::new("sh").args([
             "-c",
             "mkdir /tmp/profraw; find / -name '*.profraw' -exec cp {} /tmp/profraw/ \\; || true",
-        ]))?
-        .assert_success()?;
+        ]))
+        .assert_success();
 
         let src_path = format!("{}:/tmp/profraw", self.id);
         let dst_path = profraw_dir.join(&self.id).display().to_string();
-        run(docker_command().args(["cp", &src_path, &dst_path]), None)?.assert_success()?;
-
-        Ok(())
+        run(docker_command().args(["cp", &src_path, &dst_path]), None).assert_success();
     }
 }
 
 impl Drop for Container {
     fn drop(&mut self) {
         if let Ok(dir) = env::var("SUDO_TEST_PROFRAW_DIR") {
-            let _ = self.copy_profraw_data(dir);
+            self.copy_profraw_data(dir);
         }
 
         let _ = docker_command()
@@ -157,11 +161,11 @@ impl Drop for Container {
     }
 }
 
-pub fn build_base_image() -> Result<()> {
+pub fn build_base_image() {
     let repo_root = repo_root();
     let mut cmd = docker_build_command(base_image());
 
-    match SudoUnderTest::from_env()? {
+    match SudoUnderTest::from_env() {
         SudoUnderTest::Ours => {
             // On FreeBSD we build sudo-rs outside of the container. There are no pre-made FreeBSD
             // Rust container images and unlike on Linux we intend to run the exact same FreeBSD
@@ -174,8 +178,10 @@ pub fn build_base_image() -> Result<()> {
                 if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
                     cargo_cmd.stderr(Stdio::null()).stdout(Stdio::null());
                 }
-                if !cargo_cmd.status()?.success() {
-                    return Err("`cargo build --locked --features=dev --bins` failed".into());
+                if !cargo_cmd.status().unwrap().success() {
+                    eprintln!("`cargo build --locked --features=dev --bins` failed");
+                    // Panic without panic message and backtrace
+                    std::panic::resume_unwind(Box::new(()));
                 }
 
                 // Copy all binaries to a single place where the Dockerfile will find them
@@ -184,10 +190,10 @@ pub fn build_base_image() -> Result<()> {
                 match fs::create_dir(&build_dir) {
                     Ok(()) => {}
                     Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
-                    Err(e) => return Err(e.into()),
+                    Err(e) => panic!("failed to create build dir: {e}"),
                 }
                 for f in ["sudo", "su", "visudo"] {
-                    fs::copy(target_debug_dir.join(f), build_dir.join(f))?;
+                    fs::copy(target_debug_dir.join(f), build_dir.join(f)).unwrap();
                 }
             }
 
@@ -206,7 +212,8 @@ pub fn build_base_image() -> Result<()> {
                 repo_root
                     .join("test-framework/sudo-test/src")
                     .join(format!("theirs.{OS}.Dockerfile")),
-            )?;
+            )
+            .unwrap();
             cmd.arg("-").stdin(Stdio::from(f));
         }
     }
@@ -215,11 +222,11 @@ pub fn build_base_image() -> Result<()> {
         cmd.stderr(Stdio::null()).stdout(Stdio::null());
     }
 
-    if !cmd.status()?.success() {
-        return Err(format!("`{cmd:?}` failed").into());
+    if !cmd.status().unwrap().success() {
+        eprintln!("`{cmd:?}` failed");
+        // Panic without panic message and backtrace
+        std::panic::resume_unwind(Box::new(()));
     }
-
-    Ok(())
 }
 
 fn repo_root() -> PathBuf {
@@ -229,25 +236,28 @@ fn repo_root() -> PathBuf {
     path
 }
 
-fn run(cmd: &mut StdCommand, stdin: Option<&str>) -> Result<Output> {
-    if let Some(stdin) = stdin {
-        let mut temp_file = tempfile::tempfile()?;
-        temp_file.write_all(stdin.as_bytes())?;
-        temp_file.seek(SeekFrom::Start(0))?;
-        cmd.stdin(Stdio::from(temp_file));
-    }
+#[track_caller]
+fn run(cmd: &mut StdCommand, stdin: Option<&str>) -> Output {
+    let res = (|| -> Result<Output> {
+        if let Some(stdin) = stdin {
+            let mut temp_file = tempfile::tempfile()?;
+            temp_file.write_all(stdin.as_bytes())?;
+            temp_file.seek(SeekFrom::Start(0))?;
+            cmd.stdin(Stdio::from(temp_file));
+        }
 
-    cmd.output()?.try_into()
+        cmd.output()?.try_into()
+    })();
+    match res {
+        Ok(output) => output,
+        Err(err) => panic!("running `{cmd:?}` failed: {err}"),
+    }
 }
 
-fn validate_docker_id(id: &str, cmd: &StdCommand) -> Result<()> {
+fn validate_docker_id(id: &str, cmd: &StdCommand) {
     if id.chars().any(|c| !c.is_ascii_hexdigit()) {
-        return Err(
-            format!("`{cmd:?}` return what appears to be an invalid docker id: {id}").into(),
-        );
+        panic!("`{cmd:?}` return what appears to be an invalid docker id: {id}");
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -263,121 +273,111 @@ mod tests {
     const IMAGE: &str = "dougrabson/freebsd14-small:latest";
 
     #[test]
-    fn eventually_removes_container_on_drop() -> Result<()> {
+    fn eventually_removes_container_on_drop() {
         let mut check_cmd = StdCommand::new("docker");
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
         check_cmd.args(["ps", "--all", "--quiet", "--filter"]);
         check_cmd.arg(format!("id={}", docker.id));
 
-        let matches = run(&mut check_cmd, None)?.stdout()?;
+        let matches = run(&mut check_cmd, None).stdout();
         assert_eq!(1, matches.lines().count());
         drop(docker);
 
         // wait for a bit until `stop` and `--rm` have done their work
         thread::sleep(Duration::from_secs(15));
 
-        let matches = run(&mut check_cmd, None)?.stdout()?;
+        let matches = run(&mut check_cmd, None).stdout();
         assert_eq!(0, matches.lines().count());
-
-        Ok(())
     }
 
     #[test]
-    fn exec_as_root_works() -> Result<()> {
-        let docker = Container::new(IMAGE)?;
+    fn exec_as_root_works() {
+        let docker = Container::new(IMAGE);
 
-        docker.output(&Command::new("true"))?.assert_success()?;
+        docker.output(&Command::new("true")).assert_success();
 
-        let output = docker.output(&Command::new("false"))?;
+        let output = docker.output(&Command::new("false"));
         assert_eq!(Some(1), output.status.code());
-
-        Ok(())
     }
 
     #[test]
-    fn exec_as_user_named_root_works() -> Result<()> {
-        let docker = Container::new(IMAGE)?;
+    fn exec_as_user_named_root_works() {
+        let docker = Container::new(IMAGE);
 
         docker
-            .output(Command::new("true").as_user("root"))?
-            .assert_success()
+            .output(Command::new("true").as_user("root"))
+            .assert_success();
     }
 
     #[test]
-    fn exec_as_non_root_user_works() -> Result<()> {
+    fn exec_as_non_root_user_works() {
         let username = "ferris";
 
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
 
         if cfg!(target_os = "linux") {
             docker
-                .output(Command::new("useradd").arg(username))?
-                .assert_success()?;
+                .output(Command::new("useradd").arg(username))
+                .assert_success();
         } else if cfg!(target_os = "freebsd") {
             docker
-                .output(Command::new("pw").args(["useradd", username]))?
-                .assert_success()?;
+                .output(Command::new("pw").args(["useradd", username]))
+                .assert_success();
         } else {
             todo!()
         }
 
         docker
-            .output(Command::new("true").as_user(username))?
-            .assert_success()
+            .output(Command::new("true").as_user(username))
+            .assert_success();
     }
 
     #[test]
-    fn cp_works() -> Result<()> {
+    fn cp_works() {
         let path = "/tmp/file";
         let expected = "Hello, world!";
 
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
 
-        docker.cp(path, expected)?;
+        docker.cp(path, expected);
 
-        let actual = docker.output(Command::new("cat").arg(path))?.stdout()?;
+        let actual = docker.output(Command::new("cat").arg(path)).stdout();
         assert_eq!(expected, actual);
-
-        Ok(())
     }
 
     #[test]
-    fn stdin_works() -> Result<()> {
+    fn stdin_works() {
         let expected = "Hello, root!";
         let filename = "greeting";
 
-        let docker = Container::new(IMAGE)?;
+        let docker = Container::new(IMAGE);
 
         docker
-            .output(Command::new("tee").arg(filename).stdin(expected))?
-            .assert_success()?;
+            .output(Command::new("tee").arg(filename).stdin(expected))
+            .assert_success();
 
-        let actual = docker.output(Command::new("cat").arg(filename))?.stdout()?;
+        let actual = docker.output(Command::new("cat").arg(filename)).stdout();
         assert_eq!(expected, actual);
-
-        Ok(())
     }
 
     #[test]
-    fn spawn_works() -> Result<()> {
-        let docker = Container::new(IMAGE)?;
+    fn spawn_works() {
+        let docker = Container::new(IMAGE);
 
-        let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]))?;
+        let child = docker.spawn(Command::new("sh").args(["-c", "sleep 2"]));
 
         // `sh` process may not be immediately visible to `pidof` since it was spawned so wait a bit
         thread::sleep(Duration::from_millis(500));
 
         docker
-            .output(Command::new("pidof").arg("sh"))?
-            .assert_success()?;
+            .output(Command::new("pidof").arg("sh"))
+            .assert_success();
 
-        child.wait()?.assert_success()?;
+        child.wait().assert_success();
 
-        let output = docker.output(Command::new("pidof").arg("sh"))?;
+        let output = docker.output(Command::new("pidof").arg("sh"));
 
         assert!(!output.status().success());
         assert_eq!(Some(1), output.status().code());
-
-        Ok(())
     }
 }

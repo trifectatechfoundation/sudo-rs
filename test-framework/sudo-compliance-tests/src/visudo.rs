@@ -43,7 +43,7 @@ const EDITOR_DUMMY: &str = "#!/bin/sh
 echo \"#\" >> \"$2\"";
 
 #[test]
-fn default_editor_is_usr_bin_editor() -> Result<()> {
+fn default_editor_is_usr_bin_editor() {
     let expected = "default editor was called";
     let env = Env("")
         .file(
@@ -55,42 +55,38 @@ echo '{expected}' > {LOGS_PATH}"
             ))
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() -> Result<()> {
+fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() {
     let env = Env("")
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
     Command::new("rm")
         .args(["-f", ETC_SUDOERS])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
     let ls_output = Command::new("ls")
         .args(["-l", ETC_SUDOERS])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert_ls_output(&ls_output, "-r--r-----", "root", ROOT_GROUP);
-
-    Ok(())
 }
 
 #[test]
-fn errors_if_currently_being_edited() -> Result<()> {
+fn errors_if_currently_being_edited() {
     let env = Env("")
         .file(
             DEFAULT_EDITOR,
@@ -100,16 +96,16 @@ sleep 3",
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    let child = Command::new("visudo").spawn(&env)?;
+    let child = Command::new("visudo").spawn(&env);
 
     // wait until `child` has been spawned
     thread::sleep(Duration::from_secs(1));
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
-    child.wait()?.assert_success()?;
+    child.wait().assert_success();
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -117,12 +113,10 @@ sleep 3",
         output.stderr(),
         format!("visudo: {ETC_DIR}/sudoers busy, try again later")
     );
-
-    Ok(())
 }
 
 #[test]
-fn passes_temporary_file_to_editor() -> Result<()> {
+fn passes_temporary_file_to_editor() {
     let env = Env("")
         .file(
             DEFAULT_EDITOR,
@@ -132,23 +126,21 @@ echo "$@" > {LOGS_PATH}"#
             ))
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let args = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let args = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     if sudo_test::is_original_sudo() {
         assert_eq!(format!("-- {ETC_DIR}/sudoers.tmp"), args);
     } else {
         assert_snapshot!(args);
     }
-
-    Ok(())
 }
 
 #[test]
-fn temporary_file_owner_and_perms() -> Result<()> {
+fn temporary_file_owner_and_perms() {
     let editor_script = if sudo_test::is_original_sudo() {
         format!(
             r#"#!/bin/sh
@@ -163,19 +155,17 @@ ls -l /tmp/sudoers-*/sudoers > {LOGS_PATH}"#
 
     let env = Env("")
         .file(DEFAULT_EDITOR, TextFile(editor_script).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let ls_output = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let ls_output = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_ls_output(&ls_output, "-rwx------", "root", ROOT_GROUP);
-
-    Ok(())
 }
 
 #[test]
-fn saves_file_if_no_syntax_errors() -> Result<()> {
+fn saves_file_if_no_syntax_errors() {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env("")
         .file(
@@ -186,27 +176,22 @@ echo '{expected}' >> $2"#
             ))
             .chmod("100"),
         )
-        .build()?;
+        .build();
 
     Command::new("rm")
         .args(["-f", ETC_SUDOERS])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let sudoers = Command::new("cat")
-        .arg(ETC_SUDOERS)
-        .output(&env)?
-        .stdout()?;
+    let sudoers = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
 
     assert_eq!(expected, sudoers);
-
-    Ok(())
 }
 
 #[test]
-fn stderr_message_when_file_is_not_modified() -> Result<()> {
+fn stderr_message_when_file_is_not_modified() {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = EnvNoImplicit(expected)
         .file(
@@ -217,9 +202,9 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
     assert!(output.status().success());
     let stderr = output.stderr();
@@ -232,18 +217,13 @@ fn stderr_message_when_file_is_not_modified() -> Result<()> {
         assert_snapshot!(stderr);
     }
 
-    let actual = Command::new("cat")
-        .arg(ETC_SUDOERS)
-        .output(&env)?
-        .stdout()?;
+    let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn does_not_save_the_file_if_there_are_syntax_errors() -> Result<()> {
+fn does_not_save_the_file_if_there_are_syntax_errors() {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = EnvNoImplicit(expected)
         .file(
@@ -255,25 +235,20 @@ echo 'this is fine' > $2",
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
     assert!(output.status().success());
     assert_contains!(output.stderr(), "syntax error");
 
-    let actual = Command::new("cat")
-        .arg(ETC_SUDOERS)
-        .output(&env)?
-        .stdout()?;
+    let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn editor_exits_with_a_nonzero_code() -> Result<()> {
+fn editor_exits_with_a_nonzero_code() {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = EnvNoImplicit(SUDOERS_ALL_ALL_NOPASSWD)
         .file(
@@ -284,24 +259,19 @@ exit 11",
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
     assert!(output.status().success());
 
-    let actual = Command::new("cat")
-        .arg(ETC_SUDOERS)
-        .output(&env)?
-        .stdout()?;
+    let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn temporary_file_is_deleted_during_edition() -> Result<()> {
+fn temporary_file_is_deleted_during_edition() {
     let env = Env("")
         .file(
             DEFAULT_EDITOR,
@@ -311,9 +281,9 @@ rm $2",
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    let output = Command::new("visudo").output(&env)?;
+    let output = Command::new("visudo").output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -326,12 +296,10 @@ rm $2",
     } else {
         assert_snapshot!(stderr.replace(ETC_DIR, "<ETC_DIR>"));
     }
-
-    Ok(())
 }
 
 #[test]
-fn temp_file_initial_contents() -> Result<()> {
+fn temp_file_initial_contents() {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = EnvNoImplicit(expected)
         .file(
@@ -342,38 +310,34 @@ cp $2 {LOGS_PATH}"
             ))
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
-    let actual = Command::new("cat").arg(LOGS_PATH).output(&env)?.stdout()?;
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_eq!(expected, actual);
-
-    Ok(())
 }
 
 #[test]
-fn temporary_file_is_deleted_when_done() -> Result<()> {
+fn temporary_file_is_deleted_when_done() {
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env(expected)
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
-        .build()?;
+        .build();
 
-    Command::new("visudo").output(&env)?.assert_success()?;
+    Command::new("visudo").output(&env).assert_success();
 
     let output = Command::new("find")
         .args(["/tmp", "-name", "sudoers-*"])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert!(output.is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn temporary_file_is_deleted_when_terminated_by_signal() -> Result<()> {
+fn temporary_file_is_deleted_when_terminated_by_signal() {
     let kill_visudo = "/root/kill-visudo.sh";
     let expected = SUDOERS_ALL_ALL_NOPASSWD;
     let env = Env(expected)
@@ -387,25 +351,23 @@ sleep 2",
             .chmod(CHMOD_EXEC),
         )
         .file(kill_visudo, include_str!("visudo/kill-visudo.sh"))
-        .build()?;
+        .build();
 
-    let child = Command::new("visudo").spawn(&env)?;
+    let child = Command::new("visudo").spawn(&env);
 
     Command::new("sh")
         .args([kill_visudo, "-TERM"])
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
-    assert!(!child.wait()?.status().success());
+    assert!(!child.wait().status().success());
 
     let output = Command::new("find")
         .args(["/tmp", "-name", "sudoers-*"])
-        .output(&env)?
-        .stdout()?;
+        .output(&env)
+        .stdout();
 
     assert!(output.is_empty());
-
-    Ok(())
 }
 
 #[test]
@@ -420,16 +382,16 @@ echo ' ' >> $2",
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
     let output = Command::new("bash")
         .args(["-c", "visudo | true; echo \"${PIPESTATUS[0]}\""])
-        .output(&env)?;
+        .output(&env);
 
     let stderr = output.stderr();
     assert!(stderr.is_empty());
 
-    let exit_code = output.stdout()?.parse()?;
+    let exit_code = output.stdout().parse()?;
     assert_ne!(PANIC_EXIT_CODE, exit_code);
     assert_eq!(0, exit_code);
 
@@ -448,17 +410,17 @@ echo 'bad syntax' >> $2",
             )
             .chmod(CHMOD_EXEC),
         )
-        .build()?;
+        .build();
 
     let output = Command::new("bash")
         .args(["-c", "visudo | true; echo \"${PIPESTATUS[0]}\""])
-        .output(&env)?;
+        .output(&env);
 
     let stderr = output.stderr();
     assert_not_contains!(stderr, "panicked");
     assert_not_contains!(stderr, "IO error");
 
-    let exit_code = output.stdout()?.parse()?;
+    let exit_code = output.stdout().parse()?;
     assert_ne!(PANIC_EXIT_CODE, exit_code);
     // ogvisudo exits with 141 = SIGPIPE; visudo-rs exits with code 1 but the difference is not
     // relevant to this test

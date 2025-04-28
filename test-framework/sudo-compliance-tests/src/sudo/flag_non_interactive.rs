@@ -1,5 +1,5 @@
 use crate::{
-    Result, OG_SUDO_STANDARD_LECTURE, PASSWORD, SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL,
+    OG_SUDO_STANDARD_LECTURE, PASSWORD, SUDOERS_ROOT_ALL, SUDOERS_USER_ALL_ALL,
     SUDOERS_USER_ALL_NOPASSWD, USERNAME,
 };
 
@@ -7,13 +7,13 @@ use sudo_test::{Command, Env, User};
 
 /* cases where password input is expected */
 #[test]
-fn fails_if_password_needed() -> Result<()> {
-    let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
+fn fails_if_password_needed() {
+    let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build();
 
     let output = Command::new("sudo")
         .args(["-n", "true"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -32,13 +32,11 @@ fn fails_if_password_needed() -> Result<()> {
         "interactive authentication is required"
     };
     assert_contains!(stderr, diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
-    let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
+fn flag_remove_timestamp_plus_command_fails() {
+    let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -46,7 +44,7 @@ fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
             "echo {PASSWORD} | sudo -S true 2>/dev/null; sudo -n -k true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -65,37 +63,35 @@ fn flag_remove_timestamp_plus_command_fails() -> Result<()> {
         "interactive authentication is required"
     };
     assert_contains!(stderr, diagnostic);
-
-    Ok(())
 }
 
 /* cases where password input is not required */
 #[test]
-fn root() -> Result<()> {
-    let env = Env(SUDOERS_ROOT_ALL).build()?;
+fn root() {
+    let env = Env(SUDOERS_ROOT_ALL).build();
 
     Command::new("sudo")
         .args(["-n", "true"])
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn nopasswd() -> Result<()> {
-    let env = Env(SUDOERS_USER_ALL_NOPASSWD).user(USERNAME).build()?;
+fn nopasswd() {
+    let env = Env(SUDOERS_USER_ALL_NOPASSWD).user(USERNAME).build();
 
     Command::new("sudo")
         .args(["-n", "true"])
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn cached_credential() -> Result<()> {
+fn cached_credential() {
     let env = Env(SUDOERS_USER_ALL_ALL)
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
@@ -103,24 +99,22 @@ fn cached_credential() -> Result<()> {
             "echo {PASSWORD} | sudo -S true; sudo -n true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 /* misc */
 #[test]
-fn lecture_is_not_shown() -> Result<()> {
-    let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build()?;
+fn lecture_is_not_shown() {
+    let env = Env(SUDOERS_USER_ALL_ALL).user(USERNAME).build();
 
     let output = Command::new("sudo")
         .args(["-n", "true"])
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
 
     assert_not_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
-
-    Ok(())
 }

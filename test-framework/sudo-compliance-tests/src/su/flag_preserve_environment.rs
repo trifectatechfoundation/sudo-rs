@@ -1,10 +1,10 @@
 use sudo_test::{Command, Env, TextFile, User, BIN_FALSE, BIN_TRUE};
 
-use crate::{helpers, Result, PASSWORD, USERNAME};
+use crate::{helpers, PASSWORD, USERNAME};
 
 #[test]
-fn vars_home_and_shell_are_preserved_for_root() -> Result<()> {
-    let env = Env("").build()?;
+fn vars_home_and_shell_are_preserved_for_root() {
+    let env = Env("").build();
 
     let home = "my-home";
     let shell = "/usr/bin/env";
@@ -12,20 +12,18 @@ fn vars_home_and_shell_are_preserved_for_root() -> Result<()> {
         .arg(format!("HOME={home}"))
         .arg(format!("SHELL={shell}"))
         .args(["su", "--preserve-environment"])
-        .output(&env)?
-        .stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let su_env = helpers::parse_env_output(&stdout);
     dbg!(&su_env);
 
     assert_eq!(Some(home), su_env.get("HOME").copied());
     assert_eq!(Some(shell), su_env.get("SHELL").copied());
-
-    Ok(())
 }
 
 #[test]
-fn vars_home_shell_user_and_logname_are_preserved_for_reg_user() -> Result<()> {
-    let env = Env("").user(USERNAME).build()?;
+fn vars_home_shell_user_and_logname_are_preserved_for_reg_user() {
+    let env = Env("").user(USERNAME).build();
 
     let home = "my-home";
     let shell = "/usr/bin/env";
@@ -37,22 +35,20 @@ fn vars_home_shell_user_and_logname_are_preserved_for_reg_user() -> Result<()> {
         .arg(format!("USER={user}"))
         .arg(format!("LOGNAME={logname}"))
         .args(["su", "--preserve-environment"])
-        .output(&env)?
-        .stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let su_env = helpers::parse_env_output(&stdout);
     dbg!(&su_env);
 
     assert_eq!(Some(home), su_env.get("HOME").copied());
     assert_eq!(Some(shell), su_env.get("SHELL").copied());
     assert_eq!(Some(user), su_env.get("USER").copied());
     assert_eq!(Some(logname), su_env.get("LOGNAME").copied());
-
-    Ok(())
 }
 
 #[test]
-fn uses_shell_env_var_when_flag_preserve_environment_is_present() -> Result<()> {
-    let env = Env("").build()?;
+fn uses_shell_env_var_when_flag_preserve_environment_is_present() {
+    let env = Env("").build();
 
     let cases = [(BIN_TRUE, None), (BIN_FALSE, Some(1))];
 
@@ -60,21 +56,19 @@ fn uses_shell_env_var_when_flag_preserve_environment_is_present() -> Result<()> 
         let output = Command::new("env")
             .arg(format!("SHELL={shell}"))
             .args(["su", "--preserve-environment"])
-            .output(&env)?;
+            .output(&env);
 
         assert_eq!(code.is_none(), output.status().success());
         if code.is_some() {
             assert_eq!(code, output.status().code());
         }
     }
-
-    Ok(())
 }
 
 #[test]
 #[ignore = "wontfix"]
-fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
-    let env = Env("").build()?;
+fn may_be_specified_more_than_once_without_change_in_semantics() {
+    let env = Env("").build();
 
     let home = "my-home";
     let shell = "/usr/bin/env";
@@ -82,20 +76,18 @@ fn may_be_specified_more_than_once_without_change_in_semantics() -> Result<()> {
         .arg(format!("HOME={home}"))
         .arg(format!("SHELL={shell}"))
         .args(["su", "--preserve-environment", "-p"])
-        .output(&env)?
-        .stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let su_env = helpers::parse_env_output(&stdout);
     dbg!(&su_env);
 
     assert_eq!(Some(home), su_env.get("HOME").copied());
     assert_eq!(Some(shell), su_env.get("SHELL").copied());
-
-    Ok(())
 }
 
 #[test]
-fn shell_env_var_is_ignored_when_target_user_has_a_restricted_shell_and_invoking_user_is_not_root(
-) -> Result<()> {
+fn shell_env_var_is_ignored_when_target_user_has_a_restricted_shell_and_invoking_user_is_not_root()
+{
     let invoking_user = USERNAME;
     let target_user = "ghost";
     let message = "this is a restricted shell";
@@ -115,20 +107,17 @@ echo {message}"
                 .shell(restricted_shell_path)
                 .password(PASSWORD),
         )
-        .build()?;
+        .build();
 
     // restricted shell = "a shell not in /etc/shells"
-    let etc_shells = Command::new("cat")
-        .arg("/etc/shells")
-        .output(&env)?
-        .stdout()?;
+    let etc_shells = Command::new("cat").arg("/etc/shells").output(&env).stdout();
     assert_not_contains!(etc_shells, restricted_shell_path);
 
     let output = Command::new("env")
         .args(["SHELL=/usr/bin/false", "su", "-p", target_user])
         .stdin(PASSWORD)
         .as_user(invoking_user)
-        .output(&env)?;
+        .output(&env);
 
     assert!(output.status().success(), "{}", output.stderr());
     assert_contains!(
@@ -136,7 +125,5 @@ echo {message}"
         format!("su: using restricted shell {restricted_shell_path}")
     );
 
-    assert_eq!(message, output.stdout()?);
-
-    Ok(())
+    assert_eq!(message, output.stdout());
 }

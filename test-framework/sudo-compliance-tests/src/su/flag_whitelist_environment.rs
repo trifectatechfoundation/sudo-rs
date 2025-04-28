@@ -1,37 +1,35 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{helpers, Result, ENV_PATH, USERNAME};
+use crate::{helpers, ENV_PATH, USERNAME};
 
 #[test]
-fn it_works() -> Result<()> {
+fn it_works() {
     let varname1 = "SHOULD_BE_PRESERVED";
     let varval1 = "42";
     let varname2 = "SHOULD_BE_REMOVED";
     let varval2 = "24";
-    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build();
 
     let stdout = Command::new("env")
         .arg(format!("{varname1}={varval1}"))
         .arg(format!("{varname2}={varval2}"))
         .args(["su", "-w", varname1, "-l", USERNAME])
-        .output(&env)?
-        .stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let su_env = helpers::parse_env_output(&stdout);
 
     assert_eq!(Some(varval1), su_env.get(varname1).copied());
     // not in `-w` list
     assert_eq!(None, su_env.get(varname2).copied());
-
-    Ok(())
 }
 
 #[test]
-fn list_syntax() -> Result<()> {
+fn list_syntax() {
     let varname1 = "FOO";
     let varval1 = "42";
     let varname2 = "BAR";
     let varval2 = "24";
-    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build();
 
     let stdout = Command::new("env")
         .arg(format!("{varname1}={varval1}"))
@@ -43,19 +41,17 @@ fn list_syntax() -> Result<()> {
             "-l",
             USERNAME,
         ])
-        .output(&env)?
-        .stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let su_env = helpers::parse_env_output(&stdout);
 
     assert_eq!(Some(varval1), su_env.get(varname1).copied());
     assert_eq!(Some(varval2), su_env.get(varname2).copied());
-
-    Ok(())
 }
 
 #[test]
-fn cannot_preserve_home_shell_user_logname_or_path() -> Result<()> {
-    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+fn cannot_preserve_home_shell_user_logname_or_path() {
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build();
 
     let name_values = [
         ("HOME", "my-home"),
@@ -77,23 +73,21 @@ fn cannot_preserve_home_shell_user_logname_or_path() -> Result<()> {
             .collect::<Vec<_>>()
             .join(","),
     );
-    let stdout = command.args(["-l", USERNAME]).output(&env)?.stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+    let stdout = command.args(["-l", USERNAME]).output(&env).stdout();
+    let su_env = helpers::parse_env_output(&stdout);
 
     for (name, value) in name_values {
         assert_ne!(Some(value), su_env.get(name).copied());
     }
-
-    Ok(())
 }
 
 #[test]
-fn list_syntax_odd_names() -> Result<()> {
+fn list_syntax_odd_names() {
     let varname1 = " A.";
     let varval1 = "42";
     let varname2 = "1 ";
     let varval2 = "24";
-    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build();
 
     let stdout = Command::new("env")
         .arg(format!("{varname1}={varval1}"))
@@ -105,25 +99,23 @@ fn list_syntax_odd_names() -> Result<()> {
             "-l",
             USERNAME,
         ])
-        .output(&env)?
-        .stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let su_env = helpers::parse_env_output(&stdout);
 
     assert_eq!(Some(varval1), su_env.get(varname1).copied());
     assert_eq!(Some(varval2), su_env.get(varname2).copied());
-
-    Ok(())
 }
 
 #[test]
-fn when_specified_more_than_once_lists_are_merged() -> Result<()> {
+fn when_specified_more_than_once_lists_are_merged() {
     let varname1 = "FOO";
     let varval1 = "42";
     let varname2 = "BAR";
     let varval2 = "24";
     let varname3 = "BAZ";
     let varval3 = "33";
-    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build()?;
+    let env = Env("").user(User(USERNAME).shell(ENV_PATH)).build();
 
     let stdout = Command::new("env")
         .arg(format!("{varname1}={varval1}"))
@@ -138,13 +130,11 @@ fn when_specified_more_than_once_lists_are_merged() -> Result<()> {
             "-l",
             USERNAME,
         ])
-        .output(&env)?
-        .stdout()?;
-    let su_env = helpers::parse_env_output(&stdout)?;
+        .output(&env)
+        .stdout();
+    let su_env = helpers::parse_env_output(&stdout);
 
     assert_eq!(Some(varval1), su_env.get(varname1).copied());
     assert_eq!(Some(varval2), su_env.get(varname2).copied());
     assert_eq!(Some(varval3), su_env.get(varname3).copied());
-
-    Ok(())
 }

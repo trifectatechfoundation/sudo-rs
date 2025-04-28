@@ -32,7 +32,7 @@ fn base_image() -> &'static str {
 
 /// are we testing the original sudo?
 pub fn is_original_sudo() -> bool {
-    matches!(SudoUnderTest::from_env(), Ok(SudoUnderTest::Theirs))
+    matches!(SudoUnderTest::from_env(), SudoUnderTest::Theirs)
 }
 
 /// Location of the sudo pam config
@@ -50,17 +50,17 @@ enum SudoUnderTest {
 }
 
 impl SudoUnderTest {
-    fn from_env() -> Result<Self> {
+    fn from_env() -> Self {
         if let Ok(under_test) = env::var("SUDO_UNDER_TEST") {
             if under_test == "ours" {
-                Ok(Self::Ours)
+                Self::Ours
             } else if under_test == "theirs" {
-                Ok(Self::Theirs)
+                Self::Theirs
             } else {
-                Err("variable SUDO_UNDER_TEST must be set to one of: ours, theirs".into())
+                panic!("variable SUDO_UNDER_TEST must be set to one of: ours, theirs")
             }
         } else {
-            Ok(Self::Theirs)
+            Self::Theirs
         }
     }
 }
@@ -121,7 +121,8 @@ impl Command {
     ///
     /// this method panics if the requested `as_user` does not exist in the test environment. to
     /// execute a command as a non-existent user use `Command::as_user_id`
-    pub fn output(&self, env: &Env) -> Result<Output> {
+    #[track_caller]
+    pub fn output(&self, env: &Env) -> Output {
         if let Some(As::User(username)) = self.get_as() {
             assert!(
                 env.users.contains(username),
@@ -133,7 +134,8 @@ impl Command {
     }
 
     /// spawns the command in the specified test environment
-    pub fn spawn(&self, env: &Env) -> Result<Child> {
+    #[track_caller]
+    pub fn spawn(&self, env: &Env) -> Child {
         if let Some(As::User(username)) = self.get_as() {
             assert!(
                 env.users.contains(username),
@@ -281,15 +283,13 @@ impl EnvBuilder {
     /// - if any specified `group` already exists in the base image
     /// - if any specified `user` tries to use a user ID that already exists in the base image
     /// - if any specified `group` tries to use a group ID that already exists in the base image
-    pub fn build(&self) -> Result<Env> {
+    pub fn build(&self) -> Env {
         static ONCE: Once = Once::new();
-        ONCE.call_once(|| {
-            docker::build_base_image().expect("fatal error: could not build the base Docker image")
-        });
+        ONCE.call_once(docker::build_base_image);
 
-        let container = Container::new_with_hostname(base_image(), self.hostname.as_deref())?;
+        let container = Container::new_with_hostname(base_image(), self.hostname.as_deref());
 
-        let (mut usernames, user_ids) = getent_passwd(&container)?;
+        let (mut usernames, user_ids) = getent_passwd(&container);
 
         for new_user in self.users.values() {
             assert!(
@@ -306,7 +306,7 @@ impl EnvBuilder {
             }
         }
 
-        let (groupnames, group_ids) = getent_group(&container)?;
+        let (groupnames, group_ids) = getent_group(&container);
 
         for new_group in self.groups.values() {
             assert!(
@@ -325,23 +325,23 @@ impl EnvBuilder {
 
         // create groups with known IDs first to avoid collisions ..
         for group in self.groups.values().filter(|group| group.id.is_some()) {
-            group.create(&container)?;
+            group.create(&container);
         }
 
         // .. with groups that get assigned IDs dynamically
         for group in self.groups.values().filter(|group| group.id.is_none()) {
-            group.create(&container)?;
+            group.create(&container);
         }
 
         // create users with known IDs first to avoid collisions ..
         for user in self.users.values().filter(|user| user.id.is_some()) {
-            user.create(&container)?;
+            user.create(&container);
             usernames.insert(user.name.to_string());
         }
 
         // .. with users that get assigned IDs dynamically
         for user in self.users.values().filter(|user| user.id.is_none()) {
-            user.create(&container)?;
+            user.create(&container);
             usernames.insert(user.name.to_string());
         }
 
@@ -352,27 +352,27 @@ impl EnvBuilder {
                         Command::new("pw")
                             .args(["usermod", "-n", username, "-h", "0"])
                             .stdin(password),
-                    )?
-                    .assert_success()?;
+                    )
+                    .assert_success();
             } else if cfg!(target_os = "linux") {
                 container
-                    .output(Command::new("chpasswd").stdin(format!("{username}:{password}")))?
-                    .assert_success()?;
+                    .output(Command::new("chpasswd").stdin(format!("{username}:{password}")))
+                    .assert_success();
             } else {
                 todo!();
             }
         }
 
         for directory in self.directories.values() {
-            directory.create(&container)?;
+            directory.create(&container);
         }
 
         for (path, file) in &self.default_files {
-            file.create(path, &container)?;
+            file.create(path, &container);
         }
 
         for (path, file) in &self.files {
-            file.create(path, &container)?;
+            file.create(path, &container);
         }
 
         let env = Env {
@@ -385,20 +385,14 @@ impl EnvBuilder {
             // as necessary for the current container.
             // Reported upstream as https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=282539
 
-            let _ = Command::new("chmod")
-                .arg("755")
-                .arg("/home")
-                .output(&env)
-                .unwrap();
+            let _ = Command::new("chmod").arg("755").arg("/home").output(&env);
 
             if is_original_sudo() {
                 Command::new("chflags")
                     .arg("noschg")
                     .arg("/usr/bin/su")
                     .output(&env)
-                    .unwrap()
-                    .assert_success()
-                    .unwrap();
+                    .assert_success();
             }
 
             Command::new("chmod")
@@ -406,20 +400,16 @@ impl EnvBuilder {
                 .arg(BIN_SUDO)
                 .arg("/usr/bin/su")
                 .output(&env)
-                .unwrap()
-                .assert_success()
-                .unwrap();
+                .assert_success();
 
             Command::new("chmod")
                 .arg("755")
                 .arg("/usr/local/sbin")
                 .output(&env)
-                .unwrap()
-                .assert_success()
-                .unwrap();
+                .assert_success();
         }
 
-        Ok(env)
+        env
     }
 }
 
@@ -503,7 +493,7 @@ impl User {
         self
     }
 
-    fn create(&self, container: &Container) -> Result<()> {
+    fn create(&self, container: &Container) {
         if cfg!(target_os = "freebsd") {
             let mut useradd = Command::new("pw");
             useradd.arg("useradd");
@@ -521,7 +511,7 @@ impl User {
                 let group_list = self.groups.iter().cloned().collect::<Vec<_>>().join(",");
                 useradd.arg("-G").arg(group_list);
             }
-            container.output(&useradd)?.assert_success()?;
+            container.output(&useradd).assert_success();
 
             if let Some(password) = &self.password {
                 container
@@ -529,8 +519,8 @@ impl User {
                         Command::new("pw")
                             .args(["usermod", "-n", &self.name, "-h", "0"])
                             .stdin(password),
-                    )?
-                    .assert_success()?;
+                    )
+                    .assert_success();
             }
         } else if cfg!(target_os = "linux") {
             let mut useradd = Command::new("useradd");
@@ -549,18 +539,16 @@ impl User {
                 useradd.arg("--groups").arg(group_list);
             }
             useradd.arg(&self.name);
-            container.output(&useradd)?.assert_success()?;
+            container.output(&useradd).assert_success();
 
             if let Some(password) = &self.password {
                 container
-                    .output(Command::new("chpasswd").stdin(format!("{}:{password}", self.name)))?
-                    .assert_success()?;
+                    .output(Command::new("chpasswd").stdin(format!("{}:{password}", self.name)))
+                    .assert_success();
             }
         } else {
             todo!();
         }
-
-        Ok(())
     }
 }
 
@@ -613,7 +601,7 @@ impl Group {
         self
     }
 
-    fn create(&self, container: &Container) -> Result<()> {
+    fn create(&self, container: &Container) {
         if cfg!(target_os = "freebsd") {
             let mut groupadd = Command::new("pw");
             groupadd.arg("groupadd");
@@ -622,7 +610,7 @@ impl Group {
                 groupadd.arg("-g");
                 groupadd.arg(id.to_string());
             }
-            container.output(&groupadd)?.assert_success()
+            container.output(&groupadd).assert_success();
         } else if cfg!(target_os = "linux") {
             let mut groupadd = Command::new("groupadd");
             if let Some(id) = self.id {
@@ -630,7 +618,7 @@ impl Group {
                 groupadd.arg(id.to_string());
             }
             groupadd.arg(&self.name);
-            container.output(&groupadd)?.assert_success()
+            container.output(&groupadd).assert_success();
         } else {
             todo!();
         }
@@ -694,7 +682,7 @@ impl TextFile {
         self
     }
 
-    fn create(&self, path: &str, container: &Container) -> Result<()> {
+    fn create(&self, path: &str, container: &Container) {
         let mut contents = self.contents.clone();
 
         if self.trailing_newline {
@@ -705,14 +693,14 @@ impl TextFile {
             contents.pop();
         }
 
-        container.cp(path, &contents)?;
+        container.cp(path, &contents);
 
         container
-            .output(Command::new("chown").args([&self.chown, path]))?
-            .assert_success()?;
+            .output(Command::new("chown").args([&self.chown, path]))
+            .assert_success();
         container
-            .output(Command::new("chmod").args([&self.chmod, path]))?
-            .assert_success()
+            .output(Command::new("chmod").args([&self.chmod, path]))
+            .assert_success();
     }
 }
 
@@ -781,17 +769,17 @@ impl Directory {
         &self.path
     }
 
-    fn create(&self, container: &Container) -> Result<()> {
+    fn create(&self, container: &Container) {
         let path = &self.path;
         container
-            .output(Command::new("mkdir").args([path]))?
-            .assert_success()?;
+            .output(Command::new("mkdir").args([path]))
+            .assert_success();
         container
-            .output(Command::new("chown").args([&self.chown, path]))?
-            .assert_success()?;
+            .output(Command::new("chown").args([&self.chown, path]))
+            .assert_success();
         container
-            .output(Command::new("chmod").args([&self.chmod, path]))?
-            .assert_success()
+            .output(Command::new("chmod").args([&self.chmod, path]))
+            .assert_success();
     }
 }
 
@@ -811,10 +799,11 @@ impl From<&'_ str> for Directory {
     }
 }
 
-fn getent_group(container: &Container) -> Result<(HashSet<Groupname>, HashSet<u32>)> {
+#[track_caller]
+fn getent_group(container: &Container) -> (HashSet<Groupname>, HashSet<u32>) {
     let stdout = container
-        .output(Command::new("getent").arg("group"))?
-        .stdout()?;
+        .output(Command::new("getent").arg("group"))
+        .stdout();
     let mut groupnames = HashSet::new();
     let mut group_ids = HashSet::new();
     for line in stdout.lines() {
@@ -822,21 +811,22 @@ fn getent_group(container: &Container) -> Result<(HashSet<Groupname>, HashSet<u3
         match (parts.next(), parts.next(), parts.next()) {
             (Some(name), Some(_), Some(id)) => {
                 groupnames.insert(name.to_string());
-                group_ids.insert(id.parse()?);
+                group_ids.insert(id.parse().unwrap());
             }
             _ => {
-                return Err(format!("invalid `getent group` syntax: {line}").into());
+                panic!("invalid `getent group` syntax: {line}");
             }
         }
     }
 
-    Ok((groupnames, group_ids))
+    (groupnames, group_ids)
 }
 
-fn getent_passwd(container: &Container) -> Result<(HashSet<Username>, HashSet<u32>)> {
+#[track_caller]
+fn getent_passwd(container: &Container) -> (HashSet<Username>, HashSet<u32>) {
     let stdout = container
-        .output(Command::new("getent").arg("passwd"))?
-        .stdout()?;
+        .output(Command::new("getent").arg("passwd"))
+        .stdout();
     let mut usernames = HashSet::new();
     let mut user_ids = HashSet::new();
     for line in stdout.lines() {
@@ -844,15 +834,15 @@ fn getent_passwd(container: &Container) -> Result<(HashSet<Username>, HashSet<u3
         match (parts.next(), parts.next(), parts.next()) {
             (Some(name), Some(_), Some(id)) => {
                 usernames.insert(name.to_string());
-                user_ids.insert(id.parse()?);
+                user_ids.insert(id.parse().unwrap());
             }
             _ => {
-                return Err(format!("invalid `getent passwd` syntax: {line}").into());
+                panic!("invalid `getent passwd` syntax: {line}");
             }
         }
     }
 
-    Ok((usernames, user_ids))
+    (usernames, user_ids)
 }
 
 #[cfg(test)]
@@ -863,122 +853,103 @@ mod tests {
     const GROUPNAME: &str = "rustaceans";
 
     #[test]
-    fn group_creation_works() -> Result<()> {
-        let env = EnvBuilder::default().group(GROUPNAME).build()?;
+    fn group_creation_works() {
+        let env = EnvBuilder::default().group(GROUPNAME).build();
 
-        let groupnames = getent_group(&env.container)?.0;
+        let groupnames = getent_group(&env.container).0;
         assert!(groupnames.contains(GROUPNAME));
-
-        Ok(())
     }
 
     #[test]
-    fn user_creation_works() -> Result<()> {
-        let env = EnvBuilder::default().user(USERNAME).build()?;
+    fn user_creation_works() {
+        let env = EnvBuilder::default().user(USERNAME).build();
 
-        let usernames = getent_passwd(&env.container)?.0;
+        let usernames = getent_passwd(&env.container).0;
         assert!(usernames.contains(USERNAME));
-
-        Ok(())
     }
 
     #[test]
-    fn no_implicit_home_creation() -> Result<()> {
-        let env = EnvBuilder::default().user(USERNAME).build()?;
+    fn no_implicit_home_creation() {
+        let env = EnvBuilder::default().user(USERNAME).build();
 
         let output = Command::new("sh")
             .arg("-c")
             .arg(format!("[ -d /home/{USERNAME} ]"))
-            .output(&env)?;
+            .output(&env);
         assert!(!output.status().success());
-        Ok(())
     }
 
     #[test]
-    fn no_implicit_user_group_creation() -> Result<()> {
-        let env = EnvBuilder::default().user(USERNAME).build()?;
+    fn no_implicit_user_group_creation() {
+        let env = EnvBuilder::default().user(USERNAME).build();
 
         let stdout = Command::new("groups")
             .as_user(USERNAME)
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
         let groups = stdout.split(' ').collect::<HashSet<_>>();
         assert!(!groups.contains(USERNAME));
-
-        Ok(())
     }
 
     #[test]
-    fn no_password_by_default() -> Result<()> {
-        let env = EnvBuilder::default().user(USERNAME).build()?;
+    fn no_password_by_default() {
+        let env = EnvBuilder::default().user(USERNAME).build();
 
         let stdout = Command::new("passwd")
             .args(["--status", USERNAME])
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
 
         assert!(stdout.starts_with(&format!("{USERNAME} L")));
-
-        Ok(())
     }
 
     #[test]
-    fn password_assignment_works() -> Result<()> {
+    fn password_assignment_works() {
         let password = "strong-password";
         let env = Env("ALL ALL=(ALL:ALL) ALL")
             .user(User(USERNAME).password(password))
-            .build()?;
+            .build();
 
         Command::new("sudo")
             .args(["-S", "true"])
             .as_user(USERNAME)
             .stdin(password)
-            .output(&env)?
-            .assert_success()
+            .output(&env)
+            .assert_success();
     }
 
     #[test]
-    fn creating_user_part_of_existing_group_works() -> Result<()> {
+    fn creating_user_part_of_existing_group_works() {
         let groupname = "users";
         let env = EnvBuilder::default()
             .user(User(USERNAME).secondary_group(groupname))
-            .build()?;
+            .build();
 
         let stdout = Command::new("groups")
             .as_user(USERNAME)
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
         let user_groups = stdout.split(' ').collect::<HashSet<_>>();
         assert!(user_groups.contains(groupname));
-
-        Ok(())
     }
 
     #[test]
-    fn sudoers_file_get_created_with_expected_contents() -> Result<()> {
+    fn sudoers_file_get_created_with_expected_contents() {
         let expected = "Defaults !fqdn, !lecture, !mailerpath\nHello, root!";
-        let env = Env("Hello, root!").build()?;
+        let env = Env("Hello, root!").build();
 
-        let actual = Command::new("cat")
-            .arg(ETC_SUDOERS)
-            .output(&env)?
-            .stdout()?;
+        let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
         assert_eq!(expected, actual);
 
         let expected = "Hello, root!";
-        let env = EnvNoImplicit(expected).build()?;
+        let env = EnvNoImplicit(expected).build();
 
-        let actual = Command::new("cat")
-            .arg(ETC_SUDOERS)
-            .output(&env)?
-            .stdout()?;
+        let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
         assert_eq!(expected, actual);
-
-        Ok(())
     }
 
     #[test]
-    fn text_file_gets_created_with_right_perms() -> Result<()> {
+    fn text_file_gets_created_with_right_perms() {
         let chown = format!("{USERNAME}:{GROUPNAME}");
         let chmod = "600";
         let expected_contents = "hello";
@@ -987,49 +958,38 @@ mod tests {
             .user(USERNAME)
             .group(GROUPNAME)
             .file(path, TextFile(expected_contents).chown(chown).chmod(chmod))
-            .build()?;
+            .build();
 
-        let actual_contents = Command::new("cat").arg(path).output(&env)?.stdout()?;
+        let actual_contents = Command::new("cat").arg(path).output(&env).stdout();
         assert_eq!(expected_contents, &actual_contents);
 
-        let ls_l = Command::new("ls")
-            .args(["-l", path])
-            .output(&env)?
-            .stdout()?;
+        let ls_l = Command::new("ls").args(["-l", path]).output(&env).stdout();
         assert!(ls_l.starts_with("-rw-------"));
         assert!(ls_l.contains(&format!("{USERNAME} {GROUPNAME}")));
-
-        Ok(())
     }
 
     #[test]
     #[should_panic = "user root already exists in base image"]
     fn cannot_create_user_that_already_exists_in_base_image() {
-        EnvBuilder::default().user("root").build().unwrap();
+        EnvBuilder::default().user("root").build();
     }
 
     #[test]
     #[should_panic = "user ID 0 already exists in base image"]
     fn cannot_assign_user_id_that_already_exists_in_base_image() {
-        EnvBuilder::default()
-            .user(User(USERNAME).id(0))
-            .build()
-            .unwrap();
+        EnvBuilder::default().user(User(USERNAME).id(0)).build();
     }
 
     #[test]
     #[should_panic = "group root already exists in base image"]
     fn cannot_create_group_that_already_exists_in_base_image() {
-        EnvBuilder::default().group("root").build().unwrap();
+        EnvBuilder::default().group("root").build();
     }
 
     #[test]
     #[should_panic = "group ID 0 already exists in base image"]
     fn cannot_assign_group_id_that_already_exists_in_base_image() {
-        EnvBuilder::default()
-            .group(Group(GROUPNAME).id(0))
-            .build()
-            .unwrap();
+        EnvBuilder::default().group(Group(GROUPNAME).id(0)).build();
     }
 
     #[test]
@@ -1037,12 +997,12 @@ mod tests {
         let expected = 1023;
         let env = EnvBuilder::default()
             .user(User(USERNAME).id(expected))
-            .build()?;
+            .build();
 
         let actual = Command::new("id")
             .args(["-u", USERNAME])
-            .output(&env)?
-            .stdout()?
+            .output(&env)
+            .stdout()
             .parse()?;
         assert_eq!(expected, actual);
 
@@ -1050,85 +1010,77 @@ mod tests {
     }
 
     #[test]
-    fn setting_group_id_works() -> Result<()> {
+    fn setting_group_id_works() {
         let expected = 1023;
         let env = EnvBuilder::default()
             .group(Group(GROUPNAME).id(expected))
-            .build()?;
+            .build();
 
         let stdout = Command::new("getent")
             .args(["group", GROUPNAME])
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
         let actual = stdout.split(':').nth(2);
         assert_eq!(Some(expected.to_string().as_str()), actual);
-
-        Ok(())
     }
 
     #[test]
-    fn setting_hostname_works() -> Result<()> {
+    fn setting_hostname_works() {
         let expected = "container";
 
-        let env = EnvBuilder::default().hostname(expected).build()?;
+        let env = EnvBuilder::default().hostname(expected).build();
 
-        let actual = Command::new("hostname").output(&env)?.stdout()?;
+        let actual = Command::new("hostname").output(&env).stdout();
         assert_eq!(expected, actual);
-
-        Ok(())
     }
 
     #[test]
-    fn trailing_newline_by_default() -> Result<()> {
+    fn trailing_newline_by_default() {
         let path_a = "/root/a";
         let path_b = "/root/b";
         let env = EnvBuilder::default()
             .file(path_a, "hello")
             .file(path_b, "hello\n")
-            .build()?;
+            .build();
 
         let a_last_char = Command::new("tail")
             .args(["-c1", path_a])
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
         assert_eq!("", a_last_char);
 
         let b_last_char = Command::new("tail")
             .args(["-c1", path_b])
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
         assert_eq!("", b_last_char);
-
-        Ok(())
     }
 
     #[test]
-    fn no_trailing_newline() -> Result<()> {
+    fn no_trailing_newline() {
         let path_a = "/root/a";
         let path_b = "/root/b";
         let env = EnvBuilder::default()
             .file(path_a, TextFile("hello").no_trailing_newline())
             .file(path_b, TextFile("hello\n").no_trailing_newline())
-            .build()?;
+            .build();
 
         let a_last_char = Command::new("tail")
             .args(["-c1", path_a])
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
         assert_eq!("o", a_last_char);
 
         let b_last_char = Command::new("tail")
             .args(["-c1", path_b])
-            .output(&env)?
-            .stdout()?;
+            .output(&env)
+            .stdout();
 
         assert_eq!("o", b_last_char);
-
-        Ok(())
     }
 
     #[test]
-    fn directory_gets_created_with_right_perms() -> Result<()> {
+    fn directory_gets_created_with_right_perms() {
         let chown = format!("{USERNAME}:{GROUPNAME}");
         let chmod = "700";
         let path = "/tmp/dir";
@@ -1136,95 +1088,80 @@ mod tests {
             .user(USERNAME)
             .group(GROUPNAME)
             .directory(Directory(path).chown(chown).chmod(chmod))
-            .build()?;
+            .build();
 
-        let ls_al = Command::new("ls")
-            .args(["-al", path])
-            .output(&env)?
-            .stdout()?;
+        let ls_al = Command::new("ls").args(["-al", path]).output(&env).stdout();
         let dot_entry = ls_al.lines().nth(1).unwrap();
         assert!(dot_entry.ends_with(" ."));
         assert!(dot_entry.starts_with("drwx------"));
         assert!(dot_entry.contains(&format!("{USERNAME} {GROUPNAME}")));
-
-        Ok(())
     }
 
     #[test]
     #[should_panic = "mkdir: cannot create directory '/': File exists"]
     fn cannot_create_directory_that_already_exists() {
-        EnvBuilder::default().directory("/").build().unwrap();
+        EnvBuilder::default().directory("/").build();
     }
 
     #[test]
     #[should_panic = "mkdir: cannot create directory '/root/a/b': No such file or directory"]
     fn cannot_create_directory_whose_parent_does_not_exist() {
-        EnvBuilder::default()
-            .directory("/root/a/b")
-            .build()
-            .unwrap();
+        EnvBuilder::default().directory("/root/a/b").build();
     }
 
     #[test]
-    fn can_create_file_in_declared_directory() -> Result<()> {
+    fn can_create_file_in_declared_directory() {
         let dir_path = "/root/dir";
         let file_path = "/root/dir/file";
         let env = EnvBuilder::default()
             .directory(dir_path)
             .file(file_path, "")
-            .build()?;
+            .build();
 
         Command::new("sh")
             .arg("-c")
             .arg(format!("[ -d {dir_path} ]"))
-            .output(&env)?
-            .assert_success()?;
+            .output(&env)
+            .assert_success();
 
         Command::new("sh")
             .arg("-c")
             .arg(format!("[ -f {file_path} ]"))
-            .output(&env)?
-            .assert_success()?;
-
-        Ok(())
+            .output(&env)
+            .assert_success();
     }
 
     #[test]
-    fn run_as_nonexistent_user() -> Result<()> {
-        let env = EnvBuilder::default().build()?;
+    fn run_as_nonexistent_user() {
+        let env = EnvBuilder::default().build();
 
-        let output = Command::new("whoami").as_user_id(1000).output(&env)?;
+        let output = Command::new("whoami").as_user_id(1000).output(&env);
 
         assert!(!output.status().success());
         assert_eq!("whoami: cannot find name for user ID 1000", output.stderr());
-
-        Ok(())
     }
 
     #[test]
-    fn create_home_directory_works() -> Result<()> {
+    fn create_home_directory_works() {
         let env = EnvBuilder::default()
             .user(User(USERNAME).create_home_directory())
-            .build()?;
+            .build();
 
         Command::new("sh")
             .arg("-c")
             .arg(format!("[ -d /home/{USERNAME} ]"))
-            .output(&env)?
-            .assert_success()
+            .output(&env)
+            .assert_success();
     }
 
     #[test]
-    fn setting_shell_works() -> Result<()> {
+    fn setting_shell_works() {
         let expected = "/path/to/shell";
         let env = EnvBuilder::default()
             .user(User(USERNAME).shell(expected))
-            .build()?;
+            .build();
 
-        let passwd = Command::new("getent")
-            .arg("passwd")
-            .output(&env)?
-            .stdout()?;
+        let passwd = Command::new("getent").arg("passwd").output(&env).stdout();
 
         let mut found = false;
         for line in passwd.lines() {
@@ -1235,7 +1172,5 @@ mod tests {
         }
 
         assert!(found);
-
-        Ok(())
     }
 }

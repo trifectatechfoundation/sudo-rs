@@ -1,9 +1,9 @@
 use sudo_test::{Command, Env, User, BIN_TRUE};
 
-use crate::{Result, GROUPNAME, USERNAME};
+use crate::{GROUPNAME, USERNAME};
 
 #[test]
-fn when_invoking_user_is_root() -> Result<()> {
+fn when_invoking_user_is_root() {
     let argss: &[&[&str]] = &[
         &[],
         // regardless of `other_user`
@@ -14,12 +14,12 @@ fn when_invoking_user_is_root() -> Result<()> {
         &["-g", "users", "true"],
     ];
 
-    let env = Env("ALL ALL=(ALL:ALL) ALL").user(USERNAME).build()?;
+    let env = Env("ALL ALL=(ALL:ALL) ALL").user(USERNAME).build();
 
     for args in argss {
         dbg!(args);
-        let output = Command::new("sudo").arg("-l").args(*args).output(&env)?;
-        let stdout = output.stdout()?;
+        let output = Command::new("sudo").arg("-l").args(*args).output(&env);
+        let stdout = output.stdout();
         dbg!(&stdout);
 
         assert_not_contains!(stdout, "password");
@@ -35,12 +35,10 @@ fn when_invoking_user_is_root() -> Result<()> {
             assert_contains!(stdout, "User root may run the following commands on ");
         }
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_target_user_is_self() -> Result<()> {
+fn when_target_user_is_self() {
     let other_user = "ghost";
     let argss: &[&[&str]] = &[
         &["-u", USERNAME, "true"],
@@ -49,7 +47,7 @@ fn when_target_user_is_self() -> Result<()> {
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(USERNAME)
         .user(other_user)
-        .build()?;
+        .build();
 
     for args in argss {
         dbg!(args);
@@ -57,20 +55,18 @@ fn when_target_user_is_self() -> Result<()> {
             .arg("-l")
             .args(*args)
             .as_user(USERNAME)
-            .output(&env)?;
-        let stdout = output.stdout()?;
+            .output(&env);
+        let stdout = output.stdout();
         dbg!(&stdout);
 
         assert_not_contains!(stdout, "password");
         assert_not_contains!(stdout, "authenticate");
         assert_contains!(stdout, BIN_TRUE);
     }
-
-    Ok(())
 }
 
 #[test]
-fn when_invoking_user_belongs_to_target_group() -> Result<()> {
+fn when_invoking_user_belongs_to_target_group() {
     let other_user = "ghost";
     let argss: &[&[&str]] = &[
         &["-g", GROUPNAME, "true"],
@@ -82,27 +78,25 @@ fn when_invoking_user_belongs_to_target_group() -> Result<()> {
         .user(User(USERNAME).secondary_group(GROUPNAME))
         .group(GROUPNAME)
         .user(other_user)
-        .build()?;
+        .build();
     for args in argss {
         dbg!(args);
         let output = Command::new("sudo")
             .arg("-l")
             .args(*args)
             .as_user(USERNAME)
-            .output(&env)?;
-        let stdout = output.stdout()?;
+            .output(&env);
+        let stdout = output.stdout();
         dbg!(&stdout);
 
         assert_not_contains!(stdout, "password");
         assert_not_contains!(stdout, "authenticate");
         assert_contains!(stdout, BIN_TRUE);
     }
-
-    Ok(())
 }
 
 #[test]
-fn nopasswd_tag() -> Result<()> {
+fn nopasswd_tag() {
     let hostname = "container";
     let env = Env(format!(
         "{USERNAME} {hostname}=(doesnt:matter) NOPASSWD: /does/not/matter
@@ -111,13 +105,13 @@ fn nopasswd_tag() -> Result<()> {
     .user(User(USERNAME).secondary_group(GROUPNAME))
     .group(GROUPNAME)
     .hostname(hostname)
-    .build()?;
+    .build();
 
     let output = Command::new("sudo")
         .arg("-l")
         .as_user(USERNAME)
-        .output(&env)?;
-    let stdout = output.stdout()?;
+        .output(&env);
+    let stdout = output.stdout();
     dbg!(&stdout);
 
     assert_not_contains!(stdout, "password");
@@ -126,6 +120,4 @@ fn nopasswd_tag() -> Result<()> {
         stdout,
         format!("User {USERNAME} may run the following commands on ")
     );
-
-    Ok(())
 }

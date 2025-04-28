@@ -1,16 +1,16 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PASSWORD, SUDO_RS_IS_UNSTABLE, USERNAME};
+use crate::{PASSWORD, SUDO_RS_IS_UNSTABLE, USERNAME};
 
 mod remove;
 mod reset;
 mod validate;
 
 #[test]
-fn credential_caching_works() -> Result<()> {
+fn credential_caching_works() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
@@ -18,27 +18,27 @@ fn credential_caching_works() -> Result<()> {
             "set -e; echo {PASSWORD} | sudo -S true; sudo true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn by_default_credential_caching_is_local() -> Result<()> {
+fn by_default_credential_caching_is_local() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
         .arg(format!("set -e; echo {PASSWORD} | sudo -S true && true"))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()?;
+        .output(&env)
+        .assert_success();
 
     let output = Command::new("sudo")
         .arg("true")
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
@@ -49,15 +49,13 @@ fn by_default_credential_caching_is_local() -> Result<()> {
         "incorrect authentication attempt"
     };
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn credential_cache_is_shared_with_child_shell() -> Result<()> {
+fn credential_cache_is_shared_with_child_shell() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
@@ -67,15 +65,15 @@ fn credential_cache_is_shared_with_child_shell() -> Result<()> {
         .as_user(USERNAME)
         // XXX unclear why this and the tests that follow need a pseudo-TTY allocation to pass
         .tty(true)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn credential_cache_is_shared_with_parent_shell() -> Result<()> {
+fn credential_cache_is_shared_with_parent_shell() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
@@ -84,15 +82,15 @@ fn credential_cache_is_shared_with_parent_shell() -> Result<()> {
         ))
         .as_user(USERNAME)
         .tty(true)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn credential_cache_is_shared_between_sibling_shells() -> Result<()> {
+fn credential_cache_is_shared_between_sibling_shells() {
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
@@ -101,17 +99,17 @@ fn credential_cache_is_shared_between_sibling_shells() -> Result<()> {
         ))
         .as_user(USERNAME)
         .tty(true)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn cached_credential_applies_to_all_target_users() -> Result<()> {
+fn cached_credential_applies_to_all_target_users() {
     let second_target_user = "ghost";
     let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
         .user(second_target_user)
-        .build()?;
+        .build();
 
     Command::new("sh")
         .arg("-c")
@@ -119,17 +117,17 @@ fn cached_credential_applies_to_all_target_users() -> Result<()> {
             "set -e; echo {PASSWORD} | sudo -S true; sudo -u {second_target_user} true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?
-        .assert_success()
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<()> {
+fn cached_credential_not_shared_with_target_user_that_are_not_self() {
     let second_target_user = "ghost";
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).password(PASSWORD))
         .user(second_target_user)
-        .build()?;
+        .build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -137,7 +135,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<(
             "echo {PASSWORD} | sudo -u {second_target_user} -S true; sudo -u {second_target_user} env '{SUDO_RS_IS_UNSTABLE}' sudo -S true && true"
         ))
         .as_user(USERNAME)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
 
@@ -150,18 +148,16 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() -> Result<(
     };
 
     assert_contains!(output.stderr(), diagnostic);
-
-    Ok(())
 }
 
 #[test]
-fn cached_credential_shared_with_target_user_that_is_self_on_the_same_tty() -> Result<()> {
+fn cached_credential_shared_with_target_user_that_is_self_on_the_same_tty() {
     let env = Env([
         "Defaults !use_pty".to_string(),
         format!("{USERNAME} ALL=(ALL:ALL) ALL"),
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     Command::new("sh")
         .arg("-c")
@@ -170,20 +166,18 @@ fn cached_credential_shared_with_target_user_that_is_self_on_the_same_tty() -> R
         ))
         .as_user(USERNAME)
         .tty(true)
-        .output(&env)?
-        .assert_success()?;
-
-    Ok(())
+        .output(&env)
+        .assert_success();
 }
 
 #[test]
-fn cached_credential_not_shared_with_self_across_ttys() -> Result<()> {
+fn cached_credential_not_shared_with_self_across_ttys() {
     let env = Env([
         "Defaults use_pty".to_string(),
         format!("{USERNAME} ALL=(ALL:ALL) ALL"),
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -192,22 +186,20 @@ fn cached_credential_not_shared_with_self_across_ttys() -> Result<()> {
         ))
         .as_user(USERNAME)
         .tty(true)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-
-    Ok(())
 }
 
 #[test]
-fn double_negation_also_equals_never() -> Result<()> {
+fn double_negation_also_equals_never() {
     let env = Env([
         "Defaults !!use_pty".to_string(),
         format!("{USERNAME} ALL=(ALL:ALL) ALL"),
     ])
     .user(User(USERNAME).password(PASSWORD))
-    .build()?;
+    .build();
 
     let output = Command::new("sh")
         .arg("-c")
@@ -216,10 +208,8 @@ fn double_negation_also_equals_never() -> Result<()> {
         ))
         .as_user(USERNAME)
         .tty(true)
-        .output(&env)?;
+        .output(&env);
 
     assert!(!output.status().success());
     assert_eq!(Some(1), output.status().code());
-
-    Ok(())
 }
