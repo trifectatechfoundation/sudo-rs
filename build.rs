@@ -12,7 +12,7 @@ fn main() {
         "/usr/lib/zoneinfo",
         "/usr/lib/zoneinfo",
     ])
-    .unwrap_or("");
+    .expect("no zoneinfo database");
 
     let path_maildir: &str =
         get_first_path(&["/var/mail", "/var/spool/mail", "/usr/spool/mail"]).unwrap_or("/var/mail");
