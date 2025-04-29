@@ -355,7 +355,7 @@ fn invalid_directive() {
 }
 
 #[test]
-#[should_panic]
+#[should_panic = "embedded $ in username"]
 fn invalid_username() {
     parse_eval::<ast::Sudo>("User_Alias FOO = $dollar");
 }
