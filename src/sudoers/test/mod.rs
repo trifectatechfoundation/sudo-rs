@@ -36,6 +36,10 @@ impl UnixUser for Named {
     fn is_root(&self) -> bool {
         self.0 == "root"
     }
+    type Group = Named;
+    fn group(&self) -> Named {
+        Self(self.0)
+    }
 }
 
 impl UnixGroup for Named {

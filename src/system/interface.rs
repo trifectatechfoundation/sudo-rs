@@ -116,6 +116,9 @@ pub trait UnixUser {
     fn is_root(&self) -> bool;
     fn in_group_by_name(&self, _name: &CStr) -> bool;
     fn in_group_by_gid(&self, _gid: GroupId) -> bool;
+
+    type Group: UnixGroup;
+    fn group(&self) -> Self::Group;
 }
 
 pub trait UnixGroup {
@@ -142,6 +145,13 @@ impl UnixUser for super::User {
     }
     fn in_group_by_gid(&self, gid: GroupId) -> bool {
         self.groups.contains(&gid)
+    }
+    type Group = super::Group;
+    fn group(&self) -> super::Group {
+        Self::Group {
+            gid: self.gid,
+            name: None,
+        }
     }
 }
 
