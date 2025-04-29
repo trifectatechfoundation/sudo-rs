@@ -170,8 +170,9 @@ impl Sudoers {
         }
     }
 
+    //NOTE: we're going to call `self.check` in this function, so that requires self to become `mut`
     pub fn check_list_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
-        &self,
+        &mut self,
         invoking_user: &User,
         hostname: &system::Hostname,
         request: ListRequest<User, Group>,
