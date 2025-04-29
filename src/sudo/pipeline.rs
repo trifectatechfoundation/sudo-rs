@@ -74,7 +74,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     };
 
     apply_policy_to_context(&mut context, &controls)?;
-    let mut pam_context = auth_and_update_record_file(&context, &auth)?;
+    let mut pam_context = auth_and_update_record_file(&context, auth)?;
 
     // build environment
     let additional_env = pre_exec(&mut pam_context, &context.target_user.name)?;
@@ -135,7 +135,7 @@ pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
             return Err(Error::Authorization(context.current_user.name.to_string()));
         }
         Authorization::Allowed(auth, ()) => {
-            auth_and_update_record_file(&context, &auth)?;
+            auth_and_update_record_file(&context, auth)?;
         }
     }
 
@@ -144,13 +144,13 @@ pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
 
 fn auth_and_update_record_file(
     context: &Context,
-    &Authentication {
+    Authentication {
         must_authenticate,
         prior_validity,
         allowed_attempts,
         ref credential,
         pwfeedback,
-    }: &Authentication,
+    }: Authentication,
 ) -> Result<PamContext, Error> {
     let scope = RecordScope::for_process(&Process::new());
     let mut auth_status = determine_auth_status(

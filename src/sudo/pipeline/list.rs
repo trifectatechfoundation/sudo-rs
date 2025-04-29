@@ -75,7 +75,7 @@ fn auth_invoking_user(
     };
     match sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request) {
         Authorization::Allowed(auth, ()) => {
-            auth_and_update_record_file(context, &auth)?;
+            auth_and_update_record_file(context, auth)?;
             Ok(ControlFlow::Continue(()))
         }
 
