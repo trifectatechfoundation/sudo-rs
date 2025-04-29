@@ -111,10 +111,6 @@ impl Tag {
     pub fn needs_passwd(&self) -> bool {
         matches!(self.authenticate, Authenticate::None | Authenticate::Passwd)
     }
-
-    pub fn allows_setenv(&self) -> bool {
-        matches!(self.env, EnvironmentControl::Setenv)
-    }
 }
 
 /// Commands with attached attributes.

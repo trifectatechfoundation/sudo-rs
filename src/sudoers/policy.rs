@@ -88,7 +88,11 @@ impl Judgement {
                 self.settings.to_auth(tag),
                 Restrictions {
                     use_pty: self.settings.use_pty(),
-                    trust_environment: tag.allows_setenv(),
+                    trust_environment: match tag.env {
+                        super::EnvironmentControl::Implicit => self.settings.setenv(),
+                        super::EnvironmentControl::Setenv => true,
+                        super::EnvironmentControl::Nosetenv => false,
+                    },
                     env_keep: self.settings.env_keep(),
                     env_check: self.settings.env_check(),
                     chdir: match tag.cwd.as_ref() {
