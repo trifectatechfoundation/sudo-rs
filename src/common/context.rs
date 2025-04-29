@@ -31,7 +31,6 @@ pub struct Context {
     pub process: Process,
     // policy
     pub use_pty: bool,
-    pub password_feedback: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -94,7 +93,6 @@ impl Context {
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
-            password_feedback: false,
         })
     }
 
@@ -119,7 +117,6 @@ impl Context {
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
-            password_feedback: false,
         })
     }
 
@@ -164,7 +161,6 @@ impl Context {
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
-            password_feedback: false,
         })
     }
 

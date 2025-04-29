@@ -29,9 +29,6 @@ pub struct Authentication {
     pub allowed_attempts: u16,
     pub prior_validity: Duration,
     pub pwfeedback: bool,
-    #[cfg(feature = "apparmor")]
-    #[expect(dead_code)] // TODO: this attribute should be removed
-    pub apparmor_profile: Option<String>,
 }
 
 impl super::Settings {
@@ -48,8 +45,6 @@ impl super::Settings {
             } else {
                 AuthenticatingUser::InvokingUser
             },
-            #[cfg(feature = "apparmor")]
-            apparmor_profile: tag.apparmor_profile.clone(),
         }
     }
 }
@@ -63,6 +58,9 @@ pub struct Restrictions<'a> {
     pub env_check: &'a HashSet<String>,
     pub chdir: DirChange<'a>,
     pub path: Option<&'a str>,
+    #[cfg(feature = "apparmor")]
+    #[expect(dead_code)] // TODO: this attribute should be removed
+    pub apparmor_profile: Option<String>,
 }
 
 #[must_use]
@@ -101,6 +99,8 @@ impl Judgement {
                         Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
                     },
                     path: self.settings.secure_path(),
+                    #[cfg(feature = "apparmor")]
+                    apparmor_profile: tag.apparmor_profile.clone(),
                 },
             )
         } else {

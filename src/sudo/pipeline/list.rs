@@ -24,13 +24,13 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
 
     let mut sudoers = super::read_sudoers()?;
 
-    let mut context = Context::from_list_opts(cmd_opts, &mut sudoers)?;
+    let context = Context::from_list_opts(cmd_opts, &mut sudoers)?;
 
     if original_command.is_some() && !context.command.resolved {
         return Err(Error::CommandNotFound(context.command.command));
     }
 
-    if auth_invoking_user(&mut context, &sudoers, &original_command, &other_user)?.is_break() {
+    if auth_invoking_user(&context, &sudoers, &original_command, &other_user)?.is_break() {
         return Ok(());
     }
 
@@ -64,7 +64,7 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
 }
 
 fn auth_invoking_user(
-    context: &mut Context,
+    context: &Context,
     sudoers: &Sudoers,
     original_command: &Option<String>,
     other_user: &Option<User>,
@@ -75,7 +75,7 @@ fn auth_invoking_user(
     };
     match sudoers.check_list_permission(&*context.current_user, &context.hostname, list_request) {
         Authorization::Allowed(auth, ()) => {
-            auth_and_update_record_file(context, &auth)?;
+            auth_and_update_record_file(context, auth)?;
             Ok(ControlFlow::Continue(()))
         }
 

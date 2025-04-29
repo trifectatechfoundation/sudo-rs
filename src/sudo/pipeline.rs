@@ -73,8 +73,8 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
         return Err(Error::Authorization(context.current_user.name.to_string()));
     };
 
-    apply_policy_to_context(&mut context, &auth, &controls)?;
-    let mut pam_context = auth_and_update_record_file(&mut context, &auth)?;
+    apply_policy_to_context(&mut context, &controls)?;
+    let mut pam_context = auth_and_update_record_file(&context, auth)?;
 
     // build environment
     let additional_env = pre_exec(&mut pam_context, &context.target_user.name)?;
@@ -128,14 +128,14 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
     let policy = read_sudoers()?;
 
-    let mut context = Context::from_validate_opts(cmd_opts)?;
+    let context = Context::from_validate_opts(cmd_opts)?;
 
     match policy.check_validate_permission(&*context.current_user, &context.hostname) {
         Authorization::Forbidden => {
             return Err(Error::Authorization(context.current_user.name.to_string()));
         }
         Authorization::Allowed(auth, ()) => {
-            auth_and_update_record_file(&mut context, &auth)?;
+            auth_and_update_record_file(&context, auth)?;
         }
     }
 
@@ -143,14 +143,14 @@ pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
 }
 
 fn auth_and_update_record_file(
-    context: &mut Context,
-    &Authentication {
+    context: &Context,
+    Authentication {
         must_authenticate,
         prior_validity,
         allowed_attempts,
         ref credential,
-        ..
-    }: &Authentication,
+        pwfeedback,
+    }: Authentication,
 ) -> Result<PamContext, Error> {
     let scope = RecordScope::for_process(&Process::new());
     let mut auth_status = determine_auth_status(
@@ -176,7 +176,7 @@ fn auth_and_update_record_file(
         use_stdin: context.stdin,
         bell: context.bell,
         non_interactive: context.non_interactive,
-        password_feedback: context.password_feedback,
+        password_feedback: pwfeedback,
         auth_prompt: context.prompt.clone(),
         auth_user: &auth_user.name,
         requesting_user: &context.current_user.name,
@@ -205,7 +205,6 @@ fn auth_and_update_record_file(
 
 fn apply_policy_to_context(
     context: &mut Context,
-    auth: &Authentication,
     controls: &Restrictions,
 ) -> Result<(), crate::common::Error> {
     // see if the chdir flag is permitted
@@ -231,7 +230,6 @@ fn apply_policy_to_context(
     // in case the user could set these from the commandline, something more fancy
     // could be needed, but here we copy these -- perhaps we should split up the Context type
     context.use_pty = controls.use_pty;
-    context.password_feedback = auth.pwfeedback;
 
     Ok(())
 }
