@@ -160,13 +160,10 @@ impl Output {
     #[track_caller]
     pub fn assert_success(&self) {
         if !self.status.success() {
-            let exit_code = if let Some(code) = self.status.code() {
-                format!("exit code {}", code)
-            } else {
-                "a non-zero exit code".to_string()
-            };
-
-            panic!("program failed with {exit_code}. stderr:\n{}", self.stderr);
+            panic!(
+                "program failed with {} stderr:\n{}",
+                self.status, self.stderr
+            );
         }
     }
 
