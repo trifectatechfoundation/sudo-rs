@@ -69,7 +69,10 @@ fn auth_invoking_user(
     original_command: &Option<String>,
     other_user: &Option<User>,
 ) -> Result<ControlFlow<(), ()>, Error> {
+    let user = other_user.as_ref().unwrap_or(&context.current_user);
+
     let list_request = ListRequest {
+        inspected_user: user,
         target_user: &context.target_user,
         target_group: &context.target_group,
     };
@@ -87,7 +90,7 @@ fn auth_invoking_user(
 
                 println_ignore_io_error!(
                     "User {} is not allowed to run sudo on {}.",
-                    other_user.as_ref().unwrap_or(&context.current_user).name,
+                    user.name,
                     context.hostname
                 );
 
@@ -119,6 +122,7 @@ fn check_other_users_list_perms(
     original_command: &Option<String>,
 ) -> Result<(), Error> {
     let list_request = ListRequest {
+        inspected_user: other_user,
         target_user: &context.target_user,
         target_group: &context.target_group,
     };
