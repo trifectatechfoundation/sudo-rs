@@ -11,9 +11,7 @@ use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
 use crate::sudo::pam::{attempt_authenticate, init_pam, pre_exec, InitPamArgs};
-use crate::sudoers::{
-    AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
-};
+use crate::sudoers::{AuthenticatingUser, Authentication, Authorization, Judgement, Sudoers};
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{escape_os_str_lossy, Process};
@@ -69,7 +67,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
         return Err(Error::Authorization(context.current_user.name.to_string()));
     };
 
-    apply_policy_to_context(&mut context, &controls)?;
+    context.noninteractive_auth = controls.noninteractive_auth;
     let mut pam_context = auth_and_update_record_file(&context, auth)?;
 
     // build environment
@@ -96,12 +94,12 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     // prepare switch of apparmor profile
     #[cfg(feature = "apparmor")]
-    if let Some(profile) = controls.apparmor_profile {
-        crate::apparmor::set_profile_for_next_exec(&profile)
-            .map_err(|err| Error::AppArmor(profile, err))?;
+    if let Some(profile) = &controls.apparmor_profile {
+        crate::apparmor::set_profile_for_next_exec(profile)
+            .map_err(|err| Error::AppArmor(profile.clone(), err))?;
     }
 
-    let options = context.try_as_run_options()?;
+    let options = context.try_as_run_options(&controls)?;
 
     // Log after try_as_run_options to avoid logging if the command is not resolved
     log_command_execution(&context);
@@ -205,40 +203,6 @@ fn auth_and_update_record_file(
     }
 
     Ok(pam_context)
-}
-
-fn apply_policy_to_context(
-    context: &mut Context,
-    controls: &Restrictions,
-) -> Result<(), crate::common::Error> {
-    // see if the chdir flag is permitted
-    match controls.chdir {
-        DirChange::Any => {}
-        DirChange::Strict(optdir) => {
-            if let Some(chdir) = &context.chdir {
-                return Err(Error::ChDirNotAllowed {
-                    chdir: chdir.clone(),
-                    command: context.command.command.clone(),
-                });
-            } else {
-                context.chdir = optdir.cloned();
-            }
-        }
-    }
-
-    // expand tildes in the path with the users home directory
-    if let Some(dir) = context.chdir.take() {
-        context.chdir = Some(dir.expand_tilde_in_path(&context.target_user.name)?)
-    }
-
-    // in case the user could set these from the commandline, something more fancy
-    // could be needed, but here we copy these -- perhaps we should split up the Context type
-    context.use_pty = controls.use_pty;
-    context.noexec = controls.noexec;
-    context.umask = controls.umask;
-    context.noninteractive_auth = controls.noninteractive_auth;
-
-    Ok(())
 }
 
 /// This should determine what the authentication status for the given record

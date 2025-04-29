@@ -1,9 +1,10 @@
 use std::env;
 
 use crate::common::{Error, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
-use crate::exec::{RunOptions, Umask};
+use crate::exec::RunOptions;
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
+use crate::sudoers::{DirChange, Restrictions};
 use crate::system::{audit::sudo_call, Group, Hostname, Process, User};
 
 use super::{
@@ -30,9 +31,6 @@ pub struct Context {
     pub current_user: CurrentUser,
     pub process: Process,
     // policy
-    pub use_pty: bool,
-    pub noexec: bool,
-    pub umask: Umask,
     pub noninteractive_auth: bool,
     // sudoedit
     pub files_to_edit: Vec<Option<SudoPath>>,
@@ -101,9 +99,6 @@ impl Context {
             prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            use_pty: true,
-            noexec: false,
-            umask: Umask::Preserve,
             noninteractive_auth: false,
             files_to_edit: vec![],
         })
@@ -172,9 +167,6 @@ impl Context {
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            use_pty: true,
-            noexec: false,
-            umask: Umask::Preserve,
             noninteractive_auth: false,
             files_to_edit,
         })
@@ -199,9 +191,6 @@ impl Context {
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            use_pty: true,
-            noexec: false,
-            umask: Umask::Preserve,
             noninteractive_auth: false,
             files_to_edit: vec![],
         })
@@ -249,15 +238,35 @@ impl Context {
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            use_pty: true,
-            noexec: false,
-            umask: Umask::Preserve,
             noninteractive_auth: false,
             files_to_edit: vec![],
         })
     }
 
-    pub(crate) fn try_as_run_options(&self) -> Result<RunOptions<'_>, Error> {
+    pub(crate) fn try_as_run_options(
+        &self,
+        controls: &Restrictions,
+    ) -> Result<RunOptions<'_>, Error> {
+        // see if the chdir flag is permitted
+        let mut chdir = match controls.chdir {
+            DirChange::Any => self.chdir.clone(),
+            DirChange::Strict(optdir) => {
+                if let Some(chdir) = &self.chdir {
+                    return Err(Error::ChDirNotAllowed {
+                        chdir: chdir.clone(),
+                        command: self.command.command.clone(),
+                    });
+                } else {
+                    optdir.cloned()
+                }
+            }
+        };
+
+        // expand tildes in the path with the users home directory
+        if let Some(dir) = chdir.take() {
+            chdir = Some(dir.expand_tilde_in_path(&self.target_user.name)?);
+        }
+
         Ok(RunOptions {
             command: if self.command.resolved {
                 &self.command.command
@@ -266,14 +275,14 @@ impl Context {
             },
             arguments: &self.command.arguments,
             arg0: self.command.arg0.as_deref(),
-            chdir: self.chdir.as_deref(),
+            chdir: chdir.as_deref().map(ToOwned::to_owned),
             is_login: self.launch == LaunchType::Login,
             user: &self.target_user,
             group: &self.target_group,
-            umask: self.umask,
+            umask: controls.umask,
 
-            use_pty: self.use_pty,
-            noexec: self.noexec,
+            use_pty: controls.use_pty,
+            noexec: controls.noexec,
         })
     }
 }

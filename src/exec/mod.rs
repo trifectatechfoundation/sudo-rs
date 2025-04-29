@@ -12,7 +12,7 @@ use std::{
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
     time::Duration,
 };
@@ -65,7 +65,7 @@ pub struct RunOptions<'a> {
     pub command: &'a Path,
     pub arguments: &'a [String],
     pub arg0: Option<&'a Path>,
-    pub chdir: Option<&'a Path>,
+    pub chdir: Option<PathBuf>,
     pub is_login: bool,
     pub user: &'a User,
     pub group: &'a Group,
@@ -120,6 +120,7 @@ pub fn run_command(
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
     let path = options
         .chdir
+        .as_ref()
         .map(|chdir| chdir.to_owned())
         .or_else(|| options.is_login.then(|| options.user.home.clone().into()))
         .clone();

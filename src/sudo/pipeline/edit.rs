@@ -18,7 +18,7 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
         return Err(Error::Authorization(context.current_user.name.to_string()));
     };
 
-    super::apply_policy_to_context(&mut context, &controls)?;
+    context.noninteractive_auth = controls.noninteractive_auth;
     let mut pam_context = super::auth_and_update_record_file(&context, auth)?;
 
     let pid = context.process.pid;
