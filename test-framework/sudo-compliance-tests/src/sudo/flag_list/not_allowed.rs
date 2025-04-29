@@ -7,7 +7,12 @@ fn flag_uppercase_u() {
     let other_user = "ghost";
     let hostname = "container";
 
-    let sudoerss = &[String::new(), format!("{USERNAME} ALL=(ALL:ALL) /dev/null")];
+    let sudoerss = &[
+        String::new(),
+        format!("{USERNAME} ALL=(ALL:ALL) /dev/null"),
+        format!("{other_user} ALL=(ALL:ALL) /dev/null"),
+        "ALL ALL=(ALL:ALL) /dev/null".to_string(),
+    ];
 
     for sudoers in sudoerss {
         dbg!(sudoers);
@@ -27,8 +32,8 @@ fn flag_uppercase_u() {
         output.assert_exit_code(1);
 
         let diagnostic = format!(
-        "Sorry, user {USERNAME} is not allowed to execute 'list' as {other_user} on {hostname}."
-    );
+            "Sorry, user {USERNAME} is not allowed to execute 'list' as {other_user} on {hostname}."
+        );
         assert_contains!(output.stderr(), diagnostic);
     }
 }
@@ -38,7 +43,12 @@ fn flag_uppercase_u_plus_command() {
     let other_user = "ghost";
     let hostname = "container";
 
-    let sudoerss = &[String::new(), format!("{USERNAME} ALL=(ALL:ALL) /dev/null")];
+    let sudoerss = &[
+        String::new(),
+        format!("{USERNAME} ALL=(ALL:ALL) /dev/null"),
+        format!("{other_user} ALL=(ALL:ALL) /dev/null"),
+        "ALL ALL=(ALL:ALL) /dev/null".to_string(),
+    ];
 
     for sudoers in sudoerss {
         let env = Env(sudoers.as_str())
