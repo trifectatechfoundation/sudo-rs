@@ -348,7 +348,7 @@ fn expect_complete<T: Parse>(stream: &mut CharStream) -> Parsed<T> {
 /// AST constructors by hand.
 #[cfg(test)]
 pub fn parse_string<T: Parse>(text: &str) -> Parsed<T> {
-    expect_complete(&mut CharStream::new(text.chars()))
+    expect_complete(&mut CharStream::new(text))
 }
 
 #[cfg(test)]
@@ -384,7 +384,7 @@ mod test {
 
     #[test]
     fn lines_test() {
-        let input = |text: &str| parse_lines(&mut CharStream::new(text.chars()));
+        let input = |text: &str| parse_lines(&mut CharStream::new(text));
 
         let s = |text: &str| Ok(text.to_string());
         assert_eq!(input("hello\nworld\n"), vec![s("hello"), s("world")]);

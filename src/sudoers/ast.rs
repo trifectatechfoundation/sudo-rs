@@ -1,5 +1,6 @@
 use super::ast_names::UserFriendly;
 use super::basic_parser::*;
+use super::char_stream::advance;
 use super::tokens::*;
 use crate::common::SudoString;
 use crate::common::{
@@ -309,16 +310,13 @@ impl Parse for UserSpecifier {
 
         // if we see a quote, first parse the quoted text as a token and then
         // re-parse whatever we found inside; this is a lazy solution but it works
-        let begin_pos = stream.get_pos();
         if stream.eat_char('"') {
+            let begin_pos = stream.get_pos();
             let Unquoted(text, _): Unquoted<Username> = expect_nonterminal(stream)?;
-            let result = parse_user(&mut CharStream::new(text.chars()));
-            if result.is_err() {
-                unrecoverable!(pos = begin_pos, stream, "invalid user")
-            }
+            let result = parse_user(&mut CharStream::new_with_pos(&text, begin_pos))?;
             expect_syntax('"', stream)?;
 
-            result
+            Ok(result)
         } else {
             parse_user(stream)
         }
@@ -576,7 +574,13 @@ impl Parse for Sudo {
         }
 
         let start_pos = stream.get_pos();
-        if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
+        if stream.peek() == Some('"') {
+            // a quoted userlist follows; this forces us to read a userlist
+            let users = expect_nonterminal(stream)?;
+            let permissions = expect_nonterminal(stream)?;
+            make(Sudo::Spec(PermissionSpec { users, permissions }))
+        } else if let Some(users) = maybe(try_nonterminal::<SpecList<_>>(stream))? {
+            // this could be the start of a Defaults or Alias definition, so distinguish.
             // element 1 always exists (parse_list fails on an empty list)
             let key = &users[0];
             if let Some(directive) = maybe(get_directive(key, stream, start_pos))? {
@@ -692,15 +696,26 @@ fn get_directive(
         "Host_Alias" => make(HostAlias(expect_nonterminal(stream)?)),
         "Cmnd_Alias" | "Cmd_Alias" => make(CmndAlias(expect_nonterminal(stream)?)),
         "Runas_Alias" => make(RunasAlias(expect_nonterminal(stream)?)),
-        "Defaults" => {
-            //HACK: this avoids having to add "Defaults@" etc as separate tokens; but relying
-            //on positional information during parsing is of course, cheating.
+        _ if keyword.starts_with("Defaults") => {
+            //HACK #1: no space is allowed between "Defaults" and '!>@:'. The below avoids having to
+            //add "Defaults!" etc as separate tokens; but relying on positional information during
+            //parsing is of course, cheating.
+            //HACK #2: '@' can be part of a username, so it will already have been parsed;
+            //an acceptable hostname is subset of an acceptable username, so that's actually OK.
+            //This resolves an ambiguity in the grammar similarly to how MetaOrTag does that.
+            const DEFAULTS_LEN: usize = "Defaults".len();
             let allow_scope_modifier = stream.get_pos().0 == begin_pos.0
-                && stream.get_pos().1 - begin_pos.1 == "Defaults".len();
+                && (stream.get_pos().1 - begin_pos.1 == DEFAULTS_LEN
+                    || keyword.len() > DEFAULTS_LEN);
 
             let scope = if allow_scope_modifier {
-                if is_syntax('@', stream)? {
-                    ConfigScope::Host(expect_nonterminal(stream)?)
+                if keyword[DEFAULTS_LEN..].starts_with('@') {
+                    let inner_stream = &mut CharStream::new_with_pos(
+                        &keyword[DEFAULTS_LEN + 1..],
+                        advance(begin_pos, DEFAULTS_LEN + 1),
+                    );
+
+                    ConfigScope::Host(expect_nonterminal(inner_stream)?)
                 } else if is_syntax(':', stream)? {
                     ConfigScope::User(expect_nonterminal(stream)?)
                 } else if is_syntax('!', stream)? {
