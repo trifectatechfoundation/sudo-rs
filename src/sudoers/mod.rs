@@ -59,6 +59,7 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
 }
 
 pub struct ListRequest<'a, User: UnixUser, Group: UnixGroup> {
+    pub inspected_user: &'a User,
     pub target_user: &'a User,
     pub target_group: &'a Group,
 }
