@@ -1,6 +1,6 @@
-use std::{env, io};
+use std::env;
 
-use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
+use crate::common::{Error, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::exec::{RunOptions, Umask};
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
@@ -9,7 +9,7 @@ use crate::system::{audit::sudo_call, Group, Hostname, Process, User};
 use super::{
     command::CommandAndArguments,
     resolve::{resolve_shell, resolve_target_user_and_group, CurrentUser},
-    Error, SudoPath,
+    SudoPath,
 };
 
 #[derive(Debug)]
@@ -257,12 +257,12 @@ impl Context {
         })
     }
 
-    pub(crate) fn try_as_run_options(&self) -> io::Result<RunOptions<'_>> {
+    pub(crate) fn try_as_run_options(&self) -> Result<RunOptions<'_>, Error> {
         Ok(RunOptions {
             command: if self.command.resolved {
                 &self.command.command
             } else {
-                return Err(io::ErrorKind::NotFound.into());
+                return Err(Error::CommandNotFound(self.command.command.clone()));
             },
             arguments: &self.command.arguments,
             arg0: self.command.arg0.as_deref(),

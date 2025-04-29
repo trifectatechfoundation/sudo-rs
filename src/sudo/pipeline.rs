@@ -101,20 +101,14 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
             .map_err(|err| Error::AppArmor(profile, err))?;
     }
 
-    // run command and return corresponding exit code
-    let command_exit_reason = if context.command.resolved {
-        log_command_execution(&context);
+    let options = context.try_as_run_options()?;
 
-        crate::exec::run_command(
-            context
-                .try_as_run_options()
-                .map_err(|io_error| Error::Io(Some(context.command.command.clone()), io_error))?,
-            target_env,
-        )
-        .map_err(|io_error| Error::Io(Some(context.command.command), io_error))
-    } else {
-        Err(Error::CommandNotFound(context.command.command))
-    };
+    // Log after try_as_run_options to avoid logging if the command is not resolved
+    log_command_execution(&context);
+
+    // run command and return corresponding exit code
+    let command_exit_reason = crate::exec::run_command(options, target_env)
+        .map_err(|io_error| Error::Io(Some(context.command.command), io_error));
 
     pam_context.close_session();
 
