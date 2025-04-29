@@ -30,12 +30,12 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
         return Err(Error::CommandNotFound(context.command.command));
     }
 
-    if auth_invoking_user(&mut context, &sudoers, &original_command, &other_user)?.is_break() {
+    if auth_invoking_user(&mut context, &mut sudoers, &original_command, &other_user)?.is_break() {
         return Ok(());
     }
 
     if let Some(other_user) = &other_user {
-        check_other_users_list_perms(other_user, &context, &sudoers, &original_command)?;
+        check_other_users_list_perms(other_user, &context, &mut sudoers, &original_command)?;
     }
 
     if let Some(original_command) = original_command {
@@ -65,7 +65,7 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
 
 fn auth_invoking_user(
     context: &mut Context,
-    sudoers: &Sudoers,
+    sudoers: &mut Sudoers,
     original_command: &Option<String>,
     other_user: &Option<User>,
 ) -> Result<ControlFlow<(), ()>, Error> {
@@ -118,7 +118,7 @@ fn auth_invoking_user(
 fn check_other_users_list_perms(
     other_user: &User,
     context: &Context,
-    sudoers: &Sudoers,
+    sudoers: &mut Sudoers,
     original_command: &Option<String>,
 ) -> Result<(), Error> {
     let list_request = ListRequest {
