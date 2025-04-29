@@ -32,8 +32,7 @@ fn three_retries_allowed_by_default() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
 
@@ -75,8 +74,7 @@ Defaults passwd_tries=2"
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     let diagnostic = if sudo_test::is_original_sudo() {

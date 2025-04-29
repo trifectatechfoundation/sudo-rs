@@ -1,4 +1,3 @@
-use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
 use crate::{PASSWORD, USERNAME};
@@ -30,8 +29,7 @@ fn incorrect_password() {
         .as_user(USERNAME)
         .stdin("incorrect-password")
         .output(&env);
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "incorrect password attempt"
@@ -51,7 +49,7 @@ fn no_password() {
         .args(["-S", "true"])
         .as_user(USERNAME)
         .output(&env);
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "no password was provided"
@@ -88,8 +86,7 @@ fn input_longer_than_max_pam_response_size_is_handled_gracefully() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -121,8 +118,7 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() {
             .as_user(USERNAME)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let stderr = output.stderr();
         if sudo_test::is_original_sudo() {

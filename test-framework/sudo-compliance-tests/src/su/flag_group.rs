@@ -52,8 +52,7 @@ fn invoking_user_must_be_root() {
             .as_user(invoking_user)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
         assert_contains!(
             output.stderr(),
             "su: only root can specify alternative groups"

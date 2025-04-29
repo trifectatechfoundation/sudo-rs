@@ -41,8 +41,7 @@ fn dash_dash_before_flag_is_an_error() {
         .args(["--", "-u", "root", "true"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -92,8 +91,7 @@ fn dash_flag_equal_value_invalid_syntax() {
         .args(["-u=root", "id", "-u"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unknown user =root"
@@ -142,8 +140,7 @@ fn lax_validation() {
         .args(["--remove-timestamp", "-u", "root"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(output.stderr(), "usage");
 }
@@ -160,6 +157,5 @@ fn miscategorized_reset_timestamp_action() {
         ])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 }

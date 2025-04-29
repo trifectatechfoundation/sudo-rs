@@ -107,8 +107,7 @@ fn command_specified_not_by_absolute_path_is_rejected() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -342,8 +341,7 @@ fn runas_override() {
         .args(["-u", "ferris", BIN_LS])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -359,8 +357,7 @@ fn runas_override() {
 
     let second_output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
-    assert!(!second_output.status().success());
-    assert_eq!(Some(1), second_output.status().code());
+    second_output.assert_exit_code(1);
 
     let stderr = second_output.stderr();
     if sudo_test::is_original_sudo() {

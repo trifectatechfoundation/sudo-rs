@@ -218,8 +218,7 @@ fn shell_does_not_exist() {
         .args(["sudo", "-s"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -241,8 +240,7 @@ fn shell_is_not_executable() {
         .args(["sudo", "-s"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {

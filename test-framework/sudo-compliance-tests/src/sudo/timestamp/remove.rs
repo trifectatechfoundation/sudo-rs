@@ -51,8 +51,7 @@ fn has_a_user_global_effect() {
 
     let output = child.wait();
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "1 incorrect password attempt"
@@ -79,8 +78,7 @@ fn also_works_locally() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"

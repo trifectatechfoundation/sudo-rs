@@ -23,8 +23,7 @@ fn user_not_in_passwd_database_cannot_use_sudo() {
         .as_user_id(1000)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -50,8 +49,7 @@ fn closes_open_file_descriptors(tty: bool) {
 
     let output = Command::new("bash").arg(script_path).tty(tty).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(
         if tty {
@@ -88,8 +86,7 @@ fn sudo_binary_lacks_setuid_flag() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(
         output.stderr(),
@@ -111,8 +108,7 @@ fn sudo_binary_is_not_owned_by_root() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(
         output.stderr(),

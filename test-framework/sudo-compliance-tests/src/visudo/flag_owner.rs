@@ -81,8 +81,7 @@ fn flag_check() {
         .args(["--check", "--owner", "--file", file_path])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(
         output.stderr(),
         format!("{file_path}: wrong owner (uid, gid) should be (0, 0)")

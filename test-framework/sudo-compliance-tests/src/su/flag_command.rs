@@ -11,8 +11,7 @@ fn it_works() {
 
     let output = Command::new("su").args(["-c", "false"]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 }
 
 #[test]

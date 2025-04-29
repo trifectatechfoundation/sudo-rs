@@ -42,8 +42,7 @@ fn explicit_passwd_overrides_nopasswd() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!second_output.status().success());
-    assert_eq!(Some(1), second_output.status().code());
+    second_output.assert_exit_code(1);
 
     let stderr = second_output.stderr();
     if sudo_test::is_original_sudo() {

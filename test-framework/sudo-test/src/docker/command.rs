@@ -167,6 +167,20 @@ impl Output {
         }
     }
 
+    /// helper method that asserts that the program exited with the given exit code
+    ///
+    /// if it didn't the error value will include the exit code and the program's stderr
+    #[track_caller]
+    pub fn assert_exit_code(&self, code: i32) {
+        assert_ne!(code, 0, "use assert_success to check for success");
+        if self.status.code() != Some(code) {
+            panic!(
+                "program failed with {}, expected exit code {code}. stderr:\n{}",
+                self.status, self.stderr
+            );
+        }
+    }
+
     /// the collected standard output of the finished `Command`
     ///
     /// NOTE this method implicitly runs `assert_success` before granting access to `stdout`

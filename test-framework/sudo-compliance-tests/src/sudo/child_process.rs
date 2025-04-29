@@ -14,7 +14,7 @@ fn sudo_forwards_childs_exit_code() {
         .args(["sh", "-c"])
         .arg(format!("exit {expected}"))
         .output(&env);
-    assert_eq!(Some(expected), output.status().code());
+    output.assert_exit_code(expected);
 }
 
 #[test]

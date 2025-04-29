@@ -299,7 +299,7 @@ fn cannot_set_from_commandline() {
             .args([format!("{name}={value}"), "env".to_string()])
             .output(&env);
 
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
         assert_contains!(
             output.stderr(),
             format!("you are not allowed to set the following environment variables: {name}")

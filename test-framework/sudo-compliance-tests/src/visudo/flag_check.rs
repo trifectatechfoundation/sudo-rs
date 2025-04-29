@@ -26,8 +26,7 @@ fn bad_perms() {
 
     let output = Command::new("visudo").arg("-c").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(
         output.stderr(),
         format!("{ETC_DIR}/sudoers: bad permissions, should be mode 0440")
@@ -42,8 +41,7 @@ fn bad_ownership() {
 
     let output = Command::new("visudo").arg("-c").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(
         output.stderr(),
         format!("{ETC_DIR}/sudoers: wrong owner (uid, gid) should be (0, 0)")
@@ -56,8 +54,7 @@ fn bad_syntax() {
 
     let output = Command::new("visudo").arg("-c").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(output.stderr(), "syntax error");
 }
 
@@ -72,8 +69,7 @@ fn file_does_not_exist() {
 
     let output = Command::new("visudo").arg("-c").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(
         output.stderr(),
         format!("visudo: unable to open {ETC_DIR}/sudoers: No such file or directory")
@@ -99,8 +95,7 @@ fn flag_quiet_bad_perms() {
 
     let output = Command::new("visudo").args(["-c", "-q"]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert!(output.stderr().is_empty());
 }
 
@@ -113,8 +108,7 @@ fn flag_quiet_bad_ownership() {
 
     let output = Command::new("visudo").args(["-c", "-q"]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert!(output.stderr().is_empty());
 }
 
@@ -125,8 +119,7 @@ fn flag_quiet_bad_syntax() {
 
     let output = Command::new("visudo").args(["-c", "-q"]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert!(output.stderr().is_empty());
 }
 
@@ -156,8 +149,7 @@ fn flag_file_bad_syntax() {
         .args(["--check", "--file", file_path])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(output.stderr(), "syntax error");
 }
@@ -201,7 +193,6 @@ fn stdin_bad_syntax() {
         .stdin("this is fine")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(output.stderr(), "syntax error");
 }

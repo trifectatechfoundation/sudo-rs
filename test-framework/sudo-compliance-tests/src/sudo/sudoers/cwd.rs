@@ -37,8 +37,7 @@ fn non_absolute_path_is_rejected() {
         .args(["-c", "cd /; sudo pwd"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "values for \"CWD\" must start with a '/', '~', or '*'"
@@ -56,8 +55,7 @@ fn dot_slash_is_rejected() {
         .args(["-c", "cd /; sudo pwd"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "values for \"CWD\" must start with a '/', '~', or '*'"
@@ -120,8 +118,7 @@ fn path_does_not_exist() {
         .arg("cd /; sudo pwd")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(
         output.stderr(),
@@ -138,8 +135,7 @@ fn path_is_file() {
         .arg("cd /; sudo pwd")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(
         output.stderr(),
@@ -158,8 +154,7 @@ fn target_user_has_insufficient_permissions() {
         .arg(format!("cd /; sudo -u {USERNAME} pwd"))
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_contains!(
         output.stderr(),

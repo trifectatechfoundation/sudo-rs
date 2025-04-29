@@ -196,8 +196,7 @@ fn fails_when_user_is_not_allowed_in_sudoers_no_command() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = format!("Sorry, user {USERNAME} may not run sudo on {hostname}.");
     assert_contains!(output.stderr(), diagnostic);
@@ -308,8 +307,7 @@ fn when_command_is_forbidden_exit_with_status_1_no_stderr() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert!(output.stderr().is_empty());
 }
 
@@ -381,8 +379,7 @@ fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() {
         .args(["-l", "-u", another_user, "ls"])
         .output(&env);
 
-    assert!(!actual.status().success());
-    assert_eq!(Some(1), actual.status().code());
+    actual.assert_exit_code(1);
     assert!(actual.stderr().is_empty());
 }
 
@@ -394,8 +391,7 @@ fn resolves_command_in_invoking_users_path_fail() {
         .args(["-i", "sudo", "-l", "true"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: true: command not found"
     } else {
@@ -443,8 +439,7 @@ fn relative_path_does_not_exist() {
 
     let output = Command::new("sudo").args(["-l", "./true"]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("sudo: {prog_rel_path}: command not found")

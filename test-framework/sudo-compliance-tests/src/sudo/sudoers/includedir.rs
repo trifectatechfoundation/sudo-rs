@@ -34,8 +34,7 @@ fn ignores_files_with_names_ending_in_tilde() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "root is not in the sudoers file"
     } else {
@@ -54,8 +53,7 @@ fn ignores_files_with_names_that_contain_a_dot() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "root is not in the sudoers file"
     } else {
@@ -305,8 +303,7 @@ fn no_hostname_expansion() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "root is not in the sudoers file"
     } else {
@@ -324,8 +321,7 @@ fn ignores_directory_with_bad_perms() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostics = if sudo_test::is_original_sudo() {
         [
             format!("sudo: {ETC_DIR}/sudoers2.d is world writable"),
@@ -352,8 +348,7 @@ fn ignores_directory_with_bad_ownership() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostics = if sudo_test::is_original_sudo() {
         [
             if cfg!(target_os = "freebsd") {

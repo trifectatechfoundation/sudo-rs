@@ -40,8 +40,7 @@ fn when_empty_then_as_someone_else_is_not_allowed() {
         .args(["-u", USERNAME, "true"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -93,8 +92,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() {
         .args(["-u", "ghost", "true"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -110,8 +108,7 @@ fn when_specific_user_then_as_self_is_not_allowed() {
 
     let output = Command::new("sudo").args(["true"]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -141,8 +138,7 @@ fn when_only_user_is_specified_then_group_flag_is_not_allowed() {
             .as_user(user)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let diagnostic = if sudo_test::is_original_sudo() {
             format!(" is not allowed to execute '{BIN_TRUE}' as ")
@@ -185,8 +181,7 @@ fn when_specific_group_then_as_a_different_group_is_not_allowed() {
             .as_user(user)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
@@ -216,8 +211,7 @@ fn when_only_group_is_specified_then_as_some_user_is_not_allowed() {
             .as_user(user)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
@@ -299,8 +293,7 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() {
         .args(["-u", USERNAME, "true"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_TRUE}' as ferris")
@@ -327,8 +320,7 @@ fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user {USERNAME} is not allowed to execute '{BIN_TRUE}' as root:{GROUPNAME}")
@@ -394,8 +386,7 @@ fn supplemental_group_matching() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {

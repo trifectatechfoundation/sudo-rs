@@ -66,8 +66,7 @@ fn no_valid_editor_in_list() {
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_eq!(
         "visudo: no editor found (editor path = /dev/null)",
         output.stderr()
@@ -81,8 +80,7 @@ fn editors_must_be_specified_by_absolute_path() {
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(
         output.stderr(),
         "values for \"editor\" must start with a '/'"

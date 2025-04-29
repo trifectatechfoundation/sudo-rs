@@ -107,8 +107,7 @@ sleep 3",
 
     child.wait().assert_success();
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(
         output.stderr(),
         format!("visudo: {ETC_DIR}/sudoers busy, try again later")
@@ -285,8 +284,7 @@ rm $2",
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
         assert_contains!(

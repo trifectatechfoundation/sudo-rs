@@ -21,7 +21,7 @@ fn no_match() {
     let env = Env("").build();
 
     let output = Command::new("sudo").arg("true").output(&env);
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -150,8 +150,7 @@ fn negation_excludes_group_members() {
         .as_user("ghost")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -208,8 +207,7 @@ fn user_alias_works() {
         .as_user("ghost")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -275,8 +273,7 @@ User_Alias ADMINS = %users, !ghost
         .as_user("ferris")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "ferris is not in the sudoers file"
@@ -308,8 +305,7 @@ fn negated_subgroup() {
         .as_user("ferris")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     if sudo_test::is_original_sudo() {
         assert_snapshot!(output.stderr());
@@ -330,8 +326,7 @@ fn negated_supergroup() {
     for user in ["ferris", "ghost"] {
         let output = Command::new("sudo").arg("true").as_user(user).output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let stderr = output.stderr();
         if sudo_test::is_original_sudo() {

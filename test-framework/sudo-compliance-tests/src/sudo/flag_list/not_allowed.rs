@@ -24,8 +24,7 @@ fn flag_uppercase_u() {
             .stdin(PASSWORD)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let diagnostic = format!(
         "Sorry, user {USERNAME} is not allowed to execute 'list' as {other_user} on {hostname}."
@@ -63,8 +62,7 @@ fn flag_uppercase_u_plus_command() {
                 .stdin(PASSWORD)
                 .output(&env);
 
-            assert!(!output.status().success());
-            assert_eq!(Some(1), output.status().code());
+            output.assert_exit_code(1);
 
             // This is the output of older sudo versions
             if !output.stderr().contains(&format!(
@@ -105,8 +103,7 @@ fn other_cases() {
             .stdin(PASSWORD)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let diagnostic = format!("Sorry, user {USERNAME} may not run sudo on {hostname}.");
         assert_contains!(output.stderr(), diagnostic);
