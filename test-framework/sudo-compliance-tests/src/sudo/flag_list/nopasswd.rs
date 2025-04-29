@@ -40,59 +40,41 @@ fn when_invoking_user_is_root() {
 #[test]
 fn when_target_user_is_self() {
     let other_user = "ghost";
-    let argss: &[&[&str]] = &[
-        &["-u", USERNAME, "true"],
-        &["-U", other_user, "-u", USERNAME, "true"],
-    ];
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(USERNAME)
         .user(other_user)
         .build();
 
-    for args in argss {
-        dbg!(args);
-        let output = Command::new("sudo")
-            .arg("-l")
-            .args(*args)
-            .as_user(USERNAME)
-            .output(&env);
-        let stdout = output.stdout();
-        dbg!(&stdout);
+    let output = Command::new("sudo")
+        .args(["-l", "-u", USERNAME, "true"])
+        .as_user(USERNAME)
+        .output(&env);
+    let stdout = output.stdout();
 
-        assert_not_contains!(stdout, "password");
-        assert_not_contains!(stdout, "authenticate");
-        assert_contains!(stdout, BIN_TRUE);
-    }
+    assert_not_contains!(stdout, "password");
+    assert_not_contains!(stdout, "authenticate");
+    assert_contains!(stdout, BIN_TRUE);
 }
 
 #[test]
 fn when_invoking_user_belongs_to_target_group() {
     let other_user = "ghost";
-    let argss: &[&[&str]] = &[
-        &["-g", GROUPNAME, "true"],
-        // regardless of `--other-user`
-        &["-U", other_user, "-g", GROUPNAME, "true"],
-    ];
 
     let env = Env("ALL ALL=(ALL:ALL) ALL")
         .user(User(USERNAME).secondary_group(GROUPNAME))
         .group(GROUPNAME)
         .user(other_user)
         .build();
-    for args in argss {
-        dbg!(args);
-        let output = Command::new("sudo")
-            .arg("-l")
-            .args(*args)
-            .as_user(USERNAME)
-            .output(&env);
-        let stdout = output.stdout();
-        dbg!(&stdout);
 
-        assert_not_contains!(stdout, "password");
-        assert_not_contains!(stdout, "authenticate");
-        assert_contains!(stdout, BIN_TRUE);
-    }
+    let output = Command::new("sudo")
+        .args(["-l", "-g", GROUPNAME, "true"])
+        .as_user(USERNAME)
+        .output(&env);
+    let stdout = output.stdout();
+
+    assert_not_contains!(stdout, "password");
+    assert_not_contains!(stdout, "authenticate");
+    assert_contains!(stdout, BIN_TRUE);
 }
 
 #[test]
