@@ -170,23 +170,38 @@ impl Sudoers {
         }
     }
 
-    //NOTE: we're going to call `self.check` in this function, so that requires self to become `mut`
     pub fn check_list_permission<User: UnixUser + PartialEq<User>, Group: UnixGroup>(
         &mut self,
         invoking_user: &User,
         hostname: &system::Hostname,
         request: ListRequest<User, Group>,
     ) -> Authorization {
-        // exception: if user is root or does not switch users, NOPASSWD is implied
-        let skip_passwd = invoking_user.is_root()
-            || (request.target_user == invoking_user
-                && in_group(invoking_user, request.target_group));
+        let skip_passwd;
+        let mut flags = if request.inspected_user != invoking_user {
+            skip_passwd = invoking_user.is_root();
 
-        let mut flags = self
-            .matching_user_specs(invoking_user, hostname)
-            .flatten()
-            .map(|(_, (tag, _))| tag)
-            .max_by_key(|tag| !tag.needs_passwd());
+            self.check(
+                invoking_user,
+                hostname,
+                Request {
+                    user: request.inspected_user,
+                    group: &request.inspected_user.group(),
+                    command: Path::new("list"),
+                    arguments: &[],
+                },
+            )
+            .flags
+            .or(invoking_user.is_root().then(Tag::default))
+        } else {
+            skip_passwd = invoking_user.is_root()
+                || (request.target_user == invoking_user
+                    && in_group(invoking_user, request.target_group));
+
+            self.matching_user_specs(invoking_user, hostname)
+                .flatten()
+                .map(|(_, (tag, _))| tag)
+                .max_by_key(|tag| !tag.needs_passwd())
+        };
 
         if let Some(tag) = flags.as_mut() {
             if skip_passwd {
