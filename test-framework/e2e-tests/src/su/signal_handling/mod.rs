@@ -18,7 +18,7 @@ fn signal_sent_by_child_process_is_ignored() {
         .arg("root")
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
 }
 
@@ -56,7 +56,7 @@ fn child_terminated_by_signal() {
     // child process sends SIGTERM to itself
     let output = Command::new("su").arg("-c").arg("kill $$").output(&env);
 
-    assert_eq!(Some(143), output.status().code());
+    output.assert_exit_code(143);
     assert!(output.stderr().is_empty());
 }
 

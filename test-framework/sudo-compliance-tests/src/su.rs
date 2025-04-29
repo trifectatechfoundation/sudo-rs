@@ -48,8 +48,7 @@ fn target_user_must_exist_in_passwd_db() {
         .args([USERNAME, "-c", "true"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user {USERNAME} does not exist or the user entry does not contain all the required fields")
@@ -94,8 +93,7 @@ fn required_password_is_target_users_fail() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "Authentication failure"
@@ -128,8 +126,7 @@ fn password_is_required_when_target_user_is_self() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "Authentication failure"

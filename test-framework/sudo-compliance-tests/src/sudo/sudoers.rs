@@ -93,7 +93,7 @@ fn cannot_sudo_if_sudoers_file_is_world_writable() {
     let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chmod("446")).build();
 
     let output = Command::new("sudo").arg("true").output(&env);
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers is world writable")
@@ -112,7 +112,7 @@ fn cannot_sudo_if_sudoers_file_is_group_writable() {
     .build();
 
     let output = Command::new("sudo").arg("true").output(&env);
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers is owned by gid 1234, should be 0")
@@ -127,7 +127,7 @@ fn can_sudo_if_sudoers_file_is_owner_writable() {
     let env = Env(TextFile(SUDOERS_ROOT_ALL_NOPASSWD).chmod("644")).build();
 
     let output = Command::new("sudo").arg("true").output(&env);
-    assert_eq!(Some(0), output.status().code());
+    output.assert_success();
 }
 
 #[test]
@@ -137,7 +137,7 @@ fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() {
         .build();
 
     let output = Command::new("sudo").arg("true").output(&env);
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("{ETC_DIR}/sudoers is owned by uid 1234, should be 0")
@@ -160,8 +160,7 @@ fn user_specifications_evaluated_bottom_to_top() {
         .args(["-S", "true"])
         .as_user(USERNAME)
         .output(&env);
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "no password was provided"

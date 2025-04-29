@@ -139,8 +139,7 @@ fn unassigned_group_id_is_rejected() {
             .as_user(user)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let stderr = output.stderr();
         if sudo_test::is_original_sudo() {
@@ -161,8 +160,7 @@ fn group_does_not_exist() {
             .as_user(user)
             .output(&env);
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
 
         let diagnostic = if sudo_test::is_original_sudo() {
             "unknown group ghosts"

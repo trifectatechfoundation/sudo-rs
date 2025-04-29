@@ -160,13 +160,24 @@ impl Output {
     #[track_caller]
     pub fn assert_success(&self) {
         if !self.status.success() {
-            let exit_code = if let Some(code) = self.status.code() {
-                format!("exit code {}", code)
-            } else {
-                "a non-zero exit code".to_string()
-            };
+            panic!(
+                "program failed with {} stderr:\n{}",
+                self.status, self.stderr
+            );
+        }
+    }
 
-            panic!("program failed with {exit_code}. stderr:\n{}", self.stderr);
+    /// helper method that asserts that the program exited with the given exit code
+    ///
+    /// if it didn't the error value will include the exit code and the program's stderr
+    #[track_caller]
+    pub fn assert_exit_code(&self, code: i32) {
+        assert_ne!(code, 0, "use assert_success to check for success");
+        if self.status.code() != Some(code) {
+            panic!(
+                "program failed with {}, expected exit code {code}. stderr:\n{}",
+                self.status, self.stderr
+            );
         }
     }
 

@@ -14,8 +14,7 @@ ALL ALL=(ALL:ALL) ALL")
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         if cfg!(not(target_os = "linux")) {
@@ -46,8 +45,7 @@ fn other_user_has_nopasswd_tag() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         if cfg!(not(target_os = "linux")) {

@@ -175,9 +175,6 @@ pub fn build_base_image() {
                 let mut cargo_cmd = StdCommand::new("cargo");
                 cargo_cmd.args(["build", "--locked", "--features=dev", "--bins"]);
                 cargo_cmd.current_dir(&repo_root);
-                if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
-                    cargo_cmd.stderr(Stdio::null()).stdout(Stdio::null());
-                }
                 if !cargo_cmd.status().unwrap().success() {
                     eprintln!("`cargo build --locked --features=dev --bins` failed");
                     // Panic without panic message and backtrace
@@ -216,10 +213,6 @@ pub fn build_base_image() {
             .unwrap();
             cmd.arg("-").stdin(Stdio::from(f));
         }
-    }
-
-    if env::var_os("SUDO_TEST_VERBOSE_DOCKER_BUILD").is_none() {
-        cmd.stderr(Stdio::null()).stdout(Stdio::null());
     }
 
     if !cmd.status().unwrap().success() {
@@ -377,7 +370,6 @@ mod tests {
 
         let output = docker.output(Command::new("pidof").arg("sh"));
 
-        assert!(!output.status().success());
-        assert_eq!(Some(1), output.status().code());
+        output.assert_exit_code(1);
     }
 }

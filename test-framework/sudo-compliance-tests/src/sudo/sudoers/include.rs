@@ -32,8 +32,7 @@ fn file_does_not_exist() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to open /etc/sudoers2: No such file or directory"
     } else {
@@ -122,8 +121,7 @@ fn include_loop_error_messages() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers2: too many levels of includes"
     } else {
@@ -140,7 +138,7 @@ fn include_loop_not_fatal() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         "/etc/sudoers2: too many levels of includes"
     } else {
@@ -160,8 +158,7 @@ fn permissions_check() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: /etc/sudoers2 is world writable"
     } else {
@@ -178,7 +175,7 @@ fn permissions_check_not_fatal() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("sudo: {ETC_DIR}/sudoers2 is world writable")
     } else {
@@ -199,8 +196,7 @@ fn ownership_check() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         if cfg!(target_os = "freebsd") {
             "sudo: /etc/sudoers2 is owned by uid 1001, should be 0"
@@ -222,7 +218,7 @@ fn ownership_check_not_fatal() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
         if cfg!(target_os = "freebsd") {
             "sudo: /etc/sudoers2 is owned by uid 1001, should be 0"
@@ -272,8 +268,7 @@ fn relative_path_grandparent_directory() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let path = ETC_DIR.to_owned() + "/../../sudoers2";
     let diagnostic = if sudo_test::is_original_sudo() {

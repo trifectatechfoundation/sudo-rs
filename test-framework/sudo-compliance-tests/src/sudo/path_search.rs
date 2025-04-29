@@ -54,8 +54,7 @@ fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution(
         .args(["-c", &format!("unset PATH; {BIN_SUDO} my-script")])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {

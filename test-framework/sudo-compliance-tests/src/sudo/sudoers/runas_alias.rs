@@ -83,8 +83,7 @@ fn runas_alias_negation() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
@@ -113,8 +112,7 @@ fn negation_on_user() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
@@ -163,8 +161,7 @@ fn when_specific_user_then_as_a_different_user_is_not_allowed() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -225,8 +222,7 @@ fn when_only_groupname_is_given_user_arg_fails() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -263,8 +259,7 @@ fn when_only_username_is_given_group_arg_fails() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -430,6 +425,6 @@ fn keywords() {
 
         let stderr = output.stderr();
         assert!(stderr.is_empty(), "{}", stderr);
-        assert!(output.status().success());
+        output.assert_success();
     }
 }

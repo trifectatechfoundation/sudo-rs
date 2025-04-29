@@ -14,14 +14,14 @@ fn undefined_alias() {
     let diagnostic = r#"User_Alias "ADMINS" referenced but not defined"#;
     let prompt = "What now?";
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_contains!(output.stderr(), diagnostic);
     // we only get this prompt in `--strict` mode
     assert_contains!(output.stdout(), prompt);
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_contains!(output.stderr(), diagnostic);
     assert_not_contains!(output.stdout(), prompt);
 }
@@ -41,14 +41,14 @@ fn alias_cycle() {
     };
     let prompt = "What now?";
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_contains!(output.stderr(), diagnostic);
     // we only get this prompt in `--strict` mode
     assert_contains!(output.stdout(), prompt);
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_contains!(output.stderr(), diagnostic);
     if sudo_test::is_original_sudo() {
         assert_not_contains!(output.stdout(), prompt);

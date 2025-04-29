@@ -23,7 +23,7 @@ fn if_shell_env_var_is_not_set_then_uses_the_invoking_users_shell_in_passwd_data
     let output = Command::new("chsh")
         .args(["-s", "/non/existent"])
         .output(&env);
-    assert!(output.status().success());
+    output.assert_success();
 
     let getent_passwd = Command::new("getent").arg("passwd").output(&env).stdout();
     let user_to_shell = parse_getent_passwd_output(&getent_passwd);
@@ -90,7 +90,7 @@ fn shell_is_partially_canonicalized() {
         .args(["sudo", "-s", "true"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let output = Command::new("env")
         .arg("SHELL=/bin/ls")
@@ -218,8 +218,7 @@ fn shell_does_not_exist() {
         .args(["sudo", "-s"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -241,8 +240,7 @@ fn shell_is_not_executable() {
         .args(["sudo", "-s"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -264,7 +262,7 @@ fn shell_with_open_permissions_is_accepted() {
         .args(["sudo", "-s"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 type UserToShell<'a> = HashMap<&'a str, &'a str>;

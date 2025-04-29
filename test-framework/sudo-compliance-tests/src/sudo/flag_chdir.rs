@@ -8,8 +8,7 @@ fn cwd_not_set_cannot_change_dir() {
     let output = Command::new("sudo")
         .args(["--chdir", "/root", "pwd"])
         .output(&env);
-    assert_eq!(Some(1), output.status().code());
-    assert!(!output.status().success());
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("you are not permitted to use the -D option with {BIN_PWD}")
     } else {
@@ -24,8 +23,7 @@ fn cwd_set_to_glob_change_dir() {
     let output = Command::new("sh")
         .args(["-c", "cd /; sudo --chdir /root pwd"])
         .output(&env);
-    assert_eq!(Some(0), output.status().code());
-    assert!(output.status().success());
+    output.assert_success();
     assert_contains!(output.stdout(), "/root");
 }
 
@@ -41,8 +39,7 @@ fn cwd_fails_for_non_existent_dirs() {
             "echo >&2 'avocado'",
         ])
         .output(&env);
-    assert_eq!(Some(1), output.status().code());
-    assert!(!output.status().success());
+    output.assert_exit_code(1);
     let stderr = output.stderr();
     assert_contains!(
         stderr,
@@ -68,8 +65,7 @@ fn cwd_with_login_fails_for_non_existent_dirs() {
             "echo >&2 'avocado'",
         ])
         .output(&env);
-    assert_eq!(Some(1), output.status().code());
-    assert!(!output.status().success());
+    output.assert_exit_code(1);
     let stderr = output.stderr();
     assert_contains!(
         stderr,
@@ -85,8 +81,7 @@ fn cwd_set_to_non_glob_value_then_cannot_use_chdir_flag() {
         .args(["-c", "cd /; sudo --chdir /tmp pwd"])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("you are not permitted to use the -D option with {BIN_PWD}")
@@ -105,8 +100,7 @@ fn cwd_set_to_non_glob_value_then_cannot_use_that_path_with_chdir_flag() {
         .arg(format!("cd /; sudo --chdir {path} pwd"))
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("you are not permitted to use the -D option with {BIN_PWD}")
@@ -142,8 +136,7 @@ fn any_chdir_value_is_not_accepted_if_it_matches_pwd_cwd_unset() {
         .arg(format!("cd {path}; sudo --chdir {path} pwd"))
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("you are not permitted to use the -D option with {BIN_PWD}")
@@ -182,8 +175,7 @@ fn any_chdir_value_is_not_accepted_if_it_matches_pwd_cwd_set() {
         ))
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("you are not permitted to use the -D option with {BIN_PWD}")
@@ -205,8 +197,7 @@ fn target_user_has_insufficient_perms() {
         .arg(format!("cd /; sudo -u {USERNAME} --chdir {path} pwd"))
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: unable to change directory to /root: Permission denied"

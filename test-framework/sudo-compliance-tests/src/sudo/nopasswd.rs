@@ -86,7 +86,7 @@ fn run_sudo_l_flag_without_pwd_if_one_nopasswd_is_set() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let actual = output.stdout();
     assert_contains!(

@@ -41,8 +41,7 @@ fn specified_shell_does_not_exist() {
     let command_path = "/does/not/exist";
     let output = Command::new("su").args(["-s", command_path]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(127), output.status().code());
+    output.assert_exit_code(127);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("su: failed to execute {command_path}: No such file or directory")
@@ -59,8 +58,7 @@ fn specified_shell_could_not_be_executed() {
 
     let output = Command::new("su").args(["-s", shell_path]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(126), output.status().code());
+    output.assert_exit_code(126);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("su: failed to execute {shell_path}: Permission denied")
@@ -117,7 +115,7 @@ echo {message}"
         .as_user(invoking_user)
         .output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert_contains!(
         output.stderr(),
         format!("su: using restricted shell {restricted_shell_path}")
@@ -182,7 +180,7 @@ echo {message}"
         .as_user(invoking_user)
         .output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert_contains!(
         output.stderr(),
         format!("su: using restricted shell {restricted_shell_path}")
@@ -228,7 +226,7 @@ fn when_no_etc_shells_file_uses_a_default_list() {
             .as_user(invoking_user)
             .output(&env);
 
-        assert!(output.status().success(), "{}", output.stderr());
+        output.assert_success();
         assert_contains!(
             output.stderr(),
             format!("su: using restricted shell {shell}")
@@ -254,7 +252,7 @@ fn when_no_etc_shells_file_uses_a_default_list() {
             .as_user(invoking_user)
             .output(&env);
 
-        assert!(output.status().success(), "{}", output.stderr());
+        output.assert_success();
         assert_not_contains!(output.stderr(), format!("su: using restricted shell"));
     }
 }
@@ -287,7 +285,7 @@ fn shell_canonical_path_is_not_used_when_determining_if_shell_is_restricted_or_n
         .as_user(invoking_user)
         .output(&env);
 
-    assert!(output.status().success(), "{}", output.stderr());
+    output.assert_success();
     assert_contains!(
         output.stderr(),
         format!("su: using restricted shell {shell}")
@@ -301,8 +299,7 @@ fn shell_is_resolved_with_empty_path_env_var() {
     let command_path = "true";
     let output = Command::new("su").args(["-s", command_path]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(127), output.status().code());
+    output.assert_exit_code(127);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("su: failed to execute {command_path}: No such file or directory")

@@ -47,7 +47,7 @@ fn no_tty() {
         .args(["true"])
         .as_user(USERNAME)
         .output(&env);
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "a terminal is required to read the password"

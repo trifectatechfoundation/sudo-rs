@@ -107,8 +107,7 @@ sleep 3",
 
     child.wait().assert_success();
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     assert_contains!(
         output.stderr(),
         format!("visudo: {ETC_DIR}/sudoers busy, try again later")
@@ -206,7 +205,7 @@ fn stderr_message_when_file_is_not_modified() {
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
         assert_eq!(
@@ -239,7 +238,7 @@ echo 'this is fine' > $2",
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert_contains!(output.stderr(), "syntax error");
 
     let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
@@ -263,7 +262,7 @@ exit 11",
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
 
@@ -285,8 +284,7 @@ rm $2",
 
     let output = Command::new("visudo").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
         assert_contains!(

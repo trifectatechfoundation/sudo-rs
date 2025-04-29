@@ -34,8 +34,7 @@ fn given_specific_hostname_then_sudo_from_different_hostname_is_rejected() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -77,8 +76,7 @@ fn negation_rejects() {
 
     let output = Command::new("sudo").arg("true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {

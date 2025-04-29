@@ -169,7 +169,7 @@ fn warning_is_printed_when_home_directory_does_not_exist() {
         .arg(format!("cd {initial_workdir}; su -l -c pwd {USERNAME}"))
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     dbg!(output.stderr());
 

@@ -15,8 +15,7 @@ fn fails_if_password_needed() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     let password_prompt = if sudo_test::is_original_sudo() {
@@ -46,8 +45,7 @@ fn flag_remove_timestamp_plus_command_fails() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     let password_prompt = if sudo_test::is_original_sudo() {
@@ -113,8 +111,7 @@ fn lecture_is_not_shown() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     assert_not_contains!(output.stderr(), OG_SUDO_STANDARD_LECTURE);
 }

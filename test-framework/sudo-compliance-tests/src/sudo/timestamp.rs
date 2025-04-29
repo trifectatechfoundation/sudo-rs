@@ -40,8 +40,7 @@ fn by_default_credential_caching_is_local() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
@@ -137,9 +136,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(!output.status().success());
-
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
@@ -188,8 +185,7 @@ fn cached_credential_not_shared_with_self_across_ttys() {
         .tty(true)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 }
 
 #[test]
@@ -210,6 +206,5 @@ fn double_negation_also_equals_never() {
         .tty(true)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 }

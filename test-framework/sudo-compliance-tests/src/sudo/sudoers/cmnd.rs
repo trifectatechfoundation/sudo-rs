@@ -1,6 +1,5 @@
 //! Test the Cmnd_Spec component of the user specification: <user> ALL=(ALL:ALL) <cmnd_spec>
 
-use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, TextFile, BIN_LS, BIN_TRUE, ETC_SUDOERS};
 
 use crate::USERNAME;
@@ -36,8 +35,7 @@ fn given_specific_command_then_other_command_is_not_allowed() {
 
     let output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -66,8 +64,7 @@ fn command_specified_not_by_absolute_path_is_rejected() {
 
     let output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let stderr = output.stderr();
     if sudo_test::is_original_sudo() {
@@ -88,7 +85,7 @@ fn different() {
 
     let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 }
 
 // it applies not only to the command is next to but to all commands that follow
@@ -140,14 +137,13 @@ fn runas_override() {
 
     let output = Command::new("sudo").args([BIN_LS, "/root"]).output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
 
     let output = Command::new("sudo")
         .args(["-u", USERNAME, BIN_LS])
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_LS}' as ferris")
@@ -163,8 +159,7 @@ fn runas_override() {
 
     let output = Command::new("sudo").arg(BIN_TRUE).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_TRUE}' as root")
@@ -209,8 +204,7 @@ fn given_directory_then_commands_in_its_subdirectories_are_not_allowed() {
 
     let output = Command::new("sudo").arg("/usr/bin/true").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "user root is not allowed to execute '/usr/bin/true' as root"
@@ -285,8 +279,7 @@ fn arguments_can_be_forced() {
         .arg("/root/ hello world")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
@@ -305,8 +298,7 @@ fn arguments_can_be_forbidded() {
         .arg("/root/ hello world")
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
@@ -325,8 +317,7 @@ fn wildcards_dont_cross_directory_boundaries() {
 
     let output = Command::new("sudo").arg("/usr/bin/sub/foo").output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "user root is not allowed to execute '/usr/bin/sub/foo' as root"

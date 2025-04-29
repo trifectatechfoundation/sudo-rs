@@ -11,8 +11,7 @@ fn it_works() {
 
     let output = Command::new("su").args(["-c", "false"]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 }
 
 #[test]
@@ -42,7 +41,7 @@ fn when_specified_more_than_once_only_last_value_is_used() {
         .args(["-c", "true"])
         .output(&env);
 
-    assert!(output.status().success());
+    output.assert_success();
     assert!(output.stderr().is_empty());
     assert!(output.stdout().is_empty());
 }

@@ -98,7 +98,7 @@ fn child_terminated_by_signal(tty: bool) {
         .tty(tty)
         .output(&env);
 
-    assert_eq!(Some(143), output.status().code());
+    output.assert_exit_code(143);
     assert!(output.stderr().is_empty());
 }
 

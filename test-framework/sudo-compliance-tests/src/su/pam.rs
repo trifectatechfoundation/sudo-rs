@@ -35,8 +35,7 @@ fn given_pam_deny_then_password_auth_always_fails() {
         .stdin(PASSWORD)
         .output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "su: Authentication failure"
@@ -61,8 +60,7 @@ fn being_root_has_no_precedence_over_pam_deny() {
 
     let output = Command::new("su").args(["-c", BIN_TRUE]).output(&env);
 
-    assert!(!output.status().success());
-    assert_eq!(Some(1), output.status().code());
+    output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
         "su: Authentication failure"
