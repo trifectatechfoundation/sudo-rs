@@ -34,10 +34,6 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
         return Ok(());
     }
 
-    if let Some(other_user) = &other_user {
-        check_other_users_list_perms(other_user, &context, &mut sudoers, &original_command)?;
-    }
-
     if let Some(original_command) = original_command {
         check_sudo_command_perms(&original_command, &context, &other_user, &mut sudoers)?;
     } else {
@@ -113,31 +109,6 @@ fn auth_invoking_user(
             }
         }
     }
-}
-
-fn check_other_users_list_perms(
-    other_user: &User,
-    context: &Context,
-    sudoers: &mut Sudoers,
-    original_command: &Option<String>,
-) -> Result<(), Error> {
-    let list_request = ListRequest {
-        inspected_user: other_user,
-        target_user: &context.target_user,
-        target_group: &context.target_group,
-    };
-    if let Authorization::Forbidden =
-        sudoers.check_list_permission(other_user, &context.hostname, list_request)
-    {
-        return Err(Error::NotAllowed {
-            username: context.current_user.name.clone(),
-            command: format_list_command(original_command),
-            hostname: context.hostname.clone(),
-            other_user: Some(other_user.name.clone()),
-        });
-    }
-
-    Ok(())
 }
 
 fn check_sudo_command_perms(
