@@ -26,10 +26,6 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
 
     let mut context = Context::from_list_opts(cmd_opts, &mut sudoers)?;
 
-    if original_command.is_some() && !context.command.resolved {
-        return Err(Error::CommandNotFound(context.command.command));
-    }
-
     if auth_invoking_user(&mut context, &mut sudoers, &original_command, &other_user)?.is_break() {
         return Ok(());
     }
@@ -39,7 +35,7 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
     }
 
     if let Some(original_command) = original_command {
-        check_sudo_command_perms(&original_command, &context, &other_user, &mut sudoers)?;
+        check_sudo_command_perms(&original_command, context, &other_user, &mut sudoers)?;
     } else {
         let invoking_user = other_user.as_ref().unwrap_or(&context.current_user);
         println_ignore_io_error!(
@@ -142,7 +138,7 @@ fn check_other_users_list_perms(
 
 fn check_sudo_command_perms(
     original_command: &str,
-    context: &Context,
+    context: Context,
     other_user: &Option<User>,
     sudoers: &mut Sudoers,
 ) -> Result<(), Error> {
@@ -160,6 +156,9 @@ fn check_sudo_command_perms(
     if let Authorization::Forbidden = judgement.authorization() {
         return Err(Error::Silent);
     } else {
+        if !context.command.resolved {
+            return Err(Error::CommandNotFound(context.command.command));
+        }
         let command_is_relative_path =
             original_command.contains('/') && !Path::new(&original_command).is_absolute();
         let command: Cow<_> = if command_is_relative_path {
