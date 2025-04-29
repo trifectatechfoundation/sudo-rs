@@ -310,10 +310,10 @@ impl Parse for UserSpecifier {
 
         // if we see a quote, first parse the quoted text as a token and then
         // re-parse whatever we found inside; this is a lazy solution but it works
-        let begin_pos = stream.get_pos();
         if stream.eat_char('"') {
+            let begin_pos = stream.get_pos();
             let Unquoted(text, _): Unquoted<Username> = expect_nonterminal(stream)?;
-            let result = parse_user(&mut CharStream::new_with_pos(&text, advance(begin_pos, 1)))?;
+            let result = parse_user(&mut CharStream::new_with_pos(&text, begin_pos))?;
             expect_syntax('"', stream)?;
 
             Ok(result)
