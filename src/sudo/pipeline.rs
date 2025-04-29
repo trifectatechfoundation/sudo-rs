@@ -74,7 +74,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     };
 
     apply_policy_to_context(&mut context, &controls)?;
-    let mut pam_context = auth_and_update_record_file(&mut context, &auth)?;
+    let mut pam_context = auth_and_update_record_file(&context, &auth)?;
 
     // build environment
     let additional_env = pre_exec(&mut pam_context, &context.target_user.name)?;
@@ -128,14 +128,14 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
     let policy = read_sudoers()?;
 
-    let mut context = Context::from_validate_opts(cmd_opts)?;
+    let context = Context::from_validate_opts(cmd_opts)?;
 
     match policy.check_validate_permission(&*context.current_user, &context.hostname) {
         Authorization::Forbidden => {
             return Err(Error::Authorization(context.current_user.name.to_string()));
         }
         Authorization::Allowed(auth, ()) => {
-            auth_and_update_record_file(&mut context, &auth)?;
+            auth_and_update_record_file(&context, &auth)?;
         }
     }
 
@@ -143,7 +143,7 @@ pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
 }
 
 fn auth_and_update_record_file(
-    context: &mut Context,
+    context: &Context,
     &Authentication {
         must_authenticate,
         prior_validity,
