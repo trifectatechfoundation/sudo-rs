@@ -442,9 +442,9 @@ impl Parse for MetaOrTag {
 /// ```
 impl Parse for CommandSpec {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
+        use Qualified::Allow;
         let mut tags = vec![];
         while let Some(MetaOrTag(keyword)) = try_nonterminal(stream)? {
-            use Qualified::Allow;
             match keyword {
                 Meta::Only(modifier) => tags.push(modifier),
                 Meta::All => return make(CommandSpec(tags, Allow(Meta::All))),
@@ -461,7 +461,10 @@ impl Parse for CommandSpec {
                 // note: special behaviour of forward slashes in wildcards, tread carefully
                 unrecoverable!(pos = start_pos, stream, "sudoedit is not yet supported");
             } else if keyword == "list" {
-                unrecoverable!(pos = start_pos, stream, "list is not yet supported");
+                return make(CommandSpec(
+                    tags,
+                    Allow(Meta::Only((glob::Pattern::new("list").unwrap(), None))),
+                ));
             } else if keyword.starts_with("sha") {
                 unrecoverable!(
                     pos = start_pos,
