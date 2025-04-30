@@ -37,10 +37,16 @@ fn root_cannot_use_list_when_empty_sudoers() {
 
     let output = Command::new("sudo").arg("-l").output(&env);
 
-    output.assert_success();
+    let (expected, actual);
 
-    let expected = format!("User root is not allowed to run sudo on {hostname}.");
-    let actual = output.stdout();
+    // this is very strange behaviour
+    if sudo_test::is_original_sudo() {
+        expected = format!("User root is not allowed to run sudo on {hostname}.");
+        actual = output.stdout();
+    } else {
+        expected = format!("Sorry, user root may not run sudo on {hostname}.");
+        actual = output.stderr().to_string();
+    }
     assert_contains!(actual, expected);
 }
 
@@ -370,10 +376,13 @@ fn lowercase_u_flag_matches_users_inside_parenthesis_in_sudoers_rules() {
 fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() {
     let another_user = "another_user";
     let hostname = "container";
-    let env = Env(format!("{another_user} ALL=(ALL:ALL) {BIN_LS}"))
-        .user(another_user)
-        .hostname(hostname)
-        .build();
+    let env = Env(format!(
+        "root ALL=ALL
+{another_user} ALL=(ALL:ALL) {BIN_LS}"
+    ))
+    .user(another_user)
+    .hostname(hostname)
+    .build();
 
     let actual = Command::new("sudo")
         .args(["-l", "-u", another_user, "ls"])

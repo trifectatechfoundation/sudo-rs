@@ -4,7 +4,7 @@ use crate::{
     common::{Context, Error},
     sudo::cli::SudoListOptions,
     sudoers::{Authorization, ListRequest, Request, Sudoers},
-    system::{interface::UserId, User},
+    system::User,
 };
 
 use super::auth_and_update_record_file;
@@ -89,34 +89,18 @@ fn auth_invoking_user(
         }
 
         Authorization::Forbidden => {
-            if context.current_user.uid == UserId::ROOT {
-                if original_command.is_some() {
-                    return Err(Error::Silent);
-                }
-
-                println_ignore_io_error!(
-                    "User {} is not allowed to run sudo on {}.",
-                    user.name,
-                    context.hostname
-                );
-
-                // this branch does not result in exit code 1 but no further information should
-                // be printed in this case
-                Ok(ControlFlow::Break(()))
+            let command = if other_user.is_none() {
+                "sudo".into()
             } else {
-                let command = if other_user.is_none() {
-                    "sudo".into()
-                } else {
-                    format_list_command(original_command)
-                };
+                format_list_command(original_command)
+            };
 
-                Err(Error::NotAllowed {
-                    username: context.current_user.name.clone(),
-                    command,
-                    hostname: context.hostname.clone(),
-                    other_user: other_user.as_ref().map(|user| &user.name).cloned(),
-                })
-            }
+            Err(Error::NotAllowed {
+                username: context.current_user.name.clone(),
+                command,
+                hostname: context.hostname.clone(),
+                other_user: other_user.as_ref().map(|user| &user.name).cloned(),
+            })
         }
     }
 }
