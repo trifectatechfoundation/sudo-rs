@@ -37,22 +37,32 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
     if let Some(original_command) = original_command {
         check_sudo_command_perms(&original_command, &context, &other_user, &mut sudoers)?;
     } else {
-        let invoking_user = other_user.as_ref().unwrap_or(&context.current_user);
-        println_ignore_io_error!(
-            "User {} may run the following commands on {}:",
-            invoking_user.name,
-            context.hostname
-        );
+        let inspected_user = other_user.as_ref().unwrap_or(&context.current_user);
+        let mut matching_entries = sudoers
+            .matching_entries(inspected_user, &context.hostname)
+            .peekable();
 
-        let matching_entries = sudoers.matching_entries(invoking_user, &context.hostname);
+        if matching_entries.peek().is_some() {
+            println_ignore_io_error!(
+                "User {} may run the following commands on {}:",
+                inspected_user.name,
+                context.hostname
+            );
 
-        for entry in matching_entries {
-            if verbose_list_mode {
-                let entry = entry.verbose();
-                println_ignore_io_error!("{entry}");
-            } else {
-                println_ignore_io_error!("{entry}");
+            for entry in matching_entries {
+                if verbose_list_mode {
+                    let entry = entry.verbose();
+                    println_ignore_io_error!("{entry}");
+                } else {
+                    println_ignore_io_error!("{entry}");
+                }
             }
+        } else {
+            println_ignore_io_error!(
+                "User {} is not allowed to run sudo on {}.",
+                inspected_user.name,
+                context.hostname
+            );
         }
     }
 
