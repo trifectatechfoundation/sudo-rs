@@ -117,6 +117,10 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         resp,
     } = alloc_notify_allocs();
 
+    // The first notification must be allowed to pass unhindered.
+    let mut error = 0;
+    let mut flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE as _;
+
     loop {
         // SECCOMP_IOCTL_NOTIF_RECV expects the target struct to be zeroed
         // SAFETY: req is at least req_size bytes big.
@@ -132,8 +136,8 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         unsafe {
             (*resp).id = (*req).id;
             (*resp).val = 0;
-            (*resp).error = 0;
-            (*resp).flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE as _;
+            (*resp).error = error;
+            (*resp).flags = flags;
         }
 
         // SAFETY: A valid pointer to a seccomp_notify_resp is passed in; notify_fd is valid.
@@ -141,32 +145,9 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
             continue;
         }
 
-        break;
-    }
-
-    loop {
-        // SECCOMP_IOCTL_NOTIF_RECV expects the target struct to be zeroed
-        // SAFETY: req is at least req_size bytes big.
-        unsafe { std::ptr::write_bytes(req.cast::<u8>(), 0, req_size) };
-
-        // SAFETY: A valid pointer to a seccomp_notify is passed in.
-        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } {
-            continue;
-        }
-
-        // Set the error code for all syscalls we are notified about to EACCESS.
-        // SAFETY: resp is a valid pointer to a seccomp_notify_resp.
-        unsafe {
-            (*resp).id = (*req).id;
-            (*resp).val = 0;
-            (*resp).error = -EACCES;
-            (*resp).flags = 0;
-        }
-
-        // SAFETY: A valid pointer to a seccomp_notify_resp is passed in.
-        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } {
-            continue;
-        }
+        // As soon as we have reached this point, all notifications will be acted upon.
+        error = -EACCES;
+        flags = 0;
     }
 }
 
