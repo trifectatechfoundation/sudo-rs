@@ -120,7 +120,17 @@ fn close_range(min_fd: c_uint, max_fd: c_uint) -> io::Result<()> {
         // - any errors while closing a specific fd will be effectively ignored
         // - if the provided range or flags are invalid, that will be reported
         //   as an error but will not cause undefined behaviour
-        cerr(unsafe { libc::close_range(min_fd, max_fd, 0) })?;
+        unsafe {
+            #[cfg(not(all(target_os = "linux", target_env = "musl")))]
+            cerr(libc::close_range(min_fd, max_fd, 0))?;
+            #[cfg(all(target_os = "linux", target_env = "musl"))]
+            cerr(libc::syscall(
+                libc::SYS_close_range,
+                min_fd,
+                max_fd,
+                0 as c_uint,
+            ))?;
+        }
     }
 
     Ok(())
