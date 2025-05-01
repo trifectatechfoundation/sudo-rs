@@ -180,7 +180,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
         let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
         // SAFETY: The buf field is valid when zero-initialized.
         msg.msg_controllen = unsafe { control.buf.len() };
-        msg.msg_control = &mut control as *mut _ as *mut _;
+        msg.msg_control = &mut control as *mut _ as *mut libc::c_void;
 
         // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
         if unsafe { recvmsg(rx_fd.as_raw_fd(), &mut msg, 0) } == -1 {
