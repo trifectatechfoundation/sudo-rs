@@ -3,7 +3,7 @@
 use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
 use std::ffi::c_void;
 use std::mem::{align_of, size_of, zeroed};
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::Command;
@@ -11,7 +11,7 @@ use std::ptr::{self, addr_of};
 use std::{cmp, io, thread};
 
 use libc::{
-    c_int, c_uint, c_ulong, close, cmsghdr, ioctl, iovec, msghdr, prctl, recvmsg, seccomp_data,
+    c_int, c_uint, c_ulong, close, cmsghdr, iovec, msghdr, prctl, recvmsg, seccomp_data,
     seccomp_notif, seccomp_notif_resp, seccomp_notif_sizes, sendmsg, sock_filter, sock_fprog,
     syscall, SYS_execve, SYS_execveat, SYS_seccomp, __errno_location, BPF_ABS, BPF_JEQ, BPF_JMP,
     BPF_JUMP, BPF_K, BPF_LD, BPF_RET, BPF_STMT, CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_SPACE,
@@ -84,6 +84,29 @@ fn alloc_notify_allocs() -> NotifyAllocs {
     }
 }
 
+/// Returns 'false' if the ioctl failed with E_NOENT, 'true' if it succeeded.
+/// This aborts the program in any other situation.
+///
+/// # Safety
+///
+/// `ioctl(fd, request, ptr)` must be safe to call
+unsafe fn ioctl<T>(fd: RawFd, request: libc::c_ulong, ptr: *mut T) -> bool {
+    // SAFETY: By function contract
+    if unsafe { libc::ioctl(fd, request, ptr) } == -1 {
+        // SAFETY: Trivial
+        if unsafe { *__errno_location() } == ENOENT {
+            false
+        } else {
+            // SAFETY: Not actually unsafe
+            unsafe {
+                libc::abort();
+            }
+        }
+    } else {
+        true
+    }
+}
+
 /// # Safety
 ///
 /// The argument must be a valid seccomp_unotify fd.
@@ -99,14 +122,9 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         // SAFETY: req is at least req_size bytes big.
         unsafe { std::ptr::write_bytes(req.cast::<u8>(), 0, req_size) };
 
-        // SAFETY: A valid pointer to a seccomp_notify is passed in.
-        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } == -1 {
-            // SAFETY: Trivial
-            if unsafe { *__errno_location() } == ENOENT {
-                continue; // Syscall was interrupted
-            }
-            // SAFETY: Not actually unsafe.
-            unsafe { libc::abort() };
+        // SAFETY: A valid pointer to a seccomp_notify is passed in; notify_fd is valid.
+        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } {
+            continue;
         }
 
         // Allow the first execve call as this is sudo itself starting the target executable.
@@ -118,14 +136,9 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
             (*resp).flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE as _;
         }
 
-        // SAFETY: A valid pointer to a seccomp_notify_resp is passed in.
-        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } == -1 {
-            // SAFETY: Trivial
-            if unsafe { *__errno_location() } == ENOENT {
-                continue; // Syscall was interrupted
-            }
-            // SAFETY: Not actually unsafe.
-            unsafe { libc::abort() };
+        // SAFETY: A valid pointer to a seccomp_notify_resp is passed in; notify_fd is valid.
+        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } {
+            continue;
         }
 
         break;
@@ -137,13 +150,8 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         unsafe { std::ptr::write_bytes(req.cast::<u8>(), 0, req_size) };
 
         // SAFETY: A valid pointer to a seccomp_notify is passed in.
-        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } == -1 {
-            // SAFETY: Trivial
-            if unsafe { *__errno_location() } == ENOENT {
-                continue; // Syscall was interrupted
-            }
-            // SAFETY: Not actually unsafe.
-            unsafe { libc::abort() };
+        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } {
+            continue;
         }
 
         // Set the error code for all syscalls we are notified about to EACCESS.
@@ -156,13 +164,8 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         }
 
         // SAFETY: A valid pointer to a seccomp_notify_resp is passed in.
-        if unsafe { ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } == -1 {
-            // SAFETY: Trivial
-            if unsafe { *__errno_location() } == ENOENT {
-                continue; // Syscall was interrupted
-            }
-            // SAFETY: Not actually unsafe.
-            unsafe { libc::abort() };
+        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } {
+            continue;
         }
     }
 }
