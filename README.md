@@ -114,6 +114,8 @@ Sudo-rs then also needs the configuration files; please follow the installation
 suggestions in the previous section.
 
 ### Feature flags
+
+#### --features pam-login
 By default, sudo-rs will use the PAM service name `sudo`. On Debian and Fedora
 systems, it is customary that the name `sudo-i` is used when the `-i / --login`
 command line option is used. To get this behaviour, enable the `pam-login`
@@ -122,6 +124,16 @@ feature when building:
 cargo build --release --features pam-login
 ```
 This feature is enabled on our pre-supplied binaries.
+
+#### --features apparmor
+sudo-rs has support for selecting AppArmor profile on Linux distributions that
+support AppArmor such as Debian and Ubuntu. To enable this feature, build sudo-rs
+with apparmor support enabled:
+```
+cargo build --release --features apparmor
+```
+
+This feature is disabled on our pre-supplied binaries.
 
 [rustup]: https://rustup.rs/
 
@@ -141,6 +153,8 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 * `mail_badpass`, `always_set_home`, `always_query_group_plugin` and
   `match_group_by_gid` are not applicable to our implementation, but ignored for
   compatibility reasons.
+* the (NO)PASSWD tag on the "list" pseudocommand will determine whether a password
+  is required for the `sudo -U --list` command, instead of `listpw`.
 
 Some other notable restrictions to be aware of:
 
@@ -189,12 +203,14 @@ sudo, our work may evolve beyond that target. We are also looking into
 alternative ways to configure sudo without the sudoers config file syntax and to
 extract parts of our work in usable crates for other people.
 
-## Sponsors
+## History
 
-The initial development of sudo-rs was started and funded by the [Internet Security Research Group](https://www.abetterinternet.org/) as part of the [Prossimo project](https://www.memorysafety.org/).
+The initial development of sudo-rs was started and funded by the [Internet Security Research Group](https://www.abetterinternet.org/) as part of the [Prossimo project](https://www.memorysafety.org/)
 
-An independent security audit of sudo-rs was made possible by the [NLNet Foundation](https://nlnet.nl/), who also [sponsored](https://nlnet.nl/project/sudo-rs/) several feature additions and the FreeBSD porting effort.
-
-## Acknowledgement
+## Acknowledgements
 
 Sudo-rs is an independent implementation, but it incorporates documentation and Rust translations of code from [sudo](https://www.sudo.ws/), maintained by Todd C. Miller. We thank Todd and the other sudo contributors for their work.
+
+An independent security audit of sudo-rs was made possible by the [NLNet Foundation](https://nlnet.nl/), who also [sponsored](https://nlnet.nl/project/sudo-rs/) work on increased compatibility with the original sudo and the FreeBSD port.
+
+The sudo-rs project would not have existed without the support of its sponsors, a full overview is maintained at https://trifectatech.org/initiatives/privilege-boundary/
