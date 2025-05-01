@@ -126,7 +126,7 @@ jobs:
         working-directory: test-framework
         env:
           SUDO_UNDER_TEST: ours
-        run: cargo test -p sudo-compliance-tests
+        run: cargo test -p sudo-compliance-tests --features apparmor
 
       - name: Check that we didn't forget to gate a passing compliance test
         working-directory: test-framework
