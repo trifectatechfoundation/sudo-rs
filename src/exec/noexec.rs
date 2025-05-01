@@ -87,18 +87,18 @@ fn alloc_notify_allocs() -> NotifyAllocs {
     }
 }
 
-/// Returns 'false' if the ioctl failed with E_NOENT, 'true' if it succeeded.
+/// Returns 'None' if the ioctl failed with E_NOENT, 'Some(())' if it succeeded.
 /// This aborts the program in any other situation.
 ///
 /// # Safety
 ///
 /// `ioctl(fd, request, ptr)` must be safe to call
-unsafe fn ioctl<T>(fd: RawFd, request: libc::c_ulong, ptr: *mut T) -> bool {
+unsafe fn ioctl<T>(fd: RawFd, request: libc::c_ulong, ptr: *mut T) -> Option<()> {
     // SAFETY: By function contract
     if unsafe { libc::ioctl(fd, request, ptr) } == -1 {
         // SAFETY: Trivial
         if unsafe { *__errno_location() } == ENOENT {
-            false
+            None
         } else {
             // SAFETY: Not actually unsafe
             unsafe {
@@ -106,7 +106,7 @@ unsafe fn ioctl<T>(fd: RawFd, request: libc::c_ulong, ptr: *mut T) -> bool {
             }
         }
     } else {
-        true
+        Some(())
     }
 }
 
@@ -120,37 +120,42 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         resp,
     } = alloc_notify_allocs();
 
-    // The first notification must be allowed to pass unhindered.
-    let mut error = 0;
-    let mut flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE as _;
-
-    loop {
+    // SAFETY: See individual SAFETY comments
+    let handle_syscall = |create_response: fn(&mut _)| unsafe {
         // SECCOMP_IOCTL_NOTIF_RECV expects the target struct to be zeroed
         // SAFETY: req is at least req_size bytes big.
-        unsafe { std::ptr::write_bytes(req.cast::<u8>(), 0, req_size) };
+        std::ptr::write_bytes(req.cast::<u8>(), 0, req_size);
 
         // SAFETY: A valid pointer to a seccomp_notify is passed in; notify_fd is valid.
-        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req) } {
-            continue;
-        }
+        ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req)?;
 
         // Allow the first execve call as this is sudo itself starting the target executable.
         // SAFETY: resp is a valid pointer to a seccomp_notify_resp.
-        unsafe {
-            (*resp).id = (*req).id;
-            (*resp).val = 0;
-            (*resp).error = error;
-            (*resp).flags = flags;
-        }
+        (*resp).id = (*req).id;
+        create_response(&mut *resp);
 
         // SAFETY: A valid pointer to a seccomp_notify_resp is passed in; notify_fd is valid.
-        if unsafe { !ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp) } {
-            continue;
-        }
+        ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp)
+    };
 
-        // As soon as we have reached this point, all notifications will be acted upon.
-        error = -EACCES;
-        flags = 0;
+    loop {
+        if handle_syscall(|resp| {
+            resp.val = 0;
+            resp.error = 0;
+            resp.flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE as _
+        })
+        .is_some()
+        {
+            break;
+        }
+    }
+
+    loop {
+        handle_syscall(|resp| {
+            resp.val = 0;
+            resp.error = -EACCES;
+            resp.flags = 0;
+        });
     }
 }
 
