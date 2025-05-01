@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.6] - 2025-05-06
+
+### Added
+- Support for `Defaults setenv`
+- Support for the `list` pseudocommand to control `sudo -U`
+- Support for switching AppArmor profiles though `Defaults apparmor_profile` and
+  the `APPARMOR_PROFILE` command modifier. To enable this, build sudo-rs with
+  the apparmor feature enabled.
+
+### Changed
+- Added a check against PAM modules changing the user during authentication (#1062)
+- `list` pseudocommand now controls whether a password is required for `sudo -l -U`
+
+### Fixed
+- Usernames commonly used by Active Directory were not parsed correctly (#1064)
+- Test compilation was broken on 32-bit systems (#1074)
+- `pwfeedback` was ignored for `sudo --list` and `sudo --validate`  (#1092)
+-  Compilation with musl instead of glibc on Linux was not possible (#1084)
+- `sudo --list` now does more checking before reporting errors or listing the
+  rights of a user, fixing two security bugs (CVE-2025-46717 and CVE-2025-46718)
+
 ## [0.2.5] - 2025-04-01
 
 ### Added
