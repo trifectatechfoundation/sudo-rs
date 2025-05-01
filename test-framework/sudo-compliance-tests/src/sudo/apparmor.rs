@@ -3,6 +3,8 @@ use sudo_test::{Command, Env};
 use crate::{Result, PANIC_EXIT_CODE};
 
 #[cfg(feature = "apparmor")]
+//TODO: the apparmor profile needs to be present in the *host* machine.
+//This can't be done automatically in the test framework. See issue #1094
 #[test]
 fn switches_the_apparmor_profile() -> Result<()> {
     let env = Env("root ALL=(ALL:ALL) APPARMOR_PROFILE=sudo_test ALL")
