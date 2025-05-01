@@ -169,51 +169,92 @@ union SingleRightAnciliaryData {
     _align: cmsghdr,
 }
 
+/// Receives a raw file descriptor from the provided UnixStream
+fn receive_fd(rx_fd: UnixStream) -> RawFd {
+    let mut data = [0u8; 1];
+    let mut iov = iovec {
+        iov_base: &mut data as *mut [u8; 1] as *mut c_void,
+        iov_len: 1,
+    };
+
+    // SAFETY: msghdr can be zero-initialized
+    let mut msg: msghdr = unsafe { zeroed() };
+    msg.msg_name = ptr::null_mut();
+    msg.msg_namelen = 0;
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1;
+
+    // SAFETY: SingleRightAnciliaryData can be zero-initialized.
+    let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
+    // SAFETY: The buf field is valid when zero-initialized.
+    msg.msg_controllen = unsafe { control.buf.len() };
+    msg.msg_control = &mut control as *mut _ as *mut libc::c_void;
+
+    // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
+    if unsafe { recvmsg(rx_fd.as_raw_fd(), &mut msg, 0) } == -1 {
+        panic!("failed to recvmsg: {}", io::Error::last_os_error());
+    }
+
+    if msg.msg_flags & MSG_TRUNC == MSG_TRUNC {
+        unreachable!("unexpected internal error in seccomp filter");
+    }
+
+    // SAFETY: The kernel correctly initializes everything on recvmsg for this to be safe.
+    unsafe {
+        let cmsgp = CMSG_FIRSTHDR(&msg);
+        if cmsgp.is_null()
+            || (*cmsgp).cmsg_len != CMSG_LEN(size_of::<c_int>() as u32) as usize
+            || (*cmsgp).cmsg_level != SOL_SOCKET
+            || (*cmsgp).cmsg_type != SCM_RIGHTS
+        {
+            unreachable!("unexpected response from Linux kernel");
+        }
+        CMSG_DATA(cmsgp).cast::<c_int>().read()
+    }
+}
+
+fn send_fd(tx_fd: &UnixStream, notify_fd: RawFd) -> io::Result<()> {
+    let mut data = [0u8; 1];
+    let mut iov = iovec {
+        iov_base: &mut data as *mut [u8; 1] as *mut c_void,
+        iov_len: 1,
+    };
+
+    // SAFETY: msghdr can be zero-initialized
+    let mut msg: msghdr = unsafe { zeroed() };
+    msg.msg_name = ptr::null_mut();
+    msg.msg_namelen = 0;
+    msg.msg_iov = &mut iov;
+    msg.msg_iovlen = 1;
+
+    // SAFETY: SingleRightAnciliaryData can be zero-initialized.
+    let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
+    // SAFETY: The buf field is valid when zero-initialized.
+    msg.msg_controllen = unsafe { control.buf.len() };
+    msg.msg_control = &mut control as *mut _ as *mut _;
+    // SAFETY: msg.msg_control is correctly initialized and this follows
+    // the contract of the various CMSG_* macros.
+    unsafe {
+        let cmsgp = CMSG_FIRSTHDR(&msg);
+        (*cmsgp).cmsg_level = SOL_SOCKET;
+        (*cmsgp).cmsg_type = SCM_RIGHTS;
+        (*cmsgp).cmsg_len = CMSG_LEN(size_of::<c_int>() as u32) as usize;
+        ptr::write(CMSG_DATA(cmsgp).cast::<c_int>(), notify_fd);
+    }
+
+    // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
+    if unsafe { sendmsg(tx_fd.as_raw_fd(), &msg, 0) } == -1 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
 pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
     let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
 
     thread::spawn(move || {
-        let mut data = [0u8; 1];
-        let mut iov = iovec {
-            iov_base: &mut data as *mut [u8; 1] as *mut c_void,
-            iov_len: 1,
-        };
-
-        // SAFETY: msghdr can be zero-initialized
-        let mut msg: msghdr = unsafe { zeroed() };
-        msg.msg_name = ptr::null_mut();
-        msg.msg_namelen = 0;
-        msg.msg_iov = &mut iov;
-        msg.msg_iovlen = 1;
-
-        // SAFETY: SingleRightAnciliaryData can be zero-initialized.
-        let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
-        // SAFETY: The buf field is valid when zero-initialized.
-        msg.msg_controllen = unsafe { control.buf.len() };
-        msg.msg_control = &mut control as *mut _ as *mut libc::c_void;
-
-        // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
-        if unsafe { recvmsg(rx_fd.as_raw_fd(), &mut msg, 0) } == -1 {
-            panic!("failed to recvmsg: {}", io::Error::last_os_error());
-        }
-
-        if msg.msg_flags & MSG_TRUNC == MSG_TRUNC {
-            unreachable!("unexpected internal error in seccomp filter");
-        }
-
-        // SAFETY: The kernel correctly initializes everything on recvmsg for this to be safe.
-        let notify_fd = unsafe {
-            let cmsgp = CMSG_FIRSTHDR(&msg);
-            if cmsgp.is_null()
-                || (*cmsgp).cmsg_len != CMSG_LEN(size_of::<c_int>() as u32) as usize
-                || (*cmsgp).cmsg_level != SOL_SOCKET
-                || (*cmsgp).cmsg_type != SCM_RIGHTS
-            {
-                unreachable!("unexpected response from Linux kernel");
-            }
-            CMSG_DATA(cmsgp).cast::<c_int>().read()
-        };
-
+        let notify_fd = receive_fd(rx_fd);
         // SAFETY: notify_fd is a valid seccomp_unotify fd.
         unsafe { handle_notifications(OwnedFd::from_raw_fd(notify_fd)) };
     });
@@ -268,38 +309,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
                 return Err(io::Error::last_os_error());
             }
 
-            let mut data = [0u8; 1];
-            let mut iov = iovec {
-                iov_base: &mut data as *mut [u8; 1] as *mut c_void,
-                iov_len: 1,
-            };
-
-            // SAFETY: msghdr can be zero-initialized
-            let mut msg: msghdr = zeroed();
-            msg.msg_name = ptr::null_mut();
-            msg.msg_namelen = 0;
-            msg.msg_iov = &mut iov;
-            msg.msg_iovlen = 1;
-
-            // SAFETY: SingleRightAnciliaryData can be zero-initialized.
-            let mut control: SingleRightAnciliaryData = zeroed();
-            // SAFETY: The buf field is valid when zero-initialized.
-            msg.msg_controllen = control.buf.len();
-            msg.msg_control = &mut control as *mut _ as *mut _;
-            // SAFETY: msg.msg_control is correctly initialized and this follows
-            // the contract of the various CMSG_* macros.
-            {
-                let cmsgp = CMSG_FIRSTHDR(&msg);
-                (*cmsgp).cmsg_level = SOL_SOCKET;
-                (*cmsgp).cmsg_type = SCM_RIGHTS;
-                (*cmsgp).cmsg_len = CMSG_LEN(size_of::<c_int>() as u32) as usize;
-                ptr::write(CMSG_DATA(cmsgp).cast::<c_int>(), notify_fd);
-            }
-
-            // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
-            if sendmsg(tx_fd.as_raw_fd(), &msg, 0) == -1 {
-                return Err(io::Error::last_os_error());
-            }
+            send_fd(&tx_fd, notify_fd)?;
 
             // SAFETY: Nothing will access the notify_fd after this call.
             close(notify_fd);
