@@ -75,10 +75,10 @@ fn auth_invoking_user(
     original_command: &Option<String>,
     other_user: &Option<User>,
 ) -> Result<ControlFlow<(), ()>, Error> {
-    let user = other_user.as_ref().unwrap_or(&context.current_user);
+    let inspected_user = other_user.as_ref().unwrap_or(&context.current_user);
 
     let list_request = ListRequest {
-        inspected_user: user,
+        inspected_user,
         target_user: &context.target_user,
         target_group: &context.target_group,
     };
