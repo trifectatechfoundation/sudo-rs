@@ -107,7 +107,7 @@ impl fmt::Display for Error {
             }
             #[cfg(feature = "apparmor")]
             Error::AppArmor(profile, e) => {
-                write!(f, "could not switch apparmor profile to {profile}: {e}")
+                write!(f, "unable to change AppArmor profile to {profile}: {e}")
             }
         }
     }
