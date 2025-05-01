@@ -101,12 +101,8 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     // prepare switch of apparmor profile
     #[cfg(feature = "apparmor")]
     if let Some(profile) = controls.apparmor_profile {
-        if crate::apparmor::apparmor_is_enabled()
-            .map_err(|err| Error::AppArmor(profile.clone(), err))?
-        {
-            crate::apparmor::apparmor_prepare_exec(&profile)
-                .map_err(|err| Error::AppArmor(profile.clone(), err))?;
-        }
+        crate::apparmor::set_profile_for_next_exec(&profile)
+            .map_err(|err| Error::AppArmor(profile, err))?;
     }
 
     // run command and return corresponding exit code
