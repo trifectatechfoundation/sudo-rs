@@ -98,6 +98,13 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     let pid = context.process.pid;
 
+    // prepare switch of apparmor profile
+    #[cfg(feature = "apparmor")]
+    if let Some(profile) = controls.apparmor_profile {
+        crate::apparmor::set_profile_for_next_exec(&profile)
+            .map_err(|err| Error::AppArmor(profile, err))?;
+    }
+
     // run command and return corresponding exit code
     let command_exit_reason = if context.command.resolved {
         log_command_execution(&context);

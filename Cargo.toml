@@ -44,8 +44,7 @@ default = []
 # on the system you are building sudo for (e.g. Debian, Fedora, but not Arch)
 pam-login = []
 
-# this enables the setting of APPARMOR_PROFILE in /etc/sudoers; this is disabled
-# by default and is only used on Ubuntu
+# this enables enforcing of AppArmor profiles
 apparmor = []
 
 # enable detailed logging (use for development only) to /tmp

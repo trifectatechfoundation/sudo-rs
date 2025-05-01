@@ -280,6 +280,8 @@ mod tests {
                         chdir: crate::sudoers::DirChange::Strict(None),
                         trust_environment: false,
                         use_pty: true,
+                        #[cfg(feature = "apparmor")]
+                        apparmor_profile: None,
                     }
                 ),
                 expected,
