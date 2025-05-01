@@ -28,7 +28,8 @@ const SECCOMP_IOCTL_NOTIF_SEND: c_ulong = 0xc0182101;
 
 /// # Safety
 ///
-/// You must follow the rules of the Linux man page.
+/// You must follow the rules the Linux man page specifies for the chosen
+/// seccomp operation.
 unsafe fn seccomp<T>(operation: c_uint, flags: c_uint, args: *mut T) -> c_int {
     // SAFETY: By function invariant.
     unsafe { syscall(SYS_seccomp, operation, flags, args) as c_int }
@@ -40,6 +41,8 @@ struct NotifyAllocs {
     resp: *mut seccomp_notif_resp,
 }
 
+/// Linux reserves the right to demand the memory for an object of type T
+/// to be over-allocated; this function ensures that happens.
 fn alloc_dynamic<T>(runtime_size: u16) -> (*mut T, usize) {
     // FIXME put this in a const block once the MSRV has been bumped enough
     assert!(size_of::<T>() > 0);
@@ -151,6 +154,13 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
     }
 }
 
+//We must use vectored reads with ancillary data.
+//
+//NOTE: some day we can witch to using send/recv_vectored_with_ancillary; see:
+// - https://doc.rust-lang.org/std/os/unix/net/struct.UnixDatagram.html#method.recv_vectored_with_ancillary
+// - https://doc.rust-lang.org/std/os/unix/net/struct.UnixDatagram.html#method.send_vectored_with_ancillary
+// but this is (at the time of writing) unstable.
+
 #[repr(C)]
 union SingleRightAnciliaryData {
     // SAFETY: Not actually unsafe
@@ -188,7 +198,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
         }
 
         if msg.msg_flags & MSG_TRUNC == MSG_TRUNC {
-            unreachable!();
+            unreachable!("unexpected internal error in seccomp filter");
         }
 
         // SAFETY: The kernel correctly initializes everything on recvmsg for this to be safe.
@@ -199,7 +209,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
                 || (*cmsgp).cmsg_level != SOL_SOCKET
                 || (*cmsgp).cmsg_type != SCM_RIGHTS
             {
-                unreachable!();
+                unreachable!("unexpected response from Linux kernel");
             }
             CMSG_DATA(cmsgp).cast::<c_int>().read()
         };
