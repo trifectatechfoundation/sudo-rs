@@ -172,9 +172,6 @@ pub fn build_base_image() {
                 env::var("SUDO_BUILD_FEATURES").unwrap_or_else(|_| {
                     let mut features = vec![];
 
-                    #[cfg(target_os = "freebsd")]
-                    features.push("dev");
-
                     #[cfg(not(target_os = "freebsd"))]
                     features.push("pam-login");
 
