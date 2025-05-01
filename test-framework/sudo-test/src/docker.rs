@@ -54,12 +54,26 @@ fn docker_build_command(tag: &str) -> StdCommand {
 impl Container {
     #[cfg(test)]
     fn new(image: &str) -> Self {
-        Self::new_with_hostname(image, None)
+        Self::new_with_hostname(
+            image,
+            None,
+            #[cfg(feature = "apparmor")]
+            None,
+        )
     }
 
-    pub fn new_with_hostname(image: &str, hostname: Option<&str>) -> Self {
+    pub fn new_with_hostname(
+        image: &str,
+        hostname: Option<&str>,
+        #[cfg(feature = "apparmor")] apparmor_profile: Option<&str>,
+    ) -> Self {
         let mut docker_run = docker_command();
         docker_run.args(["run", "--detach"]);
+        #[cfg(feature = "apparmor")]
+        if let Some(profile) = apparmor_profile {
+            docker_run.arg("--security-opt");
+            docker_run.arg(format!("apparmor={profile}"));
+        }
         // Disable network access for the containers. This removes the overhead
         // of setting up a new network namespace and associated firewall rule
         // adjustments. On FreeBSD it seems to introduce extra overhead however.

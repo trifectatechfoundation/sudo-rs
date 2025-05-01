@@ -160,6 +160,7 @@ pub struct EnvBuilder {
     hostname: Option<String>,
     users: HashMap<Username, User>,
     user_passwords: HashMap<String, String>,
+    apparmor_profile: Option<String>,
 }
 
 impl EnvBuilder {
@@ -254,6 +255,17 @@ impl EnvBuilder {
         self
     }
 
+    /// selects a particular apparmor profile to use for the docker
+    /// # Panics
+    ///
+    /// - if the apparmor profile has already been set
+    pub fn apparmor(&mut self, profile: impl ToString) -> &mut Self {
+        assert_eq!(self.apparmor_profile, None);
+        self.apparmor_profile = Some(profile.to_string());
+
+        self
+    }
+
     /// Sets the password for the specified `user` to the test environment
     pub fn user_password(&mut self, username: &str, password: &str) -> &mut Self {
         assert!(
@@ -300,7 +312,12 @@ impl EnvBuilder {
             std::panic::resume_unwind(Box::new(()));
         }
 
-        let container = Container::new_with_hostname(base_image(), self.hostname.as_deref());
+        let container = Container::new_with_hostname(
+            base_image(),
+            self.hostname.as_deref(),
+            #[cfg(feature = "apparmor")]
+            self.apparmor_profile.as_deref(),
+        );
 
         let (mut usernames, user_ids) = getent_passwd(&container);
 
