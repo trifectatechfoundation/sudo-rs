@@ -207,7 +207,7 @@ jobs:
         run: cargo llvm-cov --workspace --all-targets --release --lcov --output-path lcov.info
 
       - name: Upload code coverage
-        uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574
+        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d
         with:
           files: lcov.info
 
