@@ -213,7 +213,7 @@ fn receive_fd(rx_fd: UnixStream) -> RawFd {
     }
 }
 
-fn send_fd(tx_fd: &UnixStream, notify_fd: RawFd) -> io::Result<()> {
+fn send_fd(tx_fd: UnixStream, notify_fd: RawFd) -> io::Result<()> {
     let mut data = [0u8; 1];
     let mut iov = iovec {
         iov_base: &mut data as *mut [u8; 1] as *mut c_void,
@@ -261,10 +261,15 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
 
     file_closer.except(&tx_fd);
 
+    // wrap tx_fd so it can be moved into the closure
+    let mut tx_fd = Some(tx_fd);
+
     // SAFETY: See individual SAFETY comments
     unsafe {
         // SAFETY: The closure only calls async-signal-safe functions.
         command.pre_exec(move || {
+            let tx_fd = tx_fd.take().unwrap();
+
             // FIXME replace with offset_of!(seccomp_data, nr) once MSRV is bumped to 1.77
             // SAFETY: seccomp_data can be safely zero-initialized.
             let dummy: seccomp_data = zeroed();
@@ -309,7 +314,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
                 return Err(io::Error::last_os_error());
             }
 
-            send_fd(&tx_fd, notify_fd)?;
+            send_fd(tx_fd, notify_fd)?;
 
             // SAFETY: Nothing will access the notify_fd after this call.
             close(notify_fd);
