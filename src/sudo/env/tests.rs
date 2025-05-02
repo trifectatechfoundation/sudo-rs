@@ -132,7 +132,6 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         process: Process::new(),
         use_session_records: false,
         use_pty: true,
-        noexec: false,
         bell: false,
     }
 }
@@ -172,7 +171,6 @@ fn test_environment_variable_filtering() {
                 trust_environment: false,
                 #[cfg(feature = "apparmor")]
                 apparmor_profile: None,
-                noexec: false,
             },
         )
         .unwrap();

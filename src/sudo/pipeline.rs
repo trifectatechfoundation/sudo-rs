@@ -237,7 +237,6 @@ fn apply_policy_to_context(
     // in case the user could set these from the commandline, something more fancy
     // could be needed, but here we copy these -- perhaps we should split up the Context type
     context.use_pty = controls.use_pty;
-    context.noexec = controls.noexec;
 
     Ok(())
 }
