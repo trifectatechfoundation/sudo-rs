@@ -145,11 +145,22 @@ A Host_List is made up of one or more host names.  Again, the value of an item m
      Cmnd ::= '!'* command name |
               '!'* directory |
               '!'* Cmnd_Alias
+              '!'* "list"
+              '!'* "sudoedit"
 
 A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the Wildcards section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments (which in sudo-rs may *not* include wildcards). Alternately, you can specify "" to indicate that the command may only be run without command line arguments.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
 
 If a Cmnd has associated command line arguments, then the arguments in the Cmnd must match exactly those given by the user on the command line.
 Note that the following characters must be escaped with a ‘\’ if they are used in command arguments: ‘,’, ‘:’, ‘=’, ‘\’.
+
+There are two commands built into sudo itself: “list” and “sudoedit”.  Unlike other commands, these two must be specified in the sudoers file without a leading path.
+
+The “list” built-in can be used to permit a user to list another user's privileges with sudo's -U option.  For example, “sudo -l -U otheruser”.  A user
+with the “list” privilege is able to list another user's privileges even if they don't have permission to run commands as that user.  By default, only
+root or a user with the ability to run any command as either root or the specified user on the current host may use the -U option.  No command line arguments may
+be specified with the “list” built-in.
+
+The “sudoedit” built-in will be used in the future to permit a user to run sudo with the -e option (or as sudoedit). This feature is currently under development.
 
 ## Defaults
 
@@ -266,7 +277,7 @@ would allow the user queen to run /bin/kill, /bin/ls, and /usr/bin/lprm as root 
 
 Note, however, that the PASSWD tag has no effect on users who are in the group specified by the exempt_group setting.
 
-By default, if the NOPASSWD tag is applied to any of a user's entries for the current host, the user will be able to run “sudo -l” without a password.  Additionally, a user may only run “sudo -v” without a password if all of the user's entries for the current host have the NOPASSWD tag.  This behavior may be overridden via the verifypw and listpw options.
+By default, if the NOPASSWD tag is applied to any of a user's entries for the current host, the user will be able to run “sudo -l” without a password.  Additionally, a user may only run “sudo -v” without a password if all of the user's entries for the current host have the NOPASSWD tag.
 
 ### SETENV and NOSETENV
 
@@ -352,6 +363,14 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
   If set, sudo will prompt for the root password instead of the password of the invoking user when running a command or editing a file.  This flag is off by default.
 
+* setenv
+
+  Allow the user to set environment variables set via the command line that are not subject to the restrictions imposed by env_check, env_delete, or env_keep.  As such, only trusted users should be allowed to set variables in this manner.  This flag is off by default.
+
+* targetpw
+
+  If set, sudo will prompt for the password of the user specified by the -u option (defaults to root) instead of the password of the invoking user when running a command or editing a file. Note that this flag precludes the use of a user-ID not listed in the passwd database as an argument to the -u option. This flag is off by default.
+
 * use_pty
 
   If set, and sudo is running in a terminal, the command will be run in a pseudo-terminal (even if no I/O logging is being done).  If the sudo process is not attached to a terminal, use_pty has no effect.
@@ -380,7 +399,7 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 * env_check
 
-  Environment variables to be removed from the user's environment unless they are considered “safe”.  For all variables except TZ, “safe” means that the variable's value does not contain any ‘%’ or ‘/’ char‐ acters.  This can be used to guard against printf-style format vulnerabilities in poorly-written programs.  The TZ variable is considered unsafe if any of the following are true:
+  Environment variables to be removed from the user's environment unless they are considered “safe”.  For all variables except TZ, “safe” means that the variable's value does not contain any ‘%’ or ‘/’ characters.  This can be used to guard against printf-style format vulnerabilities in poorly-written programs.  The TZ variable is considered unsafe if any of the following are true:
 
                        •  It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that does not match the location of the zoneinfo directory.
 
