@@ -9,6 +9,7 @@ title: SUDO(8) sudo-rs 0.2.5 | sudo-rs
 # SYNOPSIS
 
 `sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-BknS`] [`-i` | `-s`] [`VAR=value`] [<*command*>] \
+`sudo` `-l` [`-BknS`] [`-U` *user*] [`-u` *user*]  [`-g` *group*] [command [arg ...]]
 `sudo` `-h` | `-K` | `-k` | `-V`
 
 # DESCRIPTION
@@ -109,6 +110,13 @@ even if that process runs in its own pseudo terminal.
 `-v`, `--validate`
 :   Update the session record for the current session, authenticating the user
     if necessary.
+
+`-l`, `--list`
+:   List user's privileges or check a specific command; use twice for longer format
+
+`-U`, `--other-user`=*user*
+:   Used in list mode, display privileges for another user
+
 
 `--`
 :   Indicates the end of the sudo-rs options and start of the *command*.
