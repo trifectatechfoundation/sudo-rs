@@ -95,7 +95,7 @@ fn alloc_notify_allocs() -> NotifyAllocs {
 /// `ioctl(fd, request, ptr)` must be safe to call
 unsafe fn ioctl<T>(fd: RawFd, request: libc::c_ulong, ptr: *mut T) -> Option<()> {
     // SAFETY: By function contract
-    if unsafe { libc::ioctl(fd, request, ptr) } == -1 {
+    if unsafe { libc::ioctl(fd, request as _, ptr) } == -1 {
         // SAFETY: Trivial
         if unsafe { *__errno_location() } == ENOENT {
             None
@@ -192,7 +192,7 @@ fn receive_fd(rx_fd: UnixStream) -> RawFd {
     // SAFETY: SingleRightAnciliaryData can be zero-initialized.
     let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
     // SAFETY: The buf field is valid when zero-initialized.
-    msg.msg_controllen = unsafe { control.buf.len() };
+    msg.msg_controllen = unsafe { control.buf.len() as _ };
     msg.msg_control = &mut control as *mut _ as *mut libc::c_void;
 
     // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
@@ -208,7 +208,7 @@ fn receive_fd(rx_fd: UnixStream) -> RawFd {
     unsafe {
         let cmsgp = CMSG_FIRSTHDR(&msg);
         if cmsgp.is_null()
-            || (*cmsgp).cmsg_len != CMSG_LEN(size_of::<c_int>() as u32) as usize
+            || (*cmsgp).cmsg_len != CMSG_LEN(size_of::<c_int>() as u32) as _
             || (*cmsgp).cmsg_level != SOL_SOCKET
             || (*cmsgp).cmsg_type != SCM_RIGHTS
         {
@@ -235,7 +235,7 @@ fn send_fd(tx_fd: UnixStream, notify_fd: RawFd) -> io::Result<()> {
     // SAFETY: SingleRightAnciliaryData can be zero-initialized.
     let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
     // SAFETY: The buf field is valid when zero-initialized.
-    msg.msg_controllen = unsafe { control.buf.len() };
+    msg.msg_controllen = unsafe { control.buf.len() as _ };
     msg.msg_control = &mut control as *mut _ as *mut _;
     // SAFETY: msg.msg_control is correctly initialized and this follows
     // the contract of the various CMSG_* macros.
@@ -243,7 +243,7 @@ fn send_fd(tx_fd: UnixStream, notify_fd: RawFd) -> io::Result<()> {
         let cmsgp = CMSG_FIRSTHDR(&msg);
         (*cmsgp).cmsg_level = SOL_SOCKET;
         (*cmsgp).cmsg_type = SCM_RIGHTS;
-        (*cmsgp).cmsg_len = CMSG_LEN(size_of::<c_int>() as u32) as usize;
+        (*cmsgp).cmsg_len = CMSG_LEN(size_of::<c_int>() as u32) as _;
         ptr::write(CMSG_DATA(cmsgp).cast::<c_int>(), notify_fd);
     }
 
