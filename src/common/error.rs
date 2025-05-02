@@ -61,7 +61,7 @@ impl fmt::Display for Error {
             Error::SelfCheck => {
                 f.write_str("sudo must be owned by uid 0 and have the setuid bit set")
             }
-            Error::KernelCheck => f.write_str("sudo-rs needs a Linux kernel newer than v5.9"),
+            Error::KernelCheck => f.write_str("sudo-rs needs a Linux kernel newer than v5.11"),
             Error::CommandNotFound(p) => write!(f, "'{}': command not found", p.display()),
             Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
             Error::UserNotFound(u) => write!(f, "user '{u}' not found"),
