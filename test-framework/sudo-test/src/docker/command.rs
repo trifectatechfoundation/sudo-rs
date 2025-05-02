@@ -161,8 +161,8 @@ impl Output {
     pub fn assert_success(&self) {
         if !self.status.success() {
             panic!(
-                "program failed with {} stderr:\n{}",
-                self.status, self.stderr
+                "program failed with {}\nstdout:\n{}\n\nstderr:\n{}",
+                self.status, self.stdout, self.stderr
             );
         }
     }
@@ -175,8 +175,8 @@ impl Output {
         assert_ne!(code, 0, "use assert_success to check for success");
         if self.status.code() != Some(code) {
             panic!(
-                "program failed with {}, expected exit code {code}. stderr:\n{}",
-                self.status, self.stderr
+                "program failed with {}, expected exit code {code}\nstdout:\n{}\n\nstderr:\n{}",
+                self.status, self.stdout, self.stderr
             );
         }
     }
