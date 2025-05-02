@@ -19,9 +19,7 @@ use crate::system::signal::{
 };
 use crate::system::term::{Pty, PtyFollower, PtyLeader, TermSize, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
-use crate::system::{
-    chown, fork, getpgrp, kill, killpg, FileCloser, ForkResult, Group, User, _exit,
-};
+use crate::system::{chown, fork, getpgrp, kill, killpg, ForkResult, Group, User, _exit};
 use crate::system::{getpgid, interface::ProcessId};
 
 use super::pipe::Pipe;
@@ -58,18 +56,12 @@ pub(in crate::exec) fn exec_pty(
     // Fetch the parent process group so we can signals to it.
     let parent_pgrp = getpgrp();
 
-    let mut file_closer = FileCloser::new();
-
     // Set all the IO streams for the command to the follower side of the pty.
-    let mut clone_follower = || -> io::Result<PtyFollower> {
-        let follower = pty.follower.try_clone().map_err(|err| {
+    let clone_follower = || -> io::Result<PtyFollower> {
+        pty.follower.try_clone().map_err(|err| {
             dev_error!("cannot clone pty follower: {err}");
             err
-        })?;
-        // Don't close these as we will need them so they are dupped inside `Command::exec`.
-        file_closer.except(&follower);
-
-        Ok(follower)
+        })
     };
 
     command.stdin(clone_follower()?);
@@ -181,7 +173,6 @@ pub(in crate::exec) fn exec_pty(
             command,
             foreground && !pipeline && !exec_bg,
             &mut backchannels.monitor,
-            file_closer,
             original_set,
         ) {
             Ok(exec_output) => match exec_output {},

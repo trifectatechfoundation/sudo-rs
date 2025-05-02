@@ -19,10 +19,10 @@ use crate::{
     system::{
         _exit, fork, getpgid, getpgrp,
         interface::ProcessId,
-        kill, killpg,
+        kill, killpg, mark_fds_as_cloexec,
         term::{Terminal, UserTerm},
         wait::WaitOptions,
-        FileCloser, ForkResult,
+        ForkResult,
     },
 };
 
@@ -39,16 +39,10 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         }
     };
 
-    let mut file_closer = FileCloser::new();
-
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
     // Use a pipe to get the IO error if `exec` fails.
     let (mut errpipe_tx, errpipe_rx) = BinPipe::pair()?;
-
-    // Don't close the error pipe as we need it to retrieve the error code if the command execution
-    // fails.
-    file_closer.except(&errpipe_tx);
 
     // SAFETY: There should be no other threads at this point.
     let ForkResult::Parent(command_pid) = unsafe { fork() }.map_err(|err| {
@@ -63,9 +57,7 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
             }
         }
 
-        // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
-        // and errpipe before exiting without running atexit handlers using _exit
-        if let Err(err) = unsafe { file_closer.close_the_universe() } {
+        if let Err(err) = mark_fds_as_cloexec() {
             dev_warn!("failed to close the universe: {err}");
             // Send the error to the monitor using the pipe.
             if let Some(error_code) = err.raw_os_error() {

@@ -19,7 +19,7 @@ use crate::{
         use_pty::{SIGCONT_BG, SIGCONT_FG},
     },
     log::{dev_error, dev_info, dev_warn},
-    system::FileCloser,
+    system::mark_fds_as_cloexec,
 };
 use crate::{
     exec::{handle_sigchld, terminate_process, HandleSigchld},
@@ -40,7 +40,6 @@ pub(super) fn exec_monitor(
     command: Command,
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
-    mut file_closer: FileCloser,
     original_set: Option<SignalSet>,
 ) -> io::Result<Infallible> {
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
@@ -69,10 +68,6 @@ pub(super) fn exec_monitor(
     // Use a pipe to get the IO error if `exec_command` fails.
     let (errpipe_tx, errpipe_rx) = BinPipe::pair()?;
 
-    // Don't close the error pipe as we need it to retrieve the error code if the command execution
-    // fails.
-    file_closer.except(&errpipe_tx);
-
     // Wait for the parent to give us green light before spawning the command. This avoids race
     // conditions when the command exits quickly.
     let event = retry_while_interrupted(|| backchannel.recv()).map_err(|err| {
@@ -93,14 +88,7 @@ pub(super) fn exec_monitor(
     else {
         drop(errpipe_rx);
 
-        match exec_command(
-            command,
-            foreground,
-            pty_follower,
-            file_closer,
-            errpipe_tx,
-            original_set,
-        ) {}
+        match exec_command(command, foreground, pty_follower, errpipe_tx, original_set) {}
     };
 
     // Send the command's PID to the parent.
@@ -192,7 +180,6 @@ fn exec_command(
     mut command: Command,
     foreground: bool,
     pty_follower: PtyFollower,
-    file_closer: FileCloser,
     mut errpipe_tx: BinPipe<i32, i32>,
     original_set: Option<SignalSet>,
 ) -> ! {
@@ -219,9 +206,7 @@ fn exec_command(
         }
     }
 
-    // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
-    // and errpipe before exiting without running atexit handlers using _exit
-    if let Err(err) = unsafe { file_closer.close_the_universe() } {
+    if let Err(err) = mark_fds_as_cloexec() {
         dev_warn!("failed to close the universe: {err}");
         // Send the error to the monitor using the pipe.
         if let Some(error_code) = err.raw_os_error() {

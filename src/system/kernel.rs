@@ -6,8 +6,8 @@ pub fn kernel_check() -> Result<(), Error> {
     use std::ffi::CStr;
     use std::mem::MaybeUninit;
 
-    // On Linux, we need kernel version 5.9 to have access to `close_range()`
-    const TARGET_VERSION: (u32, u32) = (5, 9);
+    // On Linux, we need kernel version 5.11 to have access to `CLOSE_RANGE_CLOEXEC`
+    const TARGET_VERSION: (u32, u32) = (5, 11);
 
     let mut utsname = MaybeUninit::uninit();
 
@@ -38,8 +38,8 @@ pub fn kernel_check() -> Result<(), Error> {
 
 #[cfg(target_os = "freebsd")]
 pub fn kernel_check() -> Result<(), Error> {
-    // the kernel check doesn't make much sense on FreeBSD (we need FreeBSD 8.0 or newer,
-    // which is comparatively ancient compared to Linux 5.9)
+    // the kernel check doesn't make much sense on FreeBSD (we need FreeBSD 13.1 or newer.
+    // FreeBSD 13.0 has been EOL for several years now)
     Ok(())
 }
 
