@@ -62,6 +62,7 @@ fn add_extra_env(
         context.current_user.gid.to_string().into(),
     );
     environment.insert("SUDO_USER".into(), context.current_user.name.clone().into());
+    environment.insert("SUDO_HOME".into(), context.current_user.home.clone().into());
     // target user
     environment
         .entry("MAIL".into())
