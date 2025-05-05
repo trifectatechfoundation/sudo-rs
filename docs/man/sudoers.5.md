@@ -206,7 +206,9 @@ See **SUDOERS OPTIONS** for a list of supported Defaults parameters.
 
      Chdir_Spec ::= 'CWD=directory'
 
-     Tag_Spec ::= ('PASSWD:' | 'NOPASSWD:' | 'SETENV:' | 'NOSETENV:')
+     Tag_Spec ::= ('PASSWD:' | 'NOPASSWD:' |
+                   'SETENV:' | 'NOSETENV:'
+                   'EXEC:'   | 'NOEXEC')
 
 A user specification determines which commands a user may run (and as what user) on specified hosts.  By default, commands are run as root, but this can be changed on a per-command basis.
 
@@ -283,6 +285,16 @@ By default, if the NOPASSWD tag is applied to any of a user's entries for the cu
 
 These tags override the value of the setenv flag on a per-command basis.  Note that if SETENV has been set for a command, the user may disable the env_reset flag from the command line via the -E option.  Additionally, environment variables set on the command line are not subject to the restrictions imposed by env_check, env_delete, or env_keep.  As such, only trusted users should be allowed to set variables in this manner.  If the command matched is ALL, the SETENV tag is implied for that command; this default may be overridden by use of the NOSETENV tag.
 
+### EXEC and NOEXEC
+
+On Linux systems, the NOEXEC tag can be used to prevent an executable from running further commands itself.
+
+In the following example, user aaron may run /usr/bin/more and /usr/bin/vi but shell escapes will be disabled.
+
+        aaron   shanty = NOEXEC: /usr/bin/more, /usr/bin/vi
+
+See the Preventing shell escapes section below for more details on how NOEXEC works and whether or not it suits your purpose.
+
 ## Wildcards
 
 sudo allows shell-style wildcards (aka meta or glob characters) to be used in host names, path names, and command line arguments in the sudoers file.  Wildcard matching is done via the glob(3) and fnmatch(3) functions as specified by IEEE Std 1003.1 (“POSIX.1”).
@@ -350,6 +362,10 @@ The following characters must be escaped with a backslash (‘\’) when used as
 sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A list of all supported Defaults parameters, grouped by type, are listed below.
 
 ### Boolean Flags:
+
+* noexec
+
+  If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the Preventing shell escapes section at the end of this manual.  This flag is off by default.
 
 * env_editor
 
@@ -456,7 +472,10 @@ User john can still run /usr/bin/passwd root if fast_glob is enabled by changing
 
 Once sudo executes a program, that program is free to do whatever it pleases, including run other programs.  This can be a security issue since it is not uncommon for a program to allow shell escapes, which lets a user bypass sudo's access control and logging.  Common programs that permit shell escapes include shells (obviously), editors, paginators (such as *less*), mail, and terminal programs.
 
-sudo-rs currently doesn't offer Todd Miller's sudo's protection mechanisms; i.e. be very careful that when a user is not supposed to receive shell access, that the commands that they have access to does not allow escaping to the shell.
+On Linux, sudo-rs has sudo's **noexec* functionality, based on a seccomp() filter. Programs that are run in **noexec** mode cannot run other programs. The implementation
+in sudo-rs is different than in Todd Miller's sudo, and should also work on statically linked binaries.
+
+Note that restricting shell escapes is not a panacea. Programs running as root are still capable of many potentially hazardous operations (such as changing or overwriting files) that could lead to unintended privilege escalation. NOEXEC is also not a protection against malicious programs. It doesn't prevent mapping memory as executable, nor does it protect against future syscalls that can do an exec() like the planned `io_uring` feature in Linux. And it also doesn't protect against honest programs that intentionally or not allow the user to write to /proc/self/mem for the same reasons as that it doesn't protect against malicious programs.
 
 ### Timestamp file checks
 
