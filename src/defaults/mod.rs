@@ -37,6 +37,7 @@ defaults! {
     rootpw                    = false
     targetpw                  = false
 
+    apparmor_profile          = None (!= None)
     passwd_tries              = 3 [0..=1000]
 
     secure_path               = None (!= None)
