@@ -80,6 +80,11 @@ pub enum AuthenticatingUser {
 
 impl Judgement {
     pub fn authorization(&self) -> Authorization<Restrictions> {
+        // NOTE: we should add conditional compilation to the DSL; this avoids getting
+        // an unused warning message
+        #[cfg(not(feature = "apparmor"))]
+        let _ = &self.settings.apparmor_profile();
+
         if let Some(tag) = &self.flags {
             Authorization::Allowed(
                 self.settings.to_auth(tag),
@@ -99,7 +104,11 @@ impl Judgement {
                     },
                     path: self.settings.secure_path(),
                     #[cfg(feature = "apparmor")]
-                    apparmor_profile: tag.apparmor_profile.clone(),
+                    apparmor_profile: tag
+                        .apparmor_profile
+                        .as_deref()
+                        .or(self.settings.apparmor_profile())
+                        .map(|x| x.to_string()),
                 },
             )
         } else {
