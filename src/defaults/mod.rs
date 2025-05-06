@@ -36,6 +36,7 @@ defaults! {
     env_editor                = true
     rootpw                    = false
     targetpw                  = false
+    noexec                    = false
 
     apparmor_profile          = None (!= None)
     passwd_tries              = 3 [0..=1000]

@@ -27,6 +27,7 @@ use super::{CommandStatus, SIGCONT_BG};
 
 pub(in crate::exec) fn exec_pty(
     sudo_pid: ProcessId,
+    mut file_closer: FileCloser,
     mut command: Command,
     user_tty: UserTerm,
 ) -> io::Result<ExitReason> {
