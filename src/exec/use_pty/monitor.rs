@@ -9,6 +9,7 @@ use crate::{
     common::bin_serde::BinPipe,
     exec::{
         event::{EventRegistry, Process},
+        exec_command,
         io_util::{retry_while_interrupted, was_interrupted},
         use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     },
@@ -87,7 +88,23 @@ pub(super) fn exec_monitor(
     else {
         drop(errpipe_rx);
 
-        match exec_command(command, foreground, pty_follower, errpipe_tx, original_set) {}
+        // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
+        let command_pid = ProcessId::new(std::process::id() as i32);
+
+        setpgid(ProcessId::new(0), command_pid).ok();
+
+        // Wait for the monitor to set us as the foreground group for the pty if we are in the
+        // foreground.
+        if foreground {
+            while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
+                std::thread::yield_now();
+            }
+        }
+
+        // Done with the pty follower.
+        drop(pty_follower);
+
+        exec_command(command, original_set, errpipe_tx)
     };
 
     // Send the command's PID to the parent.
@@ -173,32 +190,6 @@ pub(super) fn exec_monitor(
 
     // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
     _exit(1);
-}
-
-fn exec_command(
-    command: Command,
-    foreground: bool,
-    pty_follower: PtyFollower,
-    errpipe_tx: BinPipe<i32, i32>,
-    original_set: Option<SignalSet>,
-) -> ! {
-    // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
-    let command_pid = ProcessId::new(std::process::id() as i32);
-
-    setpgid(ProcessId::new(0), command_pid).ok();
-
-    // Wait for the monitor to set us as the foreground group for the pty if we are in the
-    // foreground.
-    if foreground {
-        while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
-            std::thread::yield_now();
-        }
-    }
-
-    // Done with the pty follower.
-    drop(pty_follower);
-
-    crate::exec::exec_command(command, original_set, errpipe_tx)
 }
 
 struct MonitorClosure<'a> {
