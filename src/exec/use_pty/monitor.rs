@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ffi::c_int, io, os::unix::process::CommandExt, process::Command};
+use std::{convert::Infallible, ffi::c_int, io, process::Command};
 
 use crate::exec::{opt_fmt, signal_fmt};
 use crate::system::signal::{
@@ -189,11 +189,11 @@ pub(super) fn exec_monitor(
 }
 
 fn exec_command(
-    mut command: Command,
+    command: Command,
     foreground: bool,
     pty_follower: PtyFollower,
     file_closer: FileCloser,
-    mut errpipe_tx: BinPipe<i32, i32>,
+    errpipe_tx: BinPipe<i32, i32>,
     original_set: Option<SignalSet>,
 ) -> ! {
     // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
@@ -212,37 +212,7 @@ fn exec_command(
     // Done with the pty follower.
     drop(pty_follower);
 
-    // Restore the signal mask now that the handlers have been setup.
-    if let Some(set) = original_set {
-        if let Err(err) = set.set_mask() {
-            dev_warn!("cannot restore signal mask: {err}");
-        }
-    }
-
-    // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
-    // and errpipe before exiting without running atexit handlers using _exit
-    if let Err(err) = unsafe { file_closer.close_the_universe() } {
-        dev_warn!("failed to close the universe: {err}");
-        // Send the error to the monitor using the pipe.
-        if let Some(error_code) = err.raw_os_error() {
-            errpipe_tx.write(&error_code).ok();
-        }
-
-        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-        _exit(1);
-    }
-
-    let err = command.exec();
-
-    dev_warn!("failed to execute command: {err}");
-    // If `exec_command` returns, it means that executing the command failed. Send the error to
-    // the monitor using the pipe.
-    if let Some(error_code) = err.raw_os_error() {
-        errpipe_tx.write(&error_code).ok();
-    }
-
-    // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-    _exit(1);
+    crate::exec::exec_command(file_closer, command, original_set, errpipe_tx)
 }
 
 struct MonitorClosure<'a> {
