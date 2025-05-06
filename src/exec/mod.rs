@@ -18,15 +18,18 @@ use std::{
 };
 
 use crate::{
+    common::bin_serde::BinPipe,
     exec::no_pty::exec_no_pty,
     log::{dev_info, dev_warn, user_error},
     system::{
+        _exit,
         interface::ProcessId,
-        killpg,
-        signal::{consts::*, signal_name},
+        kill, killpg, mark_fds_as_cloexec, set_target_user,
+        signal::{consts::*, signal_name, SignalNumber, SignalSet},
+        term::UserTerm,
         wait::{Wait, WaitError, WaitOptions},
+        Group, User,
     },
-    system::{kill, set_target_user, signal::SignalNumber, term::UserTerm, Group, User},
 };
 
 use self::{
@@ -137,6 +140,42 @@ pub fn run_command(
 pub enum ExitReason {
     Code(i32),
     Signal(i32),
+}
+
+fn exec_command(
+    mut command: Command,
+    original_set: Option<SignalSet>,
+    mut errpipe_tx: BinPipe<i32>,
+) -> ! {
+    // Restore the signal mask now that the handlers have been setup.
+    if let Some(set) = original_set {
+        if let Err(err) = set.set_mask() {
+            dev_warn!("cannot restore signal mask: {err}");
+        }
+    }
+
+    if let Err(err) = mark_fds_as_cloexec() {
+        dev_warn!("failed to close the universe: {err}");
+        // Send the error to the monitor using the pipe.
+        if let Some(error_code) = err.raw_os_error() {
+            errpipe_tx.write(&error_code).ok();
+        }
+
+        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+        _exit(1);
+    }
+
+    let err = command.exec();
+
+    dev_warn!("failed to execute command: {err}");
+    // If `exec` returns, it means that executing the command failed. Send the error to the
+    // monitor using the pipe.
+    if let Some(error_code) = err.raw_os_error() {
+        errpipe_tx.write(&error_code).ok();
+    }
+
+    // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+    _exit(1);
 }
 
 // Kill the process with increasing urgency.

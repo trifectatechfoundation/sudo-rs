@@ -1,4 +1,4 @@
-use std::{ffi::c_int, io, os::unix::process::CommandExt, process::Command};
+use std::{ffi::c_int, io, process::Command};
 
 use super::{
     event::PollEvent,
@@ -14,19 +14,19 @@ use crate::{
     },
 };
 use crate::{
-    exec::{handle_sigchld, signal_fmt},
+    exec::{exec_command, handle_sigchld, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        _exit, fork, getpgid, getpgrp,
+        fork, getpgid, getpgrp,
         interface::ProcessId,
-        kill, killpg, mark_fds_as_cloexec,
+        kill, killpg,
         term::{Terminal, UserTerm},
         wait::WaitOptions,
         ForkResult,
     },
 };
 
-pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ExitReason> {
+pub(super) fn exec_no_pty(sudo_pid: ProcessId, command: Command) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
@@ -42,7 +42,7 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
     // Use a pipe to get the IO error if `exec` fails.
-    let (mut errpipe_tx, errpipe_rx) = BinPipe::pair()?;
+    let (errpipe_tx, errpipe_rx) = BinPipe::pair()?;
 
     // SAFETY: There should be no other threads at this point.
     let ForkResult::Parent(command_pid) = unsafe { fork() }.map_err(|err| {
@@ -50,35 +50,7 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         err
     })?
     else {
-        // Restore the signal mask now that the handlers have been setup.
-        if let Some(set) = original_set {
-            if let Err(err) = set.set_mask() {
-                dev_warn!("cannot restore signal mask: {err}");
-            }
-        }
-
-        if let Err(err) = mark_fds_as_cloexec() {
-            dev_warn!("failed to close the universe: {err}");
-            // Send the error to the monitor using the pipe.
-            if let Some(error_code) = err.raw_os_error() {
-                errpipe_tx.write(&error_code).ok();
-            }
-
-            // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-            _exit(1);
-        }
-
-        let err = command.exec();
-
-        dev_warn!("failed to execute command: {err}");
-        // If `exec` returns, it means that executing the command failed. Send the error to the
-        // monitor using the pipe.
-        if let Some(error_code) = err.raw_os_error() {
-            errpipe_tx.write(&error_code).ok();
-        }
-
-        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-        _exit(1);
+        exec_command(command, original_set, errpipe_tx);
     };
 
     dev_info!("executed command with pid {command_pid}");
