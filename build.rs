@@ -26,8 +26,8 @@ fn main() {
         "cargo:rustc-env=SU_PATH_DEFAULT=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
     );
 
-    println!("cargo:rustc-env=PATH_MAILDIR={path_maildir}");
-    println!("cargo:rustc-env=PATH_ZONEINFO={path_zoneinfo}");
+    println!("cargo:rustc-env=PATH_MAILDIR={}", path_maildir);
+    println!("cargo:rustc-env=PATH_ZONEINFO={}", path_zoneinfo);
     println!("cargo:rerun-if-changed=build.rs");
 
     println!("cargo:rustc-link-lib=pam");
