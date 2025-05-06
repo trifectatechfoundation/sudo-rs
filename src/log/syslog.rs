@@ -14,12 +14,13 @@ mod internal {
     const NULL_BYTE_LEN: usize = 1; // for C string compatibility
     const BUFSZ: usize = MAX_MSG_LEN + DOTDOTDOT_END.len() + NULL_BYTE_LEN;
 
-    pub struct SysLogMessageWriter {
-        buffer: [u8; BUFSZ],
-        cursor: usize,
-        facility: libc::c_int,
-        priority: libc::c_int,
-    }
+     pub struct SysLogMessageWriter {
+         buffer: Vec<u8>,
+         cursor: usize,
+         facility: libc::c_int,
+          priority: libc::c_int,
+     }
+
 
     // - whenever a SysLogMessageWriter has been constructed, a syslog message WILL be created
     // for one specific event; this struct functions as a low-level interface for that message
@@ -27,20 +28,25 @@ mod internal {
     // are `available`, or a panic will occur.
     // - the impl guarantees that after `line_break()`, there will be enough room available for at
     // least a single UTF8 character sequence (which is true since MAX_MSG_LEN >= 10)
+    // Vec grows dynamically and the need to control the size of the buffer array is eliminated.
     impl SysLogMessageWriter {
-        pub fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
-            Self {
-                buffer: [0; BUFSZ],
-                cursor: 0,
-                priority,
-                facility,
-            }
+    pub fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
+        Self {
+            buffer: Vec::with_capacity(BUFSZ),
+            cursor: 0,
+            priority,
+            facility,
         }
+       }
+      }
 
-        pub fn append(&mut self, bytes: &[u8]) {
+       pub fn append(&mut self, bytes: &[u8]) {
             let num_bytes = bytes.len();
-            self.buffer[self.cursor..self.cursor + num_bytes].copy_from_slice(bytes);
-            self.cursor += num_bytes;
+             if num_bytes > self.available() {
+               panic!("cannot append more bytes than available space in buffer");
+              }
+              self.buffer[self.cursor..self.cursor + num_bytes].copy_from_slice(bytes);
+              self.cursor += num_bytes;
         }
 
         pub fn line_break(&mut self) {
@@ -128,11 +134,13 @@ impl Write for SysLogMessageWriter {
 
 const FACILITY: libc::c_int = libc::LOG_AUTH;
 
+// Log writing process the function in a more controlled manner to prevent any errors during log writing
+//  give warning so that see all errors that may occur during writing more transparent.
 impl Log for Syslog {
     fn enabled(&self, metadata: &Metadata) -> bool {
         metadata.level() <= log::max_level() && metadata.level() <= log::STATIC_MAX_LEVEL
     }
-
+    
     fn log(&self, record: &log::Record) {
         let priority = match record.level() {
             Level::Error => libc::LOG_ERR,
@@ -143,13 +151,15 @@ impl Log for Syslog {
         };
 
         let mut writer = SysLogMessageWriter::new(priority, FACILITY);
-        let _ = write!(writer, "{}", record.args());
+        if let Err(e) = write!(writer, "{}", record.args()) {
+            eprintln!("Failed to write log: {}", e);
+        }
     }
 
     fn flush(&self) {
         // pass
     }
-}
+   }
 
 #[cfg(test)]
 mod tests {
