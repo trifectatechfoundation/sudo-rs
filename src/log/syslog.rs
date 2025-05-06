@@ -38,7 +38,6 @@ mod internal {
             facility,
         }
        }
-      }
 
        pub fn append(&mut self, bytes: &[u8]) {
             let num_bytes = bytes.len();
