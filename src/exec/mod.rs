@@ -80,15 +80,17 @@ pub fn run_command(
         command.arg0(OsStr::from_bytes(&process_name));
     }
 
-    if options.noexec {
-        #[cfg(target_os = "linux")]
-        noexec::add_noexec_filter(&mut command);
-
+    let spawn_noexec_handler = if options.noexec {
         #[cfg(not(target_os = "linux"))]
         return Err(io::Error::other(
             "NOEXEC is currently only supported on Linux",
         ));
-    }
+
+        #[cfg(target_os = "linux")]
+        Some(noexec::add_noexec_filter(&mut command))
+    } else {
+        None
+    };
 
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
     let path = options
@@ -124,14 +126,14 @@ pub fn run_command(
 
     if options.use_pty {
         match UserTerm::open() {
-            Ok(user_tty) => exec_pty(sudo_pid, command, user_tty),
+            Ok(user_tty) => exec_pty(sudo_pid, spawn_noexec_handler, command, user_tty),
             Err(err) => {
                 dev_info!("Could not open user's terminal, not allocating a pty: {err}");
-                exec_no_pty(sudo_pid, command)
+                exec_no_pty(sudo_pid, spawn_noexec_handler, command)
             }
         }
     } else {
-        exec_no_pty(sudo_pid, command)
+        exec_no_pty(sudo_pid, spawn_noexec_handler, command)
     }
 }
 

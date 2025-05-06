@@ -14,7 +14,7 @@ use crate::{
     },
 };
 use crate::{
-    exec::{exec_command, handle_sigchld, signal_fmt},
+    exec::{exec_command, handle_sigchld, noexec::SpawnNoexecHandler, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
         fork, getpgid, getpgrp,
@@ -26,7 +26,11 @@ use crate::{
     },
 };
 
-pub(super) fn exec_no_pty(sudo_pid: ProcessId, command: Command) -> io::Result<ExitReason> {
+pub(super) fn exec_no_pty(
+    sudo_pid: ProcessId,
+    spawn_noexec_handler: Option<SpawnNoexecHandler>,
+    command: Command,
+) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
@@ -52,6 +56,10 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, command: Command) -> io::Result<E
     else {
         exec_command(command, original_set, errpipe_tx);
     };
+
+    if let Some(spawner) = spawn_noexec_handler {
+        spawner.spawn();
+    }
 
     dev_info!("executed command with pid {command_pid}");
 

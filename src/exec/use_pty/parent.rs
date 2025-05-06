@@ -4,6 +4,7 @@ use std::io;
 use std::process::{Command, Stdio};
 
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
+use crate::exec::noexec::SpawnNoexecHandler;
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{cond_fmt, handle_sigchld, signal_fmt, terminate_process, HandleSigchld};
@@ -27,6 +28,7 @@ use super::{CommandStatus, SIGCONT_BG};
 
 pub(in crate::exec) fn exec_pty(
     sudo_pid: ProcessId,
+    spawn_noexec_handler: Option<SpawnNoexecHandler>,
     mut command: Command,
     user_tty: UserTerm,
 ) -> io::Result<ExitReason> {
@@ -196,6 +198,10 @@ pub(in crate::exec) fn exec_pty(
         // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
         _exit(1);
     };
+
+    if let Some(spawner) = spawn_noexec_handler {
+        spawner.spawn();
+    }
 
     // Close the file descriptors that we don't access
     drop(pty.follower);
