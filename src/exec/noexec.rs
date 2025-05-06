@@ -255,14 +255,23 @@ fn send_fd(tx_fd: UnixStream, notify_fd: RawFd) -> io::Result<()> {
     }
 }
 
-pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
-    let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
+pub(crate) struct SpawnNoexecHandler(UnixStream);
 
-    thread::spawn(move || {
-        let notify_fd = receive_fd(rx_fd);
-        // SAFETY: notify_fd is a valid seccomp_unotify fd.
-        unsafe { handle_notifications(OwnedFd::from_raw_fd(notify_fd)) };
-    });
+impl SpawnNoexecHandler {
+    pub(super) fn spawn(self) {
+        thread::spawn(move || {
+            let notify_fd = receive_fd(self.0);
+            // SAFETY: notify_fd is a valid seccomp_unotify fd.
+            unsafe { handle_notifications(OwnedFd::from_raw_fd(notify_fd)) };
+        });
+    }
+}
+
+pub(crate) fn add_noexec_filter(
+    command: &mut Command,
+    file_closer: &mut FileCloser,
+) -> SpawnNoexecHandler {
+    let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
 
     file_closer.except(&tx_fd);
 
@@ -327,4 +336,6 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
             Ok(())
         });
     }
+
+    SpawnNoexecHandler(rx_fd)
 }
