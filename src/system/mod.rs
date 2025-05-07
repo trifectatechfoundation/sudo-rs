@@ -1,10 +1,9 @@
-use core::fmt;
 // TODO: remove unused attribute when system is cleaned up
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
     ffi::{c_int, c_uint, CStr, CString},
-    io,
+    fmt, fs, io,
     mem::MaybeUninit,
     ops,
     os::unix::{self, prelude::OsStrExt},
@@ -18,7 +17,7 @@ use crate::{
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
-use libc::{CLOSE_RANGE_CLOEXEC, STDERR_FILENO};
+use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
 use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
@@ -57,25 +56,66 @@ pub(crate) fn _exit(status: libc::c_int) -> ! {
 
 /// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
 pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
+    let lowfd = STDERR_FILENO + 1;
+
     // SAFETY: this function is safe to call:
     // - any errors while closing a specific fd will be effectively ignored
-    unsafe {
-        #[cfg(not(all(target_os = "linux", target_env = "musl")))]
-        cerr(libc::close_range(
-            STDERR_FILENO as c_uint + 1,
-            c_uint::MAX,
-            CLOSE_RANGE_CLOEXEC as c_int,
-        ))?;
-        #[cfg(all(target_os = "linux", target_env = "musl"))]
-        cerr(libc::syscall(
-            libc::SYS_close_range,
-            STDERR_FILENO as c_uint + 1,
-            c_uint::MAX,
-            CLOSE_RANGE_CLOEXEC as c_uint,
-        ))?;
-    }
+    #[allow(clippy::diverging_sub_expression)]
+    let res = unsafe {
+        'a: {
+            #[cfg(not(all(target_os = "linux", target_env = "musl")))]
+            break 'a cerr(libc::close_range(
+                lowfd as c_uint,
+                c_uint::MAX,
+                CLOSE_RANGE_CLOEXEC as c_int,
+            ));
+            #[cfg(all(target_os = "linux", target_env = "musl"))]
+            break 'a cerr(libc::syscall(
+                libc::SYS_close_range,
+                lowfd as c_uint,
+                c_uint::MAX,
+                CLOSE_RANGE_CLOEXEC as c_uint,
+            ));
+        }
+    };
 
-    Ok(())
+    match res {
+        Err(err) if err.raw_os_error() == Some(ENOSYS) || err.raw_os_error() == Some(EINVAL) => {
+            // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
+            // fallback to finding all open fds using /proc/self/fd.
+
+            // FIXME use /dev/fd on macOS
+            for entry in fs::read_dir("/proc/self/fd")? {
+                let entry = entry?;
+                let file_name = entry.file_name();
+                let file_name = file_name.to_str().ok_or(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "procfs returned non-integer fd name",
+                ))?;
+                if file_name == "." || file_name == ".." {
+                    continue;
+                }
+                let fd = file_name.parse::<c_int>().map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "procfs returned non-integer fd name",
+                    )
+                })?;
+                if fd < lowfd {
+                    continue;
+                }
+                // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
+                // going to need it after exec.
+                unsafe {
+                    cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
+                }
+            }
+
+            Ok(())
+        }
+        Err(err) => Err(err),
+        Ok(_) => Ok(()),
+    }
 }
 
 pub(crate) enum ForkResult {
