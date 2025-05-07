@@ -1088,26 +1088,33 @@ mod tests {
         );
     }
 
-    fn is_closed<F: AsFd>(fd: &F) -> bool {
-        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_fd().as_raw_fd(), libc::F_GETFD) })
-            .is_err_and(|err| err.raw_os_error() == Some(libc::EBADF))
+    fn is_cloexec<F: AsFd>(fd: &F) -> bool {
+        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_fd().as_raw_fd(), libc::F_GETFD) }).unwrap()
+            & libc::FD_CLOEXEC
+            == libc::FD_CLOEXEC
     }
 
     #[test]
-    fn close_the_universe() {
+    fn mark_fds_as_cloexec() {
         let child_pid = unsafe {
             fork_for_test(|| {
                 let should_close =
                     std::fs::File::create(std::env::temp_dir().join("should_close.txt")).unwrap();
-                assert!(!is_closed(&should_close));
+                crate::cutils::cerr(libc::fcntl(
+                    should_close.as_fd().as_raw_fd(),
+                    libc::F_SETFD,
+                    0,
+                ))
+                .unwrap();
+                assert!(!is_cloexec(&should_close));
 
                 super::mark_fds_as_cloexec().unwrap();
 
-                assert!(is_closed(&should_close));
+                assert!(is_cloexec(&should_close));
 
-                assert!(!is_closed(&io::stdin()));
-                assert!(!is_closed(&io::stdout()));
-                assert!(!is_closed(&io::stderr()));
+                assert!(!is_cloexec(&io::stdin()));
+                assert!(!is_cloexec(&io::stdout()));
+                assert!(!is_cloexec(&io::stderr()));
 
                 exit(0)
             })
