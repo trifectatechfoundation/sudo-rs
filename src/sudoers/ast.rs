@@ -803,13 +803,13 @@ impl Parse for defaults::SettingsModifier {
             let DefaultName(name) = expect_nonterminal(stream)?;
             let Some(modifier) = defaults::negate(&name) else {
                 if defaults::set(&name).is_some() {
-                    unrecoverable!(pos = value_pos, stream, "unknown setting: '{name}'");
-                } else {
                     unrecoverable!(
                         pos = value_pos,
                         stream,
                         "'{name}' cannot be used in a boolean context"
                     );
+                } else {
+                    unrecoverable!(pos = value_pos, stream, "unknown setting: '{name}'");
                 }
             };
 
