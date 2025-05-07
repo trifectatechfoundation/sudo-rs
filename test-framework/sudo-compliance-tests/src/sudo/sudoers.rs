@@ -188,3 +188,25 @@ fn accepts_sudoers_file_that_has_no_trailing_newline() {
         .output(&env)
         .assert_success();
 }
+
+#[test]
+fn negated_defaults_errors() {
+    let env = Env("Defaults !unsupported\nDefaults !passwd_tries").build();
+
+    let output = Command::new("sudo").arg("true").output(&env);
+    output.assert_exit_code(1);
+
+    let diagnostic1 = if sudo_test::is_original_sudo() {
+        "unknown defaults entry \"unsupported\""
+    } else {
+        "unknown setting: 'unsupported'"
+    };
+    assert_contains!(output.stderr(), diagnostic1);
+
+    let diagnostic2 = if sudo_test::is_original_sudo() {
+        "no value specified for \"passwd_tries\""
+    } else {
+        "'passwd_tries' cannot be used in a boolean context"
+    };
+    assert_contains!(output.stderr(), diagnostic2);
+}
