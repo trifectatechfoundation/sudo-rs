@@ -1203,4 +1203,24 @@ mod tests {
 
         assert!(found);
     }
+
+    #[cfg(feature = "apparmor")]
+    #[test]
+    fn setting_apparmor_works() -> Result<()> {
+        for profile in ["unconfined", "docker-default (enforce)"] {
+            let env = EnvBuilder::default()
+                .apparmor(profile.strip_suffix(" (enforce)").unwrap_or(profile))
+                .build();
+
+            let output = Command::new("bash")
+                .args(["-c", "cat /proc/$$/attr/current"])
+                .output(&env);
+            dbg!(&output);
+
+            output.assert_success();
+            assert_eq!(output.stdout(), profile);
+        }
+
+        Ok(())
+    }
 }
