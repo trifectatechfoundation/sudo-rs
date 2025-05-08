@@ -160,6 +160,7 @@ pub struct EnvBuilder {
     hostname: Option<String>,
     users: HashMap<Username, User>,
     user_passwords: HashMap<String, String>,
+    #[cfg(feature = "apparmor")]
     apparmor_profile: Option<String>,
 }
 
@@ -259,6 +260,7 @@ impl EnvBuilder {
     /// # Panics
     ///
     /// - if the apparmor profile has already been set
+    #[cfg(feature = "apparmor")]
     pub fn apparmor(&mut self, profile: impl ToString) -> &mut Self {
         assert_eq!(self.apparmor_profile, None);
         self.apparmor_profile = Some(profile.to_string());
