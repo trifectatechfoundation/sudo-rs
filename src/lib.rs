@@ -13,10 +13,12 @@ pub(crate) mod system;
 
 mod su;
 mod sudo;
+mod sudoedit;
 mod visudo;
 
 pub use su::main as su_main;
 pub use sudo::main as sudo_main;
+pub use sudoedit::main as sudoedit_main;
 pub use visudo::main as visudo_main;
 
 #[cfg(feature = "do-not-use-all-features")]
