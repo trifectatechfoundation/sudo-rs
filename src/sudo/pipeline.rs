@@ -133,7 +133,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 }
 
 pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {
-    let policy = read_sudoers()?;
+    let mut policy = read_sudoers()?;
 
     let context = Context::from_validate_opts(cmd_opts)?;
 
