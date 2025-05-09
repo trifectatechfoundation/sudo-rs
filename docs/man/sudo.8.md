@@ -90,8 +90,8 @@ even if that process runs in its own pseudo terminal.
 
          %%  two consecutive ‘%’ characters are collapsed into a single ‘%’ character
 
-    The custom prompt will override the default prompt or the one specified by the SUDO_PROMPT enviroment variable.
-    No *prompt* will suppress the the prompt provided by PAM, unless the requested *prompt* is empty (`""`)
+    The custom prompt will override the default prompt or the one specified by the SUDO_PROMPT environment variable.
+    No *prompt* will suppress the prompt provided by PAM, unless the requested *prompt* is empty (`""`)
 
 `-S`, `--stdin`
 :   Read from standard input instead of using the terminal device.

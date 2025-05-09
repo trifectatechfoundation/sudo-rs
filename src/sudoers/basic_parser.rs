@@ -287,7 +287,7 @@ pub(super) fn parse_list<T: Parse + UserFriendly>(
 }
 
 /// Types that implement the Many trait can be parsed multiple tokens into a `Vec<T>`; they are
-/// seperated by `SEP`. There should also be a limit on the number of items.
+/// separated by `SEP`. There should also be a limit on the number of items.
 pub trait Many {
     const SEP: char = ',';
     const LIMIT: usize = 127;

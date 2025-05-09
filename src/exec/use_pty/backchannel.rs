@@ -145,7 +145,7 @@ impl DeSerialize for ParentMessage {
     }
 }
 
-/// A socket use for commmunication between the monitor and the parent process.
+/// A socket use for communication between the monitor and the parent process.
 pub(super) struct ParentBackchannel {
     socket: BinPipe<ParentMessage, MonitorMessage>,
     #[cfg(debug_assertions)]
@@ -264,7 +264,7 @@ impl DeSerialize for MonitorMessage {
     }
 }
 
-/// A socket use for commmunication between the monitor and the parent process.
+/// A socket use for communication between the monitor and the parent process.
 pub(super) struct MonitorBackchannel {
     socket: BinPipe<MonitorMessage, ParentMessage>,
     #[cfg(debug_assertions)]

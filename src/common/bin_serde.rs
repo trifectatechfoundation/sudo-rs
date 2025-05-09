@@ -33,7 +33,7 @@ pub trait DeSerialize {
     fn deserialize(bytes: Self::Bytes) -> Self;
 }
 
-/// A binary pipe that can send and recieve typed messages.
+/// A binary pipe that can send and receive typed messages.
 ///
 /// By default, if only one generic is included,
 /// the types of the [BinPipe::write()] and [BinPipe::read()] messages

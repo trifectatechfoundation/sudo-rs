@@ -27,7 +27,7 @@ impl SignalHandler {
     ) -> io::Result<Self> {
         if Self::FORBIDDEN.contains(&signal) {
             panic!(
-                "the {} signal action cannot be overriden",
+                "the {} signal action cannot be overridden",
                 signal_name(signal)
             );
         }

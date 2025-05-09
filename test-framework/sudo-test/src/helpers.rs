@@ -14,7 +14,7 @@ pub const PRINT_PTY_OWNER: &str = "stat -f '%Su %Sg' $(tty)";
 pub fn assert_ls_output(ls_output: &str, mode: &str, user: &str, group: &str) {
     let parts = ls_output
         .split(' ')
-        .filter(|part| !part.is_empty()) // FreeBSD ls often uses multiple spaces as seperator
+        .filter(|part| !part.is_empty()) // FreeBSD ls often uses multiple spaces as separator
         .collect::<Vec<_>>();
 
     assert_eq!(parts[0], mode);

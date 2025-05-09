@@ -484,7 +484,7 @@ struct SudoOptions {
     // -V
     version: bool,
 
-    // arguments passed straight through, either seperated by -- or just trailing.
+    // arguments passed straight through, either separated by -- or just trailing.
     positional_args: Vec<String>,
 }
 

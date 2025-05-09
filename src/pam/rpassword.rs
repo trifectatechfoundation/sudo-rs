@@ -8,7 +8,7 @@
 /// Most code was replaced and so is no longer a derived work; work that we kept:
 ///
 /// - the "HiddenInput" struct and implementation, with changes:
-///   * replaced occurences of explicit 'i32' and 'c_int' with RawFd
+///   * replaced occurrences of explicit 'i32' and 'c_int' with RawFd
 ///   * open the TTY ourselves to mitigate Linux CVE-2023-2002
 /// - the general idea of a "SafeString" type that clears its memory
 ///   (although much more robust than in the original code)
