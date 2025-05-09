@@ -223,7 +223,7 @@ impl<T: Process> EventRegistry<T> {
         let mut event_queue = Vec::with_capacity(self.poll_fds.len());
 
         loop {
-            // FIXME: maybe we shout return the IO error instead.
+            // FIXME: maybe we should return the IO error instead.
             if let Ok(ids) = self.poll() {
                 for EventId(index) in ids {
                     let event = self.poll_fds[index].event;
