@@ -4,7 +4,6 @@ use crate::common::resolve::CurrentUser;
 use crate::common::Error;
 use crate::log::dev_info;
 use crate::system::interface::UserId;
-use crate::system::kernel::kernel_check;
 use crate::system::timestamp::RecordScope;
 use crate::system::User;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
@@ -67,7 +66,6 @@ fn sudo_process() -> Result<(), Error> {
     dev_info!("development logs are enabled");
 
     self_check()?;
-    kernel_check()?;
 
     // parse cli options
     match SudoAction::from_env() {

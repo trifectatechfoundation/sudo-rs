@@ -26,8 +26,6 @@ mod audit;
 // generalized traits for when we want to hide implementations
 pub mod interface;
 
-pub mod kernel;
-
 pub mod file;
 
 pub mod time;
@@ -39,6 +37,9 @@ pub mod signal;
 pub mod term;
 
 pub mod wait;
+
+#[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
+compile_error!("sudo-rs only works on Linux and FreeBSD");
 
 pub(crate) fn can_execute<P: AsRef<Path>>(path: P) -> bool {
     let Ok(path) = CString::new(path.as_ref().as_os_str().as_bytes()) else {
