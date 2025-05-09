@@ -9,7 +9,7 @@ pub(super) fn was_interrupted(err: &io::Error) -> bool {
     )
 }
 
-/// Call `f` repeatedly until it succeds or it encounters a non-interruption error.
+/// Call `f` repeatedly until it succeeds or it encounters a non-interruption error.
 pub(super) fn retry_while_interrupted<T>(mut f: impl FnMut() -> io::Result<T>) -> io::Result<T> {
     loop {
         match f() {
