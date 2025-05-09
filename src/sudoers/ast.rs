@@ -502,7 +502,7 @@ impl Parse for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
 }
 
 /// A hostname, runas specifier, commandspec combination can occur multiple times in a single
-/// sudoer line (seperated by ":")
+/// sudoer line (separated by ":")
 impl Many for (SpecList<Hostname>, Vec<(Option<RunAs>, CommandSpec)>) {
     const SEP: char = ':';
 }
@@ -526,7 +526,7 @@ impl Parse for (Option<RunAs>, CommandSpec) {
 }
 
 /// A runas specifier, commandspec combination can occur multiple times in a single
-/// sudoer line (seperated by ","); there is some ambiguity in the original grammar:
+/// sudoer line (separated by ","); there is some ambiguity in the original grammar:
 /// commands can also occur multiple times; we parse that here as if they have an omitted
 /// "runas" specifier (which has to be placed correctly during the AST analysis phase)
 impl Many for (Option<RunAs>, CommandSpec) {}

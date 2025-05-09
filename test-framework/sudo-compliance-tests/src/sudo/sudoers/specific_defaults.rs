@@ -217,7 +217,7 @@ fn securepath_can_be_per_user() {
     assert!(!output.status().success());
     assert_contains!(output.stderr(), "command not found");
 
-    // Commmand is found in the usual location
+    // Command is found in the usual location
     let output = Command::new("sudo").arg("true").output(&env);
     output.assert_success();
 }

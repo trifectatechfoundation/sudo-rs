@@ -160,7 +160,7 @@ pub(super) struct ConverserData<C> {
 /// messages and add their replies (where applicable). Finally the replies are
 /// converted back to the C interface and returned to PAM. This function tries
 /// to catch any unwinding panics and sets state to indicate that a panic
-/// occured.
+/// occurred.
 ///
 /// # Safety
 /// * If called with an appdata_ptr that does not correspond with the Converser
@@ -233,11 +233,11 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
         PamErrorType::Success
     });
 
-    // handle any unwinding panics that occured here
+    // handle any unwinding panics that occurred here
     let res = match result {
         Ok(r) => r,
         Err(_) => {
-            // notify caller that a panic has occured
+            // notify caller that a panic has occurred
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
             app_data.panicked = true;

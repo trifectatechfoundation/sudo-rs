@@ -94,7 +94,7 @@ pub(in crate::exec) fn exec_pty(
         .tcgetpgrp()
         .is_ok_and(|tty_pgrp| tty_pgrp == parent_pgrp);
     dev_info!(
-        "sudo is runnning in the {}",
+        "sudo is running in the {}",
         cond_fmt(foreground, "foreground", "background")
     );
 
