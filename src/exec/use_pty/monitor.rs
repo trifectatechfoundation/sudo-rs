@@ -168,6 +168,7 @@ pub(super) fn exec_monitor(
     // Disable nonblocking assetions as we will not poll the backchannel anymore.
     closure.backchannel.set_nonblocking_assertions(false);
 
+    std::thread::sleep(std::time::Duration::from_millis(50));
     match reason {
         StopReason::Break(err) => match err.try_into() {
             Ok(msg) => {
