@@ -164,7 +164,6 @@ pub(super) fn exec_monitor(
     // Disable nonblocking assetions as we will not poll the backchannel anymore.
     closure.backchannel.set_nonblocking_assertions(false);
 
-    std::thread::sleep(std::time::Duration::from_millis(10));
     match reason {
         StopReason::Break(err) => match err.try_into() {
             Ok(msg) => {
@@ -182,6 +181,14 @@ pub(super) fn exec_monitor(
             }
         }
     }
+
+    // Wait for the parent to give us red light before shutting down. This avoids missing
+    // output when the monitor exits too quickly.
+    let event = retry_while_interrupted(|| backchannel.recv()).map_err(|err| {
+        dev_warn!("cannot receive red light from parent: {err}");
+        err
+    })?;
+    debug_assert_eq!(event, MonitorMessage::ExecCommand);
 
     // FIXME (ogsudo): The tty is restored here if selinux is available.
 
