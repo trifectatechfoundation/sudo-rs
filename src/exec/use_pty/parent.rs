@@ -349,10 +349,19 @@ impl ParentClosure {
     }
 
     fn run(&mut self, registry: EventRegistry<Self>) -> io::Result<ExitReason> {
-        match registry.event_loop(self) {
+        let result = match registry.event_loop(self) {
             StopReason::Break(err) | StopReason::Exit(ParentExit::Backchannel(err)) => Err(err),
             StopReason::Exit(ParentExit::Command(exit_reason)) => Ok(exit_reason),
-        }
+        };
+        // Send red light to the monitor after processing all events
+        retry_while_interrupted(|| self.backchannel.send(&MonitorMessage::ExecCommand)).map_err(
+            |err| {
+                dev_error!("cannot send red light to monitor: {err}");
+                err
+            },
+        )?;
+
+        result
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.
