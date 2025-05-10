@@ -1,4 +1,4 @@
-use std::{ffi::c_int, io, os::unix::process::CommandExt, process::Command};
+use std::{ffi::c_int, io, process::Command};
 
 use super::{
     event::PollEvent,
@@ -14,10 +14,10 @@ use crate::{
     },
 };
 use crate::{
-    exec::{handle_sigchld, signal_fmt},
+    exec::{exec_command, handle_sigchld, noexec::SpawnNoexecHandler, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        _exit, fork, getpgid, getpgrp,
+        fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
         term::{Terminal, UserTerm},
@@ -26,7 +26,12 @@ use crate::{
     },
 };
 
-pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ExitReason> {
+pub(super) fn exec_no_pty(
+    sudo_pid: ProcessId,
+    mut file_closer: FileCloser,
+    spawn_noexec_handler: Option<SpawnNoexecHandler>,
+    command: Command,
+) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
@@ -39,12 +44,10 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         }
     };
 
-    let mut file_closer = FileCloser::new();
-
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
     // Use a pipe to get the IO error if `exec` fails.
-    let (mut errpipe_tx, errpipe_rx) = BinPipe::pair()?;
+    let (errpipe_tx, errpipe_rx) = BinPipe::pair()?;
 
     // Don't close the error pipe as we need it to retrieve the error code if the command execution
     // fails.
@@ -56,38 +59,12 @@ pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Resu
         err
     })?
     else {
-        // Restore the signal mask now that the handlers have been setup.
-        if let Some(set) = original_set {
-            if let Err(err) = set.set_mask() {
-                dev_warn!("cannot restore signal mask: {err}");
-            }
-        }
-
-        // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
-        // and errpipe before exiting without running atexit handlers using _exit
-        if let Err(err) = unsafe { file_closer.close_the_universe() } {
-            dev_warn!("failed to close the universe: {err}");
-            // Send the error to the monitor using the pipe.
-            if let Some(error_code) = err.raw_os_error() {
-                errpipe_tx.write(&error_code).ok();
-            }
-
-            // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-            _exit(1);
-        }
-
-        let err = command.exec();
-
-        dev_warn!("failed to execute command: {err}");
-        // If `exec` returns, it means that executing the command failed. Send the error to the
-        // monitor using the pipe.
-        if let Some(error_code) = err.raw_os_error() {
-            errpipe_tx.write(&error_code).ok();
-        }
-
-        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-        _exit(1);
+        exec_command(file_closer, command, original_set, errpipe_tx);
     };
+
+    if let Some(spawner) = spawn_noexec_handler {
+        spawner.spawn();
+    }
 
     dev_info!("executed command with pid {command_pid}");
 

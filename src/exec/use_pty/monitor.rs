@@ -1,4 +1,4 @@
-use std::{convert::Infallible, ffi::c_int, io, os::unix::process::CommandExt, process::Command};
+use std::{convert::Infallible, ffi::c_int, io, process::Command};
 
 use crate::exec::{opt_fmt, signal_fmt};
 use crate::system::signal::{
@@ -9,6 +9,7 @@ use crate::{
     common::bin_serde::BinPipe,
     exec::{
         event::{EventRegistry, Process},
+        exec_command,
         io_util::{retry_while_interrupted, was_interrupted},
         use_pty::backchannel::{MonitorBackchannel, MonitorMessage, ParentMessage},
     },
@@ -93,14 +94,23 @@ pub(super) fn exec_monitor(
     else {
         drop(errpipe_rx);
 
-        match exec_command(
-            command,
-            foreground,
-            pty_follower,
-            file_closer,
-            errpipe_tx,
-            original_set,
-        ) {}
+        // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
+        let command_pid = ProcessId::new(std::process::id() as i32);
+
+        setpgid(ProcessId::new(0), command_pid).ok();
+
+        // Wait for the monitor to set us as the foreground group for the pty if we are in the
+        // foreground.
+        if foreground {
+            while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
+                std::thread::yield_now();
+            }
+        }
+
+        // Done with the pty follower.
+        drop(pty_follower);
+
+        exec_command(file_closer, command, original_set, errpipe_tx)
     };
 
     // Send the command's PID to the parent.
@@ -183,63 +193,6 @@ pub(super) fn exec_monitor(
     }
 
     // FIXME (ogsudo): The tty is restored here if selinux is available.
-
-    // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-    _exit(1);
-}
-
-fn exec_command(
-    mut command: Command,
-    foreground: bool,
-    pty_follower: PtyFollower,
-    file_closer: FileCloser,
-    mut errpipe_tx: BinPipe<i32, i32>,
-    original_set: Option<SignalSet>,
-) -> ! {
-    // FIXME (ogsudo): Do any additional configuration that needs to be run after `fork` but before `exec`
-    let command_pid = ProcessId::new(std::process::id() as i32);
-
-    setpgid(ProcessId::new(0), command_pid).ok();
-
-    // Wait for the monitor to set us as the foreground group for the pty if we are in the
-    // foreground.
-    if foreground {
-        while !pty_follower.tcgetpgrp().is_ok_and(|pid| pid == command_pid) {
-            std::thread::yield_now();
-        }
-    }
-
-    // Done with the pty follower.
-    drop(pty_follower);
-
-    // Restore the signal mask now that the handlers have been setup.
-    if let Some(set) = original_set {
-        if let Err(err) = set.set_mask() {
-            dev_warn!("cannot restore signal mask: {err}");
-        }
-    }
-
-    // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
-    // and errpipe before exiting without running atexit handlers using _exit
-    if let Err(err) = unsafe { file_closer.close_the_universe() } {
-        dev_warn!("failed to close the universe: {err}");
-        // Send the error to the monitor using the pipe.
-        if let Some(error_code) = err.raw_os_error() {
-            errpipe_tx.write(&error_code).ok();
-        }
-
-        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
-        _exit(1);
-    }
-
-    let err = command.exec();
-
-    dev_warn!("failed to execute command: {err}");
-    // If `exec_command` returns, it means that executing the command failed. Send the error to
-    // the monitor using the pipe.
-    if let Some(error_code) = err.raw_os_error() {
-        errpipe_tx.write(&error_code).ok();
-    }
 
     // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
     _exit(1);

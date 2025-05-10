@@ -1,6 +1,8 @@
 mod event;
 mod io_util;
 mod no_pty;
+#[cfg(target_os = "linux")]
+mod noexec;
 mod use_pty;
 
 use std::{
@@ -16,15 +18,18 @@ use std::{
 };
 
 use crate::{
+    common::bin_serde::BinPipe,
     exec::no_pty::exec_no_pty,
     log::{dev_info, dev_warn, user_error},
     system::{
+        _exit,
         interface::ProcessId,
-        killpg,
-        signal::{consts::*, signal_name},
+        kill, killpg, set_target_user,
+        signal::{consts::*, signal_name, SignalNumber, SignalSet},
+        term::UserTerm,
         wait::{Wait, WaitError, WaitOptions},
+        FileCloser, Group, User,
     },
-    system::{kill, set_target_user, signal::SignalNumber, term::UserTerm, Group, User},
 };
 
 use self::{
@@ -43,6 +48,7 @@ pub struct RunOptions<'a> {
     pub group: &'a Group,
 
     pub use_pty: bool,
+    pub noexec: bool,
 }
 
 /// Based on `ogsudo`s `exec_pty` function.
@@ -53,6 +59,8 @@ pub fn run_command(
     options: RunOptions<'_>,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
 ) -> io::Result<ExitReason> {
+    let mut file_closer = FileCloser::new();
+
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command;
     let mut command = Command::new(qualified_path);
@@ -73,6 +81,18 @@ pub fn run_command(
         process_name.insert(0, b'-');
         command.arg0(OsStr::from_bytes(&process_name));
     }
+
+    let spawn_noexec_handler = if options.noexec {
+        #[cfg(not(target_os = "linux"))]
+        return Err(io::Error::other(
+            "NOEXEC is currently only supported on Linux",
+        ));
+
+        #[cfg(target_os = "linux")]
+        Some(noexec::add_noexec_filter(&mut command, &mut file_closer))
+    } else {
+        None
+    };
 
     // Decide if the pwd should be changed. `--chdir` takes precedence over `-i`.
     let path = options
@@ -108,14 +128,20 @@ pub fn run_command(
 
     if options.use_pty {
         match UserTerm::open() {
-            Ok(user_tty) => exec_pty(sudo_pid, command, user_tty),
+            Ok(user_tty) => exec_pty(
+                sudo_pid,
+                file_closer,
+                spawn_noexec_handler,
+                command,
+                user_tty,
+            ),
             Err(err) => {
                 dev_info!("Could not open user's terminal, not allocating a pty: {err}");
-                exec_no_pty(sudo_pid, command)
+                exec_no_pty(sudo_pid, file_closer, spawn_noexec_handler, command)
             }
         }
     } else {
-        exec_no_pty(sudo_pid, command)
+        exec_no_pty(sudo_pid, file_closer, spawn_noexec_handler, command)
     }
 }
 
@@ -124,6 +150,45 @@ pub fn run_command(
 pub enum ExitReason {
     Code(i32),
     Signal(i32),
+}
+
+fn exec_command(
+    file_closer: FileCloser,
+    mut command: Command,
+    original_set: Option<SignalSet>,
+    mut errpipe_tx: BinPipe<i32>,
+) -> ! {
+    // Restore the signal mask now that the handlers have been setup.
+    if let Some(set) = original_set {
+        if let Err(err) = set.set_mask() {
+            dev_warn!("cannot restore signal mask: {err}");
+        }
+    }
+
+    // SAFETY: We immediately exec after this call and if the exec fails we only access stderr
+    // and errpipe before exiting without running atexit handlers using _exit
+    if let Err(err) = unsafe { file_closer.close_the_universe() } {
+        dev_warn!("failed to close the universe: {err}");
+        // Send the error to the monitor using the pipe.
+        if let Some(error_code) = err.raw_os_error() {
+            errpipe_tx.write(&error_code).ok();
+        }
+
+        // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+        _exit(1);
+    }
+
+    let err = command.exec();
+
+    dev_warn!("failed to execute command: {err}");
+    // If `exec` returns, it means that executing the command failed. Send the error to the
+    // monitor using the pipe.
+    if let Some(error_code) = err.raw_os_error() {
+        errpipe_tx.write(&error_code).ok();
+    }
+
+    // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
+    _exit(1);
 }
 
 // Kill the process with increasing urgency.

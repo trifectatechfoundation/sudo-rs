@@ -31,6 +31,7 @@ pub struct Context {
     pub process: Process,
     // policy
     pub use_pty: bool,
+    pub noexec: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -93,6 +94,7 @@ impl Context {
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
+            noexec: false,
         })
     }
 
@@ -117,6 +119,7 @@ impl Context {
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
+            noexec: false,
         })
     }
 
@@ -161,6 +164,7 @@ impl Context {
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
+            noexec: false,
         })
     }
 
@@ -179,6 +183,7 @@ impl Context {
             group: &self.target_group,
 
             use_pty: self.use_pty,
+            noexec: self.noexec,
         })
     }
 }

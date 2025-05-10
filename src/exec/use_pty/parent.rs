@@ -4,6 +4,7 @@ use std::io;
 use std::process::{Command, Stdio};
 
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
+use crate::exec::noexec::SpawnNoexecHandler;
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{cond_fmt, handle_sigchld, signal_fmt, terminate_process, HandleSigchld};
@@ -29,6 +30,8 @@ use super::{CommandStatus, SIGCONT_BG};
 
 pub(in crate::exec) fn exec_pty(
     sudo_pid: ProcessId,
+    mut file_closer: FileCloser,
+    spawn_noexec_handler: Option<SpawnNoexecHandler>,
     mut command: Command,
     user_tty: UserTerm,
 ) -> io::Result<ExitReason> {
@@ -57,8 +60,6 @@ pub(in crate::exec) fn exec_pty(
 
     // Fetch the parent process group so we can signals to it.
     let parent_pgrp = getpgrp();
-
-    let mut file_closer = FileCloser::new();
 
     // Set all the IO streams for the command to the follower side of the pty.
     let mut clone_follower = || -> io::Result<PtyFollower> {
@@ -205,6 +206,10 @@ pub(in crate::exec) fn exec_pty(
         // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
         _exit(1);
     };
+
+    if let Some(spawner) = spawn_noexec_handler {
+        spawner.spawn();
+    }
 
     // Close the file descriptors that we don't access
     drop(pty.follower);
