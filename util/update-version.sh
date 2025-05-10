@@ -27,6 +27,10 @@ else
     sed -i 's/^version\s*=\s*".*"/version = "'"$NEW_VERSION"'"/' "$PROJECT_DIR/Cargo.toml"
 fi
 
+echo "Updating version in README.md installation instructions"
+sed -i 's/sudo-\(VERSION\|[0-9]\+\.[0-9]\+\.[0-9]\+\)\.tar\.gz/sudo-'"$NEW_VERSION"'\.tar\.gz/g' "$PROJECT_DIR/README.md"
+sed -i 's/su-\(VERSION\|[0-9]\+\.[0-9]\+\.[0-9]\+\)\.tar\.gz/su-'"$NEW_VERSION"'\.tar\.gz/g' "$PROJECT_DIR/README.md"
+
 echo "Updating version in man pages"
 sed -i 's/^title: SU(1) sudo-rs .*/title: SU(1) sudo-rs '"$NEW_VERSION"' | sudo-rs/' "$PROJECT_DIR"/docs/man/su.1.md
 sed -i 's/^title: SUDO(8) sudo-rs .*/title: SUDO(8) sudo-rs '"$NEW_VERSION"' | sudo-rs/' "$PROJECT_DIR"/docs/man/sudo.8.md
