@@ -215,10 +215,12 @@ impl Sudoers {
     }
 
     pub fn check_validate_permission<User: UnixUser + PartialEq<User>>(
-        &self,
+        &mut self,
         invoking_user: &User,
         hostname: &system::Hostname,
     ) -> Authorization {
+        self.specify_host_user_runas(hostname, invoking_user, invoking_user);
+
         // exception: if user is root, NOPASSWD is implied
         let skip_passwd = invoking_user.is_root();
 
