@@ -1,17 +1,12 @@
-use core::fmt;
 // TODO: remove unused attribute when system is cleaned up
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    collections::BTreeSet,
-    ffi::{c_uint, CStr, CString},
-    io,
+    ffi::{c_int, c_uint, CStr, CString},
+    fmt, fs, io,
     mem::MaybeUninit,
     ops,
-    os::{
-        fd::{AsFd, AsRawFd},
-        unix::{self, prelude::OsStrExt},
-    },
+    os::unix::{self, prelude::OsStrExt},
     path::{Path, PathBuf},
 };
 
@@ -22,7 +17,7 @@ use crate::{
 pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
-use libc::STDERR_FILENO;
+use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
 use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
@@ -30,8 +25,6 @@ use self::signal::SignalNumber;
 mod audit;
 // generalized traits for when we want to hide implementations
 pub mod interface;
-
-pub mod kernel;
 
 pub mod file;
 
@@ -44,6 +37,9 @@ pub mod signal;
 pub mod term;
 
 pub mod wait;
+
+#[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
+compile_error!("sudo-rs only works on Linux and FreeBSD");
 
 pub(crate) fn can_execute<P: AsRef<Path>>(path: P) -> bool {
     let Ok(path) = CString::new(path.as_ref().as_os_str().as_bytes()) else {
@@ -59,81 +55,68 @@ pub(crate) fn _exit(status: libc::c_int) -> ! {
     unsafe { libc::_exit(status) }
 }
 
-/// A type able to close every file descriptor except for the ones pased via [`FileCloser::except`]
-/// and the IO streams.
-pub(crate) struct FileCloser {
-    fds: BTreeSet<c_uint>,
-}
+/// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
+pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
+    let lowfd = STDERR_FILENO + 1;
 
-impl FileCloser {
-    pub(crate) const fn new() -> Self {
-        Self {
-            fds: BTreeSet::new(),
+    // SAFETY: this function is safe to call:
+    // - any errors while closing a specific fd will be effectively ignored
+    #[allow(clippy::diverging_sub_expression)]
+    let res = unsafe {
+        'a: {
+            #[cfg(not(all(target_os = "linux", target_env = "musl")))]
+            break 'a cerr(libc::close_range(
+                lowfd as c_uint,
+                c_uint::MAX,
+                CLOSE_RANGE_CLOEXEC as c_int,
+            ));
+            #[cfg(all(target_os = "linux", target_env = "musl"))]
+            break 'a cerr(libc::syscall(
+                libc::SYS_close_range,
+                lowfd as c_uint,
+                c_uint::MAX,
+                CLOSE_RANGE_CLOEXEC as c_uint,
+            ));
         }
-    }
+    };
 
-    pub(crate) fn except<F: AsFd>(&mut self, fd: &F) {
-        self.fds.insert(fd.as_fd().as_raw_fd() as c_uint);
-    }
+    match res {
+        Err(err) if err.raw_os_error() == Some(ENOSYS) || err.raw_os_error() == Some(EINVAL) => {
+            // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
+            // fallback to finding all open fds using /proc/self/fd.
 
-    /// Close every file descriptor that is not one of the IO streams or one of the file
-    /// descriptors passed via [`FileCloser::except`].
-    ///
-    /// # Safety
-    ///
-    /// Incorrect use of this method can violate [I/O Safety](https://doc.rust-lang.org/std/io/index.html#io-safety)
-    /// by closing fds that are not owned by `FileCloser`. The caller needs to ensure that none of
-    /// the closed fds are ever accessed again.
-    // FIXME do not return a Result. This makes it way to easy to accidentally violate the safety conditions.
-    pub(crate) unsafe fn close_the_universe(self) -> io::Result<()> {
-        let mut fds = self.fds.into_iter();
-
-        let Some(mut curr_fd) = fds.next() else {
-            return close_range(STDERR_FILENO as c_uint + 1, c_uint::MAX);
-        };
-
-        if let Some(max_fd) = curr_fd.checked_sub(1) {
-            close_range(STDERR_FILENO as c_uint + 1, max_fd)?;
-        }
-
-        for next_fd in fds {
-            if let Some(min_fd) = curr_fd.checked_add(1) {
-                if let Some(max_fd) = next_fd.checked_sub(1) {
-                    close_range(min_fd, max_fd)?;
+            // FIXME use /dev/fd on macOS
+            for entry in fs::read_dir("/proc/self/fd")? {
+                let entry = entry?;
+                let file_name = entry.file_name();
+                let file_name = file_name.to_str().ok_or(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "procfs returned non-integer fd name",
+                ))?;
+                if file_name == "." || file_name == ".." {
+                    continue;
+                }
+                let fd = file_name.parse::<c_int>().map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "procfs returned non-integer fd name",
+                    )
+                })?;
+                if fd < lowfd {
+                    continue;
+                }
+                // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
+                // going to need it after exec.
+                unsafe {
+                    cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
                 }
             }
 
-            curr_fd = next_fd;
+            Ok(())
         }
-
-        if let Some(min_fd) = curr_fd.checked_add(1) {
-            close_range(min_fd, c_uint::MAX)?;
-        }
-
-        Ok(())
+        Err(err) => Err(err),
+        Ok(_) => Ok(()),
     }
-}
-
-fn close_range(min_fd: c_uint, max_fd: c_uint) -> io::Result<()> {
-    if min_fd <= max_fd {
-        // SAFETY: this function is safe to call:
-        // - any errors while closing a specific fd will be effectively ignored
-        // - if the provided range or flags are invalid, that will be reported
-        //   as an error but will not cause undefined behaviour
-        unsafe {
-            #[cfg(not(all(target_os = "linux", target_env = "musl")))]
-            cerr(libc::close_range(min_fd, max_fd, 0))?;
-            #[cfg(all(target_os = "linux", target_env = "musl"))]
-            cerr(libc::syscall(
-                libc::SYS_close_range,
-                min_fd,
-                max_fd,
-                0 as c_uint,
-            ))?;
-        }
-    }
-
-    Ok(())
 }
 
 pub(crate) enum ForkResult {
@@ -1106,60 +1089,33 @@ mod tests {
         );
     }
 
-    fn is_closed<F: AsFd>(fd: &F) -> bool {
-        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_fd().as_raw_fd(), libc::F_GETFD) })
-            .is_err_and(|err| err.raw_os_error() == Some(libc::EBADF))
+    fn is_cloexec<F: AsFd>(fd: &F) -> bool {
+        crate::cutils::cerr(unsafe { libc::fcntl(fd.as_fd().as_raw_fd(), libc::F_GETFD) }).unwrap()
+            & libc::FD_CLOEXEC
+            == libc::FD_CLOEXEC
     }
 
     #[test]
-    fn close_the_universe() {
+    fn mark_fds_as_cloexec() {
         let child_pid = unsafe {
             fork_for_test(|| {
                 let should_close =
                     std::fs::File::create(std::env::temp_dir().join("should_close.txt")).unwrap();
-                assert!(!is_closed(&should_close));
+                crate::cutils::cerr(libc::fcntl(
+                    should_close.as_fd().as_raw_fd(),
+                    libc::F_SETFD,
+                    0,
+                ))
+                .unwrap();
+                assert!(!is_cloexec(&should_close));
 
-                let should_not_close =
-                    std::fs::File::create(std::env::temp_dir().join("should_not_close.txt"))
-                        .unwrap();
-                assert!(!is_closed(&should_not_close));
+                super::mark_fds_as_cloexec().unwrap();
 
-                let mut closer = super::FileCloser::new();
+                assert!(is_cloexec(&should_close));
 
-                closer.except(&should_not_close);
-
-                closer.close_the_universe().unwrap();
-
-                assert!(is_closed(&should_close));
-
-                assert!(!is_closed(&io::stdin()));
-                assert!(!is_closed(&io::stdout()));
-                assert!(!is_closed(&io::stderr()));
-                assert!(!is_closed(&should_not_close));
-
-                exit(0)
-            })
-        };
-
-        let (_, status) = child_pid.wait(WaitOptions::new()).unwrap();
-        assert_eq!(status.exit_status(), Some(0));
-    }
-
-    #[test]
-    fn except_stdio_is_fine() {
-        let child_pid = unsafe {
-            fork_for_test(|| {
-                let mut closer = super::FileCloser::new();
-
-                closer.except(&io::stdin());
-                closer.except(&io::stdout());
-                closer.except(&io::stderr());
-
-                closer.close_the_universe().unwrap();
-
-                assert!(!is_closed(&io::stdin()));
-                assert!(!is_closed(&io::stdout()));
-                assert!(!is_closed(&io::stderr()));
+                assert!(!is_cloexec(&io::stdin()));
+                assert!(!is_cloexec(&io::stdout()));
+                assert!(!is_cloexec(&io::stderr()));
 
                 exit(0)
             })
