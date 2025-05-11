@@ -1,7 +1,6 @@
 PORTNAME=	sudo-rs
-PORTVERSION=	0.2.6
+PORTVERSION=	0.2.7
 DISTVERSIONPREFIX=	v
-DISTVERSIONSUFFIX=	-man
 PORTREVISION=	1
 CATEGORIES=	security
 
@@ -52,9 +51,9 @@ OPTIONS_DEFINE=	DOCS
 
 post-install:
 	${MV} ${STAGEDIR}${PREFIX}/bin/visudo ${STAGEDIR}${PREFIX}/sbin/visudo${RS_SUFFIX}
-	${INSTALL_MAN} ${WRKSRC}/docs/man/sudo.8 ${STAGEDIR}${PREFIX}/share/man/man8/sudo${RS_SUFFIX}.8
-	${INSTALL_MAN} ${WRKSRC}/docs/man/visudo.8 ${STAGEDIR}${PREFIX}/share/man/man8/visudo${RS_SUFFIX}.8
-	${INSTALL_MAN} ${WRKSRC}/docs/man/sudoers.5 ${STAGEDIR}${PREFIX}/share/man/man5/sudoers${RS_SUFFIX}.5
+	${INSTALL_MAN} ${WRKSRC}/docs/man/sudo.8.man ${STAGEDIR}${PREFIX}/share/man/man8/sudo${RS_SUFFIX}.8
+	${INSTALL_MAN} ${WRKSRC}/docs/man/visudo.8.man ${STAGEDIR}${PREFIX}/share/man/man8/visudo${RS_SUFFIX}.8
+	${INSTALL_MAN} ${WRKSRC}/docs/man/sudoers.5.man ${STAGEDIR}${PREFIX}/share/man/man5/sudoers${RS_SUFFIX}.5
 	${MKDIR} ${STAGEDIR}${PREFIX}/etc/sudoers.d
 	${MKDIR} ${STAGEDIR}${PREFIX}/etc/pam.d
 	${MKDIR} ${STAGEDIR}/var/run/sudo
