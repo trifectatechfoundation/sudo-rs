@@ -28,6 +28,10 @@ path = "bin/su.rs"
 name = "visudo"
 path = "bin/visudo.rs"
 
+[[bin]]
+name = "sudoedit"
+path = "bin/sudoedit.rs"
+
 [dependencies]
 libc = "0.2.149"
 glob = "0.3.0"
