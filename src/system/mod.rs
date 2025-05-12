@@ -289,6 +289,8 @@ fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
     let Ok(len) = groups.len().try_into() else {
         return Err(io::Error::other("too many groups"));
     };
+    #[cfg(target_os = "macos")]
+    let len = std::cmp::min(16, len);
     // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
     // We can cast to gid_t because `GroupId` is marked as transparent
     cerr(unsafe { libc::setgroups(len, groups.as_ptr().cast::<libc::gid_t>()) })?;
