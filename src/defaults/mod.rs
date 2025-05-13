@@ -38,7 +38,11 @@ defaults! {
     targetpw                  = false
     noexec                    = false
 
+    insults                   = false  #ignored
+
+    setenv                    = false
     apparmor_profile          = None (!= None)
+
     passwd_tries              = 3 [0..=1000]
 
     secure_path               = None (!= None)
@@ -59,7 +63,6 @@ defaults! {
                                 "PERLLIB", "PERL5LIB", "PERL5OPT", "PERL5DB", "FPATH", "NULLCMD",
                                 "READNULLCMD", "ZDOTDIR", "TMPPREFIX", "PYTHONHOME", "PYTHONPATH",
                                 "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"] #ignored
-    setenv                    = false
 }
 
 /// A custom parser to parse seconds as fractional "minutes", the format used by
