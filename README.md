@@ -148,13 +148,13 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 * `use_pty` is enabled by default, but can be disabled.
 * `env_reset` is ignored --- this is always enabled.
 * `visiblepw` is ignored --- this is always disabled.
-* `verifypw` is currently ignored; a password is always necessary for `sudo -v`.
+* `verifypw` is ignored --- this is always set to `all` (the default)
+* the (NO)PASSWD tag on the "list" pseudocommand will determine whether a password
+  is required for the `sudo -U --list` command, instead of `listpw`.
 * `mail_badpass`, `always_set_home`, `always_query_group_plugin` and
   `match_group_by_gid` are not applicable to our implementation, but ignored for
   compatibility reasons.
 * `timestamp_type` is always set at `tty`.
-* the (NO)PASSWD tag on the "list" pseudocommand will determine whether a password
-  is required for the `sudo -U --list` command, instead of `listpw`.
 
 Some other notable restrictions to be aware of:
 
