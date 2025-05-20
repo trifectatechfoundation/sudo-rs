@@ -98,23 +98,36 @@ impl Sudoers {
         &mut self,
         hostname: &system::Hostname,
         requesting_user: &User,
-        target_user: &User,
+        target_user: Option<&User>,
     ) {
         let customisers = std::mem::take(&mut self.customisers.non_cmnd);
 
         let host_matcher = &match_token(hostname);
-        let user_matcher = &match_user(requesting_user);
-        let runas_matcher = &match_user(target_user);
-
         let host_aliases = get_aliases(&self.aliases.host, host_matcher);
+
+        let user_matcher = &match_user(requesting_user);
         let user_aliases = get_aliases(&self.aliases.user, user_matcher);
-        let runas_aliases = get_aliases(&self.aliases.runas, runas_matcher);
+
+        let runas_matcher;
+        let runas_matcher_aliases = if let Some(target_user) = target_user {
+            runas_matcher = match_user(target_user);
+            let runas_aliases = get_aliases(&self.aliases.runas, &runas_matcher);
+            Some((runas_matcher, runas_aliases))
+        } else {
+            None
+        };
 
         let match_scope = |scope| match scope {
             ConfigScope::Generic => true,
             ConfigScope::Host(list) => find_item(&list, host_matcher, &host_aliases).is_some(),
             ConfigScope::User(list) => find_item(&list, user_matcher, &user_aliases).is_some(),
-            ConfigScope::RunAs(list) => find_item(&list, runas_matcher, &runas_aliases).is_some(),
+            ConfigScope::RunAs(list) => {
+                if let Some((runas_matcher, runas_aliases)) = &runas_matcher_aliases {
+                    find_item(&list, runas_matcher, runas_aliases).is_some()
+                } else {
+                    false
+                }
+            }
             ConfigScope::Command(_list) => {
                 unreachable!("command-specific defaults are filtered out")
             }
@@ -150,7 +163,7 @@ impl Sudoers {
         on_host: &system::Hostname,
         request: Request<User, Group>,
     ) -> Judgement {
-        self.specify_host_user_runas(on_host, am_user, request.user);
+        self.specify_host_user_runas(on_host, am_user, Some(request.user));
         self.specify_command(request.command, request.arguments);
 
         // exception: if user is root or does not switch users, NOPASSWD is implied
@@ -219,7 +232,7 @@ impl Sudoers {
         invoking_user: &User,
         hostname: &system::Hostname,
     ) -> Authorization {
-        self.specify_host_user_runas(hostname, invoking_user, invoking_user);
+        self.specify_host_user_runas(hostname, invoking_user, None);
 
         // exception: if user is root, NOPASSWD is implied
         let skip_passwd = invoking_user.is_root();
@@ -285,7 +298,7 @@ impl Sudoers {
         am_user: &User,
         target_user: &User,
     ) -> Option<PathBuf> {
-        self.specify_host_user_runas(on_host, am_user, target_user);
+        self.specify_host_user_runas(on_host, am_user, Some(target_user));
         if self.settings.env_editor() {
             for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
                 if let Some(var) = std::env::var_os(key) {
