@@ -2,7 +2,7 @@ use core::str;
 use std::{
     env::{self, consts::OS},
     fs::{self, File},
-    io::{ErrorKind, Seek, SeekFrom, Write},
+    io::{self, ErrorKind, Write},
     path::{Path, PathBuf},
     process::{self, Command as StdCommand, Stdio},
 };
@@ -102,11 +102,12 @@ impl Container {
         docker_exec.stdout(Stdio::piped()).stderr(Stdio::piped());
 
         let res = (|| -> Result<Child> {
-            if let Some(stdin) = cmd.get_stdin() {
-                let mut temp_file = tempfile::tempfile()?;
-                temp_file.write_all(stdin.as_bytes())?;
-                temp_file.seek(SeekFrom::Start(0))?;
-                docker_exec.stdin(Stdio::from(temp_file));
+            if let Some(stdin) = cmd.get_stdin().map(ToOwned::to_owned) {
+                let (recv, mut send) = io::pipe().unwrap();
+                std::thread::spawn(move || {
+                    send.write_all(stdin.as_bytes()).unwrap();
+                });
+                docker_exec.stdin(recv);
             }
 
             Ok(Child::new(docker_exec.spawn()?))
@@ -271,11 +272,12 @@ fn repo_root() -> PathBuf {
 #[track_caller]
 fn run(cmd: &mut StdCommand, stdin: Option<&str>) -> Output {
     let res = (|| -> Result<Output> {
-        if let Some(stdin) = stdin {
-            let mut temp_file = tempfile::tempfile()?;
-            temp_file.write_all(stdin.as_bytes())?;
-            temp_file.seek(SeekFrom::Start(0))?;
-            cmd.stdin(Stdio::from(temp_file));
+        if let Some(stdin) = stdin.map(ToOwned::to_owned) {
+            let (recv, mut send) = io::pipe().unwrap();
+            std::thread::spawn(move || {
+                send.write_all(stdin.as_bytes()).unwrap();
+            });
+            cmd.stdin(recv);
         }
 
         cmd.output()?.try_into()
