@@ -26,9 +26,7 @@ use crate::{
         signal::{consts::*, signal_name},
         wait::{Wait, WaitError, WaitOptions},
     },
-    system::{
-        kill, set_target_user, signal::SignalNumber, term::UserTerm, FileCloser, Group, User,
-    },
+    system::{kill, set_target_user, signal::SignalNumber, term::UserTerm, Group, User},
 };
 
 use self::{
@@ -58,8 +56,6 @@ pub fn run_command(
     options: RunOptions<'_>,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
 ) -> io::Result<ExitReason> {
-    let mut file_closer = FileCloser::new();
-
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command;
     let mut command = Command::new(qualified_path);
@@ -83,7 +79,7 @@ pub fn run_command(
 
     if options.noexec {
         #[cfg(target_os = "linux")]
-        noexec::add_noexec_filter(&mut command, &mut file_closer);
+        noexec::add_noexec_filter(&mut command);
 
         #[cfg(not(target_os = "linux"))]
         return Err(io::Error::other(
@@ -125,14 +121,14 @@ pub fn run_command(
 
     if options.use_pty {
         match UserTerm::open() {
-            Ok(user_tty) => exec_pty(sudo_pid, file_closer, command, user_tty),
+            Ok(user_tty) => exec_pty(sudo_pid, command, user_tty),
             Err(err) => {
                 dev_info!("Could not open user's terminal, not allocating a pty: {err}");
-                exec_no_pty(sudo_pid, file_closer, command)
+                exec_no_pty(sudo_pid, command)
             }
         }
     } else {
-        exec_no_pty(sudo_pid, file_closer, command)
+        exec_no_pty(sudo_pid, command)
     }
 }
 

@@ -20,8 +20,6 @@ use libc::{
     SECCOMP_USER_NOTIF_FLAG_CONTINUE, SOL_SOCKET,
 };
 
-use crate::system::FileCloser;
-
 const SECCOMP_RET_USER_NOTIF: c_uint = 0x7fc00000;
 const SECCOMP_IOCTL_NOTIF_RECV: c_ulong = 0xc0502100;
 const SECCOMP_IOCTL_NOTIF_SEND: c_ulong = 0xc0182101;
@@ -255,7 +253,7 @@ fn send_fd(tx_fd: UnixStream, notify_fd: RawFd) -> io::Result<()> {
     }
 }
 
-pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileCloser) {
+pub(crate) fn add_noexec_filter(command: &mut Command) {
     let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
 
     thread::spawn(move || {
@@ -263,8 +261,6 @@ pub(crate) fn add_noexec_filter(command: &mut Command, file_closer: &mut FileClo
         // SAFETY: notify_fd is a valid seccomp_unotify fd.
         unsafe { handle_notifications(OwnedFd::from_raw_fd(notify_fd)) };
     });
-
-    file_closer.except(&tx_fd);
 
     // wrap tx_fd so it can be moved into the closure
     let mut tx_fd = Some(tx_fd);
