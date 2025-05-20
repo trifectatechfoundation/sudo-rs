@@ -26,11 +26,7 @@ use crate::{
     },
 };
 
-pub(super) fn exec_no_pty(
-    sudo_pid: ProcessId,
-    mut file_closer: FileCloser,
-    mut command: Command,
-) -> io::Result<ExitReason> {
+pub(super) fn exec_no_pty(sudo_pid: ProcessId, mut command: Command) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
