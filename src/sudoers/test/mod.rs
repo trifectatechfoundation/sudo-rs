@@ -280,7 +280,7 @@ fn default_bool_test() {
     sudoers.specify_host_user_runas(
         &system::Hostname::fake("host"),
         &Named("user"),
-        &Named("root"),
+        Some(&Named("root")),
     );
 
     assert!(!sudoers.settings.env_editor());
@@ -307,7 +307,7 @@ fn default_set_test() {
     sudoers.specify_host_user_runas(
         &system::Hostname::fake("host"),
         &Named("user"),
-        &Named("root"),
+        Some(&Named("root")),
     );
 
     assert_eq!(
@@ -340,7 +340,7 @@ fn default_multi_test() {
     sudoers.specify_host_user_runas(
         &system::Hostname::fake("host"),
         &Named("user"),
-        &Named("root"),
+        Some(&Named("root")),
     );
 
     assert!(!sudoers.settings.env_editor());
@@ -514,7 +514,7 @@ fn default_specific_test() {
     base_sudoers.specify_host_user_runas(
         &system::Hostname::fake("generic"),
         &Named("generic"),
-        &Named("generic"),
+        Some(&Named("generic")),
     );
 
     assert!(base_sudoers.settings.env_editor());
@@ -526,7 +526,7 @@ fn default_specific_test() {
     mod_sudoers.specify_host_user_runas(
         &system::Hostname::fake("host"),
         &Named("user"),
-        &Named("root"),
+        Some(&Named("root")),
     );
     assert!(!mod_sudoers.settings.env_editor());
     assert!(mod_sudoers.settings.use_pty());
@@ -537,7 +537,7 @@ fn default_specific_test() {
     mod_sudoers.specify_host_user_runas(
         &system::Hostname::fake("machine"),
         &Named("admin"),
-        &Named("runas"),
+        Some(&Named("runas")),
     );
     assert!(mod_sudoers.settings.env_editor());
     assert!(!mod_sudoers.settings.use_pty());
@@ -550,7 +550,7 @@ fn default_specific_test() {
     mod_sudoers.specify_host_user_runas(
         &system::Hostname::fake("machine"),
         &Named("admin"),
-        &Named("self"),
+        Some(&Named("self")),
     );
     mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["thrice".to_string()]);
     assert!(mod_sudoers.settings.env_editor());
