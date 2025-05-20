@@ -282,6 +282,7 @@ mod tests {
                         use_pty: true,
                         #[cfg(feature = "apparmor")]
                         apparmor_profile: None,
+                        noexec: false,
                     }
                 ),
                 expected,
