@@ -1,9 +1,10 @@
-use std::{ffi::CString, io::ErrorKind};
+use std::ffi::CString;
+use std::{fs, io};
 
 use crate::cutils::cerr;
 
 /// Set the profile for the next exec call if AppArmor is enabled
-pub fn set_profile_for_next_exec(profile_name: &str) -> std::io::Result<()> {
+pub fn set_profile_for_next_exec(profile_name: &str) -> io::Result<()> {
     if apparmor_is_enabled()? {
         apparmor_prepare_exec(profile_name)
     } else {
@@ -12,10 +13,10 @@ pub fn set_profile_for_next_exec(profile_name: &str) -> std::io::Result<()> {
     }
 }
 
-fn apparmor_is_enabled() -> std::io::Result<bool> {
-    match std::fs::read_to_string("/sys/module/apparmor/parameters/enabled") {
+fn apparmor_is_enabled() -> io::Result<bool> {
+    match fs::read_to_string("/sys/module/apparmor/parameters/enabled") {
         Ok(enabled) => Ok(enabled.starts_with("Y")),
-        Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
         Err(e) => Err(e),
     }
 }
@@ -26,7 +27,7 @@ extern "C" {
 }
 
 /// Switch the apparmor profile to the given profile on the next exec call
-fn apparmor_prepare_exec(new_profile: &str) -> std::io::Result<()> {
+fn apparmor_prepare_exec(new_profile: &str) -> io::Result<()> {
     let new_profile_cstr = CString::new(new_profile)?;
     // SAFETY: new_profile_cstr provided by CString ensures a valid ptr
     cerr(unsafe { aa_change_onexec(new_profile_cstr.as_ptr()) })?;
