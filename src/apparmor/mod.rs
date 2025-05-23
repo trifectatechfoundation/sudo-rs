@@ -7,7 +7,7 @@ mod sys;
 /// Set the profile for the next exec call if AppArmor is enabled
 pub fn set_profile_for_next_exec(profile_name: &str) -> std::io::Result<()> {
     if apparmor_is_enabled()? {
-        apparmor_prepare_exec(&profile_name)
+        apparmor_prepare_exec(profile_name)
     } else {
         // if the sysadmin doesn't have apparmor enabled, fail softly
         Ok(())
