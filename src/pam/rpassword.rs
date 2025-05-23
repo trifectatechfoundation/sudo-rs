@@ -86,6 +86,7 @@ fn read_unbuffered(source: &mut dyn io::Read) -> io::Result<PamBuffer> {
     let mut pwd_iter = password.iter_mut();
 
     const EOL: u8 = 0x0A;
+    #[allow(clippy::unbuffered_bytes)]
     let input = source.bytes().take_while(|x| x.as_ref().ok() != Some(&EOL));
 
     for read_byte in input {
@@ -122,6 +123,7 @@ fn read_unbuffered_with_feedback(
 
     // invariant: the amount of nonzero-bytes in the buffer correspond
     // with the amount of asterisks on the terminal (both tracked in `pw_len`)
+    #[allow(clippy::unbuffered_bytes)]
     for read_byte in source.bytes() {
         let read_byte = read_byte?;
 
