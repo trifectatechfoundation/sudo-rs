@@ -124,7 +124,7 @@ impl Sudoers {
         current_user: &User,
         target_user: &User,
     ) -> Option<&str> {
-        self.specify_host_user_runas(on_host, current_user, target_user);
+        self.specify_host_user_runas(on_host, current_user, Some(target_user));
         self.settings.secure_path()
     }
 }
