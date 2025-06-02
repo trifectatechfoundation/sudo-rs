@@ -108,25 +108,23 @@ impl Sudoers {
         let user_matcher = &match_user(requesting_user);
         let user_aliases = get_aliases(&self.aliases.user, user_matcher);
 
-        let runas_matcher;
-        let runas_matcher_aliases = if let Some(target_user) = target_user {
-            runas_matcher = match_user(target_user);
+        let runas_matcher_aliases = target_user.map(|target_user| {
+            let runas_matcher = match_user(target_user);
             let runas_aliases = get_aliases(&self.aliases.runas, &runas_matcher);
-            Some((runas_matcher, runas_aliases))
-        } else {
-            None
-        };
+
+            (runas_matcher, runas_aliases)
+        });
 
         let match_scope = |scope| match scope {
             ConfigScope::Generic => true,
             ConfigScope::Host(list) => find_item(&list, host_matcher, &host_aliases).is_some(),
             ConfigScope::User(list) => find_item(&list, user_matcher, &user_aliases).is_some(),
             ConfigScope::RunAs(list) => {
-                if let Some((runas_matcher, runas_aliases)) = &runas_matcher_aliases {
-                    find_item(&list, runas_matcher, runas_aliases).is_some()
-                } else {
-                    false
-                }
+                runas_matcher_aliases
+                    .as_ref()
+                    .is_some_and(|(runas_matcher, runas_aliases)| {
+                        find_item(&list, runas_matcher, runas_aliases).is_some()
+                    })
             }
             ConfigScope::Command(_list) => {
                 unreachable!("command-specific defaults are filtered out")
