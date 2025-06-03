@@ -64,13 +64,15 @@ pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
     #[allow(clippy::diverging_sub_expression)]
     let res = unsafe {
         'a: {
-            #[cfg(not(all(target_os = "linux", target_env = "musl")))]
+            #[cfg(not(target_os = "linux"))]
             break 'a cerr(libc::close_range(
                 lowfd as c_uint,
                 c_uint::MAX,
                 CLOSE_RANGE_CLOEXEC as c_int,
             ));
-            #[cfg(all(target_os = "linux", target_env = "musl"))]
+            // on Linux, close_range was only added in glibc 2.34, and is not
+            // part of musl, so we go perform a straight syscall instead
+            #[cfg(target_os = "linux")]
             break 'a cerr(libc::syscall(
                 libc::SYS_close_range,
                 lowfd as c_uint,
