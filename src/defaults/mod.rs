@@ -26,6 +26,7 @@ defaults! {
     always_set_home           = false  #ignored
     env_reset                 = true   #ignored
     fqdn                      = false  #ignored
+    ignore_dot                = true   #ignored
     lecture                   = false  #ignored
     mailerpath                = None (!= None) #ignored
     mail_badpass              = true   #ignored
