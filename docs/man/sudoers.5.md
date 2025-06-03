@@ -488,7 +488,7 @@ Once sudo executes a program, that program is free to do whatever it pleases, in
 On Linux, sudo-rs has sudo's **noexec* functionality, based on a seccomp() filter. Programs that are run in **noexec** mode cannot run other programs. The implementation
 in sudo-rs is different than in Todd Miller's sudo, and should also work on statically linked binaries.
 
-Note that restricting shell escapes is not a panacea. Programs running as root are still capable of many potentially hazardous operations (such as changing or overwriting files) that could lead to unintended privilege escalation. NOEXEC is also not a protection against malicious programs. It doesn't prevent mapping memory as executable, nor does it protect against future syscalls that can do an exec() like the planned `io_uring` feature in Linux. And it also doesn't protect against honest programs that intentionally or not allow the user to write to /proc/self/mem for the same reasons as that it doesn't protect against malicious programs.
+Note that restricting shell escapes is not a panacea. Programs running as root are still capable of many potentially hazardous operations (such as changing or overwriting files) that could lead to unintended privilege escalation. NOEXEC is also not a protection against malicious programs. It doesn't prevent mapping memory as executable, nor does it protect against future syscalls that can do an exec() like the proposed `io_uring` exec feature in Linux. And it also doesn't protect against honest programs that intentionally or not allow the user to write to /proc/self/mem for the same reasons as that it doesn't protect against malicious programs.
 
 ### Timestamp file checks
 
