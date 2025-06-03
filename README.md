@@ -158,7 +158,7 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 
 Some other notable restrictions to be aware of:
 
-* Some functionality is not supported, such as preventing shell escapes `INTERCEPT`,
+* Some functionality is not supported, such as preventing shell escapes using `INTERCEPT` and
   storing config in LDAP using `sudoers.ldap`, and `cvtsudoers`.
 * Sudo-rs always uses PAM for authentication, so your system must be set up for PAM.
   Sudo-rs will use the `sudo` and `sudo-i` service configuration. This also means
