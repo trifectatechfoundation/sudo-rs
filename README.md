@@ -152,13 +152,14 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 * `mail_badpass`, `always_set_home`, `always_query_group_plugin` and
   `match_group_by_gid` are not applicable to our implementation, but ignored for
   compatibility reasons.
+* `timestamp_type` is always set at `tty`.
 * the (NO)PASSWD tag on the "list" pseudocommand will determine whether a password
   is required for the `sudo -U --list` command, instead of `listpw`.
 
 Some other notable restrictions to be aware of:
 
-* Some functionality is not yet supported; in particular `sudoedit` and preventing shell
-  escapes using `NOEXEC` and `NOINTERCEPT`.
+* Some functionality is not supported, such as preventing shell escapes using `INTERCEPT` and
+  storing config in LDAP using `sudoers.ldap`, and `cvtsudoers`.
 * Sudo-rs always uses PAM for authentication, so your system must be set up for PAM.
   Sudo-rs will use the `sudo` and `sudo-i` service configuration. This also means
   that resource limits, umasks, etc have to be configured via PAM and not through
