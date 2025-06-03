@@ -251,6 +251,28 @@ mod tests {
     }
 
     #[test]
+    fn test_cwd_resolve_path() {
+        // We modify the path to contain ".", which is supposed to be ignored
+        let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:.";
+
+        let cwd = std::env::current_dir().unwrap();
+
+        // we filter for executable files, so it is most likely going to pick one of the shell
+        // scripts in the project's root
+        let some_file = cwd
+            .read_dir()
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .find_map(|entry| {
+                let pathbuf = PathBuf::from(entry.file_name());
+                is_valid_executable(&pathbuf).then_some(pathbuf)
+            })
+            .unwrap();
+
+        assert_eq!(resolve_path(&some_file, path), None);
+    }
+
+    #[test]
     fn test_name_or_id() {
         assert_eq!(NameOrId::<u32>::parse(&"".into()), None);
         assert_eq!(
