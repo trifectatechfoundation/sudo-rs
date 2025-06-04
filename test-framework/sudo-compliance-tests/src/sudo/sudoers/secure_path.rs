@@ -34,34 +34,49 @@ fn if_set_searches_program_in_secure_path() {
     let path = "/root/my-script";
     let env = Env("\
 Defaults secure_path=.:/root
+Defaults ignore_dot
 ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     .file(path, TextFile("#!/bin/sh").chmod("100"))
     .build();
 
     // `true` is in `/usr/bin/`
-    let match_in_relative_path_when_path_is_unset =
-        format!("unset PATH; cd /usr/bin; {BIN_SUDO} true");
     let match_in_absolute_path_when_path_is_unset =
         format!("unset PATH; cd /; {BIN_SUDO} my-script");
-    let match_in_relative_path_when_path_is_set =
-        format!("export PATH=/tmp; cd /usr/bin; {BIN_SUDO} true");
     let match_in_absolute_path_when_path_is_set =
         format!("export PATH=/tmp; cd /; {BIN_SUDO} my-script");
 
-    let scripts = [
-        match_in_relative_path_when_path_is_unset,
+    let dont_match_in_relative_path_when_path_is_unset =
+        format!("unset PATH; cd /usr/bin; {BIN_SUDO} true");
+    let dont_match_in_relative_path_when_path_is_set =
+        format!("export PATH=/tmp; cd /usr/bin; {BIN_SUDO} true");
+
+    let success_scripts = [
         match_in_absolute_path_when_path_is_unset,
-        match_in_relative_path_when_path_is_set,
         match_in_absolute_path_when_path_is_set,
     ];
 
-    for script in scripts {
+    // these should fail because we do not allow relative paths anymore
+    let failure_scripts = [
+        dont_match_in_relative_path_when_path_is_unset,
+        dont_match_in_relative_path_when_path_is_set,
+    ];
+
+    for script in success_scripts {
         println!("{script}");
 
         Command::new("sh")
             .args(["-c", &script])
             .output(&env)
             .assert_success();
+    }
+
+    for script in failure_scripts {
+        println!("{script}");
+
+        Command::new("sh")
+            .args(["-c", &script])
+            .output(&env)
+            .assert_exit_code(1);
     }
 }
 
