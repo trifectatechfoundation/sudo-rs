@@ -42,7 +42,7 @@ jobs:
 
       - name: Run all E2E tests
         working-directory: test-framework
-        run: cargo test -p e2e-tests
+        run: cargo test -p e2e-tests --features apparmor
 
       - name: prevent the cache from growing too large
         run: |

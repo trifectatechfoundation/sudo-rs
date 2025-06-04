@@ -1,6 +1,6 @@
 FROM rust:1-slim-bookworm
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends apparmor libpam0g-dev libapparmor-dev procps sshpass rsyslog ca-certificates tzdata
+    apt-get install -y --no-install-recommends apparmor libpam0g-dev libapparmor1 procps sshpass rsyslog ca-certificates tzdata
 # cache the crates.io index in the image for faster local testing
 RUN cargo search sudo
 WORKDIR /usr/src/sudo
