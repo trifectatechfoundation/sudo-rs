@@ -14,7 +14,7 @@ use crate::{
     },
 };
 use crate::{
-    exec::{exec_command, handle_sigchld, noexec::SpawnNoexecHandler, signal_fmt},
+    exec::{exec_command, handle_sigchld, signal_fmt, SpawnNoexecHandler},
     log::{dev_error, dev_info, dev_warn},
     system::{
         fork, getpgid, getpgrp,

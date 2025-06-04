@@ -38,6 +38,15 @@ use self::{
     use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG},
 };
 
+#[cfg(target_os = "linux")]
+use self::noexec::SpawnNoexecHandler;
+#[cfg(not(target_os = "linux"))]
+enum SpawnNoexecHandler {}
+#[cfg(not(target_os = "linux"))]
+impl SpawnNoexecHandler {
+    fn spawn(self) {}
+}
+
 pub struct RunOptions<'a> {
     pub command: &'a Path,
     pub arguments: &'a [String],
