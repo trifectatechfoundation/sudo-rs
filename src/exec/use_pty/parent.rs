@@ -4,14 +4,13 @@ use std::io;
 use std::process::{Command, Stdio};
 
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
-use crate::exec::noexec::SpawnNoexecHandler;
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::{cond_fmt, handle_sigchld, signal_fmt, terminate_process, HandleSigchld};
 use crate::exec::{
     io_util::retry_while_interrupted,
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
-    ExitReason,
+    ExitReason, SpawnNoexecHandler,
 };
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{
