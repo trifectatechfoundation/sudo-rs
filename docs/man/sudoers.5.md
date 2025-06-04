@@ -206,7 +206,9 @@ See **SUDOERS OPTIONS** for a list of supported Defaults parameters.
 
      Chdir_Spec ::= 'CWD=directory'
 
-     Tag_Spec ::= ('PASSWD:' | 'NOPASSWD:' | 'SETENV:' | 'NOSETENV:')
+     Tag_Spec ::= ('PASSWD:' | 'NOPASSWD:' |
+                   'SETENV:' | 'NOSETENV:'
+                   'EXEC:'   | 'NOEXEC')
 
      AppArmor_Spec ::= 'APPARMOR_PROFILE=profile'
 
@@ -266,6 +268,16 @@ The working directory that the command will be run in can be specified using the
 
 A command may have zero or more tags associated with it.  The following tag values are supported: PASSWD, NOPASSWD, SETENV, and NOSETENV.
 Once a tag is set on a Cmnd, subsequent Cmnds in the Cmnd_Spec_List, inherit the tag unless it is overridden by the opposite tag (in other words, PASSWD overrides NOPASSWD and NOSETENV overrides SETENV).
+
+### EXEC and NOEXEC
+
+On Linux systems, the NOEXEC tag can be used to prevent an executable from running further commands itself.
+
+In the following example, user aaron may run /usr/bin/more and /usr/bin/vi but shell escapes will be disabled.
+
+        aaron   shanty = NOEXEC: /usr/bin/more, /usr/bin/vi
+
+See the Preventing shell escapes section below for more details on how NOEXEC works and whether or not it suits your purpose.
 
 ### PASSWD and NOPASSWD
 
@@ -359,6 +371,10 @@ The following characters must be escaped with a backslash (‘\’) when used as
 sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A list of all supported Defaults parameters, grouped by type, are listed below.
 
 ### Boolean Flags:
+
+* noexec
+
+  If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the Preventing shell escapes section at the end of this manual.  This flag is off by default.
 
 * env_editor
 
@@ -469,7 +485,10 @@ User john can still run /usr/bin/passwd root if fast_glob is enabled by changing
 
 Once sudo executes a program, that program is free to do whatever it pleases, including run other programs.  This can be a security issue since it is not uncommon for a program to allow shell escapes, which lets a user bypass sudo's access control and logging.  Common programs that permit shell escapes include shells (obviously), editors, paginators (such as *less*), mail, and terminal programs.
 
-sudo-rs currently doesn't offer Todd Miller's sudo's protection mechanisms; i.e. be very careful that when a user is not supposed to receive shell access, that the commands that they have access to does not allow escaping to the shell.
+On Linux, sudo-rs has sudo's **noexec* functionality, based on a seccomp() filter. Programs that are run in **noexec** mode cannot run other programs. The implementation
+in sudo-rs is different than in Todd Miller's sudo, and should also work on statically linked binaries.
+
+Note that restricting shell escapes is not a panacea. Programs running as root are still capable of many potentially hazardous operations (such as changing or overwriting files) that could lead to unintended privilege escalation. NOEXEC is also not a protection against malicious programs. It doesn't prevent mapping memory as executable, nor does it protect against future syscalls that can do an exec() like the proposed `io_uring` exec feature in Linux. And it also doesn't protect against honest programs that intentionally or not allow the user to write to /proc/self/mem for the same reasons as that it doesn't protect against malicious programs.
 
 ### Timestamp file checks
 
