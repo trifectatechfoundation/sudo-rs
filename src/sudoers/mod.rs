@@ -320,7 +320,9 @@ impl Sudoers {
     }
 
     pub(crate) fn umask(&self) -> Umask {
-        if self.settings.umask_override() {
+        if self.settings.umask() == 0o777 {
+            Umask::Preserve
+        } else if self.settings.umask_override() {
             Umask::Override(
                 self.settings
                     .umask()
