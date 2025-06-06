@@ -28,4 +28,5 @@ mod sudo_ps1;
 mod sudoers;
 mod syslog;
 mod timestamp;
+mod umask;
 mod use_pty;
