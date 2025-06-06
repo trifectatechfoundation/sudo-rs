@@ -18,7 +18,9 @@ use std::{
 };
 
 use crate::{
-    common::bin_serde::BinPipe,
+    common::{
+        bin_serde::BinPipe, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2,
+    },
     exec::no_pty::exec_no_pty,
     log::{dev_info, dev_warn, user_error},
     system::{
@@ -47,6 +49,17 @@ impl SpawnNoexecHandler {
     fn spawn(self) {}
 }
 
+#[derive(Debug, Copy, Clone)]
+#[repr(u32)]
+pub enum Umask {
+    /// Keep the umask of the parent process.
+    Preserve = HARDENED_ENUM_VALUE_0,
+    /// Mask out more of the permission bits in the new umask.
+    Extend(libc::mode_t) = HARDENED_ENUM_VALUE_1,
+    /// Override the umask of the parent process entirely with the given umask.
+    Override(libc::mode_t) = HARDENED_ENUM_VALUE_2,
+}
+
 pub struct RunOptions<'a> {
     pub command: &'a Path,
     pub arguments: &'a [String],
@@ -55,6 +68,7 @@ pub struct RunOptions<'a> {
     pub is_login: bool,
     pub user: &'a User,
     pub group: &'a Group,
+    pub umask: Umask,
 
     pub use_pty: bool,
     pub noexec: bool,
@@ -129,6 +143,29 @@ pub fn run_command(
                 Ok(())
             });
         }
+    }
+
+    // SAFETY: Umask is async-signal-safe.
+    unsafe {
+        let umask = options.umask;
+
+        command.pre_exec(move || {
+            match umask {
+                Umask::Preserve => {}
+                Umask::Extend(umask) => {
+                    // The only options to get the existing umask are overwriting it or
+                    // parsing a /proc file. Given that this is a single-threaded context,
+                    // overwrite it with a safe value is fine and the simpler option.
+                    let existing_umask = libc::umask(0o777);
+                    libc::umask(existing_umask | umask);
+                }
+                Umask::Override(umask) => {
+                    libc::umask(umask);
+                }
+            }
+
+            Ok(())
+        });
     }
 
     let sudo_pid = ProcessId::new(std::process::id() as i32);
