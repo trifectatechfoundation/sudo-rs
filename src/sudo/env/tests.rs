@@ -1,5 +1,6 @@
 use crate::common::resolve::CurrentUser;
 use crate::common::{CommandAndArguments, Context};
+use crate::exec::Umask;
 use crate::sudo::{
     cli::{SudoAction, SudoRunOptions},
     env::environment::{get_target_environment, Environment},
@@ -134,6 +135,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         use_pty: true,
         noexec: false,
         bell: false,
+        umask: Umask::Preserve,
     }
 }
 

@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 
 use crate::common::resolve::resolve_path;
 use crate::defaults;
+use crate::exec::Umask;
 use crate::log::auth_warn;
 use crate::system::interface::{GroupId, UnixGroup, UnixUser, UserId};
 use crate::system::{self, can_execute};
@@ -316,6 +317,24 @@ impl Sudoers {
         }
 
         None
+    }
+
+    pub(crate) fn umask(&self) -> Umask {
+        if self.settings.umask_override() {
+            Umask::Override(
+                self.settings
+                    .umask()
+                    .try_into()
+                    .expect("the umask parser should have prevented overflow"),
+            )
+        } else {
+            Umask::Extend(
+                self.settings
+                    .umask()
+                    .try_into()
+                    .expect("the umask parser should have prevented overflow"),
+            )
+        }
     }
 }
 
