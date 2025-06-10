@@ -395,7 +395,8 @@ impl Parse for MetaOrTag {
                 "INTERCEPT is not supported by sudo-rs"
             ),
             // this is less fatal
-            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL" => {
+            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL"
+            | "FOLLOW" => {
                 eprintln_ignore_io_error!(
                     "warning: {} tags are ignored by sudo-rs",
                     keyword.as_str()
@@ -403,9 +404,8 @@ impl Parse for MetaOrTag {
                 switch(|_| {})?
             }
 
-            // 'FOLLOW' and 'NOFOLLOW' are only usable in a sudoedit context, which will result in
-            // a parse error elsewhere. 'NOINTERCEPT' is the default behaviour.
-            "FOLLOW" | "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
+            // 'NOFOLLOW' and 'NOINTERCEPT' are the default behaviour.
+            "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
 
             "EXEC" => switch(|tag| tag.noexec = ExecControl::Exec)?,
             "NOEXEC" => switch(|tag| tag.noexec = ExecControl::Noexec)?,
