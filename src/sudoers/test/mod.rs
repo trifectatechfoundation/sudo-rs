@@ -375,6 +375,17 @@ fn inclusive_username() {
 }
 
 #[test]
+fn sudoedit_recognized() {
+    let CommandSpec(_, Qualified::Allow(Meta::Only((cmd, args)))) =
+        parse_eval::<ast::CommandSpec>("sudoedit /etc/tmux.conf")
+    else {
+        panic!();
+    };
+    assert_eq!(cmd.as_str(), "sudoedit");
+    assert_eq!(args.unwrap().as_ref(), &["/etc/tmux.conf"][..]);
+}
+
+#[test]
 fn directive_test() {
     let y = parse_eval::<Spec<UserSpecifier>>;
     match parse_eval::<ast::Sudo>("User_Alias HENK = user1, user2") {
