@@ -471,31 +471,6 @@ impl Parse for CommandSpec {
             }
         }
 
-        let start_pos = stream.get_pos();
-        if let Some(Username(keyword)) = try_nonterminal(stream)? {
-            if keyword == "sudoedit" {
-                // note: special behaviour of forward slashes in wildcards, tread carefully
-                unrecoverable!(pos = start_pos, stream, "sudoedit is not yet supported");
-            } else if keyword == "list" {
-                return make(CommandSpec(
-                    tags,
-                    Allow(Meta::Only((glob::Pattern::new("list").unwrap(), None))),
-                ));
-            } else if keyword.starts_with("sha") {
-                unrecoverable!(
-                    pos = start_pos,
-                    stream,
-                    "digest specifications are not supported"
-                )
-            } else {
-                unrecoverable!(
-                    pos = start_pos,
-                    stream,
-                    "expected command but found {keyword}"
-                )
-            };
-        }
-
         let cmd: Spec<Command> = expect_nonterminal(stream)?;
 
         make(CommandSpec(tags, cmd))
