@@ -211,7 +211,7 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
 
     path.split(':')
         // ignore all relative paths ("", "." or "./")
-        .filter(|&path| !(path.is_empty() || path == "." || path.starts_with("./")))
+        .filter(|&path| PathBuf::from(path).is_absolute())
         // construct a possible executable absolute path candidate
         .map(|path| PathBuf::from(path).join(command))
         // check whether the candidate is a regular file and any executable flag is set
