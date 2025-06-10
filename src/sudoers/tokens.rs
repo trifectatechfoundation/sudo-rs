@@ -24,7 +24,7 @@ impl Token for Username {
     }
 
     fn accept(c: char) -> bool {
-        c.is_ascii_alphanumeric() || ".-_@$".contains(c)
+        c.is_alphanumeric() || ".-_@$".contains(c)
     }
 
     fn accept_1st(c: char) -> bool {

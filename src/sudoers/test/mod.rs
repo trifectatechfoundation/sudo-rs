@@ -365,6 +365,16 @@ fn invalid_username() {
 }
 
 #[test]
+fn inclusive_username() {
+    let UserSpecifier::User(Identifier::Name(sirin)) = parse_eval::<ast::UserSpecifier>("şirin")
+    else {
+        panic!();
+    };
+
+    assert_eq!(sirin, "şirin");
+}
+
+#[test]
 fn directive_test() {
     let y = parse_eval::<Spec<UserSpecifier>>;
     match parse_eval::<ast::Sudo>("User_Alias HENK = user1, user2") {
