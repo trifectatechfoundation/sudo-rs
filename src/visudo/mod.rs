@@ -143,16 +143,42 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         .unwrap_or_else(candidate_sudoers_file);
 
     let (sudoers_file, existed) = if sudoers_path.exists() {
-        let file = File::options().read(true).write(true).open(sudoers_path)?;
+        let file = File::options()
+            .read(true)
+            .write(true)
+            .open(sudoers_path)
+            .map_err(|e| {
+                io::Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to open existing sudoers file at {:?}: {}",
+                        sudoers_path, e
+                    ),
+                )
+            })?;
 
         (file, true)
     } else {
         // Create a sudoers file if it doesn't exist.
-        let file = File::create(sudoers_path)?;
+        let file = File::create(sudoers_path).map_err(|e| {
+            io::Error::new(
+                e.kind(),
+                format!("Failed to create sudoers file at {:?}: {}", sudoers_path, e),
+            )
+        })?;
         // ogvisudo sets the permissions of the file so it can be read and written by the user and
         // read by the group if the `-f` argument was passed.
         if file_arg.is_some() {
-            file.set_permissions(Permissions::from_mode(0o640))?;
+            file.set_permissions(Permissions::from_mode(0o640))
+                .map_err(|e| {
+                    io::Error::new(
+                        e.kind(),
+                        format!(
+                            "Failed to set permissions on new sudoers file at {:?}: {}",
+                            sudoers_path, e
+                        ),
+                    )
+                })?;
         }
         (file, false)
     };
