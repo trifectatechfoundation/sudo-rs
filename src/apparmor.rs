@@ -38,25 +38,29 @@ fn apparmor_prepare_exec(new_profile: &str) -> io::Result<()> {
     }
 
     // SAFETY: dlsym will either return a function pointer of the right signature or NULL.
-    // Option<fn()> is guaranteed to represent a NULL value as None and any other value as Some.
-    let aa_change_onexec: Option<unsafe extern "C" fn(*const c_char) -> c_int> =
-        unsafe { mem::transmute(libc::dlsym(handle, c"aa_change_onexec".as_ptr())) };
-    let Some(aa_change_onexec) = aa_change_onexec else {
+    let aa_change_onexec = unsafe { libc::dlsym(handle, c"aa_change_onexec".as_ptr()) };
+
+    if aa_change_onexec.is_null() {
         // SAFETY: Always safe to call
         let err = unsafe { libc::dlerror() };
-        if err.is_null() {
+        return Err(if err.is_null() {
             // There was no error in dlsym, but the symbol itself was defined as NULL pointer.
             // This is still an error for us, but dlerror will not return any error.
-            return Err(io::Error::new(
+            io::Error::new(
                 io::ErrorKind::Other,
                 "aa_change_onexec symbol is a NULL pointer",
-            ));
-        }
-        // SAFETY: In case of an error, dlerror returns a valid C string.
-        return Err(io::Error::new(io::ErrorKind::NotFound, unsafe {
-            CStr::from_ptr(err).to_string_lossy().into_owned()
-        }));
-    };
+            )
+        } else {
+            // SAFETY: In case of an error, dlerror returns a valid C string.
+            io::Error::new(io::ErrorKind::NotFound, unsafe {
+                CStr::from_ptr(err).to_string_lossy().into_owned()
+            })
+        });
+    }
+
+    //SAFETY: aa_change_onexec is non-NULL, so we can cast it into a function pointer
+    let aa_change_onexec: unsafe extern "C" fn(*const c_char) -> c_int =
+        unsafe { mem::transmute(aa_change_onexec) };
 
     let new_profile_cstr = CString::new(new_profile)?;
     // SAFETY: new_profile_cstr provided by CString ensures a valid ptr
