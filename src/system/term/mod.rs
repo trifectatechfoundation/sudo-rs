@@ -286,7 +286,7 @@ mod tests {
 
         drop(tx);
 
-        // Read one byte from the children to comfirm that it did not panic.
+        // Read one byte from the children to confirm that it did not panic.
         let mut buf = [0];
         rx.read_exact(&mut buf).unwrap();
         assert_eq!(buf[0], 42);
