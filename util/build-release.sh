@@ -14,7 +14,7 @@ DATE=$(grep -m1 '^##' "$PROJECT_DIR"/CHANGELOG.md | grep -o '[0-9]\{4\}-[0-9]\{2
 # Build binaries
 docker build --pull --tag "$BUILDER_IMAGE_TAG" --file "$SCRIPT_DIR/Dockerfile-release" "$SCRIPT_DIR"
 docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo clean
-docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --release --features pam-login
+docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --release --features pam-login,apparmor
 
 # Generate man pages
 "$PROJECT_DIR/util/generate-docs.sh"
@@ -64,7 +64,7 @@ EOF
 mkdir -p "$target_dir_su/bin"
 mkdir -p "$target_dir_su/share/man/man1"
 cp "$PROJECT_DIR/target/release/su" "$target_dir_su/bin/su"
-cp "$PROJECT_DIR/target/docs/man/su.1" "$target_dir_su/share/man/man1/su.1"
+cp "$PROJECT_DIR/docs/man/su.1.man" "$target_dir_su/share/man/man1/su.1"
 mkdir -p "$target_dir_su/share/doc/sudo-rs/su"
 cp "$PROJECT_DIR/README.md" "$target_dir_su/share/doc/sudo-rs/su/README.md"
 cp "$PROJECT_DIR/CHANGELOG.md" "$target_dir_su/share/doc/sudo-rs/su/CHANGELOG.md"
