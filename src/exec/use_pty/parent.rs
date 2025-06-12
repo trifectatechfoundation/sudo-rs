@@ -573,7 +573,7 @@ impl ParentClosure {
         Ok(())
     }
 
-    /// Restore the terminal when sudo resumes after receving `SIGCONT`.
+    /// Restore the terminal when sudo resumes after receiving `SIGCONT`.
     fn resume_terminal(&mut self) -> io::Result<()> {
         self.check_foreground()?;
 
