@@ -192,10 +192,14 @@ impl Token for Command {
             Some(args.into_boxed_slice())
         };
 
+        if command.as_str() == "list" && argpat.is_some() {
+            return Err("list does not take arguments".to_string());
+        }
+
         Ok((command, argpat))
     }
 
-    // all commands start with "/" except "sudoedit"
+    // all commands start with "/" except "sudoedit" or "list"
     fn accept_1st(c: char) -> bool {
         SimpleCommand::accept_1st(c)
     }
@@ -217,6 +221,15 @@ impl Token for SimpleCommand {
         let cvt_err = |pat: Result<_, glob::PatternError>| {
             pat.map_err(|err| format!("wildcard pattern error {err}"))
         };
+
+        // detect the two edges cases
+        if cmd == "list" || cmd == "sudoedit" {
+            return cvt_err(glob::Pattern::new(&cmd));
+        } else if cmd.starts_with("sha") {
+            return Err("digest specifications are not supported".to_string());
+        } else if !cmd.starts_with('/') {
+            return Err("fully qualified path needed".to_string());
+        }
 
         // record if the cmd ends in a slash and remove it if it does
         let is_dir = cmd.ends_with('/') && {
@@ -240,9 +253,9 @@ impl Token for SimpleCommand {
         cvt_err(glob::Pattern::new(&cmd))
     }
 
-    // all commands start with "/" except "sudoedit"
+    // all commands start with "/" except "sudoedit" or "list"
     fn accept_1st(c: char) -> bool {
-        c == '/' || c == 's'
+        c == '/' || c == 's' || c == 'l'
     }
 
     fn accept(c: char) -> bool {

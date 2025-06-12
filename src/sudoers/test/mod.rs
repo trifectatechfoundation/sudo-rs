@@ -262,6 +262,10 @@ fn permission_test() {
     // apparmor
     #[cfg(feature = "apparmor")]
     pass!(["ALL ALL=(ALL:ALL) APPARMOR_PROFILE=unconfined ALL"], "user" => root(), "server"; "/bin/bar" => [apparmor_profile: Some("unconfined".to_string())]);
+
+    // list
+    pass!(["ALL ALL=(ALL:ALL) /bin/ls, list"], "user" => root(), "server"; "list");
+    FAIL!(["ALL ALL=(ALL:ALL) ALL, !list"], "user" => root(), "server"; "list");
 }
 
 #[test]
@@ -372,6 +376,23 @@ fn inclusive_username() {
     };
 
     assert_eq!(sirin, "şirin");
+}
+
+#[test]
+fn sudoedit_recognized() {
+    let CommandSpec(_, Qualified::Allow(Meta::Only((cmd, args)))) =
+        parse_eval::<ast::CommandSpec>("sudoedit /etc/tmux.conf")
+    else {
+        panic!();
+    };
+    assert_eq!(cmd.as_str(), "sudoedit");
+    assert_eq!(args.unwrap().as_ref(), &["/etc/tmux.conf"][..]);
+}
+
+#[test]
+#[should_panic = "list does not take arguments"]
+fn list_does_not_take_args() {
+    parse_eval::<ast::CommandSpec>("list /etc/tmux.conf");
 }
 
 #[test]

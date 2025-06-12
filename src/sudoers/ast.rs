@@ -395,7 +395,8 @@ impl Parse for MetaOrTag {
                 "INTERCEPT is not supported by sudo-rs"
             ),
             // this is less fatal
-            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL" => {
+            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL"
+            | "FOLLOW" => {
                 eprintln_ignore_io_error!(
                     "warning: {} tags are ignored by sudo-rs",
                     keyword.as_str()
@@ -403,9 +404,8 @@ impl Parse for MetaOrTag {
                 switch(|_| {})?
             }
 
-            // 'FOLLOW' and 'NOFOLLOW' are only usable in a sudoedit context, which will result in
-            // a parse error elsewhere. 'NOINTERCEPT' is the default behaviour.
-            "FOLLOW" | "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
+            // 'NOFOLLOW' and 'NOINTERCEPT' are the default behaviour.
+            "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
 
             "EXEC" => switch(|tag| tag.noexec = ExecControl::Exec)?,
             "NOEXEC" => switch(|tag| tag.noexec = ExecControl::Noexec)?,
@@ -469,31 +469,6 @@ impl Parse for CommandSpec {
             if tags.len() > Identifier::LIMIT {
                 unrecoverable!(stream, "too many tags for command specifier")
             }
-        }
-
-        let start_pos = stream.get_pos();
-        if let Some(Username(keyword)) = try_nonterminal(stream)? {
-            if keyword == "sudoedit" {
-                // note: special behaviour of forward slashes in wildcards, tread carefully
-                unrecoverable!(pos = start_pos, stream, "sudoedit is not yet supported");
-            } else if keyword == "list" {
-                return make(CommandSpec(
-                    tags,
-                    Allow(Meta::Only((glob::Pattern::new("list").unwrap(), None))),
-                ));
-            } else if keyword.starts_with("sha") {
-                unrecoverable!(
-                    pos = start_pos,
-                    stream,
-                    "digest specifications are not supported"
-                )
-            } else {
-                unrecoverable!(
-                    pos = start_pos,
-                    stream,
-                    "expected command but found {keyword}"
-                )
-            };
         }
 
         let cmd: Spec<Command> = expect_nonterminal(stream)?;
