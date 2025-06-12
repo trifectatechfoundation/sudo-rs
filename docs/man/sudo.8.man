@@ -107,7 +107,7 @@ The following percent (`%') escape sequences are supported:
 .EE
 .PP
 The custom prompt will override the default prompt or the one specified
-by the SUDO_PROMPT enviroment variable.
+by the SUDO_PROMPT environment variable.
 No \f[I]prompt\f[R] will suppress the the prompt provided by PAM, unless
 the requested \f[I]prompt\f[R] is empty (\f[CR]\[dq]\[dq]\f[R])
 .RE
