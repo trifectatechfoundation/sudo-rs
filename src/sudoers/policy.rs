@@ -6,7 +6,7 @@ use crate::common::{
 };
 use crate::sudoers::ast::{ExecControl, Tag};
 use crate::system::{time::Duration, Hostname, User};
-/// Data types and traits that represent what the "terms and conditions" are after a succesful
+/// Data types and traits that represent what the "terms and conditions" are after a successful
 /// permission check.
 ///
 /// The trait definitions can be part of some global crate in the future, if we support more
