@@ -145,7 +145,7 @@ impl<T: Many> Many for Meta<T> {
     const LIMIT: usize = T::LIMIT;
 }
 
-/// An identifier that consits of only uppercase characters.
+/// An identifier that consists of only uppercase characters.
 pub struct AliasName(pub String);
 
 impl Token for AliasName {
