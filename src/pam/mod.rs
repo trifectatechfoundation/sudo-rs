@@ -355,7 +355,7 @@ impl PamContext {
             curr_env = unsafe { curr_env.offset(1) };
         }
 
-        // SAFETY: `envs` itself was obtained by malloc(), so we are reponsible for freeing it.
+        // SAFETY: `envs` itself was obtained by malloc(), so we are responsible for freeing it.
         unsafe { libc::free(envs.cast()) };
 
         Ok(res)
