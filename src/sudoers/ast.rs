@@ -637,7 +637,7 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
 
 /// grammar:
 /// ```text
-/// name = definition [ : name = definiton [ : ... ] ]
+/// name = definition [ : name = definition [ : ... ] ]
 /// ```
 ///
 impl<T> Parse for Def<T>
