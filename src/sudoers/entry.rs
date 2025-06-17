@@ -263,7 +263,7 @@ fn write_spec<'a>(
                     // 1) this recursion will terminate, since "alias_list" has become smaller
                     //    by the "alias_list.find()" above
                     // 2) to get the correct macro expansion, alias_list has to be (reverse-)topologically
-                    //    sorted so that "later" definitions do not refer back to "earlier" definitons.
+                    //    sorted so that "later" definitions do not refer back to "earlier" definitions.
                     write_spec(f, spec, alias_list.clone(), sign, separator)?;
                     is_first_iteration = false;
                 }
