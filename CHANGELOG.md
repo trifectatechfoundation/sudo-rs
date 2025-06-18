@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.7] - 2025-06-xx
+
+### Added
+- Linux kernels older than 5.9 are now supported.
+- Support for `Defaults noexec`/`NOEXEC:` on Linux systems based on seccomp
+  filtering to prevent shell escapes in wide range of cases. This should also
+  work on programs not written in C and statically linked executables.
+
+### Changed
+- sudo-rs now uses CLOEXEC to close open file descriptors in the child process
+- Relative paths like `./` in `secure_path`/`PATH` are now ignored.
+- `apparmor.so` is dynamically loaded by sudo itself, as-needed
+
+### Fixed
+- Usernames that start with `_` or have non-western characters were not supported
+  as a valid username in /etc/sudoers (#1149)
+- Other usability improvements in /etc/sudoers (#1117, #1126, #1134, #1157)
+
 ## [0.2.6] - 2025-05-06
 
 ### Added
