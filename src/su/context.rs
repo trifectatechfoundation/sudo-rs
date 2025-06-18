@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::common::{error::Error, resolve::CurrentUser};
-use crate::exec::RunOptions;
+use crate::exec::{RunOptions, Umask};
 use crate::log::user_warn;
 use crate::system::{Group, Process, User};
 use crate::{common::resolve::is_valid_executable, system::interface::UserId};
@@ -216,6 +216,7 @@ impl SuContext {
             is_login: self.options.login,
             user: &self.user,
             group: &self.group,
+            umask: Umask::Preserve,
 
             use_pty: true,
             noexec: false,
