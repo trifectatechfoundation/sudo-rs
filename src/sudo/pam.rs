@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::io;
 
 use crate::common::context::LaunchType;
 use crate::common::error::Error;
@@ -114,6 +115,14 @@ pub(super) fn attempt_authenticate(
                     return Err(Error::InteractionRequired);
                 } else {
                     user_warn!("Authentication failed, try again.");
+                }
+            }
+
+            Err(PamError::IoError(err)) => {
+                if let io::ErrorKind::TimedOut = err.kind() {
+                    return Err(Error::TimedOut);
+                } else {
+                    return Err(err.into());
                 }
             }
 
