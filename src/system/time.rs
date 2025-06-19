@@ -95,6 +95,18 @@ impl Duration {
         Duration::new(secs, 0)
     }
 
+    pub fn as_millis_i32(self) -> Option<i32> {
+        let ms = self.secs * 1000;
+        self.nsecs.checked_div_euclid(1_000_000).and_then(|nanos| {
+            let ms = ms + nanos;
+            if ms <= i32::MAX as i64 {
+                Some(ms as i32)
+            } else {
+                None
+            }
+        })
+    }
+
     #[cfg(test)]
     pub fn minutes(minutes: i64) -> Duration {
         Duration::seconds(minutes * 60)
