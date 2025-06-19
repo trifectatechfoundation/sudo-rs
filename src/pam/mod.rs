@@ -151,11 +151,13 @@ impl PamContext {
         flags |= self.disallow_null_auth_token_flag();
 
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
-        pam_err(unsafe { pam_authenticate(self.pamh, flags) })?;
+        let authenticate_rslt = pam_err(unsafe { pam_authenticate(self.pamh, flags) });
 
         if self.has_panicked() {
             panic!("Panic during pam authentication");
         }
+
+        authenticate_rslt?;
 
         // Check that no PAM module changed the user.
         match self.get_user() {
