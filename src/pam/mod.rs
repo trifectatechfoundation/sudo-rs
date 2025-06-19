@@ -75,6 +75,7 @@ impl PamContext {
                 .ok()
                 .filter(|s| !s.is_empty())
                 .or(Some("authenticate".to_owned())),
+            timed_out: false,
             panicked: false,
         }));
 
@@ -155,6 +156,11 @@ impl PamContext {
 
         if self.has_panicked() {
             panic!("Panic during pam authentication");
+        }
+
+        // SAFETY: self.data_ptr was created by Box::into_raw
+        if unsafe { (*self.data_ptr).timed_out } {
+            return Err(PamError::TimedOut);
         }
 
         #[allow(clippy::question_mark)]

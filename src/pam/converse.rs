@@ -1,3 +1,5 @@
+use std::io;
+
 use crate::cutils::string_from_ptr;
 
 use super::sys::*;
@@ -126,10 +128,17 @@ impl Converser for CLIConverser {
         }
         tty.prompt(msg)?;
         if self.password_feedback {
-            Ok(tty.read_password_with_feedback()?)
+            tty.read_password_with_feedback()
         } else {
-            Ok(tty.read_password()?)
+            tty.read_password()
         }
+        .map_err(|err| {
+            if let io::ErrorKind::TimedOut = err.kind() {
+                PamError::TimedOut
+            } else {
+                PamError::IoError(err)
+            }
+        })
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
@@ -149,6 +158,10 @@ pub(super) struct ConverserData<C> {
     pub(super) converser_name: String,
     pub(super) no_interact: bool,
     pub(super) auth_prompt: Option<String>,
+    // pam_authenticate does not return error codes returned by the conversation
+    // function; these are set by the conversation function instead of returning
+    // multiple error codes.
+    pub(super) timed_out: bool,
     pub(super) panicked: bool,
 }
 
@@ -194,11 +207,16 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             // send the conversation off to the Rust part
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
-            let Ok(resp_buf) = handle_message(app_data, style, &msg) else {
-                return PamErrorType::ConversationError;
-            };
-
-            resp_bufs.push(resp_buf);
+            match handle_message(app_data, style, &msg) {
+                Ok(resp_buf) => {
+                    resp_bufs.push(resp_buf);
+                }
+                Err(PamError::TimedOut) => {
+                    app_data.timed_out = true;
+                    return PamErrorType::ConversationError;
+                }
+                Err(_) => return PamErrorType::ConversationError,
+            }
         }
 
         // Allocate enough memory for the responses, which are initialized with zero.
@@ -374,6 +392,7 @@ mod test {
             converser_name: "tux".to_string(),
             no_interact: false,
             auth_prompt: Some("authenticate".to_owned()),
+            timed_out: false,
             panicked: false,
         });
         let cookie = PamConvBorrow::new(hello.as_mut());
