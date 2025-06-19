@@ -151,10 +151,15 @@ impl PamContext {
         flags |= self.disallow_null_auth_token_flag();
 
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
-        pam_err(unsafe { pam_authenticate(self.pamh, flags) })?;
+        let auth_res = pam_err(unsafe { pam_authenticate(self.pamh, flags) });
 
         if self.has_panicked() {
             panic!("Panic during pam authentication");
+        }
+
+        #[allow(clippy::question_mark)]
+        if let Err(err) = auth_res {
+            return Err(err);
         }
 
         // Check that no PAM module changed the user.
