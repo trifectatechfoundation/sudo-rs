@@ -307,7 +307,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
                 return Err(io::Error::last_os_error());
             }
 
-            // While the man page warns againt using seccomp_unotify as security
+            // While the man page warns against using seccomp_unotify as security
             // mechanism, the TOCTOU problem that is described there isn't
             // relevant here. We only SECCOMP_USER_NOTIF_FLAG_CONTINUE the first
             // execve which is done by ourself and thus trusted.
