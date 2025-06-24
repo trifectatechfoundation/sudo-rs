@@ -216,7 +216,7 @@ impl SessionRecordFile {
     }
 
     /// Disable all records that match the given scope. If an auth user id is
-    /// given then only records with the given scope that are targetting that
+    /// given then only records with the given scope that are targeting that
     /// specific user will be disabled.
     pub fn disable(&mut self, scope: RecordScope, auth_user: Option<UserId>) -> io::Result<()> {
         let lock = FileLock::exclusive(&self.file, false)?;
