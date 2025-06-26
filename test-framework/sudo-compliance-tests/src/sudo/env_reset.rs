@@ -173,6 +173,7 @@ fn some_vars_are_preserved() {
     let term = "some-term";
     let sudo_command = "some-sudo-command";
     let sudo_user = "some-sudo-user";
+    let sudo_home = "some-sudo-home";
     let sudo_uid = "some-sudo-uid";
     let sudo_gid = "some-sudo-gid";
     let stdout = Command::new("env")
@@ -189,6 +190,7 @@ fn some_vars_are_preserved() {
             &format!("TERM={term}"),
             &format!("SUDO_COMMAND={sudo_command}"),
             &format!("SUDO_USER={sudo_user}"),
+            &format!("SUDO_HOME={sudo_home}"),
             &format!("SUDO_UID={sudo_uid}"),
             &format!("SUDO_GID={sudo_gid}"),
             &sudo_abs_path,
