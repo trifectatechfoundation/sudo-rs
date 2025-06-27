@@ -1,7 +1,5 @@
 use crate::common::SudoPath;
 
-use crate::sudo::cli::PreserveEnv;
-
 use super::{SudoAction, SudoOptions};
 use pretty_assertions::assert_eq;
 
@@ -41,22 +39,18 @@ fn preserve_env_with_several_vars() {
 }
 
 #[test]
-fn preserve_env_boolean() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env"]).unwrap();
-    assert_eq!(cmd.preserve_env, PreserveEnv::Everything);
-}
-
-#[test]
 fn preserve_env_boolean_and_list() {
-    let expected = PreserveEnv::Everything;
     let argss = [
-        ["sudo", "--preserve-env", "--preserve-env=some_argument"],
-        ["sudo", "--preserve-env=some_argument", "--preserve-env"],
+        ["sudo", "--preserve-env", "--preserve-env=SHELL"],
+        ["sudo", "--preserve-env=SHELL", "--preserve-env"],
     ];
 
     for args in argss {
         let cmd = SudoOptions::try_parse_from(args).unwrap();
-        assert_eq!(expected, cmd.preserve_env);
+        assert_eq!(
+            [("SHELL".to_string(), std::env::var("SHELL").unwrap())],
+            cmd.env_var_list.as_slice()
+        );
     }
 }
 
@@ -72,16 +66,6 @@ fn preserve_env_repeated() {
             .collect::<Vec<_>>()
             .as_slice()
     );
-}
-
-// `--preserve-env` only accepts a value with the syntax `--preserve-env=varname`
-// so this `--preserve-env` is acting like a boolean flag
-#[test]
-fn preserve_env_space() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env", "true"]).unwrap();
-
-    assert_eq!(PreserveEnv::Everything, cmd.preserve_env);
-    assert_eq!(["true"], cmd.positional_args.as_slice());
 }
 
 /// Catch env variable that is given without hyphens in 'VAR=value' form in env_var_list.
