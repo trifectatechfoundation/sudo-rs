@@ -68,7 +68,7 @@ Of course, if you **don't** have Todd Miller's `sudo` installed, you also have t
 
       %sudo ALL=(ALL:ALL) ALL
 
-  `sudo-rs` will try to process `/etc/sudoers-rs` exists if it exists, otherwise it will use `/etc/sudoers`.
+  `sudo-rs` will try to process `/etc/sudoers-rs` if it exists, otherwise it will use `/etc/sudoers`.
   For an explanation of the sudoers syntax you can look at the
   [sudoers man page](https://www.sudo.ws/docs/man/sudoers.man/).
 
