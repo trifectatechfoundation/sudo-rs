@@ -172,6 +172,7 @@ fn test_environment_variable_filtering() {
                 use_pty: true,
                 chdir: crate::sudoers::DirChange::Strict(None),
                 trust_environment: false,
+                umask: crate::exec::Umask::Preserve,
                 #[cfg(feature = "apparmor")]
                 apparmor_profile: None,
                 noexec: false,

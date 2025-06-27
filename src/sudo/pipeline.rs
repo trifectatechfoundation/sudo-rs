@@ -238,6 +238,7 @@ fn apply_policy_to_context(
     // could be needed, but here we copy these -- perhaps we should split up the Context type
     context.use_pty = controls.use_pty;
     context.noexec = controls.noexec;
+    context.umask = controls.umask;
 
     Ok(())
 }

@@ -50,6 +50,7 @@ impl SpawnNoexecHandler {
 }
 
 #[derive(Debug, Copy, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 #[repr(u32)]
 pub enum Umask {
     /// Keep the umask of the parent process.

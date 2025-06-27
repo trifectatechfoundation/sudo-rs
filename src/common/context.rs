@@ -96,7 +96,7 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             noexec: false,
-            umask: policy.umask(),
+            umask: Umask::Preserve,
         })
     }
 
