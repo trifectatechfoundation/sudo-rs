@@ -19,24 +19,24 @@ fn short_preserve_env_with_var_fails() {
 /// Passing '--preserve-env' with an argument fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_var() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=some_argument"]).unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=SHELL"]).unwrap();
     assert_eq!(
-        ["some_argument"],
-        cmd.preserve_env.try_into_only().unwrap().as_slice(),
+        [("SHELL".to_string(), std::env::var("SHELL").unwrap())],
+        cmd.env_var_list.as_slice()
     );
 }
 
 /// Passing '--preserve-env' with several arguments fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_several_vars() {
-    let cmd = SudoOptions::try_parse_from([
-        "sudo",
-        "--preserve-env=some_argument,another_argument,a_third_one",
-    ])
-    .unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=SHELL,PATH,LANG"]).unwrap();
     assert_eq!(
-        ["some_argument", "another_argument", "a_third_one"],
-        cmd.preserve_env.try_into_only().unwrap().as_slice(),
+        [
+            ("SHELL".to_string(), std::env::var("SHELL").unwrap()),
+            ("PATH".to_string(), std::env::var("PATH").unwrap()),
+            ("LANG".to_string(), std::env::var("LANG").unwrap()),
+        ],
+        cmd.env_var_list.as_slice()
     );
 }
 
@@ -62,15 +62,15 @@ fn preserve_env_boolean_and_list() {
 
 #[test]
 fn preserve_env_repeated() {
-    let cmd = SudoOptions::try_parse_from([
-        "sudo",
-        "--preserve-env=some_argument",
-        "--preserve-env=another_argument",
-    ])
-    .unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=PATH", "--preserve-env=SHELL"])
+        .unwrap();
     assert_eq!(
-        ["some_argument", "another_argument"],
-        cmd.preserve_env.try_into_only().unwrap().as_slice()
+        ["PATH", "SHELL"],
+        cmd.env_var_list
+            .into_iter()
+            .map(|x| x.0)
+            .collect::<Vec<_>>()
+            .as_slice()
     );
 }
 

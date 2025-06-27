@@ -493,22 +493,7 @@ pub enum PreserveEnv {
     #[default]
     Nothing,
     Everything,
-    Only(Vec<String>),
-}
-
-impl PreserveEnv {
-    #[cfg(test)]
-    pub fn try_into_only(self) -> Result<Vec<String>, Self> {
-        if let Self::Only(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
-    }
-
-    pub fn is_nothing(&self) -> bool {
-        matches!(self, Self::Nothing)
-    }
+    SelectedVars,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -716,15 +701,20 @@ impl SudoOptions {
                         options.chdir = Some(SudoPath::from_cli_string(value));
                     }
                     "-E" | "--preserve-env" => {
-                        let split_value = || value.split(',').map(str::to_string);
                         match &mut options.preserve_env {
                             PreserveEnv::Nothing => {
-                                options.preserve_env = PreserveEnv::Only(split_value().collect())
+                                options.preserve_env = PreserveEnv::SelectedVars
                             }
                             PreserveEnv::Everything => {}
-                            PreserveEnv::Only(list) => list.extend(split_value()),
+                            PreserveEnv::SelectedVars => {}
                         }
-                        // options.preserve_env = value.split(',').map(str::to_string).collect()
+                        options
+                            .env_var_list
+                            .extend(value.split(',').filter_map(|var| {
+                                std::env::var(var)
+                                    .ok()
+                                    .map(|value| (var.to_string(), value))
+                            }));
                     }
                     "-g" | "--group" => {
                         options.group = Some(SudoString::from_cli_string(value));
@@ -789,7 +779,7 @@ impl<T> IsAbsent for Vec<T> {
 
 impl IsAbsent for PreserveEnv {
     fn is_absent(&self) -> bool {
-        self.is_nothing()
+        matches!(self, PreserveEnv::Nothing)
     }
 }
 
