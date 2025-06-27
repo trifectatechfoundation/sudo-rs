@@ -17,9 +17,9 @@ fn short_preserve_env_with_var_fails() {
 /// Passing '--preserve-env' with an argument fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_var() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=SHELL"]).unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=HOME"]).unwrap();
     assert_eq!(
-        [("SHELL".to_string(), std::env::var("SHELL").unwrap())],
+        [("HOME".to_string(), std::env::var("HOME").unwrap())],
         cmd.env_var_list.as_slice()
     );
 }
@@ -27,12 +27,11 @@ fn preserve_env_with_var() {
 /// Passing '--preserve-env' with several arguments fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_several_vars() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=SHELL,PATH,LANG"]).unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=PATH,HOME"]).unwrap();
     assert_eq!(
         [
-            ("SHELL".to_string(), std::env::var("SHELL").unwrap()),
             ("PATH".to_string(), std::env::var("PATH").unwrap()),
-            ("LANG".to_string(), std::env::var("LANG").unwrap()),
+            ("HOME".to_string(), std::env::var("HOME").unwrap()),
         ],
         cmd.env_var_list.as_slice()
     );
@@ -41,14 +40,14 @@ fn preserve_env_with_several_vars() {
 #[test]
 fn preserve_env_boolean_and_list() {
     let argss = [
-        ["sudo", "--preserve-env", "--preserve-env=SHELL"],
-        ["sudo", "--preserve-env=SHELL", "--preserve-env"],
+        ["sudo", "--preserve-env", "--preserve-env=HOME"],
+        ["sudo", "--preserve-env=HOME", "--preserve-env"],
     ];
 
     for args in argss {
         let cmd = SudoOptions::try_parse_from(args).unwrap();
         assert_eq!(
-            [("SHELL".to_string(), std::env::var("SHELL").unwrap())],
+            [("HOME".to_string(), std::env::var("HOME").unwrap())],
             cmd.env_var_list.as_slice()
         );
     }
@@ -56,10 +55,10 @@ fn preserve_env_boolean_and_list() {
 
 #[test]
 fn preserve_env_repeated() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=PATH", "--preserve-env=SHELL"])
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=PATH", "--preserve-env=HOME"])
         .unwrap();
     assert_eq!(
-        ["PATH", "SHELL"],
+        ["PATH", "HOME"],
         cmd.env_var_list
             .into_iter()
             .map(|x| x.0)
