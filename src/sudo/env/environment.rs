@@ -280,6 +280,7 @@ mod tests {
                         chdir: crate::sudoers::DirChange::Strict(None),
                         trust_environment: false,
                         use_pty: true,
+                        umask: crate::exec::Umask::Preserve,
                         #[cfg(feature = "apparmor")]
                         apparmor_profile: None,
                         noexec: false,

@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
-use crate::exec::RunOptions;
+use crate::exec::{RunOptions, Umask};
 use crate::sudo::{SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::system::{Group, Hostname, Process, User};
@@ -32,6 +32,7 @@ pub struct Context {
     // policy
     pub use_pty: bool,
     pub noexec: bool,
+    pub umask: Umask,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -95,6 +96,7 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             noexec: false,
+            umask: Umask::Preserve,
         })
     }
 
@@ -120,6 +122,7 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             noexec: false,
+            umask: Umask::Preserve,
         })
     }
 
@@ -165,6 +168,7 @@ impl Context {
             process: Process::new(),
             use_pty: true,
             noexec: false,
+            umask: Umask::Preserve,
         })
     }
 
@@ -181,6 +185,7 @@ impl Context {
             is_login: self.launch == LaunchType::Login,
             user: &self.target_user,
             group: &self.target_group,
+            umask: self.umask,
 
             use_pty: self.use_pty,
             noexec: self.noexec,

@@ -4,6 +4,7 @@ use super::Judgement;
 use crate::common::{
     SudoPath, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2,
 };
+use crate::exec::Umask;
 use crate::sudoers::ast::{ExecControl, Tag};
 use crate::system::{time::Duration, Hostname, User};
 /// Data types and traits that represent what the "terms and conditions" are after a successful
@@ -59,6 +60,7 @@ pub struct Restrictions<'a> {
     pub env_check: &'a HashSet<String>,
     pub chdir: DirChange<'a>,
     pub path: Option<&'a str>,
+    pub umask: Umask,
     #[cfg(feature = "apparmor")]
     pub apparmor_profile: Option<String>,
 }
@@ -109,6 +111,20 @@ impl Judgement {
                         Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
                     },
                     path: self.settings.secure_path(),
+                    umask: {
+                        let mask = self
+                            .settings
+                            .umask()
+                            .try_into()
+                            .expect("the umask parser should have prevented overflow");
+                        if mask == 0o777 {
+                            Umask::Preserve
+                        } else if self.settings.umask_override() {
+                            Umask::Override(mask)
+                        } else {
+                            Umask::Extend(mask)
+                        }
+                    },
                     #[cfg(feature = "apparmor")]
                     apparmor_profile: tag
                         .apparmor_profile

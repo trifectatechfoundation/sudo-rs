@@ -43,6 +43,8 @@ defaults! {
 
     setenv                    = false
     apparmor_profile          = None (!= None)
+    umask                     = 0o022 (!= 0o777) {octal_mode}
+    umask_override            = false
 
     passwd_tries              = 3 [0..=1000]
 
@@ -64,6 +66,12 @@ defaults! {
                                 "PERLLIB", "PERL5LIB", "PERL5OPT", "PERL5DB", "FPATH", "NULLCMD",
                                 "READNULLCMD", "ZDOTDIR", "TMPPREFIX", "PYTHONHOME", "PYTHONPATH",
                                 "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"] #ignored
+}
+
+fn octal_mode(input: &str) -> Option<i64> {
+    <libc::mode_t>::from_str_radix(input.strip_prefix('0')?, 8)
+        .ok()
+        .map(Into::into)
 }
 
 /// A custom parser to parse seconds as fractional "minutes", the format used by
