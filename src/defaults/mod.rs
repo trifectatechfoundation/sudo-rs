@@ -52,6 +52,7 @@ defaults! {
 
     verifypw                  = all (!= never) [all, always, any, never] #ignored
 
+    passwd_timeout            = (5*60) (!= 0) {fractional_minutes}
     timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
 
     env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",

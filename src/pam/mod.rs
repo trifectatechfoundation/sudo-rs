@@ -6,6 +6,8 @@ use std::{
     ptr::NonNull,
 };
 
+use crate::system::time::Duration;
+
 use converse::ConverserData;
 use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
@@ -43,6 +45,7 @@ impl PamContext {
     /// username.
     ///
     /// This function will error when initialization of the PAM session somehow failed.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_cli(
         converser_name: &str,
         service_name: &str,
@@ -50,6 +53,7 @@ impl PamContext {
         bell: bool,
         no_interact: bool,
         password_feedback: bool,
+        password_timeout: Option<Duration>,
         target_user: Option<&str>,
     ) -> PamResult<PamContext> {
         let converser = CLIConverser {
@@ -57,6 +61,7 @@ impl PamContext {
             name: converser_name.to_owned(),
             use_stdin,
             password_feedback,
+            password_timeout,
         };
 
         let c_service_name = CString::new(service_name)?;
@@ -75,6 +80,7 @@ impl PamContext {
                 .ok()
                 .filter(|s| !s.is_empty())
                 .or(Some("authenticate".to_owned())),
+            timed_out: false,
             panicked: false,
         }));
 
@@ -151,10 +157,20 @@ impl PamContext {
         flags |= self.disallow_null_auth_token_flag();
 
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
-        pam_err(unsafe { pam_authenticate(self.pamh, flags) })?;
+        let auth_res = pam_err(unsafe { pam_authenticate(self.pamh, flags) });
 
         if self.has_panicked() {
             panic!("Panic during pam authentication");
+        }
+
+        // SAFETY: self.data_ptr was created by Box::into_raw
+        if unsafe { (*self.data_ptr).timed_out } {
+            return Err(PamError::TimedOut);
+        }
+
+        #[allow(clippy::question_mark)]
+        if let Err(err) = auth_res {
+            return Err(err);
         }
 
         // Check that no PAM module changed the user.
