@@ -59,12 +59,6 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
 
-    if !cmd_opts.preserve_env.is_nothing() {
-        eprintln_ignore_io_error!(
-            "warning: `--preserve-env` has not yet been implemented and will be ignored"
-        )
-    }
-
     let mut context = Context::from_run_opts(cmd_opts, &mut policy)?;
 
     let policy = judge(policy, &context)?;

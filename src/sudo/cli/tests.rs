@@ -1,7 +1,5 @@
 use crate::common::SudoPath;
 
-use crate::sudo::cli::PreserveEnv;
-
 use super::{SudoAction, SudoOptions};
 use pretty_assertions::assert_eq;
 
@@ -19,69 +17,54 @@ fn short_preserve_env_with_var_fails() {
 /// Passing '--preserve-env' with an argument fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_var() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=some_argument"]).unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=HOME"]).unwrap();
     assert_eq!(
-        ["some_argument"],
-        cmd.preserve_env.try_into_only().unwrap().as_slice(),
+        [("HOME".to_string(), std::env::var("HOME").unwrap())],
+        cmd.env_var_list.as_slice()
     );
 }
 
 /// Passing '--preserve-env' with several arguments fills 'preserve_env', 'short_preserve_env' stays 'false'
 #[test]
 fn preserve_env_with_several_vars() {
-    let cmd = SudoOptions::try_parse_from([
-        "sudo",
-        "--preserve-env=some_argument,another_argument,a_third_one",
-    ])
-    .unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=PATH,HOME"]).unwrap();
     assert_eq!(
-        ["some_argument", "another_argument", "a_third_one"],
-        cmd.preserve_env.try_into_only().unwrap().as_slice(),
+        [
+            ("PATH".to_string(), std::env::var("PATH").unwrap()),
+            ("HOME".to_string(), std::env::var("HOME").unwrap()),
+        ],
+        cmd.env_var_list.as_slice()
     );
 }
 
 #[test]
-fn preserve_env_boolean() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env"]).unwrap();
-    assert_eq!(cmd.preserve_env, PreserveEnv::Everything);
-}
-
-#[test]
 fn preserve_env_boolean_and_list() {
-    let expected = PreserveEnv::Everything;
     let argss = [
-        ["sudo", "--preserve-env", "--preserve-env=some_argument"],
-        ["sudo", "--preserve-env=some_argument", "--preserve-env"],
+        ["sudo", "--preserve-env", "--preserve-env=HOME"],
+        ["sudo", "--preserve-env=HOME", "--preserve-env"],
     ];
 
     for args in argss {
         let cmd = SudoOptions::try_parse_from(args).unwrap();
-        assert_eq!(expected, cmd.preserve_env);
+        assert_eq!(
+            [("HOME".to_string(), std::env::var("HOME").unwrap())],
+            cmd.env_var_list.as_slice()
+        );
     }
 }
 
 #[test]
 fn preserve_env_repeated() {
-    let cmd = SudoOptions::try_parse_from([
-        "sudo",
-        "--preserve-env=some_argument",
-        "--preserve-env=another_argument",
-    ])
-    .unwrap();
+    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env=PATH", "--preserve-env=HOME"])
+        .unwrap();
     assert_eq!(
-        ["some_argument", "another_argument"],
-        cmd.preserve_env.try_into_only().unwrap().as_slice()
+        ["PATH", "HOME"],
+        cmd.env_var_list
+            .into_iter()
+            .map(|x| x.0)
+            .collect::<Vec<_>>()
+            .as_slice()
     );
-}
-
-// `--preserve-env` only accepts a value with the syntax `--preserve-env=varname`
-// so this `--preserve-env` is acting like a boolean flag
-#[test]
-fn preserve_env_space() {
-    let cmd = SudoOptions::try_parse_from(["sudo", "--preserve-env", "true"]).unwrap();
-
-    assert_eq!(PreserveEnv::Everything, cmd.preserve_env);
-    assert_eq!(["true"], cmd.positional_args.as_slice());
 }
 
 /// Catch env variable that is given without hyphens in 'VAR=value' form in env_var_list.

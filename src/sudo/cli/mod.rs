@@ -355,7 +355,7 @@ pub struct SudoRunOptions {
     // -B
     pub bell: bool,
     // -E
-    pub preserve_env: PreserveEnv,
+    /* ignored, part of env_var_list */
     // -k
     pub reset_timestamp: bool,
     // -n
@@ -384,7 +384,6 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
         let bell = mem::take(&mut opts.bell);
-        let preserve_env = mem::take(&mut opts.preserve_env);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
@@ -424,7 +423,6 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
 
         Ok(Self {
             bell,
-            preserve_env,
             reset_timestamp,
             non_interactive,
             stdin,
@@ -455,7 +453,7 @@ struct SudoOptions {
     // -U
     other_user: Option<SudoString>,
     // -E
-    preserve_env: PreserveEnv,
+    /* ignored, part of env_var_list */
     // -s
     shell: bool,
     // -S
@@ -486,29 +484,6 @@ struct SudoOptions {
 
     // arguments passed straight through, either separated by -- or just trailing.
     positional_args: Vec<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub enum PreserveEnv {
-    #[default]
-    Nothing,
-    Everything,
-    Only(Vec<String>),
-}
-
-impl PreserveEnv {
-    #[cfg(test)]
-    pub fn try_into_only(self) -> Result<Vec<String>, Self> {
-        if let Self::Only(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
-    }
-
-    pub fn is_nothing(&self) -> bool {
-        matches!(self, Self::Nothing)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -666,7 +641,9 @@ impl SudoOptions {
                         options.bell = true;
                     }
                     "-E" | "--preserve-env" => {
-                        options.preserve_env = PreserveEnv::Everything;
+                        eprintln_ignore_io_error!(
+                            "warning: preserving the entire environment is not supported, `{flag}` is ignored"
+                        )
                     }
                     "-e" | "--edit" => {
                         options.edit = true;
@@ -716,15 +693,13 @@ impl SudoOptions {
                         options.chdir = Some(SudoPath::from_cli_string(value));
                     }
                     "-E" | "--preserve-env" => {
-                        let split_value = || value.split(',').map(str::to_string);
-                        match &mut options.preserve_env {
-                            PreserveEnv::Nothing => {
-                                options.preserve_env = PreserveEnv::Only(split_value().collect())
-                            }
-                            PreserveEnv::Everything => {}
-                            PreserveEnv::Only(list) => list.extend(split_value()),
-                        }
-                        // options.preserve_env = value.split(',').map(str::to_string).collect()
+                        options
+                            .env_var_list
+                            .extend(value.split(',').filter_map(|var| {
+                                std::env::var(var)
+                                    .ok()
+                                    .map(|value| (var.to_string(), value))
+                            }));
                     }
                     "-g" | "--group" => {
                         options.group = Some(SudoString::from_cli_string(value));
@@ -787,12 +762,6 @@ impl<T> IsAbsent for Vec<T> {
     }
 }
 
-impl IsAbsent for PreserveEnv {
-    fn is_absent(&self) -> bool {
-        self.is_nothing()
-    }
-}
-
 fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(), String> {
     if thing.is_absent() {
         Ok(())
@@ -822,7 +791,6 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
         login,
         non_interactive,
         other_user,
-        preserve_env,
         shell,
         stdin,
         prompt,
@@ -848,7 +816,6 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
         tuple!(login),
         tuple!(non_interactive),
         tuple!(other_user),
-        tuple!(preserve_env),
         tuple!(remove_timestamp),
         tuple!(reset_timestamp),
         tuple!(shell),
