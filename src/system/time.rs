@@ -134,8 +134,9 @@ impl From<Duration> for std::time::Duration {
 }
 
 impl From<libc::timespec> for SystemTime {
+    #[allow(clippy::useless_conversion)]
     fn from(value: libc::timespec) -> Self {
-        SystemTime::new(value.tv_sec as _, value.tv_nsec as _)
+        SystemTime::new(value.tv_sec.into(), value.tv_nsec.into())
     }
 }
 
