@@ -175,6 +175,7 @@ pub enum PamError {
     IoError(std::io::Error),
     EnvListFailure,
     InteractionRequired,
+    TimedOut,
     InvalidUser(String, String),
 }
 
@@ -222,6 +223,7 @@ impl fmt::Display for PamError {
                 )
             }
             PamError::InteractionRequired => write!(f, "Interaction is required"),
+            PamError::TimedOut => write!(f, "timed out"),
             PamError::InvalidUser(username, other_user) => {
                 write!(
                     f,

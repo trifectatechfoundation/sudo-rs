@@ -124,9 +124,19 @@ impl Sub<Duration> for Duration {
     }
 }
 
+impl From<Duration> for std::time::Duration {
+    fn from(dur: Duration) -> std::time::Duration {
+        std::time::Duration::new(
+            dur.secs.try_into().unwrap_or(0),
+            dur.nsecs.try_into().unwrap_or(0),
+        )
+    }
+}
+
 impl From<libc::timespec> for SystemTime {
+    #[allow(clippy::useless_conversion)]
     fn from(value: libc::timespec) -> Self {
-        SystemTime::new(value.tv_sec as _, value.tv_nsec as _)
+        SystemTime::new(value.tv_sec.into(), value.tv_nsec.into())
     }
 }
 

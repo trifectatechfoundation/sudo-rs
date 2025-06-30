@@ -4,7 +4,7 @@ use crate::common::context::LaunchType;
 use crate::common::error::Error;
 use crate::log::{dev_info, user_warn};
 use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
-use crate::system::term::current_tty_name;
+use crate::system::{term::current_tty_name, time::Duration};
 
 pub(super) struct InitPamArgs<'a> {
     pub(super) launch: LaunchType,
@@ -12,6 +12,7 @@ pub(super) struct InitPamArgs<'a> {
     pub(super) bell: bool,
     pub(super) non_interactive: bool,
     pub(super) password_feedback: bool,
+    pub(super) password_timeout: Option<Duration>,
     pub(super) auth_prompt: Option<String>,
     pub(super) auth_user: &'a str,
     pub(super) requesting_user: &'a str,
@@ -26,6 +27,7 @@ pub(super) fn init_pam(
         bell,
         non_interactive,
         password_feedback,
+        password_timeout,
         auth_prompt,
         auth_user,
         requesting_user,
@@ -44,6 +46,7 @@ pub(super) fn init_pam(
         bell,
         non_interactive,
         password_feedback,
+        password_timeout,
         Some(auth_user),
     )?;
     pam.mark_silent(matches!(launch, LaunchType::Direct));

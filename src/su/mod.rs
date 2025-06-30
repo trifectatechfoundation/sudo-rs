@@ -29,7 +29,16 @@ fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamCon
         "su"
     };
     let use_stdin = true;
-    let mut pam = PamContext::new_cli("su", context, use_stdin, false, false, false, Some(user))?;
+    let mut pam = PamContext::new_cli(
+        "su",
+        context,
+        use_stdin,
+        false,
+        false,
+        false,
+        None,
+        Some(user),
+    )?;
     pam.set_requesting_user(requesting_user)?;
 
     // attempt to set the TTY this session is communicating on
