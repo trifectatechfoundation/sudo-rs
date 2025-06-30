@@ -302,6 +302,36 @@ jobs:
       - name: Run tests
         run: sudo -ubuilder cargo test --workspace --all-targets --release
 
+  build-and-test-32bit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Add 32-bit target
+        run: |
+          rustup target add i686-unknown-linux-gnu
+
+      - name: Install dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt update
+          sudo apt install libpam0g-dev:i386 gcc-multilib
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6
+        with:
+          shared-key: "stable-32bit"
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
+      - name: Build
+        run: cargo build --target i686-unknown-linux-gnu --workspace --all-targets --release
+
+      - name: Run tests
+        run: cargo test --target i686-unknown-linux-gnu --workspace --all-targets --release
+
   miri:
     needs: build-and-test
     runs-on: ubuntu-latest

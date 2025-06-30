@@ -219,7 +219,13 @@ impl io::Read for TimeoutRead<'_> {
         };
 
         // SAFETY: pollfd is initialized and its length matches
-        cerr(unsafe { libc::poll(pollfd.as_mut_ptr(), pollfd.len() as u64, timeout) })?;
+        cerr(unsafe {
+            libc::poll(
+                pollfd.as_mut_ptr(),
+                pollfd.len().try_into().unwrap(),
+                timeout,
+            )
+        })?;
 
         // There may yet be data waiting to be read even if POLLHUP is set.
         if pollfd[0].revents & (pollmask | libc::POLLHUP) > 0 {
