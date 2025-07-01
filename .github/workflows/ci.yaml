@@ -183,7 +183,7 @@ jobs:
         run: rustup component add llvm-tools
 
       - name: Add cargo-llvm-cov
-        uses: taiki-e/install-action@735e5933943122c5ac182670a935f54a949265c1
+        uses: taiki-e/install-action@0eee80d37f55e834144deec670972c19e81a85b0
         with:
           tool: cargo-llvm-cov
 
@@ -373,7 +373,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Install rust-bindgen
-        uses: taiki-e/install-action@735e5933943122c5ac182670a935f54a949265c1
+        uses: taiki-e/install-action@0eee80d37f55e834144deec670972c19e81a85b0
         with:
           tool: bindgen-cli@0.70.1
 
@@ -443,7 +443,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@735e5933943122c5ac182670a935f54a949265c1
+        uses: taiki-e/install-action@0eee80d37f55e834144deec670972c19e81a85b0
         with:
           tool: cargo-audit
 
