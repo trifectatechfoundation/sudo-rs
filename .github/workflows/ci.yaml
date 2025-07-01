@@ -302,6 +302,39 @@ jobs:
       - name: Run tests
         run: sudo -ubuilder cargo test --workspace --all-targets --release
 
+  build-and-test-alpine:
+    runs-on: ubuntu-latest
+    container: alpine:latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install dependencies
+        run: |
+          apk add cargo linux-pam-dev sudo tzdata coreutils-fmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6
+        with:
+          shared-key: "stable-alpine"
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
+      - name: Reduce privileges
+        run: |
+          adduser --disabled-password builder
+          chown builder .
+
+      - name: Build
+        run: sudo -ubuilder cargo build --workspace --all-targets --release
+
+      - name: Run tests
+        run: |
+          # Alpine hasn't done usr-merge yet
+          sudo -ubuilder cargo test --workspace --all-targets --release \
+            -- --skip canonicalization --skip test_build_run_context
+
   build-and-test-32bit:
     runs-on: ubuntu-latest
 
