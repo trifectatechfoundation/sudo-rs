@@ -9,8 +9,7 @@ pub mod help;
 #[cfg(test)]
 mod tests;
 
-// remove dead_code when sudoedit has been implemented
-#[allow(dead_code)]
+#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 pub enum SudoAction {
     Edit(SudoEditOptions),
     Help(SudoHelpOptions),
@@ -218,7 +217,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
 }
 
 // sudo -e [-ABkNnS] [-r role] [-t type] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...
-#[allow(dead_code)]
+#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 pub struct SudoEditOptions {
     // -B
     pub bell: bool,

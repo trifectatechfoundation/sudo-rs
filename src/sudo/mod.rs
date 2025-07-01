@@ -108,6 +108,9 @@ fn sudo_process() -> Result<(), Error> {
                 }
             }
             SudoAction::List(options) => pipeline::run_list(options),
+            #[cfg(feature = "sudoedit")]
+            SudoAction::Edit(options) => pipeline::run_edit(options),
+            #[cfg(not(feature = "sudoedit"))]
             SudoAction::Edit(_) => {
                 eprintln_ignore_io_error!("error: `--edit` flag has not yet been implemented");
                 std::process::exit(1);
