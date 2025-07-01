@@ -2,7 +2,8 @@ use std::io;
 
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::exec::{RunOptions, Umask};
-use crate::sudo::{SudoListOptions, SudoRunOptions, SudoValidateOptions};
+#[cfg_attr(not(feature = "sudoedit"), allow(unused_imports))]
+use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::system::{Group, Hostname, Process, User};
 
@@ -100,6 +101,42 @@ impl Context {
         })
     }
 
+    #[cfg(feature = "sudoedit")]
+    pub fn from_edit_opts(sudo_options: SudoEditOptions) -> Result<Context, Error> {
+        let hostname = Hostname::resolve();
+        let current_user = CurrentUser::resolve()?;
+
+        let (target_user, target_group) =
+            resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
+
+        // TODO: the more Rust way of doing things would be to create an alternative for sudoedit instead;
+        // but a stringly typed interface feels the most decent thing to do (if we can pull it off)
+        // since "sudoedit" really is like a builtin command to sudo.
+        let command = CommandAndArguments {
+            command: std::path::PathBuf::from("sudoedit"),
+            arguments: sudo_options.positional_args,
+            ..Default::default()
+        };
+
+        Ok(Context {
+            hostname,
+            command,
+            current_user,
+            target_user,
+            target_group,
+            use_session_records: !sudo_options.reset_timestamp,
+            launch: Default::default(),
+            chdir: sudo_options.chdir,
+            stdin: sudo_options.stdin,
+            bell: sudo_options.bell,
+            prompt: sudo_options.prompt,
+            non_interactive: sudo_options.non_interactive,
+            process: Process::new(),
+            use_pty: true,
+            noexec: false,
+            umask: Umask::Preserve,
+        })
+    }
     pub fn from_validate_opts(sudo_options: SudoValidateOptions) -> Result<Context, Error> {
         let hostname = Hostname::resolve();
         let current_user = CurrentUser::resolve()?;

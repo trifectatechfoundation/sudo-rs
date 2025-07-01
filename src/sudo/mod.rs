@@ -15,7 +15,7 @@ use cli::SudoAction;
 use std::path::PathBuf;
 
 mod cli;
-pub(crate) use cli::{SudoListOptions, SudoRunOptions, SudoValidateOptions};
+pub(crate) use cli::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 
 pub(crate) mod diagnostic;
 mod env;
