@@ -55,6 +55,11 @@ dev = []
 # compilation using "cargo --all-features", which should not be used on sudo-rs
 do-not-use-all-features = []
 
+# whether to enable 'sudoedit' (this will become a default feature, or
+# perhaps we can just remove the feature flag altogether)
+# NOTE: this is currently work in progress and *NOT* implemented
+sudoedit = []
+
 [profile.release]
 strip = "symbols"
 lto = true

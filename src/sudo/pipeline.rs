@@ -19,8 +19,12 @@ use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{escape_os_str_lossy, Process};
 
 mod list;
-
 pub(super) use list::run_list;
+
+#[cfg(feature = "sudoedit")]
+mod edit;
+#[cfg(feature = "sudoedit")]
+pub(super) use edit::run_edit;
 
 fn read_sudoers() -> Result<Sudoers, Error> {
     let sudoers_path = &super::candidate_sudoers_file();
