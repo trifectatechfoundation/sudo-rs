@@ -48,7 +48,7 @@ This will offer the functionality using the commands `su-rs` and `sudo-rs`.
 You can also switch to sudo-rs manually by using our pre-compiled tarballs.
 We currently only offer these for x86-64 systems.
 
-We recommend installing sudo-rs and su-s in your `/usr/local` hierarchy so it can co-exist with
+We recommend installing sudo-rs and su-rs in your `/usr/local` hierarchy so it can co-exist with
 your existing sudo installation. You can achieve this using the commands:
 ```sh
 sudo tar -C /usr/local -xvf sudo-0.2.7.tar.gz
@@ -72,7 +72,7 @@ Of course, if you **don't** have Todd Miller's `sudo` installed, you also have t
   For an explanation of the sudoers syntax you can look at the
   [sudoers man page](https://www.sudo.ws/docs/man/sudoers.man/).
 
-* (Strongly recommended) You create `/etc/pam.d/sudo` and `/etc/pam.d/sudo-i` files that contain:
+* (Strongly recommended) You create `/etc/pam.d/sudo` and `/etc/pam.d/sudo-i` files that contain (for Debian/Ubuntu):
 
       session required pam_limits.so
 
@@ -81,7 +81,9 @@ Of course, if you **don't** have Todd Miller's `sudo` installed, you also have t
       @include common-session-noninteractive
 
   If you don't do this, either a "fallback" PAM policy will be used or `sudo-rs` will simply refuse to run
-  since it cannot initialize PAM. On FreeBSD, you may want to put these files in `/usr/local/etc/pam.d` instead.
+  since it cannot initialize PAM. On Fedora, the syntax for PAM configuration is slightly different, but the
+  correct PAM configuration files will most likely be already installed.
+  On FreeBSD, you may want to put these files in `/usr/local/etc/pam.d` instead.
 
 ### Building from source
 
