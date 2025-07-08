@@ -226,7 +226,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         .truncate(true)
         .open(&tmp_path)?;
 
-    tmp_file.set_permissions(Permissions::from_mode(0o700))?;
+    tmp_file.set_permissions(Permissions::from_mode(0o600))?;
 
     let result = edit_sudoers_file(
         existed,
