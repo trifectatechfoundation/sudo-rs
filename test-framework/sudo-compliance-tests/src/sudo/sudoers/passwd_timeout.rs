@@ -103,7 +103,7 @@ fn zero_time_out() -> Result<()> {
         }
         Some(status) => {
             if let Some(code) = status.code() {
-                println!("passwd_timeout=0 exited: {:?}", code);
+                println!("passwd_timeout=0 exited: {code:?}");
                 println!("{:?}", child.wait());
                 panic!();
             }

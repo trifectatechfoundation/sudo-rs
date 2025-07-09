@@ -537,14 +537,14 @@ impl SudoArg {
                     // only accept arguments when one is expected
                     // `--preserve-env` is special as it only takes an argument using this `key=value` syntax
                     if !Self::TAKES_ARGUMENT.contains(&key) && key != "preserve-env" {
-                        Err(format!("'{}' does not take any arguments", key))?;
+                        Err(format!("'{key}' does not take any arguments"))?;
                     }
                     processed.push(SudoArg::Argument("--".to_string() + key, value.to_string()));
                 } else if Self::TAKES_ARGUMENT.contains(&unprefixed) {
                     if let Some(next) = arg_iter.next() {
                         processed.push(SudoArg::Argument(arg, next));
                     } else {
-                        Err(format!("'{}' expects an argument", &arg))?;
+                        Err(format!("'{arg}' expects an argument"))?;
                     }
                 } else {
                     processed.push(SudoArg::Flag(arg));
@@ -572,7 +572,7 @@ impl SudoArg {
                             // short version of --help has no arguments
                             processed.push(SudoArg::Flag(flag));
                         } else {
-                            Err(format!("'-{}' expects an argument", curr))?;
+                            Err(format!("'-{curr}' expects an argument"))?;
                         }
                         break;
                     } else {
