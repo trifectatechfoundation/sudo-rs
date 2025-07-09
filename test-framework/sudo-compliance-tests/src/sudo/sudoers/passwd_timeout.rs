@@ -1,3 +1,4 @@
+use std::os::unix::process::ExitStatusExt;
 use std::thread;
 use std::time::Duration;
 
@@ -13,7 +14,7 @@ fn time_out() -> Result<()> {
     let script_path = "/tmp/passwd_timeout.sh";
 
     let env = Env(format!(
-        "{USERNAME} ALL=(ALL:ALL) ALL\nDefaults passwd_timeout={}",
+        "{USERNAME} ALL=(ALL:ALL) ALL\nDefaults passwd_timeout={:04}",
         timeout_seconds as f64 / 60.0,
     ))
     .user(User(USERNAME).password(PASSWORD))
@@ -40,6 +41,7 @@ fn time_out() -> Result<()> {
     }
 
     let output = child.wait();
+    output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
         "timed out reading password"
     } else {
@@ -57,7 +59,7 @@ fn dont_time_out() -> Result<()> {
     let script_path = "/tmp/passwd_timeout.sh";
 
     let env = Env(format!(
-        "{USERNAME} ALL=(ALL:ALL) ALL\nDefaults passwd_timeout={}",
+        "{USERNAME} ALL=(ALL:ALL) ALL\nDefaults passwd_timeout={:04}",
         timeout_seconds as f64 / 60.0,
     ))
     .user(User(USERNAME).password(PASSWORD))
@@ -73,7 +75,8 @@ fn dont_time_out() -> Result<()> {
 
     child.kill()?;
 
-    let output = dbg!(child.wait());
+    let output = child.wait();
+    assert_eq!(output.status().signal(), Some(9 /* SIGKILL */));
     assert_not_contains!(output.stderr(), "timed out");
     Ok(())
 }
@@ -101,16 +104,14 @@ fn zero_time_out() -> Result<()> {
         None => {
             child.kill()?;
         }
-        Some(status) => {
-            if let Some(code) = status.code() {
-                println!("passwd_timeout=0 exited: {code:?}");
-                println!("{:?}", child.wait());
-                panic!();
-            }
+        Some(_status) => {
+            println!("exited with {:?}", child.wait());
+            panic!();
         }
     }
 
     let output = child.wait();
+    assert_eq!(output.status().signal(), Some(9 /* SIGKILL */));
     assert_not_contains!(output.stderr(), "timed out");
     Ok(())
 }
