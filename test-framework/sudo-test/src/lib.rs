@@ -230,8 +230,7 @@ impl EnvBuilder {
         let groupname = &group.name;
         assert!(
             !self.groups.contains_key(groupname),
-            "group {} has already been declared",
-            groupname
+            "group {groupname} has already been declared",
         );
         self.groups.insert(groupname.to_string(), group);
 
@@ -248,8 +247,7 @@ impl EnvBuilder {
         let username = &user.name;
         assert!(
             !self.users.contains_key(username),
-            "user {} has already been declared",
-            username
+            "user {username} has already been declared",
         );
         self.users.insert(username.to_string(), user);
 
@@ -272,13 +270,11 @@ impl EnvBuilder {
     pub fn user_password(&mut self, username: &str, password: &str) -> &mut Self {
         assert!(
             !self.user_passwords.contains_key(username),
-            "password for user {} has already been declared",
-            username
+            "password for user {username} has already been declared",
         );
         assert!(
             !self.users.contains_key(username),
-            "password for user {} should be set as part of the .user() call",
-            username
+            "password for user {username} should be set as part of the .user() call",
         );
         self.user_passwords
             .insert(username.to_string(), password.to_string());

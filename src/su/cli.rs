@@ -411,7 +411,7 @@ impl SuOptions {
                             Err(format!("'--{}' does not take any arguments", option.long))?;
                         }
                     } else {
-                        Err(format!("unrecognized option '{}'", arg))?;
+                        Err(format!("unrecognized option '{arg}'"))?;
                     }
                 // lookup the option
                 } else if let Some(option) = Self::SU_OPTIONS.iter().find(|o| o.long == unprefixed)
@@ -424,7 +424,7 @@ impl SuOptions {
                         (option.set)(&mut options, None)?;
                     }
                 } else {
-                    Err(format!("unrecognized option '{}'", arg))?;
+                    Err(format!("unrecognized option '{arg}'"))?;
                 }
             } else if let Some(unprefixed) = arg.strip_prefix('-') {
                 // flags can be grouped, so we loop over the the characters
@@ -449,7 +449,7 @@ impl SuOptions {
                             (option.set)(&mut options, None)?;
                         }
                     } else {
-                        Err(format!("unrecognized option '{}'", curr))?;
+                        Err(format!("unrecognized option '{curr}'"))?;
                     }
                 }
             } else {

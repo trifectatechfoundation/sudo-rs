@@ -928,7 +928,7 @@ mod tests {
             .as_nanos();
         let pid = std::process::id();
 
-        let filename = format!("sudo_rs_test_{}_{}", pid, timestamp);
+        let filename = format!("sudo_rs_test_{pid}_{timestamp}");
         let path = std::path::PathBuf::from("/tmp").join(filename);
         std::fs::File::options()
             .read(true)

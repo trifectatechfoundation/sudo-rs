@@ -153,7 +153,7 @@ impl VisudoOptions {
                             Err(format!("'--{}' does not take any arguments", option.long))?;
                         }
                     } else {
-                        Err(format!("unrecognized option '{}'", arg))?;
+                        Err(format!("unrecognized option '{arg}'"))?;
                     }
                 // lookup the option
                 } else if let Some(option) =
@@ -167,7 +167,7 @@ impl VisudoOptions {
                         (option.set)(&mut options, None)?;
                     }
                 } else {
-                    Err(format!("unrecognized option '{}'", arg))?;
+                    Err(format!("unrecognized option '{arg}'"))?;
                 }
             } else if arg.starts_with('-') {
                 // flags can be grouped, so we loop over the characters
@@ -190,7 +190,7 @@ impl VisudoOptions {
                             (option.set)(&mut options, None)?;
                         }
                     } else {
-                        Err(format!("unrecognized option '{}'", char))?;
+                        Err(format!("unrecognized option '{char}'"))?;
                     }
                 }
             } else {

@@ -150,10 +150,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
             .map_err(|e| {
                 io::Error::new(
                     e.kind(),
-                    format!(
-                        "Failed to open existing sudoers file at {:?}: {}",
-                        sudoers_path, e
-                    ),
+                    format!("Failed to open existing sudoers file at {sudoers_path:?}: {e}"),
                 )
             })?;
 
@@ -163,7 +160,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         let file = File::create(sudoers_path).map_err(|e| {
             io::Error::new(
                 e.kind(),
-                format!("Failed to create sudoers file at {:?}: {}", sudoers_path, e),
+                format!("Failed to create sudoers file at {sudoers_path:?}: {e}"),
             )
         })?;
         // ogvisudo sets the permissions of the file so it can be read and written by the user and
@@ -174,8 +171,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
                     io::Error::new(
                         e.kind(),
                         format!(
-                            "Failed to set permissions on new sudoers file at {:?}: {}",
-                            sudoers_path, e
+                            "Failed to set permissions on new sudoers file at {sudoers_path:?}: {e}"
                         ),
                     )
                 })?;

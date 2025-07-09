@@ -25,7 +25,7 @@ impl Display for CommandAndArguments {
             .map(|a| a.escape_default().collect::<String>())
             .collect::<Vec<_>>()
             .join(" ");
-        write!(f, "{} {}", cmd, args)
+        write!(f, "{cmd} {args}")
     }
 }
 
