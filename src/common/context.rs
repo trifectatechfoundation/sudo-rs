@@ -34,6 +34,9 @@ pub struct Context {
     pub use_pty: bool,
     pub noexec: bool,
     pub umask: Umask,
+    // sudoedit
+    #[cfg_attr(not(feature = "sudoedit"), allow(unused))]
+    pub files_to_edit: Vec<Option<std::path::PathBuf>>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -98,6 +101,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            files_to_edit: vec![],
         })
     }
 
@@ -109,12 +113,35 @@ impl Context {
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
 
+        // resolve file arguments; if something can't be resolved, don't add it to the "edit" list
+        let resolved_args = sudo_options.positional_args.iter().map(|arg| {
+            std::fs::canonicalize(arg)
+                .map_err(|_| arg)
+                .and_then(|path| path.into_os_string().into_string().map_err(|_| arg))
+        });
+
+        let files_to_edit = resolved_args
+            .clone()
+            .map(|path| path.ok().map(|path| path.into()))
+            .collect();
+
+        // if a path resolved to something that isn't in UTF-8, it means it isn't in the sudoers file
+        // as well and so we treat it "as is" wrt. the policy lookup and fail if the user is allowed
+        // by the policy to edit that file. this is to prevent leaking information.
+        let arguments = resolved_args
+            .map(|arg| match arg {
+                Ok(arg) => arg,
+                Err(arg) => arg.to_owned(),
+            })
+            .collect();
+
         // TODO: the more Rust way of doing things would be to create an alternative for sudoedit instead;
         // but a stringly typed interface feels the most decent thing to do (if we can pull it off)
-        // since "sudoedit" really is like a builtin command to sudo.
+        // since "sudoedit" really is like a builtin command to sudo. We may want to be a bit 'better' than
+        // ogsudo in the future.
         let command = CommandAndArguments {
             command: std::path::PathBuf::from("sudoedit"),
-            arguments: sudo_options.positional_args,
+            arguments,
             ..Default::default()
         };
 
@@ -135,6 +162,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            files_to_edit,
         })
     }
     pub fn from_validate_opts(sudo_options: SudoValidateOptions) -> Result<Context, Error> {
@@ -160,6 +188,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            files_to_edit: vec![],
         })
     }
 
@@ -206,6 +235,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            files_to_edit: vec![],
         })
     }
 

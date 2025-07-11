@@ -21,13 +21,19 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
     let pid = context.process.pid;
 
+    for (path, arg) in context.files_to_edit.iter().zip(&context.command.arguments) {
+        if path.is_none() {
+            eprintln_ignore_io_error!("invalid path: {arg}")
+        }
+    }
+
     // run command and return corresponding exit code
     let command_exit_reason = {
         super::log_command_execution(&context);
 
         eprintln_ignore_io_error!(
             "this would launch sudoedit as requested, to edit the files: {:?}",
-            context.command.arguments.as_slice()
+            context.files_to_edit.as_slice()
         );
 
         Ok::<_, std::io::Error>(ExitReason::Code(42))

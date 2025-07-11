@@ -136,6 +136,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         noexec: false,
         bell: false,
         umask: Umask::Preserve,
+        files_to_edit: vec![],
     }
 }
 
