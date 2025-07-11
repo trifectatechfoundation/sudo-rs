@@ -160,7 +160,14 @@ ls -l /tmp/sudoers-*/sudoers > {LOGS_PATH}"#
 
     let ls_output = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
-    assert_ls_output(&ls_output, "-rwx------", "root", ROOT_GROUP);
+    if sudo_test::is_original_sudo() {
+        //TODO: this is incorrect, will be fixed in a future sudo; the
+        //point of the test anyway is that the file is not accessible
+        //by any other than the owner.
+        assert_ls_output(&ls_output, "-rwx------", "root", ROOT_GROUP);
+    } else {
+        assert_ls_output(&ls_output, "-rw-------", "root", ROOT_GROUP);
+    }
 }
 
 #[test]
