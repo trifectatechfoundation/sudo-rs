@@ -89,6 +89,8 @@ relevant at that time.
 | CVE-2023-22809 | `sudoedit`/`sudo -e` is not implemented, https://www.sudo.ws/security/advisories/sudoedit_any/              |
 | CVE-2023-27320 | The chroot functionality is not implemented, https://www.sudo.ws/security/advisories/double_free/           |
 | CVE-2023-28487 | Sudoreplay is not implemented                                                                               |
+| CVE-2025-32462 | `sudo -h` is not implemented, https://www.sudo.ws/security/advisories/host_any/                             |
+| CVE-2025-32463 | The chroot functionality is not implemented, https://www.sudo.ws/security/advisories/chroot_bug/            |
 
 ## Disputed CVEs
 
