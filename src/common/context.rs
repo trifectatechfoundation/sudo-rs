@@ -109,12 +109,32 @@ impl Context {
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
 
+        // resolve file arguments -- TODO: right now we convert the PathBuf back to String and let the command fail
+        // if this cannot be done; easy fix is to add a field to the Context object specifically for sudoedit,
+        // an even better fix is to abolish the Context object.
+        let arguments = sudo_options
+            .positional_args
+            .iter()
+            .map(|arg| {
+                crate::common::resolve::canonicalize(arg)
+                    .ok()
+                    .and_then(|path| path.into_os_string().into_string().ok())
+            })
+            .collect::<Option<Vec<_>>>();
+
+        let resolved = arguments.is_some();
+
         // TODO: the more Rust way of doing things would be to create an alternative for sudoedit instead;
         // but a stringly typed interface feels the most decent thing to do (if we can pull it off)
         // since "sudoedit" really is like a builtin command to sudo.
         let command = CommandAndArguments {
             command: std::path::PathBuf::from("sudoedit"),
-            arguments: sudo_options.positional_args,
+            arguments: if resolved {
+                arguments
+            } else {
+                sudo_options.positional_args
+            },
+            resolved,
             ..Default::default()
         };
 
