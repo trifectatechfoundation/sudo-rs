@@ -311,7 +311,7 @@ fn vars_with_target_user_specific_values(env_list: EnvList) {
 fn sudo_env_vars(env_list: EnvList) {
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &format!("Defaults {env_list} = \"SUDO_COMMAND SUDO_GID SUDO_UID SUDO_USER\""),
+        &format!("Defaults {env_list} = \"SUDO_COMMAND SUDO_GID SUDO_UID SUDO_USER SUDO_HOME\""),
     ])
     .build();
 
@@ -320,6 +320,7 @@ fn sudo_env_vars(env_list: EnvList) {
         .arg("SUDO_GID=gid")
         .arg("SUDO_UID=uid")
         .arg("SUDO_USER=user")
+        .arg("SUDO_HOME=sudo_home")
         .args(["sudo", "env"])
         .output(&env)
         .stdout();
@@ -329,6 +330,10 @@ fn sudo_env_vars(env_list: EnvList) {
     assert_eq!(Some("0"), sudo_env.get("SUDO_GID").copied());
     assert_eq!(Some("0"), sudo_env.get("SUDO_UID").copied());
     assert_eq!(Some("root"), sudo_env.get("SUDO_USER").copied());
+
+    if let Some(val) = sudo_env.get("SUDO_HOME").copied() {
+        assert_eq!("/root", val);
+    }
 }
 
 fn user_set_to_preserved_logname_value(env_list: EnvList) {
