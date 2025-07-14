@@ -329,7 +329,20 @@ mod tests {
 /// Resolve symlinks in all the directories leading up to a file, but
 /// not the file itself; this allows sudo to specify a precise policy with
 /// tools like busybox or pgrep (which is a symlink to pgrep on systems)
+/// This function will check for existence.
 pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
+    let reconstructed_path = canonicalize_newfile(path)?;
+
+    // access the object to generate the regular error if it does not exist
+    let _ = fs::metadata(&reconstructed_path)?;
+
+    Ok(reconstructed_path)
+}
+
+/// Resolve symlinks in all the directories leading up to a file, but
+/// not the file itself; this allows us to keep symlinks as is, and will
+/// also work on non-existing files.
+pub fn canonicalize_newfile<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     let path = path.as_ref();
     let Some(parent) = path.parent() else {
         // path is "/" or a prefix
@@ -344,9 +357,6 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
         canon_path
     };
 
-    // access the object to generate the regular error if it does not exist
-    let _ = fs::metadata(&reconstructed_path)?;
-
     Ok(reconstructed_path)
 }
 
@@ -358,7 +368,7 @@ mod test {
     #[test]
     fn canonicalization() {
         assert_eq!(canonicalize("/").unwrap(), Path::new("/"));
-        assert_eq!(canonicalize("").unwrap(), Path::new(""));
+        assert!(canonicalize("").is_err());
         if cfg!(any(target_os = "linux", target_os = "macos")) {
             // this test REQUIRES /usr/bin/unxz to be a symlink for /usr/bin/xz
             assert_eq!(

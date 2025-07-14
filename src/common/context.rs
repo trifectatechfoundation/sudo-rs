@@ -115,7 +115,7 @@ impl Context {
 
         // resolve file arguments; if something can't be resolved, don't add it to the "edit" list
         let resolved_args = sudo_options.positional_args.iter().map(|arg| {
-            std::fs::canonicalize(arg)
+            crate::common::resolve::canonicalize_newfile(arg)
                 .map_err(|_| arg)
                 .and_then(|path| path.into_os_string().into_string().map_err(|_| arg))
         });
