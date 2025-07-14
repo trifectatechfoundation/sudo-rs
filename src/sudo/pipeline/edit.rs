@@ -6,6 +6,8 @@ use crate::exec::ExitReason;
 use crate::sudoers::Authorization;
 
 pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
+    super::super::unstable_warning();
+
     let policy = super::read_sudoers()?;
 
     let mut context = Context::from_edit_opts(edit_opts)?;
