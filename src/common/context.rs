@@ -1,4 +1,4 @@
-use std::io;
+use std::{env, io};
 
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::exec::{RunOptions, Umask};
@@ -36,7 +36,7 @@ pub struct Context {
     pub umask: Umask,
     // sudoedit
     #[cfg_attr(not(feature = "sudoedit"), allow(unused))]
-    pub files_to_edit: Vec<Option<std::path::PathBuf>>,
+    pub files_to_edit: Vec<Option<SudoPath>>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -77,7 +77,7 @@ impl Context {
             let path = if let Some(path) = override_path {
                 path
             } else {
-                system_path = std::env::var("PATH").unwrap_or_default();
+                system_path = env::var("PATH").unwrap_or_default();
                 system_path.as_ref()
             };
 
@@ -122,7 +122,7 @@ impl Context {
 
         let files_to_edit = resolved_args
             .clone()
-            .map(|path| path.ok().map(|path| path.into()))
+            .map(|path| path.ok().map(SudoPath::from_cli_string))
             .collect();
 
         // if a path resolved to something that isn't in UTF-8, it means it isn't in the sudoers file
@@ -211,7 +211,7 @@ impl Context {
             let path = if let Some(path) = override_path {
                 path
             } else {
-                system_path = std::env::var("PATH").unwrap_or_default();
+                system_path = env::var("PATH").unwrap_or_default();
                 system_path.as_ref()
             };
 
