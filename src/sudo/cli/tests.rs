@@ -316,7 +316,13 @@ fn edit() {
     let cmd = SudoAction::try_parse_from(["sudo", "--edit", "filepath"]).unwrap();
     assert!(cmd.is_edit());
 
+    let cmd = SudoAction::try_parse_from(["sudoedit", "filepath"]).unwrap();
+    assert!(cmd.is_edit());
+
     let res = SudoAction::try_parse_from(["sudo", "--edit"]);
+    assert!(res.is_err());
+
+    let res = SudoAction::try_parse_from(["sudoedit", "--edit", "filepath"]);
     assert!(res.is_err());
 }
 
