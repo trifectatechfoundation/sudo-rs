@@ -305,7 +305,7 @@ impl Sudoers {
 /// Retrieve the chosen editor from a settings object, filtering based on whether the
 /// environment is trusted (sudoedit) or maybe less so (visudo)
 fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
-    let blessed_editors = settings.editor().expect("editor is always defined");
+    let blessed_editors = settings.editor();
 
     let is_whitelisted = |path: &Path| -> bool {
         trusted_env || blessed_editors.split(':').any(|x| Path::new(x) == path)
