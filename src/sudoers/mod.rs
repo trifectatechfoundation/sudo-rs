@@ -298,67 +298,58 @@ impl Sudoers {
     ) -> PathBuf {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
 
-        let env_editor = self.settings.env_editor();
-        self.select_editor(env_editor)
+        select_editor(&self.settings, self.settings.env_editor())
     }
+}
 
-    #[cfg_attr(not(feature = "sudoedit"), allow(unused))]
-    pub(crate) fn sudoedit_editor_path<User: UnixUser + PartialEq<User>>(
-        &self,
-        on_host: &system::Hostname,
-        am_user: &User,
-        target_user: &User,
-    ) -> PathBuf {
-        self.select_editor(true)
-    }
+/// Retrieve the chosen editor from a settings object, filtering based on whether the
+/// environment is trusted (sudoedit) or maybe less so (visudo)
+fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
+    let blessed_editors = settings.editor().expect("editor is always defined");
 
-    fn select_editor(&self, trusted_env: bool) -> PathBuf {
-        let blessed_editors = self.settings.editor().expect("editor is always defined");
+    let is_whitelisted = |path: &Path| -> bool {
+        trusted_env || blessed_editors.split(':').any(|x| Path::new(x) == path)
+    };
 
-        let is_whitelisted = |path: &Path| -> bool {
-            trusted_env || blessed_editors.split(':').any(|x| Path::new(x) == path)
-        };
+    // find editor in environment, if possible
 
-        // find editor in environment, if possible
+    for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
+        if let Some(editor) = std::env::var_os(key) {
+            let editor = PathBuf::from(editor);
 
-        for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
-            if let Some(editor) = std::env::var_os(key) {
-                let editor = PathBuf::from(editor);
+            let editor = if can_execute(&editor) {
+                editor
+            } else if let Some(editor) = resolve_path(
+                &editor,
+                &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
+            ) {
+                editor
+            } else {
+                continue;
+            };
 
-                let editor = if can_execute(&editor) {
-                    editor
-                } else if let Some(editor) = resolve_path(
-                    &editor,
-                    &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
-                ) {
-                    editor
-                } else {
-                    continue;
-                };
-
-                if is_whitelisted(&editor) {
-                    return editor;
-                }
+            if is_whitelisted(&editor) {
+                return editor;
             }
         }
-
-        // no acceptable editor found in environment, fallback on config
-
-        for editor in blessed_editors.split(':') {
-            let editor = Path::new(editor);
-            if can_execute(editor) {
-                return editor.to_owned();
-            }
-        }
-
-        // fallback on hardcoded path -- always provide something to the caller
-
-        PathBuf::from(if cfg!(target_os = "linux") {
-            "/usr/bin/editor"
-        } else {
-            "/usr/bin/vi"
-        })
     }
+
+    // no acceptable editor found in environment, fallback on config
+
+    for editor in blessed_editors.split(':') {
+        let editor = Path::new(editor);
+        if can_execute(editor) {
+            return editor.to_owned();
+        }
+    }
+
+    // fallback on hardcoded path -- always provide something to the caller
+
+    PathBuf::from(if cfg!(target_os = "linux") {
+        "/usr/bin/editor"
+    } else {
+        "/usr/bin/vi"
+    })
 }
 
 // a `take_while` variant that does not consume the first non-matching item
