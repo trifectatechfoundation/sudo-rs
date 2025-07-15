@@ -13,11 +13,11 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::common::resolve::resolve_path;
+use crate::common::resolve::{is_valid_executable, resolve_path};
 use crate::defaults;
 use crate::log::auth_warn;
+use crate::system;
 use crate::system::interface::{GroupId, UnixGroup, UnixUser, UserId};
-use crate::system::{self, can_execute};
 use ast::*;
 use tokens::*;
 
@@ -317,7 +317,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
         if let Some(editor) = std::env::var_os(key) {
             let editor = PathBuf::from(editor);
 
-            let editor = if can_execute(&editor) {
+            let editor = if is_valid_executable(&editor) {
                 editor
             } else if let Some(editor) = resolve_path(
                 &editor,
@@ -337,9 +337,9 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
     // no acceptable editor found in environment, fallback on config
 
     for editor in blessed_editors.split(':') {
-        let editor = Path::new(editor);
-        if can_execute(editor) {
-            return editor.to_owned();
+        let editor = PathBuf::from(editor);
+        if is_valid_executable(&editor) {
+            return editor;
         }
     }
 

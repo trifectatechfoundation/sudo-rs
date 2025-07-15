@@ -27,7 +27,6 @@ echo '{expected}' >> {LOGS_PATH}"
 }
 
 #[test]
-#[ignore]
 fn fallback() {
     let expected = "configured editor was called";
     let editor_path = "/usr/bin/my-editor";
