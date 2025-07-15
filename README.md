@@ -17,7 +17,7 @@ Sudo-rs currently is targeted for FreeBSD and Linux-based operating systems only
 
 ## Installing sudo-rs
 
-The recommended way to start using `sudo-rs` is via the package manager of your Linux distribution.
+The recommended way to start using `sudo-rs` is via the package manager of your Linux distribution. If you want to continue using the `sudo` alias, append `alias sudo=sudo-rs` to your .bashrc/ .zshrc.  
 
 ### Debian/Ubuntu
 If you are running Debian 13 (trixie) or later, or Ubuntu 24.04 (Noble Numbat) or later, you can use:
