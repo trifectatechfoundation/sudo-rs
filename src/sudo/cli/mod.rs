@@ -5,6 +5,8 @@ use std::{borrow::Cow, mem};
 use crate::common::{SudoPath, SudoString};
 
 pub mod help;
+#[cfg_attr(not(feature = "sudoedit"), allow(unused))]
+pub mod help_edit;
 
 #[cfg(test)]
 mod tests;
@@ -19,6 +21,13 @@ pub enum SudoAction {
     Run(SudoRunOptions),
     Validate(SudoValidateOptions),
     Version(SudoVersionOptions),
+}
+
+pub(super) fn is_sudoedit(command_path: Option<String>) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+    std::path::Path::new(&command_path.unwrap_or_default())
+        .file_name()
+        .is_some_and(|name| name.as_bytes().starts_with(b"sudoedit"))
 }
 
 impl SudoAction {
@@ -107,8 +116,6 @@ impl TryFrom<SudoOptions> for SudoHelpOptions {
         let help = mem::take(&mut opts.help);
         debug_assert!(help);
 
-        reject_all("--help", opts)?;
-
         Ok(Self {})
     }
 }
@@ -123,8 +130,6 @@ impl TryFrom<SudoOptions> for SudoVersionOptions {
         // see `SudoOptions::validate`
         let version = mem::take(&mut opts.version);
         debug_assert!(version);
-
-        reject_all("--version", opts)?;
 
         Ok(Self {})
     }
@@ -518,12 +523,11 @@ impl SudoArg {
     ];
 
     /// argument assignments and shorthand options preprocessing
-    fn normalize_arguments<I>(iter: I) -> Result<Vec<Self>, String>
+    /// the iterator should only iterate over the actual arguments
+    fn normalize_arguments<I>(mut arg_iter: I) -> Result<Vec<Self>, String>
     where
-        I: IntoIterator<Item = String>,
+        I: Iterator<Item = String>,
     {
-        // the first argument is the sudo command - so we can skip it
-        let mut arg_iter = iter.into_iter().skip(1);
         let mut processed = vec![];
 
         while let Some(arg) = arg_iter.next() {
@@ -628,8 +632,16 @@ impl SudoOptions {
         I: IntoIterator<Item = T>,
         T: Into<String> + Clone,
     {
-        let mut options = Self::default();
-        let arg_iter = SudoArg::normalize_arguments(iter.into_iter().map(Into::into))?
+        let mut arg_iter = iter.into_iter().map(Into::into);
+
+        let invoked_as_sudoedit = is_sudoedit(arg_iter.next());
+
+        let mut options = Self {
+            edit: invoked_as_sudoedit,
+            ..Self::default()
+        };
+
+        let arg_iter = SudoArg::normalize_arguments(arg_iter)?
             .into_iter()
             .peekable();
 
@@ -644,7 +656,7 @@ impl SudoOptions {
                             "warning: preserving the entire environment is not supported, `{flag}` is ignored"
                         )
                     }
-                    "-e" | "--edit" => {
+                    "-e" | "--edit" if !invoked_as_sudoedit => {
                         options.edit = true;
                     }
                     "-H" | "--set-home" => {

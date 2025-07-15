@@ -7,7 +7,6 @@ use crate::system::interface::UserId;
 use crate::system::timestamp::RecordScope;
 use crate::system::User;
 use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
-use cli::help;
 #[cfg(test)]
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
@@ -67,11 +66,21 @@ fn sudo_process() -> Result<(), Error> {
 
     self_check()?;
 
+    let usage_msg: &str;
+    let long_help: fn() -> String;
+    if cli::is_sudoedit(std::env::args().next()) {
+        usage_msg = cli::help_edit::USAGE_MSG;
+        long_help = cli::help_edit::long_help_message;
+    } else {
+        usage_msg = cli::help::USAGE_MSG;
+        long_help = cli::help::long_help_message;
+    }
+
     // parse cli options
     match SudoAction::from_env() {
         Ok(action) => match action {
             SudoAction::Help(_) => {
-                eprintln_ignore_io_error!("{}", help::long_help_message());
+                eprintln_ignore_io_error!("{}", long_help());
                 std::process::exit(0);
             }
             SudoAction::Version(_) => {
@@ -98,7 +107,7 @@ fn sudo_process() -> Result<(), Error> {
             SudoAction::Run(options) => {
                 // special case for when no command is given
                 if options.positional_args.is_empty() && !options.shell && !options.login {
-                    eprintln_ignore_io_error!("{}", help::USAGE_MSG);
+                    eprintln_ignore_io_error!("{}", usage_msg);
                     std::process::exit(1);
                 } else {
                     #[cfg(feature = "dev")]
@@ -117,7 +126,7 @@ fn sudo_process() -> Result<(), Error> {
             }
         },
         Err(e) => {
-            eprintln_ignore_io_error!("{e}\n{}", help::USAGE_MSG);
+            eprintln_ignore_io_error!("{e}\n{}", usage_msg);
             std::process::exit(1);
         }
     }
