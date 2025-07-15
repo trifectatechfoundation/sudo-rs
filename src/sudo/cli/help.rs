@@ -1,9 +1,9 @@
 pub const USAGE_MSG: &str = "\
 usage: sudo -h | -K | -k | -V
-usage: sudo -v [-BknS] [-g group] [-u user]
-usage: sudo -l [-BknS] [-g group] [-U user] [-u user] [command [arg ...]]
-usage: sudo [-BknS] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
-usage: sudo -e [-BknS] [-D directory] [-g group] [-u user] file ...";
+usage: sudo [-BknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
+usage: sudo -v [-BknS] [-p prompt] [-g group] [-u user]
+usage: sudo -l [-BknS] [-p prompt] [-g group] [-U user] [-u user] [command [arg ...]]
+usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] file ...";
 
 const DESCRIPTOR: &str = "sudo - run commands as another user";
 
@@ -17,6 +17,7 @@ const HELP_MSG: &str = "Options:
   -k, --reset-timestamp         invalidate timestamp file
   -l, --list                    list user's privileges or check a specific command; use twice for longer format
   -n, --non-interactive         non-interactive mode, no prompts are used
+  -p, --prompt=prompt           use the specified password prompt
   -S, --stdin                   read password from standard input
   -s, --shell                   run shell as the target user; a command may also be specified
   -U, --other-user=user         in list mode, display privileges for user
