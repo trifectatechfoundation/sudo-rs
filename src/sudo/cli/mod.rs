@@ -116,8 +116,6 @@ impl TryFrom<SudoOptions> for SudoHelpOptions {
         let help = mem::take(&mut opts.help);
         debug_assert!(help);
 
-        reject_all("--help", opts)?;
-
         Ok(Self {})
     }
 }
@@ -132,8 +130,6 @@ impl TryFrom<SudoOptions> for SudoVersionOptions {
         // see `SudoOptions::validate`
         let version = mem::take(&mut opts.version);
         debug_assert!(version);
-
-        reject_all("--version", opts)?;
 
         Ok(Self {})
     }
