@@ -297,10 +297,26 @@ impl Sudoers {
         target_user: &User,
     ) -> PathBuf {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
+
+        let env_editor = self.settings.env_editor();
+        self.select_editor(env_editor)
+    }
+
+    #[cfg_attr(not(feature = "sudoedit"), allow(unused))]
+    pub(crate) fn sudoedit_editor_path<User: UnixUser + PartialEq<User>>(
+        &self,
+        on_host: &system::Hostname,
+        am_user: &User,
+        target_user: &User,
+    ) -> PathBuf {
+        self.select_editor(true)
+    }
+
+    fn select_editor(&self, trusted_env: bool) -> PathBuf {
         let blessed_editors = self.settings.editor().expect("editor is always defined");
 
         let is_whitelisted = |path: &Path| -> bool {
-            self.settings.env_editor() || blessed_editors.split(':').any(|x| Path::new(x) == path)
+            trusted_env || blessed_editors.split(':').any(|x| Path::new(x) == path)
         };
 
         // find editor in environment, if possible
