@@ -34,7 +34,6 @@ defaults! {
     use_pty                   = true
     visiblepw                 = false  #ignored
     pwfeedback                = false
-    env_editor                = true
     rootpw                    = false
     targetpw                  = false
     noexec                    = false
@@ -54,6 +53,9 @@ defaults! {
 
     passwd_timeout            = (5*60) (!= 0) {fractional_minutes}
     timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
+
+    editor                    = "/usr/bin/editor"
+    env_editor                = true
 
     env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",
                                  "PS1", "PS2", "XAUTHORITY", "XAUTHORIZATION", "XDG_CURRENT_DESKTOP"]

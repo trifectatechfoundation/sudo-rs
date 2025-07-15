@@ -297,25 +297,46 @@ impl Sudoers {
         target_user: &User,
     ) -> PathBuf {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
-        if self.settings.env_editor() {
-            for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
-                if let Some(var) = std::env::var_os(key) {
-                    let path = Path::new(&var);
-                    if can_execute(path) {
-                        return path.to_owned();
-                    }
-                    let path = resolve_path(
-                        path,
-                        &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
-                    );
-                    if let Some(path) = path {
-                        return path;
-                    }
+        let blessed_editors = self.settings.editor().expect("editor is always defined");
+
+        let is_whitelisted = |path: &Path| -> bool {
+            self.settings.env_editor() || blessed_editors.split(':').any(|x| Path::new(x) == path)
+        };
+
+        // find editor in environment, if possible
+
+        for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
+            if let Some(editor) = std::env::var_os(key) {
+                let editor = PathBuf::from(editor);
+
+                let editor = if can_execute(&editor) {
+                    editor
+                } else if let Some(editor) = resolve_path(
+                    &editor,
+                    &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
+                ) {
+                    editor
+                } else {
+                    continue;
+                };
+
+                if is_whitelisted(&editor) {
+                    return editor;
                 }
             }
         }
 
-        // fallback -- always provide an option to the caller
+        // no acceptable editor found in environment, fallback on config
+
+        for editor in blessed_editors.split(':') {
+            let editor = Path::new(editor);
+            if can_execute(editor) {
+                return editor.to_owned();
+            }
+        }
+
+        // fallback on hardcoded path -- always provide something to the caller
+
         PathBuf::from(if cfg!(target_os = "linux") {
             "/usr/bin/editor"
         } else {
