@@ -18,7 +18,6 @@ use crate::{
     sudo::{candidate_sudoers_file, diagnostic},
     sudoers::{self, Sudoers},
     system::{
-        can_execute,
         file::{create_temporary_dir, Chown, FileLock},
         interface::{GroupId, UserId},
         signal::{consts::*, register_handlers, SignalStream},
@@ -248,7 +247,6 @@ fn edit_sudoers_file(
 ) -> io::Result<()> {
     let mut stderr = io::stderr();
 
-    let mut editor_path = None;
     let mut sudoers_contents = Vec::new();
 
     // Since visudo is meant to run as root, resolve shouldn't fail
@@ -262,7 +260,7 @@ fn edit_sudoers_file(
 
     let host_name = Hostname::resolve();
 
-    if existed {
+    let editor_path = if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
         sudoers_file.read_to_end(&mut sudoers_contents)?;
         // Rewind the sudoers file so it can be written later.
@@ -270,23 +268,32 @@ fn edit_sudoers_file(
         // Write to the temporary file.
         tmp_file.write_all(&sudoers_contents)?;
 
-        let (sudoers, errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
+        let (sudoers, _errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
 
-        if errors.is_empty() {
-            editor_path = sudoers.solve_editor_path(&host_name, &current_user, &current_user);
-        }
-    }
-
-    let editor_path = match editor_path {
-        Some(path) => path,
-        None => editor_path_fallback()?,
+        sudoers.visudo_editor_path(&host_name, &current_user, &current_user)
+    } else {
+        // there is no /etc/sudoers config yet, so use a system default
+        PathBuf::from(if cfg!(target_os = "linux") {
+            "/usr/bin/editor"
+        } else {
+            "/usr/bin/vi"
+        })
     };
 
     loop {
         Command::new(&editor_path)
             .arg("--")
             .arg(tmp_path)
-            .spawn()?
+            .spawn()
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!(
+                        "specified editor ({}) could not be used",
+                        editor_path.display()
+                    ),
+                )
+            })?
             .wait_with_output()?;
 
         let (sudoers, errors) = File::open(tmp_path)
@@ -352,27 +359,6 @@ fn edit_sudoers_file(
     lock.unlock()?;
 
     Ok(())
-}
-
-fn editor_path_fallback() -> io::Result<PathBuf> {
-    let editors = if cfg!(target_os = "linux") {
-        &["/usr/bin/editor"][..]
-    } else if cfg!(target_os = "freebsd") {
-        &["/usr/bin/vi"]
-    } else {
-        unimplemented!("unknown default editor for target")
-    };
-    for &editor in editors {
-        let path = Path::new(editor);
-        if can_execute(path) {
-            return Ok(path.to_owned());
-        }
-    }
-
-    Err(io::Error::new(
-        io::ErrorKind::NotFound,
-        "cannot find text editor",
-    ))
 }
 
 // To detect potential lock-outs if the user called "sudo visudo".

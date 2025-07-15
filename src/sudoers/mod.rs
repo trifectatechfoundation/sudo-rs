@@ -290,32 +290,37 @@ impl Sudoers {
         user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd))
     }
 
-    pub(crate) fn solve_editor_path<User: UnixUser + PartialEq<User>>(
+    pub(crate) fn visudo_editor_path<User: UnixUser + PartialEq<User>>(
         mut self,
         on_host: &system::Hostname,
         am_user: &User,
         target_user: &User,
-    ) -> Option<PathBuf> {
+    ) -> PathBuf {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
         if self.settings.env_editor() {
             for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
                 if let Some(var) = std::env::var_os(key) {
                     let path = Path::new(&var);
                     if can_execute(path) {
-                        return Some(path.to_owned());
+                        return path.to_owned();
                     }
                     let path = resolve_path(
                         path,
                         &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
                     );
                     if let Some(path) = path {
-                        return Some(path);
+                        return path;
                     }
                 }
             }
         }
 
-        None
+        // fallback -- always provide an option to the caller
+        PathBuf::from(if cfg!(target_os = "linux") {
+            "/usr/bin/editor"
+        } else {
+            "/usr/bin/vi"
+        })
     }
 }
 
