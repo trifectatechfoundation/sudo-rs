@@ -23,6 +23,13 @@ pub enum SudoAction {
     Version(SudoVersionOptions),
 }
 
+pub(super) fn is_sudoedit(command_path: Option<String>) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+    std::path::Path::new(&command_path.unwrap_or_default())
+        .file_name()
+        .is_some_and(|name| name.as_bytes().starts_with(b"sudoedit"))
+}
+
 impl SudoAction {
     /// try to parse and environment variable assignment
     /// parse command line arguments from the environment and handle errors
@@ -631,11 +638,7 @@ impl SudoOptions {
     {
         let mut arg_iter = iter.into_iter().map(Into::into);
 
-        use std::os::unix::ffi::OsStrExt;
-
-        let invoked_as_sudoedit = std::path::Path::new(&arg_iter.next().unwrap_or_default())
-            .file_name()
-            .is_some_and(|name| name.as_bytes().starts_with(b"sudoedit"));
+        let invoked_as_sudoedit = is_sudoedit(arg_iter.next());
 
         let mut options = Self {
             edit: invoked_as_sudoedit,

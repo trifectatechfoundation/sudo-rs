@@ -68,7 +68,7 @@ fn sudo_process() -> Result<(), Error> {
 
     let usage_msg: &str;
     let long_help: fn() -> String;
-    if std::env::args().next().as_deref() == Some("sudoedit") {
+    if cli::is_sudoedit(std::env::args().next()) {
         usage_msg = cli::help_edit::USAGE_MSG;
         long_help = cli::help_edit::long_help_message;
     } else {
