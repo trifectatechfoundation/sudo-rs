@@ -345,11 +345,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
 
     // fallback on hardcoded path -- always provide something to the caller
 
-    PathBuf::from(if cfg!(target_os = "linux") {
-        "/usr/bin/editor"
-    } else {
-        "/usr/bin/vi"
-    })
+    PathBuf::from(defaults::SYSTEM_EDITOR)
 }
 
 // a `take_while` variant that does not consume the first non-matching item

@@ -273,11 +273,7 @@ fn edit_sudoers_file(
         sudoers.visudo_editor_path(&host_name, &current_user, &current_user)
     } else {
         // there is no /etc/sudoers config yet, so use a system default
-        PathBuf::from(if cfg!(target_os = "linux") {
-            "/usr/bin/editor"
-        } else {
-            "/usr/bin/vi"
-        })
+        PathBuf::from(crate::defaults::SYSTEM_EDITOR)
     };
 
     loop {
