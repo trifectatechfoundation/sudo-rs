@@ -196,12 +196,17 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         let tempfile_path = tempdir
             .0
             .join(file.path.file_name().expect("file must have filename"));
-        let mut tempfile = std::fs::File::create_new(&tempfile_path).map_err(|e| {
-            format!(
-                "Failed to create temporary file {}: {e}",
-                tempfile_path.display(),
-            )
-        })?;
+        let mut tempfile = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&tempfile_path)
+            .map_err(|e| {
+                format!(
+                    "Failed to create temporary file {}: {e}",
+                    tempfile_path.display(),
+                )
+            })?;
 
         // Write to temp file
         tempfile.write_all(&file.old_data).map_err(|e| {
@@ -236,7 +241,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         let tempfile_path = file.tempfile_path.as_ref().expect("filled in above");
 
         // Read from temp file
-        let new_data = std::fs::read(&tempfile_path).map_err(|e| {
+        let new_data = std::fs::read(tempfile_path).map_err(|e| {
             format!(
                 "Failed to read from temporary file {}: {e}",
                 tempfile_path.display(),
@@ -244,7 +249,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         })?;
 
         // FIXME preserve temporary file if the original couldn't be written to
-        std::fs::remove_file(&tempfile_path).map_err(|e| {
+        std::fs::remove_file(tempfile_path).map_err(|e| {
             format!(
                 "Failed to remove temporary file {}: {e}",
                 tempfile_path.display(),
