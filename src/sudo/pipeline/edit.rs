@@ -33,9 +33,16 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     let command_exit_reason = {
         super::log_command_execution(&context);
 
+        let editor = policy.preferred_editor();
+
         eprintln_ignore_io_error!(
-            "this would launch sudoedit as requested, to edit the files: {:?}",
-            context.files_to_edit.as_slice()
+            "this would launch sudoedit as requested, to edit the files: {:?} using editor {}",
+            context
+                .files_to_edit
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>(),
+            editor.display(),
         );
 
         Ok::<_, std::io::Error>(ExitReason::Code(42))

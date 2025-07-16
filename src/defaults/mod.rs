@@ -21,6 +21,12 @@ use settings_dsl::{
     result_of, storage_of,
 };
 
+pub const SYSTEM_EDITOR: &str = if cfg!(target_os = "linux") {
+    "/usr/bin/editor"
+} else {
+    "/usr/bin/vi"
+};
+
 defaults! {
     always_query_group_plugin = false  #ignored
     always_set_home           = false  #ignored
@@ -34,7 +40,6 @@ defaults! {
     use_pty                   = true
     visiblepw                 = false  #ignored
     pwfeedback                = false
-    env_editor                = true
     rootpw                    = false
     targetpw                  = false
     noexec                    = false
@@ -54,6 +59,9 @@ defaults! {
 
     passwd_timeout            = (5*60) (!= 0) {fractional_minutes}
     timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
+
+    editor                    = SYSTEM_EDITOR
+    env_editor                = true
 
     env_keep                  = ["COLORS", "DISPLAY", "HOSTNAME", "KRB5CCNAME", "LS_COLORS", "PATH",
                                  "PS1", "PS2", "XAUTHORITY", "XAUTHORIZATION", "XDG_CURRENT_DESKTOP"]

@@ -13,11 +13,11 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::common::resolve::resolve_path;
+use crate::common::resolve::{is_valid_executable, resolve_path};
 use crate::defaults;
 use crate::log::auth_warn;
+use crate::system;
 use crate::system::interface::{GroupId, UnixGroup, UnixUser, UserId};
-use crate::system::{self, can_execute};
 use ast::*;
 use tokens::*;
 
@@ -290,33 +290,62 @@ impl Sudoers {
         user_specs.flat_map(|cmd_specs| group_cmd_specs_per_runas(cmd_specs, &self.aliases.cmnd))
     }
 
-    pub(crate) fn solve_editor_path<User: UnixUser + PartialEq<User>>(
+    pub(crate) fn visudo_editor_path<User: UnixUser + PartialEq<User>>(
         mut self,
         on_host: &system::Hostname,
         am_user: &User,
         target_user: &User,
-    ) -> Option<PathBuf> {
+    ) -> PathBuf {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
-        if self.settings.env_editor() {
-            for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
-                if let Some(var) = std::env::var_os(key) {
-                    let path = Path::new(&var);
-                    if can_execute(path) {
-                        return Some(path.to_owned());
-                    }
-                    let path = resolve_path(
-                        path,
-                        &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
-                    );
-                    if let Some(path) = path {
-                        return Some(path);
-                    }
-                }
+
+        select_editor(&self.settings, self.settings.env_editor())
+    }
+}
+
+/// Retrieve the chosen editor from a settings object, filtering based on whether the
+/// environment is trusted (sudoedit) or maybe less so (visudo)
+fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
+    let blessed_editors = settings.editor();
+
+    let is_whitelisted = |path: &Path| -> bool {
+        trusted_env || blessed_editors.split(':').any(|x| Path::new(x) == path)
+    };
+
+    // find editor in environment, if possible
+
+    for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
+        if let Some(editor) = std::env::var_os(key) {
+            let editor = PathBuf::from(editor);
+
+            let editor = if is_valid_executable(&editor) {
+                editor
+            } else if let Some(editor) = resolve_path(
+                &editor,
+                &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
+            ) {
+                editor
+            } else {
+                continue;
+            };
+
+            if is_whitelisted(&editor) {
+                return editor;
             }
         }
-
-        None
     }
+
+    // no acceptable editor found in environment, fallback on config
+
+    for editor in blessed_editors.split(':') {
+        let editor = PathBuf::from(editor);
+        if is_valid_executable(&editor) {
+            return editor;
+        }
+    }
+
+    // fallback on hardcoded path -- always provide something to the caller
+
+    PathBuf::from(defaults::SYSTEM_EDITOR)
 }
 
 // a `take_while` variant that does not consume the first non-matching item

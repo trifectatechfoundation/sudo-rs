@@ -5,7 +5,6 @@ use crate::visudo::CHMOD_EXEC;
 use crate::visudo::{DEFAULT_EDITOR, LOGS_PATH};
 
 #[test]
-#[ignore = "gh657"]
 fn it_works() {
     let expected = "configured editor was called";
     let editor_path = "/usr/bin/my-editor";
@@ -28,7 +27,6 @@ echo '{expected}' >> {LOGS_PATH}"
 }
 
 #[test]
-#[ignore = "gh657"]
 fn fallback() {
     let expected = "configured editor was called";
     let editor_path = "/usr/bin/my-editor";
@@ -60,31 +58,45 @@ echo '{expected}' >> {LOGS_PATH}"
 }
 
 #[test]
-#[ignore = "gh657"]
 fn no_valid_editor_in_list() {
     let env = Env("Defaults editor=/dev/null").build();
 
     let output = Command::new("visudo").output(&env);
 
     output.assert_exit_code(1);
-    assert_eq!(
-        "visudo: no editor found (editor path = /dev/null)",
-        output.stderr()
-    );
+    if sudo_test::is_original_sudo() {
+        assert_eq!(
+            "visudo: no editor found (editor path = /dev/null)",
+            output.stderr()
+        );
+    } else {
+        // this output shows that visudo has rejected /dev/null as an editor
+        assert_eq!(
+            "visudo: specified editor (/usr/bin/editor) could not be used",
+            output.stderr()
+        );
+    }
 }
 
 #[test]
-#[ignore = "gh657"]
 fn editors_must_be_specified_by_absolute_path() {
     let env = Env("Defaults editor=true").build();
 
     let output = Command::new("visudo").output(&env);
 
     output.assert_exit_code(1);
-    assert_contains!(
-        output.stderr(),
-        "values for \"editor\" must start with a '/'"
-    );
+    if sudo_test::is_original_sudo() {
+        assert_contains!(
+            output.stderr(),
+            "values for \"editor\" must start with a '/'"
+        );
+    } else {
+        // this output shows that visudo has rejected /dev/null as an editor
+        assert_eq!(
+            "visudo: specified editor (/usr/bin/editor) could not be used",
+            output.stderr()
+        );
+    }
 }
 
 #[test]

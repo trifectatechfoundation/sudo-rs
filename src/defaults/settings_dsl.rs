@@ -4,7 +4,8 @@ macro_rules! storage_of {
     ($id:ident, [ $($value: expr),* ]) => { std::collections::HashSet<String> };
     ($id:ident, $(=int $check: expr;)+ $_: expr) => { i64 };
     ($id:ident, $(=enum $k: ident;)+ $_: ident) => { $crate::defaults::enums::$id };
-    ($id:ident, $_: expr) => { Option<Box<str>> };
+    ($id:ident, None) => { Option<Box<str>> };
+    ($id:ident, $_: expr) => { Box<str> };
 }
 
 macro_rules! referent_of {
@@ -13,7 +14,8 @@ macro_rules! referent_of {
     ($id:ident, [ $($value: expr),* ]) => { &std::collections::HashSet<String> };
     ($id:ident, $(=int $check: expr;)+ $_: expr) => { i64 };
     ($id:ident, $(=enum $k: ident;)+ $_: ident) => { $crate::defaults::enums::$id };
-    ($id:ident, $_: expr) => { Option<&str> };
+    ($id:ident, None) => { Option<&str> };
+    ($id:ident, $_: expr) => { &str };
 }
 
 macro_rules! initializer_of {
@@ -23,7 +25,7 @@ macro_rules! initializer_of {
     ($id:ident, $(=int $check: expr;)+ $value: expr) => { $value };
     ($id:ident, $(=enum $k: ident;)+ $value: ident) => { $crate::defaults::enums::$id::$value };
     ($id:ident, None) => { None };
-    ($id:ident, $value: expr) => { Some($value.into()) };
+    ($id:ident, $value: expr) => { $value.into() };
     ($id:ident, $($_: tt)*) => { return None };
 }
 
@@ -40,8 +42,11 @@ macro_rules! result_of {
     ($id:expr, $(=value $k: expr;)+ $_: expr) => {
         $id
     };
-    ($id:expr, $_: expr) => {
+    ($id:expr, None) => {
         $id.as_deref()
+    };
+    ($id:expr, $_: expr) => {
+        $id.as_ref()
     };
 }
 
@@ -103,7 +108,7 @@ macro_rules! modifier_of {
     ($id:ident, $value: expr) => {
         $crate::defaults::SettingKind::Text(|text| {
             let text = text.into();
-            Some(Box::new(move |obj: &mut Settings| obj.$id = Some(text)))
+            Some(Box::new(move |obj: &mut Settings| obj.$id = text))
         })
     };
 }

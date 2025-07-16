@@ -2,12 +2,12 @@
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    ffi::{c_int, c_uint, CStr, CString},
+    ffi::{c_int, c_uint, CStr},
     fmt, fs, io,
     mem::MaybeUninit,
     ops,
-    os::unix::{self, prelude::OsStrExt},
-    path::{Path, PathBuf},
+    os::unix,
+    path::PathBuf,
 };
 
 use crate::{
@@ -40,15 +40,6 @@ pub mod wait;
 
 #[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
 compile_error!("sudo-rs only works on Linux and FreeBSD");
-
-pub(crate) fn can_execute<P: AsRef<Path>>(path: P) -> bool {
-    let Ok(path) = CString::new(path.as_ref().as_os_str().as_bytes()) else {
-        return false;
-    };
-
-    // SAFETY: we are passing a proper pointer to access
-    unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 }
-}
 
 pub(crate) fn _exit(status: libc::c_int) -> ! {
     // SAFETY: this function is safe to call

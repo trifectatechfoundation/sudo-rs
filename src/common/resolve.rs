@@ -210,7 +210,7 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
     // replaced, or passed unchanged to the program that sudo executes.
 
     path.split(':')
-        .map(PathBuf::from)
+        .map(Path::new)
         // ignore all relative paths ("", "." or "./")
         .filter(|path| path.is_absolute())
         // construct a possible executable absolute path candidate
