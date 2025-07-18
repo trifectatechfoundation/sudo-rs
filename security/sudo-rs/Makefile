@@ -1,6 +1,7 @@
 PORTNAME=	sudo-rs
 PORTVERSION=	0.2.7
 DISTVERSIONPREFIX=	v
+PORTREVISION=	1
 CATEGORIES=	security
 
 MAINTAINER=	marc@trifectatech.org
@@ -24,7 +25,7 @@ GH_ACCOUNT=	trifectatechfoundation
 
 CARGO_CRATES=	diff-0.1.13 \
 		glob-0.3.2 \
-		libc-0.2.172 \
+		libc-0.2.174 \
 		log-0.4.27 \
 		pretty_assertions-1.4.1 \
 		yansi-1.0.1
