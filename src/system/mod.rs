@@ -792,9 +792,10 @@ impl Process {
         }
 
         let ki_start = ki_proc[0].ki_start;
+        #[allow(clippy::useless_conversion)]
         Ok(ProcessCreateTime::new(
-            ki_start.tv_sec,
-            ki_start.tv_usec * 1000,
+            i64::from(ki_start.tv_sec),
+            i64::from(ki_start.tv_usec) * 1000,
         ))
     }
 }
