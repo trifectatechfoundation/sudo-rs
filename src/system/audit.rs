@@ -1,7 +1,7 @@
 use std::ffi::{CStr, CString};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
-use std::os::fd::{AsRawFd, FromRawFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
 use std::os::unix::{
     ffi::OsStrExt,
     fs::{DirBuilderExt, MetadataExt, PermissionsExt},
@@ -115,7 +115,7 @@ fn secure_open_impl(
 }
 
 #[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
-fn open_at(parent: &File, file_name: &CStr, create: bool) -> io::Result<File> {
+fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<OwnedFd> {
     let flags = if create {
         libc::O_NOFOLLOW | libc::O_RDWR | libc::O_CREAT
     } else {
@@ -135,14 +135,14 @@ fn open_at(parent: &File, file_name: &CStr, create: bool) -> io::Result<File> {
             mode,
         ))?;
 
-        Ok(File::from_raw_fd(fd))
+        Ok(OwnedFd::from_raw_fd(fd))
     }
 }
 
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 /// This opens a file making sure that
 /// - no directory leading up to the file is editable by the user
 /// - no components are a symbolic link
+#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 fn traversed_secure_open(path: impl AsRef<Path>, user: &User) -> io::Result<File> {
     let path = path.as_ref();
 
@@ -191,11 +191,11 @@ fn traversed_secure_open(path: impl AsRef<Path>, user: &User) -> io::Result<File
             }
         };
 
-        cur = open_at(&cur, &dir, false)?;
+        cur = open_at(cur.as_fd(), &dir, false)?.into();
         user_cannot_write(&cur)?;
     }
 
-    cur = open_at(&cur, &CString::new(file_name.as_bytes())?, true)?;
+    cur = open_at(cur.as_fd(), &CString::new(file_name.as_bytes())?, true)?.into();
     user_cannot_write(&cur)?;
 
     Ok(cur)
