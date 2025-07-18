@@ -11,6 +11,35 @@ use std::path::{Component, Path};
 
 use super::{cerr, User};
 
+/// Temporary change privileges --- essentially a 'mini sudo'
+/// This is only used for sudoedit.
+#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
+pub fn sudo_call<T>(user: &User, operation: impl FnOnce() -> T) -> io::Result<T> {
+    // SAFETY: this function is always safe to call
+    let cur_euid = unsafe { libc::geteuid() };
+
+    fn seteuid(euid: libc::uid_t) -> io::Result<()> {
+        const KEEP: libc::uid_t = -1i32 as libc::uid_t;
+        // SAFETY: this function is always safe to call
+        cerr(unsafe { libc::setresuid(KEEP, euid, KEEP) }).map(|_| ())
+    }
+
+    struct ResetEuidGuard(libc::uid_t);
+    impl Drop for ResetEuidGuard {
+        fn drop(&mut self) {
+            seteuid(self.0).expect("could not restore to saved set-user-id");
+        }
+    }
+
+    let guard = ResetEuidGuard(cur_euid);
+
+    seteuid(user.uid.inner())?;
+    let result = operation();
+
+    std::mem::drop(guard);
+    Ok(result)
+}
+
 // of course we can also write "file & 0o040 != 0", but this makes the intent explicit
 enum Op {
     Read = 4,
