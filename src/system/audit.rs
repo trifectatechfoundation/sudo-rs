@@ -11,6 +11,7 @@ use std::os::unix::{
 use std::path::{Component, Path};
 
 use super::{cerr, Group, User};
+use crate::common::resolve::CurrentUser;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.
@@ -180,16 +181,19 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
 /// opening with reduced privileges.
 pub fn secure_open_for_sudoedit(
     path: impl AsRef<Path>,
-    user: &User,
-    group: &Group,
+    current_user: &CurrentUser,
+    target_user: &User,
+    target_group: &Group,
 ) -> io::Result<File> {
-    sudo_call(user, group, || traversed_secure_open(path, user))?
+    sudo_call(target_user, target_group, || {
+        traversed_secure_open(path, current_user)
+    })?
 }
 
 /// This opens a file making sure that
 /// - no directory leading up to the file is editable by the user
 /// - no components are a symbolic link
-fn traversed_secure_open(path: impl AsRef<Path>, user: &User) -> io::Result<File> {
+fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::Result<File> {
     let path = path.as_ref();
 
     let Some(file_name) = path.file_name() else {
@@ -209,8 +213,10 @@ fn traversed_secure_open(path: impl AsRef<Path>, user: &User) -> io::Result<File
         let perms = meta.permissions().mode();
 
         if perms & mode(Category::World, Op::Write) != 0
-            || (perms & mode(Category::Group, Op::Write) != 0) && user.gid.inner() == meta.gid()
-            || (perms & mode(Category::Owner, Op::Write) != 0) && user.uid.inner() == meta.uid()
+            || (perms & mode(Category::Group, Op::Write) != 0)
+                && forbidden_user.gid.inner() == meta.gid()
+            || (perms & mode(Category::Owner, Op::Write) != 0)
+                && forbidden_user.uid.inner() == meta.uid()
         {
             Err(io::Error::new(
                 ErrorKind::PermissionDenied,
