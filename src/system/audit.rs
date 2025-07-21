@@ -10,7 +10,7 @@ use std::os::unix::{
 };
 use std::path::{Component, Path};
 
-use super::{cerr, Group, GroupId, User, UserId};
+use super::{cerr, inject_group, Group, GroupId, User, UserId};
 use crate::common::resolve::CurrentUser;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
@@ -35,18 +35,8 @@ fn sudo_call<T>(
         buf
     };
 
-    let target_groups = {
-        let mut groups = target_user.groups.clone();
-        if let Some(index) = groups.iter().position(|id| id == &target_group.gid) {
-            // make sure the requested group id is the first in the list (necessary on FreeBSD)
-            groups.swap(0, index)
-        } else {
-            // add target group to list of additional groups if not present
-            groups.insert(0, target_group.gid);
-        }
-
-        groups
-    };
+    let mut target_groups = target_user.groups.clone();
+    inject_group(target_group.gid, &mut target_groups);
 
     fn switch_user(euid: UserId, egid: GroupId, groups: &[GroupId]) -> io::Result<()> {
         const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;

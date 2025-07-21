@@ -256,6 +256,17 @@ pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &CStr) {
     }
 }
 
+/// Makes sure that that the target is included in the groups, and is its first element
+fn inject_group(target: GroupId, groups: &mut Vec<GroupId>) {
+    if let Some(index) = groups.iter().position(|id| id == &target) {
+        // make sure the requested group id is the first in the list (necessary on FreeBSD)
+        groups.swap(0, index)
+    } else {
+        // add target group to list of additional groups if not present
+        groups.insert(0, target);
+    }
+}
+
 /// set target user and groups (uid, gid, additional groups) for a command
 pub fn set_target_user(
     cmd: &mut std::process::Command,
@@ -264,17 +275,7 @@ pub fn set_target_user(
 ) {
     use std::os::unix::process::CommandExt;
 
-    if let Some(index) = target_user
-        .groups
-        .iter()
-        .position(|id| id == &target_group.gid)
-    {
-        // make sure the requested group id is the first in the list (necessary on FreeBSD)
-        target_user.groups.swap(0, index)
-    } else {
-        // add target group to list of additional groups if not present
-        target_user.groups.insert(0, target_group.gid);
-    }
+    inject_group(target_group.gid, &mut target_user.groups);
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
