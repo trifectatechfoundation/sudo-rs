@@ -267,6 +267,15 @@ fn inject_group(target: GroupId, groups: &mut Vec<GroupId>) {
     }
 }
 
+/// Set the supplementary groups -- returns a c_int to mimic a libc function
+fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
+    // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
+    // We can cast to gid_t because `GroupId` is marked as transparent
+    cerr(unsafe { libc::setgroups(groups.len() as _, groups.as_ptr().cast::<libc::gid_t>()) })?;
+
+    Ok(())
+}
+
 /// set target user and groups (uid, gid, additional groups) for a command
 pub fn set_target_user(
     cmd: &mut std::process::Command,
@@ -283,11 +292,7 @@ pub fn set_target_user(
     // SAFETY: Setuid, setgid and setgroups are async-signal-safe.
     unsafe {
         cmd.pre_exec(move || {
-            cerr(libc::setgroups(
-                target_user.groups.len() as _,
-                // We can cast to gid_t because `GroupId` is marked as transparent
-                target_user.groups.as_ptr().cast::<libc::gid_t>(),
-            ))?;
+            set_supplementary_groups(&target_user.groups)?;
             // setgid and setuid set the real, effective and saved version of the gid and uid
             // respectively rather than just the real gid and uid. The original sudo uses setresgid
             // and setresuid instead with all three arguments equal, but as this does the same as

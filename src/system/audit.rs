@@ -10,7 +10,7 @@ use std::os::unix::{
 };
 use std::path::{Component, Path};
 
-use super::{cerr, inject_group, Group, GroupId, User, UserId};
+use super::{cerr, inject_group, set_supplementary_groups, Group, GroupId, User, UserId};
 use crate::common::resolve::CurrentUser;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
@@ -42,14 +42,7 @@ fn sudo_call<T>(
         const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;
         const KEEP_GID: libc::uid_t = -1i32 as libc::uid_t;
 
-        // SAFETY: this is passed a valid pointer to a piece of memory of the correct size
-        cerr(unsafe {
-            libc::setgroups(
-                groups.len() as _,
-                // We can cast to gid_t because `GroupId` is marked as transparent
-                groups.as_ptr().cast::<libc::gid_t>(),
-            )
-        })?;
+        set_supplementary_groups(groups)?;
         // SAFETY: this function is always safe to call
         cerr(unsafe { libc::setresgid(KEEP_UID, egid.inner(), KEEP_UID) })?;
         // SAFETY: this function is always safe to call
