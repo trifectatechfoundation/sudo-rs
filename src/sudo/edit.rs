@@ -114,6 +114,7 @@ pub(super) fn edit_files(editor: &Path, paths: &[&Path]) -> io::Result<ExitReaso
         }
     };
     assert!(status.did_exit());
+
     if let Some(signal) = status.term_signal() {
         return Ok(ExitReason::Signal(signal));
     } else if let Some(code) = status.exit_status() {
@@ -228,6 +229,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         )
         .status()
         .map_err(|e| format!("Failed to run editor {}: {e}", editor.display()))?;
+
     if !status.success() {
         drop(tempdir);
 
