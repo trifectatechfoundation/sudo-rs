@@ -10,30 +10,39 @@ use std::os::unix::{
 };
 use std::path::{Component, Path};
 
-use super::{cerr, User};
+use super::{cerr, Group, User};
 
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.
-fn sudo_call<T>(user: &User, operation: impl FnOnce() -> T) -> io::Result<T> {
-    // SAFETY: this function is always safe to call
-    let cur_euid = unsafe { libc::geteuid() };
+fn sudo_call<T>(user: &User, group: &Group, operation: impl FnOnce() -> T) -> io::Result<T> {
+    struct ResetUserGuard(libc::uid_t, libc::gid_t);
 
-    fn seteuid(euid: libc::uid_t) -> io::Result<()> {
-        const KEEP: libc::uid_t = -1i32 as libc::uid_t;
-        // SAFETY: this function is always safe to call
-        cerr(unsafe { libc::setresuid(KEEP, euid, KEEP) }).map(|_| ())
-    }
-
-    struct ResetEuidGuard(libc::uid_t);
-    impl Drop for ResetEuidGuard {
+    impl Drop for ResetUserGuard {
         fn drop(&mut self) {
-            seteuid(self.0).expect("could not restore to saved set-user-id");
+            forgetful_seteugid(self.0, self.1).expect("could not restore to saved user id");
         }
     }
 
-    let guard = ResetEuidGuard(cur_euid);
+    fn switch_user(euid: libc::uid_t, egid: libc::gid_t) -> io::Result<ResetUserGuard> {
+        // SAFETY: these functions are always safe to call
+        let guard = unsafe { ResetUserGuard(libc::geteuid(), libc::getegid()) };
+        forgetful_seteugid(euid, egid)?;
 
-    seteuid(user.uid.inner())?;
+        Ok(guard)
+    }
+
+    fn forgetful_seteugid(euid: libc::uid_t, egid: libc::gid_t) -> io::Result<()> {
+        const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;
+        const KEEP_GID: libc::uid_t = -1i32 as libc::uid_t;
+        // SAFETY: this function is always safe to call
+        cerr(unsafe { libc::setresgid(KEEP_UID, egid, KEEP_UID) })?;
+        // SAFETY: this function is always safe to call
+        cerr(unsafe { libc::setresuid(KEEP_GID, euid, KEEP_GID) })?;
+
+        Ok(())
+    }
+
+    let guard = switch_user(user.uid.inner(), group.gid.inner())?;
     let result = operation();
 
     std::mem::drop(guard);
@@ -169,8 +178,12 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
 
 /// This opens a file for sudoedit, performing security checks (see below) and
 /// opening with reduced privileges.
-pub fn secure_open_for_sudoedit(path: impl AsRef<Path>, user: &User) -> io::Result<File> {
-    sudo_call(user, || traversed_secure_open(path, user))?
+pub fn secure_open_for_sudoedit(
+    path: impl AsRef<Path>,
+    user: &User,
+    group: &Group,
+) -> io::Result<File> {
+    sudo_call(user, group, || traversed_secure_open(path, user))?
 }
 
 /// This opens a file making sure that

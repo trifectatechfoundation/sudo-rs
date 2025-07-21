@@ -27,7 +27,8 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     let mut opened_files = Vec::with_capacity(context.files_to_edit.len());
     for (path, arg) in context.files_to_edit.iter().zip(&context.command.arguments) {
         if let Some(path) = path {
-            match audit::secure_open_for_sudoedit(path, &context.target_user) {
+            match audit::secure_open_for_sudoedit(path, &context.target_user, &context.target_group)
+            {
                 Ok(file) => opened_files.push((path, file)),
                 Err(error) => eprintln_ignore_io_error!("error opening {arg}: {error}"),
             }
