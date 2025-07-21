@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 use std::ffi::{CStr, CString};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
@@ -13,8 +14,7 @@ use super::{cerr, User};
 
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
-pub fn sudo_call<T>(user: &User, operation: impl FnOnce() -> T) -> io::Result<T> {
+fn sudo_call<T>(user: &User, operation: impl FnOnce() -> T) -> io::Result<T> {
     // SAFETY: this function is always safe to call
     let cur_euid = unsafe { libc::geteuid() };
 
@@ -143,7 +143,6 @@ fn secure_open_impl(
     Ok(file)
 }
 
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<OwnedFd> {
     let flags = if create {
         libc::O_NOFOLLOW | libc::O_RDWR | libc::O_CREAT
@@ -168,10 +167,15 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
     }
 }
 
+/// This opens a file for sudoedit, performing security checks (see below) and
+/// opening with reduced privileges.
+pub fn secure_open_for_sudoedit(path: impl AsRef<Path>, user: &User) -> io::Result<File> {
+    sudo_call(user, || traversed_secure_open(path, user))?
+}
+
 /// This opens a file making sure that
 /// - no directory leading up to the file is editable by the user
 /// - no components are a symbolic link
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 fn traversed_secure_open(path: impl AsRef<Path>, user: &User) -> io::Result<File> {
     let path = path.as_ref();
 
