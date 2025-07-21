@@ -14,7 +14,6 @@ use crate::{
     common::{Error, SudoPath, SudoString},
     cutils::*,
 };
-pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
 use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
@@ -22,7 +21,7 @@ use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
 
-mod audit;
+pub(crate) mod audit;
 // generalized traits for when we want to hide implementations
 pub mod interface;
 

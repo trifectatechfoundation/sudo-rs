@@ -57,7 +57,7 @@ fn mode(who: Category, what: Op) -> u32 {
 }
 
 /// Open sudo configuration using various security checks
-pub fn secure_open(path: impl AsRef<Path>, check_parent_dir: bool) -> io::Result<File> {
+pub fn secure_open_sudoers(path: impl AsRef<Path>, check_parent_dir: bool) -> io::Result<File> {
     let mut open_options = OpenOptions::new();
     open_options.read(true);
 
@@ -238,24 +238,24 @@ mod test {
     fn secure_open_is_predictable() {
         // /etc/hosts should be readable and "secure" (if this test fails, you have been compromised)
         assert!(std::fs::File::open("/etc/hosts").is_ok());
-        assert!(secure_open("/etc/hosts", false).is_ok());
+        assert!(secure_open_sudoers("/etc/hosts", false).is_ok());
 
         // /tmp should be readable, but not secure (writeable by group other than root)
         assert!(std::fs::File::open("/tmp").is_ok());
-        assert!(secure_open("/tmp", false).is_err());
+        assert!(secure_open_sudoers("/tmp", false).is_err());
 
         #[cfg(target_os = "linux")]
         {
             // /var/log/wtmp should be readable, but not secure (writeable by group other than root)
             // It doesn't exist on many non-Linux systems however.
             if std::fs::File::open("/var/log/wtmp").is_ok() {
-                assert!(secure_open("/var/log/wtmp", false).is_err());
+                assert!(secure_open_sudoers("/var/log/wtmp", false).is_err());
             }
         }
 
         // /etc/shadow should not be readable
         assert!(std::fs::File::open("/etc/shadow").is_err());
-        assert!(secure_open("/etc/shadow", false).is_err());
+        assert!(secure_open_sudoers("/etc/shadow", false).is_err());
     }
 
     #[test]

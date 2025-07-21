@@ -16,8 +16,8 @@ use std::path::{Path, PathBuf};
 use crate::common::resolve::{is_valid_executable, resolve_path};
 use crate::defaults;
 use crate::log::auth_warn;
-use crate::system;
 use crate::system::interface::{GroupId, UnixGroup, UnixUser, UserId};
+use crate::system::{self, audit};
 use ast::*;
 use tokens::*;
 
@@ -399,12 +399,12 @@ fn read_sudoers<R: io::Read>(mut reader: R) -> io::Result<Vec<basic_parser::Pars
 }
 
 fn open_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
-    let source = crate::system::secure_open(path, false)?;
+    let source = audit::secure_open_sudoers(path, false)?;
     read_sudoers(source)
 }
 
 fn open_subsudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
-    let source = crate::system::secure_open(path, true)?;
+    let source = audit::secure_open_sudoers(path, true)?;
     read_sudoers(source)
 }
 
