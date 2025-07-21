@@ -35,17 +35,15 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
         let editor = policy.preferred_editor();
 
-        eprintln_ignore_io_error!(
-            "this would launch sudoedit as requested, to edit the files: {:?} using editor {}",
-            context
+        crate::sudo::edit::edit_files(
+            &editor,
+            &context
                 .files_to_edit
-                .into_iter()
+                .iter()
                 .flatten()
+                .map(|path| &**path)
                 .collect::<Vec<_>>(),
-            editor.display(),
-        );
-
-        Ok::<_, std::io::Error>(ExitReason::Code(42))
+        )
     };
 
     pam_context.close_session();
