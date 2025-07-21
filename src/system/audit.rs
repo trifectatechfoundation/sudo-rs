@@ -196,7 +196,7 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
             parent.as_raw_fd(),
             file_name.as_ptr(),
             flags,
-            mode,
+            libc::c_uint::from(mode),
         ))?;
 
         Ok(OwnedFd::from_raw_fd(fd))
