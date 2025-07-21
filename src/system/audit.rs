@@ -10,40 +10,83 @@ use std::os::unix::{
 };
 use std::path::{Component, Path};
 
-use super::{cerr, Group, User};
+use super::{cerr, Group, GroupId, User, UserId};
 use crate::common::resolve::CurrentUser;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.
-fn sudo_call<T>(user: &User, group: &Group, operation: impl FnOnce() -> T) -> io::Result<T> {
-    struct ResetUserGuard(libc::uid_t, libc::gid_t);
+fn sudo_call<T>(
+    target_user: &User,
+    target_group: &Group,
+    operation: impl FnOnce() -> T,
+) -> io::Result<T> {
+    let cur_groups = {
+        // SAFETY: calling with size 0 does not modify through the pointer, and is
+        // a documented way of getting the length needed.
+        let len = cerr(unsafe { libc::getgroups(0, std::ptr::null_mut()) })?;
 
-    impl Drop for ResetUserGuard {
-        fn drop(&mut self) {
-            forgetful_seteugid(self.0, self.1).expect("could not restore to saved user id");
+        let mut buf: Vec<GroupId> = vec![Default::default(); len as usize];
+        // SAFETY: we pass a correct pointer to a slice of the given length
+        cerr(unsafe {
+            // We can cast to gid_t because `GroupId` is marked as transparent
+            libc::getgroups(len, buf.as_mut_ptr().cast::<libc::gid_t>())
+        })?;
+
+        buf
+    };
+
+    let target_groups = {
+        let mut groups = target_user.groups.clone();
+        if let Some(index) = groups.iter().position(|id| id == &target_group.gid) {
+            // make sure the requested group id is the first in the list (necessary on FreeBSD)
+            groups.swap(0, index)
+        } else {
+            // add target group to list of additional groups if not present
+            groups.insert(0, target_group.gid);
         }
-    }
 
-    fn switch_user(euid: libc::uid_t, egid: libc::gid_t) -> io::Result<ResetUserGuard> {
-        // SAFETY: these functions are always safe to call
-        let guard = unsafe { ResetUserGuard(libc::geteuid(), libc::getegid()) };
-        forgetful_seteugid(euid, egid)?;
+        groups
+    };
 
-        Ok(guard)
-    }
-
-    fn forgetful_seteugid(euid: libc::uid_t, egid: libc::gid_t) -> io::Result<()> {
+    fn switch_user(euid: UserId, egid: GroupId, groups: &[GroupId]) -> io::Result<()> {
         const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;
         const KEEP_GID: libc::uid_t = -1i32 as libc::uid_t;
+
+        // SAFETY: this is passed a valid pointer to a piece of memory of the correct size
+        cerr(unsafe {
+            libc::setgroups(
+                groups.len() as _,
+                // We can cast to gid_t because `GroupId` is marked as transparent
+                groups.as_ptr().cast::<libc::gid_t>(),
+            )
+        })?;
         // SAFETY: this function is always safe to call
-        cerr(unsafe { libc::setresgid(KEEP_UID, egid, KEEP_UID) })?;
+        cerr(unsafe { libc::setresgid(KEEP_UID, egid.inner(), KEEP_UID) })?;
         // SAFETY: this function is always safe to call
-        cerr(unsafe { libc::setresuid(KEEP_GID, euid, KEEP_GID) })?;
+        cerr(unsafe { libc::setresuid(KEEP_GID, euid.inner(), KEEP_GID) })?;
 
         Ok(())
     }
 
-    let guard = switch_user(user.uid.inner(), group.gid.inner())?;
+    struct ResetUserGuard(UserId, GroupId, Vec<GroupId>);
+
+    impl Drop for ResetUserGuard {
+        fn drop(&mut self) {
+            switch_user(self.0, self.1, &self.2).expect("could not restore to saved user id");
+        }
+    }
+
+    // SAFETY: these libc functions are always safe to call
+    let guard = unsafe {
+        ResetUserGuard(
+            UserId::new(libc::geteuid()),
+            GroupId::new(libc::getegid()),
+            cur_groups,
+        )
+    };
+
+    switch_user(target_user.uid, target_group.gid, &target_groups)?;
+
     let result = operation();
 
     std::mem::drop(guard);
