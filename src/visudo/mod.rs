@@ -385,7 +385,7 @@ fn sudo_visudo_is_allowed(mut sudoers: Sudoers, host_name: &Hostname) -> Option<
 }
 
 // Make sure that the first valid response is the "safest" choice
-fn ask_response(prompt: &[u8], valid_responses: &[u8]) -> io::Result<u8> {
+pub(crate) fn ask_response(prompt: &[u8], valid_responses: &[u8]) -> io::Result<u8> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut stderr = io::stderr();
