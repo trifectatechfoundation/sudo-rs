@@ -20,12 +20,15 @@ fn sudo_call<T>(
     target_group: &Group,
     operation: impl FnOnce() -> T,
 ) -> io::Result<T> {
+    const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;
+    const KEEP_GID: libc::uid_t = -1i32 as libc::uid_t;
+
     let cur_groups = {
         // SAFETY: calling with size 0 does not modify through the pointer, and is
         // a documented way of getting the length needed.
         let len = cerr(unsafe { libc::getgroups(0, std::ptr::null_mut()) })?;
 
-        let mut buf: Vec<GroupId> = vec![Default::default(); len as usize];
+        let mut buf: Vec<GroupId> = vec![GroupId::new(KEEP_GID); len as usize];
         // SAFETY: we pass a correct pointer to a slice of the given length
         cerr(unsafe {
             // We can cast to gid_t because `GroupId` is marked as transparent
@@ -39,9 +42,6 @@ fn sudo_call<T>(
     inject_group(target_group.gid, &mut target_groups);
 
     fn switch_user(euid: UserId, egid: GroupId, groups: &[GroupId]) -> io::Result<()> {
-        const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;
-        const KEEP_GID: libc::uid_t = -1i32 as libc::uid_t;
-
         set_supplementary_groups(groups)?;
         // SAFETY: this function is always safe to call
         cerr(unsafe { libc::setresgid(KEEP_UID, egid.inner(), KEEP_UID) })?;

@@ -6,7 +6,7 @@ use std::{ffi::CStr, fmt::Display, num::ParseIntError, str::FromStr};
 /// type, so we can safely cast as a pointer.
 /// See the implementation in `system::mod::set_target_user`.
 #[repr(transparent)]
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GroupId(libc::gid_t);
 
 /// Represents a user ID in the system.
