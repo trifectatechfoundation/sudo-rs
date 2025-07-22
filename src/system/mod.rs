@@ -269,9 +269,16 @@ fn inject_group(target: GroupId, groups: &mut Vec<GroupId>) {
 
 /// Set the supplementary groups -- returns a c_int to mimic a libc function
 fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
+    // On FreeBSD, setgruops expects the size to be passed as a i32, so the below
+    // conversion protects a very extreme case of arithmetic conversion error
+    #[allow(irrefutable_let_patterns)]
+    #[allow(clippy::useless_conversion)]
+    let Ok(len) = groups.len().try_into() else {
+        return Err(io::Error::new(io::ErrorKind::Other, "too many groups"));
+    };
     // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
     // We can cast to gid_t because `GroupId` is marked as transparent
-    cerr(unsafe { libc::setgroups(groups.len() as _, groups.as_ptr().cast::<libc::gid_t>()) })?;
+    cerr(unsafe { libc::setgroups(len, groups.as_ptr().cast::<libc::gid_t>()) })?;
 
     Ok(())
 }
