@@ -616,11 +616,11 @@ fn match_group_alias(group: &impl UnixGroup) -> impl Fn(&UserSpecifier) -> bool 
 
 fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     text: &str,
-) -> (impl Fn(&T) -> bool + '_) {
+) -> impl Fn(&T) -> bool + '_ {
     move |token| token.as_str() == text
 }
 
-fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> (impl Fn(&Command) -> bool + 'a) {
+fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> impl Fn(&Command) -> bool + 'a {
     let opts = glob::MatchOptions {
         require_literal_separator: true,
         ..glob::MatchOptions::new()

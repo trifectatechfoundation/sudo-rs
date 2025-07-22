@@ -293,7 +293,7 @@ impl UserTerm {
 }
 
 impl AsFd for UserTerm {
-    fn as_fd(&self) -> BorrowedFd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
         self.tty.as_fd()
     }
 }

@@ -106,7 +106,7 @@ pub(crate) fn register_handlers<const N: usize>(
 }
 
 impl AsFd for SignalStream {
-    fn as_fd(&self) -> BorrowedFd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
         self.rx.as_fd()
     }
 }

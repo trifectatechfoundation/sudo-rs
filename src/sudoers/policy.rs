@@ -87,7 +87,7 @@ pub enum AuthenticatingUser {
 }
 
 impl Judgement {
-    pub fn authorization(&self) -> Authorization<Restrictions> {
+    pub fn authorization(&self) -> Authorization<Restrictions<'_>> {
         // NOTE: we should add conditional compilation to the DSL; this avoids getting
         // an unused warning message
         #[cfg(not(feature = "apparmor"))]
