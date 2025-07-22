@@ -3,7 +3,7 @@
 use std::fs::File;
 use std::io::{Read, Seek, Write};
 use std::net::Shutdown;
-use std::os::unix::{net::UnixStream, process::ExitStatusExt};
+use std::os::unix::{net::UnixStream, process::ExitStatusExt, fs::OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{io, process};
@@ -199,6 +199,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
             .read(true)
             .write(true)
             .create_new(true)
+            .mode(0o600)
             .open(&tempfile_path)
             .map_err(|e| {
                 format!(
