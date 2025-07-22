@@ -331,3 +331,71 @@ echo ' ' >> $1",
 
     Ok(())
 }
+
+#[test]
+fn known_under_many_names() {
+    for editor in ["sudoedit", "sudo -e", "sudo sudoedit"] {
+        let command = editor.split_whitespace().next().unwrap();
+        let mut args = editor.split_whitespace().skip(1).collect::<Vec<&str>>();
+        let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+            .user(USERNAME)
+            .file(
+                DEFAULT_EDITOR,
+                TextFile(format!(
+                    "#!/bin/sh
+
+echo '{editor}' > \"$1\""
+                ))
+                .chmod(CHMOD_EXEC),
+            )
+            .build();
+
+        args.push("/bin/foo.sh");
+
+        let output = Command::new(command)
+            .args(args)
+            .as_user(USERNAME)
+            .output(&env);
+
+        output.assert_success();
+        if editor == "sudo sudoedit" {
+            assert_contains!(output.stderr(), "sudoedit doesn't need to be run via sudo");
+        }
+
+        let actual = Command::new("cat").arg("/bin/foo.sh").output(&env).stdout();
+
+        assert_eq!(editor, actual);
+    }
+}
+
+#[test]
+fn sudoedit_under_many_names() {
+    for editor in ["sudoedit", "sudo -e", "sudo sudoedit"] {
+        let command = editor.split_whitespace().next().unwrap();
+        let mut args = editor.split_whitespace().skip(1).collect::<Vec<&str>>();
+        let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+            .user(USERNAME)
+            .file(
+                DEFAULT_EDITOR,
+                TextFile(format!(
+                    "#!/bin/sh
+
+echo '{editor}' > \"$1\""
+                ))
+                .chmod(CHMOD_EXEC),
+            )
+            .build();
+
+        args.push("/bin/foo.sh");
+
+        Command::new(command)
+            .args(args)
+            .as_user(USERNAME)
+            .output(&env)
+            .assert_success();
+
+        let actual = Command::new("cat").arg("/bin/foo.sh").output(&env).stdout();
+
+        assert_eq!(editor, actual);
+    }
+}
