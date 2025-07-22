@@ -258,13 +258,9 @@ fn temporary_file_is_deleted_when_done() {
 
 #[test]
 fn temporary_file_is_deleted_when_terminated_by_signal() {
-    for killer in [
-        include_str!("sudo/child_process/signal_handling/kill-sudo.sh"),
-        include_str!("sudo/child_process/signal_handling/kill-sudo-parent.sh"),
-    ] {
+    for victim in ["child", "parent"] {
         let kill_sudo = "/root/kill-sudo.sh";
-        let expected = SUDOERS_ALL_ALL_NOPASSWD;
-        let env = Env(expected)
+        let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
             .user(USERNAME)
             .file(
                 DEFAULT_EDITOR,
@@ -275,16 +271,16 @@ sleep 2",
                 )
                 .chmod(CHMOD_EXEC),
             )
-            .file(kill_sudo, killer)
+            .file(kill_sudo, include_str!("sudoedit/kill-sudoedit.sh"))
             .build();
 
-        let child = Command::new("sudo")
-            .args(["-e", ETC_SUDOERS])
+        let child = Command::new("sudoedit")
+            .arg(ETC_SUDOERS)
             .as_user(USERNAME)
             .spawn(&env);
 
         Command::new("sh")
-            .args([kill_sudo, "-TERM"])
+            .args([kill_sudo, victim, "-TERM"])
             .output(&env)
             .assert_success();
 
