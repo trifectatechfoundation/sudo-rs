@@ -11,8 +11,7 @@ use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
 use cli::SudoAction;
-use std::os::unix::ffi::OsStrExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 mod cli;
 pub(crate) use cli::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
@@ -112,47 +111,12 @@ fn sudo_process() -> Result<(), Error> {
                 if options.positional_args.is_empty() && !options.shell && !options.login {
                     eprintln_ignore_io_error!("{}", usage_msg);
                     std::process::exit(1);
+                } else {
+                    #[cfg(feature = "dev")]
+                    unstable_warning();
+
+                    pipeline::run(options)
                 }
-
-                if let Some(cmd) = options.positional_args.first() {
-                    let cmd = Path::new(cmd);
-                    // This checks if the last character in the path is a /. This
-                    // works because the OS directly splits at b'/' without regards
-                    // for if it is part of another character (which it can't be
-                    // with UTF-8 anyways).
-                    let is_dir = cmd.as_os_str().as_bytes().ends_with(b"/");
-                    if !is_dir && (cmd.ends_with("sudoedit") || cmd.ends_with("sudoedit-rs")) {
-                        eprintln_ignore_io_error!("sudoedit doesn't need to be run via sudo");
-                        #[cfg(feature = "sudoedit")]
-                        return pipeline::run_edit(SudoEditOptions {
-                            bell: options.bell,
-                            reset_timestamp: options.reset_timestamp,
-                            non_interactive: options.non_interactive,
-                            stdin: options.stdin,
-                            prompt: options.prompt,
-                            chdir: options.chdir,
-                            group: options.group,
-                            user: options.user,
-                            positional_args: {
-                                let mut args = options.positional_args;
-                                args.remove(0); // Remove the sudoedit command
-                                args
-                            },
-                        });
-                        #[cfg(not(feature = "sudoedit"))]
-                        {
-                            eprintln_ignore_io_error!(
-                                "error: `--edit` flag has not yet been implemented"
-                            );
-                            std::process::exit(1);
-                        }
-                    }
-                }
-
-                #[cfg(feature = "dev")]
-                unstable_warning();
-
-                pipeline::run(options)
             }
             SudoAction::List(options) => pipeline::run_list(options),
             #[cfg(feature = "sudoedit")]

@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use std::os::unix::ffi::OsStrExt;
 use std::{borrow::Cow, mem};
 
 use crate::common::{SudoPath, SudoString};
@@ -731,7 +732,24 @@ impl SudoOptions {
                 SudoArg::Environment(key, value) => {
                     options.env_var_list.push((key, value));
                 }
-                SudoArg::Rest(rest) => {
+                SudoArg::Rest(mut rest) => {
+                    if let Some(cmd) = rest.first() {
+                        let cmd = std::path::Path::new(cmd);
+                        // This checks if the last character in the path is a /. This
+                        // works because the OS directly splits at b'/' without regards
+                        // for if it is part of another character (which it can't be
+                        // with UTF-8 anyways).
+                        let is_dir = cmd.as_os_str().as_bytes().ends_with(b"/");
+                        if !options.edit
+                            && !is_dir
+                            && (cmd.ends_with("sudoedit") || cmd.ends_with("sudoedit-rs"))
+                        {
+                            eprintln_ignore_io_error!("sudoedit doesn't need to be run via sudo");
+                            options.edit = true;
+                            rest.remove(0);
+                        }
+                    }
+
                     options.positional_args = rest;
                 }
             }
