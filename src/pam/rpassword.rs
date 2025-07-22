@@ -316,7 +316,7 @@ impl Terminal<'_> {
         }
     }
 
-    fn source_timeout(&self, timeout: Option<Duration>) -> TimeoutRead {
+    fn source_timeout(&self, timeout: Option<Duration>) -> TimeoutRead<'_> {
         match self {
             Terminal::StdIE(stdin, _) => TimeoutRead::new(stdin.as_fd(), timeout),
             Terminal::Tty(file) => TimeoutRead::new(file.as_fd(), timeout),

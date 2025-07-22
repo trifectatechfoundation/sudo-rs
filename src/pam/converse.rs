@@ -107,7 +107,7 @@ pub struct CLIConverser {
 use rpassword::Terminal;
 
 impl CLIConverser {
-    fn open(&self) -> std::io::Result<Terminal> {
+    fn open(&self) -> std::io::Result<Terminal<'_>> {
         if self.use_stdin {
             Terminal::open_stdie()
         } else {

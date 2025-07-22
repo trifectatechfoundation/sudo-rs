@@ -87,7 +87,7 @@ impl<R: DeSerialize, W: DeSerialize> BinPipe<R, W> {
 }
 
 impl<R: DeSerialize, W: DeSerialize> AsFd for BinPipe<R, W> {
-    fn as_fd(&self) -> BorrowedFd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
         self.sock.as_fd()
     }
 }

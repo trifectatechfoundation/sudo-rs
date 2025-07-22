@@ -191,7 +191,7 @@ impl ParentBackchannel {
 }
 
 impl AsFd for ParentBackchannel {
-    fn as_fd(&self) -> BorrowedFd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
         self.socket.as_fd()
     }
 }
@@ -310,7 +310,7 @@ impl MonitorBackchannel {
 }
 
 impl AsFd for MonitorBackchannel {
-    fn as_fd(&self) -> BorrowedFd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
         self.socket.as_fd()
     }
 }

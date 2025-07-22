@@ -87,7 +87,7 @@ pub enum AuthenticatingUser {
 }
 
 impl Judgement {
-    pub fn authorization(&self) -> Authorization<Restrictions> {
+    pub fn authorization(&self) -> Authorization<Restrictions<'_>> {
         // NOTE: we should add conditional compilation to the DSL; this avoids getting
         // an unused warning message
         #[cfg(not(feature = "apparmor"))]
@@ -222,7 +222,7 @@ mod test {
             flags: Some(Tag::default()),
             ..Default::default()
         };
-        fn chdir(judge: &mut Judgement) -> DirChange {
+        fn chdir(judge: &mut Judgement) -> DirChange<'_> {
             let Authorization::Allowed(_, ctl) = judge.authorization() else {
                 panic!()
             };
