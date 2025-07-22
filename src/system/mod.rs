@@ -14,7 +14,6 @@ use crate::{
     common::{Error, SudoPath, SudoString},
     cutils::*,
 };
-pub use audit::secure_open;
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
 use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
@@ -22,7 +21,7 @@ use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
 
-mod audit;
+pub(crate) mod audit;
 // generalized traits for when we want to hide implementations
 pub mod interface;
 
@@ -257,6 +256,33 @@ pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &CStr) {
     }
 }
 
+/// Makes sure that that the target is included in the groups, and is its first element
+fn inject_group(target: GroupId, groups: &mut Vec<GroupId>) {
+    if let Some(index) = groups.iter().position(|id| id == &target) {
+        // make sure the requested group id is the first in the list (necessary on FreeBSD)
+        groups.swap(0, index)
+    } else {
+        // add target group to list of additional groups if not present
+        groups.insert(0, target);
+    }
+}
+
+/// Set the supplementary groups -- returns a c_int to mimic a libc function
+fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
+    // On FreeBSD, setgruops expects the size to be passed as a i32, so the below
+    // conversion protects a very extreme case of arithmetic conversion error
+    #[allow(irrefutable_let_patterns)]
+    #[allow(clippy::useless_conversion)]
+    let Ok(len) = groups.len().try_into() else {
+        return Err(io::Error::new(io::ErrorKind::Other, "too many groups"));
+    };
+    // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
+    // We can cast to gid_t because `GroupId` is marked as transparent
+    cerr(unsafe { libc::setgroups(len, groups.as_ptr().cast::<libc::gid_t>()) })?;
+
+    Ok(())
+}
+
 /// set target user and groups (uid, gid, additional groups) for a command
 pub fn set_target_user(
     cmd: &mut std::process::Command,
@@ -265,17 +291,7 @@ pub fn set_target_user(
 ) {
     use std::os::unix::process::CommandExt;
 
-    if let Some(index) = target_user
-        .groups
-        .iter()
-        .position(|id| id == &target_group.gid)
-    {
-        // make sure the requested group id is the first in the list (necessary on FreeBSD)
-        target_user.groups.swap(0, index)
-    } else {
-        // add target group to list of additional groups if not present
-        target_user.groups.insert(0, target_group.gid);
-    }
+    inject_group(target_group.gid, &mut target_user.groups);
 
     // we need to do this in a `pre_exec` call since the `groups` method in `process::Command` is unstable
     // see https://github.com/rust-lang/rust/blob/a01b4cc9f375f1b95fa8195daeea938d3d9c4c34/library/std/src/sys/unix/process/process_unix.rs#L329-L352
@@ -283,11 +299,7 @@ pub fn set_target_user(
     // SAFETY: Setuid, setgid and setgroups are async-signal-safe.
     unsafe {
         cmd.pre_exec(move || {
-            cerr(libc::setgroups(
-                target_user.groups.len() as _,
-                // We can cast to gid_t because `GroupId` is marked as transparent
-                target_user.groups.as_ptr().cast::<libc::gid_t>(),
-            ))?;
+            set_supplementary_groups(&target_user.groups)?;
             // setgid and setuid set the real, effective and saved version of the gid and uid
             // respectively rather than just the real gid and uid. The original sudo uses setresgid
             // and setresuid instead with all three arguments equal, but as this does the same as

@@ -4,6 +4,7 @@ use super::super::cli::SudoEditOptions;
 use crate::common::{Context, Error};
 use crate::exec::ExitReason;
 use crate::sudoers::Authorization;
+use crate::system::audit;
 
 pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     super::super::unstable_warning();
@@ -23,10 +24,26 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
     let pid = context.process.pid;
 
+    let mut opened_files = Vec::with_capacity(context.files_to_edit.len());
     for (path, arg) in context.files_to_edit.iter().zip(&context.command.arguments) {
-        if path.is_none() {
-            eprintln_ignore_io_error!("invalid path: {arg}")
+        if let Some(path) = path {
+            match audit::secure_open_for_sudoedit(
+                path,
+                &context.current_user,
+                &context.target_user,
+                &context.target_group,
+            ) {
+                Ok(file) => opened_files.push((path, file)),
+                Err(error) => eprintln_ignore_io_error!("error opening {arg}: {error}"),
+            }
+        } else {
+            eprintln_ignore_io_error!("invalid path: {arg}");
         }
+    }
+
+    if opened_files.len() != context.files_to_edit.len() {
+        eprintln_ignore_io_error!("please address the problems and try again");
+        return Ok(());
     }
 
     // run command and return corresponding exit code
@@ -35,15 +52,7 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
         let editor = policy.preferred_editor();
 
-        crate::sudo::edit::edit_files(
-            &editor,
-            &context
-                .files_to_edit
-                .iter()
-                .flatten()
-                .map(|path| &**path)
-                .collect::<Vec<_>>(),
-        )
+        crate::sudo::edit::edit_files(&editor, opened_files)
     };
 
     pam_context.close_session();

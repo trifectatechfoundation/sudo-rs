@@ -1,13 +1,14 @@
 #![allow(unsafe_code)]
 
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::{Read, Seek, Write};
 use std::net::Shutdown;
-use std::os::unix::{fs::OpenOptionsExt, net::UnixStream, process::ExitStatusExt};
+use std::os::unix::{net::UnixStream, process::ExitStatusExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{io, process};
 
+use crate::common::SudoPath;
 use crate::exec::ExitReason;
 use crate::system::file::{create_temporary_dir, FileLock};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
@@ -29,21 +30,13 @@ struct ChildFileInfo<'a> {
     new_data_tx: UnixStream,
 }
 
-pub(super) fn edit_files(editor: &Path, paths: &[&Path]) -> io::Result<ExitReason> {
+pub(super) fn edit_files(
+    editor: &Path,
+    selected_files: Vec<(&SudoPath, File)>,
+) -> io::Result<ExitReason> {
     let mut files = vec![];
     let mut child_files = vec![];
-    for path in paths {
-        // Open file
-        let mut file: File = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .custom_flags(libc::O_NOFOLLOW)
-            .open(path)
-            .map_err(|e| {
-                io::Error::new(e.kind(), format!("Failed to open {}: {e}", path.display()))
-            })?;
-
+    for (path, mut file) in selected_files {
         // Error for special files
         let metadata = file.metadata().map_err(|e| {
             io::Error::new(

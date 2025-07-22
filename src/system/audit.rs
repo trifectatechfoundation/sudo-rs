@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 use std::ffi::{CStr, CString};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
@@ -9,7 +10,71 @@ use std::os::unix::{
 };
 use std::path::{Component, Path};
 
-use super::{cerr, User};
+use super::{cerr, inject_group, set_supplementary_groups, Group, GroupId, User, UserId};
+use crate::common::resolve::CurrentUser;
+
+/// Temporary change privileges --- essentially a 'mini sudo'
+/// This is only used for sudoedit.
+fn sudo_call<T>(
+    target_user: &User,
+    target_group: &Group,
+    operation: impl FnOnce() -> T,
+) -> io::Result<T> {
+    const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;
+    const KEEP_GID: libc::uid_t = -1i32 as libc::uid_t;
+
+    let cur_groups = {
+        // SAFETY: calling with size 0 does not modify through the pointer, and is
+        // a documented way of getting the length needed.
+        let len = cerr(unsafe { libc::getgroups(0, std::ptr::null_mut()) })?;
+
+        let mut buf: Vec<GroupId> = vec![GroupId::new(KEEP_GID); len as usize];
+        // SAFETY: we pass a correct pointer to a slice of the given length
+        cerr(unsafe {
+            // We can cast to gid_t because `GroupId` is marked as transparent
+            libc::getgroups(len, buf.as_mut_ptr().cast::<libc::gid_t>())
+        })?;
+
+        buf
+    };
+
+    let mut target_groups = target_user.groups.clone();
+    inject_group(target_group.gid, &mut target_groups);
+
+    fn switch_user(euid: UserId, egid: GroupId, groups: &[GroupId]) -> io::Result<()> {
+        set_supplementary_groups(groups)?;
+        // SAFETY: this function is always safe to call
+        cerr(unsafe { libc::setresgid(KEEP_UID, egid.inner(), KEEP_UID) })?;
+        // SAFETY: this function is always safe to call
+        cerr(unsafe { libc::setresuid(KEEP_GID, euid.inner(), KEEP_GID) })?;
+
+        Ok(())
+    }
+
+    struct ResetUserGuard(UserId, GroupId, Vec<GroupId>);
+
+    impl Drop for ResetUserGuard {
+        fn drop(&mut self) {
+            switch_user(self.0, self.1, &self.2).expect("could not restore to saved user id");
+        }
+    }
+
+    // SAFETY: these libc functions are always safe to call
+    let guard = unsafe {
+        ResetUserGuard(
+            UserId::new(libc::geteuid()),
+            GroupId::new(libc::getegid()),
+            cur_groups,
+        )
+    };
+
+    switch_user(target_user.uid, target_group.gid, &target_groups)?;
+
+    let result = operation();
+
+    std::mem::drop(guard);
+    Ok(result)
+}
 
 // of course we can also write "file & 0o040 != 0", but this makes the intent explicit
 enum Op {
@@ -28,7 +93,7 @@ fn mode(who: Category, what: Op) -> u32 {
 }
 
 /// Open sudo configuration using various security checks
-pub fn secure_open(path: impl AsRef<Path>, check_parent_dir: bool) -> io::Result<File> {
+pub fn secure_open_sudoers(path: impl AsRef<Path>, check_parent_dir: bool) -> io::Result<File> {
     let mut open_options = OpenOptions::new();
     open_options.read(true);
 
@@ -114,7 +179,6 @@ fn secure_open_impl(
     Ok(file)
 }
 
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<OwnedFd> {
     let flags = if create {
         libc::O_NOFOLLOW | libc::O_RDWR | libc::O_CREAT
@@ -132,18 +196,30 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
             parent.as_raw_fd(),
             file_name.as_ptr(),
             flags,
-            mode,
+            libc::c_uint::from(mode),
         ))?;
 
         Ok(OwnedFd::from_raw_fd(fd))
     }
 }
 
+/// This opens a file for sudoedit, performing security checks (see below) and
+/// opening with reduced privileges.
+pub fn secure_open_for_sudoedit(
+    path: impl AsRef<Path>,
+    current_user: &CurrentUser,
+    target_user: &User,
+    target_group: &Group,
+) -> io::Result<File> {
+    sudo_call(target_user, target_group, || {
+        traversed_secure_open(path, current_user)
+    })?
+}
+
 /// This opens a file making sure that
 /// - no directory leading up to the file is editable by the user
 /// - no components are a symbolic link
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
-fn traversed_secure_open(path: impl AsRef<Path>, user: &User) -> io::Result<File> {
+fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::Result<File> {
     let path = path.as_ref();
 
     let Some(file_name) = path.file_name() else {
@@ -163,8 +239,10 @@ fn traversed_secure_open(path: impl AsRef<Path>, user: &User) -> io::Result<File
         let perms = meta.permissions().mode();
 
         if perms & mode(Category::World, Op::Write) != 0
-            || (perms & mode(Category::Group, Op::Write) != 0) && user.gid.inner() == meta.gid()
-            || (perms & mode(Category::Owner, Op::Write) != 0) && user.uid.inner() == meta.uid()
+            || (perms & mode(Category::Group, Op::Write) != 0)
+                && forbidden_user.gid.inner() == meta.gid()
+            || (perms & mode(Category::Owner, Op::Write) != 0)
+                && forbidden_user.uid.inner() == meta.uid()
         {
             Err(io::Error::new(
                 ErrorKind::PermissionDenied,
@@ -209,24 +287,24 @@ mod test {
     fn secure_open_is_predictable() {
         // /etc/hosts should be readable and "secure" (if this test fails, you have been compromised)
         assert!(std::fs::File::open("/etc/hosts").is_ok());
-        assert!(secure_open("/etc/hosts", false).is_ok());
+        assert!(secure_open_sudoers("/etc/hosts", false).is_ok());
 
         // /tmp should be readable, but not secure (writeable by group other than root)
         assert!(std::fs::File::open("/tmp").is_ok());
-        assert!(secure_open("/tmp", false).is_err());
+        assert!(secure_open_sudoers("/tmp", false).is_err());
 
         #[cfg(target_os = "linux")]
         {
             // /var/log/wtmp should be readable, but not secure (writeable by group other than root)
             // It doesn't exist on many non-Linux systems however.
             if std::fs::File::open("/var/log/wtmp").is_ok() {
-                assert!(secure_open("/var/log/wtmp", false).is_err());
+                assert!(secure_open_sudoers("/var/log/wtmp", false).is_err());
             }
         }
 
         // /etc/shadow should not be readable
         assert!(std::fs::File::open("/etc/shadow").is_err());
-        assert!(secure_open("/etc/shadow", false).is_err());
+        assert!(secure_open_sudoers("/etc/shadow", false).is_err());
     }
 
     #[test]
