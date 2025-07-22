@@ -20,8 +20,8 @@ fn sudo_call<T>(
     target_group: &Group,
     operation: impl FnOnce() -> T,
 ) -> io::Result<T> {
-    const KEEP_UID: libc::gid_t = -1i32 as libc::gid_t;
-    const KEEP_GID: libc::uid_t = -1i32 as libc::uid_t;
+    const KEEP_UID: libc::uid_t = -1i32 as libc::uid_t;
+    const KEEP_GID: libc::gid_t = -1i32 as libc::gid_t;
 
     let cur_groups = {
         // SAFETY: calling with size 0 does not modify through the pointer, and is
