@@ -399,3 +399,38 @@ echo '{editor}' > \"$1\""
         assert_eq!(editor, actual);
     }
 }
+
+#[test]
+fn multiple_files() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+
+for f in \"$@\"
+do echo \"$f\" > \"$f\"
+done",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build();
+
+    let files = ["/bin/foo", "/bin/bar"]; //, "/bin/bar", "/bin/baz"];
+
+    Command::new("sudoedit")
+        .args(files)
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    for file in files {
+        let actual = Command::new("cat").arg(file).output(&env).stdout();
+
+        assert_starts_with!(
+            actual[actual.rfind('/').unwrap()..],
+            file[file.rfind('/').unwrap()..]
+        );
+    }
+}
