@@ -37,7 +37,7 @@ log = { version = "0.4.11", features = ["std"] }
 pretty_assertions = "1.2.1"
 
 [features]
-default = []
+default = ["sudoedit"]
 
 # when enabled, use "sudo-i" PAM service name for sudo -i instead of "sudo"
 # ONLY ENABLE THIS FEATURE if you know that original sudo uses "sudo-i"
