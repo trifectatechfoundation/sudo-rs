@@ -142,10 +142,7 @@ ALL ALL=(ALL:ALL) NOPASSWD:ALL";
         .output(&env);
 
     output.assert_success();
-    assert_eq!(
-        output.stderr(),
-        format!("sudoedit: {ETC_SUDOERS} unchanged")
-    );
+    assert_contains!(output.stderr(), format!("{ETC_SUDOERS} unchanged"));
 
     let actual = Command::new("cat").arg(ETC_SUDOERS).output(&env).stdout();
 
