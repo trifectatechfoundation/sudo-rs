@@ -154,7 +154,7 @@ struct TempDirDropGuard(PathBuf);
 
 impl Drop for TempDirDropGuard {
     fn drop(&mut self) {
-        if let Err(e) = std::fs::remove_dir(&self.0) {
+        if let Err(e) = std::fs::remove_dir_all(&self.0) {
             eprintln_ignore_io_error!(
                 "Failed to remove temporary directory {}: {e}",
                 self.0.display(),
@@ -185,11 +185,16 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         create_temporary_dir().map_err(|e| format!("Failed to create temporary directory: {e}"))?,
     );
 
-    for file in &mut files {
+    for (i, file) in files.iter_mut().enumerate() {
         // Create temp file
-        let tempfile_path = tempdir
-            .0
-            .join(file.path.file_name().expect("file must have filename"));
+        let dir = tempdir.0.join(format!("{i}"));
+        std::fs::create_dir(&dir).map_err(|e| {
+            format!(
+                "Failed to create temporary directory {}: {e}",
+                dir.display(),
+            )
+        })?;
+        let tempfile_path = dir.join(file.path.file_name().expect("file must have filename"));
         let mut tempfile = std::fs::OpenOptions::new()
             .read(true)
             .write(true)
