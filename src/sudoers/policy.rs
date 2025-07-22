@@ -222,7 +222,7 @@ mod test {
             flags: Some(Tag::default()),
             ..Default::default()
         };
-        fn chdir(judge: &mut Judgement) -> DirChange {
+        fn chdir(judge: &mut Judgement) -> DirChange<'_> {
             let Authorization::Allowed(_, ctl) = judge.authorization() else {
                 panic!()
             };
