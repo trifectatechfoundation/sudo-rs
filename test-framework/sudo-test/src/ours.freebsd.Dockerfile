@@ -5,7 +5,8 @@ COPY target/build build
 # set setuid on install
 RUN install -m 4755 build/sudo /usr/local/bin/sudo && \
     install -m 4755 build/su /usr/bin/su && \
-    install -m 755 build/visudo /usr/local/sbin/visudo
+    install -m 755 build/visudo /usr/local/sbin/visudo && \
+    ln -s /usr/local/bin/sudo /usr/local/bin/sudoedit
 # `apt-get install sudo` creates this directory; creating it in the image saves us the work of creating it in each compliance test
 RUN mkdir -p /usr/local/etc/sudoers.d
 # Ensure we use the same shell across OSes

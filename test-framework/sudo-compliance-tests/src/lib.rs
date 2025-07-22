@@ -8,6 +8,7 @@ mod macros;
 mod helpers;
 mod su;
 mod sudo;
+mod sudoedit;
 mod visudo;
 
 type Error = Box<dyn std::error::Error>;

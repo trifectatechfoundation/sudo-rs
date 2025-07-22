@@ -10,7 +10,8 @@ RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --featur
 # set setuid on install
 RUN install -m 4755 build/sudo /usr/bin/sudo && \
     install -m 4755 build/su /usr/bin/su && \
-    install -m 755 build/visudo /usr/sbin/visudo
+    install -m 755 build/visudo /usr/sbin/visudo && \
+    ln -s /usr/bin/sudo /usr/bin/sudoedit
 # `apt-get install sudo` creates this directory; creating it in the image saves us the work of creating it in each compliance test
 RUN mkdir -p /etc/sudoers.d
 # Ensure we use the same shell across OSes
