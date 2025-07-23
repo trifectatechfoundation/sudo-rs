@@ -43,7 +43,7 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
     if opened_files.len() != context.files_to_edit.len() {
         eprintln_ignore_io_error!("please address the problems and try again");
-        return Ok(());
+        return Err(Error::Silent);
     }
 
     // run command and return corresponding exit code
