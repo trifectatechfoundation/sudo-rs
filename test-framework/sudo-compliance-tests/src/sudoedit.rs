@@ -128,7 +128,7 @@ ALL ALL=(ALL:ALL) NOPASSWD:ALL";
             DEFAULT_EDITOR,
             TextFile(
                 "#!/bin/sh
-                 touch \"$1\"",
+                 true",
             )
             .chmod(CHMOD_EXEC),
         )

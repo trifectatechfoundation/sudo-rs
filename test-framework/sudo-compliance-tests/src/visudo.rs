@@ -200,7 +200,7 @@ fn stderr_message_when_file_is_not_modified() {
             DEFAULT_EDITOR,
             TextFile(
                 "#!/bin/sh
-                 touch \"$2\"",
+                 true",
             )
             .chmod(CHMOD_EXEC),
         )
