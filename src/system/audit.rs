@@ -41,21 +41,19 @@ fn sudo_call<T>(
     let mut target_groups = target_user.groups.clone();
     inject_group(target_group.gid, &mut target_groups);
 
-    fn switch_user(euid: UserId, egid: GroupId, groups: &[GroupId]) -> io::Result<()> {
-        set_supplementary_groups(groups)?;
-        // SAFETY: this function is always safe to call
-        cerr(unsafe { libc::setresgid(KEEP_UID, egid.inner(), KEEP_UID) })?;
-        // SAFETY: this function is always safe to call
-        cerr(unsafe { libc::setresuid(KEEP_GID, euid.inner(), KEEP_GID) })?;
-
-        Ok(())
-    }
-
     struct ResetUserGuard(UserId, GroupId, Vec<GroupId>);
 
     impl Drop for ResetUserGuard {
         fn drop(&mut self) {
-            switch_user(self.0, self.1, &self.2).expect("could not restore to saved user id");
+            // restore privileges in reverse order
+            (|| {
+                // SAFETY: this function is always safe to call
+                cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&self.0), KEEP_UID) })?;
+                // SAFETY: this function is always safe to call
+                cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&self.1), KEEP_GID) })?;
+                set_supplementary_groups(&self.2)
+            })()
+            .expect("could not restore to saved user id");
         }
     }
 
@@ -68,7 +66,11 @@ fn sudo_call<T>(
         )
     };
 
-    switch_user(target_user.uid, target_group.gid, &target_groups)?;
+    set_supplementary_groups(&target_groups)?;
+    // SAFETY: this function is always safe to call
+    cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&target_group.gid), KEEP_GID) })?;
+    // SAFETY: this function is always safe to call
+    cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&target_user.uid), KEEP_UID) })?;
 
     let result = operation();
 
