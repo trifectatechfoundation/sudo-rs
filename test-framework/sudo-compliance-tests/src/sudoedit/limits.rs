@@ -1,6 +1,6 @@
 use sudo_test::{Command, Directory, Env, TextFile, ROOT_GROUP};
 
-use crate::{DEFAULT_EDITOR, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{DEFAULT_EDITOR, OTHER_USERNAME, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 const CHMOD_EXEC: &str = "555";
 const EDITOR_DUMMY: &str = "#!/bin/sh
@@ -57,4 +57,87 @@ fn cannot_edit_symlinks() {
     assert_contains!(output.stderr(), "editing symbolic links is not permitted");
 
     output.assert_exit_code(1);
+}
+
+#[test]
+fn cannot_edit_files_target_user_cannot_access() {
+    let file = "/test.txt";
+
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .user(OTHER_USERNAME)
+        .group(USERNAME)
+        .group(OTHER_USERNAME)
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
+        .file(
+            file,
+            TextFile("")
+                .chown(format!("{USERNAME}:{ROOT_GROUP}"))
+                .chmod("460"),
+        )
+        .build();
+
+    let test_cases = [
+        // incorrect user
+        &["-u", OTHER_USERNAME][..],
+        // correct user, but does not have write permits
+        &["-u", USERNAME][..],
+        // incorrect group
+        &["-u", OTHER_USERNAME, "-g", USERNAME][..],
+        // group permission doesn't override matching user permissions
+        &["-u", USERNAME, "-g", ROOT_GROUP][..],
+        &["-g", ROOT_GROUP][..],
+    ];
+
+    for args in test_cases {
+        let output = Command::new("sudoedit")
+            .args(args)
+            .arg(file)
+            .as_user(USERNAME)
+            .output(&env);
+
+        assert_contains!(output.stderr(), "Permission denied");
+        output.assert_exit_code(1);
+    }
+}
+
+#[test]
+fn can_edit_files_target_user_or_group_can_access() {
+    // note: we already have tests that sudoedit "works" so we are skipping
+    // the content check here---the point here is that sudoedit does not stop
+    // the user.
+
+    let file = "/test.txt";
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .user(OTHER_USERNAME)
+        .group(OTHER_USERNAME)
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
+        .file(
+            file,
+            TextFile("")
+                .chown(format!("{OTHER_USERNAME}:{OTHER_USERNAME}"))
+                .chmod("660"),
+        )
+        .build();
+
+    for user in ["root", OTHER_USERNAME] {
+        Command::new("sudoedit")
+            .args(["-u", user, file])
+            .as_user(USERNAME)
+            .output(&env)
+            .assert_success();
+    }
+
+    Command::new("sudoedit")
+        .args(["-g", OTHER_USERNAME, file])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    Command::new("sudoedit")
+        .args(["-u", USERNAME, "-g", OTHER_USERNAME, file])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
 }
