@@ -24,7 +24,7 @@ fn prompt_is_printed_to_stdout() {
     let output = Command::new("visudo").output(&env);
 
     output.assert_success();
-    assert!(output.stdout_unchecked().starts_with("What now?"));
+    assert!(output.stdout().starts_with("What now?"));
 }
 
 #[test]
