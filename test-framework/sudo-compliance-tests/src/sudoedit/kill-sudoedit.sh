@@ -16,11 +16,7 @@ case "$target" in
     sudopid=$(pidof sudoedit | tr ' ' '\n' | sort -g | head -n1);;
 
   editor)
-    # same logic as before; but the most recent 'sh' instance will be
-    # the subshell spawned, so we take the second-most-recent 'sh' to be
-    # the editor; a better way would be to ps aux | grep, but this works
-    # for now.
-    sudopid=$(pidof sh | tr ' ' '\n' | sort -gr | sed -n 2p);;
+    sudopid=$(ps ax | awk '/bin\/sh \/usr\/bin\/(editor|vi)/ {print $1}');;
 esac
 
 if [ -n "$sudopid" ]; then
