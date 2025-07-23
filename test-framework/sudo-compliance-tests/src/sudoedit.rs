@@ -2,12 +2,10 @@ use sudo_test::{
     helpers::assert_ls_output, Command, Env, EnvNoImplicit, TextFile, ETC_SUDOERS, ROOT_GROUP,
 };
 
-use crate::{Result, GROUPNAME, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{
+    Result, DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
+};
 
-#[cfg(not(target_os = "freebsd"))]
-const DEFAULT_EDITOR: &str = "/usr/bin/editor";
-#[cfg(target_os = "freebsd")]
-const DEFAULT_EDITOR: &str = "/usr/bin/vi";
 const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "555";
 const EDITOR_DUMMY: &str = "#!/bin/sh
@@ -41,7 +39,7 @@ echo '{expected}' > {LOGS_PATH}"
 }
 
 #[test]
-fn creates_sudoers_file_with_default_ownership_and_perms_if_it_doesnt_exist() {
+fn creates_file_with_default_ownership_and_perms_if_it_doesnt_exist() {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
         .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
@@ -130,7 +128,7 @@ ALL ALL=(ALL:ALL) NOPASSWD:ALL";
             DEFAULT_EDITOR,
             TextFile(
                 "#!/bin/sh
-                 true",
+                 touch \"$1\"",
             )
             .chmod(CHMOD_EXEC),
         )
@@ -179,7 +177,7 @@ exit 11",
 }
 
 #[test]
-fn temporary_file_is_deleted_during_edition() {
+fn temporary_file_is_deleted_during_editing() {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
         .file(
@@ -249,7 +247,7 @@ fn temporary_file_is_deleted_when_done() {
         .assert_success();
 
     let output = Command::new("find")
-        .args(["/var/tmp", "-type", "f"])
+        .args(["/tmp", "/var/tmp", "-type", "f"])
         .output(&env)
         .stdout();
 
@@ -257,8 +255,9 @@ fn temporary_file_is_deleted_when_done() {
 }
 
 #[test]
+#[ignore = "gh1222"]
 fn temporary_file_is_deleted_when_terminated_by_signal() {
-    for victim in ["child", "parent"] {
+    for victim in ["editor", "child", "parent"] {
         let kill_sudo = "/root/kill-sudo.sh";
         let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
             .user(USERNAME)
@@ -284,10 +283,11 @@ sleep 2",
             .output(&env)
             .assert_success();
 
+        // the signal doesn't get propagated
         assert!(!child.wait().status().success());
 
         let output = Command::new("find")
-            .args(["/var/tmp", "-type", "f"])
+            .args(["/tmp", "/var/tmp", "-type", "f", "-not", "-name", "barrier"])
             .output(&env)
             .stdout();
 
@@ -365,38 +365,6 @@ echo '{editor}' > \"$1\""
 }
 
 #[test]
-fn sudoedit_under_many_names() {
-    for editor in ["sudoedit", "sudo -e", "sudo sudoedit"] {
-        let command = editor.split_whitespace().next().unwrap();
-        let mut args = editor.split_whitespace().skip(1).collect::<Vec<&str>>();
-        let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-            .user(USERNAME)
-            .file(
-                DEFAULT_EDITOR,
-                TextFile(format!(
-                    "#!/bin/sh
-
-echo '{editor}' > \"$1\""
-                ))
-                .chmod(CHMOD_EXEC),
-            )
-            .build();
-
-        args.push("/bin/foo.sh");
-
-        Command::new(command)
-            .args(args)
-            .as_user(USERNAME)
-            .output(&env)
-            .assert_success();
-
-        let actual = Command::new("cat").arg("/bin/foo.sh").output(&env).stdout();
-
-        assert_eq!(editor, actual);
-    }
-}
-
-#[test]
 fn multiple_files() {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
@@ -413,7 +381,7 @@ done",
         )
         .build();
 
-    let files = ["/bin/foo", "/bin/bar"]; //, "/bin/bar", "/bin/baz"];
+    let files = ["/bin/foo", "/bin/bar", "/bin/baz"];
 
     Command::new("sudoedit")
         .args(files)

@@ -5,7 +5,7 @@ use sudo_test::{
     ROOT_GROUP,
 };
 
-use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{Result, DEFAULT_EDITOR, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
 
 mod flag_check;
 mod flag_file;
@@ -33,10 +33,6 @@ macro_rules! assert_snapshot {
 }
 
 const TMP_SUDOERS: &str = "/tmp/sudoers";
-#[cfg(not(target_os = "freebsd"))]
-const DEFAULT_EDITOR: &str = "/usr/bin/editor";
-#[cfg(target_os = "freebsd")]
-const DEFAULT_EDITOR: &str = "/usr/bin/vi";
 const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "100";
 const EDITOR_DUMMY: &str = "#!/bin/sh
@@ -204,7 +200,7 @@ fn stderr_message_when_file_is_not_modified() {
             DEFAULT_EDITOR,
             TextFile(
                 "#!/bin/sh
-                 true",
+                 touch \"$2\"",
             )
             .chmod(CHMOD_EXEC),
         )
@@ -277,7 +273,7 @@ exit 11",
 }
 
 #[test]
-fn temporary_file_is_deleted_during_edition() {
+fn temporary_file_is_deleted_during_editing() {
     let env = Env("")
         .file(
             DEFAULT_EDITOR,
