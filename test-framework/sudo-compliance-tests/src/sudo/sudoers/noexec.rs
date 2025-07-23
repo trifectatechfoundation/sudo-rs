@@ -30,12 +30,7 @@ fn exec_denied() -> Result<()> {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(
-        !output.status().success(),
-        "stdout:\n{}\n\nstderr:\n{}",
-        output.stdout_unchecked(),
-        output.stderr(),
-    );
+    output.assert_exit_code(126);
 
     assert!(output.stderr().contains("Permission denied"));
 
@@ -54,12 +49,7 @@ fn exec_denied_second_time() -> Result<()> {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(
-        !output.status().success(),
-        "stdout:\n{}\n\nstderr:\n{}",
-        output.stdout_unchecked(),
-        output.stderr(),
-    );
+    output.assert_exit_code(126);
 
     assert_eq!(
         output.stderr(),
@@ -81,12 +71,7 @@ fn exec_denied_noexec_tag() -> Result<()> {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(
-        !output.status().success(),
-        "stdout:\n{}\n\nstderr:\n{}",
-        output.stdout_unchecked(),
-        output.stderr(),
-    );
+    output.assert_exit_code(126);
 
     assert!(
         output.stderr().contains("Permission denied"),
@@ -123,12 +108,7 @@ fn no_use_pty_works() -> Result<()> {
         .as_user(USERNAME)
         .output(&env);
 
-    assert!(
-        !output.status().success(),
-        "stdout:\n{}\n\nstderr:\n{}",
-        output.stdout_unchecked(),
-        output.stderr(),
-    );
+    output.assert_exit_code(126);
 
     assert!(output.stderr().contains("Permission denied"));
 
