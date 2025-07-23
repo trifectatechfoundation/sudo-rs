@@ -3,13 +3,14 @@
 use std::fs::File;
 use std::io::{Read, Seek, Write};
 use std::net::Shutdown;
-use std::os::unix::{net::UnixStream, process::ExitStatusExt};
+use std::os::unix::{fs::OpenOptionsExt, net::UnixStream, process::ExitStatusExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{io, process};
 
 use crate::common::SudoPath;
 use crate::exec::ExitReason;
+use crate::log::user_info;
 use crate::system::file::{create_temporary_dir, FileLock};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
 use crate::system::{fork, ForkResult};
@@ -122,6 +123,7 @@ pub(super) fn edit_files(
         let data = file.new_data.expect("filled in above");
         if data == file.old_data {
             // File unchanged. No need to write it again.
+            user_info!("{} unchanged", file.path.display());
             continue;
         }
 
@@ -199,6 +201,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
             .read(true)
             .write(true)
             .create_new(true)
+            .mode(0o600)
             .open(&tempfile_path)
             .map_err(|e| {
                 format!(

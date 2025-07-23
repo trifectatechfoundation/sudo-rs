@@ -8,6 +8,7 @@ mod macros;
 mod helpers;
 mod su;
 mod sudo;
+mod sudoedit;
 mod visudo;
 
 type Error = Box<dyn std::error::Error>;
@@ -45,6 +46,11 @@ const SUDOERS_USE_PTY: &str = "Defaults use_pty";
 const SUDOERS_NOT_USE_PTY: &str = "Defaults !use_pty";
 
 const ENV_PATH: &str = "/usr/bin/env";
+
+#[cfg(not(target_os = "freebsd"))]
+const DEFAULT_EDITOR: &str = "/usr/bin/editor";
+#[cfg(target_os = "freebsd")]
+const DEFAULT_EDITOR: &str = "/usr/bin/vi";
 
 const PANIC_EXIT_CODE: i32 = 101;
 

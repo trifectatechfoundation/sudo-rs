@@ -4,7 +4,7 @@ for _ in $(seq 1 20); do
     # when sudo runs with `use_pty` there are two sudo processes as sudo spawns
     # a monitor process. We want the PID of the sudo process so we assume it
     # must be the smallest of the returned PIDs. 
-    sudopid=$(pidof sudo | sort -gr | cut -f 1 -d ' ')
+    sudopid=$(pidof sudo | tr ' ' '\n' | sort -g | head -n1)
 
 	if [ -n "$sudopid" ]; then
         # give `expects-signal.sh ` some time to execute the `trap` command
