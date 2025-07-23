@@ -9,5 +9,9 @@ task:
     - sh rustup.sh -y --profile=minimal
   test_script:
     - . $HOME/.cargo/env
-    # We skip a couple of tests which fail when running as root.
-    - cargo test --workspace --all-targets --release -- --skip group_as_non_root --skip test_secure_open_cookie_file
+    - |
+      # We skip a couple of tests which fail when running as root.
+      # test_traverse_secure_open_positive fails because the build directory is
+      # in the world writable /tmp.
+      cargo test --workspace --all-targets --release -- --skip group_as_non_root \
+        --skip test_secure_open_cookie_file --skip test_traverse_secure_open_positive
