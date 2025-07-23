@@ -10,7 +10,9 @@ use std::os::unix::{
 };
 use std::path::{Component, Path};
 
-use super::{cerr, inject_group, set_supplementary_groups, Group, GroupId, User, UserId};
+use super::{
+    cerr, inject_group, interface::UnixUser, set_supplementary_groups, Group, GroupId, User, UserId,
+};
 use crate::common::resolve::CurrentUser;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
@@ -109,6 +111,7 @@ pub fn secure_open_cookie_file(path: impl AsRef<Path>) -> io::Result<File> {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .mode(mode(Category::Owner, Op::Write) | mode(Category::Owner, Op::Read));
 
     secure_open_impl(path.as_ref(), &mut open_options, true, true)
@@ -214,7 +217,16 @@ pub fn secure_open_for_sudoedit(
     target_group: &Group,
 ) -> io::Result<File> {
     sudo_call(target_user, target_group, || {
-        traversed_secure_open(path, current_user)
+        if current_user.is_root() {
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(path)
+        } else {
+            traversed_secure_open(path, current_user)
+        }
     })?
 }
 

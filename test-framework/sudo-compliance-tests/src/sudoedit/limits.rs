@@ -41,6 +41,25 @@ fn cannot_edit_writable_paths() {
 }
 
 #[test]
+fn can_edit_writable_paths_as_root() {
+    // note: we already have tests that sudoedit "works" so we are skipping
+    // the content check here---the point here is that sudoedit does not stop
+    // the user.
+
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .directory(Directory("/tmp/bar").chmod("755"))
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
+        .build();
+
+    let file = "/tmp/foo.sh";
+    Command::new("sudoedit")
+        .arg(file)
+        .output(&env)
+        .assert_success();
+}
+
+#[test]
 fn cannot_edit_symlinks() {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
         .user(USERNAME)
