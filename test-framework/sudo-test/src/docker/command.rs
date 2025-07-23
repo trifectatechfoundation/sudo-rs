@@ -1,4 +1,5 @@
 use core::fmt;
+use std::os::unix::process::ExitStatusExt;
 use std::process::{self, ExitStatus};
 
 use crate::{Error, Result};
@@ -160,8 +161,6 @@ impl Output {
     }
 
     /// helper method that asserts that the program exited successfully
-    ///
-    /// if it didn't the error value will include the exit code and the program's stderr
     #[track_caller]
     pub fn assert_success(&self) {
         if !self.status.success() {
@@ -173,14 +172,24 @@ impl Output {
     }
 
     /// helper method that asserts that the program exited with the given exit code
-    ///
-    /// if it didn't the error value will include the exit code and the program's stderr
     #[track_caller]
     pub fn assert_exit_code(&self, code: i32) {
         assert_ne!(code, 0, "use assert_success to check for success");
         if self.status.code() != Some(code) {
             panic!(
                 "program failed with {}, expected exit code {code}\nstdout:\n{}\n\nstderr:\n{}",
+                self.status, self.stdout, self.stderr
+            );
+        }
+    }
+
+    /// helper method that asserts that the program got killed by the given signal
+    #[track_caller]
+    pub fn assert_signal(&self, signal: i32) {
+        assert_ne!(signal, 0, "0 is not a valid signal");
+        if self.status.signal() != Some(signal) {
+            panic!(
+                "program failed with {}, expected signal {signal}\nstdout:\n{}\n\nstderr:\n{}",
                 self.status, self.stdout, self.stderr
             );
         }

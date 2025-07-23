@@ -1,4 +1,3 @@
-use std::os::unix::process::ExitStatusExt;
 use std::thread;
 use std::time::Duration;
 
@@ -76,7 +75,7 @@ fn dont_time_out() -> Result<()> {
     child.kill()?;
 
     let output = child.wait();
-    assert_eq!(output.status().signal(), Some(9 /* SIGKILL */));
+    output.assert_signal(9 /* SIGKILL */);
     assert_not_contains!(output.stderr(), "timed out");
     Ok(())
 }
@@ -111,7 +110,7 @@ fn zero_time_out() -> Result<()> {
     }
 
     let output = child.wait();
-    assert_eq!(output.status().signal(), Some(9 /* SIGKILL */));
+    output.assert_signal(9 /* SIGKILL */);
     assert_not_contains!(output.stderr(), "timed out");
     Ok(())
 }
