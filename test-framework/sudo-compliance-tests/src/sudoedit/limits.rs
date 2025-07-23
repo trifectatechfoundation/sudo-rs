@@ -39,3 +39,22 @@ fn cannot_edit_writable_paths() {
         output.assert_exit_code(1);
     }
 }
+
+#[test]
+fn cannot_edit_symlinks() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
+        .build();
+
+    let file = "/usr/bin/sudoedit";
+
+    let output = Command::new("sudoedit")
+        .as_user(USERNAME)
+        .arg(file)
+        .output(&env);
+
+    assert_contains!(output.stderr(), "editing symbolic links is not permitted");
+
+    output.assert_exit_code(1);
+}

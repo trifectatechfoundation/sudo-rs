@@ -3,6 +3,7 @@ use std::process::exit;
 use super::super::cli::SudoEditOptions;
 use crate::common::{Context, Error};
 use crate::exec::ExitReason;
+use crate::log::{user_error, user_info};
 use crate::sudoers::Authorization;
 use crate::system::audit;
 
@@ -34,15 +35,18 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
                 &context.target_group,
             ) {
                 Ok(file) => opened_files.push((path, file)),
-                Err(error) => eprintln_ignore_io_error!("error opening {arg}: {error}"),
+                Err(error) if error.raw_os_error() == Some(40) => {
+                    user_error!("{arg}: editing symbolic links is not permitted")
+                }
+                Err(error) => user_error!("error opening {arg}: {error}"),
             }
         } else {
-            eprintln_ignore_io_error!("invalid path: {arg}");
+            user_error!("invalid path: {arg}");
         }
     }
 
     if opened_files.len() != context.files_to_edit.len() {
-        eprintln_ignore_io_error!("please address the problems and try again");
+        user_info!("please address the problems and try again");
         return Err(Error::Silent);
     }
 
