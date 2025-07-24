@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{self, Cursor, Read, Seek, Write},
     path::PathBuf,
+    time::Duration,
 };
 
 use crate::{
@@ -13,7 +14,7 @@ use super::{
     audit::secure_open_cookie_file,
     file::FileLock,
     interface::{DeviceId, ProcessId, UserId},
-    time::{Duration, ProcessCreateTime, SystemTime},
+    time::{ProcessCreateTime, SystemTime},
     Process, WithProcess,
 };
 
@@ -650,7 +651,7 @@ mod tests {
 
     #[test]
     fn timestamp_record_written_between_works() {
-        let some_time = SystemTime::now().unwrap() + Duration::minutes(100);
+        let some_time = SystemTime::now().unwrap() + Duration::from_secs(100 * 60);
         let scope = RecordScope::Tty {
             tty_device: DeviceId::new(12),
             session_pid: ProcessId::new(1234),
@@ -658,7 +659,7 @@ mod tests {
         };
         let sample = SessionRecord::init(scope, UserId::new(1234), true, some_time);
 
-        let dur = Duration::seconds(30);
+        let dur = Duration::from_secs(30);
 
         assert!(sample.written_between(some_time, some_time));
         assert!(sample.written_between(some_time, some_time + dur));
@@ -686,7 +687,7 @@ mod tests {
     fn session_record_file_header_checks() {
         // valid header should remain valid
         let c = tempfile_with_data(&[0xD0, 0x50, 0x01, 0x00]).unwrap();
-        let timeout = Duration::seconds(30);
+        let timeout = Duration::from_secs(30);
         assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
         assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
@@ -712,7 +713,7 @@ mod tests {
 
     #[test]
     fn can_create_and_update_valid_file() {
-        let timeout = Duration::seconds(30);
+        let timeout = Duration::from_secs(30);
         let c = tempfile_with_data(&[]).unwrap();
         let mut srf =
             SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).unwrap();

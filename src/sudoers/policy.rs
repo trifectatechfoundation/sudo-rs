@@ -6,13 +6,13 @@ use crate::common::{
 };
 use crate::exec::Umask;
 use crate::sudoers::ast::{ExecControl, Tag};
-use crate::system::{time::Duration, Hostname, User};
+use crate::system::{Hostname, User};
 /// Data types and traits that represent what the "terms and conditions" are after a successful
 /// permission check.
 ///
 /// The trait definitions can be part of some global crate in the future, if we support more
 /// than just the sudoers file.
-use std::collections::HashSet;
+use std::{collections::HashSet, time::Duration};
 
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -35,14 +35,25 @@ pub struct Authentication {
 
 impl super::Settings {
     pub(super) fn to_auth(&self, tag: &Tag) -> Authentication {
+        let default_passwd_timeout = |_| -> u64 {
+            super::Settings::default()
+                .passwd_timeout()
+                .try_into()
+                .unwrap()
+        };
+
         Authentication {
             must_authenticate: tag.needs_passwd(),
             allowed_attempts: self.passwd_tries().try_into().unwrap(),
-            prior_validity: Duration::seconds(self.timestamp_timeout()),
+            prior_validity: Duration::from_secs(self.timestamp_timeout().try_into().unwrap()),
             pwfeedback: self.pwfeedback(),
-            password_timeout: match self.passwd_timeout() {
+            password_timeout: match self
+                .passwd_timeout()
+                .try_into()
+                .unwrap_or_else(default_passwd_timeout)
+            {
                 0 => None,
-                timeout => Some(Duration::seconds(timeout)),
+                timeout => Some(Duration::from_secs(timeout)),
             },
             credential: if self.rootpw() {
                 AuthenticatingUser::Root
@@ -190,10 +201,10 @@ mod test {
             Authentication {
                 must_authenticate: true,
                 allowed_attempts: 3,
-                prior_validity: Duration::minutes(15),
+                prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
-                password_timeout: Some(Duration::seconds(300)),
+                password_timeout: Some(Duration::from_secs(300)),
             },
         );
 
@@ -207,10 +218,10 @@ mod test {
             Authentication {
                 must_authenticate: false,
                 allowed_attempts: 3,
-                prior_validity: Duration::minutes(15),
+                prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
-                password_timeout: Some(Duration::seconds(300)),
+                password_timeout: Some(Duration::from_secs(300)),
             },
         );
         assert_eq!(restrictions, restrictions2);
