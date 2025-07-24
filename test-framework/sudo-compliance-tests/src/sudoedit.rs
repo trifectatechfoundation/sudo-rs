@@ -398,3 +398,31 @@ done",
         );
     }
 }
+
+#[test]
+fn can_edit_in_current_dir() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+
+for f in \"$@\"
+do echo \"$f\" > \"$f\"
+done",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build();
+
+    Command::new("sh")
+        .args(["-c", "cd / && sudoedit foo"])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    let actual = Command::new("cat").arg("/foo").output(&env).stdout();
+
+    assert_starts_with!(actual[actual.rfind('/').unwrap()..], "/foo");
+}
