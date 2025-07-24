@@ -20,6 +20,8 @@ fn cannot_edit_writable_paths() {
             .arg(file)
             .output(&env);
 
+        output.assert_exit_code(1);
+
         if sudo_test::is_original_sudo() {
             if file != "/tmp/bar/foo.sh" {
                 assert_contains!(
@@ -36,14 +38,13 @@ fn cannot_edit_writable_paths() {
                 "cannot open a file in a path writable by the user"
             );
         }
-        output.assert_exit_code(1);
     }
 }
 
 #[test]
 fn can_edit_writable_paths_as_root() {
     // note: we already have tests that sudoedit "works" so we are skipping
-    // the content check here---the point here is that sudoedit does not stop
+    // the content check here: the point here is that sudoedit does not stop
     // the user.
 
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
@@ -123,7 +124,7 @@ fn cannot_edit_files_target_user_cannot_access() {
 #[test]
 fn can_edit_files_target_user_or_group_can_access() {
     // note: we already have tests that sudoedit "works" so we are skipping
-    // the content check here---the point here is that sudoedit does not stop
+    // the content check here: the point here is that sudoedit does not stop
     // the user.
 
     let file = "/test.txt";
