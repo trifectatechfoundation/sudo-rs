@@ -342,7 +342,7 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
 /// Resolve symlinks in all the directories leading up to a file, but
 /// not the file itself; this allows us to keep symlinks as is, and will
 /// also work on non-existing files.
-pub fn canonicalize_newfile<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
+fn canonicalize_newfile<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     let path = path.as_ref();
     let Some(parent) = path.parent() else {
         // path is "/" or a prefix
@@ -360,9 +360,37 @@ pub fn canonicalize_newfile<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     Ok(reconstructed_path)
 }
 
+/// Make a path absolute without consulting the file system; this inserts
+/// the current directory if necessary and resolves '.' and '..'. But it
+/// DOES NOT resolve symlinks. This is quite similar (but not the same!) as
+/// std::fs::absolute that is stable since 1.83.
+#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
+pub fn absolute<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
+    use std::path::Component;
+    let path = path.as_ref();
+
+    let mut result = if path.is_absolute() {
+        PathBuf::new()
+    } else {
+        env::current_dir()?
+    };
+
+    for component in path.components() {
+        match component {
+            Component::Normal(dir) => result.push(dir),
+            Component::CurDir => (),
+            Component::ParentDir => _ = result.pop(),
+            Component::RootDir => result = PathBuf::from("/"),
+            _ => unreachable!("sudo-rs does not support windows"),
+        };
+    }
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod test {
-    use super::canonicalize;
+    use super::{absolute, canonicalize};
     use std::path::Path;
 
     #[test]
@@ -393,5 +421,35 @@ mod test {
                 std::env::consts::OS
             );
         }
+    }
+
+    #[test]
+    fn absolute_path() {
+        assert_eq!(absolute("/bin/hello").unwrap(), Path::new("/bin/hello"));
+        assert_eq!(absolute("/bin/./hello").unwrap(), Path::new("/bin/hello"));
+        assert_eq!(absolute("/bin/../hello").unwrap(), Path::new("/hello"));
+        assert_eq!(absolute("/bin/.././hello").unwrap(), Path::new("/hello"));
+        assert_eq!(absolute("/bin/../../hello").unwrap(), Path::new("/hello"));
+        assert_eq!(
+            absolute("/bin/../../../hello").unwrap(),
+            Path::new("/hello")
+        );
+        assert_eq!(
+            absolute("../../../../../../../../../../hello").unwrap(),
+            Path::new("/hello")
+        );
+        let expected = std::env::current_dir().unwrap().join("hello");
+        assert_eq!(absolute("hello").unwrap(), expected);
+        assert_eq!(absolute("./hello").unwrap(), expected);
+        assert_eq!(
+            absolute("../hello").unwrap(),
+            std::env::current_dir()
+                .map(|mut x| {
+                    x.pop();
+                    x
+                })
+                .unwrap()
+                .join("hello")
+        );
     }
 }
