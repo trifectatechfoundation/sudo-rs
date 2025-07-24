@@ -6,6 +6,8 @@ use crate::{
     Result, DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
 };
 
+mod limits;
+
 const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "555";
 const EDITOR_DUMMY: &str = "#!/bin/sh
