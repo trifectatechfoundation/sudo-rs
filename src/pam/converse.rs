@@ -1,7 +1,6 @@
-use std::io;
+use std::{io, time::Duration};
 
 use crate::cutils::string_from_ptr;
-use crate::system::time::Duration;
 
 use super::sys::*;
 

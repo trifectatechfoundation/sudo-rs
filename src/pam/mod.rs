@@ -4,9 +4,8 @@ use std::{
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
     ptr::NonNull,
+    time::Duration,
 };
-
-use crate::system::time::Duration;
 
 use converse::ConverserData;
 use error::pam_err;
