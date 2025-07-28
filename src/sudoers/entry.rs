@@ -88,7 +88,7 @@ impl fmt::Display for Entry<'_> {
                 f.write_str(", ")?;
             }
 
-            write_tag(f, tag, &mut last_tag)?;
+            write_tag(f, tag, &mut last_tag, spec)?;
 
             // cmd_alias is to be topologically sorted (dependencies come before dependents),
             // the argument to write_spec needs to have dependents before dependencies.
@@ -178,7 +178,12 @@ fn write_groups(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::E
     Ok(())
 }
 
-fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: &mut Option<Tag>, spec: &Qualified<Meta<Command>>) -> fmt::Result {
+fn write_tag(
+    f: &mut fmt::Formatter,
+    tag: &Tag,
+    last_tag: &mut Option<Tag>,
+    spec: &Qualified<Meta<Command>>,
+) -> fmt::Result {
     let last_tag = last_tag.get_or_insert(Tag::default());
 
     if tag.apparmor_profile != last_tag.apparmor_profile {
@@ -208,7 +213,9 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: &mut Option<Tag>, spec
         f.write_str(": ")
     };
 
-    if tag.env != last_tag.env {
+    if tag.env != last_tag.env
+        && !(matches!(spec, Qualified::Allow(Meta::All)) && tag.env == EnvironmentControl::Setenv)
+    {
         write_tag("SETENV", tag.env == EnvironmentControl::Setenv)?;
     }
     if tag.noexec != last_tag.noexec {
