@@ -156,6 +156,21 @@ fn user_host_must_match() {
         .output(&env)
         .assert_success();
 
+    let output = Command::new("sudoedit")
+        .as_user(USERNAME)
+        .arg(file)
+        .output(&other_env);
+
+    output.assert_exit_code(1);
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "a password is required");
+    } else {
+        assert_contains!(
+            output.stderr(),
+            format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
+        );
+    }
+
     for env in [env, other_env] {
         let output = Command::new("sudoedit")
             .as_user(OTHER_USERNAME)
