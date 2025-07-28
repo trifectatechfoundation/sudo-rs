@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.8] - 2025-08-04
+
+### Added
+- `sudo -e`, `sudoedit` to safely edit files as another user.
+
+### Fixed
+- `NOEXEC:` could not be used to prevent all shell escapes on multi-architecture
+  installations (#1229)
+- `sudo --list` would not show `NOEXEC`, `SETENV` and `APPARMOR_PROFILE` (#1228)
+- Skip paths not accessible by the target user during command resolution (#1234)
+
 ## [0.2.7] - 2025-07-01
 
 ### Added
