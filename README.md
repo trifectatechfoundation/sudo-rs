@@ -157,6 +157,7 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
   `match_group_by_gid` are not applicable to our implementation, but ignored for
   compatibility reasons.
 * `timestamp_type` is always set at `tty`.
+* `sudoedit_checkdir` is always `on`, and `sudoedit_follow` is always `off`.
 
 Some other notable restrictions to be aware of:
 
