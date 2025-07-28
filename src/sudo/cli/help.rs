@@ -2,7 +2,7 @@ pub const USAGE_MSG: &str = "\
 usage: sudo -h | -K | -k | -V
 usage: sudo [-BknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
 usage: sudo -v [-BknS] [-p prompt] [-g group] [-u user]
-usage: sudo -l [-BknS] [-p prompt] [-g group] [-U user] [-u user] [command [arg ...]]
+usage: sudo -l [-BknS] [-p prompt] [-U user] [-g group] [-u user] [command [arg ...]]
 usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] file ...";
 
 const DESCRIPTOR: &str = "sudo - run commands as another user";
