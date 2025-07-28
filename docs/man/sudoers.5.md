@@ -160,7 +160,8 @@ with the “list” privilege is able to list another user's privileges even if 
 root or a user with the ability to run any command as either root or the specified user on the current host may use the -U option.  No command line arguments may
 be specified with the “list” built-in.
 
-The “sudoedit” built-in will be used in the future to permit a user to run sudo with the -e option (or as sudoedit). This feature is currently under development.
+The “sudoedit” built-in is used to permit a user to run sudo with the -e option (or as sudoedit). It may take command line arguments just as a normal command does. Unlike other commands, “sudoedit” is built into sudo itself and must be specified in the sudoers file without a leading path.
+If a leading path is present, for example /usr/bin/sudoedit, this will not give the user permissions to use sudoedit.
 
 ## Defaults
 
