@@ -2,6 +2,7 @@ use std::{
     io::{Read, Write},
     mem::MaybeUninit,
     ops::{Add, Sub},
+    time::Duration,
 };
 
 /// A timestamp relative to `CLOCK_BOOTTIME`.
@@ -51,85 +52,47 @@ impl SystemTime {
             i64::from_ne_bytes(nsec_bytes),
         ))
     }
-}
 
-impl Sub<SystemTime> for SystemTime {
-    type Output = Duration;
+    #[inline]
+    pub fn checked_add(self, rhs: Duration) -> Option<SystemTime> {
+        let rhs_secs = rhs.as_nanos().div_euclid(1_000_000_000).try_into().ok()?;
+        let rhs_nsecs = rhs.as_nanos().rem_euclid(1_000_000_000).try_into().ok()?;
 
-    fn sub(self, rhs: SystemTime) -> Self::Output {
-        Duration::new(self.secs - rhs.secs, self.nsecs - rhs.nsecs)
+        let secs = self.secs.checked_add(rhs_secs)?;
+        let nsecs = self.nsecs.checked_add(rhs_nsecs)?;
+
+        Some(SystemTime::new(secs, nsecs))
+    }
+
+    #[inline]
+    pub fn checked_sub(self, rhs: Duration) -> Option<SystemTime> {
+        let rhs_secs = rhs.as_nanos().div_euclid(1_000_000_000).try_into().ok()?;
+        let rhs_nsecs = rhs.as_nanos().rem_euclid(1_000_000_000).try_into().ok()?;
+
+        let secs = self.secs.checked_sub(rhs_secs)?;
+        let nsecs = self.nsecs.checked_sub(rhs_nsecs)?;
+
+        Some(SystemTime::new(secs, nsecs))
     }
 }
 
 impl Add<Duration> for SystemTime {
     type Output = SystemTime;
 
+    #[inline]
     fn add(self, rhs: Duration) -> Self::Output {
-        SystemTime::new(self.secs + rhs.secs, self.nsecs + rhs.nsecs)
+        self.checked_add(rhs)
+            .expect("overflow when adding duration")
     }
 }
 
 impl Sub<Duration> for SystemTime {
     type Output = SystemTime;
 
+    #[inline]
     fn sub(self, rhs: Duration) -> Self::Output {
-        SystemTime::new(self.secs - rhs.secs, self.nsecs - rhs.nsecs)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct Duration {
-    secs: i64,
-    nsecs: i64,
-}
-
-impl Duration {
-    pub fn new(secs: i64, nsecs: i64) -> Duration {
-        Duration {
-            secs: secs + nsecs.div_euclid(1_000_000_000),
-            nsecs: nsecs.rem_euclid(1_000_000_000),
-        }
-    }
-
-    pub fn seconds(secs: i64) -> Duration {
-        Duration::new(secs, 0)
-    }
-
-    #[cfg(test)]
-    pub fn minutes(minutes: i64) -> Duration {
-        Duration::seconds(minutes * 60)
-    }
-
-    #[cfg(test)]
-    pub fn milliseconds(ms: i64) -> Duration {
-        let secs = ms / 1000;
-        let ms = ms % 1000;
-        Duration::new(secs, ms * 1_000_000)
-    }
-}
-
-impl Add<Duration> for Duration {
-    type Output = Duration;
-
-    fn add(self, rhs: Duration) -> Self::Output {
-        Duration::new(self.secs + rhs.secs, self.nsecs + rhs.nsecs)
-    }
-}
-
-impl Sub<Duration> for Duration {
-    type Output = Duration;
-
-    fn sub(self, rhs: Duration) -> Self::Output {
-        Duration::new(self.secs - rhs.secs, self.nsecs - rhs.nsecs)
-    }
-}
-
-impl From<Duration> for std::time::Duration {
-    fn from(dur: Duration) -> std::time::Duration {
-        std::time::Duration::new(
-            dur.secs.try_into().unwrap_or(0),
-            dur.nsecs.try_into().unwrap_or(0),
-        )
+        self.checked_sub(rhs)
+            .expect("overflow when subtracting duration")
     }
 }
 
@@ -213,13 +176,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new_durations_and_times() {
-        assert_eq!(Duration::new(1, 1_000_000_000), Duration::seconds(2));
-        assert_eq!(
-            Duration::new(-2, 500_000_000),
-            Duration::seconds(-1) + Duration::milliseconds(-500)
-        );
-
+    fn test_new_system_time() {
         assert_eq!(SystemTime::new(-1, 2_000_000_000), SystemTime::new(1, 0));
         assert_eq!(
             SystemTime::new(2, -500_000_000),
@@ -230,37 +187,20 @@ mod tests {
     #[test]
     fn test_time_ops() {
         assert_eq!(
-            Duration::seconds(2) + Duration::seconds(3),
-            Duration::seconds(5)
-        );
-        assert_eq!(
-            Duration::seconds(3) - Duration::seconds(1),
-            Duration::seconds(2)
-        );
-        assert_eq!(
-            Duration::seconds(-10) + Duration::seconds(-5),
-            Duration::seconds(-15)
-        );
-        assert_eq!(
-            Duration::milliseconds(5555) + Duration::milliseconds(5555),
-            Duration::seconds(11) + Duration::milliseconds(110)
-        );
-        assert_eq!(
-            Duration::milliseconds(-5555) + Duration::milliseconds(-1111),
-            Duration::milliseconds(-6666)
-        );
-        assert_eq!(
-            Duration::seconds(10) - Duration::seconds(-5),
-            Duration::seconds(15)
-        );
-
-        assert_eq!(
-            SystemTime::new(0, 0) + Duration::seconds(3),
+            SystemTime::new(0, 0) + Duration::from_secs(3),
             SystemTime::new(3, 0)
         );
         assert_eq!(
-            SystemTime::new(10, 0) - Duration::seconds(4),
+            SystemTime::new(0, 500_000_000) + Duration::from_nanos(2_500_000_000),
+            SystemTime::new(3, 0)
+        );
+        assert_eq!(
+            SystemTime::new(10, 0) - Duration::from_secs(4),
             SystemTime::new(6, 0)
+        );
+        assert_eq!(
+            SystemTime::new(10, 0) - Duration::from_nanos(3_500_000_000),
+            SystemTime::new(6, 500_000_000)
         );
     }
 }

@@ -1,5 +1,6 @@
 use std::ffi::OsStr;
 use std::process::exit;
+use std::time::Duration;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use super::diagnostic;
@@ -10,7 +11,6 @@ use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
 use crate::sudo::pam::{attempt_authenticate, init_pam, pre_exec, InitPamArgs};
-use crate::sudo::Duration;
 use crate::sudoers::{
     AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
 };

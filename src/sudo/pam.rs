@@ -1,10 +1,10 @@
-use std::ffi::OsString;
+use std::{ffi::OsString, time::Duration};
 
 use crate::common::context::LaunchType;
 use crate::common::error::Error;
 use crate::log::{dev_info, user_warn};
 use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
-use crate::system::{term::current_tty_name, time::Duration};
+use crate::system::term::current_tty_name;
 
 pub(super) struct InitPamArgs<'a> {
     pub(super) launch: LaunchType,
