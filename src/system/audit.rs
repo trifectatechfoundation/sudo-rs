@@ -72,9 +72,9 @@ pub(crate) fn sudo_call<T>(
             // restore privileges in reverse order
             (|| {
                 // SAFETY: this function is always safe to call
-                cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&self.0), KEEP_UID) })?;
+                cerr(unsafe { libc::setreuid(KEEP_UID, UserId::inner(&self.0)) })?;
                 // SAFETY: this function is always safe to call
-                cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&self.1), KEEP_GID) })?;
+                cerr(unsafe { libc::setregid(KEEP_GID, GroupId::inner(&self.1)) })?;
                 set_supplementary_groups(&self.2)
             })()
             .expect("could not restore to saved user id");
@@ -85,9 +85,9 @@ pub(crate) fn sudo_call<T>(
 
     set_supplementary_groups(&target_groups)?;
     // SAFETY: this function is always safe to call
-    cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&target_group.gid), KEEP_GID) })?;
+    cerr(unsafe { libc::setregid(KEEP_GID, GroupId::inner(&target_group.gid)) })?;
     // SAFETY: this function is always safe to call
-    cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&target_user.uid), KEEP_UID) })?;
+    cerr(unsafe { libc::setreuid(KEEP_UID, UserId::inner(&target_user.uid)) })?;
 
     let result = operation();
 
