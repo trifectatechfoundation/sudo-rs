@@ -25,7 +25,6 @@ pub enum SudoAction {
 }
 
 pub(super) fn is_sudoedit(command_path: Option<String>) -> bool {
-    use std::os::unix::ffi::OsStrExt;
     std::path::Path::new(&command_path.unwrap_or_default())
         .file_name()
         .is_some_and(|name| name.as_bytes().starts_with(b"sudoedit"))
