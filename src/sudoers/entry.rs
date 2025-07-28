@@ -13,7 +13,7 @@ use crate::{
 use self::verbose::Verbose;
 
 use super::{
-    ast::{Authenticate, Def, RunAs, Tag},
+    ast::{Authenticate, Def, EnvironmentControl, ExecControl, RunAs, Tag},
     tokens::Command,
 };
 
@@ -88,8 +88,7 @@ impl fmt::Display for Entry<'_> {
                 f.write_str(", ")?;
             }
 
-            write_tag(f, tag, last_tag)?;
-            last_tag = Some(tag);
+            write_tag(f, tag, &mut last_tag, spec)?;
 
             // cmd_alias is to be topologically sorted (dependencies come before dependents),
             // the argument to write_spec needs to have dependents before dependencies.
@@ -179,46 +178,54 @@ fn write_groups(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::E
     Ok(())
 }
 
-fn write_tag(f: &mut fmt::Formatter, tag: &Tag, last_tag: Option<&Tag>) -> fmt::Result {
-    let (cwd, auth) = if let Some(last_tag) = last_tag {
-        let cwd = if last_tag.cwd == tag.cwd {
-            None
-        } else {
-            tag.cwd.as_ref()
-        };
+fn write_tag(
+    f: &mut fmt::Formatter,
+    tag: &Tag,
+    last_tag: &mut Option<Tag>,
+    spec: &Qualified<Meta<Command>>,
+) -> fmt::Result {
+    let last_tag = last_tag.get_or_insert(Tag::default());
 
-        let auth = if last_tag.authenticate == tag.authenticate {
-            None
-        } else {
-            Some(tag.authenticate)
-        };
+    if tag.apparmor_profile != last_tag.apparmor_profile {
+        f.write_str("APPARMOR_PROFILE=")?;
+        let profile = tag
+            .apparmor_profile
+            .as_ref()
+            .expect("sudoers spec turned off");
+        f.write_str(profile)?;
+        f.write_str(" ")?;
+    }
 
-        (cwd, auth)
-    } else {
-        (tag.cwd.as_ref(), Some(tag.authenticate))
-    };
-
-    if let Some(cwd) = cwd {
+    if tag.cwd != last_tag.cwd {
         f.write_str("CWD=")?;
-        match cwd {
+        match tag.cwd.as_ref().expect("sudoers spec turned off") {
             ChDir::Path(path) => write!(f, "{}", path.display())?,
             ChDir::Any => f.write_str("*")?,
         }
         f.write_str(" ")?;
     }
 
-    if let Some(auth) = auth {
-        if auth != Authenticate::None {
-            let tag = if auth == Authenticate::Passwd {
-                "PASSWD"
-            } else {
-                "NOPASSWD"
-            };
-            f.write_str(tag)?;
-            f.write_str(": ")?;
-        }
+    let mut write_tag = |text, status: bool| {
+        if !status {
+            f.write_str("NO")?;
+        };
+        f.write_str(text)?;
+        f.write_str(": ")
+    };
+
+    if tag.env != last_tag.env
+        && !(matches!(spec, Qualified::Allow(Meta::All)) && tag.env == EnvironmentControl::Setenv)
+    {
+        write_tag("SETENV", tag.env == EnvironmentControl::Setenv)?;
+    }
+    if tag.noexec != last_tag.noexec {
+        write_tag("EXEC", tag.noexec == ExecControl::Exec)?;
+    }
+    if tag.authenticate != last_tag.authenticate {
+        write_tag("PASSWD", tag.authenticate != Authenticate::Nopasswd)?;
     }
 
+    *last_tag = tag.clone();
     Ok(())
 }
 
