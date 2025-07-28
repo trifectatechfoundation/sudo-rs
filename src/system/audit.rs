@@ -33,7 +33,6 @@ pub(crate) fn sudo_call<T>(
     target_group: &Group,
     operation: impl FnOnce() -> T,
 ) -> io::Result<T> {
-    const KEEP_UID: libc::uid_t = -1i32 as libc::uid_t;
     const KEEP_GID: libc::gid_t = -1i32 as libc::gid_t;
 
     // SAFETY: these libc functions are always safe to call
@@ -70,14 +69,21 @@ pub(crate) fn sudo_call<T>(
 
     struct ResetUserGuard(UserId, GroupId, Vec<GroupId>);
 
+    // Historical remark: On Linux with glibc, seteuid/setegid has changed in semantics; before
+    // glibc 2.1, setresuid(-1, id, -1) would have to be used instead of seteuid(id). However,
+    // that glibc was released in 1999.
+    //
+    // In modern Linux and FreeBSD, seteuid(id) = setresuid(-1, id, -1); on NetBSD/MacOS the
+    // setresuid() call does not even exist.
+
     impl Drop for ResetUserGuard {
         fn drop(&mut self) {
             // restore privileges in reverse order
             (|| {
                 // SAFETY: this function is always safe to call
-                cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&self.0), KEEP_UID) })?;
-                // SAFETY: this function is always safe to call
-                cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&self.1), KEEP_GID) })?;
+                cerr(unsafe { libc::seteuid(UserId::inner(&self.0)) })?;
+                // SAFETY: as above
+                cerr(unsafe { libc::setegid(GroupId::inner(&self.1)) })?;
                 set_supplementary_groups(&self.2)
             })()
             .expect("could not restore to saved user id");
@@ -88,9 +94,9 @@ pub(crate) fn sudo_call<T>(
 
     set_supplementary_groups(&target_groups)?;
     // SAFETY: this function is always safe to call
-    cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&target_group.gid), KEEP_GID) })?;
-    // SAFETY: this function is always safe to call
-    cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&target_user.uid), KEEP_UID) })?;
+    cerr(unsafe { libc::setegid(GroupId::inner(&target_group.gid)) })?;
+    // SAFETY: as above
+    cerr(unsafe { libc::seteuid(UserId::inner(&target_user.uid)) })?;
 
     let result = operation();
 
