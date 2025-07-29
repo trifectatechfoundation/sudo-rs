@@ -410,6 +410,10 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
                 BPF_STMT((BPF_RET | BPF_K) as _, SECCOMP_RET_USER_NOTIF as _),
             ];
 
+            // this is used since we can't yet use "let exec_filter: [sock_filter; _] above"
+            const fn check_type<const N: usize>(_arr: &[sock_filter; N]) {}
+            check_type(&exec_filter);
+
             let exec_fprog = sock_fprog {
                 len: exec_filter.len() as u16,
                 filter: addr_of!(exec_filter) as *mut sock_filter,
