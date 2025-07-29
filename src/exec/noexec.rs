@@ -1,5 +1,6 @@
 // On Linux we can use a seccomp() filter to disable exec.
 #![allow(non_upper_case_globals)]
+#![cfg_attr(not(target_arch = "x86_64"), allow(unused))]
 
 use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
 use std::ffi::c_void;
