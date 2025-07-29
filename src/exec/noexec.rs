@@ -1,4 +1,6 @@
 // On Linux we can use a seccomp() filter to disable exec.
+#![allow(non_upper_case_globals)]
+#![cfg_attr(not(target_arch = "x86_64"), allow(unused))]
 
 use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
 use std::ffi::c_void;
@@ -13,16 +15,34 @@ use std::{cmp, io, thread};
 use libc::{
     c_int, c_uint, c_ulong, close, cmsghdr, iovec, msghdr, prctl, recvmsg, seccomp_data,
     seccomp_notif, seccomp_notif_resp, seccomp_notif_sizes, sendmsg, sock_filter, sock_fprog,
-    syscall, SYS_execve, SYS_execveat, SYS_seccomp, __errno_location, BPF_ABS, BPF_JEQ, BPF_JMP,
-    BPF_JUMP, BPF_K, BPF_LD, BPF_RET, BPF_STMT, CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_SPACE,
-    EACCES, ENOENT, MSG_TRUNC, PR_SET_NO_NEW_PRIVS, SCM_RIGHTS, SECCOMP_FILTER_FLAG_NEW_LISTENER,
-    SECCOMP_GET_NOTIF_SIZES, SECCOMP_RET_ALLOW, SECCOMP_SET_MODE_FILTER,
-    SECCOMP_USER_NOTIF_FLAG_CONTINUE, SOL_SOCKET,
+    syscall, SYS_execve, SYS_execveat, SYS_seccomp, __errno_location, BPF_ABS, BPF_ALU, BPF_AND,
+    BPF_JEQ, BPF_JMP, BPF_JUMP, BPF_K, BPF_LD, BPF_RET, BPF_STMT, BPF_W, CMSG_DATA, CMSG_FIRSTHDR,
+    CMSG_LEN, CMSG_SPACE, EACCES, ENOENT, MSG_TRUNC, PR_SET_NO_NEW_PRIVS, SCM_RIGHTS,
+    SECCOMP_FILTER_FLAG_NEW_LISTENER, SECCOMP_GET_NOTIF_SIZES, SECCOMP_RET_ALLOW,
+    SECCOMP_RET_KILL_PROCESS, SECCOMP_SET_MODE_FILTER, SECCOMP_USER_NOTIF_FLAG_CONTINUE,
+    SOL_SOCKET,
 };
 
 const SECCOMP_RET_USER_NOTIF: c_uint = 0x7fc00000;
 const SECCOMP_IOCTL_NOTIF_RECV: c_ulong = 0xc0502100;
 const SECCOMP_IOCTL_NOTIF_SEND: c_ulong = 0xc0182101;
+
+// from /usr/include/linux/audit.h, converted using bindgen
+const __AUDIT_ARCH_64BIT: u32 = 0x80000000;
+const __AUDIT_ARCH_LE: u32 = 0x40000000;
+
+const AUDIT_ARCH_AARCH64: u32 = libc::EM_AARCH64 as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_ARM: u32 = libc::EM_ARM as u32 | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_I386: u32 = libc::EM_386 as u32 | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_MIPS: u32 = libc::EM_MIPS as u32;
+const AUDIT_ARCH_MIPSEL: u32 = libc::EM_MIPS as u32 | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_MIPS64: u32 = libc::EM_MIPS as u32 | __AUDIT_ARCH_64BIT;
+const AUDIT_ARCH_MIPSEL64: u32 = libc::EM_MIPS as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_PPC: u32 = libc::EM_PPC as u32;
+const AUDIT_ARCH_PPC64: u32 = libc::EM_PPC64 as u32 | __AUDIT_ARCH_64BIT;
+const AUDIT_ARCH_PPC64LE: u32 = libc::EM_PPC64 as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_S390X: u32 = libc::EM_S390 as u32 | __AUDIT_ARCH_64BIT;
+const AUDIT_ARCH_X86_64: u32 = libc::EM_X86_64 as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
 
 /// # Safety
 ///
@@ -265,6 +285,71 @@ impl SpawnNoexecHandler {
     }
 }
 
+// BPF filtering is only supported (according to man seccomp) on the following architectures
+// that are realistic on Linux.
+const HOST_ARCH: u32 = if cfg!(target_arch = "aarch64") {
+    AUDIT_ARCH_AARCH64
+} else if cfg!(target_arch = "arm") {
+    AUDIT_ARCH_ARM
+} else if cfg!(target_arch = "mips") {
+    if cfg!(target_endian = "little") {
+        AUDIT_ARCH_MIPSEL
+    } else {
+        AUDIT_ARCH_MIPS
+    }
+} else if cfg!(target_arch = "mips64") {
+    if cfg!(target_endian = "little") {
+        AUDIT_ARCH_MIPSEL64
+    } else {
+        AUDIT_ARCH_MIPS64
+    }
+} else if cfg!(target_arch = "powerpc") {
+    AUDIT_ARCH_PPC
+} else if cfg!(target_arch = "powerpc64") {
+    if cfg!(target_endian = "little") {
+        AUDIT_ARCH_PPC64LE
+    } else {
+        AUDIT_ARCH_PPC64
+    }
+} else if cfg!(target_arch = "s390x") {
+    AUDIT_ARCH_S390X
+} else if cfg!(target_arch = "x86") {
+    AUDIT_ARCH_I386
+} else if cfg!(target_arch = "x86_64") {
+    AUDIT_ARCH_X86_64
+} else {
+    0 // this will filter out all syscalls
+};
+
+// For x86-64 and aarch64 systems, it's possible to encounter them
+// running in multi-arch mode.
+const GUEST_ARCH: u32 = if cfg!(target_arch = "aarch64") {
+    AUDIT_ARCH_ARM
+} else if cfg!(target_arch = "x86_64") {
+    AUDIT_ARCH_I386
+} else {
+    HOST_ARCH
+};
+
+/// syscall numbers for the guest architecture according to the Linux syscall table
+const SYS_execve_x86: i64 = 11;
+const SYS_execve_arm: i64 = 11;
+const SYS_execve_x32: i64 = 520;
+const SYS_execveat_x86: i64 = 358;
+const SYS_execveat_arm: i64 = 387;
+const SYS_execveat_x32: i64 = 545;
+
+const GUEST_SYSCALL: (i64, i64) = if cfg!(target_arch = "aarch64") {
+    (SYS_execve_arm, SYS_execveat_arm)
+} else if cfg!(target_arch = "x86_64") {
+    (SYS_execve_x86, SYS_execveat_x86)
+} else {
+    (SYS_execve as _, SYS_execveat as _) // fallback
+};
+
+// Bit that is set on syscalls when using the X32 ABI; see man seccomp.
+const __X32_SYSCALL_BIT: u32 = 0x40000000;
+
 pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
     let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
 
@@ -281,11 +366,41 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
             // SAFETY: seccomp_data can be safely zero-initialized.
             let dummy: seccomp_data = zeroed();
             let nr_offset = (&dummy.nr) as *const _ as usize - &dummy as *const _ as usize;
+            let arch_offset = (&dummy.arch) as *const _ as usize - &dummy as *const _ as usize;
 
             // SAFETY: libc unnecessarily marks these functions as unsafe
-            let exec_filter: [sock_filter; 5] = [
+            #[rustfmt::skip]
+            let exec_filter = [
+                // Load architecture number into the accumulator
+                BPF_STMT((BPF_LD | BPF_ABS) as _, arch_offset as _),
+                // Check if we are any of the recognized architectures
+                BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, HOST_ARCH as _, 7, 0),
+                BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, GUEST_ARCH as _, 1, 0),
+                // Not a recognized architecture, forbid all syscalls
+                BPF_STMT((BPF_RET | BPF_K) as _, SECCOMP_RET_KILL_PROCESS as _),
+
+                // Guest architecture section
                 // Load syscall number into the accumulator
-                BPF_STMT((BPF_LD | BPF_ABS) as _, nr_offset as _),
+                BPF_STMT((BPF_LD | BPF_W | BPF_ABS) as _, nr_offset as _),
+                // Jump to user notify for execve/execveat
+                BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, GUEST_SYSCALL.0 as _, 2, 0),
+                BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, GUEST_SYSCALL.1 as _, 1, 0),
+                // Allow non-matching syscalls
+                BPF_STMT((BPF_RET | BPF_K) as _, SECCOMP_RET_ALLOW),
+                // Notify sudo about execve/execveat syscall
+                BPF_STMT((BPF_RET | BPF_K) as _, SECCOMP_RET_USER_NOTIF as _),
+
+                // Host architecture section
+                // Load syscall number into the accumulator
+                BPF_STMT((BPF_LD | BPF_W | BPF_ABS) as _, nr_offset as _),
+                // Unset the X32_SYSCALL bit (only necessary on x86_64)
+                #[cfg(target_arch = "x86_64")]
+                BPF_STMT((BPF_ALU | BPF_AND | BPF_K) as _, !__X32_SYSCALL_BIT),
+                // On x86-64 only: check the x32 "design error" syscall numbers
+                #[cfg(target_arch = "x86_64")]
+                BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, SYS_execve_x32 as _, 4, 0),
+                #[cfg(target_arch = "x86_64")]
+                BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, SYS_execveat_x32 as _, 3, 0),
                 // Jump to user notify for execve/execveat
                 BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, SYS_execve as _, 2, 0),
                 BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, SYS_execveat as _, 1, 0),
@@ -295,8 +410,12 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
                 BPF_STMT((BPF_RET | BPF_K) as _, SECCOMP_RET_USER_NOTIF as _),
             ];
 
+            // this is used since we can't yet use "let exec_filter: [sock_filter; _] above"
+            const fn check_type<const N: usize>(_arr: &[sock_filter; N]) {}
+            check_type(&exec_filter);
+
             let exec_fprog = sock_fprog {
-                len: 5,
+                len: exec_filter.len() as u16,
                 filter: addr_of!(exec_filter) as *mut sock_filter,
             };
 

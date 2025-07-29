@@ -506,8 +506,8 @@ In the following example, user aaron may run /usr/bin/more and
     aaron   shanty = NOEXEC: /usr/bin/more, /usr/bin/vi
 .EE
 .PP
-See the Preventing shell escapes section below for more details on how
-NOEXEC works and whether or not it suits your purpose.
+See the \f[I]Preventing shell escapes\f[R] section below for more
+details on how NOEXEC works and whether or not it suits your purpose.
 .SS PASSWD and NOPASSWD
 By default, sudo requires that a user authenticate before running a
 command.
@@ -962,9 +962,10 @@ Common programs that permit shell escapes include shells (obviously),
 editors, paginators (such as \f[I]less\f[R]), mail, and terminal
 programs.
 .PP
-On Linux, sudo\-rs has sudo\[cq]s \f[B]noexec* functionality, based on a
-seccomp() filter.
-Programs that are run in \f[R]noexec** mode cannot run other programs.
+On Linux, sudo\-rs has sudo\[cq]s \f[B]noexec\f[R] functionality, based
+on a seccomp() filter.
+Programs that are run in \f[B]noexec\f[R] mode cannot run other
+programs.
 The implementation in sudo\-rs is different than in Todd Miller\[cq]s
 sudo, and should also work on statically linked binaries.
 .PP

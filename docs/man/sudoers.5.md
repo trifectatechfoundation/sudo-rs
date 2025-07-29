@@ -277,7 +277,7 @@ In the following example, user aaron may run /usr/bin/more and /usr/bin/vi but s
 
         aaron   shanty = NOEXEC: /usr/bin/more, /usr/bin/vi
 
-See the Preventing shell escapes section below for more details on how NOEXEC works and whether or not it suits your purpose.
+See the _Preventing shell escapes_ section below for more details on how NOEXEC works and whether or not it suits your purpose.
 
 ### PASSWD and NOPASSWD
 
@@ -485,10 +485,11 @@ User john can still run /usr/bin/passwd root if fast_glob is enabled by changing
 
 Once sudo executes a program, that program is free to do whatever it pleases, including run other programs.  This can be a security issue since it is not uncommon for a program to allow shell escapes, which lets a user bypass sudo's access control and logging.  Common programs that permit shell escapes include shells (obviously), editors, paginators (such as *less*), mail, and terminal programs.
 
-On Linux, sudo-rs has sudo's **noexec* functionality, based on a seccomp() filter. Programs that are run in **noexec** mode cannot run other programs. The implementation
+On Linux, sudo-rs has sudo's **noexec** functionality, based on a seccomp() filter. Programs that are run in **noexec** mode cannot run other programs. The implementation
 in sudo-rs is different than in Todd Miller's sudo, and should also work on statically linked binaries.
 
 Note that restricting shell escapes is not a panacea. Programs running as root are still capable of many potentially hazardous operations (such as changing or overwriting files) that could lead to unintended privilege escalation. NOEXEC is also not a protection against malicious programs. It doesn't prevent mapping memory as executable, nor does it protect against future syscalls that can do an exec() like the proposed `io_uring` exec feature in Linux. And it also doesn't protect against honest programs that intentionally or not allow the user to write to /proc/self/mem for the same reasons as that it doesn't protect against malicious programs.
+You should always try out if **noexec** indeed prevents shell escapes for the programs it is intended to be used with.
 
 ### Timestamp file checks
 
