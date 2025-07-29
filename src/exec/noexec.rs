@@ -18,7 +18,8 @@ use libc::{
     BPF_JEQ, BPF_JMP, BPF_JUMP, BPF_K, BPF_LD, BPF_RET, BPF_STMT, BPF_W, CMSG_DATA, CMSG_FIRSTHDR,
     CMSG_LEN, CMSG_SPACE, EACCES, ENOENT, MSG_TRUNC, PR_SET_NO_NEW_PRIVS, SCM_RIGHTS,
     SECCOMP_FILTER_FLAG_NEW_LISTENER, SECCOMP_GET_NOTIF_SIZES, SECCOMP_RET_ALLOW,
-    SECCOMP_SET_MODE_FILTER, SECCOMP_USER_NOTIF_FLAG_CONTINUE, SOL_SOCKET,
+    SECCOMP_RET_KILL_PROCESS, SECCOMP_SET_MODE_FILTER, SECCOMP_USER_NOTIF_FLAG_CONTINUE,
+    SOL_SOCKET,
 };
 
 const SECCOMP_RET_USER_NOTIF: c_uint = 0x7fc00000;
@@ -372,7 +373,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
                 BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, HOST_ARCH as _, 7, 0),
                 BPF_JUMP((BPF_JMP | BPF_JEQ | BPF_K) as _, GUEST_ARCH as _, 1, 0),
                 // Not a recognized architecture, forbid all syscalls
-                BPF_STMT((BPF_RET | BPF_K) as _, SECCOMP_RET_USER_NOTIF as _),
+                BPF_STMT((BPF_RET | BPF_K) as _, SECCOMP_RET_KILL_PROCESS as _),
 
                 // Guest architecture section
                 // Load syscall number into the accumulator
