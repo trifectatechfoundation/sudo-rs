@@ -14,7 +14,7 @@ DATE=$(grep -m1 '^##' "$PROJECT_DIR"/CHANGELOG.md | grep -o '[0-9]\{4\}-[0-9]\{2
 # Build binaries
 docker build --pull --tag "$BUILDER_IMAGE_TAG" --file "$SCRIPT_DIR/Dockerfile-release" "$SCRIPT_DIR"
 docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo clean
-docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --release --features pam-login,apparmor
+docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --release --features pam-login,sudoedit,apparmor
 
 # Generate man pages
 "$PROJECT_DIR/util/generate-docs.sh"
@@ -40,9 +40,11 @@ mkdir -p "$target_dir_sudo/share/man/man8"
 mkdir -p "$target_dir_sudo/share/man/man5"
 cp "$PROJECT_DIR/target/release/sudo" "$target_dir_sudo/bin/sudo"
 cp "$PROJECT_DIR/target/release/visudo" "$target_dir_sudo/bin/visudo"
+ln -s sudo "$target_dir_sudo/bin/sudoedit"
 cp "$PROJECT_DIR/docs/man/sudo.8.man" "$target_dir_sudo/share/man/man8/sudo.8"
 cp "$PROJECT_DIR/docs/man/visudo.8.man" "$target_dir_sudo/share/man/man8/visudo.8"
 cp "$PROJECT_DIR/docs/man/sudoers.5.man" "$target_dir_sudo/share/man/man5/sudoers.5"
+ln -s "sudo.8" "$target_dir_sudo/share/man/man8/sudoedit.8"
 mkdir -p "$target_dir_sudo/share/doc/sudo-rs/sudo"
 cp "$PROJECT_DIR/README.md" "$target_dir_sudo/share/doc/sudo-rs/sudo/README.md"
 cp "$PROJECT_DIR/CHANGELOG.md" "$target_dir_sudo/share/doc/sudo-rs/sudo/CHANGELOG.md"
