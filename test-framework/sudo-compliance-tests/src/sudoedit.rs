@@ -7,6 +7,7 @@ use crate::{
 };
 
 mod limits;
+mod sudoers;
 
 const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "555";
