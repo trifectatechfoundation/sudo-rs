@@ -5,7 +5,7 @@ use crate::exec::{RunOptions, Umask};
 #[cfg_attr(not(feature = "sudoedit"), allow(unused_imports))]
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
-use crate::system::{Group, Hostname, Process, User};
+use crate::system::{audit::sudo_call, Group, Hostname, Process, User};
 
 use super::{
     command::CommandAndArguments,
@@ -81,7 +81,9 @@ impl Context {
                 system_path.as_ref()
             };
 
-            CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
+            sudo_call(&target_user, &target_group, || {
+                CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
+            })?
         };
 
         Ok(Context {
@@ -115,18 +117,20 @@ impl Context {
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
 
         // resolve file arguments; if something can't be resolved, don't add it to the "edit" list
-        let resolved_args = sudo_options.positional_args.iter().map(|arg| {
-            let path = Path::new(arg);
-            let absolute_path;
-            crate::common::resolve::canonicalize_newfile(if path.is_absolute() {
-                path
-            } else {
-                absolute_path = Path::new(".").join(path);
-                &absolute_path
+        let resolved_args = sudo_call(&target_user, &target_group, || {
+            sudo_options.positional_args.iter().map(|arg| {
+                let path = Path::new(arg);
+                let absolute_path;
+                crate::common::resolve::canonicalize_newfile(if path.is_absolute() {
+                    path
+                } else {
+                    absolute_path = Path::new(".").join(path);
+                    &absolute_path
+                })
+                .map_err(|_| arg)
+                .and_then(|path| path.into_os_string().into_string().map_err(|_| arg))
             })
-            .map_err(|_| arg)
-            .and_then(|path| path.into_os_string().into_string().map_err(|_| arg))
-        });
+        })?;
 
         let files_to_edit = resolved_args
             .clone()
@@ -223,7 +227,9 @@ impl Context {
                 system_path.as_ref()
             };
 
-            CommandAndArguments::build_from_args(None, sudo_options.positional_args, path)
+            sudo_call(&target_user, &target_group, || {
+                CommandAndArguments::build_from_args(None, sudo_options.positional_args, path)
+            })?
         };
 
         Ok(Context {

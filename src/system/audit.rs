@@ -17,7 +17,7 @@ use crate::common::resolve::CurrentUser;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.
-fn sudo_call<T>(
+pub(crate) fn sudo_call<T>(
     target_user: &User,
     target_group: &Group,
     operation: impl FnOnce() -> T,
