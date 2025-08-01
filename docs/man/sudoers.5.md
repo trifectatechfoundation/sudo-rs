@@ -146,7 +146,7 @@ A Host_List is made up of one or more host names.  Again, the value of an item m
               '!'* directory |
               '!'* Cmnd_Alias
               '!'* "list"
-              '!'* "sudoedit"
+              '!'* "sudoedit" [file name]
 
 A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the Wildcards section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments (which in sudo-rs may *not* include wildcards). Alternately, you can specify "" to indicate that the command may only be run without command line arguments.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
 
@@ -160,7 +160,8 @@ with the “list” privilege is able to list another user's privileges even if 
 root or a user with the ability to run any command as either root or the specified user on the current host may use the -U option.  No command line arguments may
 be specified with the “list” built-in.
 
-The “sudoedit” built-in will be used in the future to permit a user to run sudo with the -e option (or as sudoedit). This feature is currently under development.
+The “sudoedit” built-in is used to permit a user to run sudo with the -e option (or as sudoedit). It may take command line arguments just as a normal command does. Unlike other commands, “sudoedit” is built into sudo itself and must be specified in the sudoers file without a leading path.
+If a leading path is present, for example /usr/bin/sudoedit, this will not give the user permissions to use sudoedit. If no arguments are provided, “sudoedit” will give the user the permission to edit any files; if an argument is present it must be an absolute path name that does not contain symbolic links, or the command will not be matched.
 
 ## Defaults
 
@@ -396,6 +397,10 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
   If set, sudo will prompt for the password of the user specified by the -u option (defaults to root) instead of the password of the invoking user when running a command or editing a file. Note that this flag precludes the use of a user-ID not listed in the passwd database as an argument to the -u option. This flag is off by default.
 
+* umask_override
+
+  If set, sudo will set the umask as specified in the sudoers file without modification. This makes it possible to specify a umask in the sudoers file that is more permissive than the user's own umask. If umask_override is not set, sudo will set the umask to be the union of the user's umask and what is specified in sudoers. This flag is off by default.
+
 * use_pty
 
   If set, and sudo is running in a terminal, the command will be run in a pseudo-terminal (even if no I/O logging is being done).  If the sudo process is not attached to a terminal, use_pty has no effect.
@@ -413,6 +418,18 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 * timestamp_timeout
 
   Number of minutes that can elapse before sudo will ask for a passwd again.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 15.  Set this to 0 to always prompt for a password.
+
+* umask
+
+  File mode creation mask to use when running the command. Negate this option or set it to 0777 to prevent sudo from changing the umask. Unless the umask_override flag is set, the actual umask will be the union of the user's umask and the  value  of  the umask  setting, which defaults to 0022.  This guarantees that sudo never lowers the umask when running  a command.
+
+  If umask is explicitly set, it will override any umask setting in PAM. If umask is not set, the umask specified by PAM will take precedence. The umask setting in PAM is not used for sudoedit, which does not create a new PAM session.
+
+## Strings
+
+* editor
+
+  A colon (‘:’) separated list of editor path names used by **sudoedit** and **visudo**. For **sudoedit**, this list is used to find an editor when none of the SUDO_EDITOR, VISUAL or EDITOR environment variables are set to an editor that exists and is executable.  For **visudo**, it is used as a white list of allowed editors; **visudo** will choose the editor that matches the user's SUDO_EDITOR, VISUAL or EDITOR environment variable if possible, or the  first  editor in  the  list that exists and is executable if not. Unless invoked as **sudoedit**, sudo does not preserve the SUDO_EDITOR, VISUAL or EDITOR environment variables unless they are present in the **env_keep** list. The default on Linux is _/usr/bin/editor_, on FreeBSD _/usr/vim/vi_.
 
 ## Strings that can be used in a boolean context:
 
@@ -444,7 +461,7 @@ The argument may be a double-quoted, space-separated list or a single value with
 
   Environment variables to be preserved in the user's environment when the env_reset option is in effect.  This allows fine-grained control over the environment sudo-spawned processes will receive.  The argument may be a double-quoted, space-separated list or a single value without double-quotes.  The list can be replaced, added to, deleted from, or disabled by using the =, +=, -=, and ! operators respectively.  The global list of variables to keep is displayed when sudo is run by root with the -V option.
 
-  Preserving the HOME environment variable has security implications since many programs use it when searching for configuration or data files.  Adding HOME to env_keep may enable a user to run unrestricted commands via sudo and is strongly discouraged.
+  Preserving the HOME environment variable has security implications since many programs use it when searching for configuration or data files.  Adding HOME to env_keep may enable a user to run unrestricted commands via sudo and is strongly discouraged. Users wishing to edit files with sudo should run **sudoedit** (or **sudo -e**) to get their accustomed editor configuration instead of invoking the editor directly.
 
 ## LOG FORMAT
 

@@ -1,5 +1,5 @@
 ---
-title: SU(1) sudo-rs 0.2.7 | sudo-rs
+title: SU(1) sudo-rs 0.2.8 | sudo-rs
 ---
 
 # NAME
