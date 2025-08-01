@@ -41,8 +41,14 @@ const AUDIT_ARCH_MIPSEL64: u32 = libc::EM_MIPS as u32 | __AUDIT_ARCH_64BIT | __A
 const AUDIT_ARCH_PPC: u32 = libc::EM_PPC as u32;
 const AUDIT_ARCH_PPC64: u32 = libc::EM_PPC64 as u32 | __AUDIT_ARCH_64BIT;
 const AUDIT_ARCH_PPC64LE: u32 = libc::EM_PPC64 as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_RISCV32: u32 = EM_RISCV as u32 | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_RISCV64: u32 = EM_RISCV as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
 const AUDIT_ARCH_S390X: u32 = libc::EM_S390 as u32 | __AUDIT_ARCH_64BIT;
 const AUDIT_ARCH_X86_64: u32 = libc::EM_X86_64 as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
+
+// workaround: libc doesn't have EM_RISCV yet, so we define it ourselves
+// see: https://github.com/rust-lang/libc/issues/4603
+const EM_RISCV: u16 = 243;
 
 /// # Safety
 ///
@@ -311,6 +317,10 @@ const HOST_ARCH: u32 = if cfg!(target_arch = "aarch64") {
     } else {
         AUDIT_ARCH_PPC64
     }
+} else if cfg!(target_arch = "riscv32") {
+    AUDIT_ARCH_RISCV32
+} else if cfg!(target_arch = "riscv64") {
+    AUDIT_ARCH_RISCV64
 } else if cfg!(target_arch = "s390x") {
     AUDIT_ARCH_S390X
 } else if cfg!(target_arch = "x86") {
@@ -325,6 +335,8 @@ const HOST_ARCH: u32 = if cfg!(target_arch = "aarch64") {
 // running in multi-arch mode.
 const GUEST_ARCH: u32 = if cfg!(target_arch = "aarch64") {
     AUDIT_ARCH_ARM
+} else if cfg!(target_arch = "riscv64") {
+    AUDIT_ARCH_RISCV32
 } else if cfg!(target_arch = "x86_64") {
     AUDIT_ARCH_I386
 } else {
@@ -335,12 +347,16 @@ const GUEST_ARCH: u32 = if cfg!(target_arch = "aarch64") {
 const SYS_execve_x86: i64 = 11;
 const SYS_execve_arm: i64 = 11;
 const SYS_execve_x32: i64 = 520;
+const SYS_execve_rv32: i64 = 221;
 const SYS_execveat_x86: i64 = 358;
 const SYS_execveat_arm: i64 = 387;
 const SYS_execveat_x32: i64 = 545;
+const SYS_execveat_rv32: i64 = 281;
 
 const GUEST_SYSCALL: (i64, i64) = if cfg!(target_arch = "aarch64") {
     (SYS_execve_arm, SYS_execveat_arm)
+} else if cfg!(target_arch = "riscv64") {
+    (SYS_execve_rv32, SYS_execveat_rv32)
 } else if cfg!(target_arch = "x86_64") {
     (SYS_execve_x86, SYS_execveat_x86)
 } else {
