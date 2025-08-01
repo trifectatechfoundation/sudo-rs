@@ -25,6 +25,10 @@ pub(crate) fn sudo_call<T>(
     const KEEP_UID: libc::uid_t = -1i32 as libc::uid_t;
     const KEEP_GID: libc::gid_t = -1i32 as libc::gid_t;
 
+    // SAFETY: these libc functions are always safe to call
+    let (cur_user_id, cur_group_id) =
+        unsafe { (UserId::new(libc::geteuid()), GroupId::new(libc::getegid())) };
+
     let cur_groups = {
         // SAFETY: calling with size 0 does not modify through the pointer, and is
         // a documented way of getting the length needed.
@@ -43,6 +47,18 @@ pub(crate) fn sudo_call<T>(
     let mut target_groups = target_user.groups.clone();
     inject_group(target_group.gid, &mut target_groups);
 
+    #[cfg(test)]
+    if (target_user.uid, target_group.gid) == (cur_user_id, cur_group_id)
+        && target_groups
+            .iter()
+            .filter(|x| **x != target_group.gid)
+            .eq(cur_groups.iter().filter(|x| **x != cur_group_id))
+    {
+        // we are not actually switching users, simply run the closure
+        // (this would also be safe in production mode, but it is a needless check)
+        return Ok(operation());
+    }
+
     struct ResetUserGuard(UserId, GroupId, Vec<GroupId>);
 
     impl Drop for ResetUserGuard {
@@ -59,14 +75,7 @@ pub(crate) fn sudo_call<T>(
         }
     }
 
-    // SAFETY: these libc functions are always safe to call
-    let guard = unsafe {
-        ResetUserGuard(
-            UserId::new(libc::geteuid()),
-            GroupId::new(libc::getegid()),
-            cur_groups,
-        )
-    };
+    let guard = ResetUserGuard(cur_user_id, cur_group_id, cur_groups);
 
     set_supplementary_groups(&target_groups)?;
     // SAFETY: this function is always safe to call
