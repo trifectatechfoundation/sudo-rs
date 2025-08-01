@@ -276,20 +276,20 @@ impl Context {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        sudo::SudoAction,
-        system::{interface::UserId, Hostname},
-    };
+    use crate::{common::resolve::CurrentUser, sudo::SudoAction, system::Hostname};
 
     use super::Context;
 
     #[test]
     fn test_build_run_context() {
-        let options = SudoAction::try_parse_from(["sudo", "echo", "hello"])
+        let mut options = SudoAction::try_parse_from(["sudo", "echo", "hello"])
             .unwrap()
             .try_into_run()
             .ok()
             .unwrap();
+
+        let current_user = CurrentUser::resolve().unwrap();
+        options.user = Some(current_user.name.clone());
 
         let context = Context::from_run_opts(options, &mut Default::default()).unwrap();
 
@@ -301,6 +301,6 @@ mod tests {
         }
         assert_eq!(context.command.arguments, ["hello"]);
         assert_eq!(context.hostname, Hostname::resolve());
-        assert_eq!(context.target_user.uid, UserId::ROOT);
+        assert_eq!(context.target_user.uid, current_user.uid);
     }
 }
