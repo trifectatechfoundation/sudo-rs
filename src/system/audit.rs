@@ -47,8 +47,9 @@ pub(crate) fn sudo_call<T>(
     let mut target_groups = target_user.groups.clone();
     inject_group(target_group.gid, &mut target_groups);
 
-    #[cfg(test)]
-    if (target_user.uid, target_group.gid) == (cur_user_id, cur_group_id)
+    if cfg!(test)
+        && target_user.uid == cur_user_id
+        && target_group.gid == cur_group_id
         && target_groups
             .iter()
             .filter(|x| **x != target_group.gid)
