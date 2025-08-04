@@ -1,9 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub(crate) struct VisudoOptions {
     pub(crate) file: Option<String>,
-    pub(crate) includes: bool,
-    pub(crate) quiet: bool,
-    pub(crate) strict: bool,
     pub(crate) owner: bool,
     pub(crate) perms: bool,
     pub(crate) action: VisudoAction,
@@ -13,9 +10,6 @@ impl Default for VisudoOptions {
     fn default() -> Self {
         Self {
             file: None,
-            includes: true,
-            quiet: false,
-            strict: false,
             owner: false,
             perms: false,
             action: VisudoAction::Run,
@@ -73,28 +67,22 @@ impl VisudoOptions {
             short: 'I',
             long: "no-includes",
             takes_argument: false,
-            set: |options, _| {
-                options.includes = true;
-                Ok(())
-            },
+            set: |_, _| Ok(()),
+            /* ignored for compatibility sake */
         },
         VisudoOption {
             short: 'q',
             long: "quiet",
             takes_argument: false,
-            set: |options, _| {
-                options.quiet = true;
-                Ok(())
-            },
+            set: |_, _| Ok(()),
+            /* ignored for compatibility sake */
         },
         VisudoOption {
             short: 's',
             long: "strict",
             takes_argument: false,
-            set: |options, _| {
-                options.strict = true;
-                Ok(())
-            },
+            set: |_, _| Ok(()),
+            /* ignored for compatibility sake */
         },
         VisudoOption {
             short: 'V',
