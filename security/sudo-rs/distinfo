@@ -1,4 +1,4 @@
-TIMESTAMP = 1752137205
+TIMESTAMP = 1754301726
 SHA256 (rust/crates/diff-0.1.13.crate) = 56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8
 SIZE (rust/crates/diff-0.1.13.crate) = 46216
 SHA256 (rust/crates/glob-0.3.2.crate) = a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2
@@ -11,5 +11,5 @@ SHA256 (rust/crates/pretty_assertions-1.4.1.crate) = 3ae130e2f271fbc2ac3a40fb1d0
 SIZE (rust/crates/pretty_assertions-1.4.1.crate) = 78952
 SHA256 (rust/crates/yansi-1.0.1.crate) = cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049
 SIZE (rust/crates/yansi-1.0.1.crate) = 75497
-SHA256 (trifectatechfoundation-sudo-rs-v0.2.7_GH0.tar.gz) = d4e7b49634bf9c8a897a26afe85118ef941ff0914765b8720798821d2fe8c402
-SIZE (trifectatechfoundation-sudo-rs-v0.2.7_GH0.tar.gz) = 736981
+SHA256 (trifectatechfoundation-sudo-rs-v0.2.8_GH0.tar.gz) = 5b3823cc60abc5d90dbf0ae3a37d92445215e2697e6997c56148f5d0ac371ece
+SIZE (trifectatechfoundation-sudo-rs-v0.2.8_GH0.tar.gz) = 751775
