@@ -252,7 +252,7 @@ Again, the value of an item may be negated with the `!' operator.
           \[aq]!\[aq]* directory |
           \[aq]!\[aq]* Cmnd_Alias
           \[aq]!\[aq]* \[dq]list\[dq]
-          \[aq]!\[aq]* \[dq]sudoedit\[dq]
+          \[aq]!\[aq]* \[dq]sudoedit\[dq] [file name]
 .EE
 .PP
 A Cmnd_List is a list of one or more command names, directories, and
@@ -292,9 +292,17 @@ option.
 No command line arguments may be specified with the \[lq]list\[rq]
 built\-in.
 .PP
-The \[lq]sudoedit\[rq] built\-in will be used in the future to permit a
-user to run sudo with the \-e option (or as sudoedit).
-This feature is currently under development.
+The \[lq]sudoedit\[rq] built\-in is used to permit a user to run sudo
+with the \-e option (or as sudoedit).
+It may take command line arguments just as a normal command does.
+Unlike other commands, \[lq]sudoedit\[rq] is built into sudo itself and
+must be specified in the sudoers file without a leading path.
+If a leading path is present, for example /usr/bin/sudoedit, this will
+not give the user permissions to use sudoedit.
+If no arguments are provided, \[lq]sudoedit\[rq] will give the user the
+permission to edit any files; if an argument is present it must be an
+absolute path name that does not contain symbolic links, or the command
+will not be matched.
 .SS Defaults
 Certain configuration options may be changed from their default values
 at run\-time via one or more Default_Entry lines.
@@ -784,6 +792,18 @@ passwd database as an argument to the \-u option.
 This flag is off by default.
 .RE
 .IP \[bu] 2
+umask_override
+.RS 2
+.PP
+If set, sudo will set the umask as specified in the sudoers file without
+modification.
+This makes it possible to specify a umask in the sudoers file that is
+more permissive than the user\[cq]s own umask.
+If umask_override is not set, sudo will set the umask to be the union of
+the user\[cq]s umask and what is specified in sudoers.
+This flag is off by default.
+.RE
+.IP \[bu] 2
 use_pty
 .RS 2
 .PP
@@ -820,6 +840,43 @@ The timeout may include a fractional component if minute granularity is
 insufficient, for example 2.5.
 The default is 15.
 Set this to 0 to always prompt for a password.
+.RE
+.IP \[bu] 2
+umask
+.RS 2
+.PP
+File mode creation mask to use when running the command.
+Negate this option or set it to 0777 to prevent sudo from changing the
+umask.
+Unless the umask_override flag is set, the actual umask will be the
+union of the user\[cq]s umask and the value of the umask setting, which
+defaults to 0022.
+This guarantees that sudo never lowers the umask when running a command.
+.PP
+If umask is explicitly set, it will override any umask setting in PAM.
+If umask is not set, the umask specified by PAM will take precedence.
+The umask setting in PAM is not used for sudoedit, which does not create
+a new PAM session.
+.RE
+.SS Strings
+.IP \[bu] 2
+editor
+.RS 2
+.PP
+A colon (`:') separated list of editor path names used by
+\f[B]sudoedit\f[R] and \f[B]visudo\f[R].
+For \f[B]sudoedit\f[R], this list is used to find an editor when none of
+the SUDO_EDITOR, VISUAL or EDITOR environment variables are set to an
+editor that exists and is executable.
+For \f[B]visudo\f[R], it is used as a white list of allowed editors;
+\f[B]visudo\f[R] will choose the editor that matches the user\[cq]s
+SUDO_EDITOR, VISUAL or EDITOR environment variable if possible, or the
+first editor in the list that exists and is executable if not.
+Unless invoked as \f[B]sudoedit\f[R], sudo does not preserve the
+SUDO_EDITOR, VISUAL or EDITOR environment variables unless they are
+present in the \f[B]env_keep\f[R] list.
+The default on Linux is \f[I]/usr/bin/editor\f[R], on FreeBSD
+\f[I]/usr/vim/vi\f[R].
 .RE
 .SS Strings that can be used in a boolean context:
 .IP \[bu] 2
@@ -899,6 +956,9 @@ Preserving the HOME environment variable has security implications since
 many programs use it when searching for configuration or data files.
 Adding HOME to env_keep may enable a user to run unrestricted commands
 via sudo and is strongly discouraged.
+Users wishing to edit files with sudo should run \f[B]sudoedit\f[R] (or
+\f[B]sudo \-e\f[R]) to get their accustomed editor configuration instead
+of invoking the editor directly.
 .RE
 .SS LOG FORMAT
 sudo\-rs logs events via syslog(3).
@@ -980,6 +1040,8 @@ against future syscalls that can do an exec() like the proposed
 And it also doesn\[cq]t protect against honest programs that
 intentionally or not allow the user to write to /proc/self/mem for the
 same reasons as that it doesn\[cq]t protect against malicious programs.
+You should always try out if \f[B]noexec\f[R] indeed prevents shell
+escapes for the programs it is intended to be used with.
 .SS Timestamp file checks
 sudo\-rs will check the ownership of its timestamp directory
 (/run/sudo/ts by default) and ignore the directory\[cq]s contents if it

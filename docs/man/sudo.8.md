@@ -1,16 +1,20 @@
 ---
-title: SUDO(8) sudo-rs 0.2.7 | sudo-rs
+title: SUDO(8) sudo-rs 0.2.8 | sudo-rs
 ---
 
 # NAME
 
-`sudo` - execute a command as another user
+`sudo`, `sudoedit` - execute a command as another user
 
 # SYNOPSIS
 
-`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-BknS`] [`-i` | `-s`] [`VAR=value`] [<*command*>] \
-`sudo` `-l` [`-BknS`] [`-U` *user*] [`-u` *user*]  [`-g` *group*] [command [arg ...]]
 `sudo` `-h` | `-K` | `-k` | `-V`
+`sudo` [`-u` *user*] [`-g` *group*] [`-D` *directory*] [`-BknS`] [`-i` | `-s`] [`VAR=value`] [<*command*>]
+`sudo` `-v` [`-BknS`] [`-u` *user*]  [`-g` *group*]
+`sudo` `-l` [`-BknS`] [`-U` *user*] [`-u` *user*]  [`-g` *group*] [command [arg ...]]
+`sudo` `-e` [`-BknS`] [`-u` *user*] [`-g` *group*] file ...
+`sudoedit` [`-BknS`] [`-u` *user*] [`-g` *group*] file ...
+
 
 # DESCRIPTION
 
@@ -27,6 +31,11 @@ timeout for session records can be specified in the policy.
 
 Some care is taken to pass signals received by sudo-rs to the child process,
 even if that process runs in its own pseudo terminal.
+
+On systems where sudo is the primary method of gaining superuser privileges, it is
+imperative to avoid syntax errors in the `/etc/sudoers` file. Changes to this file
+should be made using the visudo(8) utility which will ensure that no syntax errors
+are introduced.
 
 # OPTIONS
 
@@ -100,6 +109,26 @@ even if that process runs in its own pseudo terminal.
 :   Run the shell specified by the `SHELL` environment variable. If no shell
     was specified, the shell from the user's password database entry will be
     used instead. If a *command* is specified, it is passed to the shell using the `-c` option.
+
+`-e`, `sudoedit`
+
+    Edit one or more files instead of running a command.  In lieu of a path name, the string "sudoedit" is used when consulting the security policy.  If the user is authorized by the policy, the following steps are taken:
+
+    1. Temporary copies are made of the files to be edited with the owner set to the invoking user.
+
+    2. The editor specified by the policy is run to edit the temporary files.  The sudoers policy uses the SUDO_EDITOR, VISUAL and EDITOR environment variables (in that order).  If none of SUDO_EDITOR, VISUAL or EDITOR are set, the first program listed in the editor sudoers(5) option is used.
+
+    3. If they have been modified, the content of the temporary files is copied back to the originals and the temporary versions are removed.
+
+    To help prevent the editing of unauthorized files, the following restrictions are enforced (unless the user is root):
+
+    * Symbolic links may not be edited.
+
+    * If any component of the path leading to the file is writable by the invoking user, the file may not be edited.
+
+    * Users are never allowed to edit device special files.
+
+    If the specified file does not exist, it will be created. Unlike most commands run by sudo, the editor is run with the invoking user's environment unmodified. If the temporary file becomes empty after editing, the user will be prompted before it is installed.
 
 `-u` *user*, `--user`=*user*
 :   Run the *command* as another user than the default (**root**).

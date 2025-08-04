@@ -51,11 +51,11 @@ We currently only offer these for x86-64 systems.
 We recommend installing sudo-rs and su-rs in your `/usr/local` hierarchy so it can co-exist with
 your existing sudo installation. You can achieve this using the commands:
 ```sh
-sudo tar -C /usr/local -xvf sudo-0.2.7.tar.gz
+sudo tar -C /usr/local -xvf sudo-0.2.8.tar.gz
 ```
 and for su-rs:
 ```sh
-sudo tar -C /usr/local -xvf su-0.2.7.tar.gz
+sudo tar -C /usr/local -xvf su-0.2.8.tar.gz
 ```
 This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo` and `su`; it
 will also install our version of `visudo` in that location.
@@ -157,6 +157,7 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
   `match_group_by_gid` are not applicable to our implementation, but ignored for
   compatibility reasons.
 * `timestamp_type` is always set at `tty`.
+* `sudoedit_checkdir` is always `on`, and `sudoedit_follow` is always `off`.
 
 Some other notable restrictions to be aware of:
 
