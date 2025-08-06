@@ -199,18 +199,18 @@ impl AsFd for ParentBackchannel {
 /// Different messages exchanged between the monitor and the parent process using a [`ParentBackchannel`].
 #[derive(PartialEq, Eq)]
 pub(super) enum MonitorMessage {
-    ExecCommand,
+    Edge,
     Signal(c_int),
 }
 
 impl MonitorMessage {
     const LEN: usize = PREFIX_LEN + MONITOR_DATA_LEN;
-    const EXEC_CMD: Prefix = 0;
+    const EDGE_CMD: Prefix = 0;
     const SIGNAL: Prefix = 1;
 
     fn from_parts(prefix: Prefix, data: MonitorData) -> Self {
         match prefix {
-            Self::EXEC_CMD => Self::ExecCommand,
+            Self::EDGE_CMD => Self::Edge,
             Self::SIGNAL => Self::Signal(data),
             _ => unreachable!(),
         }
@@ -218,12 +218,12 @@ impl MonitorMessage {
 
     fn to_parts(&self) -> (Prefix, MonitorData) {
         let prefix = match self {
-            MonitorMessage::ExecCommand => Self::EXEC_CMD,
+            MonitorMessage::Edge => Self::EDGE_CMD,
             MonitorMessage::Signal(_) => Self::SIGNAL,
         };
 
         let data = match self {
-            MonitorMessage::ExecCommand => 0,
+            MonitorMessage::Edge => 0,
             MonitorMessage::Signal(data) => *data,
         };
 
@@ -234,7 +234,7 @@ impl MonitorMessage {
 impl std::fmt::Debug for MonitorMessage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ExecCommand => "ExecCommand".fmt(f),
+            Self::Edge => "Edge".fmt(f),
             &Self::Signal(signal) => write!(f, "Signal({})", signal_fmt(signal)),
         }
     }
