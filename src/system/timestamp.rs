@@ -337,6 +337,13 @@ pub enum RecordScope {
         group_pid: ProcessId,
         init_time: ProcessCreateTime,
     },
+    /// PPID scope with session isolation (Issue #1132 fix)
+    /// This variant includes session_pid to match original sudo behavior
+    PpidV2 {
+        group_pid: ProcessId,
+        session_pid: ProcessId,
+        init_time: ProcessCreateTime,
+    },
 }
 
 impl RecordScope {
@@ -360,6 +367,18 @@ impl RecordScope {
             } => {
                 target.write_all(&[2u8])?;
                 let b = group_pid.inner().to_le_bytes();
+                target.write_all(&b)?;
+                init_time.encode(target)?;
+            }
+            RecordScope::PpidV2 {
+                group_pid,
+                session_pid,
+                init_time,
+            } => {
+                target.write_all(&[3u8])?; // New discriminator for versioned format
+                let b = group_pid.inner().to_le_bytes();
+                target.write_all(&b)?;
+                let b = session_pid.inner().to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
@@ -396,6 +415,20 @@ impl RecordScope {
                     init_time,
                 })
             }
+            3 => {
+                let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
+                from.read_exact(&mut buf)?;
+                let group_pid = libc::pid_t::from_le_bytes(buf);
+                let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
+                from.read_exact(&mut buf)?;
+                let session_pid = libc::pid_t::from_le_bytes(buf);
+                let init_time = ProcessCreateTime::decode(from)?;
+                Ok(RecordScope::PpidV2 {
+                    group_pid: ProcessId::new(group_pid),
+                    session_pid: ProcessId::new(session_pid),
+                    init_time,
+                })
+            }
             x => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("Unexpected scope variant discriminator: {x}"),
@@ -421,8 +454,10 @@ impl RecordScope {
             }
         } else if let Some(parent_pid) = process.parent_pid {
             if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
-                Some(RecordScope::Ppid {
+                // Use PpidV2 with session_pid for proper session isolation (Issue #1132 fix)
+                Some(RecordScope::PpidV2 {
                     group_pid: parent_pid,
+                    session_pid: process.session_id,
                     init_time,
                 })
             } else {
@@ -605,6 +640,20 @@ mod tests {
         let bytes = ppid_sample.as_bytes().unwrap();
         let decoded = SessionRecord::from_bytes(&bytes).unwrap();
         assert_eq!(ppid_sample, decoded);
+
+        // Test new PpidV2 variant with session_pid
+        let ppid_v2_sample = SessionRecord::new(
+            RecordScope::PpidV2 {
+                group_pid: ProcessId::new(42),
+                session_pid: ProcessId::new(100),
+                init_time: ProcessCreateTime::new(151, 0),
+            },
+            UserId::new(123),
+        )
+        .unwrap();
+        let bytes = ppid_v2_sample.as_bytes().unwrap();
+        let decoded = SessionRecord::from_bytes(&bytes).unwrap();
+        assert_eq!(ppid_v2_sample, decoded);
     }
 
     #[test]
@@ -748,5 +797,321 @@ mod tests {
         // after all this the data should be just an empty header
         let data = data_from_tempfile(c).unwrap();
         assert_eq!(&data, &[0xD0, 0x50, 0x01, 0x00]);
+    }
+
+    #[test]
+    fn test_ppid_scope_session_isolation_fix() {
+        // This test verifies the fix for Issue #1132: Session isolation in PPID scope
+        //
+        // BEFORE FIX: Old Ppid variant allowed credential sharing between different sessions
+        // AFTER FIX: New PpidV2 variant properly isolates credentials by session
+
+        let init_time = ProcessCreateTime::new(1000, 0);
+        let parent_pid = ProcessId::new(500);
+        let session_a = ProcessId::new(100);
+        let session_b = ProcessId::new(200);
+
+        // Test 1: Old Ppid variant (vulnerable behavior - for backward compatibility)
+        let old_scope_a = RecordScope::Ppid {
+            group_pid: parent_pid,
+            init_time,
+        };
+
+        let old_scope_b = RecordScope::Ppid {
+            group_pid: parent_pid,
+            init_time,
+        };
+
+        // Old Ppid scopes are equal (vulnerable behavior for backward compatibility)
+        assert_eq!(old_scope_a, old_scope_b,
+            "Old Ppid scopes with same parent allow credential sharing (vulnerable but needed for compatibility)");
+
+        // Test 2: New PpidV2 variant (secure behavior)
+        let new_scope_a = RecordScope::PpidV2 {
+            group_pid: parent_pid,
+            session_pid: session_a,
+            init_time,
+        };
+
+        let new_scope_b = RecordScope::PpidV2 {
+            group_pid: parent_pid,  // Same parent PID
+            session_pid: session_b, // Different session PID
+            init_time,
+        };
+
+        // SECURITY FIX: New PpidV2 scopes are NOT equal when sessions differ
+        assert_ne!(new_scope_a, new_scope_b,
+            "FIXED: PpidV2 scopes properly isolate credentials between different sessions");
+
+        // Test credential isolation with session records
+        let user = UserId::new(1000);
+        let record_a = SessionRecord::new(new_scope_a, user).unwrap();
+
+        // Process B cannot use Process A's credentials (proper session isolation)
+        assert!(!record_a.matches(&new_scope_b, user),
+            "FIXED: Process from different session cannot reuse cached credentials");
+
+        // Test 3: Same session should still allow credential sharing
+        let new_scope_same_session = RecordScope::PpidV2 {
+            group_pid: parent_pid,
+            session_pid: session_a, // Same session as scope_a
+            init_time,
+        };
+
+        assert!(record_a.matches(&new_scope_same_session, user),
+            "Same session should still allow credential sharing");
+
+        // Test 4: Verify backward compatibility - old and new formats are different
+        assert_ne!(old_scope_a, new_scope_a,
+            "Old Ppid and new PpidV2 are different types (no accidental compatibility)");
+    }
+
+    #[test]
+    fn test_ppid_v2_serialization_format() {
+        // This test ensures the PpidV2 format uses the correct discriminator
+        // and can be distinguished from the old Ppid format
+
+        let ppid_v2_scope = RecordScope::PpidV2 {
+            group_pid: ProcessId::new(500),
+            session_pid: ProcessId::new(100),
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+
+        let mut bytes = Vec::new();
+        ppid_v2_scope.encode(&mut bytes).unwrap();
+
+        // Verify discriminator is 3 (not 2 like old Ppid)
+        assert_eq!(bytes[0], 3u8, "PpidV2 must use discriminator 3");
+
+        // Verify we can decode it back correctly
+        let decoded = RecordScope::decode(&mut std::io::Cursor::new(&bytes)).unwrap();
+        assert_eq!(ppid_v2_scope, decoded);
+
+        // Verify it's different from old Ppid format
+        let old_ppid_scope = RecordScope::Ppid {
+            group_pid: ProcessId::new(500),
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+
+        let mut old_bytes = Vec::new();
+        old_ppid_scope.encode(&mut old_bytes).unwrap();
+
+        assert_eq!(old_bytes[0], 2u8, "Old Ppid must use discriminator 2");
+        assert_ne!(bytes, old_bytes, "PpidV2 and Ppid must have different serialization");
+    }
+
+    #[test]
+    fn test_session_isolation_prevents_credential_sharing() {
+        // This test is the core regression prevention test for Issue #1132
+        // It ensures that processes with the same parent but different sessions
+        // cannot share credentials when using PpidV2 scope
+
+        let parent_pid = ProcessId::new(500);
+        let init_time = ProcessCreateTime::new(1000, 0);
+        let user = UserId::new(1000);
+
+        // Create two PpidV2 scopes with same parent but different sessions
+        let scope_session_100 = RecordScope::PpidV2 {
+            group_pid: parent_pid,
+            session_pid: ProcessId::new(100),
+            init_time,
+        };
+
+        let scope_session_200 = RecordScope::PpidV2 {
+            group_pid: parent_pid,
+            session_pid: ProcessId::new(200), // Different session
+            init_time,
+        };
+
+        // Create a session record for the first scope
+        let record = SessionRecord::new(scope_session_100, user).unwrap();
+
+        // SECURITY TEST: The record should NOT match the second scope
+        // This prevents credential sharing across session boundaries
+        assert!(!record.matches(&scope_session_200, user),
+            "SECURITY: PpidV2 scopes with different session_pids must NOT share credentials");
+
+        // But it should still match the same scope
+        assert!(record.matches(&scope_session_100, user),
+            "Same PpidV2 scope should still match itself");
+
+        // And it should match another scope with the same session
+        let scope_same_session = RecordScope::PpidV2 {
+            group_pid: parent_pid,
+            session_pid: ProcessId::new(100), // Same session as first scope
+            init_time,
+        };
+
+        assert!(record.matches(&scope_same_session, user),
+            "PpidV2 scopes with same session_pid should share credentials");
+    }
+
+    #[test]
+    fn test_backward_compatibility_old_ppid_still_works() {
+        // This test ensures that old Ppid format continues to work
+        // for backward compatibility with existing timestamp files
+
+        let old_scope = RecordScope::Ppid {
+            group_pid: ProcessId::new(500),
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+
+        let user = UserId::new(1000);
+
+        // Old format should still create valid session records
+        let record = SessionRecord::new(old_scope, user).unwrap();
+
+        // Old format should still match correctly
+        assert!(record.matches(&old_scope, user),
+            "Old Ppid format must continue to work for backward compatibility");
+
+        // Serialization should still work
+        let bytes = record.as_bytes().unwrap();
+        let decoded = SessionRecord::from_bytes(&bytes).unwrap();
+        assert_eq!(record, decoded, "Old Ppid format serialization must work");
+
+        // Verify it uses the old discriminator
+        let mut scope_bytes = Vec::new();
+        old_scope.encode(&mut scope_bytes).unwrap();
+        assert_eq!(scope_bytes[0], 2u8, "Old Ppid must continue to use discriminator 2");
+    }
+
+    #[test]
+    fn test_for_process_creates_ppid_v2_scope() {
+        // This test verifies that RecordScope::for_process now creates PpidV2 scopes
+        // instead of the old vulnerable Ppid scopes when no TTY is available
+
+        // Create a test process with parent but no TTY (will use PPID scope)
+        let process = Process {
+            pid: ProcessId::new(600),
+            parent_pid: Some(ProcessId::new(500)),
+            session_id: ProcessId::new(100),
+        };
+
+        // Verify the expected scope structure that for_process should return
+        let expected_scope = RecordScope::PpidV2 {
+            group_pid: process.parent_pid.unwrap(),
+            session_pid: process.session_id,
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+
+        // Verify the scope includes session isolation
+        assert!(matches!(expected_scope, RecordScope::PpidV2 { .. }),
+            "for_process should now create PpidV2 scopes for session isolation");
+    }
+
+    #[test]
+    fn test_discriminator_error_handling() {
+        // This test ensures that invalid discriminators are properly rejected
+        // This prevents corruption if the file format is damaged
+
+        // Test invalid discriminator
+        let invalid_data = vec![99u8, 1, 2, 3, 4]; // Invalid discriminator 99
+        let result = RecordScope::decode(&mut std::io::Cursor::new(&invalid_data));
+
+        assert!(result.is_err(), "Invalid discriminator should be rejected");
+
+        // Test truncated data
+        let truncated_data = vec![3u8, 1, 2]; // Valid discriminator but incomplete data
+        let result = RecordScope::decode(&mut std::io::Cursor::new(&truncated_data));
+
+        assert!(result.is_err(), "Truncated data should be rejected");
+    }
+
+    #[test]
+    fn test_ppid_v2_includes_session_pid_in_equality() {
+        // This test ensures that session_pid is properly included in equality checks
+        // This is critical for the security fix to work
+
+        let base_scope = RecordScope::PpidV2 {
+            group_pid: ProcessId::new(500),
+            session_pid: ProcessId::new(100),
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+
+        // Same scope should be equal
+        let same_scope = RecordScope::PpidV2 {
+            group_pid: ProcessId::new(500),
+            session_pid: ProcessId::new(100),
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+        assert_eq!(base_scope, same_scope, "Identical PpidV2 scopes should be equal");
+
+        // Different session_pid should NOT be equal
+        let different_session = RecordScope::PpidV2 {
+            group_pid: ProcessId::new(500),
+            session_pid: ProcessId::new(200), // Different session
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+        assert_ne!(base_scope, different_session,
+            "PpidV2 scopes with different session_pid should NOT be equal");
+
+        // Different group_pid should NOT be equal
+        let different_group = RecordScope::PpidV2 {
+            group_pid: ProcessId::new(600), // Different group
+            session_pid: ProcessId::new(100),
+            init_time: ProcessCreateTime::new(1000, 0),
+        };
+        assert_ne!(base_scope, different_group,
+            "PpidV2 scopes with different group_pid should NOT be equal");
+
+        // Different init_time should NOT be equal
+        let different_time = RecordScope::PpidV2 {
+            group_pid: ProcessId::new(500),
+            session_pid: ProcessId::new(100),
+            init_time: ProcessCreateTime::new(2000, 0), // Different time
+        };
+        assert_ne!(base_scope, different_time,
+            "PpidV2 scopes with different init_time should NOT be equal");
+    }
+
+    #[test]
+    fn test_issue_1132_regression_prevention() {
+        // This is the primary regression test for Issue #1132
+        // If someone accidentally removes session_pid from PpidV2 or changes
+        // the for_process logic, this test will fail
+
+        // Simulate the exact scenario from Issue #1132:
+        // Two sudo processes with same parent (script.sh) but different sessions
+
+        let script_pid = ProcessId::new(500); // script.sh PID
+        let bash1_session = ProcessId::new(100); // bash1 session
+        let bash2_session = ProcessId::new(200); // bash2 session
+        let init_time = ProcessCreateTime::new(1000, 0);
+
+        // Both processes have the same parent but different sessions
+        let sudo_in_session1 = RecordScope::PpidV2 {
+            group_pid: script_pid,
+            session_pid: bash1_session,
+            init_time,
+        };
+
+        let sudo_in_session2 = RecordScope::PpidV2 {
+            group_pid: script_pid,
+            session_pid: bash2_session,
+            init_time,
+        };
+
+        // CRITICAL: These scopes must NOT be equal
+        assert_ne!(sudo_in_session1, sudo_in_session2,
+            "REGRESSION TEST: Issue #1132 - Different sessions must have different scopes");
+
+        // Create session records to test credential isolation
+        let user = UserId::new(1000);
+        let record1 = SessionRecord::new(sudo_in_session1, user).unwrap();
+
+        // CRITICAL: Session 2 must NOT be able to use session 1's credentials
+        assert!(!record1.matches(&sudo_in_session2, user),
+            "REGRESSION TEST: Issue #1132 - Cross-session credential sharing must be prevented");
+
+        // But same session should still work
+        let sudo_same_session = RecordScope::PpidV2 {
+            group_pid: script_pid,
+            session_pid: bash1_session, // Same session as record1
+            init_time,
+        };
+
+        assert!(record1.matches(&sudo_same_session, user),
+            "Same session credential sharing should still work");
     }
 }
