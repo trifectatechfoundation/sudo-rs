@@ -5,17 +5,35 @@
 \f[CR]sudo\f[R], \f[CR]sudoedit\f[R] \- execute a command as another
 user
 .SH SYNOPSIS
+.PP
 \f[CR]sudo\f[R] \f[CR]\-h\f[R] | \f[CR]\-K\f[R] | \f[CR]\-k\f[R] |
-\f[CR]\-V\f[R] \f[CR]sudo\f[R] [\f[CR]\-u\f[R] \f[I]user\f[R]]
-[\f[CR]\-g\f[R] \f[I]group\f[R]] [\f[CR]\-D\f[R] \f[I]directory\f[R]]
+\f[CR]\-V\f[R]
+.PD 0
+.P
+.PD
+\f[CR]sudo\f[R] [\f[CR]\-u\f[R] \f[I]user\f[R]] [\f[CR]\-g\f[R]
+\f[I]group\f[R]] [\f[CR]\-D\f[R] \f[I]directory\f[R]]
 [\f[CR]\-BknS\f[R]] [\f[CR]\-i\f[R] | \f[CR]\-s\f[R]]
-[\f[CR]VAR=value\f[R]] [<\f[I]command\f[R]>] \f[CR]sudo\f[R]
-\f[CR]\-v\f[R] [\f[CR]\-BknS\f[R]] [\f[CR]\-u\f[R] \f[I]user\f[R]]
-[\f[CR]\-g\f[R] \f[I]group\f[R]] \f[CR]sudo\f[R] \f[CR]\-l\f[R]
-[\f[CR]\-BknS\f[R]] [\f[CR]\-U\f[R] \f[I]user\f[R]] [\f[CR]\-u\f[R]
-\f[I]user\f[R]] [\f[CR]\-g\f[R] \f[I]group\f[R]] [command [arg \&...]]
+[\f[CR]VAR=value\f[R]] [<\f[I]command\f[R]>]
+.PD 0
+.P
+.PD
+\f[CR]sudo\f[R] \f[CR]\-v\f[R] [\f[CR]\-BknS\f[R]] [\f[CR]\-u\f[R]
+\f[I]user\f[R]] [\f[CR]\-g\f[R] \f[I]group\f[R]]
+.PD 0
+.P
+.PD
+\f[CR]sudo\f[R] \f[CR]\-l\f[R] [\f[CR]\-BknS\f[R]] [\f[CR]\-U\f[R]
+\f[I]user\f[R]] [\f[CR]\-u\f[R] \f[I]user\f[R]] [\f[CR]\-g\f[R]
+\f[I]group\f[R]] [command [arg \&...]]
+.PD 0
+.P
+.PD
 \f[CR]sudo\f[R] \f[CR]\-e\f[R] [\f[CR]\-BknS\f[R]] [\f[CR]\-u\f[R]
 \f[I]user\f[R]] [\f[CR]\-g\f[R] \f[I]group\f[R]] file \&...
+.PD 0
+.P
+.PD
 \f[CR]sudoedit\f[R] [\f[CR]\-BknS\f[R]] [\f[CR]\-u\f[R] \f[I]user\f[R]]
 [\f[CR]\-g\f[R] \f[I]group\f[R]] file \&...
 .SH DESCRIPTION
