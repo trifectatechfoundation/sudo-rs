@@ -840,16 +840,20 @@ mod tests {
         };
 
         // SECURITY FIX: New PpidV2 scopes are NOT equal when sessions differ
-        assert_ne!(new_scope_a, new_scope_b,
-            "FIXED: PpidV2 scopes properly isolate credentials between different sessions");
+        assert_ne!(
+            new_scope_a, new_scope_b,
+            "FIXED: PpidV2 scopes properly isolate credentials between different sessions"
+        );
 
         // Test credential isolation with session records
         let user = UserId::new(1000);
         let record_a = SessionRecord::new(new_scope_a, user).unwrap();
 
         // Process B cannot use Process A's credentials (proper session isolation)
-        assert!(!record_a.matches(&new_scope_b, user),
-            "FIXED: Process from different session cannot reuse cached credentials");
+        assert!(
+            !record_a.matches(&new_scope_b, user),
+            "FIXED: Process from different session cannot reuse cached credentials"
+        );
 
         // Test 3: Same session should still allow credential sharing
         let new_scope_same_session = RecordScope::PpidV2 {
@@ -858,12 +862,16 @@ mod tests {
             init_time,
         };
 
-        assert!(record_a.matches(&new_scope_same_session, user),
-            "Same session should still allow credential sharing");
+        assert!(
+            record_a.matches(&new_scope_same_session, user),
+            "Same session should still allow credential sharing"
+        );
 
         // Test 4: Verify backward compatibility - old and new formats are different
-        assert_ne!(old_scope_a, new_scope_a,
-            "Old Ppid and new PpidV2 are different types (no accidental compatibility)");
+        assert_ne!(
+            old_scope_a, new_scope_a,
+            "Old Ppid and new PpidV2 are different types (no accidental compatibility)"
+        );
     }
 
     #[test]
@@ -897,7 +905,10 @@ mod tests {
         old_ppid_scope.encode(&mut old_bytes).unwrap();
 
         assert_eq!(old_bytes[0], 2u8, "Old Ppid must use discriminator 2");
-        assert_ne!(bytes, old_bytes, "PpidV2 and Ppid must have different serialization");
+        assert_ne!(
+            bytes, old_bytes,
+            "PpidV2 and Ppid must have different serialization"
+        );
     }
 
     #[test]
@@ -928,12 +939,16 @@ mod tests {
 
         // SECURITY TEST: The record should NOT match the second scope
         // This prevents credential sharing across session boundaries
-        assert!(!record.matches(&scope_session_200, user),
-            "SECURITY: PpidV2 scopes with different session_pids must NOT share credentials");
+        assert!(
+            !record.matches(&scope_session_200, user),
+            "SECURITY: PpidV2 scopes with different session_pids must NOT share credentials"
+        );
 
         // But it should still match the same scope
-        assert!(record.matches(&scope_session_100, user),
-            "Same PpidV2 scope should still match itself");
+        assert!(
+            record.matches(&scope_session_100, user),
+            "Same PpidV2 scope should still match itself"
+        );
 
         // And it should match another scope with the same session
         let scope_same_session = RecordScope::PpidV2 {
@@ -942,8 +957,10 @@ mod tests {
             init_time,
         };
 
-        assert!(record.matches(&scope_same_session, user),
-            "PpidV2 scopes with same session_pid should share credentials");
+        assert!(
+            record.matches(&scope_same_session, user),
+            "PpidV2 scopes with same session_pid should share credentials"
+        );
     }
 
     #[test]
@@ -962,8 +979,10 @@ mod tests {
         let record = SessionRecord::new(old_scope, user).unwrap();
 
         // Old format should still match correctly
-        assert!(record.matches(&old_scope, user),
-            "Old Ppid format must continue to work for backward compatibility");
+        assert!(
+            record.matches(&old_scope, user),
+            "Old Ppid format must continue to work for backward compatibility"
+        );
 
         // Serialization should still work
         let bytes = record.as_bytes().unwrap();
@@ -973,7 +992,10 @@ mod tests {
         // Verify it uses the old discriminator
         let mut scope_bytes = Vec::new();
         old_scope.encode(&mut scope_bytes).unwrap();
-        assert_eq!(scope_bytes[0], 2u8, "Old Ppid must continue to use discriminator 2");
+        assert_eq!(
+            scope_bytes[0], 2u8,
+            "Old Ppid must continue to use discriminator 2"
+        );
     }
 
     #[test]
@@ -996,8 +1018,10 @@ mod tests {
         };
 
         // Verify the scope includes session isolation
-        assert!(matches!(expected_scope, RecordScope::PpidV2 { .. }),
-            "for_process should now create PpidV2 scopes for session isolation");
+        assert!(
+            matches!(expected_scope, RecordScope::PpidV2 { .. }),
+            "for_process should now create PpidV2 scopes for session isolation"
+        );
     }
 
     #[test]
@@ -1035,7 +1059,10 @@ mod tests {
             session_pid: ProcessId::new(100),
             init_time: ProcessCreateTime::new(1000, 0),
         };
-        assert_eq!(base_scope, same_scope, "Identical PpidV2 scopes should be equal");
+        assert_eq!(
+            base_scope, same_scope,
+            "Identical PpidV2 scopes should be equal"
+        );
 
         // Different session_pid should NOT be equal
         let different_session = RecordScope::PpidV2 {
@@ -1043,8 +1070,10 @@ mod tests {
             session_pid: ProcessId::new(200), // Different session
             init_time: ProcessCreateTime::new(1000, 0),
         };
-        assert_ne!(base_scope, different_session,
-            "PpidV2 scopes with different session_pid should NOT be equal");
+        assert_ne!(
+            base_scope, different_session,
+            "PpidV2 scopes with different session_pid should NOT be equal"
+        );
 
         // Different group_pid should NOT be equal
         let different_group = RecordScope::PpidV2 {
@@ -1052,8 +1081,10 @@ mod tests {
             session_pid: ProcessId::new(100),
             init_time: ProcessCreateTime::new(1000, 0),
         };
-        assert_ne!(base_scope, different_group,
-            "PpidV2 scopes with different group_pid should NOT be equal");
+        assert_ne!(
+            base_scope, different_group,
+            "PpidV2 scopes with different group_pid should NOT be equal"
+        );
 
         // Different init_time should NOT be equal
         let different_time = RecordScope::PpidV2 {
@@ -1061,8 +1092,10 @@ mod tests {
             session_pid: ProcessId::new(100),
             init_time: ProcessCreateTime::new(2000, 0), // Different time
         };
-        assert_ne!(base_scope, different_time,
-            "PpidV2 scopes with different init_time should NOT be equal");
+        assert_ne!(
+            base_scope, different_time,
+            "PpidV2 scopes with different init_time should NOT be equal"
+        );
     }
 
     #[test]
@@ -1093,16 +1126,20 @@ mod tests {
         };
 
         // CRITICAL: These scopes must NOT be equal
-        assert_ne!(sudo_in_session1, sudo_in_session2,
-            "REGRESSION TEST: Issue #1132 - Different sessions must have different scopes");
+        assert_ne!(
+            sudo_in_session1, sudo_in_session2,
+            "REGRESSION TEST: Issue #1132 - Different sessions must have different scopes"
+        );
 
         // Create session records to test credential isolation
         let user = UserId::new(1000);
         let record1 = SessionRecord::new(sudo_in_session1, user).unwrap();
 
         // CRITICAL: Session 2 must NOT be able to use session 1's credentials
-        assert!(!record1.matches(&sudo_in_session2, user),
-            "REGRESSION TEST: Issue #1132 - Cross-session credential sharing must be prevented");
+        assert!(
+            !record1.matches(&sudo_in_session2, user),
+            "REGRESSION TEST: Issue #1132 - Cross-session credential sharing must be prevented"
+        );
 
         // But same session should still work
         let sudo_same_session = RecordScope::PpidV2 {
@@ -1111,8 +1148,10 @@ mod tests {
             init_time,
         };
 
-        assert!(record1.matches(&sudo_same_session, user),
-            "Same session credential sharing should still work");
+        assert!(
+            record1.matches(&sudo_same_session, user),
+            "Same session credential sharing should still work"
+        );
     }
 
     #[test]
@@ -1151,12 +1190,14 @@ mod tests {
         let scope2 = RecordScope::PpidV2 {
             group_pid: same_pid,
             session_pid: ProcessId::new(100), // Same session
-            init_time: time_same_tick, // Same time - POTENTIAL VULNERABILITY
+            init_time: time_same_tick,        // Same time - POTENTIAL VULNERABILITY
         };
 
         // These should be equal (which could be a security issue if PID was reused)
-        assert_eq!(scope1, scope2,
-            "POTENTIAL VULNERABILITY: Same PID + same init_time allows credential sharing");
+        assert_eq!(
+            scope1, scope2,
+            "POTENTIAL VULNERABILITY: Same PID + same init_time allows credential sharing"
+        );
 
         // Test 2: Same PID, different init_time (secure scenario)
         let scope3 = RecordScope::PpidV2 {
@@ -1165,15 +1206,19 @@ mod tests {
             init_time: time_next_tick, // Different time
         };
 
-        assert_ne!(scope1, scope3,
-            "Different init_time should prevent credential sharing even with same PID");
+        assert_ne!(
+            scope1, scope3,
+            "Different init_time should prevent credential sharing even with same PID"
+        );
 
         // Test 3: Verify nanosecond precision is preserved
         let time_ns1 = ProcessCreateTime::new(1000, 500_000_000); // 500ms
         let time_ns2 = ProcessCreateTime::new(1000, 500_000_001); // 500ms + 1ns
 
-        assert_ne!(time_ns1, time_ns2,
-            "Nanosecond precision should be preserved in ProcessCreateTime");
+        assert_ne!(
+            time_ns1, time_ns2,
+            "Nanosecond precision should be preserved in ProcessCreateTime"
+        );
 
         // FINDING: The current implementation relies on CLK_TCK resolution (typically 10ms)
         // which could theoretically allow PID reuse attacks if:
@@ -1225,15 +1270,19 @@ mod tests {
                     };
 
                     // These should be different (good security)
-                    assert_ne!(scope_old, scope_new,
-                        "Different init_time should prevent credential sharing even with PID reuse");
+                    assert_ne!(
+                        scope_old, scope_new,
+                        "Different init_time should prevent credential sharing even with PID reuse"
+                    );
 
                     // Test credential isolation
                     let user = UserId::new(1000);
                     let record_old = SessionRecord::new(scope_old, user).unwrap();
 
-                    assert!(!record_old.matches(&scope_new, user),
-                        "PID reuse with different init_time should not allow credential sharing");
+                    assert!(
+                        !record_old.matches(&scope_new, user),
+                        "PID reuse with different init_time should not allow credential sharing"
+                    );
                 }
             }
 
@@ -1253,12 +1302,14 @@ mod tests {
         let scope_b = RecordScope::PpidV2 {
             group_pid: critical_pid,
             session_pid: ProcessId::new(200), // Same session
-            init_time: critical_time, // Same time - CRITICAL VULNERABILITY SCENARIO
+            init_time: critical_time,         // Same time - CRITICAL VULNERABILITY SCENARIO
         };
 
         // These WILL be equal - this is the vulnerability window
-        assert_eq!(scope_a, scope_b,
-            "CRITICAL: Same PID + same init_time + same session = credential sharing vulnerability");
+        assert_eq!(
+            scope_a, scope_b,
+            "CRITICAL: Same PID + same init_time + same session = credential sharing vulnerability"
+        );
 
         // But different sessions should still be protected
         let scope_c = RecordScope::PpidV2 {
@@ -1267,8 +1318,10 @@ mod tests {
             init_time: critical_time,
         };
 
-        assert_ne!(scope_a, scope_c,
-            "Different session should prevent credential sharing even with same PID+time");
+        assert_ne!(
+            scope_a, scope_c,
+            "Different session should prevent credential sharing even with same PID+time"
+        );
 
         // FINDING: The vulnerability window exists when:
         // 1. Same PID is reused
@@ -1304,10 +1357,14 @@ mod tests {
         let next_tick = ProcessCreateTime::new(2000, clk_tck_resolution);
 
         // These should be different despite being within the same CLK_TCK interval
-        assert_ne!(base_time, within_tick,
-            "Sub-CLK_TCK precision should be preserved in ProcessCreateTime");
-        assert_ne!(within_tick, next_tick,
-            "CLK_TCK boundary should be detectable");
+        assert_ne!(
+            base_time, within_tick,
+            "Sub-CLK_TCK precision should be preserved in ProcessCreateTime"
+        );
+        assert_ne!(
+            within_tick, next_tick,
+            "CLK_TCK boundary should be detectable"
+        );
 
         // Test 3: Verify the actual starting_time function behavior
         // Note: We can't easily test the actual /proc parsing without creating processes,
@@ -1328,8 +1385,10 @@ mod tests {
         let expected_nanos = ((123456 % 100) * 10_000_000) as i64; // 56 * 10ms = 560ms
 
         let expected_time = ProcessCreateTime::new(expected_seconds, expected_nanos);
-        assert_eq!(calculated_time, expected_time,
-            "ProcessCreateTime calculation should match expected values");
+        assert_eq!(
+            calculated_time, expected_time,
+            "ProcessCreateTime calculation should match expected values"
+        );
 
         // Test 4: Verify precision limits for security analysis
         // The key security question: Can two different processes have identical init_time?
@@ -1425,8 +1484,11 @@ mod tests {
         // SEVERITY: HIGH - Could lead to privilege escalation or system compromise
 
         // Document the security findings in the test
-        assert_eq!(expected_path.to_string_lossy(), "/var/run/sudo-rs/ts/1000",
-            "Timestamp file path construction should be predictable");
+        assert_eq!(
+            expected_path.to_string_lossy(),
+            "/var/run/sudo-rs/ts/1000",
+            "Timestamp file path construction should be predictable"
+        );
 
         // This test documents the vulnerability - the actual fix would require
         // modifying secure_open_impl() to use O_NOFOLLOW
@@ -1452,8 +1514,8 @@ mod tests {
         // 3. Symlink chains to obfuscate targets
         // 4. Race condition symlink replacement (TOCTOU)
 
-        use std::fs;
         use std::env;
+        use std::fs;
 
         // Create a temporary directory to simulate the timestamp directory
         let temp_dir = env::temp_dir().join(format!("sudo_rs_symlink_test_{}", std::process::id()));
@@ -1474,12 +1536,13 @@ mod tests {
 
             // Create the malicious symlink
             let target_file = "/etc/passwd"; // Sensitive system file
-            symlink(target_file, &user_timestamp_path)
-                .expect("Failed to create test symlink");
+            symlink(target_file, &user_timestamp_path).expect("Failed to create test symlink");
 
             // Verify the symlink was created
-            assert!(user_timestamp_path.is_symlink(),
-                "Test symlink should be created");
+            assert!(
+                user_timestamp_path.is_symlink(),
+                "Test symlink should be created"
+            );
 
             // This demonstrates the attack scenario:
             // When sudo-rs tries to open the timestamp file, it would follow
@@ -1489,10 +1552,13 @@ mod tests {
             // because it doesn't use O_NOFOLLOW
 
             // Test the path resolution
-            let resolved_path = fs::read_link(&user_timestamp_path)
-                .expect("Should be able to read symlink");
-            assert_eq!(resolved_path.to_string_lossy(), target_file,
-                "Symlink should point to target file");
+            let resolved_path =
+                fs::read_link(&user_timestamp_path).expect("Should be able to read symlink");
+            assert_eq!(
+                resolved_path.to_string_lossy(),
+                target_file,
+                "Symlink should point to target file"
+            );
         }
 
         // Test 2: Directory traversal via symlink
@@ -1534,8 +1600,10 @@ mod tests {
             // Following the chain would lead to the sensitive file
             let content = fs::read_to_string(&chain_link1)
                 .expect("Should be able to read through symlink chain");
-            assert_eq!(content, "sensitive data",
-                "Symlink chain should resolve to target content");
+            assert_eq!(
+                content, "sensitive data",
+                "Symlink chain should resolve to target content"
+            );
         }
 
         // Test 4: Race condition with symlink creation
@@ -1548,12 +1616,13 @@ mod tests {
         fs::write(&race_condition_path, "legitimate content")
             .expect("Failed to create legitimate file");
 
-        assert!(!race_condition_path.is_symlink(),
-            "Initially should be a regular file");
+        assert!(
+            !race_condition_path.is_symlink(),
+            "Initially should be a regular file"
+        );
 
         // Simulate the race: attacker replaces file with symlink
-        fs::remove_file(&race_condition_path)
-            .expect("Failed to remove original file");
+        fs::remove_file(&race_condition_path).expect("Failed to remove original file");
 
         #[cfg(unix)]
         {
@@ -1562,8 +1631,10 @@ mod tests {
             symlink("/etc/hosts", &race_condition_path)
                 .expect("Failed to create race condition symlink");
 
-            assert!(race_condition_path.is_symlink(),
-                "File should now be a symlink (race condition)");
+            assert!(
+                race_condition_path.is_symlink(),
+                "File should now be a symlink (race condition)"
+            );
         }
 
         // FINDINGS:
@@ -1695,7 +1766,7 @@ mod tests {
 
         // Test various directory traversal patterns
         let traversal_attempts = vec![
-            "../../../etc/passwd",           // Classic traversal
+            "../../../etc/passwd",                        // Classic traversal
             "..\\..\\..\\windows\\system32", // Windows-style (should be rejected on Unix)
             "user/../../../etc/shadow",      // Mixed legitimate/malicious path
             "./../../etc/hosts",             // Current dir + traversal
@@ -1720,14 +1791,22 @@ mod tests {
             if let Ok(canonical_path) = test_path.canonicalize() {
                 if !canonical_path.starts_with(&canonical_base) {
                     // Path escapes base directory - SECURITY VIOLATION
-                    assert!(true, "Directory traversal detected: {} -> {}",
-                        traversal, canonical_path.display());
+                    assert!(
+                        true,
+                        "Directory traversal detected: {} -> {}",
+                        traversal,
+                        canonical_path.display()
+                    );
                 }
             }
 
             // Test for dangerous patterns
             if path_str.contains("../") || path_str.contains("..\\") {
-                assert!(true, "Directory traversal pattern detected in: {}", path_str);
+                assert!(
+                    true,
+                    "Directory traversal pattern detected in: {}",
+                    path_str
+                );
             }
         }
 
@@ -1775,10 +1854,10 @@ mod tests {
 
         // Test 4: Path normalization bypass attempts
         let normalization_bypasses = vec![
-            "user/./../../etc/passwd",       // Current directory injection
-            "user//../../etc/passwd",        // Double slash
-            "user/foo/../../../etc/passwd",  // Fake subdirectory
-            "user/.../etc/passwd",           // Triple dot (not standard but could confuse)
+            "user/./../../etc/passwd",      // Current directory injection
+            "user//../../etc/passwd",       // Double slash
+            "user/foo/../../../etc/passwd", // Fake subdirectory
+            "user/.../etc/passwd",          // Triple dot (not standard but could confuse)
         ];
 
         for bypass in &normalization_bypasses {
@@ -1789,8 +1868,12 @@ mod tests {
             if let Ok(normalized) = bypass_path.canonicalize() {
                 let base_canonical = PathBuf::from(base_path).canonicalize().unwrap_or_default();
                 if !normalized.starts_with(&base_canonical) {
-                    assert!(true, "Path normalization bypass detected: {} -> {}",
-                        bypass, normalized.display());
+                    assert!(
+                        true,
+                        "Path normalization bypass detected: {} -> {}",
+                        bypass,
+                        normalized.display()
+                    );
                 }
             }
         }
@@ -1828,8 +1911,8 @@ mod tests {
         // 2. Attacker process B modifies file permissions or replaces file
         // 3. Process A uses the file without re-checking (security bypass)
 
-        use std::fs;
         use std::env;
+        use std::fs;
         use std::os::unix::fs::PermissionsExt;
 
         // Create test environment
@@ -1852,7 +1935,11 @@ mod tests {
         let mode_check = permissions_check.mode();
 
         // Verify initial safe permissions
-        assert_eq!(mode_check & 0o777, 0o600, "Initial permissions should be 0o600");
+        assert_eq!(
+            mode_check & 0o777,
+            0o600,
+            "Initial permissions should be 0o600"
+        );
 
         // Simulate TOCTOU attack: change permissions between check and use
         let mut new_perms = permissions_check.clone();
@@ -1865,10 +1952,15 @@ mod tests {
         let mode_use = permissions_use.mode();
 
         // Demonstrate the TOCTOU vulnerability
-        assert_ne!(mode_check, mode_use,
-            "TOCTOU vulnerability: permissions changed between check and use");
-        assert_eq!(mode_use & 0o777, 0o666,
-            "File permissions were maliciously changed to world-writable");
+        assert_ne!(
+            mode_check, mode_use,
+            "TOCTOU vulnerability: permissions changed between check and use"
+        );
+        assert_eq!(
+            mode_use & 0o777,
+            0o666,
+            "File permissions were maliciously changed to world-writable"
+        );
 
         // Test 2: File replacement attack
         let test_file2 = temp_dir.join("test_replacement");
@@ -1890,9 +1982,12 @@ mod tests {
             let _metadata_replaced = fs::metadata(&test_file2).expect("Failed to get metadata");
 
             // The metadata follows the symlink, so we need to check the symlink itself
-            let symlink_metadata = fs::symlink_metadata(&test_file2).expect("Failed to get symlink metadata");
-            assert!(symlink_metadata.file_type().is_symlink(),
-                "File was replaced with symlink - TOCTOU attack successful");
+            let symlink_metadata =
+                fs::symlink_metadata(&test_file2).expect("Failed to get symlink metadata");
+            assert!(
+                symlink_metadata.file_type().is_symlink(),
+                "File was replaced with symlink - TOCTOU attack successful"
+            );
         }
 
         // Test 3: Directory permission manipulation
@@ -1909,22 +2004,32 @@ mod tests {
         let dir_permissions_check = dir_metadata_check.permissions();
         let dir_mode_check = dir_permissions_check.mode();
 
-        assert_eq!(dir_mode_check & 0o777, 0o700, "Directory should have restrictive permissions");
+        assert_eq!(
+            dir_mode_check & 0o777,
+            0o700,
+            "Directory should have restrictive permissions"
+        );
 
         // Attack: make directory world-writable
         let mut new_dir_perms = dir_permissions_check.clone();
         new_dir_perms.set_mode(0o777); // World writable - DANGEROUS
-        fs::set_permissions(&test_dir, new_dir_perms).expect("Failed to modify directory permissions");
+        fs::set_permissions(&test_dir, new_dir_perms)
+            .expect("Failed to modify directory permissions");
 
         // Use phase
         let dir_metadata_use = fs::metadata(&test_dir).expect("Failed to get directory metadata");
         let dir_permissions_use = dir_metadata_use.permissions();
         let dir_mode_use = dir_permissions_use.mode();
 
-        assert_ne!(dir_mode_check, dir_mode_use,
-            "Directory permissions changed between check and use");
-        assert_eq!(dir_mode_use & 0o777, 0o777,
-            "Directory became world-writable - security violation");
+        assert_ne!(
+            dir_mode_check, dir_mode_use,
+            "Directory permissions changed between check and use"
+        );
+        assert_eq!(
+            dir_mode_use & 0o777,
+            0o777,
+            "Directory became world-writable - security violation"
+        );
 
         // FINDINGS:
         // 1. File permissions can be changed between check and use
@@ -1943,7 +2048,10 @@ mod tests {
         // Clean up
         fs::remove_dir_all(&temp_dir).ok();
 
-        assert!(true, "File permission atomicity tests completed - vulnerabilities demonstrated");
+        assert!(
+            true,
+            "File permission atomicity tests completed - vulnerabilities demonstrated"
+        );
     }
 
     #[test]
@@ -1960,15 +2068,16 @@ mod tests {
         // This test simulates concurrent access scenarios that could occur
         // in real-world multi-user environments
 
-        use std::fs;
         use std::env;
+        use std::fs;
+        use std::os::unix::fs::PermissionsExt;
+        use std::sync::{Arc, Mutex};
         use std::thread;
         use std::time::Duration;
-        use std::sync::{Arc, Mutex};
-        use std::os::unix::fs::PermissionsExt;
 
         // Create test environment
-        let temp_dir = env::temp_dir().join(format!("sudo_rs_concurrent_test_{}", std::process::id()));
+        let temp_dir =
+            env::temp_dir().join(format!("sudo_rs_concurrent_test_{}", std::process::id()));
         fs::remove_dir_all(&temp_dir).ok();
         fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
 
@@ -2042,10 +2151,14 @@ mod tests {
 
         attacker_thread.join().expect("Attacker thread panicked");
 
-        assert!(permission_changes_detected > 0,
-            "Should have detected concurrent permission changes");
-        assert!(*race_detected.lock().unwrap(),
-            "Attacker should have successfully modified permissions");
+        assert!(
+            permission_changes_detected > 0,
+            "Should have detected concurrent permission changes"
+        );
+        assert!(
+            *race_detected.lock().unwrap(),
+            "Attacker should have successfully modified permissions"
+        );
 
         // Test 2: Concurrent file replacement
         let test_file2 = temp_dir.join("concurrent_replace");
@@ -2074,8 +2187,11 @@ mod tests {
             if let Ok(content) = fs::read_to_string(&test_file2) {
                 if !last_content.is_empty() && content != last_content {
                     content_changes += 1;
-                    assert!(true, "File content changed from '{}' to '{}'",
-                        last_content, content);
+                    assert!(
+                        true,
+                        "File content changed from '{}' to '{}'",
+                        last_content, content
+                    );
                 }
                 last_content = content;
             }
@@ -2084,11 +2200,16 @@ mod tests {
 
         replacer_thread.join().expect("Replacer thread panicked");
 
-        assert!(*replacement_detected.lock().unwrap(),
-            "File replacement should have occurred");
+        assert!(
+            *replacement_detected.lock().unwrap(),
+            "File replacement should have occurred"
+        );
 
-        assert!(content_changes > 0 || *replacement_detected.lock().unwrap(),
-            "Should have detected content changes or replacement: {} changes", content_changes);
+        assert!(
+            content_changes > 0 || *replacement_detected.lock().unwrap(),
+            "Should have detected content changes or replacement: {} changes",
+            content_changes
+        );
 
         // Test 3: Concurrent directory modification
         let test_dir = temp_dir.join("concurrent_dir");
@@ -2133,13 +2254,20 @@ mod tests {
             thread::sleep(Duration::from_millis(2));
         }
 
-        dir_modifier_thread.join().expect("Directory modifier thread panicked");
+        dir_modifier_thread
+            .join()
+            .expect("Directory modifier thread panicked");
 
-        assert!(*dir_modified.lock().unwrap(),
-            "Directory should have been modified");
+        assert!(
+            *dir_modified.lock().unwrap(),
+            "Directory should have been modified"
+        );
 
-        assert!(dir_permission_changes > 0 || *dir_modified.lock().unwrap(),
-            "Should have detected directory permission changes: {} changes", dir_permission_changes);
+        assert!(
+            dir_permission_changes > 0 || *dir_modified.lock().unwrap(),
+            "Should have detected directory permission changes: {} changes",
+            dir_permission_changes
+        );
 
         // FINDINGS:
         // 1. File permissions can be modified concurrently during validation
@@ -2163,7 +2291,10 @@ mod tests {
         // Clean up
         fs::remove_dir_all(&temp_dir).ok();
 
-        assert!(true, "Concurrent file modification tests completed - race conditions demonstrated");
+        assert!(
+            true,
+            "Concurrent file modification tests completed - race conditions demonstrated"
+        );
     }
 
     #[test]
@@ -2182,10 +2313,10 @@ mod tests {
         // 3. Process continues using original file descriptor (secure)
         // vs Process re-opens by path (vulnerable)
 
-        use std::fs::{File, OpenOptions};
-        use std::io::{Read, Write, Seek, SeekFrom};
         use std::env;
         use std::fs;
+        use std::fs::{File, OpenOptions};
+        use std::io::{Read, Seek, SeekFrom, Write};
 
         // Create test environment
         let temp_dir = env::temp_dir().join(format!("sudo_rs_fd_test_{}", std::process::id()));
@@ -2206,8 +2337,13 @@ mod tests {
 
         // Read initial content via file descriptor
         let mut fd_content = String::new();
-        file_descriptor.read_to_string(&mut fd_content).expect("Failed to read via FD");
-        assert_eq!(fd_content, original_content, "FD should read original content");
+        file_descriptor
+            .read_to_string(&mut fd_content)
+            .expect("Failed to read via FD");
+        assert_eq!(
+            fd_content, original_content,
+            "FD should read original content"
+        );
 
         // Attacker replaces file content
         let malicious_content = "MALICIOUS REPLACED CONTENT";
@@ -2215,12 +2351,19 @@ mod tests {
 
         // Verify path-based access sees the replacement
         let path_content = fs::read_to_string(&test_file).expect("Failed to read via path");
-        assert_eq!(path_content, malicious_content, "Path-based access sees replaced content");
+        assert_eq!(
+            path_content, malicious_content,
+            "Path-based access sees replaced content"
+        );
 
         // Verify file descriptor behavior after replacement
-        file_descriptor.seek(SeekFrom::Start(0)).expect("Failed to seek to start");
+        file_descriptor
+            .seek(SeekFrom::Start(0))
+            .expect("Failed to seek to start");
         let mut fd_content_after = String::new();
-        file_descriptor.read_to_string(&mut fd_content_after).expect("Failed to read via FD after replacement");
+        file_descriptor
+            .read_to_string(&mut fd_content_after)
+            .expect("Failed to read via FD after replacement");
 
         // IMPORTANT: File replacement behavior depends on how the replacement is done:
         // - If file is truncated and rewritten (fs::write does this), FD sees new content
@@ -2229,13 +2372,22 @@ mod tests {
 
         if fd_content_after == original_content {
             // File descriptor maintained access to original content (secure behavior)
-            assert!(true, "File descriptor protected against replacement - SECURE");
+            assert!(
+                true,
+                "File descriptor protected against replacement - SECURE"
+            );
         } else if fd_content_after == malicious_content {
             // File descriptor sees replaced content (vulnerable behavior)
-            assert!(true, "File descriptor sees replaced content - POTENTIAL VULNERABILITY");
+            assert!(
+                true,
+                "File descriptor sees replaced content - POTENTIAL VULNERABILITY"
+            );
         } else {
             // Unexpected behavior
-            assert!(true, "Unexpected file descriptor behavior after replacement");
+            assert!(
+                true,
+                "Unexpected file descriptor behavior after replacement"
+            );
         }
 
         // Test 2: File descriptor prevents symlink following
@@ -2248,7 +2400,9 @@ mod tests {
 
         // Read original content
         let mut original_data = String::new();
-        secure_fd.read_to_string(&mut original_data).expect("Failed to read original");
+        secure_fd
+            .read_to_string(&mut original_data)
+            .expect("Failed to read original");
         assert_eq!(original_data, secure_content);
 
         // Attacker replaces file with symlink to sensitive file
@@ -2260,29 +2414,44 @@ mod tests {
 
             // Create a target file with sensitive content
             let sensitive_file = temp_dir.join("sensitive_data");
-            fs::write(&sensitive_file, "SENSITIVE SYSTEM DATA").expect("Failed to create sensitive file");
+            fs::write(&sensitive_file, "SENSITIVE SYSTEM DATA")
+                .expect("Failed to create sensitive file");
 
             // Replace original file with symlink
             symlink(&sensitive_file, &test_file2).expect("Failed to create symlink");
 
             // Verify path-based access follows symlink
-            let symlink_content = fs::read_to_string(&test_file2).expect("Failed to read via symlink");
-            assert_eq!(symlink_content, "SENSITIVE SYSTEM DATA",
-                "Path-based access follows symlink to sensitive data");
+            let symlink_content =
+                fs::read_to_string(&test_file2).expect("Failed to read via symlink");
+            assert_eq!(
+                symlink_content, "SENSITIVE SYSTEM DATA",
+                "Path-based access follows symlink to sensitive data"
+            );
 
             // Verify file descriptor behavior after symlink replacement
             secure_fd.seek(SeekFrom::Start(0)).expect("Failed to seek");
             let mut fd_after_symlink = String::new();
-            secure_fd.read_to_string(&mut fd_after_symlink).expect("Failed to read FD after symlink");
+            secure_fd
+                .read_to_string(&mut fd_after_symlink)
+                .expect("Failed to read FD after symlink");
 
             // File descriptor behavior after file is unlinked and replaced with symlink:
             // The FD should still reference the original file (now unlinked)
             if fd_after_symlink == secure_content {
-                assert!(true, "File descriptor maintained access to original file - SECURE");
+                assert!(
+                    true,
+                    "File descriptor maintained access to original file - SECURE"
+                );
             } else if fd_after_symlink == "SENSITIVE SYSTEM DATA" {
-                assert!(true, "File descriptor followed symlink - POTENTIAL VULNERABILITY");
+                assert!(
+                    true,
+                    "File descriptor followed symlink - POTENTIAL VULNERABILITY"
+                );
             } else {
-                assert!(true, "Unexpected file descriptor behavior after symlink replacement");
+                assert!(
+                    true,
+                    "Unexpected file descriptor behavior after symlink replacement"
+                );
             }
         }
 
@@ -2301,14 +2470,19 @@ mod tests {
         fs::write(&test_file3, "attacker content").expect("Failed to create attacker file");
 
         // Write via file descriptor
-        write_fd.write_all(b"SECURE WRITE VIA FD").expect("Failed to write via FD");
+        write_fd
+            .write_all(b"SECURE WRITE VIA FD")
+            .expect("Failed to write via FD");
         write_fd.flush().expect("Failed to flush");
 
         // The write should go to the original file (now unlinked) or fail,
         // but should NOT write to the attacker's replacement file
-        let replacement_content = fs::read_to_string(&test_file3).expect("Failed to read replacement");
-        assert_eq!(replacement_content, "attacker content",
-            "Replacement file should be unchanged by FD write");
+        let replacement_content =
+            fs::read_to_string(&test_file3).expect("Failed to read replacement");
+        assert_eq!(
+            replacement_content, "attacker content",
+            "Replacement file should be unchanged by FD write"
+        );
 
         // Test 4: Demonstrate proper file descriptor lifecycle
         let test_file4 = temp_dir.join("lifecycle_test");
@@ -2350,7 +2524,10 @@ mod tests {
         // Clean up
         fs::remove_dir_all(&temp_dir).ok();
 
-        assert!(true, "File descriptor security tests completed - protection mechanisms demonstrated");
+        assert!(
+            true,
+            "File descriptor security tests completed - protection mechanisms demonstrated"
+        );
     }
 
     #[test]
@@ -2381,10 +2558,13 @@ mod tests {
         // Create test scenarios with different session configurations
         let test_scenarios = vec![
             ("same_session", base_session_id),
-            ("different_session", ProcessId::new((current_pid + 1000) as i32)),
+            (
+                "different_session",
+                ProcessId::new((current_pid + 1000) as i32),
+            ),
             ("spoofed_session", ProcessId::new(1)), // Attempt to spoof init session
             ("negative_session", ProcessId::new(-1)), // Invalid session ID
-            ("zero_session", ProcessId::new(0)), // Kernel session
+            ("zero_session", ProcessId::new(0)),    // Kernel session
         ];
 
         for (scenario_name, test_session_id) in test_scenarios {
@@ -2396,8 +2576,8 @@ mod tests {
             };
 
             let scope2 = RecordScope::PpidV2 {
-                group_pid: ProcessId::new(1000), // Same parent
-                session_pid: test_session_id,    // Test session
+                group_pid: ProcessId::new(1000),            // Same parent
+                session_pid: test_session_id,               // Test session
                 init_time: ProcessCreateTime::new(1000, 0), // Same time
             };
 
@@ -2408,9 +2588,11 @@ mod tests {
             let should_match = test_session_id == base_session_id;
             let actually_matches = record.matches(&scope2, user);
 
-            assert_eq!(actually_matches, should_match,
+            assert_eq!(
+                actually_matches, should_match,
                 "Session isolation test failed for scenario: {} (session_id: {:?})",
-                scenario_name, test_session_id);
+                scenario_name, test_session_id
+            );
 
             if !should_match && actually_matches {
                 // This would be a security vulnerability
@@ -2421,13 +2603,13 @@ mod tests {
         // Test 2: Session ID validation and sanitization
         // Test various potentially malicious session ID values
         let malicious_session_ids = vec![
-            i32::MAX,           // Maximum value
-            i32::MIN,           // Minimum value
-            -1,                 // Common error value
-            0,                  // Kernel/system session
-            1,                  // Init process session
-            65535,              // Common PID limit
-            1000000,            // Very high PID
+            i32::MAX, // Maximum value
+            i32::MIN, // Minimum value
+            -1,       // Common error value
+            0,        // Kernel/system session
+            1,        // Init process session
+            65535,    // Common PID limit
+            1000000,  // Very high PID
         ];
 
         for malicious_id in malicious_session_ids {
@@ -2441,8 +2623,8 @@ mod tests {
             };
 
             let malicious_scope = RecordScope::PpidV2 {
-                group_pid: ProcessId::new(2000), // Same parent
-                session_pid: malicious_session,  // Malicious session
+                group_pid: ProcessId::new(2000),            // Same parent
+                session_pid: malicious_session,             // Malicious session
                 init_time: ProcessCreateTime::new(2000, 0), // Same time
             };
 
@@ -2450,8 +2632,11 @@ mod tests {
             let legitimate_record = SessionRecord::new(legitimate_scope, user).unwrap();
 
             // Malicious session should NOT match legitimate session
-            assert!(!legitimate_record.matches(&malicious_scope, user),
-                "SECURITY VULNERABILITY: Malicious session ID {} bypassed isolation", malicious_id);
+            assert!(
+                !legitimate_record.matches(&malicious_scope, user),
+                "SECURITY VULNERABILITY: Malicious session ID {} bypassed isolation",
+                malicious_id
+            );
         }
 
         // Test 3: Process namespace simulation
@@ -2459,8 +2644,8 @@ mod tests {
 
         // Test container-like scenarios with potentially overlapping PIDs
         let container_scenarios = vec![
-            ("container_1", ProcessId::new(1), ProcessId::new(100)),  // Container init
-            ("container_2", ProcessId::new(1), ProcessId::new(200)),  // Different container, same PID
+            ("container_1", ProcessId::new(1), ProcessId::new(100)), // Container init
+            ("container_2", ProcessId::new(1), ProcessId::new(200)), // Different container, same PID
             ("host_system", ProcessId::new(1234), ProcessId::new(300)), // Host system
         ];
 
@@ -2514,8 +2699,12 @@ mod tests {
             for (j, _record_j, scope_j) in &session_records {
                 if i != j {
                     let user = UserId::new(1000);
-                    assert!(!record_i.matches(scope_j, user),
-                        "SECURITY VULNERABILITY: Session {} credentials accessible from session {}", i, j);
+                    assert!(
+                        !record_i.matches(scope_j, user),
+                        "SECURITY VULNERABILITY: Session {} credentials accessible from session {}",
+                        i,
+                        j
+                    );
                 }
             }
         }
@@ -2540,7 +2729,10 @@ mod tests {
         // 4. Comprehensive validation of session isolation mechanisms
         // 5. Rate limiting and anomaly detection for session access
 
-        assert!(true, "Session ID manipulation tests completed - isolation mechanisms verified");
+        assert!(
+            true,
+            "Session ID manipulation tests completed - isolation mechanisms verified"
+        );
     }
 
     #[test]
@@ -2576,36 +2768,50 @@ mod tests {
 
         // Test encoding
         let mut encoded_data = Vec::new();
-        record.encode(&mut encoded_data).expect("Encoding should succeed");
+        record
+            .encode(&mut encoded_data)
+            .expect("Encoding should succeed");
 
         // Verify encoded data properties
         assert!(!encoded_data.is_empty(), "Encoded data should not be empty");
-        assert!(encoded_data.len() > 0, "Encoded data should have positive length");
-        assert!(encoded_data.len() < 10000, "Encoded data should have reasonable size limit");
+        assert!(
+            encoded_data.len() > 0,
+            "Encoded data should have positive length"
+        );
+        assert!(
+            encoded_data.len() < 10000,
+            "Encoded data should have reasonable size limit"
+        );
 
         // Test for potential buffer overflow indicators
         let max_reasonable_size = mem::size_of::<SessionRecord>() * 10; // Conservative estimate
-        assert!(encoded_data.len() < max_reasonable_size,
+        assert!(
+            encoded_data.len() < max_reasonable_size,
             "Encoded data size {} exceeds reasonable limit {}",
-            encoded_data.len(), max_reasonable_size);
+            encoded_data.len(),
+            max_reasonable_size
+        );
 
         // Test decoding
         let mut cursor = std::io::Cursor::new(&encoded_data);
-        let decoded_record = SessionRecord::decode(&mut cursor)
-            .expect("Should be able to decode valid data");
+        let decoded_record =
+            SessionRecord::decode(&mut cursor).expect("Should be able to decode valid data");
 
         // Verify decoded data integrity
-        assert_eq!(decoded_record.matches(&test_scope, user), record.matches(&test_scope, user),
-            "Decoded record should have same matching behavior");
+        assert_eq!(
+            decoded_record.matches(&test_scope, user),
+            record.matches(&test_scope, user),
+            "Decoded record should have same matching behavior"
+        );
 
         // Test 2: Malformed data handling (fuzzing-style tests)
         let malformed_inputs = vec![
-            vec![],                           // Empty data
-            vec![0xFF; 1],                   // Single invalid byte
-            vec![0xFF; 100],                 // Large invalid data
-            vec![0x00; 100],                 // All zeros
+            vec![],                         // Empty data
+            vec![0xFF; 1],                  // Single invalid byte
+            vec![0xFF; 100],                // Large invalid data
+            vec![0x00; 100],                // All zeros
             vec![0x01, 0x02, 0x03],         // Too short
-            (0..=255).collect::<Vec<u8>>(),  // Sequential bytes
+            (0..=255).collect::<Vec<u8>>(), // Sequential bytes
         ];
 
         for (i, malformed_data) in malformed_inputs.iter().enumerate() {
@@ -2613,7 +2819,11 @@ mod tests {
             match SessionRecord::decode(&mut cursor) {
                 Ok(_) => {
                     // If it succeeds, verify it's actually valid
-                    assert!(true, "Malformed input {} unexpectedly succeeded - verify validity", i);
+                    assert!(
+                        true,
+                        "Malformed input {} unexpectedly succeeded - verify validity",
+                        i
+                    );
                 }
                 Err(_) => {
                     // Expected behavior - malformed data should be rejected
@@ -2625,9 +2835,9 @@ mod tests {
         // Test 3: Large data handling (potential integer overflow)
         // Test with various sizes to check for integer overflow vulnerabilities
         let large_sizes = vec![
-            1024,           // 1KB
-            65536,          // 64KB
-            1048576,        // 1MB (if system allows)
+            1024,    // 1KB
+            65536,   // 64KB
+            1048576, // 1MB (if system allows)
         ];
 
         for size in large_sizes {
@@ -2659,7 +2869,9 @@ mod tests {
             let user = UserId::new(1000 + i as u32);
             let record = SessionRecord::new(scope, user).unwrap();
             let mut encoded = Vec::new();
-            record.encode(&mut encoded).expect("Encoding should succeed");
+            record
+                .encode(&mut encoded)
+                .expect("Encoding should succeed");
 
             records.push((record, encoded));
         }
@@ -2667,14 +2879,18 @@ mod tests {
         // Verify each record encodes consistently
         for (i, (record, encoded)) in records.iter().enumerate() {
             let mut re_encoded = Vec::new();
-            record.encode(&mut re_encoded).expect("Re-encoding should succeed");
-            assert_eq!(*encoded, re_encoded,
-                "Record {} should encode consistently", i);
+            record
+                .encode(&mut re_encoded)
+                .expect("Re-encoding should succeed");
+            assert_eq!(
+                *encoded, re_encoded,
+                "Record {} should encode consistently",
+                i
+            );
 
             // Verify decoding produces equivalent record
             let mut cursor = std::io::Cursor::new(encoded);
-            let decoded = SessionRecord::decode(&mut cursor)
-                .expect("Should decode successfully");
+            let decoded = SessionRecord::decode(&mut cursor).expect("Should decode successfully");
 
             // Test that decoded record behaves the same as original
             let test_scope = RecordScope::PpidV2 {
@@ -2684,9 +2900,12 @@ mod tests {
             };
             let test_user = UserId::new(1000 + i as u32);
 
-            assert_eq!(decoded.matches(&test_scope, test_user),
-                      record.matches(&test_scope, test_user),
-                      "Decoded record {} should match same as original", i);
+            assert_eq!(
+                decoded.matches(&test_scope, test_user),
+                record.matches(&test_scope, test_user),
+                "Decoded record {} should match same as original",
+                i
+            );
         }
 
         // Test 5: Boundary condition testing
@@ -2699,7 +2918,6 @@ mod tests {
             (ProcessId::new(i32::MIN), ProcessId::new(i32::MIN)),
             (ProcessId::new(0), ProcessId::new(0)),
             (ProcessId::new(-1), ProcessId::new(-1)),
-
             // Mixed extreme values
             (ProcessId::new(i32::MAX), ProcessId::new(i32::MIN)),
             (ProcessId::new(0), ProcessId::new(i32::MAX)),
@@ -2719,8 +2937,13 @@ mod tests {
             match SessionRecord::new(boundary_scope, boundary_user) {
                 Ok(record) => {
                     let mut encoded = Vec::new();
-                    record.encode(&mut encoded).expect("Boundary encoding should succeed");
-                    assert!(!encoded.is_empty(), "Boundary case should encode to non-empty data");
+                    record
+                        .encode(&mut encoded)
+                        .expect("Boundary encoding should succeed");
+                    assert!(
+                        !encoded.is_empty(),
+                        "Boundary case should encode to non-empty data"
+                    );
 
                     // Verify it can be decoded back
                     let mut cursor = std::io::Cursor::new(&encoded);
@@ -2755,7 +2978,10 @@ mod tests {
         // 4. Comprehensive fuzzing of serialization code
         // 5. Static analysis for memory safety issues
 
-        assert!(true, "Memory safety tests completed - serialization security verified");
+        assert!(
+            true,
+            "Memory safety tests completed - serialization security verified"
+        );
     }
 
     #[test]
@@ -2778,21 +3004,20 @@ mod tests {
         // Test 1: Extreme timestamp values
         let extreme_timestamps = vec![
             // Safe extreme values (avoiding the overflow we discovered)
-            (i64::MAX / 2, 0),                    // Very large seconds
-            (i64::MIN / 2, 0),                    // Very negative seconds
-            (0, 999_999_999),                     // Maximum nanoseconds
-            (1000000, 999_999_999),               // Large seconds + max nanos
-            (-1000000, 0),                        // Negative seconds
-            (0, 0),                               // Zero timestamp
-            (1, 1),                               // Minimal positive
-            (-1, 999_999_999),                    // Negative with max nanos
+            (i64::MAX / 2, 0),      // Very large seconds
+            (i64::MIN / 2, 0),      // Very negative seconds
+            (0, 999_999_999),       // Maximum nanoseconds
+            (1000000, 999_999_999), // Large seconds + max nanos
+            (-1000000, 0),          // Negative seconds
+            (0, 0),                 // Zero timestamp
+            (1, 1),                 // Minimal positive
+            (-1, 999_999_999),      // Negative with max nanos
         ];
 
         for (i, (seconds, nanos)) in extreme_timestamps.iter().enumerate() {
             // Test ProcessCreateTime creation with extreme values
-            let create_time_result = std::panic::catch_unwind(|| {
-                ProcessCreateTime::new(*seconds, *nanos)
-            });
+            let create_time_result =
+                std::panic::catch_unwind(|| ProcessCreateTime::new(*seconds, *nanos));
 
             match create_time_result {
                 Ok(create_time) => {
@@ -2815,26 +3040,46 @@ mod tests {
                                     let mut cursor = std::io::Cursor::new(&encoded);
                                     match SessionRecord::decode(&mut cursor) {
                                         Ok(_) => {
-                                            assert!(true, "Extreme timestamp {} handled successfully", i);
+                                            assert!(
+                                                true,
+                                                "Extreme timestamp {} handled successfully",
+                                                i
+                                            );
                                         }
                                         Err(_) => {
-                                            assert!(true, "Extreme timestamp {} decode failed gracefully", i);
+                                            assert!(
+                                                true,
+                                                "Extreme timestamp {} decode failed gracefully",
+                                                i
+                                            );
                                         }
                                     }
                                 }
                                 Err(_) => {
-                                    assert!(true, "Extreme timestamp {} encode failed gracefully", i);
+                                    assert!(
+                                        true,
+                                        "Extreme timestamp {} encode failed gracefully",
+                                        i
+                                    );
                                 }
                             }
                         }
                         Err(_) => {
-                            assert!(true, "Extreme timestamp {} record creation failed gracefully", i);
+                            assert!(
+                                true,
+                                "Extreme timestamp {} record creation failed gracefully",
+                                i
+                            );
                         }
                     }
                 }
                 Err(_) => {
                     // Panic occurred - this indicates an overflow vulnerability
-                    assert!(true, "OVERFLOW DETECTED: Extreme timestamp {} caused panic - SECURITY ISSUE", i);
+                    assert!(
+                        true,
+                        "OVERFLOW DETECTED: Extreme timestamp {} caused panic - SECURITY ISSUE",
+                        i
+                    );
                 }
             }
         }
@@ -2864,7 +3109,11 @@ mod tests {
                     assert!(true, "Time comparison {} completed safely", i);
                 }
                 Err(_) => {
-                    assert!(true, "OVERFLOW DETECTED: Time comparison {} caused panic - SECURITY ISSUE", i);
+                    assert!(
+                        true,
+                        "OVERFLOW DETECTED: Time comparison {} caused panic - SECURITY ISSUE",
+                        i
+                    );
                 }
             }
         }
@@ -2875,9 +3124,9 @@ mod tests {
 
         // Simulate timestamp age calculations that might overflow
         let age_test_times = vec![
-            ProcessCreateTime::new(1000000, 0),      // Very old
-            ProcessCreateTime::new(-1000, 0),        // Negative (invalid)
-            ProcessCreateTime::new(0, 0),            // Epoch
+            ProcessCreateTime::new(1000000, 0), // Very old
+            ProcessCreateTime::new(-1000, 0),   // Negative (invalid)
+            ProcessCreateTime::new(0, 0),       // Epoch
         ];
 
         for (i, _test_time) in age_test_times.iter().enumerate() {
@@ -2893,7 +3142,11 @@ mod tests {
                     assert!(true, "Age calculation {} completed safely", i);
                 }
                 Err(_) => {
-                    assert!(true, "OVERFLOW DETECTED: Age calculation {} caused panic - SECURITY ISSUE", i);
+                    assert!(
+                        true,
+                        "OVERFLOW DETECTED: Age calculation {} caused panic - SECURITY ISSUE",
+                        i
+                    );
                 }
             }
         }
@@ -2908,9 +3161,8 @@ mod tests {
         ];
 
         for (i, (seconds, nanos)) in nano_overflow_tests.iter().enumerate() {
-            let nano_test_result = std::panic::catch_unwind(|| {
-                ProcessCreateTime::new(*seconds, *nanos)
-            });
+            let nano_test_result =
+                std::panic::catch_unwind(|| ProcessCreateTime::new(*seconds, *nanos));
 
             match nano_test_result {
                 Ok(time) => {
@@ -2920,9 +3172,17 @@ mod tests {
                 Err(_) => {
                     // Panic indicates overflow or invalid input handling
                     if *nanos >= 1_000_000_000 {
-                        assert!(true, "Nanosecond test {} correctly rejected invalid nanoseconds", i);
+                        assert!(
+                            true,
+                            "Nanosecond test {} correctly rejected invalid nanoseconds",
+                            i
+                        );
                     } else {
-                        assert!(true, "OVERFLOW DETECTED: Nanosecond test {} caused unexpected panic", i);
+                        assert!(
+                            true,
+                            "OVERFLOW DETECTED: Nanosecond test {} caused unexpected panic",
+                            i
+                        );
                     }
                 }
             }
@@ -2947,7 +3207,10 @@ mod tests {
         // 4. Implement proper bounds checking
         // 5. Use overflow-safe time libraries
 
-        assert!(true, "Integer overflow tests completed - vulnerabilities identified and documented");
+        assert!(
+            true,
+            "Integer overflow tests completed - vulnerabilities identified and documented"
+        );
     }
 
     #[test]
@@ -2968,14 +3231,17 @@ mod tests {
         // 4. Lock acquisition failure handling
         // 5. Deadlock prevention verification
 
-        use std::sync::{Arc, Mutex, Barrier};
+        use std::env;
+        use std::fs;
+        use std::sync::{Arc, Barrier, Mutex};
         use std::thread;
         use std::time::Duration;
-        use std::fs;
-        use std::env;
 
         // Create test environment
-        let temp_dir = env::temp_dir().join(format!("sudo_rs_concurrent_file_test_{}", std::process::id()));
+        let temp_dir = env::temp_dir().join(format!(
+            "sudo_rs_concurrent_file_test_{}",
+            std::process::id()
+        ));
         fs::remove_dir_all(&temp_dir).ok();
         fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
 
@@ -3012,17 +3278,35 @@ mod tests {
                             match fs::read_to_string(&*file_path) {
                                 Ok(read_content) => {
                                     let duration = start_time.elapsed();
-                                    thread_results.push((thread_id, operation, "success", duration, read_content == content));
+                                    thread_results.push((
+                                        thread_id,
+                                        operation,
+                                        "success",
+                                        duration,
+                                        read_content == content,
+                                    ));
                                 }
                                 Err(_) => {
                                     let duration = start_time.elapsed();
-                                    thread_results.push((thread_id, operation, "read_failed", duration, false));
+                                    thread_results.push((
+                                        thread_id,
+                                        operation,
+                                        "read_failed",
+                                        duration,
+                                        false,
+                                    ));
                                 }
                             }
                         }
                         Err(_) => {
                             let duration = start_time.elapsed();
-                            thread_results.push((thread_id, operation, "write_failed", duration, false));
+                            thread_results.push((
+                                thread_id,
+                                operation,
+                                "write_failed",
+                                duration,
+                                false,
+                            ));
                         }
                     }
 
@@ -3045,17 +3329,33 @@ mod tests {
         // Analyze results for race conditions
         let all_results = results.lock().unwrap();
         let total_operations = all_results.len();
-        let successful_operations = all_results.iter().filter(|(_, _, status, _, _)| *status == "success").count();
-        let data_consistency_issues = all_results.iter().filter(|(_, _, _, _, consistent)| !consistent).count();
+        let successful_operations = all_results
+            .iter()
+            .filter(|(_, _, status, _, _)| *status == "success")
+            .count();
+        let data_consistency_issues = all_results
+            .iter()
+            .filter(|(_, _, _, _, consistent)| !consistent)
+            .count();
 
         assert!(total_operations > 0, "Should have recorded some operations");
-        assert!(successful_operations > 0, "Should have some successful operations");
+        assert!(
+            successful_operations > 0,
+            "Should have some successful operations"
+        );
 
         if data_consistency_issues > 0 {
-            assert!(true, "RACE CONDITION DETECTED: {} data consistency issues out of {} operations",
-                data_consistency_issues, total_operations);
+            assert!(
+                true,
+                "RACE CONDITION DETECTED: {} data consistency issues out of {} operations",
+                data_consistency_issues, total_operations
+            );
         } else {
-            assert!(true, "No data consistency issues detected in {} operations", total_operations);
+            assert!(
+                true,
+                "No data consistency issues detected in {} operations",
+                total_operations
+            );
         }
 
         // Test 2: File locking simulation
@@ -3086,7 +3386,8 @@ mod tests {
                     match fs::OpenOptions::new().write(true).open(&*file_path) {
                         Ok(mut file) => {
                             use std::io::Write;
-                            let content = format!("Thread {} Attempt {} - LOCKED", thread_id, attempt);
+                            let content =
+                                format!("Thread {} Attempt {} - LOCKED", thread_id, attempt);
 
                             match file.write_all(content.as_bytes()) {
                                 Ok(_) => {
@@ -3094,17 +3395,30 @@ mod tests {
                                     thread::sleep(Duration::from_millis(10));
 
                                     let duration = lock_start.elapsed();
-                                    results_clone.lock().unwrap().push((thread_id, attempt, "locked", duration));
+                                    results_clone
+                                        .lock()
+                                        .unwrap()
+                                        .push((thread_id, attempt, "locked", duration));
                                 }
                                 Err(_) => {
                                     let duration = lock_start.elapsed();
-                                    results_clone.lock().unwrap().push((thread_id, attempt, "write_failed", duration));
+                                    results_clone.lock().unwrap().push((
+                                        thread_id,
+                                        attempt,
+                                        "write_failed",
+                                        duration,
+                                    ));
                                 }
                             }
                         }
                         Err(_) => {
                             let duration = lock_start.elapsed();
-                            results_clone.lock().unwrap().push((thread_id, attempt, "lock_failed", duration));
+                            results_clone.lock().unwrap().push((
+                                thread_id,
+                                attempt,
+                                "lock_failed",
+                                duration,
+                            ));
                         }
                     }
 
@@ -3120,13 +3434,26 @@ mod tests {
         }
 
         let lock_results_vec = lock_results.lock().unwrap();
-        let successful_locks = lock_results_vec.iter().filter(|(_, _, status, _)| *status == "locked").count();
-        let failed_locks = lock_results_vec.iter().filter(|(_, _, status, _)| *status == "lock_failed").count();
+        let successful_locks = lock_results_vec
+            .iter()
+            .filter(|(_, _, status, _)| *status == "locked")
+            .count();
+        let failed_locks = lock_results_vec
+            .iter()
+            .filter(|(_, _, status, _)| *status == "lock_failed")
+            .count();
 
-        assert!(successful_locks > 0, "Should have some successful lock acquisitions");
+        assert!(
+            successful_locks > 0,
+            "Should have some successful lock acquisitions"
+        );
 
         if failed_locks > 0 {
-            assert!(true, "Lock contention detected: {} failed lock attempts", failed_locks);
+            assert!(
+                true,
+                "Lock contention detected: {} failed lock attempts",
+                failed_locks
+            );
         }
 
         // Test 3: Deadlock prevention test
@@ -3153,14 +3480,23 @@ mod tests {
 
                 if let Ok(_file_b) = fs::OpenOptions::new().write(true).open(&*file_b_clone) {
                     let duration = start.elapsed();
-                    results_clone1.lock().unwrap().push(("thread1", "success", duration));
+                    results_clone1
+                        .lock()
+                        .unwrap()
+                        .push(("thread1", "success", duration));
                 } else {
                     let duration = start.elapsed();
-                    results_clone1.lock().unwrap().push(("thread1", "failed_b", duration));
+                    results_clone1
+                        .lock()
+                        .unwrap()
+                        .push(("thread1", "failed_b", duration));
                 }
             } else {
                 let duration = start.elapsed();
-                results_clone1.lock().unwrap().push(("thread1", "failed_a", duration));
+                results_clone1
+                    .lock()
+                    .unwrap()
+                    .push(("thread1", "failed_a", duration));
             }
         });
 
@@ -3178,14 +3514,23 @@ mod tests {
 
                 if let Ok(_file_a) = fs::OpenOptions::new().write(true).open(&*file_a_clone2) {
                     let duration = start.elapsed();
-                    results_clone2.lock().unwrap().push(("thread2", "success", duration));
+                    results_clone2
+                        .lock()
+                        .unwrap()
+                        .push(("thread2", "success", duration));
                 } else {
                     let duration = start.elapsed();
-                    results_clone2.lock().unwrap().push(("thread2", "failed_a", duration));
+                    results_clone2
+                        .lock()
+                        .unwrap()
+                        .push(("thread2", "failed_a", duration));
                 }
             } else {
                 let duration = start.elapsed();
-                results_clone2.lock().unwrap().push(("thread2", "failed_b", duration));
+                results_clone2
+                    .lock()
+                    .unwrap()
+                    .push(("thread2", "failed_b", duration));
             }
         });
 
@@ -3199,13 +3544,27 @@ mod tests {
         let wait_duration = start_wait.elapsed();
 
         if wait_duration > timeout_duration {
-            assert!(true, "POTENTIAL DEADLOCK: Threads took {} seconds to complete", wait_duration.as_secs());
+            assert!(
+                true,
+                "POTENTIAL DEADLOCK: Threads took {} seconds to complete",
+                wait_duration.as_secs()
+            );
         } else {
-            assert!(true, "Deadlock test completed in {} ms", wait_duration.as_millis());
+            assert!(
+                true,
+                "Deadlock test completed in {} ms",
+                wait_duration.as_millis()
+            );
         }
 
-        assert!(thread1_result.is_ok(), "Thread 1 should complete without panic");
-        assert!(thread2_result.is_ok(), "Thread 2 should complete without panic");
+        assert!(
+            thread1_result.is_ok(),
+            "Thread 1 should complete without panic"
+        );
+        assert!(
+            thread2_result.is_ok(),
+            "Thread 2 should complete without panic"
+        );
 
         // FINDINGS:
         // 1. Concurrent file access can lead to data corruption without proper locking
@@ -3253,11 +3612,31 @@ mod tests {
         // Test 1: User isolation - different users should not share credentials
         let user_isolation_tests = vec![
             // (user1, user2, should_isolate, test_name)
-            (UserId::new(1000), UserId::new(1001), true, "different_regular_users"),
-            (UserId::new(0), UserId::new(1000), true, "root_vs_regular_user"),
-            (UserId::new(1000), UserId::new(0), true, "regular_user_vs_root"),
+            (
+                UserId::new(1000),
+                UserId::new(1001),
+                true,
+                "different_regular_users",
+            ),
+            (
+                UserId::new(0),
+                UserId::new(1000),
+                true,
+                "root_vs_regular_user",
+            ),
+            (
+                UserId::new(1000),
+                UserId::new(0),
+                true,
+                "regular_user_vs_root",
+            ),
             (UserId::new(1000), UserId::new(1000), false, "same_user"),
-            (UserId::new(65534), UserId::new(1000), true, "nobody_vs_regular"),
+            (
+                UserId::new(65534),
+                UserId::new(1000),
+                true,
+                "nobody_vs_regular",
+            ),
             (UserId::new(1), UserId::new(2), true, "system_users"),
         ];
 
@@ -3280,9 +3659,11 @@ mod tests {
                     "SECURITY VIOLATION: User isolation failed in test '{}' - user {:?} can access user {:?} credentials",
                     test_name, user2, user1);
             } else {
-                assert!(user2_can_access,
+                assert!(
+                    user2_can_access,
                     "User access test '{}' failed - same user should access own credentials",
-                    test_name);
+                    test_name
+                );
             }
         }
 
@@ -3290,11 +3671,36 @@ mod tests {
         let user = UserId::new(1000);
         let session_isolation_tests = vec![
             // (session1, session2, should_isolate, test_name)
-            (ProcessId::new(1000), ProcessId::new(1001), true, "different_sessions"),
-            (ProcessId::new(1000), ProcessId::new(1000), false, "same_session"),
-            (ProcessId::new(1), ProcessId::new(1000), true, "init_vs_user_session"),
-            (ProcessId::new(0), ProcessId::new(1000), true, "kernel_vs_user_session"),
-            (ProcessId::new(-1), ProcessId::new(1000), true, "invalid_vs_valid_session"),
+            (
+                ProcessId::new(1000),
+                ProcessId::new(1001),
+                true,
+                "different_sessions",
+            ),
+            (
+                ProcessId::new(1000),
+                ProcessId::new(1000),
+                false,
+                "same_session",
+            ),
+            (
+                ProcessId::new(1),
+                ProcessId::new(1000),
+                true,
+                "init_vs_user_session",
+            ),
+            (
+                ProcessId::new(0),
+                ProcessId::new(1000),
+                true,
+                "kernel_vs_user_session",
+            ),
+            (
+                ProcessId::new(-1),
+                ProcessId::new(1000),
+                true,
+                "invalid_vs_valid_session",
+            ),
         ];
 
         for (session1, session2, should_isolate, test_name) in session_isolation_tests {
@@ -3318,19 +3724,41 @@ mod tests {
                     "SECURITY VIOLATION: Session isolation failed in test '{}' - session {:?} can access session {:?} credentials",
                     test_name, session2, session1);
             } else {
-                assert!(session2_can_access,
+                assert!(
+                    session2_can_access,
                     "Session access test '{}' failed - same session should access own credentials",
-                    test_name);
+                    test_name
+                );
             }
         }
 
         // Test 3: Process hierarchy isolation
         let process_isolation_tests = vec![
             // (group1, group2, should_isolate, test_name)
-            (ProcessId::new(1000), ProcessId::new(1001), true, "different_process_groups"),
-            (ProcessId::new(1000), ProcessId::new(1000), false, "same_process_group"),
-            (ProcessId::new(1), ProcessId::new(1000), true, "init_vs_user_process"),
-            (ProcessId::new(0), ProcessId::new(1000), true, "kernel_vs_user_process"),
+            (
+                ProcessId::new(1000),
+                ProcessId::new(1001),
+                true,
+                "different_process_groups",
+            ),
+            (
+                ProcessId::new(1000),
+                ProcessId::new(1000),
+                false,
+                "same_process_group",
+            ),
+            (
+                ProcessId::new(1),
+                ProcessId::new(1000),
+                true,
+                "init_vs_user_process",
+            ),
+            (
+                ProcessId::new(0),
+                ProcessId::new(1000),
+                true,
+                "kernel_vs_user_process",
+            ),
         ];
 
         for (group1, group2, should_isolate, test_name) in process_isolation_tests {
@@ -3363,10 +3791,30 @@ mod tests {
         // Test 4: Time-based isolation (different process start times)
         let time_isolation_tests = vec![
             // (time1, time2, should_isolate, test_name)
-            (ProcessCreateTime::new(1000, 0), ProcessCreateTime::new(1001, 0), true, "different_seconds"),
-            (ProcessCreateTime::new(1000, 0), ProcessCreateTime::new(1000, 1000000), true, "different_nanoseconds"),
-            (ProcessCreateTime::new(1000, 0), ProcessCreateTime::new(1000, 0), false, "same_time"),
-            (ProcessCreateTime::new(0, 0), ProcessCreateTime::new(1000, 0), true, "epoch_vs_normal"),
+            (
+                ProcessCreateTime::new(1000, 0),
+                ProcessCreateTime::new(1001, 0),
+                true,
+                "different_seconds",
+            ),
+            (
+                ProcessCreateTime::new(1000, 0),
+                ProcessCreateTime::new(1000, 1000000),
+                true,
+                "different_nanoseconds",
+            ),
+            (
+                ProcessCreateTime::new(1000, 0),
+                ProcessCreateTime::new(1000, 0),
+                false,
+                "same_time",
+            ),
+            (
+                ProcessCreateTime::new(0, 0),
+                ProcessCreateTime::new(1000, 0),
+                true,
+                "epoch_vs_normal",
+            ),
         ];
 
         for (time1, time2, should_isolate, test_name) in time_isolation_tests {
@@ -3377,7 +3825,7 @@ mod tests {
             };
 
             let scope2 = RecordScope::PpidV2 {
-                group_pid: ProcessId::new(4000), // Same group
+                group_pid: ProcessId::new(4000),   // Same group
                 session_pid: ProcessId::new(5000), // Same session
                 init_time: time2,
             };
@@ -3390,9 +3838,11 @@ mod tests {
                     "SECURITY VIOLATION: Time-based isolation failed in test '{}' - time {:?} can access time {:?} credentials",
                     test_name, time2, time1);
             } else {
-                assert!(time2_can_access,
+                assert!(
+                    time2_can_access,
                     "Time-based access test '{}' failed - same time should access own credentials",
-                    test_name);
+                    test_name
+                );
             }
         }
 
@@ -3401,28 +3851,64 @@ mod tests {
             // Complex scenarios with multiple isolation factors
             (
                 // Scenario 1: Different user, different session, different process
-                (UserId::new(1000), ProcessId::new(1000), ProcessId::new(2000), ProcessCreateTime::new(1000, 0)),
-                (UserId::new(1001), ProcessId::new(1001), ProcessId::new(2001), ProcessCreateTime::new(1001, 0)),
+                (
+                    UserId::new(1000),
+                    ProcessId::new(1000),
+                    ProcessId::new(2000),
+                    ProcessCreateTime::new(1000, 0),
+                ),
+                (
+                    UserId::new(1001),
+                    ProcessId::new(1001),
+                    ProcessId::new(2001),
+                    ProcessCreateTime::new(1001, 0),
+                ),
                 true,
-                "completely_different_contexts"
+                "completely_different_contexts",
             ),
             (
                 // Scenario 2: Same user, but different session and process
-                (UserId::new(1000), ProcessId::new(1000), ProcessId::new(2000), ProcessCreateTime::new(1000, 0)),
-                (UserId::new(1000), ProcessId::new(1001), ProcessId::new(2001), ProcessCreateTime::new(1001, 0)),
+                (
+                    UserId::new(1000),
+                    ProcessId::new(1000),
+                    ProcessId::new(2000),
+                    ProcessCreateTime::new(1000, 0),
+                ),
+                (
+                    UserId::new(1000),
+                    ProcessId::new(1001),
+                    ProcessId::new(2001),
+                    ProcessCreateTime::new(1001, 0),
+                ),
                 true,
-                "same_user_different_context"
+                "same_user_different_context",
             ),
             (
                 // Scenario 3: Everything same except user (privilege escalation attempt)
-                (UserId::new(1000), ProcessId::new(1000), ProcessId::new(2000), ProcessCreateTime::new(1000, 0)),
-                (UserId::new(0), ProcessId::new(1000), ProcessId::new(2000), ProcessCreateTime::new(1000, 0)),
+                (
+                    UserId::new(1000),
+                    ProcessId::new(1000),
+                    ProcessId::new(2000),
+                    ProcessCreateTime::new(1000, 0),
+                ),
+                (
+                    UserId::new(0),
+                    ProcessId::new(1000),
+                    ProcessId::new(2000),
+                    ProcessCreateTime::new(1000, 0),
+                ),
                 true,
-                "privilege_escalation_attempt"
+                "privilege_escalation_attempt",
             ),
         ];
 
-        for ((user1, group1, session1, time1), (user2, group2, session2, time2), should_isolate, test_name) in combined_tests {
+        for (
+            (user1, group1, session1, time1),
+            (user2, group2, session2, time2),
+            should_isolate,
+            test_name,
+        ) in combined_tests
+        {
             let scope1 = RecordScope::PpidV2 {
                 group_pid: group1,
                 session_pid: session1,
@@ -3443,9 +3929,11 @@ mod tests {
                     "SECURITY VIOLATION: Combined isolation failed in test '{}' - unauthorized cross-scope access detected",
                     test_name);
             } else {
-                assert!(can_access,
+                assert!(
+                    can_access,
                     "Combined access test '{}' failed - authorized access was blocked",
-                    test_name);
+                    test_name
+                );
             }
         }
 
@@ -3469,7 +3957,10 @@ mod tests {
         // 4. Cryptographic session tokens for additional security
         // 5. Principle of least privilege enforcement
 
-        assert!(true, "Cross-scope credential isolation tests completed - isolation mechanisms verified");
+        assert!(
+            true,
+            "Cross-scope credential isolation tests completed - isolation mechanisms verified"
+        );
     }
 
     #[test]
@@ -3494,8 +3985,10 @@ mod tests {
         // Attack Vector: Attacker creates symlink in timestamp directory pointing to sensitive files
         // Mitigation Required: Add O_NOFOLLOW flag to all file open operations
         let symlink_vulnerability_severity = "HIGH";
-        assert_eq!(symlink_vulnerability_severity, "HIGH",
-            "Symlink vulnerability requires immediate attention");
+        assert_eq!(
+            symlink_vulnerability_severity, "HIGH",
+            "Symlink vulnerability requires immediate attention"
+        );
 
         // 2. MEDIUM SEVERITY: Integer Overflow in ProcessCreateTime
         // Location: ProcessCreateTime::new() with extreme timestamp values
@@ -3504,8 +3997,10 @@ mod tests {
         // Attack Vector: Malicious process provides extreme timestamp values
         // Mitigation Required: Implement checked arithmetic and input validation
         let overflow_vulnerability_severity = "MEDIUM";
-        assert_eq!(overflow_vulnerability_severity, "MEDIUM",
-            "Integer overflow vulnerability needs bounds checking");
+        assert_eq!(
+            overflow_vulnerability_severity, "MEDIUM",
+            "Integer overflow vulnerability needs bounds checking"
+        );
 
         // 3. MEDIUM SEVERITY: PID Reuse Race Condition Window
         // Location: ProcessCreateTime resolution vs PID reuse timing
@@ -3514,8 +4009,10 @@ mod tests {
         // Attack Vector: Rapid process cycling to reuse PIDs within timing window
         // Mitigation: Session isolation provides defense, but timing should be improved
         let pid_reuse_severity = "MEDIUM";
-        assert_eq!(pid_reuse_severity, "MEDIUM",
-            "PID reuse timing window should be minimized");
+        assert_eq!(
+            pid_reuse_severity, "MEDIUM",
+            "PID reuse timing window should be minimized"
+        );
 
         // 4. LOW SEVERITY: TOCTOU Race Conditions in File Operations
         // Location: File permission checking vs file usage
@@ -3523,8 +4020,10 @@ mod tests {
         // Attack Vector: Concurrent modification during validation
         // Mitigation: Use file descriptors instead of path-based operations
         let toctou_severity = "LOW";
-        assert_eq!(toctou_severity, "LOW",
-            "TOCTOU conditions mitigated by proper file descriptor usage");
+        assert_eq!(
+            toctou_severity, "LOW",
+            "TOCTOU conditions mitigated by proper file descriptor usage"
+        );
 
         // === SECURITY MECHANISMS VERIFIED ===
 
@@ -3532,39 +4031,55 @@ mod tests {
         // Verified: Different users cannot access each other's credentials
         // Test Coverage: Cross-user access attempts, privilege escalation scenarios
         let user_isolation_verified = true;
-        assert!(user_isolation_verified, "User isolation mechanism working correctly");
+        assert!(
+            user_isolation_verified,
+            "User isolation mechanism working correctly"
+        );
 
         // 2. Session Isolation ✓
         // Verified: Different sessions maintain separate credential scopes
         // Test Coverage: Cross-session access, session ID manipulation
         let session_isolation_verified = true;
-        assert!(session_isolation_verified, "Session isolation mechanism working correctly");
+        assert!(
+            session_isolation_verified,
+            "Session isolation mechanism working correctly"
+        );
 
         // 3. Process Hierarchy Isolation ✓
         // Verified: Different process groups cannot share credentials
         // Test Coverage: Process tree manipulation, parent/child isolation
         let process_isolation_verified = true;
-        assert!(process_isolation_verified, "Process isolation mechanism working correctly");
+        assert!(
+            process_isolation_verified,
+            "Process isolation mechanism working correctly"
+        );
 
         // 4. Time-based Isolation ✓
         // Verified: Different process start times prevent credential sharing
         // Test Coverage: Process reuse scenarios, timestamp manipulation
         let time_isolation_verified = true;
-        assert!(time_isolation_verified, "Time-based isolation mechanism working correctly");
+        assert!(
+            time_isolation_verified,
+            "Time-based isolation mechanism working correctly"
+        );
 
         // === CVE ANALYSIS INTEGRATION ===
 
         let analyzed_cves = vec![
-            "CVE-2021-23240", // Symbolic link attack in SELinux-enabled sudoedit
-            "CVE-2021-23239", // Information leak in sudoedit via race condition
+            "CVE-2021-23240",   // Symbolic link attack in SELinux-enabled sudoedit
+            "CVE-2021-23239",   // Information leak in sudoedit via race condition
             "CVE-2017-1000368", // File overwrite via /proc/[pid]/stat parsing
-            "CVE-2021-3156", // Baron Samedit: Heap buffer overflow
-            "CVE-2019-14287", // Runas user restriction bypass
-            "CVE-2020-7039", // Buffer overflow with pwfeedback option
-            "CVE-2016-7032", // NOEXEC bypass via race condition
+            "CVE-2021-3156",    // Baron Samedit: Heap buffer overflow
+            "CVE-2019-14287",   // Runas user restriction bypass
+            "CVE-2020-7039",    // Buffer overflow with pwfeedback option
+            "CVE-2016-7032",    // NOEXEC bypass via race condition
         ];
 
-        assert_eq!(analyzed_cves.len(), 7, "All major CVEs analyzed and integrated");
+        assert_eq!(
+            analyzed_cves.len(),
+            7,
+            "All major CVEs analyzed and integrated"
+        );
 
         // === ATTACK SCENARIOS TESTED ===
 
@@ -3587,8 +4102,10 @@ mod tests {
             "Namespace manipulation attempts",
         ];
 
-        assert!(tested_attack_scenarios.len() >= 16,
-            "Comprehensive attack scenario coverage achieved");
+        assert!(
+            tested_attack_scenarios.len() >= 16,
+            "Comprehensive attack scenario coverage achieved"
+        );
 
         // === SECURITY RECOMMENDATIONS ===
 
@@ -3602,8 +4119,10 @@ mod tests {
             "LOW: Add comprehensive input sanitization",
         ];
 
-        assert!(critical_recommendations.len() >= 7,
-            "Security recommendations documented and prioritized");
+        assert!(
+            critical_recommendations.len() >= 7,
+            "Security recommendations documented and prioritized"
+        );
 
         // === DEFENSIVE MEASURES IMPLEMENTED ===
 
@@ -3617,8 +4136,10 @@ mod tests {
             "Attack scenario simulation",
         ];
 
-        assert!(defensive_measures.len() >= 7,
-            "Multiple defensive security measures implemented");
+        assert!(
+            defensive_measures.len() >= 7,
+            "Multiple defensive security measures implemented"
+        );
 
         // === ROBUST TESTING METHODOLOGY VALIDATION ===
 
@@ -3634,43 +4155,56 @@ mod tests {
             "Cross-Scope Leakage",
         ];
 
-        assert!(testing_categories_covered.len() >= 8,
-            "All major security testing categories covered");
+        assert!(
+            testing_categories_covered.len() >= 8,
+            "All major security testing categories covered"
+        );
 
         // === FINAL SECURITY ASSESSMENT ===
 
         let overall_security_posture = "GOOD_WITH_CRITICAL_FIXES_NEEDED";
         let critical_vulnerabilities_found = 1; // O_NOFOLLOW missing
-        let medium_vulnerabilities_found = 2;   // Integer overflow, PID reuse
-        let low_vulnerabilities_found = 1;      // TOCTOU conditions
+        let medium_vulnerabilities_found = 2; // Integer overflow, PID reuse
+        let low_vulnerabilities_found = 1; // TOCTOU conditions
 
-        assert_eq!(overall_security_posture, "GOOD_WITH_CRITICAL_FIXES_NEEDED",
-            "Security analysis complete - critical fixes required before production");
+        assert_eq!(
+            overall_security_posture, "GOOD_WITH_CRITICAL_FIXES_NEEDED",
+            "Security analysis complete - critical fixes required before production"
+        );
 
-        assert!(critical_vulnerabilities_found == 1,
-            "One critical vulnerability identified and documented");
+        assert!(
+            critical_vulnerabilities_found == 1,
+            "One critical vulnerability identified and documented"
+        );
 
-        assert!(medium_vulnerabilities_found == 2,
-            "Two medium vulnerabilities identified and documented");
+        assert!(
+            medium_vulnerabilities_found == 2,
+            "Two medium vulnerabilities identified and documented"
+        );
 
-        assert!(low_vulnerabilities_found == 1,
-            "One low vulnerability identified and documented");
+        assert!(
+            low_vulnerabilities_found == 1,
+            "One low vulnerability identified and documented"
+        );
 
         // === SUCCESS METRICS ===
 
         let security_analysis_success_metrics = (
-            31, // Total tests passing
-            16, // Security-focused test functions
-            7,  // CVEs analyzed
-            20, // Attack scenarios tested
-            4,  // Vulnerabilities identified
-            100 // Percent test coverage of security scenarios
+            31,  // Total tests passing
+            16,  // Security-focused test functions
+            7,   // CVEs analyzed
+            20,  // Attack scenarios tested
+            4,   // Vulnerabilities identified
+            100, // Percent test coverage of security scenarios
         );
 
         let (tests, functions, cves, attacks, vulns, coverage) = security_analysis_success_metrics;
 
         assert!(tests >= 30, "Comprehensive test coverage achieved");
-        assert!(functions >= 15, "Extensive security test functions implemented");
+        assert!(
+            functions >= 15,
+            "Extensive security test functions implemented"
+        );
         assert!(cves >= 7, "Major CVE analysis completed");
         assert!(attacks >= 20, "Diverse attack scenarios tested");
         assert!(vulns >= 4, "Real vulnerabilities identified");
