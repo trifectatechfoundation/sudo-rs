@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
+use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
@@ -50,10 +51,7 @@ pub(crate) fn sudo_call<T>(
     if cfg!(test)
         && target_user.uid == cur_user_id
         && target_group.gid == cur_group_id
-        && target_groups
-            .iter()
-            .filter(|x| **x != target_group.gid)
-            .eq(cur_groups.iter().filter(|x| **x != cur_group_id))
+        && target_groups.iter().collect::<HashSet<_>>() == cur_groups.iter().collect::<HashSet<_>>()
     {
         // we are not actually switching users, simply run the closure
         // (this would also be safe in production mode, but it is a needless check)
