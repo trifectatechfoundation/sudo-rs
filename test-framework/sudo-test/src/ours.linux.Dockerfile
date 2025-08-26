@@ -1,4 +1,4 @@
-FROM rust:1-slim-bookworm
+FROM rust:1-slim-trixie
 RUN apt-get update && \
     apt-get install -y --no-install-recommends apparmor libpam0g-dev libapparmor1 procps sshpass rsyslog ca-certificates tzdata
 # cache the crates.io index in the image for faster local testing
