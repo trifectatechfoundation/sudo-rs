@@ -111,11 +111,15 @@ fn respects_runas_group() {
     )
     .build();
 
-    Command::new("sudoedit")
-        .as_user(USERNAME)
-        .args(["-g", OTHER_USERNAME, file])
-        .output(&env)
-        .assert_success();
+    if !sudo_test::is_original_sudo() {
+        // newer ogsudo version has a different interaction with a bare "-g" and
+        // the runas specifier
+        Command::new("sudoedit")
+            .as_user(USERNAME)
+            .args(["-g", OTHER_USERNAME, file])
+            .output(&env)
+            .assert_success();
+    }
 
     let output = Command::new("sudoedit")
         .as_user(USERNAME)
