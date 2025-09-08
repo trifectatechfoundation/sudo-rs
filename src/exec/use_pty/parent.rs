@@ -120,6 +120,7 @@ pub(in crate::exec) fn exec_pty(
     if !io::stdout().is_terminal() {
         dev_info!("stdout is not a terminal, command will inherit it");
         pipeline = true;
+        foreground = false;
         command.stdout(Stdio::inherit());
     }
 
@@ -157,6 +158,10 @@ pub(in crate::exec) fn exec_pty(
             None
         }
     };
+
+    if !foreground {
+        tty_pipe.disable_input(&mut registry);
+    }
 
     // SAFETY: There should be no other threads at this point.
     let ForkResult::Parent(monitor_pid) = (unsafe { fork() }).map_err(|err| {
