@@ -86,6 +86,8 @@ impl Context {
             })?
         };
 
+        let prompt = sudo_options.prompt.or_else(|| env::var("SUDO_PROMPT").ok());
+
         Ok(Context {
             hostname,
             command,
@@ -97,7 +99,7 @@ impl Context {
             chdir: sudo_options.chdir,
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
-            prompt: sudo_options.prompt,
+            prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
             use_pty: true,
