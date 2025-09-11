@@ -120,13 +120,18 @@ pub(in crate::exec) fn exec_pty(
     if !io::stdout().is_terminal() {
         dev_info!("stdout is not a terminal, command will inherit it");
         pipeline = true;
-        foreground = false;
         command.stdout(Stdio::inherit());
     }
 
     if !io::stderr().is_terminal() {
         dev_info!("stderr is not a terminal, command will inherit it");
         command.stderr(Stdio::inherit());
+    }
+
+    // If there is another process later in the pipeline, don't interfere
+    // with its access to the Tty
+    if io::stdout().is_pipe() {
+        foreground = false;
     }
 
     // Copy terminal settings from `/dev/tty` to the pty.
