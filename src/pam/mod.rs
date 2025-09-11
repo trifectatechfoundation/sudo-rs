@@ -76,10 +76,7 @@ impl PamContext {
             converser,
             converser_name: converser_name.to_owned(),
             no_interact,
-            auth_prompt: std::env::var("SUDO_PROMPT")
-                .ok()
-                .filter(|s| !s.is_empty())
-                .or(Some("authenticate".to_owned())),
+            auth_prompt: Some("authenticate".to_owned()),
             timed_out: false,
             panicked: false,
         }));
