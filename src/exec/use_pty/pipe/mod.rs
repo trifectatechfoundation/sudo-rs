@@ -98,9 +98,28 @@ impl<L: Read + Write + AsFd, R: Read + Write + AsFd> Pipe<L, R> {
         }
     }
 
-    /// Ensure that all the contents of the pipe's internal buffer are written to the left side.
+    /// Flush the pipe, ensuring that all the contents are written to the left side.
     pub(super) fn flush_left(&mut self) -> io::Result<()> {
-        self.buffer_rl.flush(&mut self.left)
+        let buffer = &mut self.buffer_rl;
+        let source = &mut self.right;
+        let sink = &mut self.left;
+
+        // Remove bytes from the right buffer and write them to the left buffer;
+        // then flush the left buffer.
+
+        if buffer.write_handle.is_active() {
+            // There may still be data in flight, read until EOF
+            loop {
+                buffer.internal.remove(sink)?;
+                buffer.internal.insert(source)?;
+                if !buffer.internal.is_full() {
+                    break;
+                }
+            }
+        }
+        buffer.internal.remove(sink)?;
+
+        sink.flush()
     }
 }
 
@@ -180,13 +199,5 @@ impl<R: Read, W: Write> Buffer<R, W> {
         }
 
         Ok(())
-    }
-
-    /// Flush this buffer, ensuring that all the contents of its internal buffer are written.
-    fn flush(&mut self, write: &mut W) -> io::Result<()> {
-        // Remove bytes from the buffer and write them.
-        self.internal.remove(write)?;
-
-        write.flush()
     }
 }
