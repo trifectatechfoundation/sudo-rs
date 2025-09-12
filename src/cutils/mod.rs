@@ -69,10 +69,7 @@ pub unsafe fn os_string_from_ptr(ptr: *const libc::c_char) -> OsString {
     }
 }
 
-/// Rust's standard library IsTerminal just directly calls isatty, which
-/// we don't want since this performs IOCTL calls on them and file descriptors are under
-/// the control of the user; so this checks if they are a character device first.
-pub fn safe_isatty(fildes: BorrowedFd) -> bool {
+fn fstat_mode_set(fildes: &BorrowedFd, mask: libc::mode_t) -> bool {
     // The Rust standard library doesn't have FileTypeExt on Std{in,out,err}, so we
     // can't just use FileTypeExt::is_char_device and have to resort to libc::fstat.
     let mut maybe_stat = std::mem::MaybeUninit::<libc::stat>::uninit();
@@ -83,17 +80,28 @@ pub fn safe_isatty(fildes: BorrowedFd) -> bool {
         let mode = unsafe { maybe_stat.assume_init() }.st_mode;
 
         // To complicate matters further, the S_ISCHR macro isn't in libc as well.
-        let is_char_device = (mode & libc::S_IFMT) == libc::S_IFCHR;
-
-        if is_char_device {
-            // SAFETY: isatty will return 0 or 1
-            unsafe { libc::isatty(fildes.as_raw_fd()) != 0 }
-        } else {
-            false
-        }
+        (mode & libc::S_IFMT) == mask
     } else {
         false
     }
+}
+/// Rust's standard library IsTerminal just directly calls isatty, which
+/// we don't want since this performs IOCTL calls on them and file descriptors are under
+/// the control of the user; so this checks if they are a character device first.
+pub fn safe_isatty(fildes: BorrowedFd) -> bool {
+    let is_char_device = fstat_mode_set(&fildes, libc::S_IFCHR);
+
+    if is_char_device {
+        // SAFETY: isatty will return 0 or 1
+        unsafe { libc::isatty(fildes.as_raw_fd()) != 0 }
+    } else {
+        false
+    }
+}
+
+/// Check whether the file descriptor is a pipe
+pub fn is_fifo(fildes: BorrowedFd) -> bool {
+    fstat_mode_set(&fildes, libc::S_IFIFO)
 }
 
 #[allow(clippy::undocumented_unsafe_blocks)]

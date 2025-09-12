@@ -11,7 +11,7 @@ use std::{
 
 use libc::{ioctl, winsize, TIOCSWINSZ};
 
-use crate::cutils::{cerr, os_string_from_ptr, safe_isatty};
+use crate::cutils::{cerr, is_fifo, os_string_from_ptr, safe_isatty};
 
 use super::interface::ProcessId;
 
@@ -157,6 +157,7 @@ pub(crate) trait Terminal: sealed::Sealed {
     fn make_controlling_terminal(&self) -> io::Result<()>;
     fn ttyname(&self) -> io::Result<OsString>;
     fn is_terminal(&self) -> bool;
+    fn is_pipe(&self) -> bool;
     fn tcgetsid(&self) -> io::Result<ProcessId>;
 }
 
@@ -198,6 +199,10 @@ impl<F: AsFd> Terminal for F {
     /// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
     fn is_terminal(&self) -> bool {
         safe_isatty(self.as_fd())
+    }
+
+    fn is_pipe(&self) -> bool {
+        is_fifo(self.as_fd())
     }
 
     fn tcgetsid(&self) -> io::Result<ProcessId> {
