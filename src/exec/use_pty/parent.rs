@@ -235,6 +235,7 @@ pub(in crate::exec) fn exec_pty(
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
 
     // Flush the terminal
+    closure.tty_pipe.right().set_nonblocking()?;
     closure.tty_pipe.flush_left().ok();
 
     // Restore the terminal settings

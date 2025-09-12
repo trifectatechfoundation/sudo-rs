@@ -104,20 +104,19 @@ impl<L: Read + Write + AsFd, R: Read + Write + AsFd> Pipe<L, R> {
         let source = &mut self.right;
         let sink = &mut self.left;
 
-        // Remove bytes from the right buffer and write them to the left buffer;
-        // then flush the left buffer.
+        // Flush the ring buffer, then process any eventual bytes still in-flight.
+        buffer.internal.remove(sink)?;
 
         if buffer.write_handle.is_active() {
-            // There may still be data in flight, read until EOF
+            let mut buf = [0u8; RingBuffer::LEN];
             loop {
-                buffer.internal.remove(sink)?;
-                buffer.internal.insert(source)?;
-                if !buffer.internal.is_full() {
-                    break;
+                match source.read(&mut buf) {
+                    Ok(read_bytes) => sink.write_all(&buf[..read_bytes])?,
+                    Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(e) => return Err(e),
                 }
             }
         }
-        buffer.internal.remove(sink)?;
 
         sink.flush()
     }
