@@ -217,12 +217,10 @@ pub(in crate::exec) fn exec_pty(
     drop(backchannels.monitor);
 
     // Send green light to the monitor after closing the follower.
-    retry_while_interrupted(|| backchannels.parent.send(&MonitorMessage::ExecCommand)).map_err(
-        |err| {
-            dev_error!("cannot send green light to monitor: {err}");
-            err
-        },
-    )?;
+    retry_while_interrupted(|| backchannels.parent.send(&MonitorMessage::Edge)).map_err(|err| {
+        dev_error!("cannot send green light to monitor: {err}");
+        err
+    })?;
 
     let mut closure = ParentClosure::new(
         monitor_pid,
@@ -247,6 +245,7 @@ pub(in crate::exec) fn exec_pty(
     // FIXME (ogsudo): Retry if `/dev/tty` is revoked.
 
     // Flush the terminal
+    closure.tty_pipe.right().set_nonblocking()?;
     closure.tty_pipe.flush_left().ok();
 
     // Restore the terminal settings
@@ -359,10 +358,19 @@ impl ParentClosure {
     }
 
     fn run(&mut self, registry: EventRegistry<Self>) -> io::Result<ExitReason> {
-        match registry.event_loop(self) {
+        let result = match registry.event_loop(self) {
             StopReason::Break(err) | StopReason::Exit(ParentExit::Backchannel(err)) => Err(err),
             StopReason::Exit(ParentExit::Command(exit_reason)) => Ok(exit_reason),
-        }
+        };
+        // Send red light to the monitor after processing all events
+        retry_while_interrupted(|| self.backchannel.send(&MonitorMessage::Edge)).map_err(
+            |err| {
+                dev_error!("cannot send red light to monitor: {err}");
+                err
+            },
+        )?;
+
+        result
     }
 
     /// Read an event from the backchannel and return the event if it should break the event loop.

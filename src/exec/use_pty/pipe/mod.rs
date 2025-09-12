@@ -119,9 +119,27 @@ impl<L: Read + Write + AsFd, R: Read + Write + AsFd> Pipe<L, R> {
         }
     }
 
-    /// Ensure that all the contents of the pipe's internal buffer are written to the left side.
+    /// Flush the pipe, ensuring that all the contents are written to the left side.
     pub(super) fn flush_left(&mut self) -> io::Result<()> {
-        self.buffer_rl.flush(&mut self.left)
+        let buffer = &mut self.buffer_rl;
+        let source = &mut self.right;
+        let sink = &mut self.left;
+
+        // Flush the ring buffer, then process any eventual bytes still in-flight.
+        buffer.internal.remove(sink)?;
+
+        if buffer.write_handle.is_active() {
+            let mut buf = [0u8; RingBuffer::LEN];
+            loop {
+                match source.read(&mut buf) {
+                    Ok(read_bytes) => sink.write_all(&buf[..read_bytes])?,
+                    Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
+        sink.flush()
     }
 }
 
@@ -197,13 +215,5 @@ impl<R: Read, W: Write> Buffer<R, W> {
 
         // Return whether we actually freed up some buffer space
         Ok(removed_len > 0)
-    }
-
-    /// Flush this buffer, ensuring that all the contents of its internal buffer are written.
-    fn flush(&mut self, write: &mut W) -> io::Result<()> {
-        // Remove bytes from the buffer and write them.
-        self.internal.remove(write)?;
-
-        write.flush()
     }
 }

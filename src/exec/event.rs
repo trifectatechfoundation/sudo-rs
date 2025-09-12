@@ -91,6 +91,11 @@ impl EventHandle {
             }
         }
     }
+
+    /// Is this event handle ready to be processed?
+    pub(super) fn is_active(&self) -> bool {
+        self.should_poll
+    }
 }
 
 /// The kind of event that will be monitored for a file descriptor.

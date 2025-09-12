@@ -97,6 +97,22 @@ impl PtyLeader {
 
         Ok(())
     }
+
+    pub(crate) fn set_nonblocking(&self) -> io::Result<()> {
+        let fd = self.file.as_fd();
+        // SAFETY: these two calls to fcntl are memory safe (and the file descriptor is valid as well)
+        unsafe {
+            let flags = cerr(libc::fcntl(fd.as_raw_fd(), libc::F_GETFL))?;
+
+            // Set the O_NONBLOCK flag
+            cerr(libc::fcntl(
+                fd.as_raw_fd(),
+                libc::F_SETFL,
+                flags | libc::O_NONBLOCK,
+            ))?;
+        }
+        Ok(())
+    }
 }
 
 impl io::Read for PtyLeader {
