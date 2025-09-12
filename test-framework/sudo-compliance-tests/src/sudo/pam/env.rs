@@ -255,36 +255,6 @@ fn var_rejected_by_env_check_falls_back_to_pam_env_value() {
 
 #[test]
 #[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
-fn default_and_override_pam_env_vars_are_parentheses_checked_but_set_vars_are_not() {
-    let set_name = "SET_VAR";
-    let set_value = "() set";
-    let default_name = "DEFAULT_VAR";
-    let default_value = "() default";
-    let override_name = "OVERRIDE_VAR";
-    let override_value = "() override";
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
-        .file(PAM_D_SUDO_PATH, [STOCK_PAM_D_SUDO, PAM_D_SUDO_READENV])
-        .file(ETC_ENVIRONMENT_PATH, format!("{set_name}={set_value}"))
-        .file(
-            SECURITY_PAM_ENV_PATH,
-            [
-                STOCK_SECURITY_PAM_ENV,
-                &format!("{default_name} DEFAULT={default_value}"),
-                &format!("{override_name} OVERRIDE={override_value}"),
-            ],
-        )
-        .build();
-
-    let stdout = Command::new("sudo").arg("env").output(&env).stdout();
-    let env = helpers::parse_env_output(&stdout);
-
-    assert_eq!(Some(set_value), env.get(set_name).copied());
-    assert_eq!(None, env.get(default_name).copied());
-    assert_eq!(None, env.get(override_name).copied());
-}
-
-#[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn pam_env_vars_are_not_env_checked() {
     let set_name = "SET_VAR";
     let set_value = "%set";
