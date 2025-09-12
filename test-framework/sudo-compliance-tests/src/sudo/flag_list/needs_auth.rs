@@ -105,7 +105,8 @@ fn use_proper_last_matching_tag_for_other_user() {
             .unwrap()
             .strip_prefix("Sudo version ")
             .unwrap();
-        if version >= "1.9.16" {
+        #[allow(clippy::manual_range_contains)]
+        if version >= "1.9.16" && version <= "1.9.17p2" {
             return;
         }
         if cfg!(not(target_os = "linux")) {
