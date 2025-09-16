@@ -115,22 +115,6 @@ fn any_chdir_value_is_not_accepted_if_it_matches_pwd_cwd_unset() {
     let path = "/root";
     let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL").build();
 
-    if sudo_test::is_original_sudo() {
-        let stdout = Command::new("sudo").arg("--version").output(&env).stdout();
-        let version = stdout
-            .lines()
-            .next()
-            .unwrap()
-            .strip_prefix("Sudo version ")
-            .unwrap();
-        if version < "1.9.14" {
-            // Older sudo had a special case where --chdir is accepted if it matches the cwd even if
-            // it would otherwise be denied.
-            // FIXME remove once bookworm is oldstable
-            return;
-        }
-    }
-
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!("cd {path}; sudo --chdir {path} pwd"))
@@ -151,22 +135,6 @@ fn any_chdir_value_is_not_accepted_if_it_matches_pwd_cwd_set() {
     let cwd_path = "/root";
     let another_path = "/tmp";
     let env = Env(format!("ALL ALL=(ALL:ALL) CWD={cwd_path} NOPASSWD: ALL")).build();
-
-    if sudo_test::is_original_sudo() {
-        let stdout = Command::new("sudo").arg("--version").output(&env).stdout();
-        let version = stdout
-            .lines()
-            .next()
-            .unwrap()
-            .strip_prefix("Sudo version ")
-            .unwrap();
-        if version < "1.9.14" {
-            // Older sudo had a special case where --chdir is accepted if it matches the cwd even if
-            // it would otherwise be denied.
-            // FIXME remove once bookworm is oldstable
-            return;
-        }
-    }
 
     let output = Command::new("sh")
         .arg("-c")

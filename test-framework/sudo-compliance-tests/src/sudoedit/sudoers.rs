@@ -111,11 +111,16 @@ fn respects_runas_group() {
     )
     .build();
 
-    Command::new("sudoedit")
-        .as_user(USERNAME)
-        .args(["-g", OTHER_USERNAME, file])
-        .output(&env)
-        .assert_success();
+    if !(sudo_test::ogsudo("1.9.13p3")..=sudo_test::ogsudo("1.9.17p2"))
+        .contains(&sudo_test::sudo_version())
+    {
+        // FIXME: sudo 1.9.16p2 has a different interaction with a bare "-g" and the runas specifier
+        Command::new("sudoedit")
+            .as_user(USERNAME)
+            .args(["-g", OTHER_USERNAME, file])
+            .output(&env)
+            .assert_success();
+    }
 
     let output = Command::new("sudoedit")
         .as_user(USERNAME)

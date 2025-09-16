@@ -95,9 +95,14 @@ fn use_proper_last_matching_tag_for_other_user() {
         .as_user(USERNAME)
         .output(&env);
 
-    output.assert_exit_code(1);
-
     let diagnostic = if sudo_test::is_original_sudo() {
+        if (sudo_test::ogsudo("1.9.16p2")..=sudo_test::ogsudo("1.9.17p2"))
+            .contains(&sudo_test::sudo_version())
+        {
+            // FIXME: sudo 1.9.16p2 has strange behaviour and doesn't allow the user to run -U; whereas
+            // sudo 1.9.13p3 would. Let's ignore this test for now.
+            return;
+        }
         if cfg!(not(target_os = "linux")) {
             "Password:".to_owned()
         } else {
@@ -106,5 +111,6 @@ fn use_proper_last_matching_tag_for_other_user() {
     } else {
         "[sudo: authenticate] Password:".to_string()
     };
+    output.assert_exit_code(1);
     assert_contains!(output.stderr(), diagnostic);
 }

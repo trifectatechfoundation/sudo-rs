@@ -267,7 +267,7 @@ fn shell_with_open_permissions_is_accepted() {
 
 type UserToShell<'a> = HashMap<&'a str, &'a str>;
 
-fn parse_getent_passwd_output(passwd: &str) -> UserToShell {
+fn parse_getent_passwd_output(passwd: &str) -> UserToShell<'_> {
     const ERROR: &str = "malformed `getent passwd` output";
     let mut map = HashMap::new();
     for line in passwd.lines() {

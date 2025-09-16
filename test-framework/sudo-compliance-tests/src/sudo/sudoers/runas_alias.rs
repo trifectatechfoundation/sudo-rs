@@ -298,8 +298,7 @@ fn user_and_group_works_when_one_is_passed_as_arg() {
 
 #[test]
 fn user_and_group_succeeds_when_both_are_passed() {
-    if sudo_test::is_original_sudo() {
-        // TODO: original sudo should pass this test after 1.9.14b2
+    if sudo_test::sudo_version() < sudo_test::ogsudo("1.9.14p2") {
         return;
     }
 
