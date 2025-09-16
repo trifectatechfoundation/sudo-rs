@@ -96,17 +96,11 @@ fn use_proper_last_matching_tag_for_other_user() {
         .output(&env);
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        // FIXME: sudo 1.9.16p2 has strange behaviour and doesn't allow the user to run -U; whereas
-        // sudo 1.9.13p3 would. Let's ignore this test for now.
-        let stdout = Command::new("sudo").arg("--version").output(&env).stdout();
-        let version = stdout
-            .lines()
-            .next()
-            .unwrap()
-            .strip_prefix("Sudo version ")
-            .unwrap();
-        #[allow(clippy::manual_range_contains)]
-        if version >= "1.9.16" && version <= "1.9.17p2" {
+        if (sudo_test::ogsudo("1.9.16p2")..=sudo_test::ogsudo("1.9.17p2"))
+            .contains(&sudo_test::sudo_version())
+        {
+            // FIXME: sudo 1.9.16p2 has strange behaviour and doesn't allow the user to run -U; whereas
+            // sudo 1.9.13p3 would. Let's ignore this test for now.
             return;
         }
         if cfg!(not(target_os = "linux")) {

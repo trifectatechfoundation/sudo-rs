@@ -305,8 +305,8 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() {
 
 #[test]
 fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() {
-    if sudo_test::is_original_sudo() {
-        // TODO: original sudo should pass this test after 1.9.14b2
+    if sudo_test::sudo_version() < sudo_test::ogsudo("1.9.14p2") {
+        // original sudo should pass this test after 1.9.14p2
         return;
     }
 
@@ -323,7 +323,7 @@ fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() {
     output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("user {USERNAME} is not allowed to execute '{BIN_TRUE}' as root:{GROUPNAME}")
+        "a password is required".to_string()
     } else {
         format!("I'm sorry {USERNAME}. I'm afraid I can't do that")
     };

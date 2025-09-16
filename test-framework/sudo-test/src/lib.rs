@@ -38,6 +38,43 @@ pub fn is_original_sudo() -> bool {
     matches!(SudoUnderTest::from_env(), SudoUnderTest::Theirs)
 }
 
+/// Major, minor, point and patch version
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SudoVersion {
+    /// Version number for original sudo: major, minor, point, patch
+    Theirs(u16, u16, u16, u16),
+    /// The test framework is always for a particular version of sudo-rs, so
+    /// We don't need to track versions.
+    Ours,
+}
+
+/// A helper function for writing sudo versions
+pub fn ogsudo(version: &str) -> SudoVersion {
+    let [ma, mn, pt, pat] = version
+        .split(['.', 'p'])
+        .map(|x| x.parse().unwrap())
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+
+    SudoVersion::Theirs(ma, mn, pt, pat)
+}
+
+/// Return the SudoVersion for the sudo-under-test
+pub fn sudo_version() -> SudoVersion {
+    if is_original_sudo() {
+        let stdout = Command::new("sudo")
+            .arg("--version")
+            .output(&Env("").build())
+            .stdout();
+        let version = stdout.lines().next().unwrap();
+
+        ogsudo(version.strip_prefix("Sudo version ").unwrap())
+    } else {
+        SudoVersion::Ours
+    }
+}
+
 /// Location of the sudo pam config
 pub const PAM_D_SUDO_PATH: &str = "/etc/pam.d/sudo";
 /// The default `/etc/pam.d/sudo` on Debian
@@ -1200,6 +1237,22 @@ mod tests {
         }
 
         assert!(found);
+    }
+
+    #[test]
+    fn sudo_version_works() {
+        if is_original_sudo() {
+            let SudoVersion::Theirs(1, 9, _, _) = sudo_version() else {
+                panic!("sudo version outside of expected range")
+            };
+        } else {
+            let SudoVersion::Ours = sudo_version() else {
+                panic!("not our sudo?")
+            };
+        }
+
+        // sudo-rs versions rank above ogsudo
+        assert!(SudoVersion::Ours > SudoVersion::Theirs(99, 99, 99, 99));
     }
 
     #[cfg(feature = "apparmor")]
