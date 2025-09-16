@@ -75,8 +75,8 @@ pub(super) fn exec_monitor(
         err
     })?;
     // Given that `UnixStream` delivers messages in order it shouldn't be possible to
-    // receive an event different to `ExecCommand` at the beginning.
-    debug_assert_eq!(event, MonitorMessage::ExecCommand);
+    // receive an event different to `Edge` at the beginning.
+    debug_assert_eq!(event, MonitorMessage::Edge);
 
     // FIXME (ogsudo): Some extra config happens here if selinux is available.
 
@@ -186,6 +186,14 @@ pub(super) fn exec_monitor(
         }
     }
 
+    // Wait for the parent to give us red light before shutting down. This avoids missing
+    // output when the monitor exits too quickly.
+    let event = retry_while_interrupted(|| backchannel.recv()).map_err(|err| {
+        dev_warn!("cannot receive red light from parent: {err}");
+        err
+    })?;
+    debug_assert_eq!(event, MonitorMessage::Edge);
+
     // FIXME (ogsudo): The tty is restored here if selinux is available.
 
     // We call `_exit` instead of `exit` to avoid flushing the parent's IO streams by accident.
@@ -271,8 +279,8 @@ impl<'a> MonitorClosure<'a> {
             }
             Ok(event) => {
                 match event {
-                    // We shouldn't receive this event more than once.
-                    MonitorMessage::ExecCommand => unreachable!(),
+                    // We shouldn't receive this event at this point in the protocol
+                    MonitorMessage::Edge => unreachable!(),
                     // Forward signal to the command.
                     MonitorMessage::Signal(signal) => {
                         if let Some(command_pid) = self.command_pid {

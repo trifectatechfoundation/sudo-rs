@@ -10,7 +10,7 @@ pub(super) struct RingBuffer {
 
 impl RingBuffer {
     /// The size of the internal storage of the ring buffer.
-    const LEN: usize = 8 * 1024;
+    pub(super) const LEN: usize = 8 * 1024;
 
     /// Create a new, empty buffer.
     pub(super) fn new() -> Self {
