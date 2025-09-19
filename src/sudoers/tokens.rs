@@ -296,7 +296,7 @@ impl Token for EnvVar {
 
     const ALLOW_ESCAPE: bool = true;
     fn escaped(c: char) -> bool {
-        matches!(c, '\\' | '=' | '#' | '"')
+        matches!(c, '\\' | '=' | '#' | '"' | ',')
     }
 }
 
