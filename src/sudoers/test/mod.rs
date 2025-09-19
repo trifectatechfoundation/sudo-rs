@@ -258,6 +258,7 @@ fn permission_test() {
     // special chacters
     pass!(["foo@machine.name ALL=ALL"], "foo@machine.name" => request! { root, root }, "server"; "/bin/foo");
     pass!(["fnord$ ALL=ALL"], "fnord$" => request! { root, root }, "server"; "/bin/foo");
+    pass!(["ALL ALL=/foo/command --bar=1"], "user" => request! { root, root }, "server"; "/foo/command --bar=1");
 
     // apparmor
     #[cfg(feature = "apparmor")]
