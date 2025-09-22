@@ -17,31 +17,70 @@ Sudo-rs currently is targeted for FreeBSD and Linux-based operating systems only
 
 ## Installing sudo-rs
 
-The recommended way to start using `sudo-rs` is via the package manager of your Linux distribution.
+You can install sudo-rs using the package manager of your Linux distribution. Many Linux distributions will also keep
+original sudo installed and so offer sudo-rs using modified command names. You can work around that by creating e.g. an `alias`, but that will
+only change your own invocations of `sudo` to sudo-rs and not affect other programs and scripts that use `sudo`.
 
-### Debian/Ubuntu
-If you are running Debian 13 (trixie) or later, or Ubuntu 24.04 (Noble Numbat) or later, you can use:
+To avoid that and/or to get the latest version, you can use our prepackaged binaries (see below).
+
+### Ubuntu 25.10 (Questing Quokka)
+
+sudo-rs is installed and enabled by default; you can control which sudo version is being used by running 
 ```sh
-apt-get install sudo-rs
+update-alternatives --config sudo
 ```
-This will offer the functionality using the commands `su-rs` and `sudo-rs`. If you want to invoke sudo-rs
-via the usual commands `sudo` and `su` instead, prepend `/usr/lib/cargo/bin` to your current `$PATH` variable.
-
-### Fedora
-
-If you are running Fedora 38 or later, you can use:
-```sh
-dnf install sudo-rs
-```
-This will offer the functionality using the commands `su-rs` and `sudo-rs`.
+The sudo-rs package is based on v0.2.8 with additional bug fixes that will be part of v0.2.9.
 
 ### Arch Linux
 
-On Arch Linux sudo-rs can be installed from the distribution repositories:
+sudo-rs can be installed from the distribution repositories:
 ```sh
 pacman -S sudo-rs
 ```
-This will offer the functionality using the commands `su-rs` and `sudo-rs`.
+This will offer the functionality using the commands `sudo-rs`, `sudoedit-rs`, `visudo-rs` and `su-rs` to avoid conflicts.
+
+The sudo-rs package on Arch Linux is typically up-to-date.
+
+### Fedora
+
+If you are running Fedora 41 or later, you can use:
+```sh
+dnf install sudo-rs
+```
+This will offer the functionality using the commands `sudo-rs`, `visudo-rs` and `su-rs` to avoid conflicts.
+
+The version packaged is based on release 0.2.6 from May 2025 which is missing `sudoedit`, `NOEXEC:`, and a few other improvements.
+
+### Debian
+If you are running Debian 13 (trixie) or later you can use:
+```sh
+apt-get install sudo-rs
+```
+This will offer the functionality using the commands `sudo-rs`, `visudo-rs`. If you want to invoke sudo-rs
+via the usual commands `sudo` and `visudo` instead, prepend `/usr/lib/cargo/bin` to your current `$PATH` variable.
+
+Due to a misconfiguration in this package, `su-rs` cannot be used because it does not have the setuid flag set.
+
+The sudo-rs version packaged in Debian 13 (trixie) is based on release 0.2.5 from April 2025 which is missing `sudoedit`, `NOEXEC:`,
+and several other improvements, but is up-to-date with respect to security patches. Debian unstable (sid) may have a newer version.
+
+### FreeBSD
+
+We are maintaining the FreeBSD port of sudo-rs ourselves, which is available in the ports tree. Sudo-rs is available in two flavours:
+```
+pkg install sudo-rs
+```
+To get sudo-rs using the commands `sudo`, `visudo` and `sudoedit`. This conflicts with the `security/sudo` package and so you cannot have both
+installed at the same time. 
+
+Alternatively,
+```
+pkg install sudo-rs-coexist
+```
+Installs the commands as `sudo-rs`, `visudo-rs`' and `sudoedit-rs` and does not conflict with the `security/sudo` package.
+
+To run these commands, the `pkg` utility needs to be using the `2025Q4` quarterly version (or later) of the ports tree. To use the
+absolute latest version, you can [switch from quarterly to `latest`](https://wiki.freebsd.org/Ports/QuarterlyBranch#How_to_switch_from_quarterly_to_latest).
 
 ### NixOS
 
@@ -56,10 +95,10 @@ This will replace the usual `sudo` and `sudoedit` commands.
 ### Installing our pre-compiled x86-64 binaries
 
 You can also switch to sudo-rs manually by using our pre-compiled tarballs.
-We currently only offer these for x86-64 systems.
+We currently only offer these for x86-64 Linux systems.
 
-We recommend installing sudo-rs and su-rs in your `/usr/local` hierarchy so it can co-exist with
-your existing sudo installation. You can achieve this using the commands:
+We recommend installing sudo-rs and su-rs in your `/usr/local` hierarchy so it does not affect the integrity of the package
+manager of your Linux distribution. You can achieve this using the commands:
 ```sh
 sudo tar -C /usr/local -xvf sudo-0.2.8.tar.gz
 ```
@@ -67,10 +106,10 @@ and for su-rs:
 ```sh
 sudo tar -C /usr/local -xvf su-0.2.8.tar.gz
 ```
-This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo` and `su`; it
-will also install our version of `visudo` in that location.
+This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo`, `visudo`, `sudoedit` and `su`. Please double check
+that in your default `PATH`, the folders `/usr/local/bin` and `/usr/local/sbin` have priority over `/usr/bin` and `/usr/sbin`.
 
-Of course, if you **don't** have Todd Miller's `sudo` installed, you also have to make sure that:
+If you **don't** have Todd Miller's `sudo` installed, you also have to make sure that:
 
 * You manually create a `/etc/sudoers` or `/etc/sudoers-rs` file, this could be as simple as:
 
