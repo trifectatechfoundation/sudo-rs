@@ -37,7 +37,7 @@ This will offer the functionality using the commands `su-rs` and `sudo-rs`.
 
 ### Arch Linux
 
-Arch Linux can be installed from the distribution repositories:
+On Arch Linux sudo-rs can be installed from the distribution repositories:
 ```sh
 pacman -S sudo-rs
 ```
