@@ -43,6 +43,16 @@ pacman -S sudo-rs
 ```
 This will offer the functionality using the commands `su-rs` and `sudo-rs`.
 
+### NixOS
+
+On NixOS sudo-rs can be installed by adding the following to your configuration:
+
+```nix
+security.sudo-rs.enable = true;
+```
+
+This will replace the usual `sudo` and `sudoedit` commands.
+
 ### Installing our pre-compiled x86-64 binaries
 
 You can also switch to sudo-rs manually by using our pre-compiled tarballs.
