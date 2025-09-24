@@ -377,6 +377,9 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
   If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the Preventing shell escapes section at the end of this manual.  This flag is off by default.
 
+* noninteractive_auth
+  If set, authentication will be attempted even in non-interactive mode (when sudo's -n option is specified).  This allows authentication methods that don't require user interaction to succeed.  Authentication methods that require input from the user's terminal will still fail.  If disabled, authentication will not be attempted in non-interactive mode.  This flag is off by default.
+
 * env_editor
 
   If set, visudo will use the value of the SUDO_EDITOR, VISUAL or EDITOR environment variables before falling back on the default editor list.  Note that visudo is typically run as root so this flag may allow a user with visudo privileges to run arbitrary commands as root without logging.  An alternative is to place a colon-separated list of “safe” editors int the editor setting.  visudo will then only use SUDO_EDITOR, VISUAL or EDITOR if they match a value specified in editor.  If the env_reset flag is enabled, the SUDO_EDITOR, VISUAL and/or EDITOR environment variables must be present in the env_keep list for the env_editor flag to function when visudo is invoked via sudo.  This flag is on by default.
