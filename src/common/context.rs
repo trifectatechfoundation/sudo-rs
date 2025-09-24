@@ -34,6 +34,7 @@ pub struct Context {
     pub use_pty: bool,
     pub noexec: bool,
     pub umask: Umask,
+    pub noninteractive_auth: bool,
     // sudoedit
     #[cfg_attr(not(feature = "sudoedit"), allow(unused))]
     pub files_to_edit: Vec<Option<SudoPath>>,
@@ -105,6 +106,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            noninteractive_auth: false,
             files_to_edit: vec![],
         })
     }
@@ -176,6 +178,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            noninteractive_auth: false,
             files_to_edit,
         })
     }
@@ -202,6 +205,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            noninteractive_auth: false,
             files_to_edit: vec![],
         })
     }
@@ -251,6 +255,7 @@ impl Context {
             use_pty: true,
             noexec: false,
             umask: Umask::Preserve,
+            noninteractive_auth: false,
             files_to_edit: vec![],
         })
     }

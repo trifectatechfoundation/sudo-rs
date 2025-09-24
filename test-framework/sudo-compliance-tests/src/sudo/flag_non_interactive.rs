@@ -101,6 +101,42 @@ fn cached_credential() {
         .assert_success();
 }
 
+#[test]
+fn no_noninteractive_auth() {
+    let env = Env("ALL ALL=(ALL:ALL) ALL")
+        .user(USERNAME)
+        .file("/etc/pam.d/sudo", "auth sufficient pam_permit.so")
+        .build();
+
+    let output = Command::new("sudo")
+        .arg("-n")
+        .arg("true")
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_exit_code(1);
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "a password is required");
+    } else {
+        assert_contains!(output.stderr(), "interactive authentication is required");
+    }
+}
+
+#[test]
+fn noninteractive_auth() {
+    let env = Env("Defaults noninteractive_auth\nALL ALL=(ALL:ALL) ALL")
+        .user(USERNAME)
+        .file("/etc/pam.d/sudo", "auth sufficient pam_permit.so")
+        .build();
+
+    Command::new("sudo")
+        .arg("-n")
+        .arg("true")
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
+
 /* misc */
 #[test]
 fn lecture_is_not_shown() {

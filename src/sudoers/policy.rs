@@ -66,6 +66,7 @@ pub struct Restrictions<'a> {
     pub chdir: DirChange<'a>,
     pub path: Option<&'a str>,
     pub umask: Umask,
+    pub noninteractive_auth: bool,
     #[cfg(feature = "apparmor")]
     pub apparmor_profile: Option<String>,
 }
@@ -130,6 +131,7 @@ impl Judgement {
                             Umask::Extend(mask)
                         }
                     },
+                    noninteractive_auth: self.settings.noninteractive_auth(),
                     #[cfg(feature = "apparmor")]
                     apparmor_profile: tag
                         .apparmor_profile
