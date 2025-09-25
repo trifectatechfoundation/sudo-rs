@@ -43,6 +43,7 @@ defaults! {
     rootpw                    = false
     targetpw                  = false
     noexec                    = false
+    noninteractive_auth       = false
 
     insults                   = false  #ignored
 

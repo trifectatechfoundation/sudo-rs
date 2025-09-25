@@ -191,6 +191,10 @@ fn auth_and_update_record_file(
         hostname: &context.hostname,
     })?;
     if auth_status.must_authenticate {
+        if context.non_interactive && !context.noninteractive_auth {
+            return Err(Error::InteractionRequired);
+        }
+
         attempt_authenticate(
             &mut pam_context,
             &auth_user.name,
@@ -239,6 +243,7 @@ fn apply_policy_to_context(
     context.use_pty = controls.use_pty;
     context.noexec = controls.noexec;
     context.umask = controls.umask;
+    context.noninteractive_auth = controls.noninteractive_auth;
 
     Ok(())
 }

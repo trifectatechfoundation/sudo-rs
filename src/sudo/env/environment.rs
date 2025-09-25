@@ -285,6 +285,7 @@ mod tests {
                         #[cfg(feature = "apparmor")]
                         apparmor_profile: None,
                         noexec: false,
+                        noninteractive_auth: false,
                     }
                 ),
                 expected,

@@ -138,6 +138,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         noexec: false,
         bell: false,
         umask: Umask::Preserve,
+        noninteractive_auth: false,
         files_to_edit: vec![],
     }
 }
@@ -176,6 +177,7 @@ fn test_environment_variable_filtering() {
                 chdir: crate::sudoers::DirChange::Strict(None),
                 trust_environment: false,
                 umask: crate::exec::Umask::Preserve,
+                noninteractive_auth: false,
                 #[cfg(feature = "apparmor")]
                 apparmor_profile: None,
                 noexec: false,
