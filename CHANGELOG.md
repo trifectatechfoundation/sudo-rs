@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.9] - 2025-10-3
+
+### Added
+- `SUDO_HOME` variable will now be set to the invoking user's home directory
+
+### Changed
+- `Defaults noninteractive_auth` now controls whether PAM authentication
+  modules are allowed to attempt authentication when `sudo --non-interactive` is
+  being used (new default: off). Previous versions had this as always-on
+  to allow fully automatic authentication methods to succeed.
+
+### Fixed
+- Two bugs in managing the PTY connected to the child process that negatively
+  impacted interactive usability (#1130, #1264)
+- `visudo --help` showed command flags that were removed (#1239)
+- Format flags in `SUDO_PROMPT` were not expanded (#1252)
+- `sudo` would abort with an unhandled exception instead if an attempt was
+  was made to match a "netgroup", instead of ignoring these (#1262)
+- A few tokenizer errors in /etc/sudoers processing (#1273, #1274, #1283)
+- Some formatting mistakes in the man pages (#1285)
+
 ## [0.2.8] - 2025-08-04
 
 ### Added
