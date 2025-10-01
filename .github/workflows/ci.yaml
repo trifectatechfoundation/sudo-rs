@@ -31,7 +31,7 @@ jobs:
           restore-keys: docker-buildx-rs-
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -76,7 +76,7 @@ jobs:
         run: docker buildx create --name builder --use
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -113,7 +113,7 @@ jobs:
           restore-keys: docker-buildx-rs-
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -151,7 +151,7 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -193,7 +193,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "stable"
 
@@ -228,7 +228,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "nightly"
 
@@ -259,7 +259,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "msrv"
 
@@ -284,7 +284,7 @@ jobs:
           dnf install -y cargo pam-devel
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "stable-fedora"
 
@@ -314,7 +314,7 @@ jobs:
           apk add cargo linux-pam-dev sudo tzdata coreutils-fmt
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "stable-alpine"
 
@@ -352,7 +352,7 @@ jobs:
           sudo apt install libpam0g-dev:i386 gcc-multilib
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "stable-32bit"
 
@@ -384,7 +384,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: miri
 
@@ -440,7 +440,7 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "stable"
 
@@ -459,7 +459,7 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@98c8021b550208e191a6a3145459bfc9fb29c4c0
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
         with:
           shared-key: "stable"
 
