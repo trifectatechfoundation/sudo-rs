@@ -8,12 +8,12 @@ title: SUDO(8) sudo-rs 0.2.8 | sudo-rs
 
 # SYNOPSIS
 
-| `sudo` `-h` | `-K` | `-k` | `-V`
-| `sudo` \[`-u` *user*\] \[`-g` *group*\] \[`-D` *directory*\] \[`-BknS`\] \[`-i` | `-s`\] \[`VAR=value`\] \[<*command*>\]
-| `sudo` `-v` \[`-BknS`\] \[`-u` *user*\]  \[`-g` *group*\]
-| `sudo` `-l` \[`-BknS`\] \[`-U` *user*\] \[`-u` *user*\]  \[`-g` *group*\] \[command \[arg ...\]\]
-| `sudo` `-e` \[`-BknS`\] \[`-u` *user*\] \[`-g` *group*\] file ...
-| `sudoedit` \[`-BknS`\] \[`-u` *user*\] \[`-g` *group*\] file ...
+`sudo` `-h` | `-K` | `-k` | `-V`\
+`sudo` \[`-u` *user*\] \[`-g` *group*\] \[`-D` *directory*\] \[`-BknS`\] \[`-i` | `-s`\] \[`VAR=value`\] \[<*command*>\]\
+`sudo` `-v` \[`-BknS`\] \[`-u` *user*\]  \[`-g` *group*\]\
+`sudo` `-l` \[`-BknS`\] \[`-U` *user*\] \[`-u` *user*\]  \[`-g` *group*\] \[command \[arg ...\]\]\
+`sudo` `-e` \[`-BknS`\] \[`-u` *user*\] \[`-g` *group*\] file ...\
+`sudoedit` \[`-BknS`\] \[`-u` *user*\] \[`-g` *group*\] file ...
 
 
 # DESCRIPTION

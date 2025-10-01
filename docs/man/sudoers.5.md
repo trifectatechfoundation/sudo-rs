@@ -151,7 +151,7 @@ A Host_List is made up of one or more host names.  Again, the value of an item m
 A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the Wildcards section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments (which in sudo-rs may *not* include wildcards). Alternately, you can specify "" to indicate that the command may only be run without command line arguments.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
 
 If a Cmnd has associated command line arguments, then the arguments in the Cmnd must match exactly those given by the user on the command line.
-Note that the following characters must be escaped with a ‘\’ if they are used in command arguments: ‘,’, ‘:’, ‘=’, ‘\’.
+Note that the following characters must be escaped with a ‘\\’ if they are used in command arguments: ‘,’, ‘:’, ‘=’, ‘\\’.
 
 There are two commands built into sudo itself: “list” and “sudoedit”.  Unlike other commands, these two must be specified in the sudoers file without a leading path.
 
@@ -183,9 +183,9 @@ Certain configuration options may be changed from their default values at run-ti
                    Parameter '-=' Value |
                    '!'* Parameter
 
-Parameters may be flags, integer values, strings, or lists.  Flags are implicitly boolean and can be turned off via the ‘!’ operator.  Some integer, string and list parameters may also be used in a boolean context to disable them.  Values may be enclosed in double quotes ("") when they contain multiple words.  Special characters may be escaped with a backslash (‘\’).
+Parameters may be flags, integer values, strings, or lists.  Flags are implicitly boolean and can be turned off via the ‘!’ operator.  Some integer, string and list parameters may also be used in a boolean context to disable them.  Values may be enclosed in double quotes ("") when they contain multiple words.  Special characters may be escaped with a backslash (‘\\’).
 
-To include a literal backslash character in a command line argument you must escape the backslash twice.  For example, to match ‘\n’ as part of a command line argument, you must use ‘\\\\n’ in the sudoers file.  This is due to there being two levels of escaping, one in the sudoers parser itself and another when command line arguments are matched by the fnmatch(3) function.
+To include a literal backslash character in a command line argument you must escape the backslash twice.  For example, to match ‘\\n’ as part of a command line argument, you must use ‘\\\\\\\\n’ in the sudoers file.  This is due to there being two levels of escaping, one in the sudoers parser itself and another when command line arguments are matched by the fnmatch(3) function.
 
 Lists have two additional assignment operators, *+=* and *-=*.  These operators are used to add to and delete from a list respectively.  It is not an error to use the -= operator to remove an element that does not exist in a list.
 
@@ -333,7 +333,7 @@ An include file can be used, for example, to keep a site-wide sudoers file in ad
 
 When sudo reaches this line it will suspend processing of the current file (/etc/sudoers) and switch to /etc/sudoers.local.  Upon reaching the end of /etc/sudoers.local, the rest of /etc/sudoers will be processed.  Files that are included may themselves include other files.  A hard limit of 128 nested include files is enforced to prevent include file loops.
 
-The path to the include file may contain white space if it is escaped with a backslash (‘\’).  Alternately, the entire path may be enclosed in double quotes (""), in which case no escaping is necessary.  To include a literal backslash in the path, ‘\\’ should be used. If the path to the include file is not fully-qualified (does not begin with a ‘/’), it must be located in the same directory as the sudoers file it was included from.  For example, if /etc/sudoers contains the line:
+The path to the include file may contain white space if it is escaped with a backslash (‘\\’).  Alternately, the entire path may be enclosed in double quotes (""), in which case no escaping is necessary.  To include a literal backslash in the path, ‘\\\\’ should be used. If the path to the include file is not fully-qualified (does not begin with a ‘/’), it must be located in the same directory as the sudoers file it was included from.  For example, if /etc/sudoers contains the line:
 
          @include sudoers.local
 
@@ -365,7 +365,7 @@ Note, however, that using a ‘!’ in conjunction with the built-in ALL alias t
 
 White space between elements in a list as well as special syntactic characters in a User Specification (‘=’, ‘:’, ‘(’, ‘)’) is optional.
 
-The following characters must be escaped with a backslash (‘\’) when used as part of a word (e.g., a user name or host name): ‘!’, ‘=’, ‘:’, ‘,’, ‘(’, ‘)’, ‘\’.
+The following characters must be escaped with a backslash (‘\\’) when used as part of a word (e.g., a user name or host name): ‘!’, ‘=’, ‘:’, ‘,’, ‘(’, ‘)’, ‘\\’.
 
 ## SUDOERS OPTIONS
 
