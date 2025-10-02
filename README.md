@@ -10,8 +10,7 @@ please request it using the issue tracker. If you encounter any usability bugs,
 also please report them on the [issue tracker](https://github.com/trifectatechfoundation/sudo-rs/issues).
 Suspected vulnerabilities can be reported on our [security page](https://github.com/trifectatechfoundation/sudo-rs/security).
 
-An [audit of sudo-rs version 0.2.0](docs/audit/audit-report-sudo-rs.pdf) has been performed in August 2023.
-The findings from that audit are addressed in the current version.
+Sudo-rs has been audited twice: an audit of version 0.2.0 was performed in August 2023, and a second audit of version 0.2.8 in August 2025. The audit reports can be found [here](docs/audit).
 
 Sudo-rs currently is targeted for FreeBSD and Linux-based operating systems only.
 
