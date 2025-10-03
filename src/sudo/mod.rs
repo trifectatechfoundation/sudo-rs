@@ -6,12 +6,12 @@ use crate::log::dev_info;
 use crate::system::interface::UserId;
 use crate::system::timestamp::RecordScope;
 use crate::system::User;
-use crate::system::{time::Duration, timestamp::SessionRecordFile, Process};
+use crate::system::{timestamp::SessionRecordFile, Process};
 #[cfg(test)]
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
 use cli::SudoAction;
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 mod cli;
 pub(crate) use cli::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
@@ -91,8 +91,7 @@ fn sudo_process() -> Result<(), Error> {
             }
             SudoAction::RemoveTimestamp(_) => {
                 let user = CurrentUser::resolve()?;
-                let mut record_file =
-                    SessionRecordFile::open_for_user(&user, Duration::seconds(0))?;
+                let mut record_file = SessionRecordFile::open_for_user(&user, Duration::default())?;
                 record_file.reset()?;
                 Ok(())
             }
@@ -100,7 +99,7 @@ fn sudo_process() -> Result<(), Error> {
                 if let Some(scope) = RecordScope::for_process(&Process::new()) {
                     let user = CurrentUser::resolve()?;
                     let mut record_file =
-                        SessionRecordFile::open_for_user(&user, Duration::seconds(0))?;
+                        SessionRecordFile::open_for_user(&user, Duration::default())?;
                     record_file.disable(scope, None)?;
                 }
                 Ok(())
