@@ -5,7 +5,6 @@
 \f[CR]sudo\f[R], \f[CR]sudoedit\f[R] \- execute a command as another
 user
 .SH SYNOPSIS
-.PP
 \f[CR]sudo\f[R] \f[CR]\-h\f[R] | \f[CR]\-K\f[R] | \f[CR]\-k\f[R] |
 \f[CR]\-V\f[R]
 .PD 0
