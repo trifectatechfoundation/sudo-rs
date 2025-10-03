@@ -1,5 +1,5 @@
 ---
-title: SUDOERS(5) sudo-rs 0.2.8 | sudo-rs
+title: SUDOERS(5) sudo-rs 0.2.9 | sudo-rs
 ---
 
 # NAME
