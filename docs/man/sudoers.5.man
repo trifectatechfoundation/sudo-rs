@@ -272,8 +272,8 @@ therein).
 .PP
 If a Cmnd has associated command line arguments, then the arguments in
 the Cmnd must match exactly those given by the user on the command line.
-Note that the following characters must be escaped with a `\[cq] if they
-are used in command arguments: \[oq],', `:', `=', \[cq]\[cq].
+Note that the following characters must be escaped with a `\[rs]' if
+they are used in command arguments: `,', `:', `=', `\[rs]'.
 .PP
 There are two commands built into sudo itself: \[lq]list\[rq] and
 \[lq]sudoedit\[rq].
@@ -337,12 +337,12 @@ Some integer, string and list parameters may also be used in a boolean
 context to disable them.
 Values may be enclosed in double quotes (\[lq]\[lq]) when they contain
 multiple words.
-Special characters may be escaped with a backslash (\[cq]\[cq]).
+Special characters may be escaped with a backslash (`\[rs]').
 .PP
 To include a literal backslash character in a command line argument you
 must escape the backslash twice.
-For example, to match `' as part of a command line argument, you must
-use `\[rs]\[rs]n' in the sudoers file.
+For example, to match `\[rs]n' as part of a command line argument, you
+must use `\[rs]\[rs]\[rs]\[rs]n' in the sudoers file.
 This is due to there being two levels of escaping, one in the sudoers
 parser itself and another when command line arguments are matched by the
 fnmatch(3) function.
@@ -625,10 +625,10 @@ A hard limit of 128 nested include files is enforced to prevent include
 file loops.
 .PP
 The path to the include file may contain white space if it is escaped
-with a backslash (`\[cq]).
+with a backslash (`\[rs]').
 Alternately, the entire path may be enclosed in double quotes
 (\[lq]\[lq]), in which case no escaping is necessary.
-To include a literal backslash in the path, \[oq]\[rs]' should be used.
+To include a literal backslash in the path, `\[rs]\[rs]' should be used.
 If the path to the include file is not fully\-qualified (does not begin
 with a `/'), it must be located in the same directory as the sudoers
 file it was included from.
@@ -710,9 +710,9 @@ works as intended (see SECURITY NOTES below).
 White space between elements in a list as well as special syntactic
 characters in a User Specification (`=', `:', `(', `)') is optional.
 .PP
-The following characters must be escaped with a backslash (`\[cq]) when
-used as part of a word (e.g., a user name or host name): \[oq]!', `=',
-`:', `,', `(', `)', \[cq]\[cq].
+The following characters must be escaped with a backslash (`\[rs]') when
+used as part of a word (e.g., a user name or host name): `!', `=', `:',
+`,', `(', `)', `\[rs]'.
 .SS SUDOERS OPTIONS
 sudo\[cq]s behavior can be modified by Default_Entry lines, as explained
 earlier.
