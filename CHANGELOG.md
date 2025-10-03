@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.9] - 2025-10-3
+## [0.2.9] - 2025-10-03
 
 ### Added
 - `SUDO_HOME` variable will now be set to the invoking user's home directory

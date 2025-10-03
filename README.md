@@ -99,11 +99,11 @@ We currently only offer these for x86-64 Linux systems.
 We recommend installing sudo-rs and su-rs in your `/usr/local` hierarchy so it does not affect the integrity of the package
 manager of your Linux distribution. You can achieve this using the commands:
 ```sh
-sudo tar -C /usr/local -xvf sudo-0.2.8.tar.gz
+sudo tar -C /usr/local -xvf sudo-0.2.9.tar.gz
 ```
 and for su-rs:
 ```sh
-sudo tar -C /usr/local -xvf su-0.2.8.tar.gz
+sudo tar -C /usr/local -xvf su-0.2.9.tar.gz
 ```
 This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo`, `visudo`, `sudoedit` and `su`. Please double check
 that in your default `PATH`, the folders `/usr/local/bin` and `/usr/local/sbin` have priority over `/usr/bin` and `/usr/sbin`.
