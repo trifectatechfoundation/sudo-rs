@@ -260,7 +260,7 @@ impl Token for SimpleCommand {
 
     fn accept(c: char) -> bool {
         // '=' is allowed both escaped and un-escaped
-        ( !Self::escaped(c) || c == '=' ) && !c.is_control()
+        (!Self::escaped(c) || c == '=') && !c.is_control()
     }
 
     const ALLOW_ESCAPE: bool = true;
