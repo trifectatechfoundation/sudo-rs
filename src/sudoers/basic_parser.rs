@@ -235,7 +235,7 @@ impl<T: Token> Parse for T {
                     // we've just consumed some whitespace, we should end
                     // parsing the token but not abort it
                     reject()
-                } else if let Some(_) = stream.next_if(|c| c == '=') {
+                } else if stream.next_if(|c| c == '=').is_some() {
                     // '=' can be used both escaped and un-escaped in
                     // command arguments
                     Ok('=')
