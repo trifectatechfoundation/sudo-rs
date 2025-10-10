@@ -298,9 +298,7 @@ impl<'a> MonitorClosure<'a> {
             Err(err) => registry.set_break(err),
             Ok(error_code) => {
                 // Received error code from the command, forward it to the parent.
-                self.backchannel
-                    .send(&ParentMessage::IoError(error_code))
-                    .ok();
+                registry.set_break(io::Error::from_raw_os_error(error_code));
             }
         }
     }
