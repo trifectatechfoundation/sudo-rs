@@ -1,5 +1,4 @@
-use sudo_test::User;
-use sudo_test::{helpers::assert_ls_output, Command, Env, BIN_SUDO};
+use sudo_test::{helpers::assert_ls_output, is_original_sudo, Command, Env, User, BIN_SUDO};
 
 use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
@@ -200,6 +199,25 @@ fn does_not_panic_on_io_errors_cli_error() -> Result<()> {
     assert_eq!(1, exit_code);
 
     Ok(())
+}
+
+#[test]
+fn does_not_panic_on_invalid_executable() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+
+    let output = Command::new("bash")
+        .args(["-c", "sudo /tmp; a=$?; sleep .1; exit $a"])
+        .tty(true) // Necessary to reproduce the panic
+        .output(&env);
+    output.assert_exit_code(1);
+
+    assert!(!output.stderr().contains("panic"), "{output:?}");
+    assert!(!output.stdout_unchecked().contains("panic"), "{output:?}");
+    if is_original_sudo() {
+        assert_contains!(output.stdout_unchecked(), "command not found");
+    } else {
+        assert_contains!(output.stdout_unchecked(), "Permission denied");
+    }
 }
 
 #[test]
