@@ -78,7 +78,7 @@ defaults! {
                                 "PYTHONINSPECT", "PYTHONUSERBASE", "RUBYLIB", "RUBYOPT", "*=()*"] #ignored
 }
 
-fn octal_mode(input: &str) -> Option<i64> {
+fn octal_mode(input: &str) -> Option<u64> {
     <libc::mode_t>::from_str_radix(input.strip_prefix('0')?, 8)
         .ok()
         .map(Into::into)
@@ -86,19 +86,19 @@ fn octal_mode(input: &str) -> Option<i64> {
 
 /// A custom parser to parse seconds as fractional "minutes", the format used by
 /// passwd_timeout and timestamp_timeout.
-fn fractional_minutes(input: &str) -> Option<i64> {
+fn fractional_minutes(input: &str) -> Option<u64> {
     if let Some((integral, fractional)) = input.split_once('.') {
         // - 'input' is maximally 18 characters, making fractional.len() at most 17;
         //   1e17 < 2**63, so the definition of 'shift' will not overflow.
         // - for the same reason, if both parses in the definition of 'seconds' succeed,
         //   we will have constructed an integer < 1e17.
         //-  1e17 * 60 = 6e18 < 9e18 < 2**63, so the final line also will not overflow
-        let shift = 10i64.pow(fractional.len().try_into().ok()?);
-        let seconds = integral.parse::<i64>().ok()? * shift + fractional.parse::<i64>().ok()?;
+        let shift = 10u64.pow(fractional.len().try_into().ok()?);
+        let seconds = integral.parse::<u64>().ok()? * shift + fractional.parse::<u64>().ok()?;
 
         Some(seconds * 60 / shift)
     } else {
-        input.parse::<i64>().ok()?.checked_mul(60)
+        input.parse::<u64>().ok()?.checked_mul(60)
     }
 }
 
