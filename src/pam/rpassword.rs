@@ -279,16 +279,19 @@ impl Terminal<'_> {
         &mut self,
         timeout: Option<Duration>,
     ) -> io::Result<PamBuffer> {
-        match (HiddenInput::new(true)?, self) {
-            (Some(hide_input), Terminal::StdIE(stdin, stdout)) => {
-                let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
-                read_unbuffered_with_feedback(&mut reader, stdout, &hide_input)
+        if let Some(hide_input) = HiddenInput::new(true)? {
+            match self {
+                Terminal::StdIE(stdin, stdout) => {
+                    let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
+                    read_unbuffered_with_feedback(&mut reader, stdout, &hide_input)
+                }
+                Terminal::Tty(file) => {
+                    let mut reader = TimeoutRead::new(file.as_fd(), timeout);
+                    read_unbuffered_with_feedback(&mut reader, &mut &*file, &hide_input)
+                }
             }
-            (Some(hide_input), Terminal::Tty(file)) => {
-                let mut reader = TimeoutRead::new(file.as_fd(), timeout);
-                read_unbuffered_with_feedback(&mut reader, &mut &*file, &hide_input)
-            }
-            (None, term) => read_unbuffered(&mut term.source_timeout(timeout)),
+        } else {
+            read_unbuffered(&mut self.source_timeout(timeout))
         }
     }
 
