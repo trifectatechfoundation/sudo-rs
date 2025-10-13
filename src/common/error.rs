@@ -24,7 +24,10 @@ pub enum Error {
     Authorization(String),
     InteractionRequired,
     EnvironmentVar(Vec<String>),
-    Configuration(String),
+    Configuration {
+        message: String,
+        path: Option<PathBuf>,
+    },
     Options(String),
     Pam(PamError),
     Io(Option<PathBuf>, std::io::Error),
@@ -78,7 +81,13 @@ impl fmt::Display for Error {
                 }
                 Ok(())
             }
-            Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
+            Error::Configuration { message, path } => {
+                if let Some(path) = path {
+                    write!(f, "invalid configuration at {}: {message}", path.display())
+                } else {
+                    write!(f, "invalid configuration: {message}")
+                }
+            }
             Error::Options(e) => write!(f, "{e}"),
             Error::Pam(e) => write!(f, "{e}"),
             Error::Io(location, e) => {
