@@ -194,7 +194,7 @@ mod test {
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
                 credential: AuthenticatingUser::InvokingUser,
-                pwfeedback: false,
+                pwfeedback: true,
                 password_timeout: Some(Duration::seconds(300)),
             },
         );
@@ -211,7 +211,7 @@ mod test {
                 allowed_attempts: 3,
                 prior_validity: Duration::minutes(15),
                 credential: AuthenticatingUser::InvokingUser,
-                pwfeedback: false,
+                pwfeedback: true,
                 password_timeout: Some(Duration::seconds(300)),
             },
         );
