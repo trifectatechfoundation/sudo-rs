@@ -39,7 +39,7 @@ defaults! {
     match_group_by_gid        = false  #ignored
     use_pty                   = true
     visiblepw                 = false  #ignored
-    pwfeedback                = false
+    pwfeedback                = true
     rootpw                    = false
     targetpw                  = false
     noexec                    = false

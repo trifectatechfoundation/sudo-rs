@@ -763,7 +763,7 @@ When pwfeedback is set, sudo will provide visual feedback when the user
 presses a key.
 Note that this does have a security impact as an onlooker may be able to
 determine the length of the password being entered.
-This flag is off by default.
+This flag is on by default.
 .RE
 .IP \[bu] 2
 rootpw
