@@ -198,6 +198,7 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 * `use_pty` is enabled by default, but can be disabled.
 * `env_reset` is ignored --- this is always enabled.
 * `visiblepw` is ignored --- this is always disabled.
+* `pwfeedback` is enabled by default, but can be disabled.
 * `verifypw` is ignored --- this is always set to `all` (the default)
 * the (NO)PASSWD tag on the "list" pseudocommand will determine whether a password
   is required for the `sudo -U --list` command, instead of `listpw`.
