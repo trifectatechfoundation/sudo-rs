@@ -27,10 +27,20 @@ mod edit;
 pub(super) use edit::run_edit;
 
 fn read_sudoers() -> Result<Sudoers, Error> {
-    let sudoers_path = &super::candidate_sudoers_file();
+    let sudoers_path = super::candidate_sudoers_file();
 
-    let (sudoers, syntax_errors) =
-        Sudoers::open(sudoers_path).map_err(|e| Error::Configuration(format!("{e}")))?;
+    let (sudoers, syntax_errors) = Sudoers::open(&sudoers_path).map_err(|e| {
+        let mut message = e.to_string();
+        if e.kind() == std::io::ErrorKind::NotFound {
+            message = format!(
+                "{message}; sudo-rs looks for /etc/sudoers-rs first and falls back to /etc/sudoers. Create one of these files before running sudo-rs. Uninstalling sudo after installing sudo-rs might cause this problem on some distributions like arch linux due to a packaging issue."
+            );
+        }
+        Error::Configuration {
+            message,
+            path: Some(sudoers_path.clone()),
+        }
+    })?;
 
     for crate::sudoers::Error {
         source,
@@ -38,7 +48,7 @@ fn read_sudoers() -> Result<Sudoers, Error> {
         message,
     } in syntax_errors
     {
-        let path = source.as_deref().unwrap_or(sudoers_path);
+        let path = source.as_deref().unwrap_or(&sudoers_path);
         diagnostic::diagnostic!("{message}", path @ location);
     }
 

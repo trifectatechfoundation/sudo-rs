@@ -1,10 +1,52 @@
-use std::ffi::OsString;
+use std::{ffi::OsString, path::PathBuf};
 
 use crate::common::context::LaunchType;
 use crate::common::error::Error;
 use crate::log::{dev_info, user_warn};
-use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
+use crate::pam::{PamContext, PamError, PamErrorType};
 use crate::system::{term::current_tty_name, time::Duration};
+
+#[cfg(target_os = "freebsd")]
+const PAM_SERVICE_DIRS: &[&str] = &["/usr/local/etc/pam.d", "/etc/pam.d"];
+
+#[cfg(not(target_os = "freebsd"))]
+const PAM_SERVICE_DIRS: &[&str] = &["/etc/pam.d"];
+
+fn pam_service_candidates(service_name: &str) -> Vec<PathBuf> {
+    PAM_SERVICE_DIRS
+        .iter()
+        .map(|dir| PathBuf::from(dir).join(service_name))
+        .collect()
+}
+
+fn ensure_pam_service_config(service_name: &str) -> Result<(), Error> {
+    let candidates = pam_service_candidates(service_name);
+
+    if candidates.iter().any(|path| path.exists()) {
+        return Ok(());
+    }
+
+    let message = if candidates.len() == 1 {
+        format!(
+            "PAM configuration for service '{service_name}' not found at {}; This file is needed to run sudo-rs. Uninstalling sudo after installing sudo-rs might cause this problem on some distributions like arch linux due to a packaging issue. See https://github.com/trifectatechfoundation/sudo-rs/issues/1182",
+            candidates[0].display()
+        )
+    } else {
+        let searched = candidates
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            "PAM configuration for service '{service_name}' not found in any of: {searched}; This file is needed to run sudo-rs. Uninstalling sudo after installing sudo-rs might cause this problem on some distributions like arch linux due to a packaging issue. See https://github.com/trifectatechfoundation/sudo-rs/issues/1182"
+        )
+    };
+
+    Err(Error::Configuration {
+        message,
+        path: candidates.first().cloned(),
+    })
+}
 
 pub(super) struct InitPamArgs<'a> {
     pub(super) launch: LaunchType,
@@ -34,11 +76,13 @@ pub(super) fn init_pam(
         target_user,
         hostname,
     }: InitPamArgs,
-) -> PamResult<PamContext> {
+) -> Result<PamContext, Error> {
     let service_name = match launch {
         LaunchType::Login if cfg!(feature = "pam-login") => "sudo-i",
         LaunchType::Login | LaunchType::Shell | LaunchType::Direct => "sudo",
     };
+
+    ensure_pam_service_config(service_name)?;
     let mut pam = PamContext::new_cli(
         "sudo",
         service_name,
@@ -48,7 +92,8 @@ pub(super) fn init_pam(
         password_feedback,
         password_timeout,
         Some(auth_user),
-    )?;
+    )
+    .map_err(Error::from)?;
     pam.mark_silent(matches!(launch, LaunchType::Direct));
     pam.mark_allow_null_auth_token(false);
     pam.set_requesting_user(requesting_user)?;

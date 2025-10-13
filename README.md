@@ -38,6 +38,11 @@ pacman -S sudo-rs
 ```
 This will offer the functionality using the commands `sudo-rs`, `sudoedit-rs`, `visudo-rs` and `su-rs` to avoid conflicts.
 
+**Warning**: Due to a packaging issue, uninstalling sudo after installing sudo-rs will result in the deletion of `/etc/sudoers` and `/etc/pam.d/sudo`, rendering sudo-rs non-functional. To avoid this issue, either:
+
+- Back up `/etc/sudoers` and `/etc/pam.d/sudo` before uninstalling sudo, then restore these files afterward.
+- Uninstall sudo before installing sudo-rs and add back `/etc/pam.d/sudo` manually afterwards (of course, ensure you have another way to gain root access first).
+
 The sudo-rs package on Arch Linux is typically up-to-date.
 
 ### Fedora
