@@ -22,7 +22,8 @@ where
     }
 
     fn log(&self, record: &log::Record) {
-        let _ = writeln!(&self.target, "{}{}", self.prefix, record.args());
+        let s = format!("{}{}\n", self.prefix, record.args());
+        let _ = (&self.target).write_all(s.as_bytes());
     }
 
     fn flush(&self) {
