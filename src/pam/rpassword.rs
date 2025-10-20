@@ -31,7 +31,7 @@ struct HiddenInput {
 }
 
 impl HiddenInput {
-    fn new(feedback: bool) -> io::Result<Option<HiddenInput>> {
+    fn new() -> io::Result<Option<HiddenInput>> {
         // control ourselves that we are really talking to a TTY
         // mitigates: https://marc.info/?l=oss-security&m=168164424404224
         let Ok(tty) = fs::File::open("/dev/tty") else {
@@ -51,10 +51,8 @@ impl HiddenInput {
         // But don't hide the NL character when the user hits ENTER.
         term.c_lflag |= ECHONL;
 
-        if feedback {
-            // Disable canonical mode to read character by character when pwfeedback is enabled.
-            term.c_lflag &= !ICANON;
-        }
+        // Disable canonical mode to read character by character when pwfeedback is enabled.
+        term.c_lflag &= !ICANON;
 
         // Save the settings for now.
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
@@ -82,30 +80,6 @@ fn safe_tcgetattr(tty: impl AsFd) -> io::Result<termios> {
     Ok(unsafe { term.assume_init() })
 }
 
-/// Reads a password from the given file descriptor
-fn read_unbuffered(source: &mut dyn io::Read) -> io::Result<PamBuffer> {
-    let mut password = PamBuffer::default();
-    let mut pwd_iter = password.iter_mut();
-
-    const EOL: u8 = 0x0A;
-    //TODO: we actually only want to allow clippy::unbuffered_bytes
-    #[allow(clippy::perf)]
-    let input = source.bytes().take_while(|x| x.as_ref().ok() != Some(&EOL));
-
-    for read_byte in input {
-        if let Some(dest) = pwd_iter.next() {
-            *dest = read_byte?
-        } else {
-            return Err(Error::new(
-                ErrorKind::OutOfMemory,
-                "incorrect password attempt",
-            ));
-        }
-    }
-
-    Ok(password)
-}
-
 fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
     const BACKSPACE: u8 = 0x08;
     for _ in 0..i {
@@ -115,11 +89,12 @@ fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
     }
 }
 
-/// Reads a password from the given file descriptor while showing feedback to the user.
-fn read_unbuffered_with_feedback(
+/// Reads a password from the given file descriptor while optionally showing feedback to the user.
+fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
-    hide_input: &HiddenInput,
+    hide_input: Option<&HiddenInput>,
+    feedback: bool,
 ) -> io::Result<PamBuffer> {
     let mut password = PamBuffer::default();
     let mut pw_len = 0;
@@ -132,35 +107,54 @@ fn read_unbuffered_with_feedback(
         let read_byte = read_byte?;
 
         if read_byte == b'\n' || read_byte == b'\r' {
-            erase_feedback(sink, pw_len);
+            if feedback {
+                erase_feedback(sink, pw_len);
+            }
             let _ = sink.write(b"\n");
             break;
         }
 
-        if read_byte == hide_input.term_orig.c_cc[VEOF] {
-            erase_feedback(sink, pw_len);
-            password.fill(0);
-            break;
-        }
-
-        if read_byte == hide_input.term_orig.c_cc[VERASE] {
-            if pw_len > 0 {
-                erase_feedback(sink, 1);
-                password[pw_len - 1] = 0;
-                pw_len -= 1;
+        if let Some(hide_input) = hide_input {
+            if read_byte == hide_input.term_orig.c_cc[VEOF] {
+                if feedback {
+                    erase_feedback(sink, pw_len);
+                }
+                password.fill(0);
+                break;
             }
-        } else if read_byte == hide_input.term_orig.c_cc[VKILL] {
-            erase_feedback(sink, pw_len);
-            password.fill(0);
-            pw_len = 0;
-        } else {
+
+            if read_byte == hide_input.term_orig.c_cc[VERASE] {
+                if pw_len > 0 {
+                    if feedback {
+                        erase_feedback(sink, 1);
+                    }
+                    password[pw_len - 1] = 0;
+                    pw_len -= 1;
+                    continue;
+                }
+            }
+
+            if read_byte == hide_input.term_orig.c_cc[VKILL] {
+                if feedback {
+                    erase_feedback(sink, pw_len);
+                }
+                password.fill(0);
+                pw_len = 0;
+                continue;
+            }
+        }
+        {
             #[allow(clippy::collapsible_else_if)]
             if let Some(dest) = password.get_mut(pw_len) {
                 *dest = read_byte;
                 pw_len += 1;
-                let _ = sink.write(b"*");
+                if feedback {
+                    let _ = sink.write(b"*");
+                }
             } else {
-                erase_feedback(sink, pw_len);
+                if feedback {
+                    erase_feedback(sink, pw_len);
+                }
 
                 return Err(Error::new(
                     ErrorKind::OutOfMemory,
@@ -269,9 +263,8 @@ impl Terminal<'_> {
 
     /// Reads input with TTY echo disabled
     pub fn read_password(&mut self, timeout: Option<Duration>) -> io::Result<PamBuffer> {
-        let mut input = self.source_timeout(timeout);
-        let _hide_input = HiddenInput::new(false)?;
-        read_unbuffered(&mut input)
+        let hide_input = HiddenInput::new()?;
+        self.read_inner(timeout, hide_input.as_ref(), false)
     }
 
     /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
@@ -279,22 +272,31 @@ impl Terminal<'_> {
         &mut self,
         timeout: Option<Duration>,
     ) -> io::Result<PamBuffer> {
-        match (HiddenInput::new(true)?, self) {
-            (Some(hide_input), Terminal::StdIE(stdin, stdout)) => {
-                let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
-                read_unbuffered_with_feedback(&mut reader, stdout, &hide_input)
-            }
-            (Some(hide_input), Terminal::Tty(file)) => {
-                let mut reader = TimeoutRead::new(file.as_fd(), timeout);
-                read_unbuffered_with_feedback(&mut reader, &mut &*file, &hide_input)
-            }
-            (None, term) => read_unbuffered(&mut term.source_timeout(timeout)),
-        }
+        let hide_input = HiddenInput::new()?;
+        self.read_inner(timeout, hide_input.as_ref(), hide_input.is_some())
     }
 
     /// Reads input with TTY echo enabled
     pub fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        read_unbuffered(self.source())
+        self.read_inner(None, None, false)
+    }
+
+    fn read_inner(
+        &mut self,
+        timeout: Option<Duration>,
+        hide_input: Option<&HiddenInput>,
+        feedback: bool,
+    ) -> io::Result<PamBuffer> {
+        match self {
+            Terminal::StdIE(stdin, stdout) => {
+                let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
+                read_unbuffered(&mut reader, stdout, hide_input, feedback)
+            }
+            Terminal::Tty(file) => {
+                let mut reader = TimeoutRead::new(file.as_fd(), timeout);
+                read_unbuffered(&mut reader, &mut &*file, hide_input, feedback)
+            }
+        }
     }
 
     /// Display information
@@ -309,20 +311,6 @@ impl Terminal<'_> {
     }
 
     // boilerplate reduction functions
-    fn source(&mut self) -> &mut dyn io::Read {
-        match self {
-            Terminal::StdIE(x, _) => x,
-            Terminal::Tty(x) => x,
-        }
-    }
-
-    fn source_timeout(&self, timeout: Option<Duration>) -> TimeoutRead<'_> {
-        match self {
-            Terminal::StdIE(stdin, _) => TimeoutRead::new(stdin.as_fd(), timeout),
-            Terminal::Tty(file) => TimeoutRead::new(file.as_fd(), timeout),
-        }
-    }
-
     fn sink(&mut self) -> &mut dyn io::Write {
         match self {
             Terminal::StdIE(_, x) => x,
@@ -338,7 +326,8 @@ mod test {
     #[test]
     fn miri_test_read() {
         let mut data = "password123\nhello world".as_bytes();
-        let buf = read_unbuffered(&mut data).unwrap();
+        let mut stdout = Vec::new();
+        let buf = read_unbuffered(&mut data, &mut stdout, None, false).unwrap();
         // check that the \n is not part of input
         assert_eq!(
             buf.iter()
@@ -353,8 +342,11 @@ mod test {
 
     #[test]
     fn miri_test_longpwd() {
-        assert!(read_unbuffered(&mut "a".repeat(511).as_bytes()).is_ok());
-        assert!(read_unbuffered(&mut "a".repeat(512).as_bytes()).is_err());
+        let mut stdout = Vec::new();
+        assert!(read_unbuffered(&mut "a".repeat(511).as_bytes(), &mut stdout, None, false).is_ok());
+        assert!(
+            read_unbuffered(&mut "a".repeat(512).as_bytes(), &mut stdout, None, false).is_err()
+        );
     }
 
     #[test]
