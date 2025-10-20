@@ -101,8 +101,28 @@ fn read_unbuffered(
     hide_input: Option<&HiddenInput>,
     feedback: Feedback,
 ) -> io::Result<PamBuffer> {
+    struct ExitGuard<'a> {
+        pw_len: usize,
+        feedback: Feedback,
+        sink: &'a mut dyn io::Write,
+    }
+
+    // Ensure we erase the password feedback no matter how we exit read_unbuffered
+    impl Drop for ExitGuard<'_> {
+        fn drop(&mut self) {
+            if let Feedback::Yes = self.feedback {
+                erase_feedback(self.sink, self.pw_len);
+            }
+            let _ = self.sink.write(b"\n");
+        }
+    }
+
     let mut password = PamBuffer::default();
-    let mut pw_len = 0;
+    let mut state = ExitGuard {
+        pw_len: 0,
+        feedback,
+        sink,
+    };
 
     // invariant: the amount of nonzero-bytes in the buffer correspond
     // with the amount of asterisks on the terminal (both tracked in `pw_len`)
@@ -112,55 +132,44 @@ fn read_unbuffered(
         let read_byte = read_byte?;
 
         if read_byte == b'\n' || read_byte == b'\r' {
-            if let Feedback::Yes = feedback {
-                erase_feedback(sink, pw_len);
-            }
-            let _ = sink.write(b"\n");
             break;
         }
 
         if let Some(hide_input) = hide_input {
             if read_byte == hide_input.term_orig.c_cc[VEOF] {
-                if let Feedback::Yes = feedback {
-                    erase_feedback(sink, pw_len);
-                }
                 password.fill(0);
                 break;
             }
 
             if read_byte == hide_input.term_orig.c_cc[VERASE] {
-                if pw_len > 0 {
-                    if let Feedback::Yes = feedback {
-                        erase_feedback(sink, 1);
+                if state.pw_len > 0 {
+                    if let Feedback::Yes = state.feedback {
+                        erase_feedback(state.sink, 1);
                     }
-                    password[pw_len - 1] = 0;
-                    pw_len -= 1;
+                    password[state.pw_len - 1] = 0;
+                    state.pw_len -= 1;
                     continue;
                 }
             }
 
             if read_byte == hide_input.term_orig.c_cc[VKILL] {
-                if let Feedback::Yes = feedback {
-                    erase_feedback(sink, pw_len);
+                if let Feedback::Yes = state.feedback {
+                    erase_feedback(state.sink, state.pw_len);
                 }
                 password.fill(0);
-                pw_len = 0;
+                state.pw_len = 0;
                 continue;
             }
         }
         {
             #[allow(clippy::collapsible_else_if)]
-            if let Some(dest) = password.get_mut(pw_len) {
+            if let Some(dest) = password.get_mut(state.pw_len) {
                 *dest = read_byte;
-                pw_len += 1;
-                if let Feedback::Yes = feedback {
-                    let _ = sink.write(b"*");
+                state.pw_len += 1;
+                if let Feedback::Yes = state.feedback {
+                    let _ = state.sink.write(b"*");
                 }
             } else {
-                if let Feedback::Yes = feedback {
-                    erase_feedback(sink, pw_len);
-                }
-
                 return Err(Error::new(
                     ErrorKind::OutOfMemory,
                     "incorrect password attempt",
