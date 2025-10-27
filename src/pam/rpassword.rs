@@ -148,8 +148,8 @@ fn read_unbuffered(
                     }
                     password[state.pw_len - 1] = 0;
                     state.pw_len -= 1;
-                    continue;
                 }
+                continue;
             }
 
             if read_byte == hide_input.term_orig.c_cc[VKILL] {
