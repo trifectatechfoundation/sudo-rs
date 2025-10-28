@@ -96,6 +96,11 @@ pub(super) fn attempt_authenticate(
     non_interactive: bool,
     mut max_tries: u16,
 ) -> Result<(), Error> {
+    // Reject zero upfront so the counter never wraps on subtraction.
+    if max_tries == 0 {
+        return Err(Error::MaxAuthAttempts(0));
+    }
+
     let mut current_try = 0;
     loop {
         current_try += 1;
@@ -110,10 +115,11 @@ pub(super) fn attempt_authenticate(
 
             // there was an authentication error, we can retry
             Err(PamError::Pam(PamErrorType::AuthError | PamErrorType::ConversationError)) => {
-                max_tries -= 1;
-                if max_tries == 0 {
+                if max_tries <= 1 {
                     return Err(Error::MaxAuthAttempts(current_try));
-                } else if non_interactive {
+                }
+                max_tries -= 1;
+                if non_interactive {
                     return Err(Error::InteractionRequired);
                 } else {
                     user_warn!("Authentication failed, try again.");
