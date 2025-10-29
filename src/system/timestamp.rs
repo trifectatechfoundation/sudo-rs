@@ -216,17 +216,12 @@ impl SessionRecordFile {
         Ok(TouchResult::NotFound)
     }
 
-    /// Disable all records that match the given scope. If an auth user id is
-    /// given then only records with the given scope that are targeting that
-    /// specific user will be disabled.
-    pub fn disable(&mut self, scope: RecordScope, auth_user: Option<&AuthUser>) -> io::Result<()> {
+    /// Disable all records that match the given scope.
+    pub fn disable(&mut self, scope: RecordScope) -> io::Result<()> {
         let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
-            let must_disable = auth_user
-                .map(|tu| record.matches(&scope, tu))
-                .unwrap_or_else(|| record.scope == scope);
-            if must_disable {
+            if record.scope == scope {
                 self.file.seek(io::SeekFrom::Current(-SIZE_OF_BOOL))?;
                 write_bool(false, &mut self.file)?;
             }
