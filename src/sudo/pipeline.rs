@@ -152,15 +152,6 @@ fn auth_and_update_record_file(
         ..
     }: &Authentication,
 ) -> Result<PamContext, Error> {
-    let scope = RecordScope::for_process(&Process::new());
-    let mut auth_status = determine_auth_status(
-        must_authenticate,
-        context.use_session_records,
-        scope,
-        &context.current_user,
-        prior_validity,
-    );
-
     let auth_user = match credential {
         AuthenticatingUser::InvokingUser => {
             AuthUser::from_current_user(context.current_user.clone())
@@ -170,6 +161,16 @@ fn auth_and_update_record_file(
             AuthUser::from_user_for_targetpw(context.target_user.clone())
         }
     };
+
+    let scope = RecordScope::for_process(&Process::new());
+    let mut auth_status = determine_auth_status(
+        must_authenticate,
+        context.use_session_records,
+        scope,
+        &context.current_user,
+        &auth_user,
+        prior_validity,
+    );
 
     let mut pam_context = init_pam(InitPamArgs {
         launch: context.launch,
@@ -186,7 +187,7 @@ fn auth_and_update_record_file(
     if auth_status.must_authenticate {
         attempt_authenticate(&mut pam_context, context.non_interactive, allowed_attempts)?;
         if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
-            match record_file.create(scope, context.current_user.uid) {
+            match record_file.create(scope, &auth_user) {
                 Ok(_) => (),
                 Err(e) => {
                     auth_warn!("Could not update session record file with new record: {e}");
@@ -238,6 +239,7 @@ fn determine_auth_status(
     use_session_records: bool,
     record_for: Option<RecordScope>,
     current_user: &CurrentUser,
+    auth_user: &AuthUser,
     prior_validity: Duration,
 ) -> AuthStatus {
     if !must_policy_authenticate {
@@ -245,7 +247,7 @@ fn determine_auth_status(
     } else if let (true, Some(record_for)) = (use_session_records, record_for) {
         match SessionRecordFile::open_for_user(current_user, prior_validity) {
             Ok(mut sr) => {
-                match sr.touch(record_for, current_user.uid) {
+                match sr.touch(record_for, auth_user) {
                     // if a record was found and updated within the timeout, we do not need to authenticate
                     Ok(TouchResult::Updated { .. }) => AuthStatus::new(false, Some(sr)),
                     Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => {
