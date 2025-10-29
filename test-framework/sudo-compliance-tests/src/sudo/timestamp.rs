@@ -189,6 +189,43 @@ fn cached_credential_not_shared_with_self_across_ttys() {
 }
 
 #[test]
+fn cached_credential_not_shared_between_auth_users() {
+    const PASSWORD: &str = "passw0rd";
+    const PASSWORD2: &str = "notr00t";
+
+    let env = Env(format!(
+        "Defaults targetpw\nDefaults passwd_tries=1\n{USERNAME} ALL=(ALL:ALL) ALL"
+    ))
+    .user(User(USERNAME))
+    .user(User("user1").password(PASSWORD))
+    .user(User("user2").password(PASSWORD2))
+    .build();
+
+    // Enter password for first user to cache credential
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD} | sudo -S -u user1 true"))
+        .as_user(USERNAME)
+        .output(&env);
+    output.assert_success();
+
+    // Cached credential not used when password for different user necessary
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("sudo -u user2 true"))
+        .as_user(USERNAME)
+        .output(&env);
+    output.assert_exit_code(1);
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a password is required"
+    } else {
+        "incorrect authentication attempt"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+}
+
+#[test]
 fn double_negation_also_equals_never() {
     let env = Env([
         "Defaults !!use_pty".to_string(),
