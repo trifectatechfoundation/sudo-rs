@@ -89,28 +89,28 @@ fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
     }
 }
 
-enum Feedback {
-    Yes,
+enum Hidden<'a> {
     No,
+    Yes(&'a HiddenInput),
+    WithFeedback(&'a HiddenInput),
 }
 
 /// Reads a password from the given file descriptor while optionally showing feedback to the user.
 fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
-    hide_input: Option<&HiddenInput>,
-    feedback: Feedback,
+    hide_input: Hidden<'_>,
 ) -> io::Result<PamBuffer> {
     struct ExitGuard<'a> {
         pw_len: usize,
-        feedback: Feedback,
+        feedback: bool,
         sink: &'a mut dyn io::Write,
     }
 
     // Ensure we erase the password feedback no matter how we exit read_unbuffered
     impl Drop for ExitGuard<'_> {
         fn drop(&mut self) {
-            if let Feedback::Yes = self.feedback {
+            if self.feedback {
                 erase_feedback(self.sink, self.pw_len);
             }
             let _ = self.sink.write(b"\n");
@@ -120,7 +120,7 @@ fn read_unbuffered(
     let mut password = PamBuffer::default();
     let mut state = ExitGuard {
         pw_len: 0,
-        feedback,
+        feedback: matches!(hide_input, Hidden::WithFeedback(_)),
         sink,
     };
 
@@ -135,15 +135,15 @@ fn read_unbuffered(
             break;
         }
 
-        if let Some(hide_input) = hide_input {
-            if read_byte == hide_input.term_orig.c_cc[VEOF] {
+        if let Hidden::Yes(input) | Hidden::WithFeedback(input) = hide_input {
+            if read_byte == input.term_orig.c_cc[VEOF] {
                 password.fill(0);
                 break;
             }
 
-            if read_byte == hide_input.term_orig.c_cc[VERASE] {
+            if read_byte == input.term_orig.c_cc[VERASE] {
                 if state.pw_len > 0 {
-                    if let Feedback::Yes = state.feedback {
+                    if let Hidden::WithFeedback(_) = hide_input {
                         erase_feedback(state.sink, 1);
                     }
                     password[state.pw_len - 1] = 0;
@@ -152,8 +152,8 @@ fn read_unbuffered(
                 continue;
             }
 
-            if read_byte == hide_input.term_orig.c_cc[VKILL] {
-                if let Feedback::Yes = state.feedback {
+            if read_byte == input.term_orig.c_cc[VKILL] {
+                if let Hidden::WithFeedback(_) = hide_input {
                     erase_feedback(state.sink, state.pw_len);
                 }
                 password.fill(0);
@@ -165,7 +165,7 @@ fn read_unbuffered(
         if let Some(dest) = password.get_mut(state.pw_len) {
             *dest = read_byte;
             state.pw_len += 1;
-            if let Feedback::Yes = state.feedback {
+            if let Hidden::WithFeedback(_) = hide_input {
                 let _ = state.sink.write(b"*");
             }
         } else {
@@ -276,7 +276,10 @@ impl Terminal<'_> {
     /// Reads input with TTY echo disabled
     pub fn read_password(&mut self, timeout: Option<Duration>) -> io::Result<PamBuffer> {
         let hide_input = HiddenInput::new()?;
-        self.read_inner(timeout, hide_input.as_ref(), Feedback::No)
+        self.read_inner(
+            timeout,
+            hide_input.as_ref().map(Hidden::Yes).unwrap_or(Hidden::No),
+        )
     }
 
     /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
@@ -285,33 +288,33 @@ impl Terminal<'_> {
         timeout: Option<Duration>,
     ) -> io::Result<PamBuffer> {
         let hide_input = HiddenInput::new()?;
-        let feedback = if hide_input.is_some() {
-            Feedback::Yes
-        } else {
-            Feedback::No
-        };
-        self.read_inner(timeout, hide_input.as_ref(), feedback)
+        self.read_inner(
+            timeout,
+            hide_input
+                .as_ref()
+                .map(Hidden::WithFeedback)
+                .unwrap_or(Hidden::No),
+        )
     }
 
     /// Reads input with TTY echo enabled
     pub fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        self.read_inner(None, None, Feedback::No)
+        self.read_inner(None, Hidden::No)
     }
 
     fn read_inner(
         &mut self,
         timeout: Option<Duration>,
-        hide_input: Option<&HiddenInput>,
-        feedback: Feedback,
+        hide_input: Hidden<'_>,
     ) -> io::Result<PamBuffer> {
         match self {
             Terminal::StdIE(stdin, stdout) => {
                 let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
-                read_unbuffered(&mut reader, stdout, hide_input, feedback)
+                read_unbuffered(&mut reader, stdout, hide_input)
             }
             Terminal::Tty(file) => {
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
-                read_unbuffered(&mut reader, &mut &*file, hide_input, feedback)
+                read_unbuffered(&mut reader, &mut &*file, hide_input)
             }
         }
     }
