@@ -161,20 +161,18 @@ fn read_unbuffered(
                 continue;
             }
         }
-        {
-            #[allow(clippy::collapsible_else_if)]
-            if let Some(dest) = password.get_mut(state.pw_len) {
-                *dest = read_byte;
-                state.pw_len += 1;
-                if let Feedback::Yes = state.feedback {
-                    let _ = state.sink.write(b"*");
-                }
-            } else {
-                return Err(Error::new(
-                    ErrorKind::OutOfMemory,
-                    "incorrect password attempt",
-                ));
+
+        if let Some(dest) = password.get_mut(state.pw_len) {
+            *dest = read_byte;
+            state.pw_len += 1;
+            if let Feedback::Yes = state.feedback {
+                let _ = state.sink.write(b"*");
             }
+        } else {
+            return Err(Error::new(
+                ErrorKind::OutOfMemory,
+                "incorrect password attempt",
+            ));
         }
     }
 
