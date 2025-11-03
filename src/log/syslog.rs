@@ -142,10 +142,6 @@ impl Log for Syslog {
         let mut writer = SysLogMessageWriter::new(priority, FACILITY);
         let _ = write!(writer, "{}", args);
     }
-
-    fn flush(&self) {
-        // pass
-    }
 }
 
 #[cfg(test)]

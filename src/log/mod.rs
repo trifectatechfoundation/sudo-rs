@@ -124,7 +124,6 @@ impl SudoLogger {
         for (prefix, l) in self.0.iter() {
             if target == &prefix[..prefix.len() - 2] || target.starts_with(prefix) {
                 l.log(level, &args);
-                l.flush();
             }
         }
     }
@@ -142,7 +141,6 @@ pub enum Level {
 
 trait Log: Send + Sync {
     fn log(&self, level: Level, args: &fmt::Arguments<'_>);
-    fn flush(&self);
 }
 
 #[cfg(test)]

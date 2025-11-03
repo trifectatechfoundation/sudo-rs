@@ -21,9 +21,6 @@ where
     fn log(&self, _level: Level, args: &fmt::Arguments<'_>) {
         let s = format!("{}{}\n", self.prefix, args);
         let _ = (&self.target).write_all(s.as_bytes());
-    }
-
-    fn flush(&self) {
         let _ = (&self.target).flush();
     }
 }
@@ -92,12 +89,6 @@ mod tests {
         };
 
         logger.log(Level::Info, &format_args!("Hello World!"));
-
-        let value = target.read();
-        assert_eq!(value, "[test] Hello World!\n");
-        drop(value);
-
-        logger.flush();
 
         let value = target.read();
         assert_eq!(value, "[test] Hello World!\nflushed");
