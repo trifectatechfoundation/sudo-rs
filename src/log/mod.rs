@@ -3,6 +3,7 @@ use self::simple_logger::SimpleLogger;
 use self::syslog::Syslog;
 use std::fmt;
 use std::ops::Deref;
+use std::sync::OnceLock;
 
 mod simple_logger;
 mod syslog;
@@ -11,7 +12,11 @@ mod syslog;
 macro_rules! logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
         macro_rules! $name {
-            ($d($d arg:tt)+) => (::log::log!(target: $target, ::log::Level::$rule_level, $d($d arg)+));
+            ($d($d arg:tt)+) => {
+                if let Some(logger) = $crate::log::LOGGER.get() {
+                    logger.log($crate::log::Level::$rule_level, $target, format_args!($d($d arg)+));
+                }
+            };
         }
 
         pub(crate) use $name;
@@ -38,13 +43,16 @@ macro_rules! dev_logger_macro {
         macro_rules! $name {
             ($d($d arg:tt)+) => {
                 if std::cfg!(feature = "dev") {
-                    (::log::log!(
-                        target: $target,
-                        ::log::Level::$rule_level,
-                        "{}: {}",
-                        std::panic::Location::caller(),
-                        format_args!($d($d arg)+)
-                    ));
+                    if let Some(logger) = $crate::log::LOGGER.get() {
+                        logger.log(
+                            $crate::log::Level::$rule_level,
+                            $target,
+                            format_args!("{}: {}",
+                                std::panic::Location::caller(),
+                                format_args!($d($d arg)+)
+                            )
+                        );
+                    }
                 }
             };
         }
@@ -61,6 +69,8 @@ dev_logger_macro!(dev_warn is Warn to "sudo::dev");
 dev_logger_macro!(dev_info is Info to "sudo::dev");
 dev_logger_macro!(dev_debug is Debug to "sudo::dev");
 //dev_logger_macro!(dev_trace is Trace to "sudo::dev");
+
+pub static LOGGER: OnceLock<SudoLogger> = OnceLock::new();
 
 #[derive(Default)]
 pub struct SudoLogger(Vec<(String, Box<dyn Log>)>);
@@ -87,9 +97,9 @@ impl SudoLogger {
     }
 
     pub fn into_global_logger(self) {
-        log::set_boxed_logger(Box::new(self))
-            .map(|()| log::set_max_level(log::LevelFilter::Trace))
-            .expect("Could not set previously set logger");
+        if LOGGER.set(self).is_err() {
+            panic!("Could not set previously set logger");
+        }
     }
 
     /// Add a logger for a specific prefix to the stack
@@ -109,36 +119,20 @@ impl SudoLogger {
     }
 }
 
-impl log::Log for SudoLogger {
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= log::max_level() && metadata.level() <= log::STATIC_MAX_LEVEL
-    }
-
-    fn log(&self, record: &log::Record) {
+impl SudoLogger {
+    pub fn log(&self, level: Level, target: &str, args: fmt::Arguments<'_>) {
         for (prefix, l) in self.0.iter() {
-            if record.target() == &prefix[..prefix.len() - 2] || record.target().starts_with(prefix)
-            {
-                let level = match record.level() {
-                    log::Level::Error => Level::Error,
-                    log::Level::Warn => Level::Warn,
-                    log::Level::Info => Level::Info,
-                    log::Level::Debug => Level::Debug,
-                    log::Level::Trace => Level::Trace,
-                };
-                l.log(level, record.args());
+            if target == &prefix[..prefix.len() - 2] || target.starts_with(prefix) {
+                l.log(level, &args);
+                l.flush();
             }
-        }
-    }
-
-    fn flush(&self) {
-        for (_, l) in self.0.iter() {
-            l.flush();
         }
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-enum Level {
+#[allow(unused)]
+pub enum Level {
     Error,
     Warn,
     Info,
