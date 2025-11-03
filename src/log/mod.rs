@@ -14,7 +14,6 @@ macro_rules! logger_macro {
             ($d($d arg:tt)+) => (::log::log!(target: $target, $crate::log::Level::$rule_level, $d($d arg)+));
         }
 
-        #[allow(unused)]
         pub(crate) use $name;
     };
     ($name:ident is $rule_level:ident to $target:expr) => {
@@ -22,19 +21,18 @@ macro_rules! logger_macro {
     };
 }
 
-logger_macro!(auth_error is Error to "sudo::auth");
+// logger_macro!(auth_error is Error to "sudo::auth");
 logger_macro!(auth_warn is Warn to "sudo::auth");
 logger_macro!(auth_info is Info to "sudo::auth");
-logger_macro!(auth_debug is Debug to "sudo::auth");
-logger_macro!(auth_trace is Trace to "sudo::auth");
+// logger_macro!(auth_debug is Debug to "sudo::auth");
+// logger_macro!(auth_trace is Trace to "sudo::auth");
 
 logger_macro!(user_error is Error to "sudo::user");
 logger_macro!(user_warn is Warn to "sudo::user");
 logger_macro!(user_info is Info to "sudo::user");
-logger_macro!(user_debug is Debug to "sudo::user");
-logger_macro!(user_trace is Trace to "sudo::user");
+// logger_macro!(user_debug is Debug to "sudo::user");
+// logger_macro!(user_trace is Trace to "sudo::user");
 
-// TODO: dev_logger_macro has an allow_unused that should be removed
 macro_rules! dev_logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
         macro_rules! $name {
@@ -51,7 +49,6 @@ macro_rules! dev_logger_macro {
             };
         }
 
-        #[allow(unused)]
         pub(crate) use $name;
     };
     ($name:ident is $rule_level:ident to $target:expr) => {
@@ -63,7 +60,7 @@ dev_logger_macro!(dev_error is Error to "sudo::dev");
 dev_logger_macro!(dev_warn is Warn to "sudo::dev");
 dev_logger_macro!(dev_info is Info to "sudo::dev");
 dev_logger_macro!(dev_debug is Debug to "sudo::dev");
-dev_logger_macro!(dev_trace is Trace to "sudo::dev");
+//dev_logger_macro!(dev_trace is Trace to "sudo::dev");
 
 #[derive(Default)]
 pub struct SudoLogger(Vec<(String, Box<dyn log::Log>)>);
