@@ -1,9 +1,10 @@
+use std::fmt;
 use std::io::Write;
 
 #[cfg(feature = "dev")]
 use std::{fs::File, path::Path};
 
-use log::Log;
+use crate::log::{Level, Log};
 
 pub struct SimpleLogger<W: Send + Sync>
 where
@@ -17,12 +18,8 @@ impl<W: Send + Sync> Log for SimpleLogger<W>
 where
     for<'a> &'a W: Write,
 {
-    fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= log::max_level() && metadata.level() <= log::STATIC_MAX_LEVEL
-    }
-
-    fn log(&self, record: &log::Record) {
-        let s = format!("{}{}\n", self.prefix, record.args());
+    fn log(&self, _level: Level, args: &fmt::Arguments<'_>) {
+        let s = format!("{}{}\n", self.prefix, args);
         let _ = (&self.target).write_all(s.as_bytes());
     }
 
@@ -53,13 +50,13 @@ impl SimpleLogger<File> {
 
 #[cfg(test)]
 mod tests {
+
     use std::{
         io,
         sync::{Arc, RwLock},
     };
 
-    use super::SimpleLogger;
-    use log::{LevelFilter, Log};
+    use super::*;
 
     #[derive(Clone, Default)]
     struct MyString {
@@ -87,30 +84,14 @@ mod tests {
     }
 
     #[test]
-    fn test_default_level() {
-        let logger = SimpleLogger::to_stderr("test");
-        let metadata = log::Metadata::builder().level(log::Level::Trace).build();
-
-        log::set_max_level(LevelFilter::Trace);
-        assert!(logger.enabled(&metadata));
-
-        log::set_max_level(LevelFilter::Info);
-        assert!(!logger.enabled(&metadata));
-    }
-
-    #[test]
     fn test_write_and_flush() {
         let target = MyString::default();
         let logger = SimpleLogger {
             target: target.clone(),
             prefix: "[test] ",
         };
-        let record = log::Record::builder()
-            .args(format_args!("Hello World!"))
-            .level(log::Level::Info)
-            .build();
 
-        logger.log(&record);
+        logger.log(Level::Info, &format_args!("Hello World!"));
 
         let value = target.read();
         assert_eq!(value, "[test] Hello World!\n");

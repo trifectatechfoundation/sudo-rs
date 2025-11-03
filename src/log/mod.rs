@@ -1,7 +1,7 @@
 #![allow(unused_macros)]
 use self::simple_logger::SimpleLogger;
 use self::syslog::Syslog;
-pub use log::Level;
+use std::fmt;
 use std::ops::Deref;
 
 mod simple_logger;
@@ -11,7 +11,7 @@ mod syslog;
 macro_rules! logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
         macro_rules! $name {
-            ($d($d arg:tt)+) => (::log::log!(target: $target, $crate::log::Level::$rule_level, $d($d arg)+));
+            ($d($d arg:tt)+) => (::log::log!(target: $target, ::log::Level::$rule_level, $d($d arg)+));
         }
 
         pub(crate) use $name;
@@ -40,7 +40,7 @@ macro_rules! dev_logger_macro {
                 if std::cfg!(feature = "dev") {
                     (::log::log!(
                         target: $target,
-                        $crate::log::Level::$rule_level,
+                        ::log::Level::$rule_level,
                         "{}: {}",
                         std::panic::Location::caller(),
                         format_args!($d($d arg)+)
@@ -63,7 +63,7 @@ dev_logger_macro!(dev_debug is Debug to "sudo::dev");
 //dev_logger_macro!(dev_trace is Trace to "sudo::dev");
 
 #[derive(Default)]
-pub struct SudoLogger(Vec<(String, Box<dyn log::Log>)>);
+pub struct SudoLogger(Vec<(String, Box<dyn Log>)>);
 
 impl SudoLogger {
     pub fn new(prefix: &'static str) -> Self {
@@ -96,16 +96,7 @@ impl SudoLogger {
     fn add_logger(
         &mut self,
         prefix: impl ToString + Deref<Target = str>,
-        logger: impl log::Log + 'static,
-    ) {
-        self.add_boxed_logger(prefix, Box::new(logger))
-    }
-
-    /// Add a boxed logger for a specific prefix to the stack
-    fn add_boxed_logger(
-        &mut self,
-        prefix: impl ToString + Deref<Target = str>,
-        logger: Box<dyn log::Log>,
+        logger: impl Log + 'static,
     ) {
         let prefix = if prefix.ends_with("::") {
             prefix.to_string()
@@ -114,20 +105,27 @@ impl SudoLogger {
             // but not `my::prefix_to_somewhere`
             format!("{}::", prefix.to_string())
         };
-        self.0.push((prefix, logger))
+        self.0.push((prefix, Box::new(logger)))
     }
 }
 
 impl log::Log for SudoLogger {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
-        self.0.iter().any(|(_, l)| l.enabled(metadata))
+        metadata.level() <= log::max_level() && metadata.level() <= log::STATIC_MAX_LEVEL
     }
 
     fn log(&self, record: &log::Record) {
         for (prefix, l) in self.0.iter() {
             if record.target() == &prefix[..prefix.len() - 2] || record.target().starts_with(prefix)
             {
-                l.log(record);
+                let level = match record.level() {
+                    log::Level::Error => Level::Error,
+                    log::Level::Warn => Level::Warn,
+                    log::Level::Info => Level::Info,
+                    log::Level::Debug => Level::Debug,
+                    log::Level::Trace => Level::Trace,
+                };
+                l.log(level, record.args());
             }
         }
     }
@@ -137,6 +135,20 @@ impl log::Log for SudoLogger {
             l.flush();
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+enum Level {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+trait Log: Send + Sync {
+    fn log(&self, level: Level, args: &fmt::Arguments<'_>);
+    fn flush(&self);
 }
 
 #[cfg(test)]
