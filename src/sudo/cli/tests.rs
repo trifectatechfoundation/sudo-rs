@@ -1,7 +1,6 @@
 use crate::common::SudoPath;
 
 use super::{SudoAction, SudoOptions};
-use pretty_assertions::assert_eq;
 
 /// Passing '-E' with a variable fails
 #[test]
