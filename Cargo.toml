@@ -8,7 +8,7 @@ repository = "https://github.com/trifectatechfoundation/sudo-rs"
 homepage = "https://github.com/trifectatechfoundation/sudo-rs"
 publish = true
 categories = ["command-line-interface"]
-exclude = ["proofs", "util"]
+exclude = ["audit", "proofs", "util"]
 
 rust-version = "1.70"
 
