@@ -212,7 +212,7 @@ fn cached_credential_not_shared_between_auth_users() {
     // Cached credential not used when password for different user necessary
     let output = Command::new("sh")
         .arg("-c")
-        .arg(format!("sudo -u user2 true"))
+        .arg("sudo -u user2 true")
         .as_user(USERNAME)
         .output(&env);
     output.assert_exit_code(1);
