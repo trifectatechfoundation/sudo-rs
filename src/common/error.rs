@@ -28,7 +28,7 @@ pub enum Error {
     Options(String),
     Pam(PamError),
     Io(Option<PathBuf>, std::io::Error),
-    MaxAuthAttempts(usize),
+    MaxAuthAttempts(u16),
     PathValidation(PathBuf),
     StringValidation(String),
     #[cfg(feature = "apparmor")]
