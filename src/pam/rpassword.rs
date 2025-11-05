@@ -15,13 +15,12 @@
 ///
 use std::io::{self, Error, ErrorKind, Read};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
 use crate::cutils::cerr;
-use crate::system::time::Duration;
 
 use super::securemem::PamBuffer;
 
@@ -187,7 +186,7 @@ struct TimeoutRead<'a> {
 impl<'a> TimeoutRead<'a> {
     fn new(fd: BorrowedFd<'a>, timeout: Option<Duration>) -> TimeoutRead<'a> {
         TimeoutRead {
-            timeout_at: timeout.map(|timeout| Instant::now() + timeout.into()),
+            timeout_at: timeout.map(|timeout| Instant::now() + timeout),
             fd,
         }
     }
