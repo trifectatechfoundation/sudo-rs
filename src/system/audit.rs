@@ -262,7 +262,7 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
 
         if perms & mode(Category::World, Op::Write) != 0
             || (perms & mode(Category::Group, Op::Write) != 0)
-                && forbidden_user.gid.inner() == meta.gid()
+                && forbidden_user.in_group_by_gid(GroupId::new(meta.gid()))
             || (perms & mode(Category::Owner, Op::Write) != 0)
                 && forbidden_user.uid.inner() == meta.uid()
         {
