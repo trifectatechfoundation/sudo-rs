@@ -96,7 +96,7 @@ pub(super) fn attempt_authenticate(
     non_interactive: bool,
     max_tries: u16,
 ) -> Result<(), Error> {
-    // Reject zero upfront so the counter never wraps on subtraction.
+    // Reject zero upfront so we don't ask for a password once when max_tries is 0.
     if max_tries == 0 {
         return Err(Error::MaxAuthAttempts(0));
     }
