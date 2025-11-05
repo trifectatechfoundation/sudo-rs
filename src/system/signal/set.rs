@@ -79,6 +79,14 @@ impl SignalSet {
         Ok(unsafe { set.assume_init() })
     }
 
+    /// Add a signal to this set
+    pub(crate) fn add(&mut self, sig: SignalNumber) -> io::Result<()> {
+        // SAFETY: we pass a valid mutable pointer to `sigaddset`
+        cerr(unsafe { libc::sigaddset(&mut self.raw, sig) })?;
+
+        Ok(())
+    }
+
     fn sigprocmask(&self, how: libc::c_int) -> io::Result<Self> {
         let mut original_set = MaybeUninit::<Self>::zeroed();
 

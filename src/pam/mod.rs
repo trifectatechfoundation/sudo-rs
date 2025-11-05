@@ -6,7 +6,10 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::system::time::Duration;
+use crate::system::{
+    signal::{self, SignalSet},
+    time::Duration,
+};
 
 use converse::ConverserData;
 use error::pam_err;
@@ -156,8 +159,20 @@ impl PamContext {
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
 
+        // Temporarily mask SIGINT and SIGQUIT.
+        let cur_signals = SignalSet::empty().and_then(|mut set| {
+            set.add(signal::consts::SIGINT)?;
+            set.add(signal::consts::SIGQUIT)?;
+            set.block()
+        });
+
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
         let auth_res = pam_err(unsafe { pam_authenticate(self.pamh, flags) });
+
+        // Restore signals
+        if let Ok(set) = cur_signals {
+            set.set_mask().map_err(PamError::IoError)?;
+        }
 
         if self.has_panicked() {
             panic!("Panic during pam authentication");
