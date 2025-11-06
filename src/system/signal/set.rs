@@ -105,6 +105,14 @@ impl SignalSet {
         self.sigprocmask(libc::SIG_BLOCK)
     }
 
+    /// Unblock all the signals in this set and return the previous set of blocked signals.
+    ///
+    /// After calling this function successfully, the set of blocked signals will be the previous
+    /// set of blocked signals without this set.
+    pub(crate) fn unblock(&self) -> io::Result<Self> {
+        self.sigprocmask(libc::SIG_UNBLOCK)
+    }
+
     /// Block only the signals that are in this set and return the previous set of blocked signals.
     ///
     /// After calling this function successfully, the set of blocked signals will be the exactly

@@ -1,7 +1,10 @@
 use std::io;
 
 use crate::cutils::string_from_ptr;
-use crate::system::time::Duration;
+use crate::system::{
+    signal::{self, SignalSet},
+    time::Duration,
+};
 
 use super::sys::*;
 
@@ -64,7 +67,14 @@ fn handle_message<C: Converser>(
 ) -> PamResult<Option<PamBuffer>> {
     use PamMessageStyle::*;
 
-    match style {
+    // Unblock user interruption signals
+    let cur_signals = SignalSet::empty().and_then(|mut set| {
+        set.add(signal::consts::SIGINT)?;
+        set.add(signal::consts::SIGQUIT)?;
+        set.unblock()
+    });
+
+    let result = match style {
         PromptEchoOn | PromptEchoOff if app_data.no_interact => Err(PamError::InteractionRequired),
 
         PromptEchoOn => app_data.converser.handle_normal_prompt(msg).map(Some),
@@ -86,7 +96,14 @@ fn handle_message<C: Converser>(
 
         ErrorMessage => app_data.converser.handle_error(msg).map(|()| None),
         TextInfo => app_data.converser.handle_info(msg).map(|()| None),
+    };
+
+    // Restore signals, any errors in this are not fatal
+    if let Ok(set) = cur_signals {
+        let _ = set.set_mask();
     }
+
+    result
 }
 
 /// A converser that uses stdin/stdout/stderr to display messages and to request
