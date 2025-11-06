@@ -65,16 +65,10 @@ fn handle_message<C: Converser>(
     use PamMessageStyle::*;
 
     match style {
-        PromptEchoOn => {
-            if app_data.no_interact {
-                return Err(PamError::InteractionRequired);
-            }
-            app_data.converser.handle_normal_prompt(msg).map(Some)
-        }
+        PromptEchoOn | PromptEchoOff if app_data.no_interact => Err(PamError::InteractionRequired),
+
+        PromptEchoOn => app_data.converser.handle_normal_prompt(msg).map(Some),
         PromptEchoOff => {
-            if app_data.no_interact {
-                return Err(PamError::InteractionRequired);
-            }
             let final_prompt = match app_data.auth_prompt.as_deref() {
                 None => {
                     // Suppress password prompt entirely when -p '' is passed.
@@ -89,6 +83,7 @@ fn handle_message<C: Converser>(
                 .handle_hidden_prompt(&final_prompt)
                 .map(Some)
         }
+
         ErrorMessage => app_data.converser.handle_error(msg).map(|()| None),
         TextInfo => app_data.converser.handle_info(msg).map(|()| None),
     }
