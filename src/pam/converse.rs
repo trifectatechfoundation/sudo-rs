@@ -1,7 +1,10 @@
 use std::io;
 
 use crate::cutils::string_from_ptr;
-use crate::system::time::Duration;
+use crate::system::{
+    signal::{self, SignalSet},
+    time::Duration,
+};
 
 use super::sys::*;
 
@@ -65,16 +68,10 @@ fn handle_message<C: Converser>(
     use PamMessageStyle::*;
 
     match style {
-        PromptEchoOn => {
-            if app_data.no_interact {
-                return Err(PamError::InteractionRequired);
-            }
-            app_data.converser.handle_normal_prompt(msg).map(Some)
-        }
+        PromptEchoOn | PromptEchoOff if app_data.no_interact => Err(PamError::InteractionRequired),
+
+        PromptEchoOn => app_data.converser.handle_normal_prompt(msg).map(Some),
         PromptEchoOff => {
-            if app_data.no_interact {
-                return Err(PamError::InteractionRequired);
-            }
             let final_prompt = match app_data.auth_prompt.as_deref() {
                 None => {
                     // Suppress password prompt entirely when -p '' is passed.
@@ -89,6 +86,7 @@ fn handle_message<C: Converser>(
                 .handle_hidden_prompt(&final_prompt)
                 .map(Some)
         }
+
         ErrorMessage => app_data.converser.handle_error(msg).map(|()| None),
         TextInfo => app_data.converser.handle_info(msg).map(|()| None),
     }
@@ -106,25 +104,50 @@ pub struct CLIConverser {
 
 use rpassword::Terminal;
 
-impl CLIConverser {
-    fn open(&self) -> std::io::Result<Terminal<'_>> {
-        if self.use_stdin {
-            Terminal::open_stdie()
-        } else {
-            Terminal::open_tty()
+struct SignalGuard(Option<SignalSet>);
+
+impl SignalGuard {
+    fn unblock_interrupts() -> Self {
+        let cur_signals = SignalSet::empty().and_then(|mut set| {
+            set.add(signal::consts::SIGINT)?;
+            set.add(signal::consts::SIGQUIT)?;
+            set.unblock()
+        });
+
+        Self(cur_signals.ok())
+    }
+}
+
+impl Drop for SignalGuard {
+    fn drop(&mut self) {
+        if let Some(signal) = &self.0 {
+            // Ignore any errors at this point
+            let _ = signal.set_mask();
         }
+    }
+}
+
+impl CLIConverser {
+    fn open(&self) -> std::io::Result<(Terminal<'_>, SignalGuard)> {
+        let term = if self.use_stdin {
+            Terminal::open_stdie()?
+        } else {
+            Terminal::open_tty()?
+        };
+
+        Ok((term, SignalGuard::unblock_interrupts()))
     }
 }
 
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        let mut tty = self.open()?;
+        let (mut tty, _guard) = self.open()?;
         tty.prompt(&format!("[{}: input needed] {msg} ", self.name))?;
         Ok(tty.read_cleartext()?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        let mut tty = self.open()?;
+        let (mut tty, _guard) = self.open()?;
         if self.bell && !self.use_stdin {
             tty.bell()?;
         }
@@ -144,12 +167,12 @@ impl Converser for CLIConverser {
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
-        let mut tty = self.open()?;
+        let (mut tty, _) = self.open()?;
         Ok(tty.prompt(&format!("[{} error] {msg}\n", self.name))?)
     }
 
     fn handle_info(&self, msg: &str) -> PamResult<()> {
-        let mut tty = self.open()?;
+        let (mut tty, _) = self.open()?;
         Ok(tty.prompt(&format!("[{}] {msg}\n", self.name))?)
     }
 }

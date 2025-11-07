@@ -79,6 +79,14 @@ impl SignalSet {
         Ok(unsafe { set.assume_init() })
     }
 
+    /// Add a signal to this set
+    pub(crate) fn add(&mut self, sig: SignalNumber) -> io::Result<()> {
+        // SAFETY: we pass a valid mutable pointer to `sigaddset`
+        cerr(unsafe { libc::sigaddset(&mut self.raw, sig) })?;
+
+        Ok(())
+    }
+
     fn sigprocmask(&self, how: libc::c_int) -> io::Result<Self> {
         let mut original_set = MaybeUninit::<Self>::zeroed();
 
@@ -95,6 +103,14 @@ impl SignalSet {
     /// the previous set of blocked signals and this set.
     pub(crate) fn block(&self) -> io::Result<Self> {
         self.sigprocmask(libc::SIG_BLOCK)
+    }
+
+    /// Unblock all the signals in this set and return the previous set of blocked signals.
+    ///
+    /// After calling this function successfully, the set of blocked signals will be the previous
+    /// set of blocked signals without this set.
+    pub(crate) fn unblock(&self) -> io::Result<Self> {
+        self.sigprocmask(libc::SIG_UNBLOCK)
     }
 
     /// Block only the signals that are in this set and return the previous set of blocked signals.
