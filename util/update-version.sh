@@ -14,14 +14,9 @@ if [ -z "$NEW_VERSION" ]; then
     exit 1
 fi
 
-if [ "$CURRENT_VERSION" \> "$NEW_VERSION" ]; then
-    echo "New version number must be higher than current version: $CURRENT_VERSION"
-    echo "Create a new changelog entry before running this script!"
-    exit 1
-fi
-
 if [ "$CURRENT_VERSION" == "$NEW_VERSION" ]; then
     echo "Cargo.toml was already at $NEW_VERSION"
+    exit 1
 else
     echo "Updating version in Cargo.toml to $NEW_VERSION"
     sed -i 's/^version\s*=\s*".*"/version = "'"$NEW_VERSION"'"/' "$PROJECT_DIR/Cargo.toml"

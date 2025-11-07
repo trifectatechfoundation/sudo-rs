@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.10] - 2025-11-10
+
+### Changed
+- Message shown at password timeout has been made nicer (#1171)
+- Interrupting a PAM module that handles its own input such as `fprintd`
+  will not prevent other authentication modes from being tried. (#1308)
+
+### Fixed
+- Some formatting mistakes in the man pages (#1285)
+- Unhandled exception if user would attempt to execute a folder (#1298)
+- `Defaults passwd_tries=0` effectively disabled the limit on password tries
+  rather than setting the limit to zero (#1313)
+- sudoedit ignored supplementary groups when checking writability (#1321)
+- A partially typed password would be output to standard input if a timeout
+  occurred when `Defaults pwfeedback` was not enabled (GHSA-q428-6v73-fc4q).
+- Timestamp files did not take into account the setting of the
+ `Defaults targetpw` and `Defaults rootpw` (GHSA-c978-wq47-pvvw)
+- Minor tokenization error in /etc/sudoers processing (#1296)
+
 ## [0.2.9] - 2025-10-03
 
 ### Added
