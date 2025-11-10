@@ -4,6 +4,7 @@ use std::{
     path::PathBuf,
 };
 
+use crate::common::resolve::AuthUser;
 use crate::{
     common::resolve::CurrentUser,
     log::{auth_info, auth_warn},
@@ -179,7 +180,7 @@ impl SessionRecordFile {
     /// that record time to the current time. This will not create a new record
     /// when one is not found. A record will only be updated if it is still
     /// valid at this time.
-    pub fn touch(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<TouchResult> {
+    pub fn touch(&mut self, scope: RecordScope, auth_user: &AuthUser) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
         let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
@@ -215,17 +216,12 @@ impl SessionRecordFile {
         Ok(TouchResult::NotFound)
     }
 
-    /// Disable all records that match the given scope. If an auth user id is
-    /// given then only records with the given scope that are targeting that
-    /// specific user will be disabled.
-    pub fn disable(&mut self, scope: RecordScope, auth_user: Option<UserId>) -> io::Result<()> {
+    /// Disable all records that match the given scope.
+    pub fn disable(&mut self, scope: RecordScope) -> io::Result<()> {
         let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
         while let Some(record) = self.next_record()? {
-            let must_disable = auth_user
-                .map(|tu| record.matches(&scope, tu))
-                .unwrap_or_else(|| record.scope == scope);
-            if must_disable {
+            if record.scope == scope {
                 self.file.seek(io::SeekFrom::Current(-SIZE_OF_BOOL))?;
                 write_bool(false, &mut self.file)?;
             }
@@ -237,7 +233,7 @@ impl SessionRecordFile {
     /// Create a new record for the given scope and auth user id.
     /// If there is an existing record that matches the scope and auth user,
     /// then that record will be updated.
-    pub fn create(&mut self, scope: RecordScope, auth_user: UserId) -> io::Result<CreateResult> {
+    pub fn create(&mut self, scope: RecordScope, auth_user: &AuthUser) -> io::Result<CreateResult> {
         // lock the file to indicate that we are currently writing to it
         let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
@@ -256,7 +252,7 @@ impl SessionRecordFile {
         }
 
         // record was not found in the list so far, create a new one
-        let record = SessionRecord::new(scope, auth_user)?;
+        let record = SessionRecord::new(scope, auth_user.uid)?;
 
         // make sure we really are at the end of the file
         self.file.seek(io::SeekFrom::End(0))?;
@@ -552,8 +548,8 @@ impl SessionRecord {
 
     /// Returns true if this record matches the specified scope and is for the
     /// specified target auth user.
-    pub fn matches(&self, scope: &RecordScope, auth_user: UserId) -> bool {
-        self.scope == *scope && self.auth_user == auth_user
+    pub fn matches(&self, scope: &RecordScope, auth_user: &AuthUser) -> bool {
+        self.scope == *scope && self.auth_user == auth_user.uid
     }
 
     /// Returns true if this record was written somewhere in the time range
@@ -566,10 +562,26 @@ impl SessionRecord {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
+    use crate::common::{SudoPath, SudoString};
+    use crate::system::interface::GroupId;
     use crate::system::tests::tempfile;
+    use crate::system::User;
 
     static TEST_USER_ID: UserId = UserId::ROOT;
+
+    fn auth_user_from_uid(uid: libc::uid_t) -> AuthUser {
+        AuthUser::from_user_for_targetpw(User {
+            uid: UserId::new(uid),
+            gid: GroupId::new(0),
+            name: SudoString::new("dummy".to_owned()).unwrap(),
+            home: SudoPath::new(Path::new("/nonexistent").to_owned()).unwrap(),
+            shell: Path::new("/bin/sh").to_owned(),
+            groups: vec![],
+        })
+    }
 
     #[test]
     fn can_encode_and_decode() {
@@ -618,22 +630,22 @@ mod tests {
 
         let tty_sample = SessionRecord::new(scope, UserId::new(675)).unwrap();
 
-        assert!(tty_sample.matches(&scope, UserId::new(675)));
-        assert!(!tty_sample.matches(&scope, UserId::new(789)));
+        assert!(tty_sample.matches(&scope, &auth_user_from_uid(675)));
+        assert!(!tty_sample.matches(&scope, &auth_user_from_uid(789)));
         assert!(!tty_sample.matches(
             &RecordScope::Tty {
                 tty_device: DeviceId::new(20),
                 session_pid: ProcessId::new(1234),
                 init_time
             },
-            UserId::new(675),
+            &auth_user_from_uid(675),
         ));
         assert!(!tty_sample.matches(
             &RecordScope::Ppid {
                 group_pid: ProcessId::new(42),
                 init_time
             },
-            UserId::new(675),
+            &auth_user_from_uid(675),
         ));
 
         // make sure time is different
@@ -644,7 +656,7 @@ mod tests {
                 session_pid: ProcessId::new(1234),
                 init_time: ProcessCreateTime::new(1, 1)
             },
-            UserId::new(675),
+            &auth_user_from_uid(675),
         ));
     }
 
@@ -721,14 +733,14 @@ mod tests {
             session_pid: ProcessId::new(0),
             init_time: ProcessCreateTime::new(0, 0),
         };
-        let auth_user = UserId::new(2424);
-        let res = srf.create(tty_scope, auth_user).unwrap();
+        let auth_user = auth_user_from_uid(2424);
+        let res = srf.create(tty_scope, &auth_user).unwrap();
         let CreateResult::Created { time } = res else {
             panic!("Expected record to be created");
         };
 
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let second = srf.touch(tty_scope, auth_user).unwrap();
+        let second = srf.touch(tty_scope, &auth_user).unwrap();
         let TouchResult::Updated { old_time, new_time } = second else {
             panic!("Expected record to be updated");
         };
@@ -736,7 +748,7 @@ mod tests {
         assert_ne!(old_time, new_time);
 
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let res = srf.create(tty_scope, auth_user).unwrap();
+        let res = srf.create(tty_scope, &auth_user).unwrap();
         let CreateResult::Updated { old_time, new_time } = res else {
             panic!("Expected record to be updated");
         };
