@@ -21,15 +21,6 @@ specified as \f[I]sudoers\f[R] instead.
 \f[CR]\-h\f[R], \f[CR]\-\-help\f[R]
 Show a help message.
 .TP
-\f[CR]\-I\f[R], \f[CR]\-\-no\-includes\f[R]
-Do not edit included files.
-.TP
-\f[CR]\-q\f[R], \f[CR]\-\-quiet\f[R]
-Less verbose syntax error messages.
-.TP
-\f[CR]\-s\f[R], \f[CR]\-\-strict\f[R]
-Strict syntax checking.
-.TP
 \f[CR]\-V\f[R], \f[CR]\-\-version\f[R]
 Display version information and exit.
 .SH SEE ALSO

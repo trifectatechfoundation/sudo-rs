@@ -369,8 +369,10 @@ mod test {
     fn canonicalization() {
         assert_eq!(canonicalize("/").unwrap(), Path::new("/"));
         assert!(canonicalize("").is_err());
-        if cfg!(any(target_os = "linux", target_os = "macos")) {
-            // this test REQUIRES /usr/bin/unxz to be a symlink for /usr/bin/xz
+        if cfg!(any(target_os = "linux")) {
+            // this test REQUIRES /usr/bin/unxz to be a symlink for /usr/bin/xz or /usr/bin/busybox
+            assert!(Path::new("/bin").is_symlink());
+            assert!(Path::new("/usr/bin/unxz").is_symlink());
             assert_eq!(
                 canonicalize("/usr/bin/unxz").unwrap(),
                 Path::new("/usr/bin/unxz")
@@ -381,7 +383,8 @@ mod test {
                 Path::new("/usr/bin/unxz")
             );
         } else if cfg!(target_os = "freebsd") {
-            // this test REQUIRES /usr/bin/pkill to be a symlink for /usr/bin/pgrep
+            // this test REQUIRES /usr/bin/pkill to be a symlink
+            assert!(Path::new("/usr/bin/pkill").is_symlink());
             assert_eq!(
                 canonicalize("/usr/bin/pkill").unwrap(),
                 Path::new("/usr/bin/pkill")

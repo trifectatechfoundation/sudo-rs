@@ -26,15 +26,6 @@ title: VISUDO(8) sudo-rs 0.2.8 | sudo-rs
 `-h`, `--help`
 :   Show a help message.
 
-`-I`, `--no-includes`
-:   Do not edit included files.
-
-`-q`, `--quiet`
-:   Less verbose syntax error messages.
-
-`-s`, `--strict`
-:   Strict syntax checking.
-
 `-V`, `--version`
 :   Display version information and exit.
 

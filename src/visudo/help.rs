@@ -6,9 +6,6 @@ const HELP_MSG: &str = "Options:
   -c, --check              check-only mode
   -f, --file=sudoers       specify sudoers file location
   -h, --help               display help message and exit
-  -I, --no-includes        do not edit include files
-  -q, --quiet              less verbose (quiet) syntax error messages
-  -s, --strict             strict syntax checking
   -V, --version            display version information and exit
 ";
 

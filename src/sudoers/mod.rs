@@ -587,7 +587,15 @@ fn match_user(user: &impl UnixUser) -> impl Fn(&UserSpecifier) -> bool + '_ {
         UserSpecifier::User(id) => match_identifier(user, id),
         UserSpecifier::Group(Identifier::Name(name)) => user.in_group_by_name(name.as_cstr()),
         UserSpecifier::Group(Identifier::ID(num)) => user.in_group_by_gid(GroupId::new(*num)),
-        _ => todo!(), // nonunix-groups, netgroups, etc.
+        // nonunix-groups, netgroups, etc. are not implemented
+        UserSpecifier::NonunixGroup(group) => {
+            match group {
+                Identifier::Name(name) => auth_warn!("warning: non-unix group {name} was ignored"),
+                Identifier::ID(num) => auth_warn!("warning: non-unix group #{num} was ignored"),
+            }
+
+            false
+        }
     }
 }
 
