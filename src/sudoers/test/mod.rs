@@ -471,6 +471,12 @@ fn gh676_percent_h_escape_unsupported() {
 }
 
 #[test]
+fn gh1295_escaped_equal_argument_ok() {
+    assert!(try_parse_line("Cmd_Alias FOO_CMD = /bin/foo --bar=1").is_some());
+    assert!(try_parse_line(r"Cmd_Alias FOO_CMD = /bin/foo --bar\=1").is_some());
+}
+
+#[test]
 fn hashsign_error() {
     assert!(parse_line("#include foo bar").is_line_comment());
 }
