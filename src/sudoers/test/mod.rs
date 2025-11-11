@@ -258,6 +258,7 @@ fn permission_test() {
     // special chacters
     pass!(["foo@machine.name ALL=ALL"], "foo@machine.name" => request! { root, root }, "server"; "/bin/foo");
     pass!(["fnord$ ALL=ALL"], "fnord$" => request! { root, root }, "server"; "/bin/foo");
+    pass!(["ALL ALL=/foo/command --bar=1"], "user" => request! { root, root }, "server"; "/foo/command --bar=1");
 
     // apparmor
     #[cfg(feature = "apparmor")]
@@ -338,7 +339,7 @@ fn default_multi_test() {
     let (mut sudoers, _) = analyze(
         Path::new("/etc/fakesudoers"),
         sudoer![
-        "Defaults !env_editor, use_pty, secure_path=/etc, env_keep = \"FOO BAR\", env_keep -= BAR"
+        "Defaults !env_editor, use_pty, env_keep = \"FOO BAR\", env_keep -= BAR, secure_path=/etc"
     ],
     );
     sudoers.specify_host_user_runas(
