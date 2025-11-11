@@ -101,7 +101,7 @@ fn sudo_process() -> Result<(), Error> {
                     let user = CurrentUser::resolve()?;
                     let mut record_file =
                         SessionRecordFile::open_for_user(&user, Duration::seconds(0))?;
-                    record_file.disable(scope, None)?;
+                    record_file.disable(scope)?;
                 }
                 Ok(())
             }
