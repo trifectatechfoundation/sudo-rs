@@ -30,9 +30,10 @@ pub(in crate::exec) fn exec_pty(
     spawn_noexec_handler: Option<SpawnNoexecHandler>,
     mut command: Command,
     user_tty: UserTerm,
+    user: &User,
 ) -> io::Result<ExitReason> {
     // Allocate a pseudoterminal.
-    let pty = get_pty()?;
+    let pty = get_pty(user)?;
 
     // Create backchannels to communicate with the monitor.
     let mut backchannels = BackchannelPair::new().map_err(|err| {
@@ -267,7 +268,7 @@ pub(in crate::exec) fn exec_pty(
     exit_reason
 }
 
-fn get_pty() -> io::Result<Pty> {
+fn get_pty(user: &User) -> io::Result<Pty> {
     let tty_gid = Group::from_name(cstr!("tty"))
         .unwrap_or(None)
         .map(|group| group.gid);
@@ -277,9 +278,8 @@ fn get_pty() -> io::Result<Pty> {
         io::Error::new(io::ErrorKind::NotFound, "unable to open pty")
     })?;
 
-    let euid = User::effective_uid();
     let gid = tty_gid.unwrap_or(User::effective_gid());
-    chown(&pty.path, euid, gid).map_err(|err| {
+    chown(&pty.path, user.uid, gid).map_err(|err| {
         dev_error!("cannot change owner for pty: {err}");
         err
     })?;
