@@ -3,7 +3,7 @@ use sudo_test::{
     Command, Env,
 };
 
-use crate::SUDOERS_ALL_ALL_NOPASSWD;
+use crate::{OTHER_USERNAME, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 #[derive(Debug)]
 struct Processes {
@@ -110,14 +110,19 @@ fn terminal_is_restored() {
 
 #[test]
 fn pty_owner() {
-    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build();
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"])
+        .user(USERNAME)
+        .user(OTHER_USERNAME)
+        .build();
 
     let stdout = Command::new("sudo")
-        .args(["sh", "-c", PRINT_PTY_OWNER])
+        .as_user(USERNAME)
+        .args(["-u", OTHER_USERNAME, "sh", "-c", PRINT_PTY_OWNER])
         .tty(true)
         .output(&env)
         .stdout();
-    assert_eq!(stdout.trim(), "root tty");
+
+    assert_eq!(stdout.trim(), format!("{OTHER_USERNAME} tty"));
 }
 
 #[test]
