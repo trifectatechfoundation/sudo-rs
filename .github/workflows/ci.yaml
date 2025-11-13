@@ -18,20 +18,20 @@ jobs:
       SUDO_UNDER_TEST: ours
       CI: true
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
 
       - name: cache docker layers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /tmp/.buildx-cache
           key: docker-buildx-rs-${{ github.sha }}
           restore-keys: docker-buildx-rs-
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -54,9 +54,9 @@ jobs:
     outputs:
       updated: ${{ steps.filter.outputs.test-framework }}
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
         with:
           filters: |
@@ -70,13 +70,13 @@ jobs:
     env:
       CI: true
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -100,20 +100,20 @@ jobs:
       SUDO_TEST_PROFRAW_DIR: /tmp/profraw
       CI: true
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
 
       - name: cache docker layers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: /tmp/.buildx-cache
           key: docker-buildx-rs-${{ github.sha }}
           restore-keys: docker-buildx-rs-
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -148,10 +148,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "compliance-tests"
           workspaces: |
@@ -177,13 +177,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install llvm-tools component
         run: rustup component add llvm-tools
 
       - name: Add cargo-llvm-cov
-        uses: taiki-e/install-action@47be02f2de8a32619316956f6117e150bdc6763f
+        uses: taiki-e/install-action@47be02f2de8a32619316956f6117e150bdc6763f # v2.62.44
         with:
           tool: cargo-llvm-cov
 
@@ -193,7 +193,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "stable"
 
@@ -207,7 +207,7 @@ jobs:
         run: cargo llvm-cov --workspace --all-targets --release --lcov --output-path lcov.info
 
       - name: Upload code coverage
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
         with:
           files: lcov.info
 
@@ -215,7 +215,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install nightly rust
         run: |
@@ -228,7 +228,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "nightly"
 
@@ -248,7 +248,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install rust 1.70
         run: rustup override set 1.70
@@ -259,7 +259,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "msrv"
 
@@ -277,14 +277,14 @@ jobs:
     container: fedora:latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install dependencies
         run: |
           dnf install -y cargo pam-devel
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "stable-fedora"
 
@@ -307,14 +307,14 @@ jobs:
     container: alpine:latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install dependencies
         run: |
           apk add cargo linux-pam-dev sudo tzdata coreutils-fmt
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "stable-alpine"
 
@@ -339,7 +339,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Add 32-bit target
         run: |
@@ -352,7 +352,7 @@ jobs:
           sudo apt install libpam0g-dev:i386 gcc-multilib
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "stable-32bit"
 
@@ -370,7 +370,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install nightly rust and miri
         run: |
@@ -384,7 +384,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: miri
 
@@ -398,7 +398,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install dependencies
         run: |
@@ -406,7 +406,7 @@ jobs:
           sudo apt install libpam0g-dev
 
       - name: Install rust-bindgen
-        uses: taiki-e/install-action@47be02f2de8a32619316956f6117e150bdc6763f
+        uses: taiki-e/install-action@47be02f2de8a32619316956f6117e150bdc6763f # v2.62.44
         with:
           tool: bindgen-cli@0.70.1
 
@@ -424,7 +424,7 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Run rustfmt
         run: |
@@ -437,10 +437,10 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "stable"
 
@@ -456,10 +456,10 @@ jobs:
     env:
       RUSTDOCFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1
+        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
         with:
           shared-key: "stable"
 
@@ -473,10 +473,10 @@ jobs:
     needs: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@47be02f2de8a32619316956f6117e150bdc6763f
+        uses: taiki-e/install-action@47be02f2de8a32619316956f6117e150bdc6763f # v2.62.44
         with:
           tool: cargo-audit
 
