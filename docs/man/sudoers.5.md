@@ -31,7 +31,7 @@ The `HOME`, `MAIL`, `SHELL`, `LOGNAME` and `USER` environment variables are init
 If `LOGNAME` and `USER` are to be preserved but only one of them is present in the user's environment, the other will be set to the same value.  This avoids an inconsistent environment where one of the variables describing the user name is set to the invoking user and one is set to the target user.
 Environment variables with a value beginning with `()` are removed, as they may be interpreted as functions by the bash shell.
 
-Environment variables specified by *env_check* or *env_keep* may include one or more ‘*’ characters which will match zero or more characters.
+Environment variables specified by *env_check* or *env_keep* may include one or more ‘\*’ characters which will match zero or more characters.
 No other wildcard characters are supported. Other sudoers options may influence the command environment, such as *secure_path*.
 
 Variables in the PAM environment may be merged in to the environment.  If a variable in the PAM environment is already present in the user's environment, the value will only be overridden if the variable was not preserved by `sudo-rs`. Variables preserved from the invoking user's environment by the *env_keep* list take precedence over those in the PAM environment.
@@ -263,7 +263,7 @@ user alan may run any command as either user root or bin, optionally setting the
 
 ## Chdir_Spec
 
-The working directory that the command will be run in can be specified using the CWD setting.  The directory must be a fully-qualified path name beginning with a ‘/’ or ‘~’ character, or the special value “*”.  A value of “*” indicates that the user may specify the working directory by running sudo with the -D option.  By default, commands are run from the invoking user's current working directory, unless the -i option is given.  Path names of the form ~user/path/name are interpreted as being relative to the named user's home directory.  If the user name is omitted, the path will be relative to the runas user's home directory.
+The working directory that the command will be run in can be specified using the CWD setting.  The directory must be a fully-qualified path name beginning with a ‘/’ or ‘~’ character, or the special value “\*”.  A value of “\*” indicates that the user may specify the working directory by running sudo with the -D option.  By default, commands are run from the invoking user's current working directory, unless the -i option is given.  Path names of the form ~user/path/name are interpreted as being relative to the named user's home directory.  If the user name is omitted, the path will be relative to the runas user's home directory.
 
 ## Tag_Spec
 

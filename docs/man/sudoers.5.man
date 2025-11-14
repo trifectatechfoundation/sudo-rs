@@ -70,11 +70,11 @@ Environment variables with a value beginning with \f[CR]()\f[R] are
 removed, as they may be interpreted as functions by the bash shell.
 .PP
 Environment variables specified by \f[I]env_check\f[R] or
-\f[I]env_keep\f[R] may include one or more \[cq]\f[I]\[cq] characters
-which will match zero or more characters.
+\f[I]env_keep\f[R] may include one or more `*' characters which will
+match zero or more characters.
 No other wildcard characters are supported.
 Other sudoers options may influence the command environment, such as
-\f[R]secure_path*.
+\f[I]secure_path\f[R].
 .PP
 Variables in the PAM environment may be merged in to the environment.
 If a variable in the PAM environment is already present in the
@@ -487,9 +487,9 @@ setting the group to operator or system.
 The working directory that the command will be run in can be specified
 using the CWD setting.
 The directory must be a fully\-qualified path name beginning with a `/'
-or `\[ti]' character, or the special value \[lq]\f[I]\[rq].
-A value of \[lq]\f[R]\[rq] indicates that the user may specify the
-working directory by running sudo with the \-D option.
+or `\[ti]' character, or the special value \[lq]*\[rq].
+A value of \[lq]*\[rq] indicates that the user may specify the working
+directory by running sudo with the \-D option.
 By default, commands are run from the invoking user\[cq]s current
 working directory, unless the \-i option is given.
 Path names of the form \[ti]user/path/name are interpreted as being
