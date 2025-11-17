@@ -797,66 +797,49 @@ fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(
 }
 
 fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
-    macro_rules! tuple {
-        ($expr:expr) => {
-            (&$expr as &dyn IsAbsent, {
-                let name = concat!("--", stringify!($expr));
-                if name.contains('_') {
-                    Cow::Owned(name.replace('_', "-"))
-                } else {
-                    Cow::Borrowed(name)
-                }
-            })
+    macro_rules! check_options {
+        ($($field:ident $(= $name:literal)?,)*) => {{
+            let SudoOptions { $($field),* } = opts;
+
+            $(
+                let name = check_options!(@name $field $($name)?);
+                ensure_is_absent(context, &$field, &name)?;
+            )*
+
+            Ok(())
+        }};
+        (@name $field:ident) => {{
+            let name = concat!("--", stringify!($field));
+            if name.contains('_') {
+                Cow::Owned(name.replace('_', "-"))
+            } else {
+                Cow::Borrowed(name)
+            }
+        }};
+        (@name $field:ident $name:literal) => {
+            $name
         };
     }
 
-    let SudoOptions {
+    check_options!(
         bell,
         chdir,
+        edit,
         group,
+        help,
+        list,
         login,
         non_interactive,
         other_user,
+        remove_timestamp,
+        reset_timestamp,
         shell,
         stdin,
         prompt,
         user,
-        env_var_list,
-        edit,
-        help,
-        list,
-        remove_timestamp,
-        reset_timestamp,
         validate,
         version,
-        positional_args,
-    } = opts;
-
-    let flags = [
-        tuple!(bell),
-        tuple!(chdir),
-        tuple!(edit),
-        tuple!(group),
-        tuple!(help),
-        tuple!(list),
-        tuple!(login),
-        tuple!(non_interactive),
-        tuple!(other_user),
-        tuple!(remove_timestamp),
-        tuple!(reset_timestamp),
-        tuple!(shell),
-        tuple!(stdin),
-        tuple!(prompt),
-        tuple!(user),
-        tuple!(validate),
-        tuple!(version),
-    ];
-    for (value, name) in flags {
-        ensure_is_absent(context, value, &name)?;
-    }
-
-    ensure_is_absent(context, &env_var_list, "environment variable")?;
-    ensure_is_absent(context, &positional_args, "command")?;
-
-    Ok(())
+        positional_args = "command",
+        env_var_list = "environment variable",
+    )
 }
