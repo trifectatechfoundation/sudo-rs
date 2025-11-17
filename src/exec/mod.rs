@@ -174,7 +174,13 @@ pub fn run_command(
 
     if options.use_pty {
         match UserTerm::open() {
-            Ok(user_tty) => exec_pty(sudo_pid, spawn_noexec_handler, command, user_tty),
+            Ok(user_tty) => exec_pty(
+                sudo_pid,
+                spawn_noexec_handler,
+                command,
+                user_tty,
+                options.user,
+            ),
             Err(err) => {
                 dev_info!("Could not open user's terminal, not allocating a pty: {err}");
                 exec_no_pty(sudo_pid, spawn_noexec_handler, command)
