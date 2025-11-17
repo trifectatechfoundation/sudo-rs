@@ -170,6 +170,8 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
 
 // sudo -v [-ABkNnS] [-g group] [-h host] [-p prompt] [-u user]
 pub struct SudoValidateOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -k
@@ -194,6 +196,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         let validate = mem::take(&mut opts.validate);
         debug_assert!(validate);
 
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -209,6 +212,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         reject_all("--validate", opts)?;
 
         Ok(Self {
+            askpass,
             bell,
             reset_timestamp,
             non_interactive,
@@ -222,6 +226,8 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
 
 // sudo -e [-ABkNnS] [-r role] [-t type] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...
 pub struct SudoEditOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -k
@@ -249,6 +255,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         let edit = mem::take(&mut opts.edit);
         debug_assert!(edit);
 
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -270,6 +277,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         }
 
         Ok(Self {
+            askpass,
             bell,
             reset_timestamp,
             non_interactive,
@@ -285,6 +293,8 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
 
 // sudo -l [-ABkNnS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command [arg ...]]
 pub struct SudoListOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -l OR -l -l
@@ -312,6 +322,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let list = opts.list.take().unwrap();
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
@@ -338,6 +349,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         reject_all("--list", opts)?;
 
         Ok(Self {
+            askpass,
             bell,
             list,
             reset_timestamp,
@@ -354,6 +366,8 @@ impl TryFrom<SudoOptions> for SudoListOptions {
 
 // sudo [-ABbEHnPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i | -s] [command [arg ...]]
 pub struct SudoRunOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -E
@@ -385,6 +399,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -424,6 +439,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         reject_all(context, opts)?;
 
         Ok(Self {
+            askpass,
             bell,
             reset_timestamp,
             non_interactive,
@@ -442,6 +458,8 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
 
 #[derive(Default)]
 struct SudoOptions {
+    // -A
+    askpass: bool,
     // -B
     bell: bool,
     // -D
@@ -646,6 +664,9 @@ impl SudoOptions {
         for arg in arg_iter {
             match arg {
                 SudoArg::Flag(flag) => match flag.as_str() {
+                    "-A" | "--askpass" => {
+                        options.askpass = true;
+                    }
                     "-B" | "--bell" => {
                         options.bell = true;
                     }
@@ -822,6 +843,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     }
 
     check_options!(
+        askpass,
         bell,
         chdir,
         edit,
