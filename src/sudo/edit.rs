@@ -10,7 +10,7 @@ use std::{io, process};
 
 use crate::common::SudoPath;
 use crate::exec::ExitReason;
-use crate::log::user_info;
+use crate::log::{user_error, user_info};
 use crate::system::file::{create_temporary_dir, FileLock};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
 use crate::system::{fork, ForkResult};
@@ -157,8 +157,8 @@ struct TempDirDropGuard(PathBuf);
 impl Drop for TempDirDropGuard {
     fn drop(&mut self) {
         if let Err(e) = std::fs::remove_dir_all(&self.0) {
-            eprintln_ignore_io_error!(
-                "Failed to remove temporary directory {}: {e}",
+            user_error!(
+                "failed to remove temporary directory {}: {e}",
                 self.0.display(),
             );
         };
@@ -169,7 +169,7 @@ fn handle_child(editor: &Path, file: Vec<ChildFileInfo<'_>>) -> ! {
     match handle_child_inner(editor, file) {
         Ok(()) => process::exit(0),
         Err(err) => {
-            eprintln_ignore_io_error!("{err}");
+            user_error!("{err}");
             process::exit(1);
         }
     }
@@ -184,7 +184,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
     }
 
     let tempdir = TempDirDropGuard(
-        create_temporary_dir().map_err(|e| format!("Failed to create temporary directory: {e}"))?,
+        create_temporary_dir().map_err(|e| format!("failed to create temporary directory: {e}"))?,
     );
 
     for (i, file) in files.iter_mut().enumerate() {
@@ -192,7 +192,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         let dir = tempdir.0.join(format!("{i}"));
         std::fs::create_dir(&dir).map_err(|e| {
             format!(
-                "Failed to create temporary directory {}: {e}",
+                "failed to create temporary directory {}: {e}",
                 dir.display(),
             )
         })?;
@@ -205,7 +205,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
             .open(&tempfile_path)
             .map_err(|e| {
                 format!(
-                    "Failed to create temporary file {}: {e}",
+                    "failed to create temporary file {}: {e}",
                     tempfile_path.display(),
                 )
             })?;
@@ -213,7 +213,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         // Write to temp file
         tempfile.write_all(&file.old_data).map_err(|e| {
             format!(
-                "Failed to write to temporary file {}: {e}",
+                "failed to write to temporary file {}: {e}",
                 tempfile_path.display(),
             )
         })?;
@@ -229,7 +229,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
                 .map(|file| file.tempfile_path.as_ref().expect("filled in above")),
         )
         .status()
-        .map_err(|e| format!("Failed to run editor {}: {e}", editor.display()))?;
+        .map_err(|e| format!("failed to run editor {}: {e}", editor.display()))?;
 
     if !status.success() {
         drop(tempdir);
@@ -246,7 +246,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         // Read from temp file
         let new_data = std::fs::read(tempfile_path).map_err(|e| {
             format!(
-                "Failed to read from temporary file {}: {e}",
+                "failed to read from temporary file {}: {e}",
                 tempfile_path.display(),
             )
         })?;
@@ -254,7 +254,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         // FIXME preserve temporary file if the original couldn't be written to
         std::fs::remove_file(tempfile_path).map_err(|e| {
             format!(
-                "Failed to remove temporary file {}: {e}",
+                "failed to remove temporary file {}: {e}",
                 tempfile_path.display(),
             )
         })?;
@@ -271,11 +271,11 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
             ) {
                 Ok(b'y') => {}
                 _ => {
-                    eprintln_ignore_io_error!("Not overwriting {}", file.path.display());
+                    user_info!("not overwriting {}", file.path.display());
 
                     // Parent ignores write when new data matches old data
                     write_stream(&mut file.new_data_tx, &file.old_data)
-                        .map_err(|e| format!("Failed to write data to parent: {e}"))?;
+                        .map_err(|e| format!("failed to write data to parent: {e}"))?;
 
                     continue;
                 }
@@ -284,7 +284,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
 
         // Write to socket
         write_stream(&mut file.new_data_tx, &new_data)
-            .map_err(|e| format!("Failed to write data to parent: {e}"))?;
+            .map_err(|e| format!("failed to write data to parent: {e}"))?;
     }
 
     process::exit(0);
