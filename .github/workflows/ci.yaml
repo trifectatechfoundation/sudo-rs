@@ -6,10 +6,12 @@ on:
   push:
     branches:
       - main
+      - l10n
   pull_request:
   merge_group:
     branches:
       - main
+      - l10n
 
 jobs:
   e2e-tests:
