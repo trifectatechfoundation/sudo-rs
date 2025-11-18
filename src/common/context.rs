@@ -2,7 +2,6 @@ use std::{env, io};
 
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::exec::{RunOptions, Umask};
-#[cfg_attr(not(feature = "sudoedit"), allow(unused_imports))]
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::system::{audit::sudo_call, Group, Hostname, Process, User};
@@ -36,7 +35,6 @@ pub struct Context {
     pub umask: Umask,
     pub noninteractive_auth: bool,
     // sudoedit
-    #[cfg_attr(not(feature = "sudoedit"), allow(unused))]
     pub files_to_edit: Vec<Option<SudoPath>>,
 }
 
@@ -111,7 +109,6 @@ impl Context {
         })
     }
 
-    #[cfg(feature = "sudoedit")]
     pub fn from_edit_opts(sudo_options: SudoEditOptions) -> Result<Context, Error> {
         use std::path::Path;
         let hostname = Hostname::resolve();

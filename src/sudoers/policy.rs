@@ -145,7 +145,6 @@ impl Judgement {
         }
     }
 
-    #[cfg_attr(not(feature = "sudoedit"), allow(unused))]
     pub(crate) fn preferred_editor(&self) -> std::path::PathBuf {
         super::select_editor(&self.settings, true)
     }

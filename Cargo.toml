@@ -34,7 +34,7 @@ libc = "0.2.152"
 glob = "0.3.0"
 
 [features]
-default = ["sudoedit"]
+default = []
 
 # when enabled, use "sudo-i" PAM service name for sudo -i instead of "sudo"
 # ONLY ENABLE THIS FEATURE if you know that original sudo uses "sudo-i"
@@ -52,9 +52,7 @@ dev = []
 # compilation using "cargo --all-features", which should not be used on sudo-rs
 do-not-use-all-features = []
 
-# whether to enable 'sudoedit' (this will become a default feature, or
-# perhaps we can just remove the feature flag altogether)
-# NOTE: this is currently work in progress and *NOT* implemented
+# sudoedit support is now always enabled. this feature only exists for back compat reasons
 sudoedit = []
 
 [profile.release]

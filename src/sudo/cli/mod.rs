@@ -6,13 +6,11 @@ use std::{borrow::Cow, mem};
 use crate::common::{SudoPath, SudoString};
 
 pub mod help;
-#[cfg_attr(not(feature = "sudoedit"), allow(unused))]
 pub mod help_edit;
 
 #[cfg(test)]
 mod tests;
 
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 pub enum SudoAction {
     Edit(SudoEditOptions),
     Help(SudoHelpOptions),
@@ -222,7 +220,6 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
 }
 
 // sudo -e [-ABkNnS] [-r role] [-t type] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...
-#[cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 pub struct SudoEditOptions {
     // -B
     pub bell: bool,
