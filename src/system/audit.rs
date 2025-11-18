@@ -1,4 +1,3 @@
-#![cfg_attr(not(feature = "sudoedit"), allow(dead_code))]
 use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};

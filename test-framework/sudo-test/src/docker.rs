@@ -192,9 +192,6 @@ pub fn build_base_image() {
                     #[cfg(feature = "apparmor")]
                     features.push("apparmor");
 
-                    // TEMPORARY: when sudoedit is mainlined we can remove this
-                    features.push("sudoedit");
-
                     features.join(",")
                 });
 

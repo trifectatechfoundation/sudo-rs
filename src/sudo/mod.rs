@@ -15,7 +15,6 @@ use std::path::PathBuf;
 
 mod cli;
 pub(crate) use cli::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
-#[cfg(feature = "sudoedit")]
 mod edit;
 
 pub(crate) mod diagnostic;
@@ -119,13 +118,7 @@ fn sudo_process() -> Result<(), Error> {
                 }
             }
             SudoAction::List(options) => pipeline::run_list(options),
-            #[cfg(feature = "sudoedit")]
             SudoAction::Edit(options) => pipeline::run_edit(options),
-            #[cfg(not(feature = "sudoedit"))]
-            SudoAction::Edit(_) => {
-                eprintln_ignore_io_error!("error: `--edit` flag has not yet been implemented");
-                std::process::exit(1);
-            }
         },
         Err(e) => {
             eprintln_ignore_io_error!("{e}\n{}", usage_msg);
