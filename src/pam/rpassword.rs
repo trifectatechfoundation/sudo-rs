@@ -126,8 +126,7 @@ fn read_unbuffered(
 
     // invariant: the amount of nonzero-bytes in the buffer correspond
     // with the amount of asterisks on the terminal (both tracked in `pw_len`)
-    //TODO: we actually only want to allow clippy::unbuffered_bytes
-    #[allow(clippy::perf)]
+    #[allow(clippy::unbuffered_bytes)]
     for read_byte in source.bytes() {
         let read_byte = read_byte?;
 

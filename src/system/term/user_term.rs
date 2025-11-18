@@ -85,7 +85,7 @@ fn catching_sigttou(mut function: impl FnMut() -> io::Result<()>) -> io::Result<
     let action = {
         let mut raw: libc::sigaction = make_zeroed_sigaction();
         // Call `on_sigttou` if `SIGTTOU` arrives.
-        raw.sa_sigaction = on_sigttou as sighandler_t;
+        raw.sa_sigaction = on_sigttou as *const () as sighandler_t;
         // Exclude any other signals from the set
         raw.sa_mask = {
             let mut sa_mask = MaybeUninit::<sigset_t>::uninit();

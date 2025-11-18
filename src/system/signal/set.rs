@@ -24,7 +24,7 @@ impl SignalAction {
                 // Specify that we want to pass a signal-catching function in `sa_sigaction`.
                 sa_flags |= libc::SA_SIGINFO;
                 (
-                    super::stream::send_siginfo as libc::sighandler_t,
+                    super::stream::send_siginfo as *const () as libc::sighandler_t,
                     SignalSet::full()?,
                 )
             }
