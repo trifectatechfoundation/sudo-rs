@@ -14,31 +14,24 @@
 ///   (although much more robust than in the original code)
 ///
 use std::io::{self, Error, ErrorKind, Read};
-use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd};
 use std::time::Instant;
 use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
-use crate::cutils::cerr;
+use crate::cutils::{cerr, safe_isatty};
 use crate::system::time::Duration;
 
 use super::securemem::PamBuffer;
 
 struct HiddenInput {
-    tty: fs::File,
+    tty: OwnedFd,
     term_orig: termios,
 }
 
 impl HiddenInput {
-    fn new() -> io::Result<Option<HiddenInput>> {
-        // control ourselves that we are really talking to a TTY
-        // mitigates: https://marc.info/?l=oss-security&m=168164424404224
-        let Ok(tty) = fs::File::open("/dev/tty") else {
-            // if we have nothing to show, we have nothing to hide
-            return Ok(None);
-        };
-
+    fn new(tty: OwnedFd) -> io::Result<HiddenInput> {
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
         // terminal back to its original state.
@@ -58,7 +51,7 @@ impl HiddenInput {
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
         cerr(unsafe { tcsetattr(tty.as_raw_fd(), TCSANOW, &term) })?;
 
-        Ok(Some(HiddenInput { tty, term_orig }))
+        Ok(HiddenInput { tty, term_orig })
     }
 }
 
@@ -89,17 +82,27 @@ fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
     }
 }
 
-enum Hidden<'a> {
+pub(super) enum Hidden<T> {
     No,
-    Yes(&'a HiddenInput),
-    WithFeedback(&'a HiddenInput),
+    Yes(T),
+    WithFeedback(T),
+}
+
+impl<T> Hidden<T> {
+    fn as_ref(&self) -> Hidden<&T> {
+        match self {
+            Hidden::No => Hidden::No,
+            Hidden::Yes(x) => Hidden::Yes(x),
+            Hidden::WithFeedback(x) => Hidden::WithFeedback(x),
+        }
+    }
 }
 
 /// Reads a password from the given file descriptor while optionally showing feedback to the user.
 fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
-    hide_input: Hidden<'_>,
+    hide_input: Hidden<&HiddenInput>,
 ) -> io::Result<PamBuffer> {
     struct ExitGuard<'a> {
         pw_len: usize,
@@ -260,6 +263,8 @@ pub enum Terminal<'a> {
 impl Terminal<'_> {
     /// Open the current TTY for user communication
     pub fn open_tty() -> io::Result<Self> {
+        // control ourselves that we are really talking to a TTY
+        // mitigates: https://marc.info/?l=oss-security&m=168164424404224
         Ok(Terminal::Tty(
             fs::OpenOptions::new()
                 .read(true)
@@ -273,48 +278,36 @@ impl Terminal<'_> {
         Ok(Terminal::StdIE(io::stdin().lock(), io::stderr().lock()))
     }
 
-    /// Reads input with TTY echo disabled
-    pub fn read_password(&mut self, timeout: Option<Duration>) -> io::Result<PamBuffer> {
-        let hide_input = HiddenInput::new()?;
-        self.read_inner(
-            timeout,
-            hide_input.as_ref().map(Hidden::Yes).unwrap_or(Hidden::No),
-        )
-    }
-
-    /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
-    pub fn read_password_with_feedback(
+    /// Reads input with TTY echo and visual feedback set according to the `hidden` parameter.
+    pub(super) fn read_input(
         &mut self,
         timeout: Option<Duration>,
+        hidden: Hidden<()>,
     ) -> io::Result<PamBuffer> {
-        let hide_input = HiddenInput::new()?;
-        self.read_inner(
-            timeout,
-            hide_input
-                .as_ref()
-                .map(Hidden::WithFeedback)
-                .unwrap_or(Hidden::No),
-        )
-    }
+        let do_hide_input = |input: BorrowedFd| -> Result<Hidden<HiddenInput>, io::Error> {
+            if !safe_isatty(input) {
+                // Input is not a tty, so we can't hide feedback.
+                return Ok(Hidden::No);
+            }
+            match hidden {
+                Hidden::No => Ok(Hidden::No),
+                Hidden::Yes(()) => Ok(Hidden::Yes(HiddenInput::new(input.try_clone_to_owned()?)?)),
+                Hidden::WithFeedback(()) => Ok(Hidden::WithFeedback(HiddenInput::new(
+                    input.try_clone_to_owned()?,
+                )?)),
+            }
+        };
 
-    /// Reads input with TTY echo enabled
-    pub fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        self.read_inner(None, Hidden::No)
-    }
-
-    fn read_inner(
-        &mut self,
-        timeout: Option<Duration>,
-        hide_input: Hidden<'_>,
-    ) -> io::Result<PamBuffer> {
         match self {
             Terminal::StdIE(stdin, stdout) => {
+                let hide_input = do_hide_input(stdin.as_fd())?;
                 let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
-                read_unbuffered(&mut reader, stdout, hide_input)
+                read_unbuffered(&mut reader, stdout, hide_input.as_ref())
             }
             Terminal::Tty(file) => {
+                let hide_input = do_hide_input(file.as_fd())?;
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
-                read_unbuffered(&mut reader, &mut &*file, hide_input)
+                read_unbuffered(&mut reader, &mut &*file, hide_input.as_ref())
             }
         }
     }
