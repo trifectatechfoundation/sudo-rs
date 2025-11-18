@@ -13,7 +13,7 @@ use crate::exec::ExitReason;
 use crate::log::{user_error, user_info};
 use crate::system::file::{create_temporary_dir, FileLock};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
-use crate::system::{fork, ForkResult};
+use crate::system::{fork, mark_fds_as_cloexec, ForkResult};
 
 struct ParentFileInfo<'a> {
     path: &'a Path,
@@ -177,6 +177,8 @@ fn handle_child(editor: &Path, file: Vec<ChildFileInfo<'_>>) -> ! {
 
 // FIXME maybe use pipes once std::io::pipe has been stabilized long enough.
 fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Result<(), String> {
+    mark_fds_as_cloexec().map_err(|e| format!("Failed to mark fds as CLOEXEC: {e}"))?;
+
     // Drop root privileges.
     // SAFETY: setuid does not change any memory and only affects OS state.
     unsafe {
