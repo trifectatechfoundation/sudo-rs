@@ -404,7 +404,7 @@ fn resolves_command_in_invoking_users_path_fail() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: true: command not found"
     } else {
-        "sudo-rs: 'true': command not found"
+        "sudo: 'true': command not found"
     };
     assert_eq!(output.stderr(), diagnostic);
 }
@@ -453,7 +453,7 @@ fn relative_path_does_not_exist() {
     let diagnostic = if sudo_test::is_original_sudo() {
         format!("sudo: {prog_rel_path}: command not found")
     } else {
-        format!("sudo-rs: '{prog_rel_path}': command not found")
+        format!("sudo: '{prog_rel_path}': command not found")
     };
     assert_contains!(output.stderr(), diagnostic);
 }
