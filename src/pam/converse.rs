@@ -1,6 +1,7 @@
 use std::io;
 
 use crate::cutils::string_from_ptr;
+use crate::pam::rpassword::Hidden;
 use crate::system::{
     signal::{self, SignalSet},
     time::Duration,
@@ -142,8 +143,11 @@ impl CLIConverser {
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let (mut tty, _guard) = self.open()?;
-        tty.prompt(&format!("[{}: input needed] {msg} ", self.name))?;
-        Ok(tty.read_cleartext()?)
+        Ok(tty.read_input(
+            &format!("[{}: input needed] {msg} ", self.name),
+            None,
+            Hidden::No,
+        )?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
@@ -151,12 +155,15 @@ impl Converser for CLIConverser {
         if self.bell && !self.use_stdin {
             tty.bell()?;
         }
-        tty.prompt(msg)?;
-        if self.password_feedback {
-            tty.read_password_with_feedback(self.password_timeout)
-        } else {
-            tty.read_password(self.password_timeout)
-        }
+        tty.read_input(
+            msg,
+            self.password_timeout,
+            if self.password_feedback {
+                Hidden::WithFeedback(())
+            } else {
+                Hidden::Yes(())
+            },
+        )
         .map_err(|err| {
             if let io::ErrorKind::TimedOut = err.kind() {
                 PamError::TimedOut

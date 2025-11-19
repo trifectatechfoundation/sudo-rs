@@ -20,30 +20,23 @@ use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
-use crate::cutils::cerr;
+use crate::cutils::{cerr, safe_isatty};
 use crate::system::time::Duration;
 
 use super::securemem::PamBuffer;
 
-struct HiddenInput {
-    tty: fs::File,
+struct HiddenInput<'a> {
+    tty: BorrowedFd<'a>,
     term_orig: termios,
 }
 
-impl HiddenInput {
-    fn new() -> io::Result<Option<HiddenInput>> {
-        // control ourselves that we are really talking to a TTY
-        // mitigates: https://marc.info/?l=oss-security&m=168164424404224
-        let Ok(tty) = fs::File::open("/dev/tty") else {
-            // if we have nothing to show, we have nothing to hide
-            return Ok(None);
-        };
-
+impl HiddenInput<'_> {
+    fn new(tty: BorrowedFd) -> io::Result<HiddenInput> {
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
         // terminal back to its original state.
-        let mut term = safe_tcgetattr(&tty)?;
-        let term_orig = safe_tcgetattr(&tty)?;
+        let mut term = safe_tcgetattr(tty)?;
+        let term_orig = safe_tcgetattr(tty)?;
 
         // Hide the password. This is what makes this function useful.
         term.c_lflag &= !ECHO;
@@ -58,11 +51,11 @@ impl HiddenInput {
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
         cerr(unsafe { tcsetattr(tty.as_raw_fd(), TCSANOW, &term) })?;
 
-        Ok(Some(HiddenInput { tty, term_orig }))
+        Ok(HiddenInput { tty, term_orig })
     }
 }
 
-impl Drop for HiddenInput {
+impl Drop for HiddenInput<'_> {
     fn drop(&mut self) {
         // Set the the mode back to normal
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
@@ -89,17 +82,17 @@ fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
     }
 }
 
-enum Hidden<'a> {
+pub(super) enum Hidden<T> {
     No,
-    Yes(&'a HiddenInput),
-    WithFeedback(&'a HiddenInput),
+    Yes(T),
+    WithFeedback(T),
 }
 
 /// Reads a password from the given file descriptor while optionally showing feedback to the user.
 fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
-    hide_input: Hidden<'_>,
+    hide_input: &Hidden<HiddenInput>,
 ) -> io::Result<PamBuffer> {
     struct ExitGuard<'a> {
         pw_len: usize,
@@ -259,6 +252,8 @@ pub enum Terminal<'a> {
 impl Terminal<'_> {
     /// Open the current TTY for user communication
     pub fn open_tty() -> io::Result<Self> {
+        // control ourselves that we are really talking to a TTY
+        // mitigates: https://marc.info/?l=oss-security&m=168164424404224
         Ok(Terminal::Tty(
             fs::OpenOptions::new()
                 .read(true)
@@ -272,48 +267,41 @@ impl Terminal<'_> {
         Ok(Terminal::StdIE(io::stdin().lock(), io::stderr().lock()))
     }
 
-    /// Reads input with TTY echo disabled
-    pub fn read_password(&mut self, timeout: Option<Duration>) -> io::Result<PamBuffer> {
-        let hide_input = HiddenInput::new()?;
-        self.read_inner(
-            timeout,
-            hide_input.as_ref().map(Hidden::Yes).unwrap_or(Hidden::No),
-        )
-    }
-
-    /// Reads input with TTY echo disabled, but do provide visual feedback while typing.
-    pub fn read_password_with_feedback(
+    /// Reads input with TTY echo and visual feedback set according to the `hidden` parameter.
+    pub(super) fn read_input(
         &mut self,
+        prompt: &str,
         timeout: Option<Duration>,
+        hidden: Hidden<()>,
     ) -> io::Result<PamBuffer> {
-        let hide_input = HiddenInput::new()?;
-        self.read_inner(
-            timeout,
-            hide_input
-                .as_ref()
-                .map(Hidden::WithFeedback)
-                .unwrap_or(Hidden::No),
-        )
-    }
+        fn do_hide_input(
+            hidden: Hidden<()>,
+            input: BorrowedFd,
+        ) -> Result<Hidden<HiddenInput>, io::Error> {
+            Ok(match hidden {
+                // If input is not a tty, we can't hide feedback.
+                _ if !safe_isatty(input) => Hidden::No,
 
-    /// Reads input with TTY echo enabled
-    pub fn read_cleartext(&mut self) -> io::Result<PamBuffer> {
-        self.read_inner(None, Hidden::No)
-    }
+                Hidden::No => Hidden::No,
+                Hidden::Yes(()) => Hidden::Yes(HiddenInput::new(input)?),
+                Hidden::WithFeedback(()) => Hidden::WithFeedback(HiddenInput::new(input)?),
+            })
+        }
 
-    fn read_inner(
-        &mut self,
-        timeout: Option<Duration>,
-        hide_input: Hidden<'_>,
-    ) -> io::Result<PamBuffer> {
         match self {
             Terminal::StdIE(stdin, stdout) => {
+                write_unbuffered(stdout, prompt.as_bytes())?;
+
+                let hide_input = do_hide_input(hidden, stdin.as_fd())?;
                 let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
-                read_unbuffered(&mut reader, stdout, hide_input)
+                read_unbuffered(&mut reader, stdout, &hide_input)
             }
             Terminal::Tty(file) => {
+                write_unbuffered(file, prompt.as_bytes())?;
+
+                let hide_input = do_hide_input(hidden, file.as_fd())?;
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
-                read_unbuffered(&mut reader, &mut &*file, hide_input)
+                read_unbuffered(&mut reader, &mut &*file, &hide_input)
             }
         }
     }
@@ -346,7 +334,7 @@ mod test {
     fn miri_test_read() {
         let mut data = "password123\nhello world".as_bytes();
         let mut stdout = Vec::new();
-        let buf = read_unbuffered(&mut data, &mut stdout, Hidden::No).unwrap();
+        let buf = read_unbuffered(&mut data, &mut stdout, &Hidden::No).unwrap();
         // check that the \n is not part of input
         assert_eq!(
             buf.iter()
@@ -362,8 +350,10 @@ mod test {
     #[test]
     fn miri_test_longpwd() {
         let mut stdout = Vec::new();
-        assert!(read_unbuffered(&mut "a".repeat(511).as_bytes(), &mut stdout, Hidden::No).is_ok());
-        assert!(read_unbuffered(&mut "a".repeat(512).as_bytes(), &mut stdout, Hidden::No).is_err());
+        assert!(read_unbuffered(&mut "a".repeat(511).as_bytes(), &mut stdout, &Hidden::No).is_ok());
+        assert!(
+            read_unbuffered(&mut "a".repeat(512).as_bytes(), &mut stdout, &Hidden::No).is_err()
+        );
     }
 
     #[test]
