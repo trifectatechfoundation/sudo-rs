@@ -27,7 +27,7 @@ fn no_permissions_should_not_violate_io_safety() {
 
     assert_eq!(
         stderr,
-        "sudo-rs: cannot execute '/usr/bin/foo': Permission denied (os error 13)"
+        "sudo: cannot execute '/usr/bin/foo': Permission denied (os error 13)"
     );
 }
 

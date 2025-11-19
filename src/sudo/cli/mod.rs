@@ -4,6 +4,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::{borrow::Cow, mem};
 
 use crate::common::{SudoPath, SudoString};
+use crate::log::user_warn;
 
 pub mod help;
 pub mod help_edit;
@@ -649,8 +650,8 @@ impl SudoOptions {
                         options.bell = true;
                     }
                     "-E" | "--preserve-env" => {
-                        eprintln_ignore_io_error!(
-                            "warning: preserving the entire environment is not supported, `{flag}` is ignored"
+                        user_warn!(
+                            "preserving the entire environment is not supported, `{flag}` is ignored"
                         )
                     }
                     "-e" | "--edit" if !invoked_as_sudoedit => {
@@ -740,7 +741,7 @@ impl SudoOptions {
                             && !is_dir
                             && (cmd.ends_with("sudoedit") || cmd.ends_with("sudoedit-rs"))
                         {
-                            eprintln_ignore_io_error!("sudoedit doesn't need to be run via sudo");
+                            user_warn!("sudoedit doesn't need to be run via sudo");
                             options.edit = true;
                             rest.remove(0);
                         }

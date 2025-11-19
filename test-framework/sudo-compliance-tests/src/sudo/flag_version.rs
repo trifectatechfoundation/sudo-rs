@@ -19,3 +19,22 @@ fn does_not_panic_on_io_errors() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn prints_on_stdout() -> Result<()> {
+    let env = Env("").build();
+
+    let output = Command::new("sudo").args(["--version"]).output(&env);
+
+    let output = output.stdout();
+    assert_starts_with!(
+        output,
+        if sudo_test::is_original_sudo() {
+            "Sudo version"
+        } else {
+            "sudo-rs"
+        }
+    );
+
+    Ok(())
+}

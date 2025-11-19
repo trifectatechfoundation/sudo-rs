@@ -81,11 +81,11 @@ fn sudo_process() -> Result<(), Error> {
     match SudoAction::from_env() {
         Ok(action) => match action {
             SudoAction::Help(_) => {
-                eprintln_ignore_io_error!("{}", long_help());
+                println_ignore_io_error!("{}", long_help());
                 std::process::exit(0);
             }
             SudoAction::Version(_) => {
-                eprintln_ignore_io_error!("sudo-rs {VERSION}");
+                println_ignore_io_error!("sudo-rs {VERSION}");
                 std::process::exit(0);
             }
             SudoAction::RemoveTimestamp(_) => {
