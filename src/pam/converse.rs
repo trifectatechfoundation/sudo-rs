@@ -143,8 +143,11 @@ impl CLIConverser {
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let (mut tty, _guard) = self.open()?;
-        tty.prompt(&format!("[{}: input needed] {msg} ", self.name))?;
-        Ok(tty.read_input(None, Hidden::No)?)
+        Ok(tty.read_input(
+            &format!("[{}: input needed] {msg} ", self.name),
+            None,
+            Hidden::No,
+        )?)
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
@@ -152,8 +155,8 @@ impl Converser for CLIConverser {
         if self.bell && !self.use_stdin {
             tty.bell()?;
         }
-        tty.prompt(msg)?;
         tty.read_input(
+            msg,
             self.password_timeout,
             if self.password_feedback {
                 Hidden::WithFeedback(())

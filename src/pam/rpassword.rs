@@ -281,6 +281,7 @@ impl Terminal<'_> {
     /// Reads input with TTY echo and visual feedback set according to the `hidden` parameter.
     pub(super) fn read_input(
         &mut self,
+        prompt: &str,
         timeout: Option<Duration>,
         hidden: Hidden<()>,
     ) -> io::Result<PamBuffer> {
@@ -300,11 +301,15 @@ impl Terminal<'_> {
 
         match self {
             Terminal::StdIE(stdin, stdout) => {
+                write_unbuffered(stdout, prompt.as_bytes())?;
+
                 let hide_input = do_hide_input(stdin.as_fd())?;
                 let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
                 read_unbuffered(&mut reader, stdout, hide_input.as_ref())
             }
             Terminal::Tty(file) => {
+                write_unbuffered(file, prompt.as_bytes())?;
+
                 let hide_input = do_hide_input(file.as_fd())?;
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
                 read_unbuffered(&mut reader, &mut &*file, hide_input.as_ref())
