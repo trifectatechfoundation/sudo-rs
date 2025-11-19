@@ -275,11 +275,10 @@ impl Terminal<'_> {
         timeout: Option<Duration>,
         hidden: Hidden<()>,
     ) -> io::Result<PamBuffer> {
-        //note for the reviewer: these explicit lifetimes are not necessary
-        fn do_hide_input<'a>(
+        fn do_hide_input(
             hidden: Hidden<()>,
-            input: BorrowedFd<'a>,
-        ) -> Result<Hidden<HiddenInput<'a>>, io::Error> {
+            input: BorrowedFd,
+        ) -> Result<Hidden<HiddenInput>, io::Error> {
             Ok(match hidden {
                 // If input is not a tty, we can't hide feedback.
                 _ if !safe_isatty(input) => Hidden::No,
