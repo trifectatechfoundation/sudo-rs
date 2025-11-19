@@ -13,7 +13,7 @@
 /// - the general idea of a "SafeString" type that clears its memory
 ///   (although much more robust than in the original code)
 ///
-use std::io::{self, Error, ErrorKind, Read};
+use std::io::{self, ErrorKind, Read};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
 use std::time::Instant;
 use std::{fs, mem};
@@ -21,6 +21,7 @@ use std::{fs, mem};
 use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
 use crate::cutils::{cerr, safe_isatty};
+use crate::pam::{PamError, PamResult};
 use crate::system::time::Duration;
 
 use super::securemem::PamBuffer;
@@ -93,7 +94,7 @@ fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
     hide_input: &Hidden<HiddenInput>,
-) -> io::Result<PamBuffer> {
+) -> PamResult<PamBuffer> {
     struct ExitGuard<'a> {
         pw_len: usize,
         feedback: bool,
@@ -129,6 +130,10 @@ fn read_unbuffered(
 
         if let Hidden::Yes(input) | Hidden::WithFeedback(input) = hide_input {
             if read_byte == input.term_orig.c_cc[VEOF] {
+                if state.pw_len == 0 {
+                    //return Err(PamError::NeedsPassword);
+                }
+
                 password.fill(0);
                 break;
             }
@@ -161,10 +166,7 @@ fn read_unbuffered(
                 let _ = state.sink.write(b"*");
             }
         } else {
-            return Err(Error::new(
-                ErrorKind::OutOfMemory,
-                "incorrect password attempt",
-            ));
+            return Err(PamError::IncorrectPasswordAttempt);
         }
     }
 
@@ -251,14 +253,15 @@ pub enum Terminal<'a> {
 
 impl Terminal<'_> {
     /// Open the current TTY for user communication
-    pub fn open_tty() -> io::Result<Self> {
+    pub fn open_tty() -> PamResult<Self> {
         // control ourselves that we are really talking to a TTY
         // mitigates: https://marc.info/?l=oss-security&m=168164424404224
         Ok(Terminal::Tty(
             fs::OpenOptions::new()
                 .read(true)
                 .write(true)
-                .open("/dev/tty")?,
+                .open("/dev/tty")
+                .map_err(|_| PamError::TtyRequired)?,
         ))
     }
 
@@ -273,7 +276,7 @@ impl Terminal<'_> {
         prompt: &str,
         timeout: Option<Duration>,
         hidden: Hidden<()>,
-    ) -> io::Result<PamBuffer> {
+    ) -> PamResult<PamBuffer> {
         fn do_hide_input(
             hidden: Hidden<()>,
             input: BorrowedFd,

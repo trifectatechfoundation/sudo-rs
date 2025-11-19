@@ -83,7 +83,7 @@ fn also_works_locally() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Authentication failed"
+        "A terminal is required to read the password"
     };
     assert_contains!(output.stderr(), diagnostic);
 }

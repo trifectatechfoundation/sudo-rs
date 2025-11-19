@@ -129,7 +129,7 @@ impl Drop for SignalGuard {
 }
 
 impl CLIConverser {
-    fn open(&self) -> std::io::Result<(Terminal<'_>, SignalGuard)> {
+    fn open(&self) -> PamResult<(Terminal<'_>, SignalGuard)> {
         let term = if self.use_stdin {
             Terminal::open_stdie()?
         } else {
@@ -164,12 +164,9 @@ impl Converser for CLIConverser {
                 Hidden::Yes(())
             },
         )
-        .map_err(|err| {
-            if let io::ErrorKind::TimedOut = err.kind() {
-                PamError::TimedOut
-            } else {
-                PamError::IoError(err)
-            }
+        .map_err(|err| match err {
+            PamError::IoError(err) if err.kind() == io::ErrorKind::TimedOut => PamError::TimedOut,
+            err => err,
         })
     }
 
@@ -193,7 +190,7 @@ pub(super) struct ConverserData<C> {
     // pam_authenticate does not return error codes returned by the conversation
     // function; these are set by the conversation function instead of returning
     // multiple error codes.
-    pub(super) timed_out: bool,
+    pub(super) error: Option<PamError>,
     pub(super) panicked: bool,
 }
 
@@ -243,11 +240,10 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
                 Ok(resp_buf) => {
                     resp_bufs.push(resp_buf);
                 }
-                Err(PamError::TimedOut) => {
-                    app_data.timed_out = true;
+                Err(err) => {
+                    app_data.error = Some(err);
                     return PamErrorType::ConversationError;
                 }
-                Err(_) => return PamErrorType::ConversationError,
             }
         }
 
@@ -424,7 +420,7 @@ mod test {
             converser_name: "tux".to_string(),
             no_interact: false,
             auth_prompt: Some("authenticate".to_owned()),
-            timed_out: false,
+            error: None,
             panicked: false,
         });
         let cookie = PamConvBorrow::new(hello.as_mut());
