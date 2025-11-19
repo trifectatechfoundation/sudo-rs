@@ -14,7 +14,7 @@
 ///   (although much more robust than in the original code)
 ///
 use std::io::{self, Error, ErrorKind, Read};
-use std::os::fd::{AsFd, AsRawFd, BorrowedFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
 use std::time::Instant;
 use std::{fs, mem};
 
@@ -25,18 +25,18 @@ use crate::system::time::Duration;
 
 use super::securemem::PamBuffer;
 
-struct HiddenInput {
-    tty: OwnedFd,
+struct HiddenInput<'a> {
+    tty: BorrowedFd<'a>,
     term_orig: termios,
 }
 
-impl HiddenInput {
-    fn new(tty: OwnedFd) -> io::Result<HiddenInput> {
+impl HiddenInput<'_> {
+    fn new(tty: BorrowedFd) -> io::Result<HiddenInput> {
         // Make two copies of the terminal settings. The first one will be modified
         // and the second one will act as a backup for when we want to set the
         // terminal back to its original state.
-        let mut term = safe_tcgetattr(&tty)?;
-        let term_orig = safe_tcgetattr(&tty)?;
+        let mut term = safe_tcgetattr(tty)?;
+        let term_orig = safe_tcgetattr(tty)?;
 
         // Hide the password. This is what makes this function useful.
         term.c_lflag &= !ECHO;
@@ -55,7 +55,7 @@ impl HiddenInput {
     }
 }
 
-impl Drop for HiddenInput {
+impl Drop for HiddenInput<'_> {
     fn drop(&mut self) {
         // Set the the mode back to normal
         // SAFETY: we are passing tcsetattr a valid file descriptor and pointer-to-struct
@@ -285,32 +285,33 @@ impl Terminal<'_> {
         timeout: Option<Duration>,
         hidden: Hidden<()>,
     ) -> io::Result<PamBuffer> {
-        let do_hide_input = |input: BorrowedFd| -> Result<Hidden<HiddenInput>, io::Error> {
-            if !safe_isatty(input) {
-                // Input is not a tty, so we can't hide feedback.
-                return Ok(Hidden::No);
-            }
-            match hidden {
-                Hidden::No => Ok(Hidden::No),
-                Hidden::Yes(()) => Ok(Hidden::Yes(HiddenInput::new(input.try_clone_to_owned()?)?)),
-                Hidden::WithFeedback(()) => Ok(Hidden::WithFeedback(HiddenInput::new(
-                    input.try_clone_to_owned()?,
-                )?)),
-            }
-        };
+        //note for the reviewer: these explicit lifetimes are not necessary
+        fn do_hide_input<'a>(
+            hidden: Hidden<()>,
+            input: BorrowedFd<'a>,
+        ) -> Result<Hidden<HiddenInput<'a>>, io::Error> {
+            Ok(match hidden {
+                // If input is not a tty, we can't hide feedback.
+                _ if !safe_isatty(input) => Hidden::No,
+
+                Hidden::No => Hidden::No,
+                Hidden::Yes(()) => Hidden::Yes(HiddenInput::new(input)?),
+                Hidden::WithFeedback(()) => Hidden::WithFeedback(HiddenInput::new(input)?),
+            })
+        }
 
         match self {
             Terminal::StdIE(stdin, stdout) => {
                 write_unbuffered(stdout, prompt.as_bytes())?;
 
-                let hide_input = do_hide_input(stdin.as_fd())?;
+                let hide_input = do_hide_input(hidden, stdin.as_fd())?;
                 let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
                 read_unbuffered(&mut reader, stdout, hide_input.as_ref())
             }
             Terminal::Tty(file) => {
                 write_unbuffered(file, prompt.as_bytes())?;
 
-                let hide_input = do_hide_input(file.as_fd())?;
+                let hide_input = do_hide_input(hidden, file.as_fd())?;
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
                 read_unbuffered(&mut reader, &mut &*file, hide_input.as_ref())
             }
