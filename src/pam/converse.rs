@@ -129,7 +129,7 @@ impl Drop for SignalGuard {
 }
 
 impl CLIConverser {
-    fn open(&self) -> std::io::Result<(Terminal<'_>, SignalGuard)> {
+    fn open(&self) -> PamResult<(Terminal<'_>, SignalGuard)> {
         let term = if self.use_stdin {
             Terminal::open_stdie()?
         } else {
@@ -164,12 +164,9 @@ impl Converser for CLIConverser {
                 Hidden::Yes(())
             },
         )
-        .map_err(|err| {
-            if let io::ErrorKind::TimedOut = err.kind() {
-                PamError::TimedOut
-            } else {
-                PamError::IoError(err)
-            }
+        .map_err(|err| match err {
+            PamError::IoError(err) if err.kind() == io::ErrorKind::TimedOut => PamError::TimedOut,
+            err => err,
         })
     }
 
