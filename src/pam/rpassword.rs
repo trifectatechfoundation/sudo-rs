@@ -88,21 +88,11 @@ pub(super) enum Hidden<T> {
     WithFeedback(T),
 }
 
-impl<T> Hidden<T> {
-    fn as_ref(&self) -> Hidden<&T> {
-        match self {
-            Hidden::No => Hidden::No,
-            Hidden::Yes(x) => Hidden::Yes(x),
-            Hidden::WithFeedback(x) => Hidden::WithFeedback(x),
-        }
-    }
-}
-
 /// Reads a password from the given file descriptor while optionally showing feedback to the user.
 fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
-    hide_input: Hidden<&HiddenInput>,
+    hide_input: &Hidden<HiddenInput>,
 ) -> io::Result<PamBuffer> {
     struct ExitGuard<'a> {
         pw_len: usize,
@@ -306,14 +296,14 @@ impl Terminal<'_> {
 
                 let hide_input = do_hide_input(hidden, stdin.as_fd())?;
                 let mut reader = TimeoutRead::new(stdin.as_fd(), timeout);
-                read_unbuffered(&mut reader, stdout, hide_input.as_ref())
+                read_unbuffered(&mut reader, stdout, &hide_input)
             }
             Terminal::Tty(file) => {
                 write_unbuffered(file, prompt.as_bytes())?;
 
                 let hide_input = do_hide_input(hidden, file.as_fd())?;
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
-                read_unbuffered(&mut reader, &mut &*file, hide_input.as_ref())
+                read_unbuffered(&mut reader, &mut &*file, &hide_input)
             }
         }
     }
