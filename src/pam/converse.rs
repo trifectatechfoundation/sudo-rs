@@ -128,7 +128,7 @@ impl Drop for SignalGuard {
 }
 
 impl CLIConverser {
-    fn open(&self) -> std::io::Result<(Terminal<'_>, SignalGuard)> {
+    fn open(&self) -> PamResult<(Terminal<'_>, SignalGuard)> {
         let term = if self.use_stdin {
             Terminal::open_stdie()?
         } else {
@@ -142,11 +142,11 @@ impl CLIConverser {
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let (mut tty, _guard) = self.open()?;
-        Ok(tty.read_input(
+        tty.read_input(
             &format!("[{}: input needed] {msg} ", self.name),
             None,
             Hidden::No,
-        )?)
+        )
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
@@ -163,12 +163,9 @@ impl Converser for CLIConverser {
                 Hidden::Yes(())
             },
         )
-        .map_err(|err| {
-            if let io::ErrorKind::TimedOut = err.kind() {
-                PamError::TimedOut
-            } else {
-                PamError::IoError(err)
-            }
+        .map_err(|err| match err {
+            PamError::IoError(err) if err.kind() == io::ErrorKind::TimedOut => PamError::TimedOut,
+            err => err,
         })
     }
 
