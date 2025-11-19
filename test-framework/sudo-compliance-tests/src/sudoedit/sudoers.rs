@@ -216,6 +216,9 @@ fn passwd() {
     if sudo_test::is_original_sudo() {
         assert_contains!(output.stderr(), "a password is required");
     } else {
-        assert_contains!(output.stderr(), "Authentication failed");
+        assert_contains!(
+            output.stderr(),
+            "A terminal is required to read the password"
+        );
     }
 }
