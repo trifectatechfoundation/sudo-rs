@@ -335,7 +335,7 @@ mod test {
     fn miri_test_read() {
         let mut data = "password123\nhello world".as_bytes();
         let mut stdout = Vec::new();
-        let buf = read_unbuffered(&mut data, &mut stdout, Hidden::No).unwrap();
+        let buf = read_unbuffered(&mut data, &mut stdout, &Hidden::No).unwrap();
         // check that the \n is not part of input
         assert_eq!(
             buf.iter()
@@ -351,8 +351,10 @@ mod test {
     #[test]
     fn miri_test_longpwd() {
         let mut stdout = Vec::new();
-        assert!(read_unbuffered(&mut "a".repeat(511).as_bytes(), &mut stdout, Hidden::No).is_ok());
-        assert!(read_unbuffered(&mut "a".repeat(512).as_bytes(), &mut stdout, Hidden::No).is_err());
+        assert!(read_unbuffered(&mut "a".repeat(511).as_bytes(), &mut stdout, &Hidden::No).is_ok());
+        assert!(
+            read_unbuffered(&mut "a".repeat(512).as_bytes(), &mut stdout, &Hidden::No).is_err()
+        );
     }
 
     #[test]
