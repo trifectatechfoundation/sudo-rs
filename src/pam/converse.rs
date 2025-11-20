@@ -217,9 +217,13 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
     response: *mut *mut pam_response,
     appdata_ptr: *mut libc::c_void,
 ) -> libc::c_int {
+    let Ok(num_msg_usize) = usize::try_from(num_msg) else {
+        return PamErrorType::ConversationError.as_int();
+    };
+
     let result = std::panic::catch_unwind(|| {
-        let mut resp_bufs = Vec::with_capacity(num_msg as usize);
-        for i in 0..num_msg as usize {
+        let mut resp_bufs = Vec::with_capacity(num_msg_usize);
+        for i in 0..num_msg_usize {
             // convert the input messages to Rust types
             // SAFETY: the PAM contract ensures that `num_msg` does not exceed the amount
             // of messages presented to this function in `msg`, and that it is not being
@@ -256,7 +260,7 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
         // or return a null pointer.
         let temp_resp = unsafe {
             libc::calloc(
-                num_msg as libc::size_t,
+                num_msg_usize,
                 std::mem::size_of::<pam_response>() as libc::size_t,
             )
         } as *mut pam_response;
@@ -467,5 +471,36 @@ mod test {
         assert_eq!(dummy_pam(&[msg(ErrorMessage, "oops")], pam_conv), vec![]);
 
         assert!(hello.panicked); // allowed now
+    }
+
+    #[test]
+    fn conversation_rejects_negative_message_count() {
+        let mut data = Box::pin(ConverserData {
+            converser: "tux".to_string(),
+            converser_name: "tux".to_string(),
+            no_interact: false,
+            auth_prompt: None,
+            timed_out: false,
+            panicked: false,
+        });
+        let cookie = PamConvBorrow::new(data.as_mut());
+        let pam_conv = cookie.borrow();
+
+        let mut raw_response = std::ptr::null_mut::<pam_response>();
+        let ret = unsafe {
+            pam_conv.conv.expect("non-null fn ptr")(
+                -1,
+                std::ptr::null_mut(),
+                &mut raw_response,
+                pam_conv.appdata_ptr,
+            )
+        };
+
+        assert_eq!(ret, PamErrorType::ConversationError.as_int());
+        assert!(raw_response.is_null());
+
+        let real_data =
+            unsafe { &*(pam_conv.appdata_ptr as *const ConverserData<String>) };
+        assert!(!real_data.panicked);
     }
 }
