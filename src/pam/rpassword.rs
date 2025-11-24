@@ -122,7 +122,10 @@ fn read_unbuffered(
     // with the amount of asterisks on the terminal (both tracked in `pw_len`)
     #[allow(clippy::unbuffered_bytes)]
     for read_byte in source.bytes() {
-        let read_byte = read_byte?;
+        let read_byte = read_byte.map_err(|err| match err {
+            err if err.kind() == io::ErrorKind::TimedOut => PamError::TimedOut,
+            err => PamError::IoError(err),
+        })?;
 
         if read_byte == b'\n' || read_byte == b'\r' {
             break;
