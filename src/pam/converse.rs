@@ -12,7 +12,7 @@ use super::{error::PamResult, rpassword, securemem::PamBuffer, PamError, PamErro
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum PamMessageStyle {
     /// Prompt for input using a message. The input should considered secret
     /// and should be hidden from view.
@@ -235,6 +235,14 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             // send the conversation off to the Rust part
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
+
+            if app_data.error.is_some()
+                && (style == PamMessageStyle::PromptEchoOff
+                    || style == PamMessageStyle::PromptEchoOn)
+            {
+                return PamErrorType::ConversationError;
+            }
+
             match handle_message(app_data, style, &msg) {
                 Ok(resp_buf) => {
                     resp_bufs.push(resp_buf);

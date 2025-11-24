@@ -130,6 +130,10 @@ fn read_unbuffered(
 
         if let Hidden::Yes(input) | Hidden::WithFeedback(input) = hide_input {
             if read_byte == input.term_orig.c_cc[VEOF] {
+                if state.pw_len == 0 {
+                    return Err(PamError::NeedsPassword);
+                }
+
                 password.fill(0);
                 break;
             }
