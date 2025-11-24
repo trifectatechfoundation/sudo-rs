@@ -429,3 +429,32 @@ done",
 
     assert_starts_with!(actual[actual.rfind('/').unwrap()..], "/foo");
 }
+
+#[test]
+fn run_editor_as_correct_user() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD)
+        .user(USERNAME)
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+id -un
+id -Gn",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build();
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("{DEFAULT_EDITOR} && cd / && sudoedit foo"))
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_success();
+
+    assert_eq!(
+        output.stdout(),
+        format!("{USERNAME}\nusers\n{USERNAME}\nusers")
+    );
+}
