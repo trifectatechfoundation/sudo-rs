@@ -1,5 +1,4 @@
 use std::ffi::{c_int, c_void};
-use std::io;
 
 use crate::cutils::string_from_ptr;
 use crate::pam::rpassword::Hidden;
@@ -165,10 +164,6 @@ impl Converser for CLIConverser {
                 Hidden::Yes(())
             },
         )
-        .map_err(|err| match err {
-            PamError::IoError(err) if err.kind() == io::ErrorKind::TimedOut => PamError::TimedOut,
-            err => err,
-        })
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
