@@ -212,3 +212,12 @@ fn negated_defaults_errors() {
     };
     assert_contains!(output.stderr(), diagnostic2);
 }
+
+#[test]
+fn regex_not_interpreted_literally() {
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: /bin/echo ^huk$").build();
+
+    let output = Command::new("sudo").args(["echo", "^huk$"]).output(&env);
+
+    output.assert_exit_code(1);
+}
