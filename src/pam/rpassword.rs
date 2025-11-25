@@ -129,18 +129,11 @@ fn read_unbuffered(
         })?;
 
         if read_byte == b'\n' || read_byte == b'\r' {
-            break;
+            return Ok(password);
         }
 
         if let Hidden::Yes(input) | Hidden::WithFeedback(input) = hide_input {
             if read_byte == input.term_orig.c_cc[VEOF] {
-                if state.pw_len == 0 {
-                    // In case of Ctrl-D we don't want to ask for a password a second time, so
-                    // return an error.
-                    return Err(PamError::NeedsPassword);
-                }
-
-                password.fill(0);
                 break;
             }
 
@@ -176,7 +169,13 @@ fn read_unbuffered(
         }
     }
 
-    Ok(password)
+    if state.pw_len == 0 {
+        // In case of EOF or Ctrl-D we don't want to ask for a password a second
+        // time, so return an error.
+        Err(PamError::NeedsPassword)
+    } else {
+        Ok(password)
+    }
 }
 
 /// Write something and immediately flush

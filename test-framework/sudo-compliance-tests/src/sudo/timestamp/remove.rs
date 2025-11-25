@@ -56,7 +56,7 @@ fn has_a_user_global_effect() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "1 incorrect password attempt"
     } else {
-        "incorrect authentication attempt"
+        "Authentication failed, try again."
     };
     assert_contains!(output.stderr(), diagnostic);
 }

@@ -167,7 +167,7 @@ fn user_specifications_evaluated_bottom_to_top() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "no password was provided"
     } else {
-        "incorrect authentication attempt"
+        "Password is required"
     };
     assert_contains!(output.stderr(), diagnostic);
 
