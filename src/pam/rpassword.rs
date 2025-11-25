@@ -134,6 +134,8 @@ fn read_unbuffered(
         if let Hidden::Yes(input) | Hidden::WithFeedback(input) = hide_input {
             if read_byte == input.term_orig.c_cc[VEOF] {
                 if state.pw_len == 0 {
+                    // In case of Ctrl-D we don't want to ask for a password a second time, so
+                    // return an error.
                     return Err(PamError::NeedsPassword);
                 }
 
