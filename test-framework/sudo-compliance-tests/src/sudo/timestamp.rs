@@ -141,7 +141,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Maximum 3 incorrect authentication attempts"
+        "Password is required"
     };
 
     assert_contains!(output.stderr(), diagnostic);

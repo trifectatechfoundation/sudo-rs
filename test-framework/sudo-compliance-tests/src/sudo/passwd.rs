@@ -48,6 +48,6 @@ fn explicit_passwd_overrides_nopasswd() {
     if sudo_test::is_original_sudo() {
         assert_snapshot!(stderr);
     } else {
-        assert_contains!(stderr, "Maximum 3 incorrect authentication attempts");
+        assert_contains!(stderr, "Password is required");
     }
 }
