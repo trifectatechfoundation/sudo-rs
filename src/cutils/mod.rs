@@ -1,12 +1,12 @@
 use std::{
-    ffi::{CStr, OsStr, OsString},
+    ffi::{c_char, c_int, c_long, CStr, OsStr, OsString},
     os::{
         fd::{AsRawFd, BorrowedFd},
         unix::prelude::OsStrExt,
     },
 };
 
-pub fn cerr<Int: Copy + TryInto<libc::c_long>>(res: Int) -> std::io::Result<Int> {
+pub fn cerr<Int: Copy + TryInto<c_long>>(res: Int) -> std::io::Result<Int> {
     match res.try_into() {
         Ok(-1) => Err(std::io::Error::last_os_error()),
         _ => Ok(res),
@@ -23,15 +23,15 @@ extern "C" {
         link_name = "__errno"
     )]
     #[cfg_attr(target_os = "linux", link_name = "__errno_location")]
-    fn errno_location() -> *mut libc::c_int;
+    fn errno_location() -> *mut c_int;
 }
 
-pub fn set_errno(no: libc::c_int) {
+pub fn set_errno(no: c_int) {
     // SAFETY: errno_location is a thread-local pointer to an integer, so we are the only writers
     unsafe { *errno_location() = no };
 }
 
-pub fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
+pub fn sysconf(name: c_int) -> Option<c_long> {
     set_errno(0);
     // SAFETY: sysconf will always respond with 0 or -1 for every input
     cerr(unsafe { libc::sysconf(name) }).ok()
@@ -44,7 +44,7 @@ pub fn sysconf(name: libc::c_int) -> Option<libc::c_long> {
 /// # Safety
 /// This function assumes that the pointer is either a null pointer or that
 /// it points to a valid NUL-terminated C string.
-pub unsafe fn string_from_ptr(ptr: *const libc::c_char) -> String {
+pub unsafe fn string_from_ptr(ptr: *const c_char) -> String {
     if ptr.is_null() {
         String::new()
     } else {
@@ -59,7 +59,7 @@ pub unsafe fn string_from_ptr(ptr: *const libc::c_char) -> String {
 /// # Safety
 /// This function assumes that the pointer is either a null pointer or that
 /// it points to a valid NUL-terminated C string.
-pub unsafe fn os_string_from_ptr(ptr: *const libc::c_char) -> OsString {
+pub unsafe fn os_string_from_ptr(ptr: *const c_char) -> OsString {
     if ptr.is_null() {
         OsString::new()
     } else {
@@ -107,22 +107,24 @@ pub fn is_fifo(fildes: BorrowedFd) -> bool {
 #[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {
+    use std::ffi::c_char;
+
     use super::{os_string_from_ptr, string_from_ptr};
 
     #[test]
     fn miri_test_str_to_ptr() {
         let strp = |ptr| unsafe { string_from_ptr(ptr) };
         assert_eq!(strp(std::ptr::null()), "");
-        assert_eq!(strp("\0".as_ptr() as *const libc::c_char), "");
-        assert_eq!(strp("hello\0".as_ptr() as *const libc::c_char), "hello");
+        assert_eq!(strp("\0".as_ptr() as *const c_char), "");
+        assert_eq!(strp("hello\0".as_ptr() as *const c_char), "hello");
     }
 
     #[test]
     fn miri_test_os_str_to_ptr() {
         let strp = |ptr| unsafe { os_string_from_ptr(ptr) };
         assert_eq!(strp(std::ptr::null()), "");
-        assert_eq!(strp("\0".as_ptr() as *const libc::c_char), "");
-        assert_eq!(strp("hello\0".as_ptr() as *const libc::c_char), "hello");
+        assert_eq!(strp("\0".as_ptr() as *const c_char), "");
+        assert_eq!(strp("hello\0".as_ptr() as *const c_char), "hello");
     }
 
     #[test]

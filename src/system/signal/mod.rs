@@ -9,8 +9,9 @@ pub(crate) use set::SignalSet;
 pub(crate) use stream::{register_handlers, SignalStream};
 
 use std::borrow::Cow;
+use std::ffi::c_int;
 
-pub(crate) type SignalNumber = libc::c_int;
+pub(crate) type SignalNumber = c_int;
 
 macro_rules! define_consts {
     ($($signal:ident,)*) => {

@@ -1,7 +1,7 @@
 mod user_term;
 
 use std::{
-    ffi::{c_uchar, CString, OsString},
+    ffi::{c_char, c_uchar, CString, OsString},
     fmt,
     fs::File,
     io,
@@ -200,7 +200,7 @@ impl<F: AsFd> Terminal for F {
 
     /// Get the filename of the tty
     fn ttyname(&self) -> io::Result<OsString> {
-        let mut buf: [libc::c_char; 1024] = [0; 1024];
+        let mut buf: [c_char; 1024] = [0; 1024];
 
         if !safe_isatty(self.as_fd()) {
             return Err(io::ErrorKind::Unsupported.into());

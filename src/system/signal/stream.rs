@@ -1,4 +1,5 @@
 use std::{
+    ffi::c_void,
     io,
     mem::MaybeUninit,
     os::{
@@ -24,7 +25,7 @@ static STREAM: OnceLock<SignalStream> = OnceLock::new();
 pub(super) unsafe fn send_siginfo(
     _signal: SignalNumber,
     info: *const SignalInfo,
-    _context: *const libc::c_void,
+    _context: *const c_void,
 ) {
     if let Some(tx) = STREAM.get().map(|stream| stream.tx.as_raw_fd()) {
         // SAFETY: called ensures that info is a valid pointer; any instance of SignalInfo will

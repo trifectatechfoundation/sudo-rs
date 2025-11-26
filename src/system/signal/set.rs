@@ -2,7 +2,9 @@ use crate::{cutils::cerr, system::make_zeroed_sigaction};
 
 use super::{handler::SignalHandlerBehavior, SignalNumber};
 
-use std::{io, mem::MaybeUninit};
+use std::ffi::c_int;
+use std::io;
+use std::mem::MaybeUninit;
 
 #[repr(transparent)]
 pub(super) struct SignalAction {
@@ -87,7 +89,7 @@ impl SignalSet {
         Ok(())
     }
 
-    fn sigprocmask(&self, how: libc::c_int) -> io::Result<Self> {
+    fn sigprocmask(&self, how: c_int) -> io::Result<Self> {
         let mut original_set = MaybeUninit::<Self>::zeroed();
 
         // SAFETY: same as above

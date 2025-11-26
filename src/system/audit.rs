@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ffi::{CStr, CString};
+use std::ffi::{c_uint, CStr, CString};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
@@ -208,7 +208,7 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
             parent.as_raw_fd(),
             file_name.as_ptr(),
             flags,
-            libc::c_uint::from(mode),
+            c_uint::from(mode),
         ))?;
 
         Ok(OwnedFd::from_raw_fd(fd))

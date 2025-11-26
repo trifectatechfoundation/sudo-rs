@@ -1,3 +1,4 @@
+use std::ffi::{c_int, c_void};
 use std::io;
 
 use crate::cutils::string_from_ptr;
@@ -29,7 +30,7 @@ pub enum PamMessageStyle {
 }
 
 impl PamMessageStyle {
-    pub fn from_int(val: libc::c_int) -> Option<PamMessageStyle> {
+    pub fn from_int(val: c_int) -> Option<PamMessageStyle> {
         use PamMessageStyle::*;
 
         match val as _ {
@@ -212,11 +213,11 @@ pub(super) struct ConverserData<C> {
 ///   this function will exhibit undefined behavior.
 /// * The messages from PAM are assumed to be formatted correctly.
 pub(super) unsafe extern "C" fn converse<C: Converser>(
-    num_msg: libc::c_int,
+    num_msg: c_int,
     msg: *mut *const pam_message,
     response: *mut *mut pam_response,
-    appdata_ptr: *mut libc::c_void,
-) -> libc::c_int {
+    appdata_ptr: *mut c_void,
+) -> c_int {
     let result = std::panic::catch_unwind(|| {
         let mut resp_bufs = Vec::with_capacity(num_msg as usize);
         for i in 0..num_msg as usize {
@@ -402,7 +403,7 @@ mod test {
     impl<'a> PamConvBorrow<'a> {
         fn new<C: Converser>(data: Pin<&'a mut ConverserData<C>>) -> PamConvBorrow<'a> {
             let appdata_ptr =
-                unsafe { data.get_unchecked_mut() as *mut ConverserData<C> as *mut libc::c_void };
+                unsafe { data.get_unchecked_mut() as *mut ConverserData<C> as *mut c_void };
             PamConvBorrow {
                 pam_conv: pam_conv {
                     conv: Some(converse::<C>),

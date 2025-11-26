@@ -2,7 +2,7 @@
 //! rust-like.
 
 use std::{
-    ffi::c_int,
+    ffi::{c_int, c_void},
     fs::{File, OpenOptions},
     io::{self, Read, Write},
     mem::MaybeUninit,
@@ -11,12 +11,11 @@ use std::{
 };
 
 use libc::{
-    c_void, cfgetispeed, cfgetospeed, cfmakeraw, cfsetispeed, cfsetospeed, ioctl, sigaction,
-    sigemptyset, sighandler_t, siginfo_t, sigset_t, tcflag_t, tcgetattr, tcsetattr, termios,
-    winsize, CS7, CS8, ECHO, ECHOCTL, ECHOE, ECHOK, ECHOKE, ECHONL, ICANON, ICRNL, IEXTEN, IGNCR,
-    IGNPAR, IMAXBEL, INLCR, INPCK, ISIG, ISTRIP, IXANY, IXOFF, IXON, NOFLSH, OCRNL, ONLCR, ONLRET,
-    ONOCR, OPOST, PARENB, PARMRK, PARODD, PENDIN, SIGTTOU, TCSADRAIN, TCSAFLUSH, TIOCGWINSZ,
-    TIOCSWINSZ, TOSTOP,
+    cfgetispeed, cfgetospeed, cfmakeraw, cfsetispeed, cfsetospeed, ioctl, sigaction, sigemptyset,
+    sighandler_t, siginfo_t, sigset_t, tcflag_t, tcgetattr, tcsetattr, termios, winsize, CS7, CS8,
+    ECHO, ECHOCTL, ECHOE, ECHOK, ECHOKE, ECHONL, ICANON, ICRNL, IEXTEN, IGNCR, IGNPAR, IMAXBEL,
+    INLCR, INPCK, ISIG, ISTRIP, IXANY, IXOFF, IXON, NOFLSH, OCRNL, ONLCR, ONLRET, ONOCR, OPOST,
+    PARENB, PARMRK, PARODD, PENDIN, SIGTTOU, TCSADRAIN, TCSAFLUSH, TIOCGWINSZ, TIOCSWINSZ, TOSTOP,
 };
 #[cfg(target_os = "linux")]
 use libc::{IUTF8, OLCUC};

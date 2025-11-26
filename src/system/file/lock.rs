@@ -1,4 +1,5 @@
 use std::{
+    ffi::c_int,
     fs::File,
     io::Result,
     os::fd::{AsRawFd, RawFd},
@@ -38,7 +39,7 @@ enum LockOp {
 }
 
 impl LockOp {
-    fn as_flock_operation(self) -> libc::c_int {
+    fn as_flock_operation(self) -> c_int {
         match self {
             LockOp::LockExclusive => libc::LOCK_EX,
             LockOp::Unlock => libc::LOCK_UN,
