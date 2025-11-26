@@ -4,27 +4,27 @@ pub type pam_handle_t = u8;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pam_message {
-    pub msg_style: libc::c_int,
-    pub msg: *const libc::c_char,
+    pub msg_style: std::ffi::c_int,
+    pub msg: *const std::ffi::c_char,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pam_response {
-    pub resp: *mut libc::c_char,
-    pub resp_retcode: libc::c_int,
+    pub resp: *mut std::ffi::c_char,
+    pub resp_retcode: std::ffi::c_int,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pam_conv {
     pub conv: ::std::option::Option<
         unsafe extern "C" fn(
-            num_msg: libc::c_int,
+            num_msg: std::ffi::c_int,
             msg: *mut *const pam_message,
             resp: *mut *mut pam_response,
-            appdata_ptr: *mut libc::c_void,
-        ) -> libc::c_int,
+            appdata_ptr: *mut std::ffi::c_void,
+        ) -> std::ffi::c_int,
     >,
-    pub appdata_ptr: *mut libc::c_void,
+    pub appdata_ptr: *mut std::ffi::c_void,
 }
 pub const PAM_SUCCESS: u32 = 0;
 pub const PAM_OPEN_ERR: u32 = 1;
@@ -72,49 +72,52 @@ pub const PAM_MAX_RESP_SIZE: u32 = 512;
 extern "C" {
     pub fn pam_set_item(
         pamh: *mut pam_handle_t,
-        item_type: libc::c_int,
-        item: *const libc::c_void,
-    ) -> libc::c_int;
+        item_type: std::ffi::c_int,
+        item: *const std::ffi::c_void,
+    ) -> std::ffi::c_int;
 }
 extern "C" {
     pub fn pam_get_item(
         pamh: *const pam_handle_t,
-        item_type: libc::c_int,
-        item: *mut *const libc::c_void,
-    ) -> libc::c_int;
+        item_type: std::ffi::c_int,
+        item: *mut *const std::ffi::c_void,
+    ) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_strerror(pamh: *mut pam_handle_t, errnum: libc::c_int) -> *const libc::c_char;
+    pub fn pam_strerror(
+        pamh: *mut pam_handle_t,
+        errnum: std::ffi::c_int,
+    ) -> *const std::ffi::c_char;
 }
 extern "C" {
-    pub fn pam_getenvlist(pamh: *mut pam_handle_t) -> *mut *mut libc::c_char;
+    pub fn pam_getenvlist(pamh: *mut pam_handle_t) -> *mut *mut std::ffi::c_char;
 }
 extern "C" {
     pub fn pam_start(
-        service_name: *const libc::c_char,
-        user: *const libc::c_char,
+        service_name: *const std::ffi::c_char,
+        user: *const std::ffi::c_char,
         pam_conversation: *const pam_conv,
         pamh: *mut *mut pam_handle_t,
-    ) -> libc::c_int;
+    ) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_end(pamh: *mut pam_handle_t, pam_status: libc::c_int) -> libc::c_int;
+    pub fn pam_end(pamh: *mut pam_handle_t, pam_status: std::ffi::c_int) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_authenticate(pamh: *mut pam_handle_t, flags: libc::c_int) -> libc::c_int;
+    pub fn pam_authenticate(pamh: *mut pam_handle_t, flags: std::ffi::c_int) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_setcred(pamh: *mut pam_handle_t, flags: libc::c_int) -> libc::c_int;
+    pub fn pam_setcred(pamh: *mut pam_handle_t, flags: std::ffi::c_int) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_acct_mgmt(pamh: *mut pam_handle_t, flags: libc::c_int) -> libc::c_int;
+    pub fn pam_acct_mgmt(pamh: *mut pam_handle_t, flags: std::ffi::c_int) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_open_session(pamh: *mut pam_handle_t, flags: libc::c_int) -> libc::c_int;
+    pub fn pam_open_session(pamh: *mut pam_handle_t, flags: std::ffi::c_int) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_close_session(pamh: *mut pam_handle_t, flags: libc::c_int) -> libc::c_int;
+    pub fn pam_close_session(pamh: *mut pam_handle_t, flags: std::ffi::c_int) -> std::ffi::c_int;
 }
 extern "C" {
-    pub fn pam_chauthtok(pamh: *mut pam_handle_t, flags: libc::c_int) -> libc::c_int;
+    pub fn pam_chauthtok(pamh: *mut pam_handle_t, flags: std::ffi::c_int) -> std::ffi::c_int;
 }
