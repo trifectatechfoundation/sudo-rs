@@ -129,7 +129,9 @@ impl Drop for SignalGuard {
 
 impl CLIConverser {
     fn open(&self) -> PamResult<(Terminal<'_>, SignalGuard)> {
-        let term = if self.use_stdin {
+        let term = if self.use_askpass {
+            Terminal::open_askpass()?
+        } else if self.use_stdin {
             Terminal::open_stdie()?
         } else {
             Terminal::open_tty()?

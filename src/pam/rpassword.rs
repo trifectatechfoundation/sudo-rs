@@ -16,13 +16,15 @@
 use std::ffi::c_void;
 use std::io::{self, ErrorKind, Read};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
 use crate::cutils::{cerr, safe_isatty};
-use crate::pam::{PamError, PamResult};
+use crate::pam::{askpass, PamError, PamResult};
+use crate::system::wait::{Wait, WaitError, WaitOptions};
 
 use super::securemem::PamBuffer;
 
@@ -253,6 +255,7 @@ impl io::Read for TimeoutRead<'_> {
 pub enum Terminal<'a> {
     Tty(fs::File),
     StdIE(io::StdinLock<'a>, io::StderrLock<'a>),
+    Askpass(PathBuf, io::Sink),
 }
 
 impl Terminal<'_> {
@@ -272,6 +275,19 @@ impl Terminal<'_> {
     /// Open standard input and standard error for user communication
     pub fn open_stdie() -> io::Result<Self> {
         Ok(Terminal::StdIE(io::stdin().lock(), io::stderr().lock()))
+    }
+
+    pub fn open_askpass() -> PamResult<Self> {
+        let Some(program) = std::env::var_os("SUDO_ASKPASS") else {
+            return Err(PamError::NoAskpassProgram);
+        };
+        let program = PathBuf::from(program);
+
+        if program.is_absolute() {
+            Ok(Terminal::Askpass(program, io::sink()))
+        } else {
+            Err(PamError::InvalidAskpassProgram(program))
+        }
     }
 
     /// Reads input with TTY echo and visual feedback set according to the `hidden` parameter.
@@ -310,6 +326,23 @@ impl Terminal<'_> {
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
                 read_unbuffered(&mut reader, &mut &*file, &hide_input)
             }
+            Terminal::Askpass(program, sink) => {
+                let (command_pid, askpass_stdout) = askpass::spawn_askpass(program, prompt)?;
+
+                let mut reader = TimeoutRead::new(askpass_stdout.as_fd(), timeout);
+                let password = read_unbuffered(&mut reader, sink, &Hidden::No)?;
+
+                loop {
+                    match command_pid.wait(WaitOptions::new()) {
+                        Ok(_) => break,
+                        Err(WaitError::Io(err)) if err.kind() == io::ErrorKind::Interrupted => {}
+                        Err(WaitError::Io(err)) => return Err(PamError::IoError(err)),
+                        Err(WaitError::NotReady) => unreachable!(),
+                    }
+                }
+
+                Ok(password)
+            }
         }
     }
 
@@ -329,6 +362,7 @@ impl Terminal<'_> {
         match self {
             Terminal::StdIE(_, x) => x,
             Terminal::Tty(x) => x,
+            Terminal::Askpass(_, x) => x,
         }
     }
 }

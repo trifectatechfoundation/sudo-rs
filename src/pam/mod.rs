@@ -14,6 +14,7 @@ use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
 use sys::*;
 
+mod askpass;
 mod converse;
 mod error;
 mod rpassword;
