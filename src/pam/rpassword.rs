@@ -1,18 +1,18 @@
-/// Parts of the code below are Copyright (c) 2023, Conrad Kleinespel et al
-///
-/// This module contains code that was originally written by Conrad Kleinespel for the rpassword
-/// crate. No copyright notices were found in the original code.
-///
-/// See: https://docs.rs/rpassword/latest/rpassword/
-///
-/// Most code was replaced and so is no longer a derived work; work that we kept:
-///
-/// - the "HiddenInput" struct and implementation, with changes:
-///   * replaced occurrences of explicit 'i32' and 'c_int' with RawFd
-///   * open the TTY ourselves to mitigate Linux CVE-2023-2002
-/// - the general idea of a "SafeString" type that clears its memory
-///   (although much more robust than in the original code)
-///
+//! Parts of the code below are Copyright (c) 2023, Conrad Kleinespel et al
+//!
+//! This module contains code that was originally written by Conrad Kleinespel for the rpassword
+//! crate. No copyright notices were found in the original code.
+//!
+//! See: <https://docs.rs/rpassword/latest/rpassword/>
+//!
+//! Most code was replaced and so is no longer a derived work; work that we kept:
+//!
+//! - the "HiddenInput" struct and implementation, with changes:
+//!   * replaced occurrences of explicit 'i32' and 'c_int' with RawFd
+//!   * open the TTY ourselves to mitigate Linux CVE-2023-2002
+//! - the general idea of a "SafeString" type that clears its memory
+//!   (although much more robust than in the original code)
+
 use std::io::{self, Error, ErrorKind, Read};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
 use std::time::Instant;
