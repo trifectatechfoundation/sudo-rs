@@ -305,11 +305,6 @@ fn when_no_run_as_spec_then_target_user_cannot_be_a_regular_user() {
 
 #[test]
 fn when_no_run_as_spec_then_an_arbitrary_target_group_may_not_be_specified() {
-    if sudo_test::sudo_version() < sudo_test::ogsudo("1.9.14p2") {
-        // original sudo should pass this test after 1.9.14p2
-        return;
-    }
-
     let env = Env("ALL ALL = NOPASSWD: ALL")
         .user(User(USERNAME))
         .group(GROUPNAME)
