@@ -36,4 +36,5 @@ echo "Regenerate man pages"
 "$PROJECT_DIR/util/generate-docs.sh"
 
 echo "Rebuilding project"
+# NOTE: Not using --locked as Cargo.lock needs to be updated with the new version
 (cd $PROJECT_DIR && cargo build --release)

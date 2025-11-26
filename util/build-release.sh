@@ -13,8 +13,8 @@ DATE=$(grep -m1 '^##' "$PROJECT_DIR"/CHANGELOG.md | grep -o '[0-9]\{4\}-[0-9]\{2
 
 # Build binaries
 docker build --pull --tag "$BUILDER_IMAGE_TAG" --file "$SCRIPT_DIR/Dockerfile-release" "$SCRIPT_DIR"
-docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo clean
-docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --release --features pam-login,apparmor
+docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo clean --locked
+docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --locked --release --features pam-login,apparmor
 
 # Set target directories and clear any previous builds
 target_dir_sudo="$TARGET_DIR_BASE/sudo"
