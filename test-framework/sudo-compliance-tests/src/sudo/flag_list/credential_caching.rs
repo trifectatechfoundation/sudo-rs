@@ -87,7 +87,7 @@ fn flag_reset_timestamp() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "sudo: a password is required"
     } else {
-        "sudo: Authentication failed"
+        "sudo: A terminal is required to read the password"
     };
     assert_contains!(output.stderr(), diagnostic);
 }

@@ -175,8 +175,11 @@ pub enum PamError {
     Utf8Error(Utf8Error),
     Pam(PamErrorType),
     IoError(std::io::Error),
+    TtyRequired,
     EnvListFailure,
     InteractionRequired,
+    NeedsPassword,
+    IncorrectPasswordAttempt,
     TimedOut,
     InvalidUser(String, String),
 }
@@ -218,6 +221,7 @@ impl fmt::Display for PamError {
             }
             PamError::Pam(tp) => write!(f, "PAM error: {}", tp.get_err_msg()),
             PamError::IoError(e) => write!(f, "IO error: {e}"),
+            PamError::TtyRequired => write!(f, "A terminal is required to read the password"),
             PamError::EnvListFailure => {
                 write!(
                     f,
@@ -225,6 +229,8 @@ impl fmt::Display for PamError {
                 )
             }
             PamError::InteractionRequired => write!(f, "Interaction is required"),
+            PamError::NeedsPassword => write!(f, "Password is required"),
+            PamError::IncorrectPasswordAttempt => write!(f, "Incorrect password attempt"),
             PamError::TimedOut => write!(f, "timed out"),
             PamError::InvalidUser(username, other_user) => {
                 write!(

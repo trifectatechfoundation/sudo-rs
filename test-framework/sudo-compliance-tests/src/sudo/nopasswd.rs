@@ -141,9 +141,6 @@ fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() {
             );
         }
     } else {
-        assert_contains!(
-            stderr,
-            "[sudo: authenticate] Password: \nsudo: Authentication failed, try again.\n[sudo: authenticate] Password: \nsudo: Authentication failed, try again.\n[sudo: authenticate] Password: \nsudo: Maximum 3 incorrect authentication attempts"
-        );
+        assert_contains!(stderr, "Password is required");
     }
 }
