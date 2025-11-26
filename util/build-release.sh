@@ -16,9 +16,6 @@ docker build --pull --tag "$BUILDER_IMAGE_TAG" --file "$SCRIPT_DIR/Dockerfile-re
 docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo clean
 docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --release --features pam-login,apparmor
 
-# Generate man pages
-"$PROJECT_DIR/util/generate-docs.sh"
-
 # Set target directories and clear any previous builds
 target_dir_sudo="$TARGET_DIR_BASE/sudo"
 target_dir_su="$TARGET_DIR_BASE/su"
