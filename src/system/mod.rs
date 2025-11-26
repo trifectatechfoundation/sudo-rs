@@ -2,7 +2,7 @@
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    ffi::{c_int, c_uint, CStr},
+    ffi::{c_char, c_int, c_long, c_uint, CStr},
     fmt, fs, io,
     mem::MaybeUninit,
     ops,
@@ -40,7 +40,7 @@ pub mod wait;
 #[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
 compile_error!("sudo-rs only works on Linux and FreeBSD");
 
-pub(crate) fn _exit(status: libc::c_int) -> ! {
+pub(crate) fn _exit(status: c_int) -> ! {
     // SAFETY: this function is safe to call
     unsafe { libc::_exit(status) }
 }
@@ -212,7 +212,7 @@ impl Hostname {
 
     pub fn resolve() -> Self {
         // see `man 2 gethostname`
-        const MAX_HOST_NAME_SIZE_ACCORDING_TO_SUSV2: libc::c_long = 255;
+        const MAX_HOST_NAME_SIZE_ACCORDING_TO_SUSV2: c_long = 255;
 
         // POSIX.1 systems limit hostnames to `HOST_NAME_MAX` bytes
         // not including null-byte in the count
@@ -239,8 +239,8 @@ impl Hostname {
     }
 }
 
-pub fn syslog(priority: libc::c_int, facility: libc::c_int, message: &CStr) {
-    const MSG: *const libc::c_char = match CStr::from_bytes_until_nul(b"%s\0") {
+pub fn syslog(priority: c_int, facility: c_int, message: &CStr) {
+    const MSG: *const c_char = match CStr::from_bytes_until_nul(b"%s\0") {
         Ok(cstr) => cstr.as_ptr(),
         Err(_) => panic!("syslog formatting string is not null-terminated"),
     };
@@ -374,7 +374,7 @@ impl User {
     /// This function expects `pwd` to be a result from a successful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
-        let mut buf_len: libc::c_int = 32;
+        let mut buf_len: c_int = 32;
         let mut groups_buffer: Vec<libc::gid_t>;
 
         while {
@@ -871,6 +871,7 @@ pub(crate) const ROOT_GROUP_NAME: &str = "wheel";
 #[cfg(test)]
 mod tests {
     use std::{
+        ffi::c_char,
         io::{self, Read, Write},
         os::{
             fd::{AsFd, AsRawFd},
@@ -955,7 +956,7 @@ mod tests {
                                 .iter()
                                 .map(|cs| cs.as_ptr() as *mut _)
                                 .chain(std::iter::once(std::ptr::null_mut()))
-                                .collect::<Vec<*mut libc::c_char>>()
+                                .collect::<Vec<*mut c_char>>()
                                 .as_mut_ptr(),
                         })
                     }

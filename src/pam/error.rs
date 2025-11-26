@@ -1,4 +1,6 @@
-use std::{ffi::NulError, fmt, str::Utf8Error};
+use std::ffi::{c_int, NulError};
+use std::fmt;
+use std::str::Utf8Error;
 
 use crate::cutils::string_from_ptr;
 
@@ -65,7 +67,7 @@ pub enum PamErrorType {
 }
 
 impl PamErrorType {
-    pub(super) fn from_int(errno: libc::c_int) -> PamErrorType {
+    pub(super) fn from_int(errno: c_int) -> PamErrorType {
         use PamErrorType::*;
 
         match errno as _ {
@@ -109,46 +111,46 @@ impl PamErrorType {
         }
     }
 
-    pub fn as_int(&self) -> libc::c_int {
+    pub fn as_int(&self) -> c_int {
         use PamErrorType::*;
 
         match self {
-            Success => PAM_SUCCESS as libc::c_int,
-            OpenError => PAM_OPEN_ERR as libc::c_int,
-            SymbolError => PAM_SYMBOL_ERR as libc::c_int,
-            ServiceError => PAM_SERVICE_ERR as libc::c_int,
-            SystemError => PAM_SYSTEM_ERR as libc::c_int,
-            BufferError => PAM_BUF_ERR as libc::c_int,
-            ConversationError => PAM_CONV_ERR as libc::c_int,
-            PermissionDenied => PAM_PERM_DENIED as libc::c_int,
-            MaxTries => PAM_MAXTRIES as libc::c_int,
-            AuthError => PAM_AUTH_ERR as libc::c_int,
-            NewAuthTokenRequired => PAM_NEW_AUTHTOK_REQD as libc::c_int,
-            CredentialsInsufficient => PAM_CRED_INSUFFICIENT as libc::c_int,
-            AuthInfoUnavailable => PAM_AUTHINFO_UNAVAIL as libc::c_int,
-            UserUnknown => PAM_USER_UNKNOWN as libc::c_int,
-            CredentialsUnavailable => PAM_CRED_UNAVAIL as libc::c_int,
-            CredentialsExpired => PAM_CRED_EXPIRED as libc::c_int,
-            CredentialsError => PAM_CRED_ERR as libc::c_int,
-            AccountExpired => PAM_ACCT_EXPIRED as libc::c_int,
-            AuthTokenExpired => PAM_AUTHTOK_EXPIRED as libc::c_int,
-            SessionError => PAM_SESSION_ERR as libc::c_int,
-            AuthTokenError => PAM_AUTHTOK_ERR as libc::c_int,
-            AuthTokenRecoveryError => PAM_AUTHTOK_RECOVERY_ERR as libc::c_int,
-            AuthTokenLockBusy => PAM_AUTHTOK_LOCK_BUSY as libc::c_int,
-            AuthTokenDisableAging => PAM_AUTHTOK_DISABLE_AGING as libc::c_int,
-            NoModuleData => PAM_NO_MODULE_DATA as libc::c_int,
-            Ignore => PAM_IGNORE as libc::c_int,
-            Abort => PAM_ABORT as libc::c_int,
-            TryAgain => PAM_TRY_AGAIN as libc::c_int,
-            ModuleUnknown => PAM_MODULE_UNKNOWN as libc::c_int,
-            BadItem => PAM_BAD_ITEM as libc::c_int,
-            // DomainUnknown => PAM_DOMAIN_UNKNOWN as libc::c_int,
-            // BadHandle => PAM_BAD_HANDLE as libc::c_int,
-            // BadFeature => PAM_BAD_FEATURE as libc::c_int,
-            // BadConstant => PAM_BAD_CONSTANT as libc::c_int,
-            // ConverseAgain => PAM_CONV_AGAIN as libc::c_int,
-            // Incomplete => PAM_INCOMPLETE as libc::c_int,
+            Success => PAM_SUCCESS as c_int,
+            OpenError => PAM_OPEN_ERR as c_int,
+            SymbolError => PAM_SYMBOL_ERR as c_int,
+            ServiceError => PAM_SERVICE_ERR as c_int,
+            SystemError => PAM_SYSTEM_ERR as c_int,
+            BufferError => PAM_BUF_ERR as c_int,
+            ConversationError => PAM_CONV_ERR as c_int,
+            PermissionDenied => PAM_PERM_DENIED as c_int,
+            MaxTries => PAM_MAXTRIES as c_int,
+            AuthError => PAM_AUTH_ERR as c_int,
+            NewAuthTokenRequired => PAM_NEW_AUTHTOK_REQD as c_int,
+            CredentialsInsufficient => PAM_CRED_INSUFFICIENT as c_int,
+            AuthInfoUnavailable => PAM_AUTHINFO_UNAVAIL as c_int,
+            UserUnknown => PAM_USER_UNKNOWN as c_int,
+            CredentialsUnavailable => PAM_CRED_UNAVAIL as c_int,
+            CredentialsExpired => PAM_CRED_EXPIRED as c_int,
+            CredentialsError => PAM_CRED_ERR as c_int,
+            AccountExpired => PAM_ACCT_EXPIRED as c_int,
+            AuthTokenExpired => PAM_AUTHTOK_EXPIRED as c_int,
+            SessionError => PAM_SESSION_ERR as c_int,
+            AuthTokenError => PAM_AUTHTOK_ERR as c_int,
+            AuthTokenRecoveryError => PAM_AUTHTOK_RECOVERY_ERR as c_int,
+            AuthTokenLockBusy => PAM_AUTHTOK_LOCK_BUSY as c_int,
+            AuthTokenDisableAging => PAM_AUTHTOK_DISABLE_AGING as c_int,
+            NoModuleData => PAM_NO_MODULE_DATA as c_int,
+            Ignore => PAM_IGNORE as c_int,
+            Abort => PAM_ABORT as c_int,
+            TryAgain => PAM_TRY_AGAIN as c_int,
+            ModuleUnknown => PAM_MODULE_UNKNOWN as c_int,
+            BadItem => PAM_BAD_ITEM as c_int,
+            // DomainUnknown => PAM_DOMAIN_UNKNOWN as c_int,
+            // BadHandle => PAM_BAD_HANDLE as c_int,
+            // BadFeature => PAM_BAD_FEATURE as c_int,
+            // BadConstant => PAM_BAD_CONSTANT as c_int,
+            // ConverseAgain => PAM_CONV_AGAIN as c_int,
+            // Incomplete => PAM_INCOMPLETE as c_int,
             UnknownErrorType(e) => *e,
         }
     }
@@ -236,15 +238,15 @@ impl fmt::Display for PamError {
 
 impl PamError {
     /// Create a new PamError based on the error number from pam.
-    pub(super) fn from_pam(errno: libc::c_int) -> PamError {
+    pub(super) fn from_pam(errno: c_int) -> PamError {
         let tp = PamErrorType::from_int(errno);
         PamError::Pam(tp)
     }
 }
 
 /// Returns `Ok(())` if the error code is `PAM_SUCCESS` or a `PamError` in other cases
-pub(super) fn pam_err(err: libc::c_int) -> Result<(), PamError> {
-    if err == PAM_SUCCESS as libc::c_int {
+pub(super) fn pam_err(err: c_int) -> Result<(), PamError> {
+    if err == PAM_SUCCESS as c_int {
         Ok(())
     } else {
         Err(PamError::from_pam(err))

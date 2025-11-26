@@ -1,5 +1,5 @@
 use std::{
-    ffi::{CStr, CString, OsStr, OsString},
+    ffi::{c_int, c_void, CStr, CString, OsStr, OsString},
     io,
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
@@ -36,7 +36,7 @@ pub struct PamContext {
     pamh: *mut pam_handle_t,
     silent: bool,
     allow_null_auth_token: bool,
-    last_pam_status: Option<libc::c_int>,
+    last_pam_status: Option<c_int>,
     session_started: bool,
 }
 
@@ -93,7 +93,7 @@ impl PamContext {
                 c_user_ptr,
                 &pam_conv {
                     conv: Some(converse::converse::<CLIConverser>),
-                    appdata_ptr: data_ptr as *mut libc::c_void,
+                    appdata_ptr: data_ptr as *mut c_void,
                 },
                 &mut pamh,
             )
@@ -229,13 +229,7 @@ impl PamContext {
         let c_user = CString::new(user)?;
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
         // `c_user.as_ptr()` will point to a correct null-terminated string.
-        pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_USER as _,
-                c_user.as_ptr() as *const libc::c_void,
-            )
-        })
+        pam_err(unsafe { pam_set_item(self.pamh, PAM_USER as _, c_user.as_ptr() as *const c_void) })
     }
 
     /// Get the user that is currently active in the PAM handle
@@ -265,13 +259,7 @@ impl PamContext {
         let data = CString::new(tty_path.as_ref().as_bytes())?;
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
         // `data.as_ptr()` will point to a correct null-terminated string.
-        pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_TTY as _,
-                data.as_ptr() as *const libc::c_void,
-            )
-        })
+        pam_err(unsafe { pam_set_item(self.pamh, PAM_TTY as _, data.as_ptr() as *const c_void) })
     }
 
     // Set the user that requested the actions in this PAM instance.
@@ -279,22 +267,16 @@ impl PamContext {
         let data = CString::new(user.as_bytes())?;
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`); furthermore,
         // `data.as_ptr()` will point to a correct null-terminated string.
-        pam_err(unsafe {
-            pam_set_item(
-                self.pamh,
-                PAM_RUSER as _,
-                data.as_ptr() as *const libc::c_void,
-            )
-        })
+        pam_err(unsafe { pam_set_item(self.pamh, PAM_RUSER as _, data.as_ptr() as *const c_void) })
     }
 
     /// Re-initialize the credentials stored in PAM
     pub fn credentials_reinitialize(&mut self) -> PamResult<()> {
-        self.credentials(PAM_REINITIALIZE_CRED as libc::c_int)
+        self.credentials(PAM_REINITIALIZE_CRED as c_int)
     }
 
     /// Updates to the credentials stored in PAM
-    fn credentials(&mut self, action: libc::c_int) -> PamResult<()> {
+    fn credentials(&mut self, action: c_int) -> PamResult<()> {
         let mut flags = action;
         flags |= self.silent_flag();
 
@@ -311,7 +293,7 @@ impl PamContext {
         let mut flags = 0;
         flags |= self.silent_flag();
         if expired_only {
-            flags |= PAM_CHANGE_EXPIRED_AUTHTOK as libc::c_int;
+            flags |= PAM_CHANGE_EXPIRED_AUTHTOK as c_int;
         }
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`).
         pam_err(unsafe { pam_chauthtok(self.pamh, flags) })
@@ -411,8 +393,7 @@ impl Drop for PamContext {
         unsafe {
             pam_end(
                 self.pamh,
-                self.last_pam_status.unwrap_or(PAM_SUCCESS as libc::c_int)
-                    | PAM_DATA_SILENT as libc::c_int,
+                self.last_pam_status.unwrap_or(PAM_SUCCESS as c_int) | PAM_DATA_SILENT as c_int,
             )
         };
     }

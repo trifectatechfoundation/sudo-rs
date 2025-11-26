@@ -1,10 +1,11 @@
 use std::{
+    ffi::c_short,
     fmt::Debug,
     io,
     os::fd::{AsFd, AsRawFd, RawFd},
 };
 
-use libc::{c_short, pollfd, POLLIN, POLLOUT};
+use libc::{pollfd, POLLIN, POLLOUT};
 
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
 use crate::{cutils::cerr, log::dev_debug};

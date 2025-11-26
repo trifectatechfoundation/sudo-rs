@@ -1,4 +1,5 @@
 use core::fmt::{self, Write};
+use std::ffi::c_int;
 
 use crate::log::{Level, Log};
 
@@ -6,7 +7,7 @@ pub struct Syslog;
 
 mod internal {
     use crate::system::syslog;
-    use std::ffi::CStr;
+    use std::ffi::{c_int, CStr};
 
     const DOTDOTDOT_START: &[u8] = b"[...] ";
     const DOTDOTDOT_END: &[u8] = b" [...]";
@@ -18,8 +19,8 @@ mod internal {
     pub struct SysLogMessageWriter {
         buffer: [u8; BUFSZ],
         cursor: usize,
-        facility: libc::c_int,
-        priority: libc::c_int,
+        facility: c_int,
+        priority: c_int,
     }
 
     // - whenever a SysLogMessageWriter has been constructed, a syslog message WILL be created
@@ -29,7 +30,7 @@ mod internal {
     // - the impl guarantees that after `line_break()`, there will be enough room available for at
     // least a single UTF8 character sequence (which is true since MAX_MSG_LEN >= 10)
     impl SysLogMessageWriter {
-        pub fn new(priority: libc::c_int, facility: libc::c_int) -> Self {
+        pub fn new(priority: c_int, facility: c_int) -> Self {
             Self {
                 buffer: [0; BUFSZ],
                 cursor: 0,
@@ -127,7 +128,7 @@ impl Write for SysLogMessageWriter {
     }
 }
 
-const FACILITY: libc::c_int = libc::LOG_AUTH;
+const FACILITY: c_int = libc::LOG_AUTH;
 
 impl Log for Syslog {
     fn log(&self, level: Level, args: &fmt::Arguments<'_>) {

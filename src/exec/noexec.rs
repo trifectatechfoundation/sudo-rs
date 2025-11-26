@@ -3,7 +3,7 @@
 #![cfg_attr(not(target_arch = "x86_64"), allow(unused))]
 
 use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
-use std::ffi::c_void;
+use std::ffi::{c_int, c_uint, c_ulong, c_void};
 use std::mem::{align_of, size_of, zeroed};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
@@ -13,14 +13,13 @@ use std::ptr::{self, addr_of};
 use std::{cmp, io, thread};
 
 use libc::{
-    c_int, c_uint, c_ulong, close, cmsghdr, iovec, msghdr, prctl, recvmsg, seccomp_data,
-    seccomp_notif, seccomp_notif_resp, seccomp_notif_sizes, sendmsg, sock_filter, sock_fprog,
-    syscall, SYS_execve, SYS_execveat, SYS_seccomp, __errno_location, BPF_ABS, BPF_ALU, BPF_AND,
-    BPF_JEQ, BPF_JMP, BPF_JUMP, BPF_K, BPF_LD, BPF_RET, BPF_STMT, BPF_W, CMSG_DATA, CMSG_FIRSTHDR,
-    CMSG_LEN, CMSG_SPACE, EACCES, ENOENT, MSG_TRUNC, PR_SET_NO_NEW_PRIVS, SCM_RIGHTS,
-    SECCOMP_FILTER_FLAG_NEW_LISTENER, SECCOMP_GET_NOTIF_SIZES, SECCOMP_RET_ALLOW,
-    SECCOMP_RET_KILL_PROCESS, SECCOMP_SET_MODE_FILTER, SECCOMP_USER_NOTIF_FLAG_CONTINUE,
-    SOL_SOCKET,
+    close, cmsghdr, iovec, msghdr, prctl, recvmsg, seccomp_data, seccomp_notif, seccomp_notif_resp,
+    seccomp_notif_sizes, sendmsg, sock_filter, sock_fprog, syscall, SYS_execve, SYS_execveat,
+    SYS_seccomp, __errno_location, BPF_ABS, BPF_ALU, BPF_AND, BPF_JEQ, BPF_JMP, BPF_JUMP, BPF_K,
+    BPF_LD, BPF_RET, BPF_STMT, BPF_W, CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_SPACE, EACCES,
+    ENOENT, MSG_TRUNC, PR_SET_NO_NEW_PRIVS, SCM_RIGHTS, SECCOMP_FILTER_FLAG_NEW_LISTENER,
+    SECCOMP_GET_NOTIF_SIZES, SECCOMP_RET_ALLOW, SECCOMP_RET_KILL_PROCESS, SECCOMP_SET_MODE_FILTER,
+    SECCOMP_USER_NOTIF_FLAG_CONTINUE, SOL_SOCKET,
 };
 
 const SECCOMP_RET_USER_NOTIF: c_uint = 0x7fc00000;
@@ -117,7 +116,7 @@ fn alloc_notify_allocs() -> NotifyAllocs {
 /// # Safety
 ///
 /// `ioctl(fd, request, ptr)` must be safe to call
-unsafe fn ioctl<T>(fd: RawFd, request: libc::c_ulong, ptr: *mut T) -> Option<()> {
+unsafe fn ioctl<T>(fd: RawFd, request: c_ulong, ptr: *mut T) -> Option<()> {
     // SAFETY: By function contract
     if unsafe { libc::ioctl(fd, request as _, ptr) } == -1 {
         // SAFETY: Trivial
@@ -217,7 +216,7 @@ fn receive_fd(rx_fd: UnixStream) -> RawFd {
     let mut control: SingleRightAnciliaryData = unsafe { zeroed() };
     // SAFETY: The buf field is valid when zero-initialized.
     msg.msg_controllen = unsafe { control.buf.len() as _ };
-    msg.msg_control = &mut control as *mut _ as *mut libc::c_void;
+    msg.msg_control = &mut control as *mut _ as *mut c_void;
 
     // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
     if unsafe { recvmsg(rx_fd.as_raw_fd(), &mut msg, 0) } == -1 {

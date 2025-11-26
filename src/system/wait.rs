@@ -1,10 +1,11 @@
+use std::ffi::c_int;
 use std::io;
 
 #[cfg(target_os = "linux")]
 use libc::__WALL;
 use libc::{
-    c_int, WEXITSTATUS, WIFCONTINUED, WIFEXITED, WIFSIGNALED, WIFSTOPPED, WNOHANG, WSTOPSIG,
-    WTERMSIG, WUNTRACED,
+    WEXITSTATUS, WIFCONTINUED, WIFEXITED, WIFSIGNALED, WIFSTOPPED, WNOHANG, WSTOPSIG, WTERMSIG,
+    WUNTRACED,
 };
 
 use crate::cutils::cerr;

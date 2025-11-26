@@ -13,6 +13,7 @@
 //! - the general idea of a "SafeString" type that clears its memory
 //!   (although much more robust than in the original code)
 
+use std::ffi::c_void;
 use std::io::{self, Error, ErrorKind, Read};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
 use std::time::Instant;
@@ -231,7 +232,7 @@ impl io::Read for TimeoutRead<'_> {
             let ret = cerr(unsafe {
                 libc::read(
                     self.fd.as_raw_fd(),
-                    buf.as_mut_ptr() as *mut libc::c_void,
+                    buf.as_mut_ptr() as *mut c_void,
                     buf.len(),
                 )
             })?;
