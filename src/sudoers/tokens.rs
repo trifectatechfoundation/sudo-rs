@@ -185,7 +185,13 @@ impl Token for Command {
             // if no arguments are mentioned, anything is allowed
             None
         } else {
-            if args.last().map(|x| -> &str { x }) == Some("\"\"") {
+            if args.first().is_some_and(|x| x.starts_with('^')) {
+                // regular expressions are not supported, give an error message. If there is only a
+                // terminating '$', this is not treated as a malformed regex by millersudo, so we don't
+                // need to seperately check for that
+                return Err("regular expressions are not supported".to_string());
+            }
+            if args.last().is_some_and(|x| x == "\"\"") {
                 // if the magic "" appears, no (further) arguments are allowed
                 args.pop();
             }
@@ -227,6 +233,8 @@ impl Token for SimpleCommand {
             return cvt_err(glob::Pattern::new(&cmd));
         } else if cmd.starts_with("sha") {
             return Err("digest specifications are not supported".to_string());
+        } else if cmd.starts_with('^') {
+            return Err("regular expressions are not supported".to_string());
         } else if !cmd.starts_with('/') {
             return Err("fully qualified path needed".to_string());
         }
