@@ -45,7 +45,7 @@ fn by_default_credential_caching_is_local() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "incorrect authentication attempt"
+        "A terminal is required to read the password"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -141,7 +141,7 @@ fn cached_credential_not_shared_with_target_user_that_are_not_self() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "Maximum 3 incorrect authentication attempts"
+        "Password is required"
     };
 
     assert_contains!(output.stderr(), diagnostic);
@@ -220,7 +220,7 @@ fn cached_credential_not_shared_between_auth_users() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "incorrect authentication attempt"
+        "A terminal is required to read the password"
     };
     assert_contains!(output.stderr(), diagnostic);
 }

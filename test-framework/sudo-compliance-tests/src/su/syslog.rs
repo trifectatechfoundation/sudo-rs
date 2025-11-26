@@ -85,19 +85,16 @@ fn logs_every_failed_authentication_attempt() {
 
     eprintln!("\n--- /var/log/auth.log ---\n{auth_log}\n--- /var/log/auth.log ---\n");
 
-    if sudo_test::is_original_sudo() {
-        assert_contains!(
-            auth_log,
-            format!("su: pam_unix(su:auth): auth could not identify password for [{target_user}]")
-        );
+    assert_contains!(
+        auth_log,
+        format!("su: pam_unix(su:auth): auth could not identify password for [{target_user}]")
+    );
 
+    if sudo_test::is_original_sudo() {
         let tty = "none";
         assert_contains!(
             auth_log,
             format!("FAILED SU (to {target_user}) {invoking_user} on {tty}")
         );
-    } else {
-        let tty = "";
-        assert_contains!(auth_log, format!("su: pam_unix(su:auth): authentication failure; logname= uid={invoking_userid} euid=0 tty={tty} ruser={invoking_user} rhost=  user={target_user}"));
     }
 }

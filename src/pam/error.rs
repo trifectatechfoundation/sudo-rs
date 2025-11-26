@@ -1,5 +1,6 @@
 use std::ffi::{c_int, NulError};
 use std::fmt;
+use std::path::PathBuf;
 use std::str::Utf8Error;
 
 use crate::cutils::string_from_ptr;
@@ -175,10 +176,15 @@ pub enum PamError {
     Utf8Error(Utf8Error),
     Pam(PamErrorType),
     IoError(std::io::Error),
+    TtyRequired,
     EnvListFailure,
     InteractionRequired,
+    NeedsPassword,
+    IncorrectPasswordAttempt,
     TimedOut,
     InvalidUser(String, String),
+    NoAskpassProgram,
+    InvalidAskpassProgram(PathBuf),
 }
 
 impl From<std::io::Error> for PamError {
@@ -218,6 +224,7 @@ impl fmt::Display for PamError {
             }
             PamError::Pam(tp) => write!(f, "PAM error: {}", tp.get_err_msg()),
             PamError::IoError(e) => write!(f, "IO error: {e}"),
+            PamError::TtyRequired => write!(f, "A terminal is required to read the password"),
             PamError::EnvListFailure => {
                 write!(
                     f,
@@ -225,11 +232,21 @@ impl fmt::Display for PamError {
                 )
             }
             PamError::InteractionRequired => write!(f, "Interaction is required"),
+            PamError::NeedsPassword => write!(f, "Password is required"),
+            PamError::IncorrectPasswordAttempt => write!(f, "Incorrect password attempt"),
             PamError::TimedOut => write!(f, "timed out"),
             PamError::InvalidUser(username, other_user) => {
                 write!(
                     f,
                     "Sorry, user {username} is not allowed to authenticate as {other_user}.",
+                )
+            }
+            PamError::NoAskpassProgram => write!(f, "No askpass program specified in SUDO_ASKPASS"),
+            PamError::InvalidAskpassProgram(program) => {
+                write!(
+                    f,
+                    "Askpass program `{}` is not absolute path",
+                    program.display()
                 )
             }
         }

@@ -32,6 +32,7 @@ fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamCon
     let mut pam = PamContext::new_cli(
         "su",
         context,
+        false,
         use_stdin,
         false,
         false,

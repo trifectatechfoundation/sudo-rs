@@ -14,15 +14,18 @@
 //!   (although much more robust than in the original code)
 
 use std::ffi::c_void;
-use std::io::{self, Error, ErrorKind, Read};
+use std::io::{self, ErrorKind, Read};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
+use std::path::PathBuf;
 use std::time::Instant;
 use std::{fs, mem};
 
 use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
 
 use crate::cutils::{cerr, safe_isatty};
+use crate::pam::{askpass, PamError, PamResult};
 use crate::system::time::Duration;
+use crate::system::wait::{Wait, WaitError, WaitOptions};
 
 use super::securemem::PamBuffer;
 
@@ -94,7 +97,7 @@ fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
     hide_input: &Hidden<HiddenInput>,
-) -> io::Result<PamBuffer> {
+) -> PamResult<PamBuffer> {
     struct ExitGuard<'a> {
         pw_len: usize,
         feedback: bool,
@@ -122,15 +125,17 @@ fn read_unbuffered(
     // with the amount of asterisks on the terminal (both tracked in `pw_len`)
     #[allow(clippy::unbuffered_bytes)]
     for read_byte in source.bytes() {
-        let read_byte = read_byte?;
+        let read_byte = read_byte.map_err(|err| match err {
+            err if err.kind() == io::ErrorKind::TimedOut => PamError::TimedOut,
+            err => PamError::IoError(err),
+        })?;
 
         if read_byte == b'\n' || read_byte == b'\r' {
-            break;
+            return Ok(password);
         }
 
         if let Hidden::Yes(input) | Hidden::WithFeedback(input) = hide_input {
             if read_byte == input.term_orig.c_cc[VEOF] {
-                password.fill(0);
                 break;
             }
 
@@ -162,14 +167,17 @@ fn read_unbuffered(
                 let _ = state.sink.write(b"*");
             }
         } else {
-            return Err(Error::new(
-                ErrorKind::OutOfMemory,
-                "incorrect password attempt",
-            ));
+            return Err(PamError::IncorrectPasswordAttempt);
         }
     }
 
-    Ok(password)
+    if state.pw_len == 0 {
+        // In case of EOF or Ctrl-D we don't want to ask for a password a second
+        // time, so return an error.
+        Err(PamError::NeedsPassword)
+    } else {
+        Ok(password)
+    }
 }
 
 /// Write something and immediately flush
@@ -248,18 +256,20 @@ impl io::Read for TimeoutRead<'_> {
 pub enum Terminal<'a> {
     Tty(fs::File),
     StdIE(io::StdinLock<'a>, io::StderrLock<'a>),
+    Askpass(PathBuf, io::Sink),
 }
 
 impl Terminal<'_> {
     /// Open the current TTY for user communication
-    pub fn open_tty() -> io::Result<Self> {
+    pub fn open_tty() -> PamResult<Self> {
         // control ourselves that we are really talking to a TTY
         // mitigates: https://marc.info/?l=oss-security&m=168164424404224
         Ok(Terminal::Tty(
             fs::OpenOptions::new()
                 .read(true)
                 .write(true)
-                .open("/dev/tty")?,
+                .open("/dev/tty")
+                .map_err(|_| PamError::TtyRequired)?,
         ))
     }
 
@@ -268,13 +278,26 @@ impl Terminal<'_> {
         Ok(Terminal::StdIE(io::stdin().lock(), io::stderr().lock()))
     }
 
+    pub fn open_askpass() -> PamResult<Self> {
+        let Some(program) = std::env::var_os("SUDO_ASKPASS") else {
+            return Err(PamError::NoAskpassProgram);
+        };
+        let program = PathBuf::from(program);
+
+        if program.is_absolute() {
+            Ok(Terminal::Askpass(program, io::sink()))
+        } else {
+            Err(PamError::InvalidAskpassProgram(program))
+        }
+    }
+
     /// Reads input with TTY echo and visual feedback set according to the `hidden` parameter.
     pub(super) fn read_input(
         &mut self,
         prompt: &str,
         timeout: Option<Duration>,
         hidden: Hidden<()>,
-    ) -> io::Result<PamBuffer> {
+    ) -> PamResult<PamBuffer> {
         fn do_hide_input(
             hidden: Hidden<()>,
             input: BorrowedFd,
@@ -304,6 +327,23 @@ impl Terminal<'_> {
                 let mut reader = TimeoutRead::new(file.as_fd(), timeout);
                 read_unbuffered(&mut reader, &mut &*file, &hide_input)
             }
+            Terminal::Askpass(program, sink) => {
+                let (command_pid, askpass_stdout) = askpass::spawn_askpass(program, prompt)?;
+
+                let mut reader = TimeoutRead::new(askpass_stdout.as_fd(), timeout);
+                let password = read_unbuffered(&mut reader, sink, &Hidden::No)?;
+
+                loop {
+                    match command_pid.wait(WaitOptions::new()) {
+                        Ok(_) => break,
+                        Err(WaitError::Io(err)) if err.kind() == io::ErrorKind::Interrupted => {}
+                        Err(WaitError::Io(err)) => return Err(PamError::IoError(err)),
+                        Err(WaitError::NotReady) => unreachable!(),
+                    }
+                }
+
+                Ok(password)
+            }
         }
     }
 
@@ -323,6 +363,7 @@ impl Terminal<'_> {
         match self {
             Terminal::StdIE(_, x) => x,
             Terminal::Tty(x) => x,
+            Terminal::Askpass(_, x) => x,
         }
     }
 }

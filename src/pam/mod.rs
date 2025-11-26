@@ -16,6 +16,7 @@ use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
 use sys::*;
 
+mod askpass;
 mod converse;
 mod error;
 mod rpassword;
@@ -52,6 +53,7 @@ impl PamContext {
     pub fn new_cli(
         converser_name: &str,
         service_name: &str,
+        use_askpass: bool,
         use_stdin: bool,
         bell: bool,
         no_interact: bool,
@@ -62,6 +64,7 @@ impl PamContext {
         let converser = CLIConverser {
             bell,
             name: converser_name.to_owned(),
+            use_askpass,
             use_stdin,
             password_feedback,
             password_timeout,
@@ -80,7 +83,7 @@ impl PamContext {
             converser_name: converser_name.to_owned(),
             no_interact,
             auth_prompt: Some("authenticate".to_owned()),
-            timed_out: false,
+            error: None,
             panicked: false,
         }));
 
@@ -176,8 +179,8 @@ impl PamContext {
         }
 
         // SAFETY: self.data_ptr was created by Box::into_raw
-        if unsafe { (*self.data_ptr).timed_out } {
-            return Err(PamError::TimedOut);
+        if let Some(error) = unsafe { (*self.data_ptr).error.take() } {
+            return Err(error);
         }
 
         #[allow(clippy::question_mark)]

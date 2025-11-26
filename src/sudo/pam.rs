@@ -8,6 +8,7 @@ use crate::system::{term::current_tty_name, time::Duration};
 
 pub(super) struct InitPamArgs<'a> {
     pub(super) launch: LaunchType,
+    pub(super) use_askpass: bool,
     pub(super) use_stdin: bool,
     pub(super) bell: bool,
     pub(super) non_interactive: bool,
@@ -23,6 +24,7 @@ pub(super) struct InitPamArgs<'a> {
 pub(super) fn init_pam(
     InitPamArgs {
         launch,
+        use_askpass,
         use_stdin,
         bell,
         non_interactive,
@@ -42,6 +44,7 @@ pub(super) fn init_pam(
     let mut pam = PamContext::new_cli(
         "sudo",
         service_name,
+        use_askpass,
         use_stdin,
         bell,
         non_interactive,
