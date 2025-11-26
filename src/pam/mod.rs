@@ -50,6 +50,7 @@ impl PamContext {
     pub fn new_cli(
         converser_name: &str,
         service_name: &str,
+        use_askpass: bool,
         use_stdin: bool,
         bell: bool,
         no_interact: bool,
@@ -60,6 +61,7 @@ impl PamContext {
         let converser = CLIConverser {
             bell,
             name: converser_name.to_owned(),
+            use_askpass,
             use_stdin,
             password_feedback,
             password_timeout,

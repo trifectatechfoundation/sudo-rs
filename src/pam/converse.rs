@@ -95,6 +95,7 @@ fn handle_message<C: Converser>(
 /// input from the user.
 pub struct CLIConverser {
     pub(super) name: String,
+    pub(super) use_askpass: bool,
     pub(super) use_stdin: bool,
     pub(super) bell: bool,
     pub(super) password_feedback: bool,
