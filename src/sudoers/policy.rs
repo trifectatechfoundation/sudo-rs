@@ -192,7 +192,7 @@ mod test {
             Authentication {
                 must_authenticate: true,
                 allowed_attempts: 3,
-                prior_validity: Duration::from_mins(15),
+                prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
                 password_timeout: Some(Duration::from_secs(300)),
@@ -209,7 +209,7 @@ mod test {
             Authentication {
                 must_authenticate: false,
                 allowed_attempts: 3,
-                prior_validity: Duration::from_mins(15 * 60),
+                prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
                 password_timeout: Some(Duration::from_secs(300)),
