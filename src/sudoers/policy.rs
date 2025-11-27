@@ -12,7 +12,8 @@ use crate::system::{Hostname, User};
 ///
 /// The trait definitions can be part of some global crate in the future, if we support more
 /// than just the sudoers file.
-use std::{collections::HashSet, time::Duration};
+use std::collections::HashSet;
+use std::time::Duration;
 
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -191,7 +192,7 @@ mod test {
             Authentication {
                 must_authenticate: true,
                 allowed_attempts: 3,
-                prior_validity: Duration::from_secs(15 * 60),
+                prior_validity: Duration::from_mins(15),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
                 password_timeout: Some(Duration::from_secs(300)),
@@ -208,7 +209,7 @@ mod test {
             Authentication {
                 must_authenticate: false,
                 allowed_attempts: 3,
-                prior_validity: Duration::from_secs(15 * 60),
+                prior_validity: Duration::from_mins(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
                 password_timeout: Some(Duration::from_secs(300)),

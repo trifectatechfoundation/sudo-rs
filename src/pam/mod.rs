@@ -7,9 +7,7 @@ use std::{
     time::Duration,
 };
 
-use crate::system::{
-    signal::{self, SignalSet},
-};
+use crate::system::signal::{self, SignalSet};
 
 use converse::ConverserData;
 use error::pam_err;

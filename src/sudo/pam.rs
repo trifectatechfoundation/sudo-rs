@@ -1,4 +1,5 @@
-use std::{ffi::OsString, time::Duration};
+use std::ffi::OsString;
+use std::time::Duration;
 
 use crate::common::context::LaunchType;
 use crate::common::error::Error;

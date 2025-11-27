@@ -54,9 +54,9 @@ impl SystemTime {
     }
 
     #[inline]
-    pub fn checked_add(self, rhs: Duration) -> Option<SystemTime> {
-        let rhs_secs = rhs.as_nanos().div_euclid(1_000_000_000).try_into().ok()?;
-        let rhs_nsecs = rhs.as_nanos().rem_euclid(1_000_000_000).try_into().ok()?;
+    fn checked_add(self, rhs: Duration) -> Option<SystemTime> {
+        let rhs_secs = rhs.as_secs().try_into().ok()?;
+        let rhs_nsecs = rhs.subsec_nanos().try_into().ok()?;
 
         let secs = self.secs.checked_add(rhs_secs)?;
         let nsecs = self.nsecs.checked_add(rhs_nsecs)?;
@@ -65,9 +65,9 @@ impl SystemTime {
     }
 
     #[inline]
-    pub fn checked_sub(self, rhs: Duration) -> Option<SystemTime> {
-        let rhs_secs = rhs.as_nanos().div_euclid(1_000_000_000).try_into().ok()?;
-        let rhs_nsecs = rhs.as_nanos().rem_euclid(1_000_000_000).try_into().ok()?;
+    fn checked_sub(self, rhs: Duration) -> Option<SystemTime> {
+        let rhs_secs = rhs.as_secs().try_into().ok()?;
+        let rhs_nsecs = rhs.subsec_nanos().try_into().ok()?;
 
         let secs = self.secs.checked_sub(rhs_secs)?;
         let nsecs = self.nsecs.checked_sub(rhs_nsecs)?;
