@@ -366,8 +366,8 @@ const GUEST_SYSCALL: (i64, i64) = if cfg!(target_arch = "aarch64") {
 // Bit that is set on syscalls when using the X32 ABI; see man seccomp.
 const __X32_SYSCALL_BIT: u32 = 0x40000000;
 
-pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
-    let (tx_fd, rx_fd) = UnixStream::pair().unwrap();
+pub(crate) fn add_noexec_filter(command: &mut Command) -> io::Result<SpawnNoexecHandler> {
+    let (tx_fd, rx_fd) = UnixStream::pair()?;
 
     // wrap tx_fd so it can be moved into the closure
     let mut tx_fd = Some(tx_fd);
@@ -465,5 +465,5 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> SpawnNoexecHandler {
         });
     }
 
-    SpawnNoexecHandler(rx_fd)
+    Ok(SpawnNoexecHandler(rx_fd))
 }

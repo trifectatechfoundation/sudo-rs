@@ -112,7 +112,7 @@ pub fn run_command(
         ));
 
         #[cfg(target_os = "linux")]
-        Some(noexec::add_noexec_filter(&mut command))
+        Some(noexec::add_noexec_filter(&mut command)?)
     } else {
         None
     };

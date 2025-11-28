@@ -64,7 +64,7 @@ pub(super) fn edit_files(
         })?;
 
         // Create socket
-        let (parent_socket, child_socket) = UnixStream::pair().unwrap();
+        let (parent_socket, child_socket) = UnixStream::pair()?;
 
         files.push(ParentFileInfo {
             path,
@@ -85,7 +85,7 @@ pub(super) fn edit_files(
 
     // Spawn child
     // SAFETY: There should be no other threads at this point.
-    let ForkResult::Parent(command_pid) = unsafe { fork() }.unwrap() else {
+    let ForkResult::Parent(command_pid) = unsafe { fork() }? else {
         drop(files);
         handle_child(editor, child_files)
     };
