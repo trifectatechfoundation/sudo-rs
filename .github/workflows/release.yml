@@ -42,7 +42,7 @@ jobs:
 
           # Check that the actual checksums match what we expected. If not fail
           # the release and have the person doing the release check again for
-          # reproducability problems.
+          # reproducibility problems.
           cat expected_checksums.txt
           diff -u expected_checksums.txt target/pkg/SHA256SUMS
 

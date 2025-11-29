@@ -14,21 +14,6 @@ rust-version = "1.70"
 
 default-run = "sudo"
 
-[lib]
-path = "src/lib.rs"
-
-[[bin]]
-name = "sudo"
-path = "bin/sudo.rs"
-
-[[bin]]
-name = "su"
-path = "bin/su.rs"
-
-[[bin]]
-name = "visudo"
-path = "bin/visudo.rs"
-
 [dependencies]
 libc = "0.2.152"
 glob = "0.3.0"

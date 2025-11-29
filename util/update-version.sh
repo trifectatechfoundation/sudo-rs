@@ -32,5 +32,9 @@ sed -i 's/^title: SUDO(8) sudo-rs .*/title: SUDO(8) sudo-rs '"$NEW_VERSION"' | s
 sed -i 's/^title: VISUDO(8) sudo-rs .*/title: VISUDO(8) sudo-rs '"$NEW_VERSION"' | sudo-rs/' "$PROJECT_DIR"/docs/man/visudo.8.md
 sed -i 's/^title: SUDOERS(5) sudo-rs .*/title: SUDOERS(5) sudo-rs '"$NEW_VERSION"' | sudo-rs/' "$PROJECT_DIR"/docs/man/sudoers.5.md
 
+echo "Regenerate man pages"
+"$PROJECT_DIR/util/generate-docs.sh"
+
 echo "Rebuilding project"
+# NOTE: Not using --locked as Cargo.lock needs to be updated with the new version
 (cd $PROJECT_DIR && cargo build --release)

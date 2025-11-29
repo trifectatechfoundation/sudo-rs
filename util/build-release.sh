@@ -8,27 +8,22 @@ TARGET_DIR_BASE="$PROJECT_DIR/target/pkg"
 
 set -eo pipefail
 
+# Clear any previous builds
+rm -rf "$TARGET_DIR_BASE"
+
 # Fetch the date from the changelog
 DATE=$(grep -m1 '^##' "$PROJECT_DIR"/CHANGELOG.md | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}')
 
 # Build binaries
 docker build --pull --tag "$BUILDER_IMAGE_TAG" --file "$SCRIPT_DIR/Dockerfile-release" "$SCRIPT_DIR"
-docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo clean
-docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --release --features pam-login,apparmor
+docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo clean --locked
+docker run --rm --user "$(id -u):$(id -g)" -v "$PROJECT_DIR:/build" -w "/build" "$BUILDER_IMAGE_TAG" cargo build --locked --release --features pam-login,apparmor
 
-# Generate man pages
-"$PROJECT_DIR/util/generate-docs.sh"
-
-# Set target directories and clear any previous builds
+# Set target directories
 target_dir_sudo="$TARGET_DIR_BASE/sudo"
 target_dir_su="$TARGET_DIR_BASE/su"
 target_sudo="$TARGET_DIR_BASE/sudo-$SUDO_RS_VERSION.tar.gz"
 target_su="$TARGET_DIR_BASE/su-$SUDO_RS_VERSION.tar.gz"
-
-rm -rf "$target_dir_sudo"
-rm -rf "$target_dir_su"
-rm -rf "$target_su"
-rm -rf "$target_sudo"
 
 # Show what is happening
 set -x
