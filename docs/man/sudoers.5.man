@@ -30,9 +30,8 @@ start time of the session leader (or parent process) and a timestamp
 (using a monotonic clock if one is available).
 The user may then use sudo without a password for a short period of time
 (15 minutes unless overridden by the timestamp_timeout option).
-\f[CR]sudo\-rs\f[R] uses a separate record for each
-terminal, which means that a user\[cq]s login sessions are authenticated
-separately.
+\f[CR]sudo\-rs\f[R] uses a separate record for each terminal, which
+means that a user\[cq]s login sessions are authenticated separately.
 .SS Logging
 By default, \f[CR]sudo\-rs\f[R] logs both successful and unsuccessful
 attempts (as well as errors).
