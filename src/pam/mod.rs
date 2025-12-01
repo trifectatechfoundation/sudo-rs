@@ -4,12 +4,10 @@ use std::{
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
     ptr::NonNull,
-};
-
-use crate::system::{
-    signal::{self, SignalSet},
     time::Duration,
 };
+
+use crate::system::signal::{self, SignalSet};
 
 use converse::ConverserData;
 use error::pam_err;

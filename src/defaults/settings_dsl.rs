@@ -2,7 +2,7 @@ macro_rules! storage_of {
     ($id:ident, true) => { bool };
     ($id:ident, false) => { bool };
     ($id:ident, [ $($value: expr),* ]) => { std::collections::HashSet<String> };
-    ($id:ident, $(=int $check: expr;)+ $_: expr) => { i64 };
+    ($id:ident, $(=int $check: expr;)+ $_: expr) => { u64 };
     ($id:ident, $(=enum $k: ident;)+ $_: ident) => { $crate::defaults::enums::$id };
     ($id:ident, None) => { Option<Box<str>> };
     ($id:ident, $_: expr) => { Box<str> };
@@ -12,7 +12,7 @@ macro_rules! referent_of {
     ($id:ident, true) => { bool };
     ($id:ident, false) => { bool };
     ($id:ident, [ $($value: expr),* ]) => { &std::collections::HashSet<String> };
-    ($id:ident, $(=int $check: expr;)+ $_: expr) => { i64 };
+    ($id:ident, $(=int $check: expr;)+ $_: expr) => { u64 };
     ($id:ident, $(=enum $k: ident;)+ $_: ident) => { $crate::defaults::enums::$id };
     ($id:ident, None) => { Option<&str> };
     ($id:ident, $_: expr) => { &str };
@@ -73,7 +73,7 @@ macro_rules! modifier_of {
     ($id:ident, =int $first:literal ..= $last: literal $(@ $radix: literal)?; $value: expr) => {
         #[allow(clippy::from_str_radix_10)]
         $crate::defaults::SettingKind::Integer(|text| {
-            i64::from_str_radix(text, 10$(*0 + $radix)?)
+            u64::from_str_radix(text, 10$(*0 + $radix)?)
                 .ok()
                 .filter(|val| ($first ..= $last).contains(val))
                 .map(|i| {
