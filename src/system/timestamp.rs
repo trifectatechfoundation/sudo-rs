@@ -42,7 +42,7 @@ impl SessionRecordFile {
         SessionRecordFile::new(uid, secure_open_cookie_file(&path)?, timeout)
     }
 
-    const FILE_VERSION: u16 = 1;
+    const FILE_VERSION: u16 = 2;
     const MAGIC_NUM: u16 = 0x50D0;
     const VERSION_OFFSET: u64 = Self::MAGIC_NUM.to_le_bytes().len() as u64;
     const FIRST_RECORD_OFFSET: u64 =
@@ -332,6 +332,7 @@ pub enum RecordScope {
     },
     Ppid {
         group_pid: ProcessId,
+        session_pid: ProcessId,
         init_time: ProcessCreateTime,
     },
 }
@@ -353,10 +354,13 @@ impl RecordScope {
             }
             RecordScope::Ppid {
                 group_pid,
+                session_pid,
                 init_time,
             } => {
                 target.write_all(&[2u8])?;
                 let b = group_pid.inner().to_le_bytes();
+                target.write_all(&b)?;
+                let b = session_pid.inner().to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
             }
@@ -387,9 +391,13 @@ impl RecordScope {
                 let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
                 from.read_exact(&mut buf)?;
                 let group_pid = libc::pid_t::from_le_bytes(buf);
+                let mut buf = [0; std::mem::size_of::<libc::pid_t>()];
+                from.read_exact(&mut buf)?;
+                let session_pid = libc::pid_t::from_le_bytes(buf);
                 let init_time = ProcessCreateTime::decode(from)?;
                 Ok(RecordScope::Ppid {
                     group_pid: ProcessId::new(group_pid),
+                    session_pid: ProcessId::new(session_pid),
                     init_time,
                 })
             }
@@ -420,6 +428,7 @@ impl RecordScope {
             if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
                 Some(RecordScope::Ppid {
                     group_pid: parent_pid,
+                    session_pid: process.session_id,
                     init_time,
                 })
             } else {
@@ -610,6 +619,7 @@ mod tests {
         let ppid_sample = SessionRecord::new(
             RecordScope::Ppid {
                 group_pid: ProcessId::new(42),
+                session_pid: ProcessId::new(43),
                 init_time: ProcessCreateTime::new(151, 0),
             },
             UserId::new(123),
@@ -644,6 +654,7 @@ mod tests {
         assert!(!tty_sample.matches(
             &RecordScope::Ppid {
                 group_pid: ProcessId::new(42),
+                session_pid: ProcessId::new(43),
                 init_time
             },
             &auth_user_from_uid(675),
@@ -698,29 +709,29 @@ mod tests {
     #[test]
     fn session_record_file_header_checks() {
         // valid header should remain valid
-        let c = tempfile_with_data(&[0xD0, 0x50, 0x01, 0x00]).unwrap();
+        let c = tempfile_with_data(&[0xD0, 0x50, 0x02, 0x00]).unwrap();
         let timeout = Duration::from_secs(30);
         assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
-        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x02, 0x00]);
 
         // invalid headers should be corrected
         let c = tempfile_with_data(&[0xAB, 0xBA]).unwrap();
         assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
-        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x02, 0x00]);
 
         // empty header should be filled in
         let c = tempfile_with_data(&[]).unwrap();
         assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
-        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x02, 0x00]);
 
         // invalid version should reset file
         let c = tempfile_with_data(&[0xD0, 0x50, 0xAB, 0xBA, 0x0, 0x0]).unwrap();
         assert!(SessionRecordFile::new(TEST_USER_ID, c.try_clone().unwrap(), timeout).is_ok());
         let v = data_from_tempfile(c).unwrap();
-        assert_eq!(&v[..], &[0xD0, 0x50, 0x01, 0x00]);
+        assert_eq!(&v[..], &[0xD0, 0x50, 0x02, 0x00]);
     }
 
     #[test]
@@ -760,6 +771,6 @@ mod tests {
 
         // after all this the data should be just an empty header
         let data = data_from_tempfile(c).unwrap();
-        assert_eq!(&data, &[0xD0, 0x50, 0x01, 0x00]);
+        assert_eq!(&data, &[0xD0, 0x50, 0x02, 0x00]);
     }
 }
