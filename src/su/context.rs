@@ -19,7 +19,6 @@ use super::cli::SuRunOptions;
 const VALID_LOGIN_SHELLS_LIST: &str = "/etc/shells";
 const FALLBACK_LOGIN_SHELL: &str = "/bin/sh";
 
-const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_DEFAULT: &str = env!("SU_PATH_DEFAULT");
 const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
 
@@ -182,10 +181,6 @@ impl SuContext {
             // extend environment with fixed variables
             environment.insert("HOME".into(), user.home.clone().into());
             environment.insert("SHELL".into(), command.clone().into());
-            environment.insert(
-                "MAIL".into(),
-                format!("{PATH_MAILDIR}/{}", user.name).into(),
-            );
 
             if !is_target_root || options.login {
                 environment.insert("USER".into(), options.user.clone().into());

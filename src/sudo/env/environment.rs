@@ -10,7 +10,6 @@ use crate::system::PATH_MAX;
 
 use super::wildcard_match::wildcard_match;
 
-const PATH_MAILDIR: &str = env!("PATH_MAILDIR");
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
 const PATH_DEFAULT: &str = env!("SUDO_PATH_DEFAULT");
 
@@ -64,9 +63,6 @@ fn add_extra_env(
     environment.insert("SUDO_USER".into(), context.current_user.name.clone().into());
     environment.insert("SUDO_HOME".into(), context.current_user.home.clone().into());
     // target user
-    environment
-        .entry("MAIL".into())
-        .or_insert_with(|| format!("{PATH_MAILDIR}/{}", context.target_user.name).into());
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
     environment
         .entry("SHELL".into())
@@ -199,7 +195,7 @@ fn should_keep(key: &OsStr, value: &OsStr, cfg: &Restrictions) -> bool {
 /// see <https://github.com/sudo-project/sudo/blob/main/plugins/sudoers/env.c> for the original implementation
 /// see <https://www.sudo.ws/docs/man/sudoers.man/#Command_environment> for the original documentation
 ///
-/// The HOME, MAIL, SHELL, LOGNAME and USER environment variables are initialized based on the target user
+/// The HOME, SHELL, LOGNAME and USER environment variables are initialized based on the target user
 /// and the SUDO_* variables are set based on the invoking user.
 ///
 /// Additional variables, such as DISPLAY, PATH and TERM, are preserved from the invoking user's
