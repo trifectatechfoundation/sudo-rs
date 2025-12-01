@@ -192,11 +192,6 @@ jobs:
           sudo apt update
           sudo apt install libpam0g-dev
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "stable"
-
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
@@ -227,11 +222,6 @@ jobs:
           sudo apt update
           sudo apt install libpam0g-dev
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "nightly"
-
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
@@ -258,11 +248,6 @@ jobs:
           sudo apt update
           sudo apt install libpam0g-dev
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "msrv"
-
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
@@ -282,11 +267,6 @@ jobs:
       - name: Install dependencies
         run: |
           dnf install -y cargo pam-devel
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "stable-fedora"
 
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
@@ -312,11 +292,6 @@ jobs:
       - name: Install dependencies
         run: |
           apk add cargo linux-pam-dev sudo tzdata coreutils-fmt
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "stable-alpine"
 
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
@@ -351,11 +326,6 @@ jobs:
           sudo apt update
           sudo apt install libpam0g-dev:i386 gcc-multilib
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "stable-32bit"
-
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
@@ -382,11 +352,6 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libpam0g-dev
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: miri
 
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
@@ -439,11 +404,6 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "stable"
-
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
@@ -457,11 +417,6 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@f13886b937689c021905a6b90929199931d60db1 # v2.8.1
-        with:
-          shared-key: "stable"
 
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
