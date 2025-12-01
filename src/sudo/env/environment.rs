@@ -11,7 +11,8 @@ use crate::system::PATH_MAX;
 use super::wildcard_match::wildcard_match;
 
 const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
-const PATH_DEFAULT: &str = env!("SUDO_PATH_DEFAULT");
+// TODO: use _PATH_STDPATH from paths.h
+pub(crate) const PATH_DEFAULT: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 
 pub type Environment = HashMap<OsString, OsString>;
 
