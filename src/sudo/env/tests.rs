@@ -29,7 +29,6 @@ const TESTS: &str = "
     LANGUAGE=en_US.UTF-8
     LC_ALL=en_US.UTF-8
     LS_COLORS=cd=40;33;01:*.jpg=01;35:*.mp3=00;36:
-    MAIL=/var/mail/root
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     SHELL=/bin/bash
     SUDO_COMMAND=/usr/bin/env
@@ -47,7 +46,6 @@ const TESTS: &str = "
     LANGUAGE=en_US.UTF-8
     LC_ALL=en_US.UTF-8
     LS_COLORS=cd=40;33;01:*.jpg=01;35:*.mp3=00;36:
-    MAIL=/var/mail/test
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     SHELL=/bin/sh
     SUDO_COMMAND=/usr/bin/env

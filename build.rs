@@ -14,9 +14,6 @@ fn main() {
     ])
     .expect("no zoneinfo database");
 
-    let path_maildir: &str =
-        get_first_path(&["/var/mail", "/var/spool/mail", "/usr/spool/mail"]).unwrap_or("/var/mail");
-
     // TODO: use _PATH_STDPATH and _PATH_DEFPATH_ROOT from paths.h
     println!("cargo:rustc-env=SUDO_PATH_DEFAULT=/usr/bin:/bin:/usr/sbin:/sbin");
     println!(
@@ -26,7 +23,6 @@ fn main() {
         "cargo:rustc-env=SU_PATH_DEFAULT=/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games"
     );
 
-    println!("cargo:rustc-env=PATH_MAILDIR={path_maildir}");
     println!("cargo:rustc-env=PATH_ZONEINFO={path_zoneinfo}");
     println!("cargo:rerun-if-changed=build.rs");
 

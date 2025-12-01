@@ -30,9 +30,9 @@ fn some_vars_are_set() {
     let mut sudo_env = helpers::parse_env_output(&stdout);
 
     // # man sudo
-    // "Set to the mail spool of the target user"
-    assert_eq!(Some("/var/mail/root"), sudo_env.remove("MAIL"));
-
+    if sudo_test::is_original_sudo() {
+        assert_eq!(Some("/var/mail/root"), sudo_env.remove("MAIL"));
+    }
     // "Set to the home directory of the target user"
     assert_eq!(Some("/root"), sudo_env.remove("HOME"));
 
@@ -60,7 +60,7 @@ fn some_vars_are_set() {
     assert_eq!(Some("root"), sudo_env.remove("USER"));
 
     // # man sudoers
-    // "The HOME, MAIL, SHELL, LOGNAME and USER environment variables are initialized based on the target user"
+    // "The HOME, SHELL, LOGNAME and USER environment variables are initialized based on the target user"
     assert_eq!(Some("/bin/sh"), sudo_env.remove("SHELL"));
 
     // "If the PATH and TERM variables are not preserved from the user's environment, they will be set to default values."
@@ -128,15 +128,17 @@ fn user_dependent_vars() {
         .stdout();
     let mut sudo_env = helpers::parse_env_output(&stdout);
 
-    // "The HOME, MAIL, SHELL, LOGNAME and USER environment variables are initialized based on the target user"
+    // "The HOME, SHELL, LOGNAME and USER environment variables are initialized based on the target user"
     assert_eq!(
         Some(format!("/home/{USERNAME}")).as_deref(),
         sudo_env.remove("HOME")
     );
-    assert_eq!(
-        Some(format!("/var/mail/{USERNAME}")).as_deref(),
-        sudo_env.remove("MAIL")
-    );
+    if sudo_test::is_original_sudo() {
+        assert_eq!(
+            Some(format!("/var/mail/{USERNAME}")).as_deref(),
+            sudo_env.remove("MAIL")
+        );
+    }
     assert_eq!(Some(shell_path), sudo_env.remove("SHELL"));
     assert_eq!(Some(USERNAME), sudo_env.remove("LOGNAME"));
     assert_eq!(Some(USERNAME), sudo_env.remove("USER"));
@@ -202,7 +204,9 @@ fn some_vars_are_preserved() {
 
     // not preserved
     assert_eq!(Some("/root"), sudo_env.remove("HOME"));
-    assert_eq!(Some("/var/mail/root"), sudo_env.remove("MAIL"));
+    if sudo_test::is_original_sudo() {
+        assert_eq!(Some("/var/mail/root"), sudo_env.remove("MAIL"));
+    }
     assert_eq!(Some("/bin/sh"), sudo_env.remove("SHELL"));
     assert_eq!(Some("root"), sudo_env.remove("LOGNAME"));
     assert_eq!(Some("root"), sudo_env.remove("USER"));
