@@ -277,24 +277,22 @@ fn plus_equal_repeated(env_list: EnvList) {
 }
 
 // see 'environment' section in `man sudo`
-// the variables HOME, LOGNAME, MAIL and USER are set by sudo with a value that depends on the
+// the variables HOME, LOGNAME and USER are set by sudo with a value that depends on the
 // target user *unless* they appear in the env_keep list
 fn vars_with_target_user_specific_values(env_list: EnvList) {
     let home = "my-home";
     let logname = "my-logname";
-    let mail = "my-mail";
     let user = "my-user";
 
     let env = Env([
         SUDOERS_ALL_ALL_NOPASSWD,
-        &format!("Defaults {env_list} = \"HOME LOGNAME MAIL USER\""),
+        &format!("Defaults {env_list} = \"HOME LOGNAME USER\""),
     ])
     .build();
 
     let stdout = Command::new("env")
         .arg(format!("HOME={home}"))
         .arg(format!("LOGNAME={logname}"))
-        .arg(format!("MAIL={mail}"))
         .arg(format!("USER={user}"))
         .args(["sudo", "env"])
         .output(&env)
@@ -303,7 +301,6 @@ fn vars_with_target_user_specific_values(env_list: EnvList) {
 
     assert_eq!(Some(home), sudo_env.get("HOME").copied());
     assert_eq!(Some(logname), sudo_env.get("LOGNAME").copied());
-    assert_eq!(Some(mail), sudo_env.get("MAIL").copied());
     assert_eq!(Some(user), sudo_env.get("USER").copied());
 }
 

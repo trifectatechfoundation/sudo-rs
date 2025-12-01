@@ -8,7 +8,6 @@ use std::sync::OnceLock;
 mod simple_logger;
 mod syslog;
 
-// TODO: logger_macro has an allow_unused that should be removed
 macro_rules! logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
         macro_rules! $name {
