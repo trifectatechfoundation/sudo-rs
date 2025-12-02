@@ -2,7 +2,7 @@ PAM_SRC_DIR = src/pam
 
 BINDGEN_CMD = bindgen --allowlist-function '^pam_.*$$' --allowlist-var '^PAM_.*$$' --opaque-type pam_handle_t --blocklist-function pam_vsyslog --blocklist-function pam_vprompt --blocklist-function pam_vinfo --blocklist-function pam_verror --blocklist-type '.*va_list.*' --ctypes-prefix std::ffi --no-layout-tests --sort-semantically
 
-PAM_VARIANT = $$(./get-pam-variant.bash)
+PAM_VARIANT = $$(./util/get-pam-variant.bash)
 
 .PHONY: all clean pam-sys pam-sys-diff
 
