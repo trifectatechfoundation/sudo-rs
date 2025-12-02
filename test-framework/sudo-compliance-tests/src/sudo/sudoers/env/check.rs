@@ -301,7 +301,7 @@ fn bad_tz() {
     // "It is longer than the value of PATH_MAX."
     let long_path = "/usr/share/zoneinfo/"
         .chars()
-        .chain(iter::repeat('a').take(PATH_MAX))
+        .chain(iter::repeat_n('a', PATH_MAX))
         .collect::<String>();
 
     let env = Env([
