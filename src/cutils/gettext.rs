@@ -41,7 +41,7 @@ impl<T: std::fmt::Display> DisplayStr for &T {
     }
 }
 
-fn gettext(text: &'static CStr) -> &'static str {
+pub(crate) fn gettext(text: &'static CStr) -> &'static str {
     // SAFETY: gettext() is guaranteed to return a pointer to a statically
     // allocated null-terminated string; this string is also constant (i.e.
     // it will be unmodified by future calls to gettext.)
@@ -53,11 +53,11 @@ fn gettext(text: &'static CStr) -> &'static str {
 macro_rules! xlat {
     ($text: literal) => {{
         debug_assert!(!$text.contains("{"), "invalid gettext input");
-        gettext(cstr!($text))
+        $crate::cutils::gettext::gettext(cstr!($text))
     }};
 
     ($text: literal $(, $id: ident = $val: expr)*) => {{
-        let fmt = gettext(cstr!($text));
+        let fmt = $crate::cutils::gettext::gettext(cstr!($text));
         $(
         let fmt = fmt.replace(concat!("{", stringify!($id), "}"), $val.display().as_ref());
         )*
@@ -67,7 +67,7 @@ macro_rules! xlat {
     }};
 
     ($text: literal, $val: expr) => {{
-        let fmt = gettext(cstr!($text));
+        let fmt = $crate::cutils::gettext::gettext(cstr!($text));
 
         let fmt = fmt.replacen("{}", $val.display().as_ref(), 1);
 
@@ -75,6 +75,8 @@ macro_rules! xlat {
         fmt
     }};
 }
+
+pub(crate) use xlat;
 
 #[cfg(test)]
 mod test {

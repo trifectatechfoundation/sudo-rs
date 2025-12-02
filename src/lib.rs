@@ -21,3 +21,6 @@ pub use visudo::main as visudo_main;
 
 #[cfg(feature = "do-not-use-all-features")]
 compile_error!("Refusing to compile using 'cargo --all-features' --- please read the README");
+
+#[cfg(feature = "gettext")]
+pub(crate) use cutils::gettext;
