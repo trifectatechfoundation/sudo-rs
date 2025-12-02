@@ -24,7 +24,7 @@ fn it_works() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "A terminal is required to read the password"
+        "A terminal is required to authenticate"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -72,7 +72,7 @@ fn with_command_prompts_for_password() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "A terminal is required to read the password"
+        "A terminal is required to authenticate"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -144,7 +144,7 @@ fn with_command_does_not_cache_credentials() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a password is required"
     } else {
-        "A terminal is required to read the password"
+        "A terminal is required to authenticate"
     };
     assert_contains!(output.stderr(), diagnostic);
 }

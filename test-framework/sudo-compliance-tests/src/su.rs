@@ -131,7 +131,7 @@ fn password_is_required_when_target_user_is_self() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "Authentication failure"
     } else {
-        "Password is required"
+        "Authentication required but not attempted"
     };
     assert_contains!(output.stderr(), diagnostic);
 }

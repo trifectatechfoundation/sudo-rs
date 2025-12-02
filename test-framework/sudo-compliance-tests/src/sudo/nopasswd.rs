@@ -141,6 +141,6 @@ fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() {
             );
         }
     } else {
-        assert_contains!(stderr, "Password is required");
+        assert_contains!(stderr, "Authentication required but not attempted");
     }
 }

@@ -178,7 +178,7 @@ pub enum PamError {
     TtyRequired,
     EnvListFailure,
     InteractionRequired,
-    NeedsPassword,
+    NoPasswordProvided,
     IncorrectPasswordAttempt,
     TimedOut,
     InvalidUser(String, String),
@@ -221,7 +221,7 @@ impl fmt::Display for PamError {
             }
             PamError::Pam(tp) => write!(f, "PAM error: {}", tp.get_err_msg()),
             PamError::IoError(e) => write!(f, "IO error: {e}"),
-            PamError::TtyRequired => write!(f, "A terminal is required to read the password"),
+            PamError::TtyRequired => write!(f, "A terminal is required to authenticate"),
             PamError::EnvListFailure => {
                 write!(
                     f,
@@ -229,8 +229,8 @@ impl fmt::Display for PamError {
                 )
             }
             PamError::InteractionRequired => write!(f, "Interaction is required"),
-            PamError::NeedsPassword => write!(f, "Password is required"),
-            PamError::IncorrectPasswordAttempt => write!(f, "Incorrect password attempt"),
+            PamError::NoPasswordProvided => write!(f, "Authentication required but not attempted"),
+            PamError::IncorrectPasswordAttempt => write!(f, "Incorrect authentication attempt"),
             PamError::TimedOut => write!(f, "timed out"),
             PamError::InvalidUser(username, other_user) => {
                 write!(

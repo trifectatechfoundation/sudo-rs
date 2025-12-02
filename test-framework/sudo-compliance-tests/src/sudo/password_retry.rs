@@ -227,7 +227,7 @@ sudo: a password is required"
     } else {
         assert_eq!(
             output.stderr(),
-            "[sudo: authenticate] Password: \nsudo: Password is required"
+            "[sudo: authenticate] Password: \nsudo: Authentication required but not attempted"
         );
     }
 }

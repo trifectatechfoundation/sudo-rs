@@ -171,7 +171,7 @@ fn read_unbuffered(
     if state.pw_len == 0 {
         // In case of EOF or Ctrl-D we don't want to ask for a password a second
         // time, so return an error.
-        Err(PamError::NeedsPassword)
+        Err(PamError::NoPasswordProvided)
     } else {
         Ok(password)
     }
