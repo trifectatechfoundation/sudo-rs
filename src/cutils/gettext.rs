@@ -65,6 +65,15 @@ macro_rules! xlat {
         debug_assert!(!fmt.contains("{"), "invalid gettext input");
         fmt
     }};
+
+    ($text: literal, $val: expr) => {{
+        let fmt = gettext(cstr!($text));
+
+        let fmt = fmt.replacen("{}", $val.display().as_ref(), 1);
+
+        debug_assert!(!fmt.contains("{"), "invalid gettext input");
+        fmt
+    }};
 }
 
 #[cfg(test)]
@@ -92,5 +101,7 @@ mod test {
         );
 
         assert_eq!(xlat!("five = {five}", five = 5), "five = 5");
+
+        assert_eq!(xlat!("{}", "foo"), "foo");
     }
 }
