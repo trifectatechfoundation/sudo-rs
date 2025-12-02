@@ -25,6 +25,22 @@ fn textdomain(domain: &CStr) {
     }
 }
 
+trait DisplayStr {
+    fn display(self) -> impl AsRef<str>;
+}
+
+impl<'a> DisplayStr for &'a str {
+    fn display(self) -> impl AsRef<str> {
+        self
+    }
+}
+
+impl<T: std::fmt::Display> DisplayStr for &T {
+    fn display(self) -> impl AsRef<str> {
+        self.to_string()
+    }
+}
+
 fn gettext(text: &'static CStr) -> &'static str {
     // SAFETY: gettext() is guaranteed to return a pointer to a statically
     // allocated null-terminated string; this string is also constant (i.e.
@@ -36,8 +52,19 @@ fn gettext(text: &'static CStr) -> &'static str {
 
 macro_rules! xlat {
     ($text: literal) => {{
+        debug_assert!(!$text.contains("{"), "invalid gettext input");
         gettext(cstr!($text))
-    }}
+    }};
+
+    ($text: literal $(, $id: ident = $val: expr)*) => {{
+        let fmt = gettext(cstr!($text));
+        $(
+        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), $val.display().as_ref());
+        )*
+
+        debug_assert!(!fmt.contains("{"), "invalid gettext input");
+        fmt
+    }};
 }
 
 #[cfg(test)]
@@ -55,5 +82,15 @@ mod test {
         if std::env::var("LANG").unwrap_or_default().starts_with("nl") {
             assert_eq!(xlat!("usage"), "gebruik");
         }
+    }
+
+    #[test]
+    fn var_subst() {
+        assert_eq!(
+            xlat!("{hello} {world}", world = "world", hello = "hello"),
+            "hello world"
+        );
+
+        assert_eq!(xlat!("five = {five}", five = 5), "five = 5");
     }
 }
