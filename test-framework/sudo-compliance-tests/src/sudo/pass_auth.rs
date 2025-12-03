@@ -2,6 +2,7 @@
 
 // NOTE all these tests assume that the invoking user passes the sudoers file 'User_List' criteria
 
+mod askpass;
 mod stdin;
 mod tty;
 
