@@ -168,7 +168,19 @@ pub type Command = (SimpleCommand, Option<Box<[String]>>);
 
 /// A type that is specific to 'only commands', that can only happen in "Defaults!command" contexts;
 /// which is essentially a subset of "Command"
+#[cfg(feature = "rust-glob")]
 pub type SimpleCommand = glob::Pattern;
+#[cfg(not(feature = "rust-glob"))]
+pub struct SimpleCommand(SudoString);
+
+#[cfg(not(feature = "rust-glob"))]
+impl std::ops::Deref for SimpleCommand {
+    type Target = SudoString;
+
+    fn deref(&self) -> &SudoString {
+        &self.0
+    }
+}
 
 impl Token for Command {
     const MAX_LEN: usize = 1024;
@@ -224,8 +236,17 @@ impl Token for SimpleCommand {
     const MAX_LEN: usize = 1024;
 
     fn construct(mut cmd: String) -> Result<Self, String> {
+        #[cfg(feature = "rust-glob")]
         let make_pattern = |pat: String| {
             glob::Pattern::new(&pat).map_err(|err| format!("wildcard pattern error {err}"))
+        };
+
+        #[cfg(not(feature = "rust-glob"))]
+        let make_pattern = |pat| match SudoString::new(pat) {
+            Ok(pattern) if crate::cutils::fnmatch(&pattern, &std::path::PathBuf::new()).is_ok() => {
+                Ok(SimpleCommand(pattern))
+            }
+            _ => Err("wildcard pattern error".to_string()),
         };
 
         // detect the two edges cases
