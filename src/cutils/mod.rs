@@ -104,6 +104,29 @@ pub fn is_fifo(fildes: BorrowedFd) -> bool {
     fstat_mode_set(&fildes, libc::S_IFIFO)
 }
 
+/// Wrapper around fnmatch for globbing
+#[cfg(not(feature = "rust-glob"))]
+pub fn fnmatch(
+    pattern: &crate::common::SudoString,
+    name: &std::path::Path,
+) -> std::io::Result<bool> {
+    let pattern = pattern.as_cstr();
+    let name = std::ffi::CString::new(name.as_os_str().as_bytes()).expect("path is not a C string");
+
+    // equivalent to "require_literal_separator"
+    let flags = libc::FNM_PATHNAME;
+
+    // SAFETY: fnmatch is passed two valid pointers to a CString
+    match unsafe { libc::fnmatch(pattern.as_ptr(), name.as_ptr(), flags) } {
+        0 => Ok(true),
+        libc::FNM_NOMATCH => Ok(false),
+        _ => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "pattern error",
+        )),
+    }
+}
+
 #[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {

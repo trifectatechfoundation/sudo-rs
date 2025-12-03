@@ -253,7 +253,7 @@ fn write_spec<'a>(
         Meta::All => f.write_str("ALL")?,
 
         Meta::Only((cmd, args)) => {
-            write!(f, "{cmd}")?;
+            write!(f, "{}", cmd.as_str())?;
             if let Some(args) = args {
                 for arg in args.iter() {
                     write!(f, " {arg}")?;
