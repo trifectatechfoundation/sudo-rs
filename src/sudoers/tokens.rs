@@ -168,16 +168,15 @@ pub type Command = (SimpleCommand, Option<Box<[String]>>);
 
 /// A type that is specific to 'only commands', that can only happen in "Defaults!command" contexts;
 /// which is essentially a subset of "Command"
-#[cfg(feature = "rust-glob")]
-pub type SimpleCommand = glob::Pattern;
-#[cfg(not(feature = "rust-glob"))]
-pub struct SimpleCommand(SudoString);
+pub struct SimpleCommand(<SimpleCommand as std::ops::Deref>::Target);
 
-#[cfg(not(feature = "rust-glob"))]
 impl std::ops::Deref for SimpleCommand {
+    #[cfg(feature = "rust-glob")]
+    type Target = glob::Pattern;
+    #[cfg(not(feature = "rust-glob"))]
     type Target = SudoString;
 
-    fn deref(&self) -> &SudoString {
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
@@ -238,7 +237,9 @@ impl Token for SimpleCommand {
     fn construct(mut cmd: String) -> Result<Self, String> {
         #[cfg(feature = "rust-glob")]
         let make_pattern = |pat: String| {
-            glob::Pattern::new(&pat).map_err(|err| format!("wildcard pattern error {err}"))
+            glob::Pattern::new(&pat)
+                .map(SimpleCommand)
+                .map_err(|_| "wildcard pattern error".to_string())
         };
 
         #[cfg(not(feature = "rust-glob"))]
