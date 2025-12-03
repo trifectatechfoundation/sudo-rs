@@ -224,13 +224,13 @@ impl Token for SimpleCommand {
     const MAX_LEN: usize = 1024;
 
     fn construct(mut cmd: String) -> Result<Self, String> {
-        let cvt_err = |pat: Result<_, glob::PatternError>| {
-            pat.map_err(|err| format!("wildcard pattern error {err}"))
+        let make_pattern = |pat: String| {
+            glob::Pattern::new(&pat).map_err(|err| format!("wildcard pattern error {err}"))
         };
 
         // detect the two edges cases
         if cmd == "list" || cmd == "sudoedit" {
-            return cvt_err(glob::Pattern::new(&cmd));
+            return make_pattern(cmd);
         } else if cmd.starts_with("sha") {
             return Err("digest specifications are not supported".to_string());
         } else if cmd.starts_with('^') {
@@ -258,7 +258,7 @@ impl Token for SimpleCommand {
             cmd.push_str("/*");
         }
 
-        cvt_err(glob::Pattern::new(&cmd))
+        make_pattern(cmd)
     }
 
     // all commands start with "/" except "sudoedit" or "list"
