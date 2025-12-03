@@ -1,5 +1,4 @@
 use std::ffi::{c_int, c_void};
-use std::io;
 use std::time::Duration;
 
 use crate::cutils::string_from_ptr;
@@ -12,7 +11,7 @@ use super::{error::PamResult, rpassword, securemem::PamBuffer, PamError, PamErro
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum PamMessageStyle {
     /// Prompt for input using a message. The input should considered secret
     /// and should be hidden from view.
@@ -128,7 +127,7 @@ impl Drop for SignalGuard {
 }
 
 impl CLIConverser {
-    fn open(&self) -> std::io::Result<(Terminal<'_>, SignalGuard)> {
+    fn open(&self) -> PamResult<(Terminal<'_>, SignalGuard)> {
         let term = if self.use_stdin {
             Terminal::open_stdie()?
         } else {
@@ -142,11 +141,11 @@ impl CLIConverser {
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let (mut tty, _guard) = self.open()?;
-        Ok(tty.read_input(
+        tty.read_input(
             &format!("[{}: input needed] {msg} ", self.name),
             None,
             Hidden::No,
-        )?)
+        )
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
@@ -163,13 +162,6 @@ impl Converser for CLIConverser {
                 Hidden::Yes(())
             },
         )
-        .map_err(|err| {
-            if let io::ErrorKind::TimedOut = err.kind() {
-                PamError::TimedOut
-            } else {
-                PamError::IoError(err)
-            }
-        })
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
@@ -192,7 +184,7 @@ pub(super) struct ConverserData<C> {
     // pam_authenticate does not return error codes returned by the conversation
     // function; these are set by the conversation function instead of returning
     // multiple error codes.
-    pub(super) timed_out: bool,
+    pub(super) error: Option<PamError>,
     pub(super) panicked: bool,
 }
 
@@ -238,15 +230,22 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
             // send the conversation off to the Rust part
             // SAFETY: appdata_ptr contains the `*mut ConverserData` that is untouched by PAM
             let app_data = unsafe { &mut *(appdata_ptr as *mut ConverserData<C>) };
+
+            if app_data.error.is_some()
+                && (style == PamMessageStyle::PromptEchoOff
+                    || style == PamMessageStyle::PromptEchoOn)
+            {
+                return PamErrorType::ConversationError;
+            }
+
             match handle_message(app_data, style, &msg) {
                 Ok(resp_buf) => {
                     resp_bufs.push(resp_buf);
                 }
-                Err(PamError::TimedOut) => {
-                    app_data.timed_out = true;
+                Err(err) => {
+                    app_data.error = Some(err);
                     return PamErrorType::ConversationError;
                 }
-                Err(_) => return PamErrorType::ConversationError,
             }
         }
 
@@ -423,7 +422,7 @@ mod test {
             converser_name: "tux".to_string(),
             no_interact: false,
             auth_prompt: Some("authenticate".to_owned()),
-            timed_out: false,
+            error: None,
             panicked: false,
         });
         let cookie = PamConvBorrow::new(hello.as_mut());

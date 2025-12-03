@@ -52,7 +52,7 @@ fn no_tty() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "a terminal is required to read the password"
     } else {
-        "Maximum 3 incorrect authentication attempts"
+        "A terminal is required to authenticate"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -96,7 +96,7 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() {
         let diagnostic = if sudo_test::is_original_sudo() {
             "sudo: 1 incorrect password attempt"
         } else {
-            "Authentication failed, try again"
+            "Incorrect authentication attempt"
         };
         assert_contains!(stderr, diagnostic);
     }

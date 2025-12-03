@@ -34,7 +34,7 @@ fn incorrect_password() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "incorrect password attempt"
     } else {
-        "incorrect authentication attempt"
+        "Authentication failed, try again."
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -54,7 +54,7 @@ fn no_password() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "no password was provided"
     } else {
-        "incorrect authentication attempt"
+        "Authentication required but not attempted"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -96,7 +96,7 @@ fn input_longer_than_max_pam_response_size_is_handled_gracefully() {
             assert_contains!(stderr, "sudo: 2 incorrect password attempts");
         }
     } else {
-        assert_contains!(stderr, "incorrect authentication attempt");
+        assert_contains!(stderr, "Incorrect authentication attempt");
         assert_not_contains!(stderr, "panic");
     }
 }
@@ -124,7 +124,7 @@ fn input_longer_than_password_should_not_be_accepted_as_correct_password() {
         if sudo_test::is_original_sudo() {
             assert_contains!(stderr, "sudo: 1 incorrect password attempt");
         } else {
-            assert_contains!(stderr, "incorrect authentication attempt");
+            assert_contains!(stderr, "Incorrect authentication attempt");
         }
     }
 }

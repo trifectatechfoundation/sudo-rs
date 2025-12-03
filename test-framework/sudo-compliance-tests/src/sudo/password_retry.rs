@@ -202,3 +202,32 @@ it could be that the image defaults to a high retry delay value; \
 you may want to increase NEW_DELAY_MICROS"
     );
 }
+
+#[test]
+fn no_password_retry_on_empty_stdin() {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("echo -n | sudo -S true")
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_exit_code(1);
+
+    if sudo_test::is_original_sudo() {
+        assert_eq!(
+            output.stderr(),
+            "[sudo] password for ferris: \n\
+sudo: no password was provided\n\
+sudo: a password is required"
+        );
+    } else {
+        assert_eq!(
+            output.stderr(),
+            "[sudo: authenticate] Password: \nsudo: Authentication required but not attempted"
+        );
+    }
+}

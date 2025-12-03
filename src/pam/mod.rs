@@ -78,7 +78,7 @@ impl PamContext {
             converser_name: converser_name.to_owned(),
             no_interact,
             auth_prompt: Some("authenticate".to_owned()),
-            timed_out: false,
+            error: None,
             panicked: false,
         }));
 
@@ -174,8 +174,8 @@ impl PamContext {
         }
 
         // SAFETY: self.data_ptr was created by Box::into_raw
-        if unsafe { (*self.data_ptr).timed_out } {
-            return Err(PamError::TimedOut);
+        if let Some(error) = unsafe { (*self.data_ptr).error.take() } {
+            return Err(error);
         }
 
         #[allow(clippy::question_mark)]

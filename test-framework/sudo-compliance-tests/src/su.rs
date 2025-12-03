@@ -98,7 +98,7 @@ fn required_password_is_target_users_fail() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "Authentication failure"
     } else {
-        "Maximum 3 incorrect authentication attempts"
+        "Authentication failed, try again."
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -131,7 +131,7 @@ fn password_is_required_when_target_user_is_self() {
     let diagnostic = if sudo_test::is_original_sudo() {
         "Authentication failure"
     } else {
-        "Maximum 3 incorrect authentication attempts"
+        "Authentication required but not attempted"
     };
     assert_contains!(output.stderr(), diagnostic);
 }

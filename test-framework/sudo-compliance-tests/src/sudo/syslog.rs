@@ -39,10 +39,5 @@ fn sudo_logs_every_failed_authentication_attempt() {
     assert!(!output.status().success());
 
     let auth_log = rsyslog.auth_log();
-    let diagnostic = if sudo_test::is_original_sudo() {
-        "auth could not identify password"
-    } else {
-        "authentication failure"
-    };
-    assert_contains!(auth_log, diagnostic);
+    assert_contains!(auth_log, "auth could not identify password");
 }
