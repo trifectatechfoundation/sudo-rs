@@ -16,10 +16,10 @@ default-run = "sudo"
 
 [dependencies]
 libc = "0.2.176"
-glob = "0.3.0"
+glob = { version = "0.3.0", optional = true }
 
 [features]
-default = []
+default = ["rust-glob"]
 
 # when enabled, use "sudo-i" PAM service name for sudo -i instead of "sudo"
 # ONLY ENABLE THIS FEATURE if you know that original sudo uses "sudo-i"
@@ -34,6 +34,9 @@ gettext = []
 
 # whether to enable the unstable '@socket' feature for fetching a remote sudoers
 unstable-remote-sudoers = []
+
+# this enables the use of the Rust glob crate instead of fnmatch(3)
+rust-glob = ["dep:glob"]
 
 # enable detailed logging (use for development only) to /tmp
 # this will compromise the security of sudo-rs somewhat

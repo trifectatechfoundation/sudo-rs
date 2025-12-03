@@ -675,12 +675,17 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
 }
 
 fn match_command<'a>((cmd, args): (&'a Path, &'a [OsString])) -> impl Fn(&Command) -> bool + 'a {
+    #[cfg(feature = "rust-glob")]
     let opts = glob::MatchOptions {
         require_literal_separator: true,
         ..glob::MatchOptions::new()
     };
     move |(cmdpat, argpat)| {
-        cmdpat.matches_path_with(cmd, opts)
+        #[cfg(feature = "rust-glob")]
+        let cmd_matches = cmdpat.matches_path_with(cmd, opts);
+        #[cfg(not(feature = "rust-glob"))]
+        let cmd_matches = crate::cutils::fnmatch(cmdpat, cmd).unwrap_or(false);
+        cmd_matches
             && match argpat {
                 Args::Prefix(vec) => args.starts_with(vec),
                 Args::Exact(vec) => args == vec.as_ref(),
