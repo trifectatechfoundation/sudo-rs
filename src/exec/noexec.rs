@@ -40,14 +40,10 @@ const AUDIT_ARCH_MIPSEL64: u32 = libc::EM_MIPS as u32 | __AUDIT_ARCH_64BIT | __A
 const AUDIT_ARCH_PPC: u32 = libc::EM_PPC as u32;
 const AUDIT_ARCH_PPC64: u32 = libc::EM_PPC64 as u32 | __AUDIT_ARCH_64BIT;
 const AUDIT_ARCH_PPC64LE: u32 = libc::EM_PPC64 as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
-const AUDIT_ARCH_RISCV32: u32 = EM_RISCV as u32 | __AUDIT_ARCH_LE;
-const AUDIT_ARCH_RISCV64: u32 = EM_RISCV as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_RISCV32: u32 = libc::EM_RISCV as u32 | __AUDIT_ARCH_LE;
+const AUDIT_ARCH_RISCV64: u32 = libc::EM_RISCV as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
 const AUDIT_ARCH_S390X: u32 = libc::EM_S390 as u32 | __AUDIT_ARCH_64BIT;
 const AUDIT_ARCH_X86_64: u32 = libc::EM_X86_64 as u32 | __AUDIT_ARCH_64BIT | __AUDIT_ARCH_LE;
-
-// workaround: libc doesn't have EM_RISCV yet, so we define it ourselves
-// see: https://github.com/rust-lang/libc/issues/4603
-const EM_RISCV: u16 = 243;
 
 /// # Safety
 ///
