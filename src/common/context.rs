@@ -30,8 +30,6 @@ pub struct Context {
     pub hostname: Hostname,
     pub current_user: CurrentUser,
     pub process: Process,
-    // policy
-    pub noninteractive_auth: bool,
     // sudoedit
     pub files_to_edit: Vec<Option<SudoPath>>,
 }
@@ -99,7 +97,6 @@ impl Context {
             prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            noninteractive_auth: false,
             files_to_edit: vec![],
         })
     }
@@ -167,7 +164,6 @@ impl Context {
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            noninteractive_auth: false,
             files_to_edit,
         })
     }
@@ -191,7 +187,6 @@ impl Context {
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            noninteractive_auth: false,
             files_to_edit: vec![],
         })
     }
@@ -238,7 +233,6 @@ impl Context {
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
             process: Process::new(),
-            noninteractive_auth: false,
             files_to_edit: vec![],
         })
     }

@@ -59,7 +59,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
 
-    let mut context = Context::from_run_opts(cmd_opts, &mut policy)?;
+    let context = Context::from_run_opts(cmd_opts, &mut policy)?;
 
     let policy = judge(policy, &context)?;
 
@@ -67,7 +67,6 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
         return Err(Error::Authorization(context.current_user.name.to_string()));
     };
 
-    context.noninteractive_auth = controls.noninteractive_auth;
     let mut pam_context = auth_and_update_record_file(&context, auth)?;
 
     // build environment
@@ -146,6 +145,7 @@ fn auth_and_update_record_file(
         password_timeout,
         ref credential,
         pwfeedback,
+        noninteractive_auth,
     }: Authentication,
 ) -> Result<PamContext, Error> {
     let auth_user = match credential {
@@ -182,7 +182,7 @@ fn auth_and_update_record_file(
         hostname: &context.hostname,
     })?;
     if auth_status.must_authenticate {
-        if context.non_interactive && !context.noninteractive_auth {
+        if context.non_interactive && !noninteractive_auth {
             return Err(Error::InteractionRequired);
         }
 

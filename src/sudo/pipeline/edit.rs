@@ -10,15 +10,14 @@ use crate::system::audit;
 pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     let policy = super::read_sudoers()?;
 
-    let mut context = Context::from_edit_opts(edit_opts)?;
+    let context = Context::from_edit_opts(edit_opts)?;
 
     let policy = super::judge(policy, &context)?;
 
-    let Authorization::Allowed(auth, controls) = policy.authorization() else {
+    let Authorization::Allowed(auth, _controls) = policy.authorization() else {
         return Err(Error::Authorization(context.current_user.name.to_string()));
     };
 
-    context.noninteractive_auth = controls.noninteractive_auth;
     let mut pam_context = super::auth_and_update_record_file(&context, auth)?;
 
     let pid = context.process.pid;
