@@ -32,6 +32,7 @@ pub struct Authentication {
     pub prior_validity: Duration,
     pub pwfeedback: bool,
     pub password_timeout: Option<Duration>,
+    pub noninteractive_auth: bool,
 }
 
 impl super::Settings {
@@ -45,6 +46,7 @@ impl super::Settings {
                 0 => None,
                 timeout => Some(Duration::from_secs(timeout)),
             },
+            noninteractive_auth: self.noninteractive_auth(),
             credential: if self.rootpw() {
                 AuthenticatingUser::Root
             } else if self.targetpw() {
@@ -67,7 +69,6 @@ pub struct Restrictions<'a> {
     pub chdir: DirChange<'a>,
     pub path: Option<&'a str>,
     pub umask: Umask,
-    pub noninteractive_auth: bool,
     #[cfg(feature = "apparmor")]
     pub apparmor_profile: Option<String>,
 }
@@ -132,7 +133,6 @@ impl Judgement {
                             Umask::Extend(mask)
                         }
                     },
-                    noninteractive_auth: self.settings.noninteractive_auth(),
                     #[cfg(feature = "apparmor")]
                     apparmor_profile: tag
                         .apparmor_profile
@@ -195,6 +195,7 @@ mod test {
                 prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
+                noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
             },
         );
@@ -212,6 +213,7 @@ mod test {
                 prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: false,
+                noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
             },
         );
