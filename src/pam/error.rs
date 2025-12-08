@@ -245,7 +245,7 @@ impl fmt::Display for PamError {
             PamError::InvalidAskpassProgram(program) => {
                 write!(
                     f,
-                    "Askpass program `{}` is not absolute path",
+                    "Askpass program `{}` is not an absolute path",
                     program.display()
                 )
             }

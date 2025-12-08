@@ -329,7 +329,7 @@ impl Terminal<'_> {
             Terminal::Askpass(program, sink) => {
                 let (command_pid, askpass_stdout) = askpass::spawn_askpass(program, prompt)?;
 
-                let mut reader = TimeoutRead::new(askpass_stdout.as_fd(), timeout);
+                let mut reader = TimeoutRead::new(askpass_stdout.as_fd(), None);
                 let password = read_unbuffered(&mut reader, sink, &Hidden::No)?;
 
                 loop {
