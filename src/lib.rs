@@ -23,4 +23,4 @@ pub use visudo::main as visudo_main;
 compile_error!("Refusing to compile using 'cargo --all-features' --- please read the README");
 
 #[cfg(feature = "gettext")]
-pub(crate) use cutils::gettext;
+pub(crate) use cutils::gettext::{xlat, xlat_write};

@@ -51,7 +51,17 @@ macro_rules! xlat {
     }};
 }
 
+macro_rules! xlat_write {
+    ($f: expr, $fmt: literal $(, $id: ident = $val: expr)*) => {
+        write!($f, "{}", $crate::cutils::gettext::xlat!($fmt $(, $id = $val)*))
+    };
+    ($f: expr, $fmt: literal $(, $val: expr)*) => {
+        write!($f, "{}", $crate::cutils::gettext::xlat!($fmt $(, $val)*))
+    };
+}
+
 pub(crate) use xlat;
+pub(crate) use xlat_write;
 
 #[cfg(test)]
 mod test {
