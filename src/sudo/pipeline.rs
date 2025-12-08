@@ -25,8 +25,24 @@ pub(super) use edit::run_edit;
 fn read_sudoers() -> Result<Sudoers, Error> {
     let sudoers_path = &super::candidate_sudoers_file();
 
-    let (sudoers, syntax_errors) =
-        Sudoers::open(sudoers_path).map_err(|e| Error::Configuration(format!("{e}")))?;
+    let (sudoers, syntax_errors) = Sudoers::open(sudoers_path).map_err(|e| {
+        // Provide a more helpful error message when the sudoers file is missing
+        if e.kind() == std::io::ErrorKind::NotFound {
+            Error::Configuration(format!(
+                "sudoers file not found: {}\n\
+                 \n\
+                 The sudoers file is required for sudo-rs to function. Please ensure:\n\
+                 - The file exists at the expected location\n\
+                 - You have the necessary permissions to read it\n\
+                 - If setting up sudo-rs for the first time, create a sudoers file with appropriate permissions\n\
+                 \n\
+                 For more information, see the sudo-rs documentation.",
+                sudoers_path.display()
+            ))
+        } else {
+            Error::Configuration(format!("invalid configuration: {e}"))
+        }
+    })?;
 
     for crate::sudoers::Error {
         source,
