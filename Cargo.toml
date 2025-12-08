@@ -16,10 +16,10 @@ default-run = "sudo"
 
 [dependencies]
 libc = "0.2.152"
-glob = "0.3.0"
+glob = { version = "0.3.0", optional = true }
 
 [features]
-default = []
+default = ["rust-glob"]
 
 # when enabled, use "sudo-i" PAM service name for sudo -i instead of "sudo"
 # ONLY ENABLE THIS FEATURE if you know that original sudo uses "sudo-i"
@@ -28,6 +28,9 @@ pam-login = []
 
 # this enables enforcing of AppArmor profiles
 apparmor = []
+
+# this enables the use or the Rust glob crate as instead of fnmatch(3)
+rust-glob = ["dep:glob"]
 
 # enable detailed logging (use for development only) to /tmp
 # this will compromise the security of sudo-rs somewhat
