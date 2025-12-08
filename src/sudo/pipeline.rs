@@ -11,9 +11,7 @@ use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
 use crate::sudo::pam::{attempt_authenticate, init_pam, pre_exec, InitPamArgs};
-use crate::sudoers::{
-    AuthenticatingUser, Authentication, Authorization, DirChange, Judgement, Restrictions, Sudoers,
-};
+use crate::sudoers::{AuthenticatingUser, Authentication, Authorization, Judgement, Sudoers};
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{escape_os_str_lossy, Process};
@@ -61,7 +59,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     let user_requested_env_vars = std::mem::take(&mut cmd_opts.env_var_list);
 
-    let mut context = Context::from_run_opts(cmd_opts, &mut policy)?;
+    let context = Context::from_run_opts(cmd_opts, &mut policy)?;
 
     let policy = judge(policy, &context)?;
 
@@ -69,7 +67,6 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
         return Err(Error::Authorization(context.current_user.name.to_string()));
     };
 
-    apply_policy_to_context(&mut context, &controls)?;
     let mut pam_context = auth_and_update_record_file(&context, auth)?;
 
     // build environment
@@ -96,25 +93,19 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     // prepare switch of apparmor profile
     #[cfg(feature = "apparmor")]
-    if let Some(profile) = controls.apparmor_profile {
-        crate::apparmor::set_profile_for_next_exec(&profile)
-            .map_err(|err| Error::AppArmor(profile, err))?;
+    if let Some(profile) = &controls.apparmor_profile {
+        crate::apparmor::set_profile_for_next_exec(profile)
+            .map_err(|err| Error::AppArmor(profile.clone(), err))?;
     }
 
-    // run command and return corresponding exit code
-    let command_exit_reason = if context.command.resolved {
-        log_command_execution(&context);
+    let options = context.try_as_run_options(&controls)?;
 
-        crate::exec::run_command(
-            context
-                .try_as_run_options()
-                .map_err(|io_error| Error::Io(Some(context.command.command.clone()), io_error))?,
-            target_env,
-        )
-        .map_err(|io_error| Error::Io(Some(context.command.command), io_error))
-    } else {
-        Err(Error::CommandNotFound(context.command.command))
-    };
+    // Log after try_as_run_options to avoid logging if the command is not resolved
+    log_command_execution(&context);
+
+    // run command and return corresponding exit code
+    let command_exit_reason = crate::exec::run_command(options, target_env)
+        .map_err(|io_error| Error::Io(Some(context.command.command), io_error));
 
     pam_context.close_session();
 
@@ -154,6 +145,7 @@ fn auth_and_update_record_file(
         password_timeout,
         ref credential,
         pwfeedback,
+        noninteractive_auth,
     }: Authentication,
 ) -> Result<PamContext, Error> {
     let auth_user = match credential {
@@ -190,7 +182,7 @@ fn auth_and_update_record_file(
         hostname: &context.hostname,
     })?;
     if auth_status.must_authenticate {
-        if context.non_interactive && !context.noninteractive_auth {
+        if context.non_interactive && !noninteractive_auth {
             return Err(Error::InteractionRequired);
         }
 
@@ -211,40 +203,6 @@ fn auth_and_update_record_file(
     }
 
     Ok(pam_context)
-}
-
-fn apply_policy_to_context(
-    context: &mut Context,
-    controls: &Restrictions,
-) -> Result<(), crate::common::Error> {
-    // see if the chdir flag is permitted
-    match controls.chdir {
-        DirChange::Any => {}
-        DirChange::Strict(optdir) => {
-            if let Some(chdir) = &context.chdir {
-                return Err(Error::ChDirNotAllowed {
-                    chdir: chdir.clone(),
-                    command: context.command.command.clone(),
-                });
-            } else {
-                context.chdir = optdir.cloned();
-            }
-        }
-    }
-
-    // expand tildes in the path with the users home directory
-    if let Some(dir) = context.chdir.take() {
-        context.chdir = Some(dir.expand_tilde_in_path(&context.target_user.name)?)
-    }
-
-    // in case the user could set these from the commandline, something more fancy
-    // could be needed, but here we copy these -- perhaps we should split up the Context type
-    context.use_pty = controls.use_pty;
-    context.noexec = controls.noexec;
-    context.umask = controls.umask;
-    context.noninteractive_auth = controls.noninteractive_auth;
-
-    Ok(())
 }
 
 /// This should determine what the authentication status for the given record
