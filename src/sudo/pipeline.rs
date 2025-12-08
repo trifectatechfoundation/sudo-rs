@@ -42,7 +42,7 @@ fn read_sudoers() -> Result<Sudoers, Error> {
                 sudoers_path.display()
             ))
         } else {
-            Error::Configuration(format!("{e}"))
+            Error::Configuration(format!("invalid configuration: {e}"))
         }
     })?;
 

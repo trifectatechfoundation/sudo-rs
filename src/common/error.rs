@@ -78,7 +78,7 @@ impl fmt::Display for Error {
                 }
                 Ok(())
             }
-            Error::Configuration(e) => write!(f, "invalid configuration: {e}"),
+            Error::Configuration(e) => write!(f, "{e}"),
             Error::Options(e) => write!(f, "{e}"),
             Error::Pam(e) => write!(f, "{e}"),
             Error::Io(location, e) => {
