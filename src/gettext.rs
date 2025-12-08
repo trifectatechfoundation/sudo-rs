@@ -1,8 +1,9 @@
-#![cfg_attr(not(test), allow(unused))]
+#[cfg(feature = "gettext")]
 use std::ffi::{CStr, CString};
 
 /// If the locale isn't detected to be UTF-8, or couldn't be switched, the user
 /// will get the default messages.
+#[cfg(feature = "gettext")]
 pub(crate) fn textdomain(domain: &CStr) {
     use libc::{nl_langinfo, setlocale, CODESET, LC_ALL};
     let utf8 = cstr!("UTF-8");
@@ -35,28 +36,32 @@ pub(crate) fn textdomain(domain: &CStr) {
     }
 }
 
-pub(crate) trait DisplayStr {
-    fn display(&self) -> impl AsRef<str>;
-}
+#[cfg(feature = "gettext")]
+pub(crate) mod display {
+    pub trait DisplayStr {
+        fn display(&self) -> impl AsRef<str>;
+    }
 
-impl DisplayStr for &str {
-    fn display(&self) -> impl AsRef<str> {
-        self
+    impl DisplayStr for &str {
+        fn display(&self) -> impl AsRef<str> {
+            self
+        }
+    }
+
+    impl DisplayStr for String {
+        fn display(&self) -> impl AsRef<str> {
+            self
+        }
+    }
+
+    impl<T: std::fmt::Display> DisplayStr for &T {
+        fn display(&self) -> impl AsRef<str> {
+            self.to_string()
+        }
     }
 }
 
-impl DisplayStr for String {
-    fn display(&self) -> impl AsRef<str> {
-        self
-    }
-}
-
-impl<T: std::fmt::Display> DisplayStr for &T {
-    fn display(&self) -> impl AsRef<str> {
-        self.to_string()
-    }
-}
-
+#[cfg(feature = "gettext")]
 pub(crate) fn gettext(text: &'static CStr) -> &'static str {
     // SAFETY: gettext() is guaranteed to return a pointer to a statically
     // allocated null-terminated string; this string is also constant (i.e.
@@ -66,6 +71,7 @@ pub(crate) fn gettext(text: &'static CStr) -> &'static str {
         .expect("translation files are corrupted")
 }
 
+#[cfg(feature = "gettext")]
 macro_rules! xlat {
     ($text: literal) => {{
         debug_assert!(!$text.contains("{"), "invalid gettext input");
@@ -73,10 +79,10 @@ macro_rules! xlat {
     }};
 
     ($text: literal $(, $id: ident = $val: expr)*) => {{
-        use $crate::gettext::DisplayStr;
+        use $crate::gettext::display::DisplayStr;
         let fmt = $crate::gettext::gettext(cstr!($text));
         $(
-        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), $val.display().as_ref());
+        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), DisplayStr::display(&&$val).as_ref());
         )*
 
         debug_assert!(!fmt.contains("{"), "invalid gettext input");
@@ -84,23 +90,53 @@ macro_rules! xlat {
     }};
 }
 
+#[cfg(not(feature = "gettext"))]
+macro_rules! xlat {
+    ($text: literal) => { $text };
+
+    ($text: literal $(, $id: ident = $val: expr)*) => {{
+        format!($text $(,$id = $val)*)
+    }};
+}
+
+#[cfg(feature = "gettext")]
 macro_rules! xlat_write {
     ($f: expr, $fmt: literal $(, $id: ident = $val: expr)*) => {
         write!($f, "{}", $crate::gettext::xlat!($fmt $(, $id = $val)*))
     };
-    ($f: expr, $fmt: literal $(, $val: expr)*) => {
-        write!($f, "{}", $crate::gettext::xlat!($fmt $(, $val)*))
+}
+
+#[cfg(not(feature = "gettext"))]
+macro_rules! xlat_write {
+    ($f: expr, $fmt: literal $(, $id: ident = $val: expr)*) => {
+        write!($f, $fmt $(, $id = $val)*)
     };
 }
 
 pub(crate) use xlat;
 pub(crate) use xlat_write;
 
+//These are all defined in POSIX.
+#[cfg(feature = "gettext")]
+mod gettext_sys {
+    extern "C" {
+        pub fn gettext(msgid: *const libc::c_char) -> *mut libc::c_char;
+
+        pub fn textdomain(domain: *const libc::c_char) -> *mut libc::c_char;
+
+        pub fn bind_textdomain_codeset(
+            domain: *const libc::c_char,
+            codeset: *const libc::c_char,
+        ) -> *mut libc::c_char;
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::*;
     #[test]
+    #[cfg(feature = "gettext")]
     fn it_works() {
+        use super::*;
         textdomain(cstr!("sudo-rs"));
         let input = cstr!("sudo");
         // inputs that are not translated are not translated
@@ -108,6 +144,7 @@ mod test {
         // .. in fact they are the same object
         assert_eq!(gettext(input).as_ptr(), input.to_str().unwrap().as_ptr());
 
+        #[cfg(feature = "gettext")]
         if std::env::var("LANG").unwrap_or_default().starts_with("nl") {
             assert_eq!(xlat!("usage"), "gebruik");
         }
@@ -124,10 +161,14 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "gettext")]
     fn str_optimized() {
-        let foo = "foo";
+        use super::display::DisplayStr;
+        let foo: &str = "foo";
         assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
-        let foo = "foo".to_string();
+        let foo: &&str = &"foo";
+        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
+        let foo: String = "foo".to_string();
         assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
         let foo: &String = &foo;
         assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());

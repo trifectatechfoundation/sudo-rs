@@ -19,8 +19,14 @@ pub use su::main as su_main;
 pub use sudo::main as sudo_main;
 pub use visudo::main as visudo_main;
 
-#[cfg(feature = "gettext")]
 pub(crate) mod gettext;
 
 #[cfg(feature = "do-not-use-all-features")]
 compile_error!("Refusing to compile using 'cargo --all-features' --- please read the README");
+
+//FIXME: this is here to ensure xlat! is used (with gettext disabled) and that
+// the Convert trait is exercised.
+#[allow(unused)]
+fn simulate_use() -> String {
+    gettext::xlat!("{answer}", answer = 42)
+}
