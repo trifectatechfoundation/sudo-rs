@@ -35,6 +35,28 @@ pub(crate) fn textdomain(domain: &CStr) {
     }
 }
 
+pub(crate) trait DisplayStr {
+    fn display(&self) -> impl AsRef<str>;
+}
+
+impl DisplayStr for &str {
+    fn display(&self) -> impl AsRef<str> {
+        self
+    }
+}
+
+impl DisplayStr for String {
+    fn display(&self) -> impl AsRef<str> {
+        self
+    }
+}
+
+impl<T: std::fmt::Display> DisplayStr for &T {
+    fn display(&self) -> impl AsRef<str> {
+        self.to_string()
+    }
+}
+
 pub(crate) fn gettext(text: &'static CStr) -> &'static str {
     // SAFETY: gettext() is guaranteed to return a pointer to a statically
     // allocated null-terminated string; this string is also constant (i.e.
@@ -51,9 +73,10 @@ macro_rules! xlat {
     }};
 
     ($text: literal $(, $id: ident = $val: expr)*) => {{
+        use $crate::gettext::DisplayStr;
         let fmt = $crate::gettext::gettext(cstr!($text));
         $(
-        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), $val.to_string().as_ref());
+        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), $val.display().as_ref());
         )*
 
         debug_assert!(!fmt.contains("{"), "invalid gettext input");
@@ -98,5 +121,15 @@ mod test {
         );
 
         assert_eq!(xlat!("five = {five}", five = 5), "five = 5");
+    }
+
+    #[test]
+    fn str_optimized() {
+        let foo = "foo";
+        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
+        let foo = "foo".to_string();
+        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
+        let foo: &String = &foo;
+        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
     }
 }
