@@ -1,4 +1,4 @@
-use crate::{pam::PamError, system::Hostname, xlat_write};
+use crate::{gettext::xlat_write, pam::PamError, system::Hostname};
 use std::{borrow::Cow, fmt, path::PathBuf};
 
 use super::{SudoPath, SudoString};

@@ -6,9 +6,6 @@ use std::{
     },
 };
 
-#[cfg(feature = "gettext")]
-pub mod gettext;
-
 pub fn cerr<Int: Copy + TryInto<c_long>>(res: Int) -> std::io::Result<Int> {
     match res.try_into() {
         Ok(-1) => Err(std::io::Error::last_os_error()),

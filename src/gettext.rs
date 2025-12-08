@@ -3,7 +3,7 @@ use std::ffi::{CStr, CString};
 
 /// If the locale isn't detected to be UTF-8, or couldn't be switched, the user
 /// will get the default messages.
-fn textdomain(domain: &CStr) {
+pub(crate) fn textdomain(domain: &CStr) {
     use libc::{nl_langinfo, setlocale, CODESET, LC_ALL};
     let utf8 = cstr!("UTF-8");
 
@@ -18,6 +18,16 @@ fn textdomain(domain: &CStr) {
             return;
         }
         if gettext_sys::bind_textdomain_codeset(domain.as_ptr(), utf8.as_ptr()).is_null() {
+            return;
+        }
+
+        #[cfg(feature = "dev")]
+        if gettext_sys::bindtextdomain(
+            domain.as_ptr(),
+            CString::new(env!("CARGO_MANIFEST_DIR")).unwrap().as_ptr(),
+        )
+        .is_null()
+        {
             return;
         }
 
@@ -37,11 +47,11 @@ pub(crate) fn gettext(text: &'static CStr) -> &'static str {
 macro_rules! xlat {
     ($text: literal) => {{
         debug_assert!(!$text.contains("{"), "invalid gettext input");
-        $crate::cutils::gettext::gettext(cstr!($text))
+        $crate::gettext::gettext(cstr!($text))
     }};
 
     ($text: literal $(, $id: ident = $val: expr)*) => {{
-        let fmt = $crate::cutils::gettext::gettext(cstr!($text));
+        let fmt = $crate::gettext::gettext(cstr!($text));
         $(
         let fmt = fmt.replace(concat!("{", stringify!($id), "}"), $val.to_string().as_ref());
         )*
@@ -53,10 +63,10 @@ macro_rules! xlat {
 
 macro_rules! xlat_write {
     ($f: expr, $fmt: literal $(, $id: ident = $val: expr)*) => {
-        write!($f, "{}", $crate::cutils::gettext::xlat!($fmt $(, $id = $val)*))
+        write!($f, "{}", $crate::gettext::xlat!($fmt $(, $id = $val)*))
     };
     ($f: expr, $fmt: literal $(, $val: expr)*) => {
-        write!($f, "{}", $crate::cutils::gettext::xlat!($fmt $(, $val)*))
+        write!($f, "{}", $crate::gettext::xlat!($fmt $(, $val)*))
     };
 }
 

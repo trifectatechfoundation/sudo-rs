@@ -136,6 +136,8 @@ fn self_check() -> Result<(), Error> {
 }
 
 pub fn main() {
+    #[cfg(feature = "gettext")]
+    crate::gettext::textdomain(cstr!("sudo-rs"));
     match sudo_process() {
         Ok(()) => (),
         Err(error) => {
