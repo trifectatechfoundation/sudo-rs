@@ -14,6 +14,7 @@ use error::pam_err;
 pub use error::{PamError, PamErrorType, PamResult};
 use sys::*;
 
+mod askpass;
 mod converse;
 mod error;
 mod rpassword;
@@ -50,6 +51,7 @@ impl PamContext {
     pub fn new_cli(
         converser_name: &str,
         service_name: &str,
+        use_askpass: bool,
         use_stdin: bool,
         bell: bool,
         no_interact: bool,
@@ -60,6 +62,7 @@ impl PamContext {
         let converser = CLIConverser {
             bell,
             name: converser_name.to_owned(),
+            use_askpass,
             use_stdin,
             password_feedback,
             password_timeout,

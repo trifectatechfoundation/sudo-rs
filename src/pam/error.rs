@@ -1,5 +1,6 @@
 use std::ffi::{c_int, NulError};
 use std::fmt;
+use std::path::PathBuf;
 use std::str::Utf8Error;
 
 use crate::cutils::string_from_ptr;
@@ -182,6 +183,8 @@ pub enum PamError {
     IncorrectPasswordAttempt,
     TimedOut,
     InvalidUser(String, String),
+    NoAskpassProgram,
+    InvalidAskpassProgram(PathBuf),
 }
 
 impl From<std::io::Error> for PamError {
@@ -236,6 +239,14 @@ impl fmt::Display for PamError {
                 write!(
                     f,
                     "Sorry, user {username} is not allowed to authenticate as {other_user}.",
+                )
+            }
+            PamError::NoAskpassProgram => write!(f, "No askpass program specified in SUDO_ASKPASS"),
+            PamError::InvalidAskpassProgram(program) => {
+                write!(
+                    f,
+                    "Askpass program `{}` is not an absolute path",
+                    program.display()
                 )
             }
         }

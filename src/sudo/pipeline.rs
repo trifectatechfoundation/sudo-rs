@@ -186,6 +186,7 @@ fn auth_and_update_record_file(
 
     let mut pam_context = init_pam(InitPamArgs {
         launch: context.launch,
+        use_askpass: context.askpass,
         use_stdin: context.stdin,
         bell: context.bell,
         non_interactive: context.non_interactive,

@@ -170,6 +170,8 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
 
 // sudo -v [-ABkNnS] [-g group] [-h host] [-p prompt] [-u user]
 pub struct SudoValidateOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -k
@@ -194,6 +196,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         let validate = mem::take(&mut opts.validate);
         debug_assert!(validate);
 
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -209,6 +212,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         reject_all("--validate", opts)?;
 
         Ok(Self {
+            askpass,
             bell,
             reset_timestamp,
             non_interactive,
@@ -222,6 +226,8 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
 
 // sudo -e [-ABkNnS] [-r role] [-t type] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] file ...
 pub struct SudoEditOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -k
@@ -249,6 +255,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         let edit = mem::take(&mut opts.edit);
         debug_assert!(edit);
 
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -270,6 +277,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         }
 
         Ok(Self {
+            askpass,
             bell,
             reset_timestamp,
             non_interactive,
@@ -285,6 +293,8 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
 
 // sudo -l [-ABkNnS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command [arg ...]]
 pub struct SudoListOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -l OR -l -l
@@ -312,6 +322,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let list = opts.list.take().unwrap();
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
@@ -338,6 +349,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         reject_all("--list", opts)?;
 
         Ok(Self {
+            askpass,
             bell,
             list,
             reset_timestamp,
@@ -354,6 +366,8 @@ impl TryFrom<SudoOptions> for SudoListOptions {
 
 // sudo [-ABbEHnPS] [-C num] [-D directory] [-g group] [-h host] [-p prompt] [-R directory] [-T timeout] [-u user] [VAR=value] [-i | -s] [command [arg ...]]
 pub struct SudoRunOptions {
+    // -A
+    pub askpass: bool,
     // -B
     pub bell: bool,
     // -E
@@ -385,6 +399,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
     type Error = String;
 
     fn try_from(mut opts: SudoOptions) -> Result<Self, Self::Error> {
+        let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         let non_interactive = mem::take(&mut opts.non_interactive);
@@ -424,6 +439,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         reject_all(context, opts)?;
 
         Ok(Self {
+            askpass,
             bell,
             reset_timestamp,
             non_interactive,
@@ -442,6 +458,8 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
 
 #[derive(Default)]
 struct SudoOptions {
+    // -A
+    askpass: bool,
     // -B
     bell: bool,
     // -D
@@ -646,6 +664,9 @@ impl SudoOptions {
         for arg in arg_iter {
             match arg {
                 SudoArg::Flag(flag) => match flag.as_str() {
+                    "-A" | "--askpass" => {
+                        options.askpass = true;
+                    }
                     "-B" | "--bell" => {
                         options.bell = true;
                     }
@@ -797,66 +818,50 @@ fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(
 }
 
 fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
-    macro_rules! tuple {
-        ($expr:expr) => {
-            (&$expr as &dyn IsAbsent, {
-                let name = concat!("--", stringify!($expr));
-                if name.contains('_') {
-                    Cow::Owned(name.replace('_', "-"))
-                } else {
-                    Cow::Borrowed(name)
-                }
-            })
+    macro_rules! check_options {
+        ($($field:ident $(= $name:literal)?,)*) => {{
+            let SudoOptions { $($field),* } = opts;
+
+            $(
+                let name = check_options!(@name $field $($name)?);
+                ensure_is_absent(context, &$field, &name)?;
+            )*
+
+            Ok(())
+        }};
+        (@name $field:ident) => {{
+            let name = concat!("--", stringify!($field));
+            if name.contains('_') {
+                Cow::Owned(name.replace('_', "-"))
+            } else {
+                Cow::Borrowed(name)
+            }
+        }};
+        (@name $field:ident $name:literal) => {
+            $name
         };
     }
 
-    let SudoOptions {
+    check_options!(
+        askpass,
         bell,
         chdir,
+        edit,
         group,
+        help,
+        list,
         login,
         non_interactive,
         other_user,
+        remove_timestamp,
+        reset_timestamp,
         shell,
         stdin,
         prompt,
         user,
-        env_var_list,
-        edit,
-        help,
-        list,
-        remove_timestamp,
-        reset_timestamp,
         validate,
         version,
-        positional_args,
-    } = opts;
-
-    let flags = [
-        tuple!(bell),
-        tuple!(chdir),
-        tuple!(edit),
-        tuple!(group),
-        tuple!(help),
-        tuple!(list),
-        tuple!(login),
-        tuple!(non_interactive),
-        tuple!(other_user),
-        tuple!(remove_timestamp),
-        tuple!(reset_timestamp),
-        tuple!(shell),
-        tuple!(stdin),
-        tuple!(prompt),
-        tuple!(user),
-        tuple!(validate),
-        tuple!(version),
-    ];
-    for (value, name) in flags {
-        ensure_is_absent(context, value, &name)?;
-    }
-
-    ensure_is_absent(context, &env_var_list, "environment variable")?;
-    ensure_is_absent(context, &positional_args, "command")?;
-
-    Ok(())
+        positional_args = "command",
+        env_var_list = "environment variable",
+    )
 }

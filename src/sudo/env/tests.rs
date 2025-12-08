@@ -126,6 +126,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         },
         launch: crate::common::context::LaunchType::Direct,
         chdir: sudo_options.chdir,
+        askpass: sudo_options.askpass,
         stdin: sudo_options.stdin,
         prompt: sudo_options.prompt,
         non_interactive: sudo_options.non_interactive,

@@ -95,6 +95,7 @@ fn handle_message<C: Converser>(
 /// input from the user.
 pub struct CLIConverser {
     pub(super) name: String,
+    pub(super) use_askpass: bool,
     pub(super) use_stdin: bool,
     pub(super) bell: bool,
     pub(super) password_feedback: bool,
@@ -128,7 +129,9 @@ impl Drop for SignalGuard {
 
 impl CLIConverser {
     fn open(&self) -> PamResult<(Terminal<'_>, SignalGuard)> {
-        let term = if self.use_stdin {
+        let term = if self.use_askpass {
+            Terminal::open_askpass()?
+        } else if self.use_stdin {
             Terminal::open_stdie()?
         } else {
             Terminal::open_tty()?
