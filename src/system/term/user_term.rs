@@ -287,7 +287,7 @@ impl UserTerm {
         // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetpgrp` and
         // we are not in the foreground process group.
 
-        catching_sigttou(|| self.tty.tcsetpgrp(pgrp))
+        catching_sigttou(|| self.tcsetpgrp(pgrp))
     }
 }
 
