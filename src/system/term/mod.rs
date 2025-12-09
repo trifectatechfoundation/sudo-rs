@@ -176,6 +176,7 @@ mod sealed {
 }
 
 pub(crate) trait Terminal: sealed::Sealed {
+    fn matches_pgrp(&self, pgrp: ProcessId) -> io::Result<bool>;
     fn tcgetpgrp(&self) -> io::Result<ProcessId>
     where
         Self: sealed::SafeTty;
@@ -186,7 +187,6 @@ pub(crate) trait Terminal: sealed::Sealed {
     where
         Self: sealed::SafeTty;
     fn ttyname(&self) -> io::Result<OsString>;
-    fn is_terminal(&self) -> bool;
     fn is_pipe(&self) -> bool;
     fn tcgetsid(&self) -> io::Result<ProcessId>
     where
@@ -194,6 +194,17 @@ pub(crate) trait Terminal: sealed::Sealed {
 }
 
 impl<F: AsFd> Terminal for F {
+    /// Check if the foreground process group ID associated with this terminal is `pgrp`.
+    /// Returns false if this is not actually a terminal.
+    fn matches_pgrp(&self, pgrp: ProcessId) -> io::Result<bool> {
+        if !safe_isatty(self.as_fd()) {
+            return Ok(false);
+        }
+
+        // SAFETY: tcgetpgrp cannot cause UB
+        let id = cerr(unsafe { libc::tcgetpgrp(self.as_fd().as_raw_fd()) })?;
+        Ok(ProcessId::new(id) == pgrp)
+    }
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
         // SAFETY: tcgetpgrp cannot cause UB
@@ -226,11 +237,6 @@ impl<F: AsFd> Terminal for F {
         cerr(unsafe { libc::ttyname_r(self.as_fd().as_raw_fd(), buf.as_mut_ptr(), buf.len()) })?;
         // SAFETY: `buf` will have been initialized by the `ttyname_r` call, if it succeeded
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
-    }
-
-    /// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
-    fn is_terminal(&self) -> bool {
-        safe_isatty(self.as_fd())
     }
 
     fn is_pipe(&self) -> bool {
@@ -282,8 +288,8 @@ mod tests {
     #[test]
     fn open_pty() {
         let pty = Pty::open().unwrap();
-        assert!(pty.leader.file.is_terminal());
-        assert!(pty.follower.file.is_terminal());
+        assert!(safe_isatty(pty.leader.file.as_fd()));
+        assert!(safe_isatty(pty.follower.file.as_fd()));
 
         let path = PathBuf::from(OsString::from_vec(pty.path.into_bytes()));
         assert!(path.try_exists().unwrap());
