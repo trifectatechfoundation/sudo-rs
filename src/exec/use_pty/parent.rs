@@ -94,8 +94,6 @@ pub(in crate::exec) fn exec_pty(
 
     // FIXME: maybe all these boolean flags should be on a dedicated type.
 
-    // Whether we're running on a pipeline
-    let mut pipeline = false;
     // Whether the command should be executed in the background (this is not the `-b` flag)
     let mut exec_bg = false;
     // Whether the user's terminal is in raw mode or not.
@@ -105,9 +103,11 @@ pub(in crate::exec) fn exec_pty(
     // FIXME: Here's where we should intercept the IO streams if we want to implement IO logging.
     // FIXME: ogsudo creates pipes for the IO streams and uses events to read from the strams to
     // the pipes. Investigate why.
-    if !io::stdin().is_terminal() {
+    if !io::stdin().matches_pgrp(parent_pgrp)? {
         dev_info!("stdin is not a terminal, command will inherit it");
-        pipeline = true;
+        if io::stdin().is_pipe() {
+            exec_bg = true;
+        }
         command.stdin(Stdio::inherit());
 
         if foreground && parent_pgrp != sudo_pid {
@@ -118,13 +118,15 @@ pub(in crate::exec) fn exec_pty(
         }
     }
 
-    if !io::stdout().is_terminal() {
+    if !io::stdout().matches_pgrp(parent_pgrp)? {
         dev_info!("stdout is not a terminal, command will inherit it");
-        pipeline = true;
+        if io::stdout().is_pipe() {
+            exec_bg = true;
+        }
         command.stdout(Stdio::inherit());
     }
 
-    if !io::stderr().is_terminal() {
+    if !io::stderr().matches_pgrp(parent_pgrp)? {
         dev_info!("stderr is not a terminal, command will inherit it");
         command.stderr(Stdio::inherit());
     }
@@ -142,7 +144,7 @@ pub(in crate::exec) fn exec_pty(
     }
 
     // Start in raw mode unless we're part of a pipeline or backgrounded.
-    if foreground && !pipeline && !exec_bg {
+    if foreground && !exec_bg {
         // Clearer this way that set_raw_mode only conditionally runs
         #[allow(clippy::collapsible_if)]
         if user_tty.set_raw_mode(false).is_ok() {
@@ -183,7 +185,7 @@ pub(in crate::exec) fn exec_pty(
         match exec_monitor(
             pty.follower,
             command,
-            foreground && !pipeline && !exec_bg,
+            foreground && !exec_bg,
             &mut backchannels.monitor,
             original_set,
         ) {
