@@ -1,4 +1,8 @@
-use crate::{gettext::xlat_write, pam::PamError, system::Hostname};
+use crate::{
+    gettext::{xlat, xlat_write},
+    pam::PamError,
+    system::Hostname,
+};
 use std::{borrow::Cow, fmt, path::PathBuf};
 
 use super::{SudoPath, SudoString};
@@ -46,31 +50,42 @@ impl fmt::Display for Error {
                 other_user,
             } => {
                 if let Some(other_user) = other_user {
-                    write!(
+                    xlat_write!(
                         f,
-                        "Sorry, user {username} is not allowed to execute '{command}' as {other_user} on {hostname}.",
+                        "Sorry, user {user} is not allowed to execute '{command}' as {other_user} on {hostname}.",
+                        user = username,
+                        command = command,
+                        other_user = other_user,
+                        hostname = hostname,
                     )
                 } else {
-                    write!(
+                    xlat_write!(
                         f,
-                        "Sorry, user {username} may not run {command} on {hostname}.",
+                        "Sorry, user {user} may not run {command} on {hostname}.",
+                        user = username,
+                        command = command,
+                        hostname = hostname,
                     )
                 }
             }
             Error::SelfCheck => {
-                f.write_str("sudo must be owned by uid 0 and have the setuid bit set")
+                xlat_write!(f, "sudo must be owned by uid 0 and have the setuid bit set")
             }
-            Error::CommandNotFound(p) => write!(f, "'{}': command not found", p.display()),
-            Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
-            Error::UserNotFound(u) => write!(f, "user '{u}' not found"),
-            Error::GroupNotFound(g) => write!(f, "group '{g}' not found"),
+            Error::CommandNotFound(p) => {
+                xlat_write!(f, "'{path}': command not found", path = p.display())
+            }
+            Error::InvalidCommand(p) => {
+                xlat_write!(f, "'{path}': invalid command", path = p.display())
+            }
+            Error::UserNotFound(u) => xlat_write!(f, "user '{user}' not found", user = u),
+            Error::GroupNotFound(g) => xlat_write!(f, "group '{group}' not found", group = g),
             Error::Authorization(u) => {
                 // TRANSLATORS: This is a well-known quote, try to preserve it in translation.
                 xlat_write!(f, "I'm sorry {user}. I'm afraid I can't do that", user = u)
             }
-            Error::InteractionRequired => write!(f, "interactive authentication is required"),
+            Error::InteractionRequired => xlat_write!(f, "interactive authentication is required"),
             Error::EnvironmentVar(vs) => {
-                write!(
+                xlat_write!(
                     f,
                     "you are not allowed to set the following environment variables:"
                 )?;
@@ -86,29 +101,51 @@ impl fmt::Display for Error {
             Error::Pam(e) => write!(f, "{e}"),
             Error::Io(location, e) => {
                 if let Some(path) = location {
-                    write!(f, "cannot execute '{}': {e}", path.display())
+                    xlat_write!(
+                        f,
+                        "cannot execute '{path}': {error}",
+                        path = path.display(),
+                        error = e
+                    )
                 } else {
-                    write!(f, "IO error: {e}")
+                    xlat_write!(f, "IO error: {error}", error = e)
                 }
             }
             Error::MaxAuthAttempts(num) => {
-                write!(f, "Maximum {num} incorrect authentication attempts")
+                xlat_write!(
+                    f,
+                    "maximum {num} incorrect authentication attempts",
+                    num = num
+                )
             }
-            Error::ChDirNotAllowed { chdir, command } => write!(
+            Error::ChDirNotAllowed { chdir, command } => xlat_write!(
                 f,
-                "you are not allowed to use '--chdir {}' with '{}'",
-                chdir.display(),
-                command.display()
+                "you are not allowed to use '--chdir {path}' with '{command}'",
+                path = chdir.display(),
+                command = command.display()
             ),
             Error::StringValidation(string) => {
-                write!(f, "invalid string: {string:?}")
+                write!(
+                    f,
+                    "{}: {string:?}",
+                    xlat!("Unexpected null character in input")
+                )
             }
             Error::PathValidation(path) => {
-                write!(f, "invalid path: {path:?}")
+                write!(
+                    f,
+                    "{}: {path:?}",
+                    xlat!("Unexpected null character in input")
+                )
             }
             #[cfg(feature = "apparmor")]
             Error::AppArmor(profile, e) => {
-                write!(f, "unable to change AppArmor profile to {profile}: {e}")
+                xlat_write!(
+                    f,
+                    "unable to change AppArmor profile to {profile}: {error}",
+                    profile = profile,
+                    error = e
+                )
             }
         }
     }
