@@ -22,16 +22,6 @@ pub(crate) fn textdomain(domain: &CStr) {
             return;
         }
 
-        #[cfg(feature = "dev")]
-        if gettext_sys::bindtextdomain(
-            domain.as_ptr(),
-            CString::new(env!("CARGO_MANIFEST_DIR")).unwrap().as_ptr(),
-        )
-        .is_null()
-        {
-            return;
-        }
-
         gettext_sys::textdomain(domain.as_ptr());
     }
 }

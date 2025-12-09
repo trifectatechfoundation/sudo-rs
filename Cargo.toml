@@ -17,7 +17,6 @@ default-run = "sudo"
 [dependencies]
 libc = "0.2.152"
 glob = "0.3.0"
-gettext-sys = { version = ">=0.21.3", features = ["gettext-system"], optional = true }
 
 [features]
 default = []
@@ -31,7 +30,7 @@ pam-login = []
 apparmor = []
 
 # whether to enable 'gettext' support for giving localized user-facing messages
-gettext = ["dep:gettext-sys"]
+gettext = []
 
 # enable detailed logging (use for development only) to /tmp
 # this will compromise the security of sudo-rs somewhat
