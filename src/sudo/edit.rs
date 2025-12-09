@@ -10,6 +10,7 @@ use std::{io, process};
 
 use crate::common::SudoPath;
 use crate::exec::ExitReason;
+use crate::gettext::xlat;
 use crate::log::{user_error, user_info};
 use crate::system::file::{create_temporary_dir, FileLock};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
@@ -42,25 +43,43 @@ pub(super) fn edit_files(
         let metadata = file.metadata().map_err(|e| {
             io::Error::new(
                 e.kind(),
-                format!("Failed to read metadata for {}: {e}", path.display()),
+                xlat!(
+                    "failed to read metadata for {path}: {error}",
+                    path = path.display(),
+                    error = e
+                ),
             )
         })?;
         if !metadata.is_file() {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("File {} is not a regular file", path.display()),
+                xlat!("file {path} is not a regular file", path = path.display()),
             ));
         }
 
         // Take file lock
         let lock = FileLock::exclusive(&file, true).map_err(|e| {
-            io::Error::new(e.kind(), format!("Failed to lock {}: {e}", path.display()))
+            io::Error::new(
+                e.kind(),
+                xlat!(
+                    "failed to lock {path}: {error}",
+                    path = path.display(),
+                    error = e
+                ),
+            )
         })?;
 
         // Read file
         let mut old_data = Vec::new();
         file.read_to_end(&mut old_data).map_err(|e| {
-            io::Error::new(e.kind(), format!("Failed to read {}: {e}", path.display()))
+            io::Error::new(
+                e.kind(),
+                xlat!(
+                    "failed to read {path}: {error}",
+                    path = path.display(),
+                    error = e
+                ),
+            )
         })?;
 
         // Create socket
@@ -142,7 +161,11 @@ pub(super) fn edit_files(
         .map_err(|e| {
             io::Error::new(
                 e.kind(),
-                format!("Failed to write {}: {e}", file.path.display()),
+                xlat!(
+                    "failed to write {path}: {error}",
+                    path = file.path.display(),
+                    error = e
+                ),
             )
         })?;
 
@@ -186,16 +209,18 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
     }
 
     let tempdir = TempDirDropGuard(
-        create_temporary_dir().map_err(|e| format!("failed to create temporary directory: {e}"))?,
+        create_temporary_dir()
+            .map_err(|e| xlat!("failed to create temporary directory: {error}", error = e))?,
     );
 
     for (i, file) in files.iter_mut().enumerate() {
         // Create temp file
         let dir = tempdir.0.join(format!("{i}"));
         std::fs::create_dir(&dir).map_err(|e| {
-            format!(
-                "failed to create temporary directory {}: {e}",
-                dir.display(),
+            xlat!(
+                "failed to create temporary directory {path}: {error}",
+                path = dir.display(),
+                error = e
             )
         })?;
         let tempfile_path = dir.join(file.path.file_name().expect("file must have filename"));
@@ -206,17 +231,19 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
             .mode(0o600)
             .open(&tempfile_path)
             .map_err(|e| {
-                format!(
-                    "failed to create temporary file {}: {e}",
-                    tempfile_path.display(),
+                xlat!(
+                    "failed to create temporary file {path}: {error}",
+                    path = tempfile_path.display(),
+                    error = e
                 )
             })?;
 
         // Write to temp file
         tempfile.write_all(&file.old_data).map_err(|e| {
-            format!(
-                "failed to write to temporary file {}: {e}",
-                tempfile_path.display(),
+            xlat!(
+                "failed to write to temporary file {path}: {error}",
+                path = tempfile_path.display(),
+                error = e
             )
         })?;
         drop(tempfile);
@@ -231,7 +258,13 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
                 .map(|file| file.tempfile_path.as_ref().expect("filled in above")),
         )
         .status()
-        .map_err(|e| format!("failed to run editor {}: {e}", editor.display()))?;
+        .map_err(|e| {
+            xlat!(
+                "failed to run editor {path}: {error}",
+                path = editor.display(),
+                error = e
+            )
+        })?;
 
     if !status.success() {
         drop(tempdir);
@@ -247,26 +280,28 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
 
         // Read from temp file
         let new_data = std::fs::read(tempfile_path).map_err(|e| {
-            format!(
-                "failed to read from temporary file {}: {e}",
-                tempfile_path.display(),
+            xlat!(
+                "failed to read from temporary file {path}: {error}",
+                path = tempfile_path.display(),
+                error = e
             )
         })?;
 
         // FIXME preserve temporary file if the original couldn't be written to
         std::fs::remove_file(tempfile_path).map_err(|e| {
-            format!(
-                "failed to remove temporary file {}: {e}",
-                tempfile_path.display(),
+            xlat!(
+                "failed to remove temporary file {path}: {error}",
+                path = tempfile_path.display(),
+                error = e
             )
         })?;
 
         // If the file has been changed to be empty, ask the user what to do.
         if new_data.is_empty() && new_data != file.old_data {
             match crate::visudo::ask_response(
-                format!(
-                    "sudoedit: truncate {} to zero? (y/n) [n] ",
-                    file.path.display()
+                xlat!(
+                    "sudoedit: truncate {path} to zero? (y/n) [n] ",
+                    path = file.path.display()
                 )
                 .as_bytes(),
                 b"yn",
@@ -277,7 +312,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
 
                     // Parent ignores write when new data matches old data
                     write_stream(&mut file.new_data_tx, &file.old_data)
-                        .map_err(|e| format!("failed to write data to parent: {e}"))?;
+                        .map_err(|e| xlat!("failed to write data to parent: {error}", error = e))?;
 
                     continue;
                 }
@@ -286,7 +321,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
 
         // Write to socket
         write_stream(&mut file.new_data_tx, &new_data)
-            .map_err(|e| format!("failed to write data to parent: {e}"))?;
+            .map_err(|e| xlat!("failed to write data to parent: {error}", error = e))?;
     }
 
     process::exit(0);

@@ -4,6 +4,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::{borrow::Cow, mem};
 
 use crate::common::{SudoPath, SudoString};
+use crate::gettext::xlat;
 use crate::log::user_warn;
 
 pub mod help;
@@ -557,14 +558,17 @@ impl SudoArg {
                     // only accept arguments when one is expected
                     // `--preserve-env` is special as it only takes an argument using this `key=value` syntax
                     if !Self::TAKES_ARGUMENT.contains(&key) && key != "preserve-env" {
-                        Err(format!("'{key}' does not take any arguments"))?;
+                        Err(xlat!(
+                            "'{option}' does not take any arguments",
+                            option = key
+                        ))?;
                     }
                     processed.push(SudoArg::Argument("--".to_string() + key, value.to_string()));
                 } else if Self::TAKES_ARGUMENT.contains(&unprefixed) {
                     if let Some(next) = arg_iter.next() {
                         processed.push(SudoArg::Argument(arg, next));
                     } else {
-                        Err(format!("'{arg}' expects an argument"))?;
+                        Err(xlat!("'{option}' expects an argument", option = arg))?;
                     }
                 } else {
                     processed.push(SudoArg::Flag(arg));
@@ -592,7 +596,7 @@ impl SudoArg {
                             // short version of --help has no arguments
                             processed.push(SudoArg::Flag(flag));
                         } else {
-                            Err(format!("'-{curr}' expects an argument"))?;
+                            Err(xlat!("'{option}' expects an argument", option = flag))?;
                         }
                         break;
                     } else {
@@ -813,7 +817,11 @@ fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(
     if thing.is_absent() {
         Ok(())
     } else {
-        Err(format!("{context} cannot be used together with {name}"))
+        Err(xlat!(
+            "{context} cannot be used together with {option}",
+            context = context,
+            option = name
+        ))
     }
 }
 

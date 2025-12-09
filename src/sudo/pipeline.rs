@@ -7,6 +7,7 @@ use super::diagnostic;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
 use crate::exec::ExitReason;
+use crate::gettext::xlat;
 use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
@@ -28,8 +29,8 @@ fn read_sudoers() -> Result<Sudoers, Error> {
     let (sudoers, syntax_errors) = Sudoers::open(sudoers_path).map_err(|e| {
         // Provide a more helpful error message when the sudoers file is missing
         if e.kind() == std::io::ErrorKind::NotFound {
-            Error::Configuration(format!(
-                "sudoers file not found: {}\n\
+            Error::Configuration(xlat!(
+                "sudoers file not found: {path}\n\
                  \n\
                  The sudoers file is required for sudo-rs to function. Please ensure:\n\
                  - The file exists at the expected location\n\
@@ -37,10 +38,10 @@ fn read_sudoers() -> Result<Sudoers, Error> {
                  - If setting up sudo-rs for the first time, create a sudoers file with appropriate permissions\n\
                  \n\
                  For more information, see the sudo-rs documentation.",
-                sudoers_path.display()
+                path = sudoers_path.display()
             ))
         } else {
-            Error::Configuration(format!("invalid configuration: {e}"))
+            Error::Configuration(xlat!("invalid configuration: {error}", error = e))
         }
     })?;
 

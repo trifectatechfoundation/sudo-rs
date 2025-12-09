@@ -14,6 +14,7 @@ use super::{
     cerr, inject_group, interface::UnixUser, set_supplementary_groups, Group, GroupId, User, UserId,
 };
 use crate::common::resolve::CurrentUser;
+use crate::gettext::xlat;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.
@@ -129,16 +130,19 @@ fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
 
     let path_mode = meta.permissions().mode();
     if meta.uid() != 0 {
-        Err(error(format!("{} must be owned by root", path.display())))
+        Err(error(xlat!(
+            "{path} must be owned by root",
+            path = path.display()
+        )))
     } else if meta.gid() != 0 && (path_mode & mode(Category::Group, Op::Write) != 0) {
-        Err(error(format!(
-            "{} cannot be group-writable",
-            path.display()
+        Err(error(xlat!(
+            "{path} cannot be group-writable",
+            path = path.display()
         )))
     } else if path_mode & mode(Category::World, Op::Write) != 0 {
-        Err(error(format!(
-            "{} cannot be world-writable",
-            path.display()
+        Err(error(xlat!(
+            "{path} cannot be world-writable",
+            path = path.display()
         )))
     } else {
         Ok(())
@@ -177,9 +181,9 @@ fn secure_open_impl(
                 checks(parent_dir, parent_meta)?;
             }
         } else {
-            return Err(error(format!(
-                "{} has no valid parent directory",
-                path.display()
+            return Err(error(xlat!(
+                "{path} has no valid parent directory",
+                path = path.display()
             )));
         }
     }
