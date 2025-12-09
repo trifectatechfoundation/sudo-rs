@@ -142,7 +142,7 @@ pub(super) fn edit_files(
         let data = file.new_data.expect("filled in above");
         if data == file.old_data {
             // File unchanged. No need to write it again.
-            user_info!("{} unchanged", file.path.display());
+            user_info!("{path} unchanged", path = file.path.display());
             continue;
         }
 
@@ -181,8 +181,9 @@ impl Drop for TempDirDropGuard {
     fn drop(&mut self) {
         if let Err(e) = std::fs::remove_dir_all(&self.0) {
             user_error!(
-                "failed to remove temporary directory {}: {e}",
-                self.0.display(),
+                "failed to remove temporary directory {path}: {error}",
+                path = self.0.display(),
+                error = e
             );
         };
     }
@@ -192,7 +193,7 @@ fn handle_child(editor: &Path, file: Vec<ChildFileInfo<'_>>) -> ! {
     match handle_child_inner(editor, file) {
         Ok(()) => process::exit(0),
         Err(err) => {
-            user_error!("{err}");
+            user_error!("{error}", error = err);
             process::exit(1);
         }
     }
@@ -308,7 +309,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
             ) {
                 Ok(b'y') => {}
                 _ => {
-                    user_info!("not overwriting {}", file.path.display());
+                    user_info!("not overwriting {path}", path = file.path.display());
 
                     // Parent ignores write when new data matches old data
                     write_stream(&mut file.new_data_tx, &file.old_data)

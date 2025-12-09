@@ -676,7 +676,8 @@ impl SudoOptions {
                     }
                     "-E" | "--preserve-env" => {
                         user_warn!(
-                            "preserving the entire environment is not supported, `{flag}` is ignored"
+                            "preserving the entire environment is not supported, '{flag}' is ignored",
+                            flag = flag
                         )
                     }
                     "-e" | "--edit" if !invoked_as_sudoedit => {
