@@ -1,5 +1,6 @@
 use core::fmt;
 
+use crate::gettext::xlat;
 use crate::sudoers::{
     ast::{Authenticate, RunAs, Tag},
     tokens::ChDir,
@@ -30,7 +31,7 @@ impl fmt::Display for Verbose<'_> {
 
                 write_entry_header(run_as, f)?;
                 write_tag(f, tag)?;
-                f.write_str("\n    Commands:")?;
+                write!(f, "\n    {}", xlat!("Commands:"))?;
             }
             last_tag = Some(tag);
 
@@ -43,14 +44,15 @@ impl fmt::Display for Verbose<'_> {
 }
 
 fn write_entry_header(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.write_str("\nSudoers entry:")?;
+    write!(f, "\n{}", xlat!("Sudoers entry:"))?;
 
     write_users(run_as, f)?;
     write_groups(run_as, f)
 }
 
 fn write_users(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.write_str("\n    RunAsUsers: ")?;
+    // TRANSLATORS: This is sudo-specific jargon.
+    write!(f, "\n    {}: ", xlat!("RunAsUsers"))?;
     super::write_users(run_as, f)
 }
 
@@ -59,13 +61,14 @@ fn write_groups(run_as: &RunAs, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         return Ok(());
     }
 
-    f.write_str("\n    RunAsGroups: ")?;
+    // TRANSLATORS: This is sudo-specific jargon.
+    write!(f, "\n    {}: ", xlat!("RunAsGroups"))?;
     super::write_groups(run_as, f)
 }
 
 fn write_tag(f: &mut fmt::Formatter, tag: &Tag) -> fmt::Result {
     if tag.authenticate != Authenticate::None {
-        f.write_str("\n    Options: ")?;
+        write!(f, "\n    {}: ", xlat!("Options"))?;
         if tag.authenticate != Authenticate::Passwd {
             f.write_str("!")?;
         }
@@ -73,7 +76,8 @@ fn write_tag(f: &mut fmt::Formatter, tag: &Tag) -> fmt::Result {
     }
 
     if let Some(cwd) = &tag.cwd {
-        f.write_str("\n    Cwd: ")?;
+        // TRANSLATORS: This is sudo-specific jargon.
+        write!(f, "\n    {}: ", xlat!("Cwd"))?;
         match cwd {
             ChDir::Path(path) => write!(f, "{}", path.display())?,
             ChDir::Any => f.write_str("*")?,
