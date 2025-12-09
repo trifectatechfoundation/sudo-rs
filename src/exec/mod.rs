@@ -13,7 +13,7 @@ use std::{
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
     path::{Path, PathBuf},
-    process::Command,
+    process::{self, Command},
     time::Duration,
 };
 
@@ -24,13 +24,12 @@ use crate::{
     exec::no_pty::exec_no_pty,
     log::{dev_info, dev_warn, user_error},
     system::{
-        _exit,
+        ForkResult, Group, User, _exit, fork,
         interface::ProcessId,
-        kill, killpg, mark_fds_as_cloexec, set_target_user,
+        kill, killpg, mark_fds_as_cloexec, set_target_user, setpgid,
         signal::{consts::*, signal_name, SignalNumber, SignalSet},
         term::UserTerm,
         wait::{Wait, WaitError, WaitOptions},
-        Group, User,
     },
 };
 
@@ -71,6 +70,7 @@ pub struct RunOptions<'a> {
     pub group: &'a Group,
     pub umask: Umask,
 
+    pub background: bool,
     pub use_pty: bool,
     pub noexec: bool,
 }
@@ -83,6 +83,19 @@ pub fn run_command(
     options: RunOptions<'_>,
     env: impl IntoIterator<Item = (impl AsRef<OsStr>, impl AsRef<OsStr>)>,
 ) -> io::Result<ExitReason> {
+    if options.background {
+        // SAFETY: There should be no other threads at this point.
+        match unsafe { fork() }? {
+            ForkResult::Parent(_) => process::exit(0),
+            ForkResult::Child => {
+                // Child continues in an orphaned process group.
+                // Reads from the terminal fail with EIO.
+                // Writes succeed unless tostop is set on the terminal.
+                setpgid(ProcessId::new(0), ProcessId::new(0))?;
+            }
+        }
+    }
+
     // FIXME: should we pipe the stdio streams?
     let qualified_path = options.command;
     let mut command = Command::new(qualified_path);
@@ -185,6 +198,7 @@ pub fn run_command(
                 command,
                 user_tty,
                 options.user,
+                options.background,
             ),
             Err(err) => {
                 dev_info!("Could not open user's terminal, not allocating a pty: {err}");
