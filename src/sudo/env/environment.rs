@@ -2,6 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
+    path::Path,
 };
 
 use crate::common::{CommandAndArguments, Context, Error};
@@ -10,7 +11,19 @@ use crate::system::PATH_MAX;
 
 use super::wildcard_match::wildcard_match;
 
-const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
+fn path_zoneinfo() -> Option<&'static str> {
+    [
+        "/usr/share/zoneinfo",
+        "/usr/share/lib/zoneinfo",
+        "/usr/lib/zoneinfo",
+        "/usr/lib/zoneinfo",
+    ]
+    .into_iter()
+    // Note: We assume that /usr and all contents are only writable by root. If they
+    // aren't, you can trivially escalate to root anyway.
+    .find(|p| Path::new(p).exists())
+}
+
 // TODO: use _PATH_STDPATH from paths.h
 pub(crate) const PATH_DEFAULT: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 
@@ -139,12 +152,9 @@ fn is_safe_tz(value: &[u8]) -> bool {
     };
 
     if check_value.starts_with(b"/") {
-        // clippy 1.79 wants to us to optimise this check away; but we don't know what this will always
-        // be possible; and the compiler is clever enough to do that for us anyway if it can be.
-        #[allow(clippy::const_is_empty)]
-        if !PATH_ZONEINFO.is_empty() {
-            if !check_value.starts_with(PATH_ZONEINFO.as_bytes())
-                || check_value.get(PATH_ZONEINFO.len()) != Some(&b'/')
+        if let Some(path_zoneinfo) = path_zoneinfo() {
+            if !check_value.starts_with(path_zoneinfo.as_bytes())
+                || check_value.get(path_zoneinfo.len()) != Some(&b'/')
             {
                 return false;
             }
@@ -256,7 +266,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{is_safe_tz, should_keep, PATH_ZONEINFO};
+    use super::{is_safe_tz, path_zoneinfo, should_keep};
     use std::{collections::HashSet, ffi::OsStr};
 
     struct TestConfiguration {
@@ -318,25 +328,27 @@ mod tests {
     #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn test_tzinfo() {
+        let path_zoneinfo = path_zoneinfo().unwrap();
         assert_eq!(is_safe_tz("Europe/Amsterdam".as_bytes()), true);
         assert_eq!(
-            is_safe_tz(format!("{PATH_ZONEINFO}/Europe/London").as_bytes()),
+            is_safe_tz(format!("{path_zoneinfo}/Europe/London").as_bytes()),
             true
         );
         assert_eq!(
-            is_safe_tz(format!(":{PATH_ZONEINFO}/Europe/Amsterdam").as_bytes()),
+            is_safe_tz(format!(":{path_zoneinfo}/Europe/Amsterdam").as_bytes()),
             true
         );
+        assert_eq!(is_safe_tz(format!("/Europe/Amsterdam").as_bytes()), false);
         assert_eq!(
             is_safe_tz(format!("/schaap/Europe/Amsterdam").as_bytes()),
             false
         );
         assert_eq!(
-            is_safe_tz(format!("{PATH_ZONEINFO}/../Europe/London").as_bytes()),
+            is_safe_tz(format!("{path_zoneinfo}/../Europe/London").as_bytes()),
             false
         );
         assert_eq!(
-            is_safe_tz(format!("{PATH_ZONEINFO}/../Europe/London").as_bytes()),
+            is_safe_tz(format!("{path_zoneinfo}/../Europe/London").as_bytes()),
             false
         );
     }
