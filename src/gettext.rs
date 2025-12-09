@@ -28,25 +28,22 @@ pub(crate) fn textdomain(domain: &CStr) {
 
 #[cfg(feature = "gettext")]
 pub(crate) mod display {
+    // Based on <https://lukaskalbertodt.github.io/2019/12/05/generalized-autoref-based-specialization.html>
+    pub struct Wrap<T: ?Sized>(pub T);
+
     pub trait DisplayStr {
         fn display(&self) -> impl AsRef<str>;
     }
 
-    impl DisplayStr for &str {
+    impl<T: std::fmt::Display + ?Sized> DisplayStr for Wrap<T> {
         fn display(&self) -> impl AsRef<str> {
-            self
+            self.0.to_string()
         }
     }
 
-    impl DisplayStr for String {
+    impl<T: std::fmt::Display + AsRef<str> + ?Sized> DisplayStr for &Wrap<T> {
         fn display(&self) -> impl AsRef<str> {
-            self
-        }
-    }
-
-    impl<T: std::fmt::Display> DisplayStr for &T {
-        fn display(&self) -> impl AsRef<str> {
-            self.to_string()
+            self.0.as_ref()
         }
     }
 }
@@ -69,10 +66,10 @@ macro_rules! xlat {
     }};
 
     ($text: literal $(, $id: ident = $val: expr)*) => {{
-        use $crate::gettext::display::DisplayStr;
+        use $crate::gettext::display::{DisplayStr, Wrap};
         let fmt = $crate::gettext::gettext(cstr!($text));
         $(
-        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), DisplayStr::display(&&$val).as_ref());
+        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), (&&Wrap($val)).display().as_ref());
         )*
 
         debug_assert!(!fmt.contains("{"), "invalid gettext input");
@@ -153,14 +150,26 @@ mod test {
     #[test]
     #[cfg(feature = "gettext")]
     fn str_optimized() {
-        use super::display::DisplayStr;
+        use super::display::{DisplayStr, Wrap};
         let foo: &str = "foo";
-        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
-        let foo: &&str = &"foo";
-        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
+        let addr = foo.as_ptr();
+        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
+
         let foo: String = "foo".to_string();
-        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
-        let foo: &String = &foo;
-        assert_eq!(foo.display().as_ref().as_ptr(), foo.as_ptr());
+        let addr = foo.as_ptr();
+        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
+
+        let foo: Box<str> = "foo".to_string().into_boxed_str();
+        let addr = foo.as_ptr();
+        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
+
+        use crate::common::SudoString;
+        let foo: SudoString = SudoString::new("foo".to_string()).unwrap();
+        let addr = foo.as_str().as_ptr();
+        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
     }
 }
