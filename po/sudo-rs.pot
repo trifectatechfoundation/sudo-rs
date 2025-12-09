@@ -18,7 +18,510 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #. TRANSLATORS: This is a well-known quote, try to preserve it in translation.
-#: /home/marc/sudo-rs/src/common/error.rs:69
+#: src/common/error.rs:84
 #, rust-format
 msgid "I'm sorry {user}. I'm afraid I can't do that"
+msgstr ""
+
+#: src/sudoers/entry/verbose.rs:33
+msgid "Commands:"
+msgstr ""
+
+#: src/sudoers/entry/verbose.rs:46
+msgid "Sudoers entry:"
+msgstr ""
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:54
+msgid "RunAsUsers"
+msgstr ""
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:64
+msgid "RunAsGroups"
+msgstr ""
+
+#: src/sudoers/entry/verbose.rs:70
+msgid "Options"
+msgstr ""
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:79
+msgid "Cwd"
+msgstr ""
+
+#: src/pam/askpass.rs:55
+#, rust-format
+msgid "Failed to run askpass program {path}: {error}"
+msgstr ""
+
+#: src/pam/error.rs:211 src/common/error.rs:131 src/common/error.rs:138
+msgid "Unexpected null character in input"
+msgstr ""
+
+#: src/pam/error.rs:212
+msgid "Could not read input data as UTF-8 string"
+msgstr ""
+
+#: src/pam/error.rs:214
+msgid "Account validation failure, is your account locked?"
+msgstr ""
+
+#: src/pam/error.rs:219
+msgid "Account or password is expired, reset your password and try again"
+msgstr ""
+
+#: src/pam/error.rs:223
+msgid "Password expired, contact your system administrator"
+msgstr ""
+
+#: src/pam/error.rs:225
+#, rust-format
+msgid "PAM error: {error}"
+msgstr ""
+
+#: src/pam/error.rs:226 src/common/error.rs:111
+#, rust-format
+msgid "IO error: {error}"
+msgstr ""
+
+#: src/pam/error.rs:227
+msgid "A terminal is required to authenticate"
+msgstr ""
+
+#: src/pam/error.rs:231
+msgid "It was not possible to get a list of environment variables"
+msgstr ""
+
+#: src/pam/error.rs:234
+msgid "Interaction is required"
+msgstr ""
+
+#: src/pam/error.rs:236
+msgid "Authentication required but not attempted"
+msgstr ""
+
+#: src/pam/error.rs:239
+msgid "Incorrect authentication attempt"
+msgstr ""
+
+#: src/pam/error.rs:241
+msgid "timed out"
+msgstr ""
+
+#: src/pam/error.rs:245
+#, rust-format
+msgid "Sorry, user {user} is not allowed to authenticate as {other_user}."
+msgstr ""
+
+#: src/pam/error.rs:251
+msgid "No askpass program specified in SUDO_ASKPASS"
+msgstr ""
+
+#: src/pam/error.rs:256
+#, rust-format
+msgid "Askpass program '{path}' is not an absolute path"
+msgstr ""
+
+#: src/pam/mod.rs:83
+msgid "authenticate"
+msgstr ""
+
+#: src/pam/converse.rs:147
+msgid "input needed"
+msgstr ""
+
+#: src/system/audit.rs:133
+#, rust-format
+msgid "{path} must be owned by root"
+msgstr ""
+
+#: src/system/audit.rs:138
+#, rust-format
+msgid "{path} cannot be group-writable"
+msgstr ""
+
+#: src/system/audit.rs:143
+#, rust-format
+msgid "{path} cannot be world-writable"
+msgstr ""
+
+#: src/system/audit.rs:184
+#, rust-format
+msgid "{path} has no valid parent directory"
+msgstr ""
+
+#: src/system/audit.rs:252
+msgid "invalid path"
+msgstr ""
+
+#: src/system/audit.rs:260
+msgid "path must be absolute"
+msgstr ""
+
+#: src/system/audit.rs:276
+msgid "cannot open a file in a path writable by the user"
+msgstr ""
+
+#: src/system/audit.rs:294
+msgid "error in provided path"
+msgstr ""
+
+#: src/common/error.rs:55
+#, rust-format
+msgid ""
+"Sorry, user {user} is not allowed to execute '{command}' as {other_user} on "
+"{hostname}."
+msgstr ""
+
+#: src/common/error.rs:64
+#, rust-format
+msgid "Sorry, user {user} may not run {command} on {hostname}."
+msgstr ""
+
+#: src/common/error.rs:72
+msgid "sudo must be owned by uid 0 and have the setuid bit set"
+msgstr ""
+
+#: src/common/error.rs:75
+#, rust-format
+msgid "'{path}': command not found"
+msgstr ""
+
+#: src/common/error.rs:78
+#, rust-format
+msgid "'{path}': invalid command"
+msgstr ""
+
+#: src/common/error.rs:80
+#, rust-format
+msgid "user '{user}' not found"
+msgstr ""
+
+#: src/common/error.rs:81
+#, rust-format
+msgid "group '{group}' not found"
+msgstr ""
+
+#: src/common/error.rs:86
+msgid "interactive authentication is required"
+msgstr ""
+
+#: src/common/error.rs:90
+msgid "you are not allowed to set the following environment variables:"
+msgstr ""
+
+#: src/common/error.rs:106
+#, rust-format
+msgid "cannot execute '{path}': {error}"
+msgstr ""
+
+#: src/common/error.rs:117
+#, rust-format
+msgid "maximum {num} incorrect authentication attempts"
+msgstr ""
+
+#: src/common/error.rs:123
+#, rust-format
+msgid "you are not allowed to use '--chdir {path}' with '{command}'"
+msgstr ""
+
+#: src/common/error.rs:145
+#, rust-format
+msgid "unable to change AppArmor profile to {profile}: {error}"
+msgstr ""
+
+#: src/sudo/pam.rs:127
+msgid "Authentication failed, try again."
+msgstr ""
+
+#: src/exec/mod.rs:141
+#, rust-format
+msgid "unable to change directory to {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:46
+#, rust-format
+msgid "failed to read metadata for {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:55
+#, rust-format
+msgid "file {path} is not a regular file"
+msgstr ""
+
+#: src/sudo/edit.rs:64
+#, rust-format
+msgid "failed to lock {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:77
+#, rust-format
+msgid "failed to read {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:144
+#, rust-format
+msgid "{path} unchanged"
+msgstr ""
+
+#: src/sudo/edit.rs:164
+#, rust-format
+msgid "failed to write {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:183
+#, rust-format
+msgid "failed to remove temporary directory {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:195
+#, rust-format
+msgid "{error}"
+msgstr ""
+
+#: src/sudo/edit.rs:213
+#, rust-format
+msgid "failed to create temporary directory: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:221
+#, rust-format
+msgid "failed to create temporary directory {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:235
+#, rust-format
+msgid "failed to create temporary file {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:244
+#, rust-format
+msgid "failed to write to temporary file {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:263
+#, rust-format
+msgid "failed to run editor {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:284
+#, rust-format
+msgid "failed to read from temporary file {path}: {error}"
+msgstr ""
+
+#: src/sudo/edit.rs:293
+#, rust-format
+msgid "failed to remove temporary file {path}: {error}"
+msgstr ""
+
+#. TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
+#: src/sudo/edit.rs:302
+msgid "yn"
+msgstr ""
+
+#: src/sudo/edit.rs:306
+#, rust-format
+msgid "sudoedit: truncate {path} to zero? (y/n) [n] "
+msgstr ""
+
+#: src/sudo/edit.rs:314
+#, rust-format
+msgid "not overwriting {path}"
+msgstr ""
+
+#: src/sudo/edit.rs:318 src/sudo/edit.rs:327
+#, rust-format
+msgid "failed to write data to parent: {error}"
+msgstr ""
+
+#: src/sudo/pipeline/edit.rs:38
+#, rust-format
+msgid "{path}: editing symbolic links is not permitted"
+msgstr ""
+
+#: src/sudo/pipeline/edit.rs:43
+#, rust-format
+msgid "error opening {path}: {error}"
+msgstr ""
+
+#: src/sudo/pipeline/edit.rs:47
+#, rust-format
+msgid "invalid path: {path}"
+msgstr ""
+
+#: src/sudo/pipeline/edit.rs:52
+msgid "please address the problems and try again"
+msgstr ""
+
+#: src/sudo/pipeline/list.rs:45
+#, rust-format
+msgid "User {user} may run the following commands on {hostname}:"
+msgstr ""
+
+#: src/sudo/pipeline/list.rs:63
+#, rust-format
+msgid "User {user} is not allowed to run sudo on {hostname}."
+msgstr ""
+
+#: src/sudo/cli/help_edit.rs:3
+msgid ""
+"usage: sudoedit -h | -V\n"
+"usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
+msgstr ""
+
+#: src/sudo/cli/help_edit.rs:10
+msgid "sudo - edit files as another user"
+msgstr ""
+
+#: src/sudo/cli/help_edit.rs:15
+msgid ""
+"Options:\n"
+"  -B, --bell                    ring bell when prompting\n"
+"  -g, --group=group             run command as the specified group name or "
+"ID\n"
+"  -h, --help                    display help message and exit\n"
+"  -k, --reset-timestamp         invalidate timestamp file\n"
+"  -n, --non-interactive         non-interactive mode, no prompts are used\n"
+"  -p, --prompt=prompt           use the specified password prompt\n"
+"  -S, --stdin                   read password from standard input\n"
+"  -u, --user=user               run command (or edit file) as specified "
+"user\n"
+"                                name or ID\n"
+"  -V, --version                 display version information and exit\n"
+"  --                            stop processing command line arguments"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:210 src/sudo/cli/mod.rs:275 src/sudo/cli/mod.rs:347
+#: src/sudo/cli/mod.rs:433 src/sudo/cli/mod.rs:446
+#, rust-format
+msgid "{option1} conflicts with {option2}"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:284
+msgid "must specify at least one file path"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:359
+#, rust-format
+msgid "'{option}' flag must be accompanied by a command"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:442
+msgid "command (positional argument)"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:457
+msgid "expected one of: --login, --shell, a command as a positional argument"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:586
+#, rust-format
+msgid "'{option}' does not take any arguments"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:595 src/sudo/cli/mod.rs:623
+#, rust-format
+msgid "'{option}' expects an argument"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:613
+msgid "invalid option '='"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:666
+msgid ""
+"expected one of these actions: --help, --version, --remove-timestamp, --"
+"validate, --list, --edit, --login, --shell, a command as a positional "
+"argument, --reset-timestamp"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:703
+#, rust-format
+msgid "preserving the entire environment is not supported, '{flag}' is ignored"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:747 src/sudo/cli/mod.rs:776
+msgid "invalid option provided"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:794
+msgid "sudoedit doesn't need to be run via sudo"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:846
+#, rust-format
+msgid "{context} cannot be used together with {option}"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:897
+msgid "command"
+msgstr ""
+
+#: src/sudo/cli/mod.rs:898
+msgid "environment variable"
+msgstr ""
+
+#: src/sudo/cli/help.rs:3
+msgid ""
+"usage: sudo -h | -K | -k | -V\n"
+"usage: sudo [-BknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | "
+"-s] [command [arg ...]]\n"
+"usage: sudo -v [-BknS] [-p prompt] [-g group] [-u user]\n"
+"usage: sudo -l [-BknS] [-p prompt] [-U user] [-g group] [-u user] [command "
+"[arg ...]]\n"
+"usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] "
+"file ..."
+msgstr ""
+
+#: src/sudo/cli/help.rs:13
+msgid "sudo - run commands as another user"
+msgstr ""
+
+#: src/sudo/cli/help.rs:17
+msgid ""
+"Options:\n"
+"  -B, --bell                    ring bell when prompting\n"
+"  -D, --chdir=directory         change the working directory before running "
+"command\n"
+"  -g, --group=group             run command as the specified group name or "
+"ID\n"
+"  -h, --help                    display help message and exit\n"
+"  -i, --login                   run login shell as the target user; a "
+"command may also be specified\n"
+"  -K, --remove-timestamp        remove timestamp file completely\n"
+"  -k, --reset-timestamp         invalidate timestamp file\n"
+"  -l, --list                    list user's privileges or check a specific "
+"command; use twice for longer format\n"
+"  -n, --non-interactive         non-interactive mode, no prompts are used\n"
+"  -p, --prompt=prompt           use the specified password prompt\n"
+"  -S, --stdin                   read password from standard input\n"
+"  -s, --shell                   run shell as the target user; a command may "
+"also be specified\n"
+"  -U, --other-user=user         in list mode, display privileges for user\n"
+"  -u, --user=user               run command (or edit file) as specified user "
+"name or ID\n"
+"  -V, --version                 display version information and exit\n"
+"  -v, --validate                update user's timestamp without running a "
+"command\n"
+"  --                            stop processing command line arguments"
+msgstr ""
+
+#: src/sudo/pipeline.rs:32
+#, rust-format
+msgid ""
+"sudoers file not found: {path}\n"
+"\n"
+"The sudoers file is required for sudo-rs to function. Please ensure:\n"
+"- The file exists at the expected location\n"
+"- You have the necessary permissions to read it\n"
+"- If setting up sudo-rs for the first time, create a sudoers file with "
+"appropriate permissions\n"
+"\n"
+"For more information, see the sudo-rs documentation."
+msgstr ""
+
+#: src/sudo/pipeline.rs:43
+#, rust-format
+msgid "invalid configuration: {error}"
 msgstr ""

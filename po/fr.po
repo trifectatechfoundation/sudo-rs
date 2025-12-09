@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #. TRANSLATORS: This is a well-known quote, try to preserve it in translation.
-#: /home/marc/sudo-rs/src/common/error.rs:69
+#: src/common/error.rs:84
 #, rust-format
 msgid "I'm sorry {user}. I'm afraid I can't do that"
 msgstr "Je suis désolé, {user}. J'ai bien peur de ne pas pouvoir faire ça."
