@@ -31,18 +31,22 @@ pub(crate) mod display {
     // Based on <https://lukaskalbertodt.github.io/2019/12/05/generalized-autoref-based-specialization.html>
     pub struct Wrap<T: ?Sized>(pub T);
 
-    pub trait DisplayStr {
-        fn display(&self) -> impl AsRef<str>;
+    pub trait Convert {
+        fn display(&self) -> String;
     }
 
-    impl<T: std::fmt::Display + ?Sized> DisplayStr for Wrap<T> {
-        fn display(&self) -> impl AsRef<str> {
+    pub trait Reference {
+        fn display(&self) -> &str;
+    }
+
+    impl<T: std::fmt::Display + ?Sized> Convert for Wrap<T> {
+        fn display(&self) -> String {
             self.0.to_string()
         }
     }
 
-    impl<T: std::fmt::Display + AsRef<str> + ?Sized> DisplayStr for &Wrap<T> {
-        fn display(&self) -> impl AsRef<str> {
+    impl<T: std::fmt::Display + AsRef<str> + ?Sized> Reference for &Wrap<T> {
+        fn display(&self) -> &str {
             self.0.as_ref()
         }
     }
@@ -66,14 +70,20 @@ macro_rules! xlat {
     }};
 
     ($text: literal $(, $id: ident = $val: expr)*) => {{
-        use $crate::gettext::display::{DisplayStr, Wrap};
-        let fmt = $crate::gettext::gettext(cstr!($text));
+        #[allow(unused)]
+        use $crate::gettext::display::{Convert, Reference, Wrap};
+        use std::ops::Deref;
+
+        let result = $crate::gettext::gettext(cstr!($text));
         $(
-        let fmt = fmt.replace(concat!("{", stringify!($id), "}"), (&&Wrap($val)).display().as_ref());
+        let result = result.replace(
+            concat!("{", stringify!($id), "}"),
+            (&&Wrap($val)).display().deref(),
+        );
         )*
 
-        debug_assert!(!fmt.contains("{"), "invalid gettext input");
-        fmt
+        debug_assert!(!result.contains("{"), "invalid gettext input");
+        result
     }};
 }
 
@@ -150,26 +160,31 @@ mod test {
     #[test]
     #[cfg(feature = "gettext")]
     fn str_optimized() {
-        use super::display::{DisplayStr, Wrap};
+        use super::display::{Reference, Wrap};
+
+        // in principle the assert_eq's below could be replaced by "expect(unused)" on this trait
+        #[allow(unused_imports)]
+        use super::display::Convert;
+
         let foo: &str = "foo";
         let addr = foo.as_ptr();
-        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
-        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(&foo)).display().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ptr(), addr);
 
         let foo: String = "foo".to_string();
         let addr = foo.as_ptr();
-        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
-        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(&foo)).display().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ptr(), addr);
 
         let foo: Box<str> = "foo".to_string().into_boxed_str();
         let addr = foo.as_ptr();
-        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
-        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(&foo)).display().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ptr(), addr);
 
         use crate::common::SudoString;
         let foo: SudoString = SudoString::new("foo".to_string()).unwrap();
         let addr = foo.as_str().as_ptr();
-        assert_eq!((&&Wrap(&foo)).display().as_ref().as_ptr(), addr);
-        assert_eq!((&&Wrap(foo)).display().as_ref().as_ptr(), addr);
+        assert_eq!((&&Wrap(&foo)).display().as_ptr(), addr);
+        assert_eq!((&&Wrap(foo)).display().as_ptr(), addr);
     }
 }
