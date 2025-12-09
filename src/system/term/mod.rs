@@ -165,16 +165,32 @@ mod sealed {
     pub(crate) trait Sealed {}
 
     impl<F: AsFd> Sealed for F {}
+
+    /// This is known to be a real TTY. No need to use `safe_isatty` before calling any ioctl.
+    pub(crate) trait SafeTty {}
+
+    impl<T: SafeTty> SafeTty for &mut T {}
+    impl SafeTty for super::UserTerm {}
+    impl SafeTty for super::PtyLeader {}
+    impl SafeTty for super::PtyFollower {}
 }
 
 pub(crate) trait Terminal: sealed::Sealed {
-    fn tcgetpgrp(&self) -> io::Result<ProcessId>;
-    fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()>;
-    fn make_controlling_terminal(&self) -> io::Result<()>;
+    fn tcgetpgrp(&self) -> io::Result<ProcessId>
+    where
+        Self: sealed::SafeTty;
+    fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()>
+    where
+        Self: sealed::SafeTty;
+    fn make_controlling_terminal(&self) -> io::Result<()>
+    where
+        Self: sealed::SafeTty;
     fn ttyname(&self) -> io::Result<OsString>;
     fn is_terminal(&self) -> bool;
     fn is_pipe(&self) -> bool;
-    fn tcgetsid(&self) -> io::Result<ProcessId>;
+    fn tcgetsid(&self) -> io::Result<ProcessId>
+    where
+        Self: sealed::SafeTty;
 }
 
 impl<F: AsFd> Terminal for F {
