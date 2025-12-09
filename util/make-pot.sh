@@ -20,6 +20,9 @@ find "$WORK_ROOT" -name "*.rs" -not -name "gettext.rs" | xargs xgettext \
   --from-code="UTF-8" \
   --keyword='xlat!' \
   --keyword='xlat_write!:2' \
+  --keyword='user_error!:1' \
+  --keyword='user_info!:1' \
+  --keyword='user_warn!:1' \
   --add-comments='TRANSLATORS:' \
   ${EXISTING:-} \
   -o "$potfile"

@@ -18,7 +18,7 @@ impl<W: Send + Sync> Log for SimpleLogger<W>
 where
     for<'a> &'a W: Write,
 {
-    fn log(&self, _level: Level, args: &fmt::Arguments<'_>) {
+    fn log(&self, _level: Level, args: &dyn fmt::Display) {
         let s = format!("{}{}\n", self.prefix, args);
         let _ = (&self.target).write_all(s.as_bytes());
         let _ = (&self.target).flush();
