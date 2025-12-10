@@ -160,16 +160,15 @@ mod test {
     #[cfg(feature = "gettext")]
     fn it_works() {
         use super::*;
-        textdomain(cstr!("sudo-rs"));
-        let input = cstr!("sudo");
+        textdomain(cstr!("libc"));
+        let input = cstr!("Hello World");
         // inputs that are not translated are not translated
         assert_eq!(gettext(input), input.to_str().unwrap());
         // .. in fact they are the same object
         assert_eq!(gettext(input).as_ptr(), input.to_str().unwrap().as_ptr());
 
-        #[cfg(feature = "gettext")]
         if std::env::var("LANG").unwrap_or_default().starts_with("nl") {
-            assert_eq!(xlat!("usage"), "gebruik");
+            assert_eq!(xlat!("Operation not permitted"), "Actie is niet toegestaan");
         }
     }
 
