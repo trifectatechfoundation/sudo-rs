@@ -89,6 +89,23 @@ Sadly, this is not a frequently asked question. But it should be! We are not gra
 
 We admire the "mad sandwich" that original sudo has, but it would be wrong to rip that off.
 
+## Why doesn't sudo-rs insult me when I mistype my password?
+
+One of the sudo-rs developers has suffered at the hands of a [BOFH](https://en.wikipedia.org/wiki/Bastard_Operator_From_Hell) who thought it was funny to force the `sl` command (see https://github.com/mtoyoda/sl) on users. He has sadly lost his sense of humour as a result.
+
+You *can* however get insulted by sudo-rs (and every other program that uses PAM!) by using https://github.com/cgoesche/pam-insults. The results will look like this:
+
+```sh
+$ sudo -s
+[sudo: authenticate] Password: **************
+[sudo] Did you forget your password or just your brain?
+[sudo: authenticate] Password: **************
+[sudo] Congratulations! You've just won the 'Most Consistent Incorrect Password Entry' award.
+```
+and so on.
+
+https://github.com/cgoesche/pam-insults is under development and appears to aim at multi-lingual support, so why not help the author out?
+
 ## Comparisons with other tools
 
 General remark: we try to honestly represent the advantages and disadvantages in this section, but of course we are hardly unbiased. At the same time, we are not trying to sell you anything, and respect any resources individual developers or companies invest in bringing more open source options to users.
