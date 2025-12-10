@@ -29,6 +29,9 @@ pam-login = []
 # this enables enforcing of AppArmor profiles
 apparmor = []
 
+# whether to enable 'gettext' support for giving localized user-facing messages
+gettext = []
+
 # enable detailed logging (use for development only) to /tmp
 # this will compromise the security of sudo-rs somewhat
 dev = []

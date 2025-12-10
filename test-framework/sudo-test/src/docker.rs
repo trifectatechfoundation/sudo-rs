@@ -187,7 +187,7 @@ pub fn build_base_image() {
                     let mut features = vec![];
 
                     #[cfg(not(target_os = "freebsd"))]
-                    features.push("pam-login");
+                    features.extend(["pam-login", "gettext"]);
 
                     #[cfg(feature = "apparmor")]
                     features.push("apparmor");

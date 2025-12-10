@@ -81,6 +81,12 @@ impl From<SudoString> for OsString {
     }
 }
 
+impl AsRef<str> for SudoString {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl ops::Deref for SudoString {
     type Target = str;
 

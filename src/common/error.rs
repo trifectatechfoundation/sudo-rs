@@ -1,4 +1,4 @@
-use crate::{pam::PamError, system::Hostname};
+use crate::{gettext::xlat_write, pam::PamError, system::Hostname};
 use std::{borrow::Cow, fmt, path::PathBuf};
 
 use super::{SudoPath, SudoString};
@@ -64,7 +64,10 @@ impl fmt::Display for Error {
             Error::InvalidCommand(p) => write!(f, "'{}': invalid command", p.display()),
             Error::UserNotFound(u) => write!(f, "user '{u}' not found"),
             Error::GroupNotFound(g) => write!(f, "group '{g}' not found"),
-            Error::Authorization(u) => write!(f, "I'm sorry {u}. I'm afraid I can't do that"),
+            Error::Authorization(u) => {
+                // TRANSLATORS: This is a well-known quote, try to preserve it in translation.
+                xlat_write!(f, "I'm sorry {user}. I'm afraid I can't do that", user = u)
+            }
             Error::InteractionRequired => write!(f, "interactive authentication is required"),
             Error::EnvironmentVar(vs) => {
                 write!(
