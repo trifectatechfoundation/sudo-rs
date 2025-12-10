@@ -128,9 +128,7 @@ impl VisudoOptions {
             // if the argument starts with -- it must be a full length option name
             if arg.starts_with("--") {
                 // parse assignments like '--file=/etc/sudoers'
-                if arg.contains('=') {
-                    // convert assignment to normal tokens
-                    let (key, value) = arg.split_once('=').unwrap();
+                if let Some((key, value)) = arg.split_once('=') {
                     // lookup the option by name
                     if let Some(option) = Self::VISUDO_OPTIONS.iter().find(|o| o.long == &key[2..])
                     {
