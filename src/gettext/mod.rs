@@ -1,13 +1,19 @@
 #[cfg(feature = "gettext")]
-use std::ffi::{CStr, CString};
+use std::{
+    ffi::{CStr, CString},
+    sync::OnceLock,
+};
 
 #[cfg(feature = "gettext")]
 pub(crate) mod check;
 
-/// If the locale isn't detected to be UTF-8, or couldn't be switched, the user
-/// will get the default messages.
 #[cfg(feature = "gettext")]
-pub(crate) fn textdomain(domain: &CStr) {
+// If the locale isn't detected to be UTF-8, or couldn't be switched, the user
+// will get the default messages.
+static TEXT_DOMAIN: OnceLock<&'static CStr> = OnceLock::new();
+
+#[cfg(feature = "gettext")]
+pub(crate) fn textdomain(domain: &'static CStr) {
     use libc::{nl_langinfo, setlocale, CODESET, LC_ALL};
     let utf8 = cstr!("UTF-8");
 
@@ -24,9 +30,9 @@ pub(crate) fn textdomain(domain: &CStr) {
         if gettext_sys::bind_textdomain_codeset(domain.as_ptr(), utf8.as_ptr()).is_null() {
             return;
         }
-
-        gettext_sys::textdomain(domain.as_ptr());
     }
+
+    TEXT_DOMAIN.set(domain).expect("only set the locale once")
 }
 
 #[cfg(feature = "gettext")]
@@ -57,12 +63,22 @@ pub(crate) mod display {
 
 #[cfg(feature = "gettext")]
 pub(crate) fn gettext(text: &'static CStr) -> &'static str {
-    // SAFETY: gettext() is guaranteed to return a pointer to a statically
+    // SAFETY:
+    // - dggettext expects its first argument to be NULL or a pointer to a
+    // valid C string; its second argument should always be a valid C string
+    // - dgettext() is guaranteed to return a pointer to a statically
     // allocated null-terminated string; this string is also constant (i.e.
     // it will be unmodified by future calls to gettext.)
-    unsafe { CStr::from_ptr(gettext_sys::gettext(text.as_ptr())) }
-        .to_str()
-        .expect("translation files are corrupted")
+    unsafe {
+        CStr::from_ptr(gettext_sys::dgettext(
+            TEXT_DOMAIN
+                .get()
+                .map_or(std::ptr::null(), |domain| domain.as_ptr()),
+            text.as_ptr(),
+        ))
+    }
+    .to_str()
+    .expect("translation files are corrupted")
 }
 
 #[cfg(feature = "gettext")]
@@ -126,9 +142,10 @@ pub(crate) use xlat_write;
 #[cfg(feature = "gettext")]
 mod gettext_sys {
     extern "C" {
-        pub fn gettext(msgid: *const libc::c_char) -> *mut libc::c_char;
-
-        pub fn textdomain(domain: *const libc::c_char) -> *mut libc::c_char;
+        pub fn dgettext(
+            domain: *const libc::c_char,
+            msgid: *const libc::c_char,
+        ) -> *mut libc::c_char;
 
         pub fn bind_textdomain_codeset(
             domain: *const libc::c_char,
