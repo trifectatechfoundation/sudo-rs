@@ -73,10 +73,10 @@ fn sudo_process() -> Result<(), Error> {
     let usage_msg: &str;
     let long_help: fn() -> String;
     if cli::is_sudoedit(std::env::args().next()) {
-        usage_msg = cli::help_edit::USAGE_MSG;
+        usage_msg = cli::help_edit::usage_msg();
         long_help = cli::help_edit::long_help_message;
     } else {
-        usage_msg = cli::help::USAGE_MSG;
+        usage_msg = cli::help::usage_msg();
         long_help = cli::help::long_help_message;
     }
 

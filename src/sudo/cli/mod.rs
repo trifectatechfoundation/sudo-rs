@@ -4,7 +4,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::{borrow::Cow, mem};
 
 use crate::common::{SudoPath, SudoString};
-use crate::gettext::xlat;
 use crate::log::user_warn;
 
 pub mod help;

@@ -1,6 +1,5 @@
 use core::fmt;
 
-use crate::gettext::xlat;
 use crate::sudoers::{
     ast::{Authenticate, RunAs, Tag},
     tokens::ChDir,

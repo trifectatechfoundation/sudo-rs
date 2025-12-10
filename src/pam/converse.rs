@@ -2,7 +2,6 @@ use std::ffi::{c_int, c_void};
 use std::time::Duration;
 
 use crate::cutils::string_from_ptr;
-use crate::gettext::xlat;
 use crate::pam::rpassword::Hidden;
 use crate::system::signal::{self, SignalSet};
 

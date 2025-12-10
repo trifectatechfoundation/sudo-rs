@@ -7,7 +7,6 @@ use super::diagnostic;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
 use crate::exec::ExitReason;
-use crate::gettext::xlat;
 use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;

@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::str::Utf8Error;
 
 use crate::cutils::string_from_ptr;
-use crate::gettext::xlat_write;
 
 use super::sys::*;
 

@@ -7,7 +7,6 @@ use std::{
     time::Duration,
 };
 
-use crate::gettext::xlat;
 use crate::system::signal::{self, SignalSet};
 
 use converse::ConverserData;

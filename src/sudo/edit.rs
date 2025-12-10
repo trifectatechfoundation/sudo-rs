@@ -10,7 +10,6 @@ use std::{io, process};
 
 use crate::common::SudoPath;
 use crate::exec::ExitReason;
-use crate::gettext::xlat;
 use crate::log::{user_error, user_info};
 use crate::system::file::{create_temporary_dir, FileLock};
 use crate::system::wait::{Wait, WaitError, WaitOptions};

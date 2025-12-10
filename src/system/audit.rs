@@ -14,7 +14,6 @@ use super::{
     cerr, inject_group, interface::UnixUser, set_supplementary_groups, Group, GroupId, User, UserId,
 };
 use crate::common::resolve::CurrentUser;
-use crate::gettext::xlat;
 
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.

@@ -1,11 +1,18 @@
-pub const USAGE_MSG: &str = "\
+pub fn usage_msg() -> &'static str {
+    xlat!(
+        "\
 usage: sudoedit -h | -V
-usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ...";
+usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
+    )
+}
 
-const DESCRIPTOR: &str = "sudo - edit files as another user";
+fn descriptor() -> &'static str {
+    xlat!("sudo - edit files as another user")
+}
 
-const HELP_MSG: &str = "Options:
-Options:
+fn help_msg() -> &'static str {
+    xlat!(
+        "Options:
   -B, --bell                    ring bell when prompting
   -g, --group=group             run command as the specified group name or ID
   -h, --help                    display help message and exit
@@ -16,8 +23,10 @@ Options:
   -u, --user=user               run command (or edit file) as specified user
                                 name or ID
   -V, --version                 display version information and exit
-  --                            stop processing command line arguments";
+  --                            stop processing command line arguments"
+    )
+}
 
 pub fn long_help_message() -> String {
-    format!("{DESCRIPTOR}\n{USAGE_MSG}\n{HELP_MSG}")
+    format!("{}\n{}\n{}", descriptor(), usage_msg(), help_msg())
 }

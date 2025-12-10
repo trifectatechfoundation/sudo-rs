@@ -2,7 +2,6 @@ use std::{borrow::Cow, ops::ControlFlow, path::Path};
 
 use crate::{
     common::{Context, Error},
-    gettext::xlat,
     sudo::cli::SudoListOptions,
     sudoers::{Authorization, ListRequest, Request, Sudoers},
     system::User,
