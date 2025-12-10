@@ -235,7 +235,7 @@ impl UserTerm {
 
     /// Set the user's terminal to raw mode. Enable terminal signals if `with_signals` is set to
     /// `true`.
-    pub fn set_raw_mode(&mut self, with_signals: bool) -> io::Result<()> {
+    pub fn set_raw_mode(&mut self, with_signals: bool, preserve_oflag: bool) -> io::Result<()> {
         let fd = self.tty.as_raw_fd();
 
         // Retrieve the original terminal (if we haven't done so already)
@@ -252,13 +252,20 @@ impl UserTerm {
         };
 
         // Set terminal to raw mode.
+        let oflag = term.c_oflag;
         // SAFETY: `term` is a valid, initialized struct of type `termios`, which
         // was previously obtained through `tcgetattr`.
         unsafe { cfmakeraw(&mut term) };
+        if preserve_oflag {
+            term.c_oflag = oflag;
+        }
         // Enable terminal signals.
         if with_signals {
             term.c_cflag |= ISIG;
         }
+
+        // FIXME preserve c_oflag if sudo output is piped
+        // https://github.com/sudo-project/sudo/commit/78b712101e17883b6d916495ef2b9bb0e34d3ca1
 
         // SAFETY: `fd` is a valid file descriptor for the tty; for `term`: same as above.
         unsafe { tcsetattr_nobg(fd, TCSADRAIN, &term) }?;
@@ -287,7 +294,7 @@ impl UserTerm {
         // This function is based around the fact that we receive `SIGTTOU` if we call `tcsetpgrp` and
         // we are not in the foreground process group.
 
-        catching_sigttou(|| self.tty.tcsetpgrp(pgrp))
+        catching_sigttou(|| self.tcsetpgrp(pgrp))
     }
 }
 

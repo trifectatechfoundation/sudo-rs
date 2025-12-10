@@ -94,20 +94,22 @@ pub(in crate::exec) fn exec_pty(
 
     // FIXME: maybe all these boolean flags should be on a dedicated type.
 
-    // Whether we're running on a pipeline
-    let mut pipeline = false;
     // Whether the command should be executed in the background (this is not the `-b` flag)
     let mut exec_bg = false;
     // Whether the user's terminal is in raw mode or not.
     let mut term_raw = false;
+    // Whether to preserve oflag for the terminal
+    let mut preserve_oflag = false;
 
     // Check if we are part of a pipeline.
     // FIXME: Here's where we should intercept the IO streams if we want to implement IO logging.
     // FIXME: ogsudo creates pipes for the IO streams and uses events to read from the strams to
     // the pipes. Investigate why.
-    if !io::stdin().is_terminal() {
+    if !io::stdin().matches_pgrp(parent_pgrp)? {
         dev_info!("stdin is not a terminal, command will inherit it");
-        pipeline = true;
+        if io::stdin().is_pipe() {
+            exec_bg = true;
+        }
         command.stdin(Stdio::inherit());
 
         if foreground && parent_pgrp != sudo_pid {
@@ -118,21 +120,18 @@ pub(in crate::exec) fn exec_pty(
         }
     }
 
-    if !io::stdout().is_terminal() {
+    if !io::stdout().matches_pgrp(parent_pgrp)? {
         dev_info!("stdout is not a terminal, command will inherit it");
-        pipeline = true;
+        if io::stdout().is_pipe() {
+            exec_bg = true;
+            preserve_oflag = true;
+        }
         command.stdout(Stdio::inherit());
     }
 
-    if !io::stderr().is_terminal() {
+    if !io::stderr().matches_pgrp(parent_pgrp)? {
         dev_info!("stderr is not a terminal, command will inherit it");
         command.stderr(Stdio::inherit());
-    }
-
-    // If there is another process later in the pipeline, don't interfere
-    // with its access to the Tty
-    if io::stdout().is_pipe() {
-        foreground = false;
     }
 
     // Copy terminal settings from `/dev/tty` to the pty.
@@ -142,10 +141,10 @@ pub(in crate::exec) fn exec_pty(
     }
 
     // Start in raw mode unless we're part of a pipeline or backgrounded.
-    if foreground && !pipeline && !exec_bg {
+    if foreground && !exec_bg {
         // Clearer this way that set_raw_mode only conditionally runs
         #[allow(clippy::collapsible_if)]
-        if user_tty.set_raw_mode(false).is_ok() {
+        if user_tty.set_raw_mode(false, preserve_oflag).is_ok() {
             term_raw = true;
         }
     }
@@ -183,7 +182,7 @@ pub(in crate::exec) fn exec_pty(
         match exec_monitor(
             pty.follower,
             command,
-            foreground && !pipeline && !exec_bg,
+            foreground && !exec_bg,
             &mut backchannels.monitor,
             original_set,
         ) {
@@ -232,6 +231,7 @@ pub(in crate::exec) fn exec_pty(
         tty_size,
         foreground,
         term_raw,
+        preserve_oflag,
         &mut registry,
     )?;
 
@@ -299,6 +299,7 @@ struct ParentClosure {
     tty_size: TermSize,
     foreground: bool,
     term_raw: bool,
+    preserve_oflag: bool,
     backchannel: ParentBackchannel,
     message_queue: VecDeque<MonitorMessage>,
     backchannel_write_handle: EventHandle,
@@ -322,6 +323,7 @@ impl ParentClosure {
         tty_size: TermSize,
         foreground: bool,
         term_raw: bool,
+        preserve_oflag: bool,
         registry: &mut EventRegistry<Self>,
     ) -> io::Result<Self> {
         // Enable nonblocking assertions as we will poll this inside the event loop.
@@ -349,6 +351,7 @@ impl ParentClosure {
             tty_size,
             foreground,
             term_raw,
+            preserve_oflag,
             backchannel,
             message_queue: VecDeque::new(),
             backchannel_write_handle,
@@ -530,7 +533,12 @@ impl ParentClosure {
                     signal_fmt(signal)
                 );
                 if !self.term_raw {
-                    if self.tty_pipe.left_mut().set_raw_mode(false).is_ok() {
+                    if self
+                        .tty_pipe
+                        .left_mut()
+                        .set_raw_mode(false, self.preserve_oflag)
+                        .is_ok()
+                    {
                         self.term_raw = true;
                     }
                     // Resume command in the foreground
@@ -613,7 +621,12 @@ impl ParentClosure {
 
         if self.foreground {
             // We're in the foreground, set tty to raw mode.
-            if self.tty_pipe.left_mut().set_raw_mode(false).is_ok() {
+            if self
+                .tty_pipe
+                .left_mut()
+                .set_raw_mode(false, self.preserve_oflag)
+                .is_ok()
+            {
                 self.term_raw = true;
             }
         } else {
