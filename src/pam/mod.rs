@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use crate::gettext::xlat;
 use crate::system::signal::{self, SignalSet};
 
 use converse::ConverserData;
@@ -80,7 +81,7 @@ impl PamContext {
             converser,
             converser_name: converser_name.to_owned(),
             no_interact,
-            auth_prompt: Some("authenticate".to_owned()),
+            auth_prompt: Some(xlat!("authenticate").to_owned()),
             error: None,
             panicked: false,
         }));

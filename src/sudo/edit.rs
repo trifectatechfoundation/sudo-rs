@@ -299,15 +299,18 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
 
         // If the file has been changed to be empty, ask the user what to do.
         if new_data.is_empty() && new_data != file.old_data {
+            // TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
+            let answers = xlat!("yn").as_bytes().get(..2).unwrap_or(b"yn");
+
             match crate::visudo::ask_response(
                 xlat!(
                     "sudoedit: truncate {path} to zero? (y/n) [n] ",
                     path = file.path.display()
                 )
                 .as_bytes(),
-                b"yn",
+                answers,
             ) {
-                Ok(b'y') => {}
+                Ok(val) if val == answers[0] => {}
                 _ => {
                     user_info!("not overwriting {path}", path = file.path.display());
 

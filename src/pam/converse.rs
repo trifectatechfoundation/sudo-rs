@@ -2,6 +2,7 @@ use std::ffi::{c_int, c_void};
 use std::time::Duration;
 
 use crate::cutils::string_from_ptr;
+use crate::gettext::xlat;
 use crate::pam::rpassword::Hidden;
 use crate::system::signal::{self, SignalSet};
 
@@ -144,8 +145,9 @@ impl CLIConverser {
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let (mut tty, _guard) = self.open()?;
+        let input_needed = xlat!("input needed");
         tty.read_input(
-            &format!("[{}: input needed] {msg} ", self.name),
+            &format!("[{}: {input_needed} {msg} ", self.name),
             None,
             Hidden::No,
         )

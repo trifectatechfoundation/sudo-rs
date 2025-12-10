@@ -207,7 +207,11 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         let user = mem::take(&mut opts.user);
 
         if bell && stdin {
-            return Err("--bell conflicts with --stdin".into());
+            return Err(xlat!(
+                "{option1} conflicts with {option2}",
+                option1 = "--bell",
+                option2 = "--stdin"
+            ));
         }
 
         reject_all("--validate", opts)?;
@@ -268,13 +272,17 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         let positional_args = mem::take(&mut opts.positional_args);
 
         if bell && stdin {
-            return Err("--bell conflicts with --stdin".into());
+            return Err(xlat!(
+                "{option1} conflicts with {option2}",
+                option1 = "--bell",
+                option2 = "--stdin"
+            ));
         }
 
         reject_all("--edit", opts)?;
 
         if positional_args.is_empty() {
-            return Err("must specify at least one file path".into());
+            return Err(xlat!("must specify at least one file path").into());
         }
 
         Ok(Self {
@@ -336,7 +344,11 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         let positional_args = mem::take(&mut opts.positional_args);
 
         if bell && stdin {
-            return Err("--bell conflicts with --stdin".into());
+            return Err(xlat!(
+                "{option1} conflicts with {option2}",
+                option1 = "--bell",
+                option2 = "--stdin"
+            ));
         }
 
         // when present, `-u` must be accompanied by a command
@@ -344,7 +356,10 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         let valid_user_flag = user.is_none() || has_command;
 
         if !valid_user_flag {
-            return Err("'--user' flag must be accompanied by a command".into());
+            return Err(xlat!(
+                "'{option}' flag must be accompanied by a command",
+                option = "--user"
+            ));
         }
 
         reject_all("--list", opts)?;
@@ -415,24 +430,34 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         let positional_args = mem::take(&mut opts.positional_args);
 
         if bell && stdin {
-            return Err("--bell conflicts with --stdin".into());
+            return Err(xlat!(
+                "{option1} conflicts with {option2}",
+                option1 = "--bell",
+                option2 = "--stdin"
+            ));
         }
 
         let context = match (login, shell, positional_args.is_empty()) {
             (true, false, _) => "--login",
             (false, true, _) => "--shell",
-            (false, false, false) => "command (positional argument)",
+            (false, false, false) => xlat!("command (positional argument)"),
 
-            (true, true, _) => return Err("--login conflicts with --shell".into()),
+            (true, true, _) => {
+                return Err(xlat!(
+                    "{option1} conflicts with {option2}",
+                    option1 = "--login",
+                    option2 = "--shell"
+                ))
+            }
             (false, false, true) => {
                 if cfg!(debug_assertions) {
                     // see `SudoOptions::validate`
                     panic!();
                 } else {
-                    return Err(
+                    return Err(xlat!(
                         "expected one of: --login, --shell, a command as a positional argument"
-                            .into(),
-                    );
+                    )
+                    .into());
                 }
             }
         };
@@ -586,7 +611,7 @@ impl SudoArg {
 
                         // assignment syntax is not accepted for shorthand arguments
                         if next == Some('=') {
-                            Err("invalid option '='")?;
+                            Err(xlat!("invalid option '='"))?;
                         }
                         if next.is_some() {
                             processed.push(SudoArg::Argument(flag, rest.to_string()));
@@ -639,7 +664,7 @@ impl SudoOptions {
             } else if self.reset_timestamp {
                 SudoAction::ResetTimestamp(self.try_into()?)
             } else {
-                return Err("expected one of these actions: --help, --version, --remove-timestamp, --validate, --list, --edit, --login, --shell, a command as a positional argument, --reset-timestamp".into());
+                return Err(xlat!("expected one of these actions: --help, --version, --remove-timestamp, --validate, --list, --edit, --login, --shell, a command as a positional argument, --reset-timestamp").into());
             }
         };
 
@@ -720,7 +745,7 @@ impl SudoOptions {
                         options.validate = true;
                     }
                     _option => {
-                        Err("invalid option provided")?;
+                        Err(xlat!("invalid option provided"))?;
                     }
                 },
                 SudoArg::Argument(option, value) => match option.as_str() {
@@ -749,7 +774,7 @@ impl SudoOptions {
                         options.user = Some(SudoString::from_cli_string(value));
                     }
                     _option => {
-                        Err("invalid option provided")?;
+                        Err(xlat!("invalid option provided"))?;
                     }
                 },
                 SudoArg::Environment(key, value) => {
@@ -828,7 +853,7 @@ fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(
 
 fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
     macro_rules! check_options {
-        ($($field:ident $(= $name:literal)?,)*) => {{
+        ($($field:ident $(= $name:expr)?,)*) => {{
             let SudoOptions { $($field),* } = opts;
 
             $(
@@ -846,7 +871,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
                 Cow::Borrowed(name)
             }
         }};
-        (@name $field:ident $name:literal) => {
+        (@name $field:ident $name:expr) => {
             $name
         };
     }
@@ -870,7 +895,7 @@ fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
         user,
         validate,
         version,
-        positional_args = "command",
-        env_var_list = "environment variable",
+        positional_args = xlat!("command"),
+        env_var_list = xlat!("environment variable"),
     )
 }

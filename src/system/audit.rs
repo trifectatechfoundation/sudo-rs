@@ -248,14 +248,17 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
     let path = path.as_ref();
 
     let Some(file_name) = path.file_name() else {
-        return Err(io::Error::new(ErrorKind::InvalidInput, "invalid path"));
+        return Err(io::Error::new(
+            ErrorKind::InvalidInput,
+            xlat!("invalid path"),
+        ));
     };
 
     let mut components = path.parent().unwrap_or(Path::new("")).components();
     if components.next() != Some(Component::RootDir) {
         return Err(io::Error::new(
             ErrorKind::InvalidInput,
-            "path must be absolute",
+            xlat!("path must be absolute"),
         ));
     }
 
@@ -271,7 +274,7 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
         {
             Err(io::Error::new(
                 ErrorKind::PermissionDenied,
-                "cannot open a file in a path writable by the user",
+                xlat!("cannot open a file in a path writable by the user"),
             ))
         } else {
             Ok(())
@@ -289,7 +292,7 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
             _ => {
                 return Err(io::Error::new(
                     ErrorKind::InvalidInput,
-                    "error in provided path",
+                    xlat!("error in provided path"),
                 ))
             }
         };
