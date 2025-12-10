@@ -134,12 +134,6 @@ pub(in crate::exec) fn exec_pty(
         command.stderr(Stdio::inherit());
     }
 
-    // If there is another process later in the pipeline, don't interfere
-    // with its access to the Tty
-    if io::stdout().is_pipe() {
-        foreground = false;
-    }
-
     // Copy terminal settings from `/dev/tty` to the pty.
     if let Err(err) = user_tty.copy_to(&pty.follower) {
         dev_error!("cannot copy terminal settings to pty: {err}");
