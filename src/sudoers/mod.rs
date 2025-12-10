@@ -321,7 +321,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
                 editor
             } else if let Some(editor) = resolve_path(
                 &editor,
-                &std::env::var("PATH").unwrap_or(env!("SUDO_PATH_DEFAULT").to_string()),
+                &std::env::var("PATH").unwrap_or(crate::sudo::PATH_DEFAULT.to_string()),
             ) {
                 editor
             } else {

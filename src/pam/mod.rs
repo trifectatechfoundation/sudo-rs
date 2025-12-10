@@ -25,6 +25,9 @@ mod securemem;
 #[allow(nonstandard_style)]
 pub mod sys;
 
+#[link(name = "pam")]
+extern "C" {}
+
 #[cfg(target_os = "freebsd")]
 const PAM_DATA_SILENT: std::ffi::c_int = 0;
 

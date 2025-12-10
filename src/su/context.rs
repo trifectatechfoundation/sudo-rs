@@ -19,8 +19,9 @@ use super::cli::SuRunOptions;
 const VALID_LOGIN_SHELLS_LIST: &str = "/etc/shells";
 const FALLBACK_LOGIN_SHELL: &str = "/bin/sh";
 
-const PATH_DEFAULT: &str = env!("SU_PATH_DEFAULT");
-const PATH_DEFAULT_ROOT: &str = env!("SU_PATH_DEFAULT_ROOT");
+// TODO: use _PATH_STDPATH and _PATH_DEFPATH_ROOT from paths.h
+const PATH_DEFAULT: &str = "/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games";
+const PATH_DEFAULT_ROOT: &str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
 #[derive(Debug)]
 pub(crate) struct SuContext {
