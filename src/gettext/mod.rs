@@ -1,6 +1,9 @@
 #[cfg(feature = "gettext")]
 use std::ffi::{CStr, CString};
 
+#[cfg(feature = "gettext")]
+pub(crate) mod check;
+
 /// If the locale isn't detected to be UTF-8, or couldn't be switched, the user
 /// will get the default messages.
 #[cfg(feature = "gettext")]
@@ -65,7 +68,8 @@ pub(crate) fn gettext(text: &'static CStr) -> &'static str {
 #[cfg(feature = "gettext")]
 macro_rules! xlat {
     ($text: literal) => {{
-        debug_assert!(!$text.contains("{"), "invalid gettext input");
+        #[allow(dead_code)]
+        const _OK: () = $crate::gettext::check::check_keys($text, &[]);
         $crate::gettext::gettext(cstr!($text))
     }};
 
@@ -73,6 +77,12 @@ macro_rules! xlat {
         #[allow(unused)]
         use $crate::gettext::display::{Convert, Reference, Wrap};
         use std::ops::Deref;
+
+        #[allow(dead_code)]
+        const _OK: () = $crate::gettext::check::check_keys(
+            $text,
+            &[$(stringify!($id)),*]
+        );
 
         let result = $crate::gettext::gettext(cstr!($text));
         $(
