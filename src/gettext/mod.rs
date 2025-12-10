@@ -92,7 +92,6 @@ macro_rules! xlat {
         );
         )*
 
-        debug_assert!(!result.contains("{"), "invalid gettext input");
         result
     }};
 }

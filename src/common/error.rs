@@ -65,7 +65,7 @@ impl fmt::Display for Error {
             Error::UserNotFound(u) => write!(f, "user '{u}' not found"),
             Error::GroupNotFound(g) => write!(f, "group '{g}' not found"),
             Error::Authorization(u) => {
-                //TRANSLATORS: This is a well-known quote, try to preserve it in translation.
+                // TRANSLATORS: This is a well-known quote, try to preserve it in translation.
                 xlat_write!(f, "I'm sorry {user}. I'm afraid I can't do that", user = u)
             }
             Error::InteractionRequired => write!(f, "interactive authentication is required"),
