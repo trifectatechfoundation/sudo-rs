@@ -174,7 +174,7 @@ fn sudo_askpass_not_absolute_path() {
     if sudo_test::is_original_sudo() {
         assert_contains!(stderr, "unable to run askpass: No such file or directory");
     } else {
-        assert_contains!(stderr, "Askpass program `askpass` is not an absolute path");
+        assert_contains!(stderr, "Askpass program 'askpass' is not an absolute path");
     }
 }
 

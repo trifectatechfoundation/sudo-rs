@@ -1,13 +1,20 @@
-pub const USAGE_MSG: &str = "\
+pub fn usage_msg() -> &'static str {
+    xlat!(
+        "\
 usage: sudo -h | -K | -k | -V
 usage: sudo [-BknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
 usage: sudo -v [-BknS] [-p prompt] [-g group] [-u user]
 usage: sudo -l [-BknS] [-p prompt] [-U user] [-g group] [-u user] [command [arg ...]]
-usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] file ...";
+usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] file ..."
+    )
+}
 
-const DESCRIPTOR: &str = "sudo - run commands as another user";
+fn descriptor() -> &'static str {
+    xlat!("sudo - run commands as another user")
+}
 
-const HELP_MSG: &str = "Options:
+fn help_msg() -> &'static str {
+    xlat!("Options:
   -B, --bell                    ring bell when prompting
   -D, --chdir=directory         change the working directory before running command
   -g, --group=group             run command as the specified group name or ID
@@ -24,8 +31,9 @@ const HELP_MSG: &str = "Options:
   -u, --user=user               run command (or edit file) as specified user name or ID
   -V, --version                 display version information and exit
   -v, --validate                update user's timestamp without running a command
-  --                            stop processing command line arguments";
+  --                            stop processing command line arguments")
+}
 
 pub fn long_help_message() -> String {
-    format!("{DESCRIPTOR}\n{USAGE_MSG}\n{HELP_MSG}")
+    format!("{}\n{}\n{}", descriptor(), usage_msg(), help_msg())
 }

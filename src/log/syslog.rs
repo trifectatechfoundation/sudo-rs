@@ -131,7 +131,7 @@ impl Write for SysLogMessageWriter {
 const FACILITY: c_int = libc::LOG_AUTH;
 
 impl Log for Syslog {
-    fn log(&self, level: Level, args: &fmt::Arguments<'_>) {
+    fn log(&self, level: Level, args: &dyn fmt::Display) {
         let priority = match level {
             Level::Error => libc::LOG_ERR,
             Level::Warn => libc::LOG_WARNING,

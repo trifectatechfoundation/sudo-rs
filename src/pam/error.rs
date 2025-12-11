@@ -208,45 +208,53 @@ impl From<Utf8Error> for PamError {
 impl fmt::Display for PamError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PamError::UnexpectedNulByte(_) => write!(f, "Unexpected nul byte in input"),
-            PamError::Utf8Error(_) => write!(f, "Could not read input data as UTF-8 string"),
+            PamError::UnexpectedNulByte(_) => xlat_write!(f, "Unexpected null character in input"),
+            PamError::Utf8Error(_) => xlat_write!(f, "Could not read input data as UTF-8 string"),
             PamError::Pam(PamErrorType::AuthError) => {
-                write!(f, "Account validation failure, is your account locked?")
+                xlat_write!(f, "Account validation failure, is your account locked?")
             }
             PamError::Pam(PamErrorType::NewAuthTokenRequired) => {
-                write!(
+                xlat_write!(
                     f,
                     "Account or password is expired, reset your password and try again"
                 )
             }
             PamError::Pam(PamErrorType::AuthTokenExpired) => {
-                write!(f, "Password expired, contact your system administrator")
+                xlat_write!(f, "Password expired, contact your system administrator")
             }
-            PamError::Pam(tp) => write!(f, "PAM error: {}", tp.get_err_msg()),
-            PamError::IoError(e) => write!(f, "IO error: {e}"),
-            PamError::TtyRequired => write!(f, "A terminal is required to authenticate"),
+            PamError::Pam(tp) => xlat_write!(f, "PAM error: {error}", error = tp.get_err_msg()),
+            PamError::IoError(e) => xlat_write!(f, "IO error: {error}", error = e),
+            PamError::TtyRequired => xlat_write!(f, "A terminal is required to authenticate"),
             PamError::EnvListFailure => {
-                write!(
+                xlat_write!(
                     f,
                     "It was not possible to get a list of environment variables"
                 )
             }
-            PamError::InteractionRequired => write!(f, "Interaction is required"),
-            PamError::NoPasswordProvided => write!(f, "Authentication required but not attempted"),
-            PamError::IncorrectPasswordAttempt => write!(f, "Incorrect authentication attempt"),
-            PamError::TimedOut => write!(f, "timed out"),
+            PamError::InteractionRequired => xlat_write!(f, "Interaction is required"),
+            PamError::NoPasswordProvided => {
+                xlat_write!(f, "Authentication required but not attempted")
+            }
+            PamError::IncorrectPasswordAttempt => {
+                xlat_write!(f, "Incorrect authentication attempt")
+            }
+            PamError::TimedOut => xlat_write!(f, "timed out"),
             PamError::InvalidUser(username, other_user) => {
-                write!(
+                xlat_write!(
                     f,
-                    "Sorry, user {username} is not allowed to authenticate as {other_user}.",
+                    "Sorry, user {user} is not allowed to authenticate as {other_user}.",
+                    user = username,
+                    other_user = other_user,
                 )
             }
-            PamError::NoAskpassProgram => write!(f, "No askpass program specified in SUDO_ASKPASS"),
+            PamError::NoAskpassProgram => {
+                xlat_write!(f, "No askpass program specified in SUDO_ASKPASS")
+            }
             PamError::InvalidAskpassProgram(program) => {
-                write!(
+                xlat_write!(
                     f,
-                    "Askpass program `{}` is not an absolute path",
-                    program.display()
+                    "Askpass program '{path}' is not an absolute path",
+                    path = program.display()
                 )
             }
         }

@@ -34,12 +34,17 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
                 Ok(file) => opened_files.push((path, file)),
                 // ErrorKind::FilesystemLoop was only stabilized in 1.83
                 Err(error) if error.raw_os_error() == Some(libc::ELOOP) => {
-                    user_error!("{arg}: editing symbolic links is not permitted")
+                    user_error!(
+                        "{path}: editing symbolic links is not permitted",
+                        path = arg
+                    )
                 }
-                Err(error) => user_error!("error opening {arg}: {error}"),
+                Err(error) => {
+                    user_error!("error opening {path}: {error}", path = arg, error = error)
+                }
             }
         } else {
-            user_error!("invalid path: {arg}");
+            user_error!("invalid path: {path}", path = arg);
         }
     }
 

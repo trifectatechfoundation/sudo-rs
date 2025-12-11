@@ -397,8 +397,8 @@ impl Parse for MetaOrTag {
             // this is less fatal
             "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL"
             | "FOLLOW" => {
-                crate::log::user_warn!(
-                    "{} tags in the sudoers policy are ignored by sudo-rs",
+                eprintln_ignore_io_error!(
+                    "sudo-rs: {} tags in the sudoers policy are ignored",
                     keyword.as_str()
                 );
                 switch(|_| {})?

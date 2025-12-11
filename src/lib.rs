@@ -6,6 +6,7 @@ pub(crate) mod common;
 pub(crate) mod cutils;
 pub(crate) mod defaults;
 pub(crate) mod exec;
+#[macro_use]
 pub(crate) mod gettext;
 pub(crate) mod log;
 pub(crate) mod pam;
@@ -22,10 +23,3 @@ pub use visudo::main as visudo_main;
 
 #[cfg(feature = "do-not-use-all-features")]
 compile_error!("Refusing to compile using 'cargo --all-features' --- please read the README");
-
-//FIXME: this is here to ensure xlat! is used (with gettext disabled) and that
-// the Convert trait is exercised.
-#[allow(unused)]
-fn simulate_use() -> String {
-    gettext::xlat!("{answer}", answer = 42)
-}

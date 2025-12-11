@@ -61,7 +61,7 @@ pub fn main() {
             std::process::exit(0);
         }
         VisudoAction::Version => {
-            println_ignore_io_error!("visudo version {VERSION}");
+            println_ignore_io_error!("visudo-rs {VERSION}");
             std::process::exit(0);
         }
         VisudoAction::Check => check,

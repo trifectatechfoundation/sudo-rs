@@ -144,8 +144,9 @@ impl CLIConverser {
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let (mut tty, _guard) = self.open()?;
+        let input_needed = xlat!("input needed");
         tty.read_input(
-            &format!("[{}: input needed] {msg} ", self.name),
+            &format!("[{}: {input_needed} {msg} ", self.name),
             None,
             Hidden::No,
         )

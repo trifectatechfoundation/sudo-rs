@@ -137,7 +137,11 @@ pub fn run_command(
         unsafe {
             command.pre_exec(move || {
                 if let Err(err) = env::set_current_dir(&path) {
-                    user_error!("unable to change directory to {}: {}", path.display(), err);
+                    user_error!(
+                        "unable to change directory to {path}: {error}",
+                        path = path.display(),
+                        error = err
+                    );
                     if is_chdir {
                         return Err(err);
                     }

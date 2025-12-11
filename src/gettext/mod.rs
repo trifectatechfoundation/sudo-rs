@@ -89,7 +89,7 @@ macro_rules! xlat {
         $crate::gettext::gettext(cstr!($text))
     }};
 
-    ($text: literal $(, $id: ident = $val: expr)*) => {{
+    ($text: literal $(, $id: ident = $val: expr)* $(,)?) => {{
         #[allow(unused)]
         use $crate::gettext::display::{Convert, Reference, Wrap};
         use std::ops::Deref;
@@ -104,7 +104,7 @@ macro_rules! xlat {
         $(
         let result = result.replace(
             concat!("{", stringify!($id), "}"),
-            (&&Wrap($val)).display().deref(),
+            (&&Wrap(&$val)).display().deref(),
         );
         )*
 
@@ -116,21 +116,21 @@ macro_rules! xlat {
 macro_rules! xlat {
     ($text: literal) => { $text };
 
-    ($text: literal $(, $id: ident = $val: expr)*) => {{
+    ($text: literal $(, $id: ident = $val: expr)* $(,)?) => {{
         format!($text $(,$id = $val)*)
     }};
 }
 
 #[cfg(feature = "gettext")]
 macro_rules! xlat_write {
-    ($f: expr, $fmt: literal $(, $id: ident = $val: expr)*) => {
+    ($f: expr, $fmt: literal $(, $id: ident = $val: expr)* $(,)?) => {
         write!($f, "{}", $crate::gettext::xlat!($fmt $(, $id = $val)*))
     };
 }
 
 #[cfg(not(feature = "gettext"))]
 macro_rules! xlat_write {
-    ($f: expr, $fmt: literal $(, $id: ident = $val: expr)*) => {
+    ($f: expr, $fmt: literal $(, $id: ident = $val: expr)* $(,)?) => {
         write!($f, $fmt $(, $id = $val)*)
     };
 }
