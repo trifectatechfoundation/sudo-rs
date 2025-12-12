@@ -323,7 +323,9 @@ fn edit_sudoers_file(
                 _ => continue,
             }
         } else {
-            if sudo_visudo_is_allowed(sudoers, &host_name) == Some(false) {
+            if sudoers_path == Path::new("/etc/sudoers")
+                && sudo_visudo_is_allowed(sudoers, &host_name) == Some(false)
+            {
                 writeln!(
                     stderr,
                     "It looks like you have removed your ability to run 'sudo visudo' again.\n"
