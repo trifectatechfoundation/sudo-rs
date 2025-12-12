@@ -290,8 +290,6 @@ would allow the user queen to run /bin/kill, /bin/ls, and /usr/bin/lprm as root 
 
        queen     rushmore = NOPASSWD: /bin/kill, PASSWD: /bin/ls, /usr/bin/lprm
 
-Note, however, that the PASSWD tag has no effect on users who are in the group specified by the exempt_group setting.
-
 By default, if the NOPASSWD tag is applied to any of a user's entries for the current host, the user will be able to run “sudo -l” without a password.  Additionally, a user may only run “sudo -v” without a password if all of the user's entries for the current host have the NOPASSWD tag.
 
 ### SETENV and NOSETENV
