@@ -325,12 +325,12 @@ msgstr ""
 msgid "sudoedit: truncate {path} to zero? (y/n) [n] "
 msgstr ""
 
-#: src/sudo/edit.rs:314
+#: src/sudo/edit.rs:319
 #, rust-format
 msgid "not overwriting {path}"
 msgstr ""
 
-#: src/sudo/edit.rs:318 src/sudo/edit.rs:327
+#: src/sudo/edit.rs:323 src/sudo/edit.rs:332
 #, rust-format
 msgid "failed to write data to parent: {error}"
 msgstr ""
@@ -392,6 +392,12 @@ msgid ""
 "  --                            stop processing command line arguments"
 msgstr ""
 
+#: src/sudo/cli/mod.rs:210 src/sudo/cli/mod.rs:275 src/sudo/cli/mod.rs:347
+#: src/sudo/cli/mod.rs:433 src/sudo/cli/mod.rs:446 src/sudo/cli/mod.rs:846
+#, rust-format
+msgid "{context} cannot be used together with {option}"
+msgstr ""
+
 #: src/sudo/cli/mod.rs:284
 msgid "must specify at least one file path"
 msgstr ""
@@ -441,12 +447,6 @@ msgstr ""
 
 #: src/sudo/cli/mod.rs:794
 msgid "sudoedit doesn't need to be run via sudo"
-msgstr ""
-
-#: src/sudo/cli/mod.rs:210 src/sudo/cli/mod.rs:275 src/sudo/cli/mod.rs:347
-#: src/sudo/cli/mod.rs:433 src/sudo/cli/mod.rs:446 src/sudo/cli/mod.rs:846
-#, rust-format
-msgid "{context} cannot be used together with {option}"
 msgstr ""
 
 #: src/sudo/cli/mod.rs:897

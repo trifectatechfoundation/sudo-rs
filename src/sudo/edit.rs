@@ -299,17 +299,22 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         // If the file has been changed to be empty, ask the user what to do.
         if new_data.is_empty() && new_data != file.old_data {
             // TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
-            let answers = xlat!("yn").as_bytes().get(..2).unwrap_or(b"yn");
+            let answers = xlat!("yn");
 
             match crate::visudo::ask_response(
-                xlat!(
+                &xlat!(
                     "sudoedit: truncate {path} to zero? (y/n) [n] ",
                     path = file.path.display()
-                )
-                .as_bytes(),
+                ),
                 answers,
+                answers
+                    .chars()
+                    .last()
+                    .expect("translation files are corrupted"),
             ) {
-                Ok(val) if val == answers[0] => {}
+                Ok(val) if answers.starts_with(val) => {}
+                // a fallback: also accept 'yes' based on Debian's apt behaviour
+                Ok('y') if !answers.contains('y') => {}
                 _ => {
                     user_info!("not overwriting {path}", path = file.path.display());
 
