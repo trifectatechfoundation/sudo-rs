@@ -20,6 +20,7 @@ cd "$WORK_ROOT" && find src -name "*.rs" -not -path "*/gettext/*" | xargs xgette
   --from-code="UTF-8" \
   --keyword='xlat!' \
   --keyword='xlat_write!:2' \
+  --keyword='xlat_println!:1' \
   --keyword='user_error!:1' \
   --keyword='user_info!:1' \
   --keyword='user_warn!:1' \

@@ -354,12 +354,12 @@ msgstr ""
 msgid "please address the problems and try again"
 msgstr ""
 
-#: src/sudo/pipeline/list.rs:45
+#: src/sudo/pipeline/list.rs:43
 #, rust-format
 msgid "User {user} may run the following commands on {hostname}:"
 msgstr ""
 
-#: src/sudo/pipeline/list.rs:63
+#: src/sudo/pipeline/list.rs:58
 #, rust-format
 msgid "User {user} is not allowed to run sudo on {hostname}."
 msgstr ""

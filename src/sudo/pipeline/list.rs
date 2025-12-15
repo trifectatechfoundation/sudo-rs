@@ -39,13 +39,10 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
             .peekable();
 
         if matching_entries.peek().is_some() {
-            println_ignore_io_error!(
-                "{}",
-                xlat!(
-                    "User {user} may run the following commands on {hostname}:",
-                    user = inspected_user.name,
-                    hostname = context.hostname
-                )
+            xlat_println!(
+                "User {user} may run the following commands on {hostname}:",
+                user = inspected_user.name,
+                hostname = context.hostname
             );
 
             for entry in matching_entries {
@@ -57,13 +54,10 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
                 }
             }
         } else {
-            println_ignore_io_error!(
-                "{}",
-                xlat!(
-                    "User {user} is not allowed to run sudo on {hostname}.",
-                    user = inspected_user.name,
-                    hostname = context.hostname,
-                ),
+            xlat_println!(
+                "User {user} is not allowed to run sudo on {hostname}.",
+                user = inspected_user.name,
+                hostname = context.hostname,
             );
         }
     }
