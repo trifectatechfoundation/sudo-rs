@@ -2,27 +2,13 @@ use std::{
     collections::{HashMap, HashSet},
     ffi::{OsStr, OsString},
     os::unix::prelude::OsStrExt,
-    path::Path,
 };
 
 use crate::common::{CommandAndArguments, Context, Error};
 use crate::sudoers::Restrictions;
-use crate::system::PATH_MAX;
+use crate::system::{audit::zoneinfo_path, PATH_MAX};
 
 use super::wildcard_match::wildcard_match;
-
-fn path_zoneinfo() -> Option<&'static str> {
-    [
-        "/usr/share/zoneinfo",
-        "/usr/share/lib/zoneinfo",
-        "/usr/lib/zoneinfo",
-        "/usr/lib/zoneinfo",
-    ]
-    .into_iter()
-    // Note: We assume that /usr and all contents are only writable by root. If they
-    // aren't, you can trivially escalate to root anyway.
-    .find(|p| Path::new(p).exists())
-}
 
 // TODO: use _PATH_STDPATH from paths.h
 pub(crate) const PATH_DEFAULT: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
@@ -152,7 +138,7 @@ fn is_safe_tz(value: &[u8]) -> bool {
     };
 
     if check_value.starts_with(b"/") {
-        if let Some(path_zoneinfo) = path_zoneinfo() {
+        if let Some(path_zoneinfo) = zoneinfo_path() {
             if !check_value.starts_with(path_zoneinfo.as_bytes())
                 || check_value.get(path_zoneinfo.len()) != Some(&b'/')
             {
@@ -266,7 +252,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{is_safe_tz, path_zoneinfo, should_keep};
+    use super::{is_safe_tz, should_keep, zoneinfo_path};
     use std::{collections::HashSet, ffi::OsStr};
 
     struct TestConfiguration {
@@ -328,7 +314,7 @@ mod tests {
     #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn test_tzinfo() {
-        let path_zoneinfo = path_zoneinfo().unwrap();
+        let path_zoneinfo = zoneinfo_path().unwrap();
         assert_eq!(is_safe_tz("Europe/Amsterdam".as_bytes()), true);
         assert_eq!(
             is_safe_tz(format!("{path_zoneinfo}/Europe/London").as_bytes()),

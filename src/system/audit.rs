@@ -124,6 +124,20 @@ pub fn secure_open_cookie_file(path: impl AsRef<Path>) -> io::Result<File> {
     secure_open_impl(path.as_ref(), &mut open_options, true, true)
 }
 
+/// Return the system zoneinfo path after validating that it is safe
+pub fn zoneinfo_path() -> Option<&'static str> {
+    let paths = [
+        "/usr/share/zoneinfo",
+        "/usr/share/lib/zoneinfo",
+        "/usr/lib/zoneinfo",
+    ];
+
+    paths.into_iter().find(|p| {
+        let path = Path::new(p);
+        path.metadata().and_then(|meta| checks(path, meta)).is_ok()
+    })
+}
+
 fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
     let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
 
