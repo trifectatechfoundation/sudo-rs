@@ -1,5 +1,5 @@
 FROM dougrabson/freebsd14.1-small:latest
-RUN IGNORE_OSVERSION=yes pkg install -y sshpass rsyslog bash vim pidof dash
+RUN IGNORE_OSVERSION=yes pkg install -y sshpass rsyslog bash vim pidof dash socat
 WORKDIR /usr/src/sudo
 COPY target/build build
 # set setuid on install

@@ -1,6 +1,6 @@
 FROM debian:trixie-slim
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends sudo procps sshpass rsyslog && \
+    apt-get install -y --no-install-recommends sudo procps sshpass rsyslog socat && \
     rm /etc/sudoers
 # Ensure we use the same shell across OSes
 RUN chsh -s /bin/sh
