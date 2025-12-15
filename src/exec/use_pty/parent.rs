@@ -105,7 +105,7 @@ pub(in crate::exec) fn exec_pty(
     // FIXME: Here's where we should intercept the IO streams if we want to implement IO logging.
     // FIXME: ogsudo creates pipes for the IO streams and uses events to read from the strams to
     // the pipes. Investigate why.
-    if !io::stdin().matches_pgrp(parent_pgrp)? {
+    if !io::stdin().is_terminal_for_pgrp(parent_pgrp)? {
         dev_info!("stdin is not a terminal, command will inherit it");
         if io::stdin().is_pipe() {
             exec_bg = true;
@@ -120,7 +120,7 @@ pub(in crate::exec) fn exec_pty(
         }
     }
 
-    if !io::stdout().matches_pgrp(parent_pgrp)? {
+    if !io::stdout().is_terminal_for_pgrp(parent_pgrp)? {
         dev_info!("stdout is not a terminal, command will inherit it");
         if io::stdout().is_pipe() {
             exec_bg = true;
@@ -129,7 +129,7 @@ pub(in crate::exec) fn exec_pty(
         command.stdout(Stdio::inherit());
     }
 
-    if !io::stderr().matches_pgrp(parent_pgrp)? {
+    if !io::stderr().is_terminal_for_pgrp(parent_pgrp)? {
         dev_info!("stderr is not a terminal, command will inherit it");
         command.stderr(Stdio::inherit());
     }
