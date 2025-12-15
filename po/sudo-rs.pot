@@ -392,12 +392,6 @@ msgid ""
 "  --                            stop processing command line arguments"
 msgstr ""
 
-#: src/sudo/cli/mod.rs:210 src/sudo/cli/mod.rs:275 src/sudo/cli/mod.rs:347
-#: src/sudo/cli/mod.rs:433 src/sudo/cli/mod.rs:446
-#, rust-format
-msgid "{option1} conflicts with {option2}"
-msgstr ""
-
 #: src/sudo/cli/mod.rs:284
 msgid "must specify at least one file path"
 msgstr ""
@@ -449,7 +443,8 @@ msgstr ""
 msgid "sudoedit doesn't need to be run via sudo"
 msgstr ""
 
-#: src/sudo/cli/mod.rs:846
+#: src/sudo/cli/mod.rs:210 src/sudo/cli/mod.rs:275 src/sudo/cli/mod.rs:347
+#: src/sudo/cli/mod.rs:433 src/sudo/cli/mod.rs:446 src/sudo/cli/mod.rs:846
 #, rust-format
 msgid "{context} cannot be used together with {option}"
 msgstr ""

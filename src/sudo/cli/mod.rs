@@ -207,9 +207,9 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
 
         if bell && stdin {
             return Err(xlat!(
-                "{option1} conflicts with {option2}",
-                option1 = "--bell",
-                option2 = "--stdin"
+                "{context} cannot be used together with {option}",
+                context = "--bell",
+                option = "--stdin"
             ));
         }
 
@@ -272,9 +272,9 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
 
         if bell && stdin {
             return Err(xlat!(
-                "{option1} conflicts with {option2}",
-                option1 = "--bell",
-                option2 = "--stdin"
+                "{context} cannot be used together with {option}",
+                context = "--bell",
+                option = "--stdin"
             ));
         }
 
@@ -344,9 +344,9 @@ impl TryFrom<SudoOptions> for SudoListOptions {
 
         if bell && stdin {
             return Err(xlat!(
-                "{option1} conflicts with {option2}",
-                option1 = "--bell",
-                option2 = "--stdin"
+                "{context} cannot be used together with {option}",
+                context = "--bell",
+                option = "--stdin"
             ));
         }
 
@@ -430,9 +430,9 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
 
         if bell && stdin {
             return Err(xlat!(
-                "{option1} conflicts with {option2}",
-                option1 = "--bell",
-                option2 = "--stdin"
+                "{context} cannot be used together with {option}",
+                context = "--bell",
+                option = "--stdin"
             ));
         }
 
@@ -443,9 +443,9 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
 
             (true, true, _) => {
                 return Err(xlat!(
-                    "{option1} conflicts with {option2}",
-                    option1 = "--login",
-                    option2 = "--shell"
+                    "{context} cannot be used together with {option}",
+                    context = "--login",
+                    option = "--shell"
                 ))
             }
             (false, false, true) => {
