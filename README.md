@@ -24,7 +24,7 @@ To avoid that and/or to get the latest version, you can use our prepackaged bina
 
 ### Ubuntu 25.10 (Questing Quokka)
 
-sudo-rs is installed and enabled by default; you can control which sudo version is being used by running 
+sudo-rs is installed and enabled by default; you can control which sudo version is being used by running
 ```sh
 update-alternatives --config sudo
 ```
@@ -70,7 +70,7 @@ We are maintaining the FreeBSD port of sudo-rs ourselves, which is available in 
 pkg install sudo-rs
 ```
 To get sudo-rs using the commands `sudo`, `visudo` and `sudoedit`. This conflicts with the `security/sudo` package and so you cannot have both
-installed at the same time. 
+installed at the same time.
 
 Alternatively,
 ```
@@ -206,6 +206,7 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
   compatibility reasons.
 * `timestamp_type` is always set at `tty`.
 * `sudoedit_checkdir` is always `on`, and `sudoedit_follow` is always `off`.
+* `logfile` is not supported --- logging is always done via syslog.
 
 Some other notable restrictions to be aware of:
 
