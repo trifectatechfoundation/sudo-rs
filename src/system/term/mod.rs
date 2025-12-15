@@ -176,7 +176,7 @@ mod sealed {
 }
 
 pub(crate) trait Terminal: sealed::Sealed {
-    fn is_terminal_for_pgrp(&self, pgrp: ProcessId) -> io::Result<bool>;
+    fn is_terminal_for_pgrp(&self, pgrp: ProcessId) -> bool;
     fn tcgetpgrp(&self) -> io::Result<ProcessId>
     where
         Self: sealed::SafeTty;
@@ -196,14 +196,16 @@ pub(crate) trait Terminal: sealed::Sealed {
 impl<F: AsFd> Terminal for F {
     /// Check if the foreground process group ID associated with this terminal is `pgrp`.
     /// Returns false if this is not actually a terminal.
-    fn is_terminal_for_pgrp(&self, pgrp: ProcessId) -> io::Result<bool> {
+    fn is_terminal_for_pgrp(&self, pgrp: ProcessId) -> bool {
         if !safe_isatty(self.as_fd()) {
-            return Ok(false);
+            return false;
         }
 
         // SAFETY: tcgetpgrp cannot cause UB
-        let id = cerr(unsafe { libc::tcgetpgrp(self.as_fd().as_raw_fd()) })?;
-        Ok(ProcessId::new(id) == pgrp)
+        let Ok(id) = cerr(unsafe { libc::tcgetpgrp(self.as_fd().as_raw_fd()) }) else {
+            return false;
+        };
+        ProcessId::new(id) == pgrp
     }
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
