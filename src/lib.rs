@@ -1,13 +1,14 @@
 #[macro_use]
 mod macros;
+#[macro_use]
+pub(crate) mod gettext;
+
 #[cfg(feature = "apparmor")]
 pub(crate) mod apparmor;
 pub(crate) mod common;
 pub(crate) mod cutils;
 pub(crate) mod defaults;
 pub(crate) mod exec;
-#[macro_use]
-pub(crate) mod gettext;
 pub(crate) mod log;
 pub(crate) mod pam;
 pub(crate) mod sudoers;
