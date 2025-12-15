@@ -371,7 +371,7 @@ msgid ""
 msgstr ""
 
 #: src/sudo/cli/help_edit.rs:10
-msgid "sudo - edit files as another user"
+msgid "sudoedit - edit files as another user"
 msgstr ""
 
 #: src/sudo/cli/help_edit.rs:15

@@ -7,7 +7,7 @@ usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
 }
 
 fn descriptor() -> &'static str {
-    xlat!("sudo - edit files as another user")
+    xlat!("sudoedit - edit files as another user")
 }
 
 fn help_msg() -> &'static str {
