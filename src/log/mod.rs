@@ -9,11 +9,11 @@ mod simple_logger;
 mod syslog;
 
 macro_rules! logger_macro {
-    ($name:ident is $rule_level:ident to $target:literal with $($path1:ident)?$(::$path2:ident)*, $d:tt) => {
+    ($name:ident is $rule_level:ident to $target:literal with $filter:ident, $d:tt) => {
         macro_rules! $name {
             ($d($d arg:tt)+) => {
                 if let Some(logger) = $crate::log::LOGGER.get() {
-                    logger.log($crate::log::Level::$rule_level, $target, $($path1)?$(::$path2)*!($d($d arg)+));
+                    logger.log($crate::log::Level::$rule_level, $target, $filter!($d($d arg)+));
                 }
             };
         }
@@ -21,8 +21,8 @@ macro_rules! logger_macro {
         pub(crate) use $name;
     };
 
-    ($name:ident is $rule_level:ident to $target:literal with $($path1:ident)?$(::$path2:ident)*) => {
-        logger_macro!($name is $rule_level to $target with $($path1)?$(::$path2)*, $);
+    ($name:ident is $rule_level:ident to $target:literal with $filter:ident) => {
+        logger_macro!($name is $rule_level to $target with $filter, $);
     };
 }
 
@@ -32,11 +32,11 @@ logger_macro!(auth_info is Info to "sudo::auth" with format_args);
 // logger_macro!(auth_debug is Debug to "sudo::auth" with format_args);
 // logger_macro!(auth_trace is Trace to "sudo::auth" with format_args);
 
-logger_macro!(user_error is Error to "sudo::user" with crate::gettext::xlat);
-logger_macro!(user_warn is Warn to "sudo::user" with crate::gettext::xlat);
-logger_macro!(user_info is Info to "sudo::user" with crate::gettext::xlat);
-// logger_macro!(user_debug is Debug to "sudo::user" with crate::gettext::xlat);
-// logger_macro!(user_trace is Trace to "sudo::user" with crate::gettext::xlat);
+logger_macro!(user_error is Error to "sudo::user" with xlat);
+logger_macro!(user_warn is Warn to "sudo::user" with xlat);
+logger_macro!(user_info is Info to "sudo::user" with xlat);
+// logger_macro!(user_debug is Debug to "sudo::user" with xlat);
+// logger_macro!(user_trace is Trace to "sudo::user" with xlat);
 
 macro_rules! dev_logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
