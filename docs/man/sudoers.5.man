@@ -539,6 +539,9 @@ entry would be:
    queen     rushmore = NOPASSWD: /bin/kill, PASSWD: /bin/ls, /usr/bin/lprm
 .EE
 .PP
+Note, however, that the PASSWD tag has no effect on users who are in the
+group specified by the exempt_group setting.
+.PP
 By default, if the NOPASSWD tag is applied to any of a user\[cq]s
 entries for the current host, the user will be able to run \[lq]sudo
 \-l\[rq] without a password.
