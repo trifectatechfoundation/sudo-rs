@@ -260,7 +260,7 @@ fn edit_sudoers_file(
 
     let host_name = Hostname::resolve();
 
-    let editor_path = if existed {
+    let Some(editor_path) = (if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
         sudoers_file.read_to_end(&mut sudoers_contents)?;
         // Rewind the sudoers file so it can be written later.
@@ -270,10 +270,15 @@ fn edit_sudoers_file(
 
         let (sudoers, _errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
 
-        sudoers.visudo_editor_path(&host_name, &current_user, &current_user)
+        sudoers
     } else {
-        // there is no /etc/sudoers config yet, so use a system default
-        PathBuf::from(crate::defaults::SYSTEM_EDITOR)
+        Default::default()
+    })
+    .visudo_editor_path(&host_name, &current_user, &current_user) else {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "no usable editor could be found",
+        ));
     };
 
     loop {

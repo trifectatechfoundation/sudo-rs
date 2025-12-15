@@ -71,10 +71,7 @@ fn no_valid_editor_in_list() {
         );
     } else {
         // this output shows that visudo has rejected /dev/null as an editor
-        assert_eq!(
-            "visudo: specified editor (/usr/bin/editor) could not be used",
-            output.stderr()
-        );
+        assert_eq!("visudo: no usable editor could be found", output.stderr());
     }
 }
 
@@ -92,10 +89,7 @@ fn editors_must_be_specified_by_absolute_path() {
         );
     } else {
         // this output shows that visudo has rejected /dev/null as an editor
-        assert_eq!(
-            "visudo: specified editor (/usr/bin/editor) could not be used",
-            output.stderr()
-        );
+        assert_eq!("visudo: no usable editor could be found", output.stderr());
     }
 }
 

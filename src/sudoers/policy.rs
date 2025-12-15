@@ -147,7 +147,11 @@ impl Judgement {
     }
 
     pub(crate) fn preferred_editor(&self) -> std::path::PathBuf {
+        //if no editor could be selected, fall back to /bin/vi;
+        //note that /bin/vi is also likely to have been tried as part of
+        //the "editor" setting, so this is a last-resort
         super::select_editor(&self.settings, true)
+            .unwrap_or_else(|| std::path::PathBuf::from("/usr/bin/vi"))
     }
 }
 

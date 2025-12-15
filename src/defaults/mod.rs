@@ -22,7 +22,7 @@ use settings_dsl::{
 };
 
 pub const SYSTEM_EDITOR: &str = if cfg!(target_os = "linux") {
-    "/usr/bin/editor"
+    "/usr/bin/editor:/usr/bin/nano:/usr/bin/vi"
 } else {
     "/usr/bin/vi"
 };
