@@ -19,6 +19,7 @@ mod edit;
 
 pub(crate) mod diagnostic;
 mod env;
+pub(crate) use env::environment::PATH_DEFAULT;
 mod pam;
 mod pipeline;
 

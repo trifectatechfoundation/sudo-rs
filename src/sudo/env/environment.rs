@@ -6,12 +6,12 @@ use std::{
 
 use crate::common::{CommandAndArguments, Context, Error};
 use crate::sudoers::Restrictions;
-use crate::system::PATH_MAX;
+use crate::system::{audit::zoneinfo_path, PATH_MAX};
 
 use super::wildcard_match::wildcard_match;
 
-const PATH_ZONEINFO: &str = env!("PATH_ZONEINFO");
-const PATH_DEFAULT: &str = env!("SUDO_PATH_DEFAULT");
+// TODO: use _PATH_STDPATH from paths.h
+pub(crate) const PATH_DEFAULT: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 
 pub type Environment = HashMap<OsString, OsString>;
 
@@ -138,12 +138,9 @@ fn is_safe_tz(value: &[u8]) -> bool {
     };
 
     if check_value.starts_with(b"/") {
-        // clippy 1.79 wants to us to optimise this check away; but we don't know what this will always
-        // be possible; and the compiler is clever enough to do that for us anyway if it can be.
-        #[allow(clippy::const_is_empty)]
-        if !PATH_ZONEINFO.is_empty() {
-            if !check_value.starts_with(PATH_ZONEINFO.as_bytes())
-                || check_value.get(PATH_ZONEINFO.len()) != Some(&b'/')
+        if let Some(path_zoneinfo) = zoneinfo_path() {
+            if !check_value.starts_with(path_zoneinfo.as_bytes())
+                || check_value.get(path_zoneinfo.len()) != Some(&b'/')
             {
                 return false;
             }
@@ -255,7 +252,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{is_safe_tz, should_keep, PATH_ZONEINFO};
+    use super::{is_safe_tz, should_keep, zoneinfo_path};
     use std::{collections::HashSet, ffi::OsStr};
 
     struct TestConfiguration {
@@ -317,25 +314,27 @@ mod tests {
     #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn test_tzinfo() {
+        let path_zoneinfo = zoneinfo_path().unwrap();
         assert_eq!(is_safe_tz("Europe/Amsterdam".as_bytes()), true);
         assert_eq!(
-            is_safe_tz(format!("{PATH_ZONEINFO}/Europe/London").as_bytes()),
+            is_safe_tz(format!("{path_zoneinfo}/Europe/London").as_bytes()),
             true
         );
         assert_eq!(
-            is_safe_tz(format!(":{PATH_ZONEINFO}/Europe/Amsterdam").as_bytes()),
+            is_safe_tz(format!(":{path_zoneinfo}/Europe/Amsterdam").as_bytes()),
             true
         );
+        assert_eq!(is_safe_tz(format!("/Europe/Amsterdam").as_bytes()), false);
         assert_eq!(
             is_safe_tz(format!("/schaap/Europe/Amsterdam").as_bytes()),
             false
         );
         assert_eq!(
-            is_safe_tz(format!("{PATH_ZONEINFO}/../Europe/London").as_bytes()),
+            is_safe_tz(format!("{path_zoneinfo}/../Europe/London").as_bytes()),
             false
         );
         assert_eq!(
-            is_safe_tz(format!("{PATH_ZONEINFO}/../Europe/London").as_bytes()),
+            is_safe_tz(format!("{path_zoneinfo}/../Europe/London").as_bytes()),
             false
         );
     }
