@@ -5,6 +5,7 @@ use crate::exec::ExitReason;
 use crate::log::user_warn;
 use crate::pam::{PamContext, PamError, PamErrorType};
 use crate::system::term::current_tty_name;
+use crate::system::Process;
 
 use std::{env, process};
 
@@ -105,8 +106,6 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
     let mut environment = context.environment.clone();
     environment.extend(pam.env()?);
 
-    let pid = context.process.pid;
-
     // run command and return corresponding exit code
     let command_exit_reason = crate::exec::run_command(context.as_run_options(), environment);
 
@@ -115,7 +114,7 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
     match command_exit_reason? {
         ExitReason::Code(code) => process::exit(code),
         ExitReason::Signal(signal) => {
-            crate::system::kill(pid, signal)?;
+            crate::system::kill(Process::process_id(), signal)?;
         }
     }
 
