@@ -255,26 +255,21 @@ fn edit_sudoers_file(
 
     let host_name = Hostname::resolve();
 
-    let Some(editor_path) = (if existed {
+    if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
         sudoers_file.read_to_end(&mut sudoers_contents)?;
         // Rewind the sudoers file so it can be written later.
         sudoers_file.rewind()?;
         // Write to the temporary file.
         tmp_file.write_all(&sudoers_contents)?;
+    }
 
-        let (sudoers, _errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
-
-        sudoers
-    } else {
-        Default::default()
-    })
-    .visudo_editor_path(&host_name, &current_user, &current_user) else {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            "no usable editor could be found",
-        ));
-    };
+    let editor_path = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?
+        .0
+        .visudo_editor_path(&host_name, &current_user, &current_user)
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "no usable editor could be found")
+        })?;
 
     loop {
         Command::new(&editor_path)
