@@ -123,7 +123,7 @@ msgstr ""
 msgid "Askpass program '{path}' is not an absolute path"
 msgstr ""
 
-#: src/pam/mod.rs:83
+#: src/pam/mod.rs:86
 msgid "authenticate"
 msgstr ""
 
@@ -131,39 +131,39 @@ msgstr ""
 msgid "input needed"
 msgstr ""
 
-#: src/system/audit.rs:133
+#: src/system/audit.rs:147
 #, rust-format
 msgid "{path} must be owned by root"
 msgstr ""
 
-#: src/system/audit.rs:138
+#: src/system/audit.rs:152
 #, rust-format
 msgid "{path} cannot be group-writable"
 msgstr ""
 
-#: src/system/audit.rs:143
+#: src/system/audit.rs:157
 #, rust-format
 msgid "{path} cannot be world-writable"
 msgstr ""
 
-#: src/system/audit.rs:184
+#: src/system/audit.rs:198
 #, rust-format
 msgid "{path} has no valid parent directory"
 msgstr ""
 
-#: src/system/audit.rs:252
+#: src/system/audit.rs:266
 msgid "invalid path"
 msgstr ""
 
-#: src/system/audit.rs:260
+#: src/system/audit.rs:274
 msgid "path must be absolute"
 msgstr ""
 
-#: src/system/audit.rs:276
+#: src/system/audit.rs:290
 msgid "cannot open a file in a path writable by the user"
 msgstr ""
 
-#: src/system/audit.rs:294
+#: src/system/audit.rs:308
 msgid "error in provided path"
 msgstr ""
 
