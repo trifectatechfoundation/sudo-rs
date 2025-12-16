@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.2.11] - 2025-12-16
+
+### Added
+- Support for `-A / --askpass` to enable using an external askpass program
+  under control of the `SUDO_ASKPASS` environment variable.
+- Functional support for localisation. This can be enabled by building sudo-rs
+  with the `gettext` feature and installing a `sudo-rs.mo` in the correct
+  LC_MESSAGES folder. Since we have no translations yet this is off by default.
+
+### Changed
+- sudo is always built with sudoedit functionality
+- sudo no longer sets the archaic `MAIL` environment variable
+- timestamps format has been changed to always check for session pid (#1132).
+  As a consequence, timestamps created by earlier versions of sudo-rs are
+  invalidated after upgrading to this version.
+- The folder containing zoneinfo is detected at runtime; `build.rs` was removed
+- The default value of `Defaults editor` has been changed on Linux to remove the
+  dependence on Debian-specific `/usr/bin/editor`.
+
+### Fixed
+- `sudo -i` made `root` as owner of the pty instead of the login user (#1333)
+- visudo usability improvements (#1388, #1394)
+- Mistakes in the man pages (#1338, #1362, #1387)
+- Better error message when /etc/sudoers contains regular expressions (#1352)
+- Better error message when /etc/sudoers is missing (#1368)
+- Redirecting input/output to another TTY was not recognised as redirection;
+  this fix originated from Todd Miller's sudo (#1380)
+
 ## [0.2.10] - 2025-11-10
 
 ### Changed
