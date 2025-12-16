@@ -50,14 +50,15 @@ pub enum SudoVersion {
 
 /// A helper function for writing sudo versions
 pub fn ogsudo(version: &str) -> SudoVersion {
-    let [ma, mn, pt, pat] = version
+    let parts = version
         .split(['.', 'p'])
         .map(|x| x.parse().unwrap())
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
-
-    SudoVersion::Theirs(ma, mn, pt, pat)
+        .collect::<Vec<_>>();
+    match *parts {
+        [ma, mn, pt] => SudoVersion::Theirs(ma, mn, pt, 0),
+        [ma, mn, pt, pat] => SudoVersion::Theirs(ma, mn, pt, pat),
+        _ => panic!(),
+    }
 }
 
 /// Return the SudoVersion for the sudo-under-test

@@ -60,7 +60,7 @@ pub(in crate::exec) fn exec_pty(
     // `policy_init_session`.
     // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
 
-    // Fetch the parent process group so we can signals to it.
+    // Fetch the parent process group so we can send signals to it.
     let parent_pgrp = getpgrp();
 
     // Set all the IO streams for the command to the follower side of the pty.
