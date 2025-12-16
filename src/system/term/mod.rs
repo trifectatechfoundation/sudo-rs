@@ -165,19 +165,48 @@ mod sealed {
     pub(crate) trait Sealed {}
 
     impl<F: AsFd> Sealed for F {}
+
+    /// This is known to be a real TTY. No need to use `safe_isatty` before calling any ioctl.
+    pub(crate) trait SafeTty {}
+
+    impl<T: SafeTty> SafeTty for &mut T {}
+    impl SafeTty for super::UserTerm {}
+    impl SafeTty for super::PtyLeader {}
+    impl SafeTty for super::PtyFollower {}
 }
 
 pub(crate) trait Terminal: sealed::Sealed {
-    fn tcgetpgrp(&self) -> io::Result<ProcessId>;
-    fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()>;
-    fn make_controlling_terminal(&self) -> io::Result<()>;
+    fn is_terminal_for_pgrp(&self, pgrp: ProcessId) -> bool;
+    fn tcgetpgrp(&self) -> io::Result<ProcessId>
+    where
+        Self: sealed::SafeTty;
+    fn tcsetpgrp(&self, pgrp: ProcessId) -> io::Result<()>
+    where
+        Self: sealed::SafeTty;
+    fn make_controlling_terminal(&self) -> io::Result<()>
+    where
+        Self: sealed::SafeTty;
     fn ttyname(&self) -> io::Result<OsString>;
-    fn is_terminal(&self) -> bool;
     fn is_pipe(&self) -> bool;
-    fn tcgetsid(&self) -> io::Result<ProcessId>;
+    fn tcgetsid(&self) -> io::Result<ProcessId>
+    where
+        Self: sealed::SafeTty;
 }
 
 impl<F: AsFd> Terminal for F {
+    /// Check if the foreground process group ID associated with this terminal is `pgrp`.
+    /// Returns false if this is not actually a terminal.
+    fn is_terminal_for_pgrp(&self, pgrp: ProcessId) -> bool {
+        if !safe_isatty(self.as_fd()) {
+            return false;
+        }
+
+        // SAFETY: tcgetpgrp cannot cause UB
+        let Ok(id) = cerr(unsafe { libc::tcgetpgrp(self.as_fd().as_raw_fd()) }) else {
+            return false;
+        };
+        ProcessId::new(id) == pgrp
+    }
     /// Get the foreground process group ID associated with this terminal.
     fn tcgetpgrp(&self) -> io::Result<ProcessId> {
         // SAFETY: tcgetpgrp cannot cause UB
@@ -210,11 +239,6 @@ impl<F: AsFd> Terminal for F {
         cerr(unsafe { libc::ttyname_r(self.as_fd().as_raw_fd(), buf.as_mut_ptr(), buf.len()) })?;
         // SAFETY: `buf` will have been initialized by the `ttyname_r` call, if it succeeded
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
-    }
-
-    /// Rust standard library "IsTerminal" is not secure for setuid programs (CVE-2023-2002)
-    fn is_terminal(&self) -> bool {
-        safe_isatty(self.as_fd())
     }
 
     fn is_pipe(&self) -> bool {
@@ -266,8 +290,8 @@ mod tests {
     #[test]
     fn open_pty() {
         let pty = Pty::open().unwrap();
-        assert!(pty.leader.file.is_terminal());
-        assert!(pty.follower.file.is_terminal());
+        assert!(safe_isatty(pty.leader.file.as_fd()));
+        assert!(safe_isatty(pty.follower.file.as_fd()));
 
         let path = PathBuf::from(OsString::from_vec(pty.path.into_bytes()));
         assert!(path.try_exists().unwrap());

@@ -172,3 +172,42 @@ fn stderr_pipe() {
 
     assert_eq!(stdout, "hello world");
 }
+
+#[test]
+fn stdout_foreign_pty() {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build();
+
+    // Everything is put in a single command with separators to keep the pts numbers predictable
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "socat - SYSTEM:'ls -l /proc/self/fd; echo @@@@; sudo ls -l /proc/self/fd',pty,setsid,ctty;
+            echo ====;
+            socat - SYSTEM:'ls -l /proc/self/fd; echo @@@@; sudo ls -l /proc/self/fd',pty",
+        ])
+        .tty(true)
+        .output(&env);
+
+    let stdout = output.stdout();
+    let (own_term, foreign_term) = stdout.split_once("====").unwrap();
+
+    let (own_term_in, own_term_sudo) = own_term.split_once("@@@@").unwrap();
+    assert_contains!(own_term_in, " 0 -> /dev/pts/1");
+    assert_contains!(own_term_in, " 1 -> /dev/pts/1");
+    assert_contains!(own_term_in, " 2 -> /dev/pts/0");
+    // pts/1 is our controlling tty, so it gets proxied.
+    // pts/0 is a foreign pty, so it gets inherited
+    assert_contains!(own_term_sudo, " 0 -> /dev/pts/2");
+    assert_contains!(own_term_sudo, " 1 -> /dev/pts/2");
+    assert_contains!(own_term_sudo, " 2 -> /dev/pts/0");
+
+    let (foreign_term_in, foreign_term_sudo) = foreign_term.split_once("@@@@").unwrap();
+    assert_contains!(foreign_term_in, " 0 -> /dev/pts/1");
+    assert_contains!(foreign_term_in, " 1 -> /dev/pts/1");
+    assert_contains!(foreign_term_in, " 2 -> /dev/pts/0");
+    // pts/1 is not our controlling tty, so it gets inherited.
+    // pts/0 is our controlling tty, so it gets proxied
+    assert_contains!(foreign_term_sudo, " 0 -> /dev/pts/1");
+    assert_contains!(foreign_term_sudo, " 1 -> /dev/pts/1");
+    assert_contains!(foreign_term_sudo, " 2 -> /dev/pts/2");
+}
