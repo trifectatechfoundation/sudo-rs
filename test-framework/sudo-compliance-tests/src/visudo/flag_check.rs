@@ -172,19 +172,17 @@ fn flag_file_does_not_check_perms_nor_ownership() {
 }
 
 #[test]
-#[ignore = "gh657"]
 fn stdin() {
     let env = Env("").build();
 
     Command::new("visudo")
         .args(["-c", "-"])
-        .stdin(SUDOERS_ALL_ALL_NOPASSWD)
+        .stdin(SUDOERS_ALL_ALL_NOPASSWD.to_owned() + "\n")
         .output(&env)
         .assert_success();
 }
 
 #[test]
-#[ignore = "gh657"]
 fn stdin_bad_syntax() {
     let env = Env("").build();
 
