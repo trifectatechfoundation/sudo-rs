@@ -124,14 +124,14 @@ macro_rules! xlat {
 #[cfg(feature = "gettext")]
 macro_rules! xlat_write {
     ($f: expr, $fmt: literal $(, $id: ident = $val: expr)* $(,)?) => {
-        write!($f, "{}", $crate::gettext::xlat!($fmt $(, $id = $val)*))
+        write!($f, "{}", xlat!($fmt $(, $id = $val)*))
     };
 }
 
 #[cfg(feature = "gettext")]
 macro_rules! xlat_println {
     ($fmt: literal $(, $id: ident = $val: expr)* $(,)?) => {
-        println_ignore_io_error!("{}", $crate::gettext::xlat!($fmt $(, $id = $val)*))
+        println_ignore_io_error!("{}", xlat!($fmt $(, $id = $val)*))
     };
 }
 
@@ -148,9 +148,6 @@ macro_rules! xlat_println {
         println_ignore_io_error!($fmt $(, $id = $val)*)
     };
 }
-
-pub(crate) use xlat;
-pub(crate) use xlat_write;
 
 //These are all defined in POSIX.
 #[cfg(feature = "gettext")]

@@ -1,8 +1,4 @@
-use crate::{
-    gettext::{xlat, xlat_write},
-    pam::PamError,
-    system::Hostname,
-};
+use crate::{pam::PamError, system::Hostname};
 use std::{borrow::Cow, fmt, path::PathBuf};
 
 use super::{SudoPath, SudoString};
