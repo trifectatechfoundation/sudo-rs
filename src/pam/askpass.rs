@@ -7,6 +7,7 @@ use std::{io, process};
 use libc::O_CLOEXEC;
 
 use crate::cutils::cerr;
+use crate::log::user_error;
 use crate::system::interface::ProcessId;
 use crate::system::{fork, mark_fds_as_cloexec, ForkResult};
 
@@ -50,9 +51,10 @@ fn handle_child(program: &Path, prompt: &str, stdout: OwnedFd) -> ! {
 
     // Exec askpass program
     let error = Command::new(program).arg(prompt).stdout(stdout).exec();
-    eprintln_ignore_io_error!(
-        "Failed to run askpass program {}: {error}",
-        program.display()
+    user_error!(
+        "Failed to run askpass program {path}: {error}",
+        path = program.display(),
+        error = error
     );
     process::exit(1);
 }

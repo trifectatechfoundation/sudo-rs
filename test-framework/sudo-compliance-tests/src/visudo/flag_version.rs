@@ -20,9 +20,10 @@ fn prints_to_stdout() {
 
     assert_eq!(short, long);
 
-    assert_contains!(short, "visudo version");
-
     if sudo_test::is_original_sudo() {
+        assert_contains!(short, "visudo version");
         assert_contains!(short, "visudo grammar version 50");
+    } else {
+        assert_contains!(short, "visudo-rs");
     }
 }

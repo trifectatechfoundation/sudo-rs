@@ -145,8 +145,8 @@ impl SuContext {
         // taken into account, unless su is called by root.
         if is_restricted(user_shell.as_path()) && !is_current_root {
             user_warn!(
-                "using restricted shell {}",
-                user_shell.as_os_str().to_string_lossy()
+                "using restricted shell {path}",
+                path = user_shell.as_os_str().to_string_lossy()
             );
             command = user_shell;
         }

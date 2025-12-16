@@ -12,7 +12,7 @@ fi
 potfile="$WORK_ROOT/po/sudo-rs.pot"
 test -e "$potfile" && EXISTING="--join-existing --omit-header"
 
-find "$WORK_ROOT" -name "*.rs" -not -name "gettext.rs" | xargs xgettext \
+cd "$WORK_ROOT" && find src -name "*.rs" -not -path "*/gettext/*" | xargs xgettext \
   --package-name="sudo-rs" \
   --package-version="$SUDO_RS_VERSION" \
   --msgid-bugs-address="https://github.com/trifectatechfoundation/sudo-rs/issues" \
@@ -20,6 +20,10 @@ find "$WORK_ROOT" -name "*.rs" -not -name "gettext.rs" | xargs xgettext \
   --from-code="UTF-8" \
   --keyword='xlat!' \
   --keyword='xlat_write!:2' \
+  --keyword='xlat_println!:1' \
+  --keyword='user_error!:1' \
+  --keyword='user_info!:1' \
+  --keyword='user_warn!:1' \
   --add-comments='TRANSLATORS:' \
   ${EXISTING:-} \
   -o "$potfile"

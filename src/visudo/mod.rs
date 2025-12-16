@@ -6,7 +6,7 @@ mod help;
 use std::{
     env, ffi,
     fs::{File, Permissions},
-    io::{self, Read, Seek, Write},
+    io::{self, BufRead, Read, Seek, Write},
     os::unix::prelude::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
@@ -61,7 +61,7 @@ pub fn main() {
             std::process::exit(0);
         }
         VisudoAction::Version => {
-            println_ignore_io_error!("visudo version {VERSION}");
+            println_ignore_io_error!("visudo-rs {VERSION}");
             std::process::exit(0);
         }
         VisudoAction::Check => check,
@@ -319,8 +319,12 @@ fn edit_sudoers_file(
 
             writeln!(stderr)?;
 
-            match ask_response(b"What now? e(x)it without saving / (e)dit again: ", b"xe")? {
-                b'x' => return Ok(()),
+            match ask_response(
+                "What now? e(x)it without saving / (e)dit again: ",
+                "xe",
+                'x',
+            )? {
+                'x' => return Ok(()),
                 _ => continue,
             }
         } else {
@@ -332,11 +336,12 @@ fn edit_sudoers_file(
                     "It looks like you have removed your ability to run 'sudo visudo' again.\n"
                 )?;
                 match ask_response(
-                    b"What now? e(x)it without saving / (e)dit again / lock me out and (S)ave: ",
-                    b"xeS",
+                    "What now? e(x)it without saving / (e)dit again / lock me out and (S)ave: ",
+                    "xeS",
+                    'x',
                 )? {
-                    b'x' => return Ok(()),
-                    b'S' => {}
+                    'x' => return Ok(()),
+                    'S' => {}
                     _ => continue,
                 }
             }
@@ -387,42 +392,40 @@ fn sudo_visudo_is_allowed(mut sudoers: Sudoers, host_name: &Hostname) -> Option<
     ))
 }
 
-// Make sure that the first valid response is the "safest" choice
-pub(crate) fn ask_response(prompt: &[u8], valid_responses: &[u8]) -> io::Result<u8> {
+// This will panic if valid_responses is empty.
+pub(crate) fn ask_response(
+    prompt: &str,
+    valid_responses: &str,
+    safe_choice: char,
+) -> io::Result<char> {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    let mut stdin_handle = stdin.lock();
+    let stdin_handle = stdin.lock();
     let mut stdout_handle = stdout.lock();
 
+    let mut lines = stdin_handle.lines();
+
     loop {
-        stdout_handle.write_all(prompt)?;
+        stdout_handle.write_all(prompt.as_bytes())?;
         stdout_handle.flush()?;
 
-        let mut input = [0u8];
-        if let Err(err) = stdin_handle.read_exact(&mut input) {
-            writeln!(stderr, "visudo: cannot read user input: {err}")?;
-            return Ok(valid_responses[0]);
-        }
-
-        // read the trailing newline
-        loop {
-            let mut skipped = [0u8];
-            match stdin_handle.read_exact(&mut skipped) {
-                Ok(()) if &skipped != b"\n" => continue,
-                _ => break,
+        match lines.next() {
+            Some(Ok(answer))
+                if answer
+                    .chars()
+                    .next()
+                    .is_some_and(|input| valid_responses.contains(input)) =>
+            {
+                return Ok(answer.chars().next().unwrap());
             }
-        }
-
-        if valid_responses.contains(&input[0]) {
-            return Ok(input[0]);
-        } else {
-            writeln!(
-                stderr,
-                "Invalid option: '{}'\n",
-                str::from_utf8(&input).unwrap_or("<INVALID>")
-            )?;
+            Some(Ok(answer)) => writeln!(stderr, "Invalid option: '{answer}'\n",)?,
+            Some(Err(err)) => writeln!(stderr, "Invalid response: {err}\n",)?,
+            None => {
+                writeln!(stderr, "visudo: cannot read user input")?;
+                return Ok(safe_choice);
+            }
         }
     }
 }
