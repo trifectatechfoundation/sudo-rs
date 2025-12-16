@@ -155,7 +155,7 @@ impl VisudoOptions {
                 } else {
                     Err(format!("unrecognized option '{arg}'"))?;
                 }
-            } else if arg.starts_with('-') {
+            } else if arg.starts_with('-') && arg != "-" {
                 // flags can be grouped, so we loop over the characters
                 for (n, char) in arg.trim_start_matches('-').chars().enumerate() {
                     // lookup the option

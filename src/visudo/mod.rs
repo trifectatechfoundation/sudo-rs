@@ -78,12 +78,18 @@ pub fn main() {
 }
 
 fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
-    let sudoers_path = &file_arg
+    let mut sudoers_path = file_arg
         .map(PathBuf::from)
         .unwrap_or_else(candidate_sudoers_file);
 
-    let sudoers_file = File::open(sudoers_path)
-        .map_err(|err| io_msg!(err, "unable to open {}", sudoers_path.display()))?;
+    let sudoers_file = File::open(if sudoers_path == Path::new("-") {
+        // portability: /dev/stdin 'almost POSIX' and exists on BSD and Linux systems
+        sudoers_path = PathBuf::from("stdin");
+        Path::new("/dev/stdin")
+    } else {
+        &sudoers_path
+    })
+    .map_err(|err| io_msg!(err, "unable to open {}", sudoers_path.display()))?;
 
     let metadata = sudoers_file.metadata()?;
 
@@ -116,7 +122,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         }
     }
 
-    let (_sudoers, errors) = Sudoers::read(&sudoers_file, sudoers_path)?;
+    let (_sudoers, errors) = Sudoers::read(&sudoers_file, &sudoers_path)?;
 
     if errors.is_empty() {
         writeln!(io::stdout(), "{}: parsed OK", sudoers_path.display())?;
@@ -129,7 +135,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         location,
     } in errors
     {
-        let path = source.as_deref().unwrap_or(sudoers_path);
+        let path = source.as_deref().unwrap_or(&sudoers_path);
         diagnostic::diagnostic!("syntax error: {message}", path @ location);
     }
 
