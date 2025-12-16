@@ -71,10 +71,7 @@ fn no_valid_editor_in_list() {
         );
     } else {
         // this output shows that visudo has rejected /dev/null as an editor
-        assert_eq!(
-            "visudo: specified editor (/usr/bin/editor) could not be used",
-            output.stderr()
-        );
+        assert_eq!("visudo: no usable editor could be found", output.stderr());
     }
 }
 
@@ -92,22 +89,23 @@ fn editors_must_be_specified_by_absolute_path() {
         );
     } else {
         // this output shows that visudo has rejected /dev/null as an editor
-        assert_eq!(
-            "visudo: specified editor (/usr/bin/editor) could not be used",
-            output.stderr()
-        );
+        assert_eq!("visudo: no usable editor could be found", output.stderr());
     }
 }
 
 #[test]
 fn on_invalid_editor_does_not_falls_back_to_configured_default_value() {
-    let env = Env("Defaults editor=true")
+    let expected = "configured editor was called";
+    //NOTE: ogsudo DOES fallback to the default editor if a syntax error is
+    //made here, e.g. "Defaults editor=true" will simply not set the "editor" value.
+    //This is surprising.
+    let env = Env("Defaults editor=/bin/no-editor")
         .file(
             DEFAULT_EDITOR,
-            TextFile(
+            TextFile(format!(
                 "#!/bin/sh
-rm -f {LOGS_PATH}",
-            )
+echo '{expected}' >> {LOGS_PATH}"
+            ))
             .chmod(CHMOD_EXEC),
         )
         .build();
@@ -117,11 +115,9 @@ rm -f {LOGS_PATH}",
         .output(&env)
         .assert_success();
 
-    Command::new("visudo").output(&env).assert_success();
+    Command::new("visudo").output(&env).assert_exit_code(1);
 
-    Command::new("sh")
-        .arg("-c")
-        .arg(format!("test -f {LOGS_PATH}"))
-        .output(&env)
-        .assert_success();
+    let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
+
+    assert_ne!(expected, actual);
 }

@@ -146,32 +146,27 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
             .read(true)
             .write(true)
             .open(sudoers_path)
-            .map_err(|e| {
-                io::Error::new(
-                    e.kind(),
-                    format!("Failed to open existing sudoers file at {sudoers_path:?}: {e}"),
+            .map_err(|err| {
+                io_msg!(
+                    err,
+                    "Failed to open existing sudoers file at {sudoers_path:?}"
                 )
             })?;
 
         (file, true)
     } else {
         // Create a sudoers file if it doesn't exist.
-        let file = File::create(sudoers_path).map_err(|e| {
-            io::Error::new(
-                e.kind(),
-                format!("Failed to create sudoers file at {sudoers_path:?}: {e}"),
-            )
-        })?;
+        let file = File::create(sudoers_path)
+            .map_err(|err| io_msg!(err, "Failed to create sudoers file at {sudoers_path:?}"))?;
+
         // ogvisudo sets the permissions of the file so it can be read and written by the user and
         // read by the group if the `-f` argument was passed.
         if file_arg.is_some() {
             file.set_permissions(Permissions::from_mode(0o640))
-                .map_err(|e| {
-                    io::Error::new(
-                        e.kind(),
-                        format!(
-                            "Failed to set permissions on new sudoers file at {sudoers_path:?}: {e}"
-                        ),
+                .map_err(|err| {
+                    io_msg!(
+                        err,
+                        "Failed to set permissions on new sudoers file at {sudoers_path:?}"
                     )
                 })?;
         }
@@ -260,21 +255,21 @@ fn edit_sudoers_file(
 
     let host_name = Hostname::resolve();
 
-    let editor_path = if existed {
+    if existed {
         // If the sudoers file existed, read its contents and write them into the temporary file.
         sudoers_file.read_to_end(&mut sudoers_contents)?;
         // Rewind the sudoers file so it can be written later.
         sudoers_file.rewind()?;
         // Write to the temporary file.
         tmp_file.write_all(&sudoers_contents)?;
+    }
 
-        let (sudoers, _errors) = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?;
-
-        sudoers.visudo_editor_path(&host_name, &current_user, &current_user)
-    } else {
-        // there is no /etc/sudoers config yet, so use a system default
-        PathBuf::from(crate::defaults::SYSTEM_EDITOR)
-    };
+    let editor_path = Sudoers::read(sudoers_contents.as_slice(), sudoers_path)?
+        .0
+        .visudo_editor_path(&host_name, &current_user, &current_user)
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "no usable editor could be found")
+        })?;
 
     loop {
         Command::new(&editor_path)

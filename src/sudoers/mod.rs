@@ -295,7 +295,7 @@ impl Sudoers {
         on_host: &system::Hostname,
         am_user: &User,
         target_user: &User,
-    ) -> PathBuf {
+    ) -> Option<PathBuf> {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
 
         select_editor(&self.settings, self.settings.env_editor())
@@ -304,7 +304,7 @@ impl Sudoers {
 
 /// Retrieve the chosen editor from a settings object, filtering based on whether the
 /// environment is trusted (sudoedit) or maybe less so (visudo)
-fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
+fn select_editor(settings: &Settings, trusted_env: bool) -> Option<PathBuf> {
     let blessed_editors = settings.editor();
 
     let is_whitelisted = |path: &Path| -> bool {
@@ -329,7 +329,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
             };
 
             if is_whitelisted(&editor) {
-                return editor;
+                return Some(editor);
             }
         }
     }
@@ -339,13 +339,11 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> PathBuf {
     for editor in blessed_editors.split(':') {
         let editor = PathBuf::from(editor);
         if is_valid_executable(&editor) {
-            return editor;
+            return Some(editor);
         }
     }
 
-    // fallback on hardcoded path -- always provide something to the caller
-
-    PathBuf::from(defaults::SYSTEM_EDITOR)
+    None
 }
 
 // a `take_while` variant that does not consume the first non-matching item
