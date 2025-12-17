@@ -82,13 +82,6 @@ There are some small differences. For example, on FreeBSD, `NOEXEC:` is not supp
 
 In the future, we would also like to support MacOS and be able to say "of course it runs on NetBSD!", but right now we have prioritized other tasks. Patches are welcome!
 
-## What is the official sudo-rs logo?
-
-Sadly, this is not a frequently asked question. But it should be! We are not graphics artists and would prefer someone suggests a logo! You can do that
-[here](https://github.com/trifectatechfoundation/sudo-rs/issues/851).
-
-We admire the "mad sandwich" that original sudo has, but it would be wrong to rip that off.
-
 ## Why doesn't sudo-rs insult me when I mistype my password?
 
 One of the sudo-rs developers has suffered at the hands of a [BOFH](https://en.wikipedia.org/wiki/Bastard_Operator_From_Hell) who thought it was funny to force the `sl` command (see https://github.com/mtoyoda/sl) on users. He has sadly lost his sense of humour as a result.
