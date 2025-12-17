@@ -388,25 +388,6 @@ impl Parse for MetaOrTag {
         };
 
         let result: Modifier = match keyword.as_str() {
-            // we do not support this, and that should make sudo-rs "fail safe"
-            "INTERCEPT" => unrecoverable!(
-                pos = start_pos,
-                stream,
-                "INTERCEPT is not supported by sudo-rs"
-            ),
-            // this is less fatal
-            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL"
-            | "FOLLOW" => {
-                eprintln_ignore_io_error!(
-                    "sudo-rs: {} tags in the sudoers policy are ignored",
-                    keyword.as_str()
-                );
-                switch(|_| {})?
-            }
-
-            // 'NOFOLLOW' and 'NOINTERCEPT' are the default behaviour.
-            "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
-
             "EXEC" => switch(|tag| tag.noexec = ExecControl::Exec)?,
             "NOEXEC" => switch(|tag| tag.noexec = ExecControl::Noexec)?,
 
@@ -420,17 +401,33 @@ impl Parse for MetaOrTag {
                 let path: ChDir = expect_nonterminal(stream)?;
                 Box::new(move |tag| tag.cwd = Some(path.clone()))
             }
+
             // we do not support these, and that should make sudo-rs "fail safe"
-            spec @ ("CHROOT" | "TIMEOUT" | "NOTBEFORE" | "NOTAFTER") => unrecoverable!(
-                pos = start_pos,
-                stream,
-                "{spec} is not supported by sudo-rs"
-            ),
+            spec @ ("INTERCEPT" | "CHROOT" | "TIMEOUT" | "NOTBEFORE" | "NOTAFTER") => {
+                unrecoverable!(
+                    pos = start_pos,
+                    stream,
+                    "{spec} is not supported by sudo-rs"
+                )
+            }
             "ROLE" | "TYPE" => unrecoverable!(
                 pos = start_pos,
                 stream,
                 "SELinux role based access control is not yet supported by sudo-rs"
             ),
+
+            // this is less fatal
+            "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL"
+            | "FOLLOW" => {
+                eprintln_ignore_io_error!(
+                    "sudo-rs: {} tags in the sudoers policy are ignored",
+                    keyword.as_str()
+                );
+                switch(|_| {})?
+            }
+
+            // 'NOFOLLOW' and 'NOINTERCEPT' are the default behaviour.
+            "NOFOLLOW" | "NOINTERCEPT" => switch(|_| {})?,
 
             "APPARMOR_PROFILE" => {
                 expect_syntax('=', stream)?;
