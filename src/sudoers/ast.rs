@@ -118,6 +118,7 @@ pub struct Tag {
     pub(super) env: EnvironmentControl,
     pub(super) apparmor_profile: Option<String>,
     pub(super) noexec: ExecControl,
+    pub(super) ignored: Vec<Span>,
 }
 
 impl Tag {
@@ -419,11 +420,12 @@ impl Parse for MetaOrTag {
             // this is less fatal
             "LOG_INPUT" | "NOLOG_INPUT" | "LOG_OUTPUT" | "NOLOG_OUTPUT" | "MAIL" | "NOMAIL"
             | "FOLLOW" => {
-                eprintln_ignore_io_error!(
-                    "sudo-rs: {} tags in the sudoers policy are ignored",
-                    keyword.as_str()
-                );
-                switch(|_| {})?
+                let ignored_location = Span {
+                    start: start_pos,
+                    end: stream.get_pos(),
+                };
+                expect_syntax(':', stream)?;
+                Box::new(move |tag| tag.ignored.push(ignored_location))
             }
 
             // 'NOFOLLOW' and 'NOINTERCEPT' are the default behaviour.

@@ -741,7 +741,14 @@ fn analyze(
                 Ok(line) => match line {
                     Sudo::LineComment => {}
 
-                    Sudo::Spec(permission) => cfg.rules.push(permission),
+                    Sudo::Spec(permission) => {
+                        diagnostics.extend(get_ignored_tags(&permission).map(|span| Error {
+                            source: Some(cur_path.to_owned()),
+                            location: Some(span),
+                            message: "this tag is ignored by sudo-rs".to_string(),
+                        }));
+                        cfg.rules.push(permission);
+                    }
 
                     Sudo::Decl(HostAlias(mut def)) => cfg.aliases.host.1.append(&mut def),
                     Sudo::Decl(UserAlias(mut def)) => cfg.aliases.user.1.append(&mut def),
@@ -826,6 +833,20 @@ fn analyze(
                 Err(_) => panic!("internal parser error"),
             }
         }
+    }
+
+    fn get_ignored_tags(
+        PermissionSpec { permissions, .. }: &PermissionSpec,
+    ) -> impl Iterator<Item = Span> + '_ {
+        permissions
+            .iter()
+            .flat_map(|(_host, runas_cmds)| runas_cmds)
+            .flat_map(|(_runas, CommandSpec(tags, _cmd))| tags)
+            .flat_map(|modifier| {
+                let mut tag = Tag::default();
+                modifier(&mut tag);
+                tag.ignored
+            })
     }
 
     let mut diagnostics = vec![];
