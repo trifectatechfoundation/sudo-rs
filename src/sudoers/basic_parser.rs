@@ -28,8 +28,8 @@
 /// Type holding a parsed object (or error information if parsing failed)
 pub type Parsed<T> = Result<T, Status>;
 
-#[derive(Copy, Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Copy, Clone, PartialEq)]
+#[cfg_attr(test, derive(Debug, Eq))]
 pub struct Span {
     pub start: (usize, usize),
     pub end: (usize, usize),
