@@ -5,6 +5,60 @@ use super::char_stream::CharStream;
 use super::*;
 use basic_parser::{parse_eval, parse_lines, parse_string};
 
+impl<T> Qualified<T> {
+    pub fn as_allow(&self) -> Option<&T> {
+        if let Self::Allow(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+impl<T> Meta<T> {
+    pub fn is_alias(&self) -> bool {
+        matches!(self, Self::Alias(..))
+    }
+}
+
+impl Sudo {
+    pub fn is_spec(&self) -> bool {
+        matches!(self, Self::Spec(..))
+    }
+
+    pub fn is_decl(&self) -> bool {
+        matches!(self, Self::Decl(..))
+    }
+
+    pub fn is_line_comment(&self) -> bool {
+        matches!(self, Self::LineComment)
+    }
+
+    pub fn is_include(&self) -> bool {
+        matches!(self, Self::Include(..))
+    }
+
+    pub fn is_include_dir(&self) -> bool {
+        matches!(self, Self::IncludeDir(..))
+    }
+
+    pub fn as_include(&self) -> &str {
+        if let Self::Include(v, _) = self {
+            v
+        } else {
+            panic!()
+        }
+    }
+
+    pub fn as_spec(&self) -> Option<&PermissionSpec> {
+        if let Self::Spec(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(PartialEq)]
 struct Named(&'static str);
 

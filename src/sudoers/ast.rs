@@ -18,17 +18,6 @@ pub enum Qualified<T> {
     Forbid(T) = HARDENED_ENUM_VALUE_1,
 }
 
-impl<T> Qualified<T> {
-    #[cfg(test)]
-    pub fn as_allow(&self) -> Option<&T> {
-        if let Self::Allow(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-}
-
 /// Type aliases; many items can be replaced by ALL, aliases, and negated.
 pub type Spec<T> = Qualified<Meta<T>>;
 pub type SpecList<T> = Vec<Spec<T>>;
@@ -171,51 +160,6 @@ pub enum Sudo {
     Include(String, Span) = HARDENED_ENUM_VALUE_2,
     IncludeDir(String, Span) = HARDENED_ENUM_VALUE_3,
     LineComment = HARDENED_ENUM_VALUE_4,
-}
-
-impl Sudo {
-    #[cfg(test)]
-    pub fn is_spec(&self) -> bool {
-        matches!(self, Self::Spec(..))
-    }
-
-    #[cfg(test)]
-    pub fn is_decl(&self) -> bool {
-        matches!(self, Self::Decl(..))
-    }
-
-    #[cfg(test)]
-    pub fn is_line_comment(&self) -> bool {
-        matches!(self, Self::LineComment)
-    }
-
-    #[cfg(test)]
-    pub fn is_include(&self) -> bool {
-        matches!(self, Self::Include(..))
-    }
-
-    #[cfg(test)]
-    pub fn is_include_dir(&self) -> bool {
-        matches!(self, Self::IncludeDir(..))
-    }
-
-    #[cfg(test)]
-    pub fn as_include(&self) -> &str {
-        if let Self::Include(v, _) = self {
-            v
-        } else {
-            panic!()
-        }
-    }
-
-    #[cfg(test)]
-    pub fn as_spec(&self) -> Option<&PermissionSpec> {
-        if let Self::Spec(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
 }
 
 /// grammar:
