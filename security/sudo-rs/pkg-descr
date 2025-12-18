@@ -1,4 +1,4 @@
-Sudo-rs is a memory safe re-implementation of the sudo utility.
+Sudo-rs is a memory-safe re-implementation of the sudo utility.
 
 Sudo is a program designed to allow a sysadmin to give limited root
 privileges to users and log root activity.  The basic philosophy is to
