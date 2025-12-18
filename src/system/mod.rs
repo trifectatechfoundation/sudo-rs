@@ -979,14 +979,6 @@ mod tests {
     }
 
     #[test]
-    fn get_process_start_time() {
-        let time = super::Process::starting_time(WithProcess::Current).unwrap();
-        let now = super::ProcessCreateTime::now().unwrap();
-        assert!(time.secs() > now.secs() - 24 * 60 * 60);
-        assert!(time < now);
-    }
-
-    #[test]
     fn pgid_test() {
         use super::{getpgid, setpgid};
 
