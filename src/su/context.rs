@@ -226,7 +226,7 @@ mod tests {
 
     use crate::{
         common::Error,
-        su::cli::{SuAction, SuRunOptions},
+        su::cli::{SuAction, SuOptions, SuRunOptions},
     };
 
     use super::SuContext;
@@ -234,10 +234,15 @@ mod tests {
     fn get_options(args: &[&str]) -> SuRunOptions {
         let mut args = args.iter().map(|s| s.to_string()).collect::<Vec<String>>();
         args.insert(0, "/bin/su".to_string());
-        SuAction::parse_arguments(args)
+        let SuAction::Run(options) = SuOptions::parse_arguments(args)
             .unwrap()
-            .try_into_run()
+            .validate()
             .unwrap()
+        else {
+            panic!();
+        };
+
+        options
     }
 
     #[test]

@@ -15,21 +15,6 @@ impl SuAction {
     pub fn from_env() -> Result<Self, String> {
         SuOptions::parse_arguments(std::env::args())?.validate()
     }
-
-    #[cfg(test)]
-    pub fn parse_arguments(args: impl IntoIterator<Item = String>) -> Result<Self, String> {
-        SuOptions::parse_arguments(args)?.validate()
-    }
-
-    #[cfg(test)]
-    #[allow(clippy::result_large_err)]
-    pub fn try_into_run(self) -> Result<SuRunOptions, Self> {
-        if let Self::Run(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
-    }
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -195,7 +180,7 @@ impl<T> IsAbsent for Vec<T> {
 }
 
 #[derive(Debug, Default, PartialEq)]
-struct SuOptions {
+pub(super) struct SuOptions {
     // -c
     command: Option<String>,
     // -g
@@ -380,7 +365,9 @@ impl SuOptions {
     ];
 
     /// parse su arguments into SuOptions struct
-    fn parse_arguments(arguments: impl IntoIterator<Item = String>) -> Result<SuOptions, String> {
+    pub(super) fn parse_arguments(
+        arguments: impl IntoIterator<Item = String>,
+    ) -> Result<SuOptions, String> {
         let mut options: SuOptions = SuOptions::default();
         let mut arg_iter = arguments.into_iter().skip(1);
 
@@ -460,7 +447,7 @@ impl SuOptions {
         Ok(options)
     }
 
-    fn validate(self) -> Result<SuAction, String> {
+    pub(super) fn validate(self) -> Result<SuAction, String> {
         let action = if self.help {
             SuAction::Help(self.try_into()?)
         } else if self.version {
