@@ -152,6 +152,7 @@ macro_rules! xlat_println {
 //These are all defined in POSIX.
 #[cfg(feature = "gettext")]
 mod gettext_sys {
+    #[cfg_attr(target_os = "freebsd", link(name = "intl"))]
     extern "C" {
         pub fn dgettext(
             domain: *const libc::c_char,

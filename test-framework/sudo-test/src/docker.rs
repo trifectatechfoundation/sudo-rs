@@ -184,15 +184,14 @@ pub fn build_base_image() {
             #[allow(clippy::vec_init_then_push)]
             let sudo_build_features: String =
                 env::var("SUDO_BUILD_FEATURES").unwrap_or_else(|_| {
-                    let mut features = vec![];
-
-                    #[cfg(not(target_os = "freebsd"))]
-                    features.extend(["pam-login", "gettext"]);
-
-                    #[cfg(feature = "apparmor")]
-                    features.push("apparmor");
-
-                    features.join(",")
+                    [
+                        "gettext",
+                        #[cfg(not(target_os = "freebsd"))]
+                        "pam-login",
+                        #[cfg(feature = "apparmor")]
+                        "apparmor",
+                    ]
+                    .join(",")
                 });
 
             // On FreeBSD we build sudo-rs outside of the container. There are no pre-made FreeBSD
@@ -201,7 +200,7 @@ pub fn build_base_image() {
             if cfg!(target_os = "freebsd") {
                 // Build sudo-rs
                 let mut cargo_cmd = StdCommand::new("cargo");
-                cargo_cmd.args([
+                cargo_cmd.env("RUSTFLAGS", "-L /usr/local/lib").args([
                     "build",
                     "--locked",
                     "--features",
