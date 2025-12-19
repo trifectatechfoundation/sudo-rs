@@ -381,7 +381,7 @@ fn help() {
     let cmd = SudoAction::try_parse_from(["sudo", "-h"]).unwrap();
     assert!(cmd.is_help());
 
-    let cmd = SudoAction::try_parse_from(["sudo", "-bh"]);
+    let cmd = SudoAction::try_parse_from(["sudo", "-zh"]);
     assert!(cmd.is_err());
 
     let cmd = SudoAction::try_parse_from(["sudo", "--help"]).unwrap();
