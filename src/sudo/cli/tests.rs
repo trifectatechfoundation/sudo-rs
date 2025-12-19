@@ -1,6 +1,57 @@
 use crate::common::SudoPath;
 
-use super::{SudoAction, SudoOptions};
+use super::{SudoAction, SudoOptions, SudoRunOptions};
+
+impl SudoAction {
+    #[must_use]
+    pub fn is_edit(&self) -> bool {
+        matches!(self, Self::Edit(..))
+    }
+
+    #[must_use]
+    pub fn is_help(&self) -> bool {
+        matches!(self, Self::Help(..))
+    }
+
+    #[must_use]
+    pub fn is_remove_timestamp(&self) -> bool {
+        matches!(self, Self::RemoveTimestamp(..))
+    }
+
+    #[must_use]
+    pub fn is_reset_timestamp(&self) -> bool {
+        matches!(self, Self::ResetTimestamp(..))
+    }
+
+    #[must_use]
+    pub fn is_list(&self) -> bool {
+        matches!(self, Self::List(..))
+    }
+
+    #[must_use]
+    pub fn is_version(&self) -> bool {
+        matches!(self, Self::Version(..))
+    }
+
+    #[must_use]
+    pub fn is_validate(&self) -> bool {
+        matches!(self, Self::Validate(..))
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub fn try_into_run(self) -> Result<SudoRunOptions, Self> {
+        if let Self::Run(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
+    #[must_use]
+    pub fn is_run(&self) -> bool {
+        matches!(self, Self::Run(..))
+    }
+}
 
 /// Passing '-E' with a variable fails
 #[test]

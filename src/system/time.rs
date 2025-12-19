@@ -118,37 +118,6 @@ impl ProcessCreateTime {
         }
     }
 
-    #[cfg(test)]
-    pub(super) fn now() -> std::io::Result<ProcessCreateTime> {
-        let mut spec = MaybeUninit::<libc::timespec>::uninit();
-        // SAFETY: valid pointer is passed to clock_gettime
-        crate::cutils::cerr(unsafe {
-            libc::clock_gettime(
-                if cfg!(target_os = "freebsd") {
-                    libc::CLOCK_REALTIME
-                } else {
-                    libc::CLOCK_BOOTTIME
-                },
-                spec.as_mut_ptr(),
-            )
-        })?;
-        // SAFETY: The `libc::clock_gettime` will correctly initialize `spec`,
-        // otherwise it will return early with the `?` operator.
-        let spec = unsafe { spec.assume_init() };
-
-        // the below conversion is not as useless as clippy thinks, on 32bit systems
-        #[allow(clippy::useless_conversion)]
-        Ok(ProcessCreateTime::new(
-            spec.tv_sec.into(),
-            spec.tv_nsec.into(),
-        ))
-    }
-
-    #[cfg(test)]
-    pub(super) fn secs(&self) -> i64 {
-        self.secs
-    }
-
     pub(super) fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         let secs = self.secs.to_ne_bytes();
         let nsecs = self.nsecs.to_ne_bytes();
@@ -202,5 +171,19 @@ mod tests {
             SystemTime::new(10, 0) - Duration::from_nanos(3_500_000_000),
             SystemTime::new(6, 500_000_000)
         );
+    }
+
+    #[test]
+    fn get_process_start_time() {
+        use crate::system::{Process, WithProcess};
+        let time = Process::starting_time(WithProcess::Current).unwrap();
+
+        let now = {
+            let super::SystemTime { secs, nsecs } = super::SystemTime::now().unwrap();
+            super::ProcessCreateTime { secs, nsecs }
+        };
+
+        assert!(time.secs > now.secs - 24 * 60 * 60);
+        assert!(time < now);
     }
 }

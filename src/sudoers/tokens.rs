@@ -100,13 +100,6 @@ pub enum Meta<T> {
     Alias(String) = HARDENED_ENUM_VALUE_2,
 }
 
-impl<T> Meta<T> {
-    #[cfg(test)]
-    pub fn is_alias(&self) -> bool {
-        matches!(self, Self::Alias(..))
-    }
-}
-
 impl<T: Token> Token for Meta<T> {
     fn construct(raw: String) -> Result<Self, String> {
         // `T` may accept whitespace resulting in `raw` having trailing whitespace which would make

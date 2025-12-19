@@ -26,7 +26,7 @@ impl PamBuffer {
     }
 
     // initialize the buffer with already existing data (otherwise populating it is a bit hairy)
-    // this is inferior than placing the data into the securebuffer directly
+    // this is inferior to placing the data into the securebuffer directly
     #[cfg(test)]
     pub fn new(mut src: impl AsMut<[u8]>) -> Self {
         let mut buffer = PamBuffer::default();

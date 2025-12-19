@@ -44,64 +44,6 @@ impl SudoAction {
         let opts = SudoOptions::try_parse_from(iter)?;
         opts.validate()
     }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_edit(&self) -> bool {
-        matches!(self, Self::Edit(..))
-    }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_help(&self) -> bool {
-        matches!(self, Self::Help(..))
-    }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_remove_timestamp(&self) -> bool {
-        matches!(self, Self::RemoveTimestamp(..))
-    }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_reset_timestamp(&self) -> bool {
-        matches!(self, Self::ResetTimestamp(..))
-    }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_list(&self) -> bool {
-        matches!(self, Self::List(..))
-    }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_version(&self) -> bool {
-        matches!(self, Self::Version(..))
-    }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_validate(&self) -> bool {
-        matches!(self, Self::Validate(..))
-    }
-
-    #[cfg(test)]
-    #[allow(clippy::result_large_err)]
-    pub fn try_into_run(self) -> Result<SudoRunOptions, Self> {
-        if let Self::Run(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
-    }
-
-    #[cfg(test)]
-    #[must_use]
-    pub fn is_run(&self) -> bool {
-        matches!(self, Self::Run(..))
-    }
 }
 
 // sudo -h | -K | -k | -V
