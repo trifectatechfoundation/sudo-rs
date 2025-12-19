@@ -161,7 +161,18 @@ pub type Command = (SimpleCommand, Option<Box<[String]>>);
 
 /// A type that is specific to 'only commands', that can only happen in "Defaults!command" contexts;
 /// which is essentially a subset of "Command"
-pub type SimpleCommand = glob::Pattern;
+pub struct SimpleCommand(<SimpleCommand as std::ops::Deref>::Target);
+
+impl std::ops::Deref for SimpleCommand {
+    #[cfg(feature = "rust-glob")]
+    type Target = glob::Pattern;
+    #[cfg(not(feature = "rust-glob"))]
+    type Target = SudoString;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Token for Command {
     const MAX_LEN: usize = 1024;
@@ -217,13 +228,24 @@ impl Token for SimpleCommand {
     const MAX_LEN: usize = 1024;
 
     fn construct(mut cmd: String) -> Result<Self, String> {
-        let cvt_err = |pat: Result<_, glob::PatternError>| {
-            pat.map_err(|err| format!("wildcard pattern error {err}"))
+        #[cfg(feature = "rust-glob")]
+        let make_pattern = |pat: String| {
+            glob::Pattern::new(&pat)
+                .map(SimpleCommand)
+                .map_err(|_| "wildcard pattern error".to_string())
+        };
+
+        #[cfg(not(feature = "rust-glob"))]
+        let make_pattern = |pat| match SudoString::new(pat) {
+            Ok(pattern) if crate::cutils::fnmatch(&pattern, &std::path::PathBuf::new()).is_ok() => {
+                Ok(SimpleCommand(pattern))
+            }
+            _ => Err("wildcard pattern error".to_string()),
         };
 
         // detect the two edges cases
         if cmd == "list" || cmd == "sudoedit" {
-            return cvt_err(glob::Pattern::new(&cmd));
+            return make_pattern(cmd);
         } else if cmd.starts_with("sha") {
             return Err("digest specifications are not supported".to_string());
         } else if cmd.starts_with('^') {
@@ -251,7 +273,7 @@ impl Token for SimpleCommand {
             cmd.push_str("/*");
         }
 
-        cvt_err(glob::Pattern::new(&cmd))
+        make_pattern(cmd)
     }
 
     // all commands start with "/" except "sudoedit" or "list"
