@@ -18,12 +18,12 @@ msgstr ""
 #: src/common/error.rs:55
 #, rust-format
 msgid "Sorry, user {user} is not allowed to execute '{command}' as {other_user} on {hostname}."
-msgstr "Sorry, gebruiker {user} mag niet '{command}' uitvoeren als {other_user} op {hostname}"
+msgstr "Sorry, gebruiker {user} mag '{command}' niet uitvoeren als {other_user} op {hostname}"
 
 #: src/common/error.rs:64
 #, rust-format
 msgid "Sorry, user {user} may not run {command} on {hostname}."
-msgstr "Sorry, gebruiker {user} mag niet {command} uitvoeren op {hostname}."
+msgstr "Sorry, gebruiker {user} mag {command} niet uitvoeren op {hostname}."
 
 #: src/common/error.rs:72
 msgid "sudo must be owned by uid 0 and have the setuid bit set"
@@ -53,7 +53,7 @@ msgstr "groep '{group}' niet gevonden"
 #: src/common/error.rs:84
 #, rust-format
 msgid "I'm sorry {user}. I'm afraid I can't do that"
-msgstr "Het spijt me, {user}. Ik ben bang dat ik dat niet kan."
+msgstr "Het spijt me, {user}. Ik ben bang dat ik dat niet kan doen."
 
 #: src/common/error.rs:86
 msgid "interactive authentication is required"
@@ -129,11 +129,11 @@ msgstr "PAM-fout: {error}"
 
 #: src/pam/error.rs:227
 msgid "A terminal is required to authenticate"
-msgstr "Een terminal is nodig om te authenticateren"
+msgstr "Een terminal is nodig om te authenticeren"
 
 #: src/pam/error.rs:231
 msgid "It was not possible to get a list of environment variables"
-msgstr "het was niet mogelijk de omgevingsvariabelen op te halen"
+msgstr "Het was niet mogelijk de omgevingsvariabelen op te halen"
 
 #: src/pam/error.rs:234
 msgid "Interaction is required"
@@ -261,7 +261,7 @@ msgid ""
 "  --                            stop processing command line arguments"
 msgstr ""
 "Opties:\n"
-"  -B, --bell                    laat een bel rinkelen voor een prompt\n"
+"  -B, --bell                    geef audiosignaal voor een prompt\n"
 "  -g, --group=groep             voer opdracht uit onder de bepaalde groep\n"
 "  -h, --help                    geef dit bericht weer\n"
 "  -k, --reset-timestamp         vergeet een vorige authenticatie\n"
@@ -293,7 +293,7 @@ msgstr "opdracht (als argument)"
 
 #: src/sudo/cli/mod.rs:457
 msgid "expected one of: --login, --shell, a command as a positional argument"
-msgstr ""
+msgstr "verwacht één van de volgende: --login, --shell, een opdracht als argument"
 
 #: src/sudo/cli/mod.rs:586
 #, rust-format
@@ -320,7 +320,7 @@ msgstr ""
 #: src/sudo/cli/mod.rs:703
 #, rust-format
 msgid "preserving the entire environment is not supported, '{flag}' is ignored"
-msgstr "de hele omgeving bewaren is niet ondersteund, '{flag}' is genegeerd"
+msgstr "de hele omgeving bewaren wordt niet ondersteund, '{flag}' is genegeerd"
 
 #: src/sudo/cli/mod.rs:747 src/sudo/cli/mod.rs:776
 msgid "invalid option provided"
@@ -537,7 +537,7 @@ msgstr "pad ongeldig"
 
 #: src/system/audit.rs:274
 msgid "path must be absolute"
-msgstr "{path} moet absoluut zijn"
+msgstr "pad moet absoluut zijn"
 
 #: src/system/audit.rs:290
 msgid "cannot open a file in a path writable by the user"
