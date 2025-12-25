@@ -3,7 +3,7 @@ use std::{convert::Infallible, ffi::c_int, io, process::Command};
 use crate::exec::{opt_fmt, signal_fmt};
 use crate::system::signal::{
     consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
-    SignalStream,
+    SignalStream, SignalsState,
 };
 use crate::{
     common::bin_serde::BinPipe,
@@ -41,14 +41,15 @@ pub(super) fn exec_monitor(
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
     original_set: Option<SignalSet>,
+    mut original_signals: Option<SignalsState>
 ) -> io::Result<Infallible> {
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
-    match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore) {
+    match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore, &mut original_signals) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTIN: {err}"),
     }
-    match SignalHandler::register(SIGTTOU, SignalHandlerBehavior::Ignore) {
+    match SignalHandler::register(SIGTTOU, SignalHandlerBehavior::Ignore, &mut original_signals) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
     }
@@ -104,7 +105,7 @@ pub(super) fn exec_monitor(
         // Done with the pty follower.
         drop(pty_follower);
 
-        exec_command(command, original_set, errpipe_tx)
+        exec_command(command, original_set, original_signals, errpipe_tx)
     };
 
     // Send the command's PID to the parent.
@@ -120,6 +121,7 @@ pub(super) fn exec_monitor(
         errpipe_rx,
         backchannel,
         &mut registry,
+        &mut original_signals
     )?;
 
     // Restore the signal mask now that the handlers have been setup.
@@ -225,6 +227,7 @@ impl<'a> MonitorClosure<'a> {
         errpipe_rx: BinPipe<i32>,
         backchannel: &'a mut MonitorBackchannel,
         registry: &mut EventRegistry<Self>,
+        original_signals: &mut Option<SignalsState>
     ) -> io::Result<Self> {
         // Store the pgid of the monitor.
         let monitor_pgrp = getpgrp();
@@ -246,7 +249,7 @@ impl<'a> MonitorClosure<'a> {
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| MonitorEvent::Signal);
 
-        let signal_handlers = register_handlers(Self::SIGNALS)?;
+        let signal_handlers = register_handlers(Self::SIGNALS, original_signals)?;
 
         // Put the command in its own process group.
         let command_pgrp = command_pid;
