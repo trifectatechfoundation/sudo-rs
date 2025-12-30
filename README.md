@@ -110,23 +110,13 @@ that in your default `PATH`, the folders `/usr/local/bin` and `/usr/local/sbin` 
 
 If you **don't** have Todd Miller's `sudo` installed, you also have to make sure that:
 
-* You manually create a `/etc/sudoers` or `/etc/sudoers-rs` file, this could be as simple as:
-
-      Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-      %sudo ALL=(ALL:ALL) ALL
+* You manually create a `/etc/sudoers` or [/etc/sudoers-rs](config/sudoers-rs) file.
 
   `sudo-rs` will try to process `/etc/sudoers-rs` if it exists, otherwise it will use `/etc/sudoers`.
   For an explanation of the sudoers syntax you can look at the
   [sudoers man page](https://www.sudo.ws/docs/man/sudoers.man/).
 
-* (Strongly recommended) You create `/etc/pam.d/sudo` and `/etc/pam.d/sudo-i` files that contain (for Debian/Ubuntu):
-
-      session required pam_limits.so
-
-      @include common-auth
-      @include common-account
-      @include common-session-noninteractive
+* (Strongly recommended) You create `/etc/pam.d/sudo` and [/etc/pam.d/sudo-i](config/sudo-i) files.
 
   If you don't do this, either a "fallback" PAM policy will be used or `sudo-rs` will simply refuse to run
   since it cannot initialize PAM. On Fedora, the syntax for PAM configuration is slightly different, but the
