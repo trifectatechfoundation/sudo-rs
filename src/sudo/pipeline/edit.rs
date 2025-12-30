@@ -5,7 +5,7 @@ use crate::common::{Context, Error};
 use crate::exec::ExitReason;
 use crate::log::{user_error, user_info};
 use crate::sudoers::Authorization;
-use crate::system::audit;
+use crate::system::{audit, Process};
 
 pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     let policy = super::read_sudoers()?;
@@ -19,8 +19,6 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     };
 
     let mut pam_context = super::auth_and_update_record_file(&context, auth)?;
-
-    let pid = context.process.pid;
 
     let mut opened_files = Vec::with_capacity(context.files_to_edit.len());
     for (path, arg) in context.files_to_edit.iter().zip(&context.command.arguments) {
@@ -67,7 +65,7 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     match command_exit_reason? {
         ExitReason::Code(code) => exit(code),
         ExitReason::Signal(signal) => {
-            crate::system::kill(pid, signal)?;
+            crate::system::kill(Process::process_id(), signal)?;
         }
     }
 

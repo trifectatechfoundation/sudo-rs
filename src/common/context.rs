@@ -5,7 +5,7 @@ use crate::exec::RunOptions;
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::sudoers::{DirChange, Restrictions};
-use crate::system::{audit::sudo_call, Group, Hostname, Process, User};
+use crate::system::{audit::sudo_call, Group, Hostname, User};
 
 use super::{
     command::CommandAndArguments,
@@ -24,13 +24,13 @@ pub struct Context {
     pub askpass: bool,
     pub stdin: bool,
     pub bell: bool,
+    pub background: bool,
     pub prompt: Option<String>,
     pub non_interactive: bool,
     pub use_session_records: bool,
     // system
     pub hostname: Hostname,
     pub current_user: CurrentUser,
-    pub process: Process,
     // sudoedit
     pub files_to_edit: Vec<Option<SudoPath>>,
 }
@@ -96,9 +96,9 @@ impl Context {
             askpass: sudo_options.askpass,
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
+            background: sudo_options.background,
             prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit: vec![],
         })
     }
@@ -164,9 +164,9 @@ impl Context {
             askpass: sudo_options.askpass,
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
+            background: false,
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit,
         })
     }
@@ -188,9 +188,9 @@ impl Context {
             askpass: sudo_options.askpass,
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
+            background: false,
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit: vec![],
         })
     }
@@ -235,9 +235,9 @@ impl Context {
             askpass: sudo_options.askpass,
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
+            background: false,
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit: vec![],
         })
     }
@@ -280,6 +280,7 @@ impl Context {
             group: &self.target_group,
             umask: controls.umask,
 
+            background: self.background,
             use_pty: controls.use_pty,
             noexec: controls.noexec,
         })
