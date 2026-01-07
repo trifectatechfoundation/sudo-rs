@@ -272,7 +272,7 @@ impl Context {
             } else {
                 return Err(Error::CommandNotFound(self.command.command.clone()));
             },
-            arguments: &self.command.arguments,
+            arguments: &self.command.arguments_os,
             arg0: self.command.arg0.as_deref(),
             chdir: chdir.as_deref().map(ToOwned::to_owned),
             is_login: self.launch == LaunchType::Login,

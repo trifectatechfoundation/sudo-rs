@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     fmt::Display,
     path::{Path, PathBuf},
 };
@@ -11,7 +12,9 @@ use super::resolve::{canonicalize, resolve_path};
 #[cfg_attr(test, derive(PartialEq))]
 pub struct CommandAndArguments {
     pub(crate) command: PathBuf,
+    // FIXME remove arguments and rename arguments_os
     pub(crate) arguments: Vec<String>,
+    pub(crate) arguments_os: Vec<OsString>,
     pub(crate) resolved: bool,
     pub(crate) arg0: Option<PathBuf>,
 }
@@ -79,6 +82,8 @@ impl CommandAndArguments {
             }
         }
 
+        let arguments_os = arguments.iter().map(OsString::from).collect();
+
         // resolve symlinks, even if the command was obtained through a PATH or SHELL
         // once again, failure to canonicalize should not stop the pipeline
         match canonicalize(&command) {
@@ -89,6 +94,7 @@ impl CommandAndArguments {
         CommandAndArguments {
             command,
             arguments,
+            arguments_os,
             resolved,
             arg0,
         }
@@ -126,6 +132,7 @@ mod test {
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()],
+                arguments_os: vec!["hello".into()],
                 resolved: true,
                 arg0: Some("/usr/bin/fmt".into()),
             }
@@ -140,6 +147,7 @@ mod test {
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()],
+                arguments_os: vec!["hello".into()],
                 resolved: true,
                 arg0: Some("fmt".into()),
             }
@@ -154,6 +162,7 @@ mod test {
             CommandAndArguments {
                 command: "thisdoesnotexist".into(),
                 arguments: vec!["hello".into()],
+                arguments_os: vec!["hello".into()],
                 resolved: false,
                 arg0: Some("thisdoesnotexist".into()),
             }
@@ -168,6 +177,7 @@ mod test {
             CommandAndArguments {
                 command: "shell".into(),
                 arguments: vec!["-c".into(), "ls hello".into()],
+                arguments_os: vec!["-c".into(), "ls hello".into()],
                 resolved: false,
                 arg0: None,
             }

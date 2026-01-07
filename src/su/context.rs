@@ -26,7 +26,7 @@ const PATH_DEFAULT_ROOT: &str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/b
 #[derive(Debug)]
 pub(crate) struct SuContext {
     command: PathBuf,
-    arguments: Vec<String>,
+    arguments: Vec<OsString>,
     pub(crate) options: SuRunOptions,
     pub(crate) environment: Environment,
     pub(crate) user: User,
@@ -158,7 +158,7 @@ impl SuContext {
 
         // pass command to shell
         let arguments = if let Some(command) = &options.command {
-            vec!["-c".to_owned(), command.to_owned()]
+            vec!["-c".into(), command.into()]
         } else {
             options.arguments.clone()
         };

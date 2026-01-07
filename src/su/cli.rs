@@ -1,4 +1,4 @@
-use std::{mem, path::PathBuf};
+use std::{ffi::OsString, mem, path::PathBuf};
 
 use crate::common::SudoString;
 
@@ -64,7 +64,7 @@ pub struct SuRunOptions {
     pub whitelist_environment: Vec<String>,
 
     pub user: SudoString,
-    pub arguments: Vec<String>,
+    pub arguments: Vec<OsString>,
 }
 
 #[cfg(test)]
@@ -106,7 +106,7 @@ impl TryFrom<SuOptions> for SuRunOptions {
         } else {
             positional_args.remove(0)
         };
-        let arguments = positional_args;
+        let arguments = positional_args.into_iter().map(OsString::from).collect();
 
         Ok(Self {
             command,
@@ -555,7 +555,7 @@ mod tests {
     fn it_parses_arguments() {
         let expected = SuAction::Run(SuRunOptions {
             user: "ferris".into(),
-            arguments: vec!["script.sh".to_string()],
+            arguments: vec!["script.sh".into()],
             ..<_>::default()
         });
 
@@ -716,7 +716,7 @@ mod tests {
     fn only_positional_args_after_dashdash() {
         let expected = SuAction::Run(SuRunOptions {
             user: "ferris".into(),
-            arguments: vec!["-c".to_string(), "echo".to_string()],
+            arguments: vec!["-c".into(), "echo".into()],
             ..<_>::default()
         });
         assert_eq!(expected, parse(&["--", "ferris", "-c", "echo"]));
