@@ -40,7 +40,7 @@ fn escaped(arguments: Vec<String>) -> String {
             arg.chars()
                 .map(|c| match c {
                     '_' | '-' | '$' => c.to_string(),
-                    c if c.is_alphanumeric() => c.to_string(),
+                    c if c.is_ascii_alphanumeric() => c.to_string(),
                     _ => ['\\', c].iter().collect(),
                 })
                 .collect()
