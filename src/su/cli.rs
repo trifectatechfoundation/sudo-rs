@@ -49,7 +49,7 @@ impl TryFrom<SuOptions> for SuVersionOptions {
 #[cfg_attr(test, derive(PartialEq))]
 pub struct SuRunOptions {
     // -c
-    pub command: Option<String>,
+    pub command: Option<OsString>,
     // -g
     pub group: Vec<SudoString>,
     // -l
@@ -182,7 +182,7 @@ impl<T> IsAbsent for Vec<T> {
 #[derive(Debug, Default, PartialEq)]
 pub(super) struct SuOptions {
     // -c
-    command: Option<String>,
+    command: Option<OsString>,
     // -g
     group: Vec<SudoString>,
     // -h
@@ -222,7 +222,7 @@ impl SuOptions {
             takes_argument: true,
             set: |sudo_options, argument| {
                 if argument.is_some() {
-                    sudo_options.command = argument;
+                    sudo_options.command = argument.map(OsString::from);
                     Ok(())
                 } else {
                     Err("no command provided".into())
@@ -565,7 +565,7 @@ mod tests {
     #[test]
     fn it_parses_command() {
         let expected = SuAction::Run(SuRunOptions {
-            command: Some("'echo hi'".to_string()),
+            command: Some("'echo hi'".into()),
             ..<_>::default()
         });
         assert_eq!(expected, parse(&["-c", "'echo hi'"]));
@@ -574,7 +574,7 @@ mod tests {
         assert_eq!(expected, parse(&["--command='echo hi'"]));
 
         let expected = SuAction::Run(SuRunOptions {
-            command: Some("env".to_string()),
+            command: Some("env".into()),
             ..<_>::default()
         });
         assert_eq!(expected, parse(&["-c", "env"]));
@@ -705,7 +705,7 @@ mod tests {
     #[test]
     fn flags_after_dash() {
         let expected = SuAction::Run(SuRunOptions {
-            command: Some("echo".to_string()),
+            command: Some("echo".into()),
             login: true,
             ..<_>::default()
         });
