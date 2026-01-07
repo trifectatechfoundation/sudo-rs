@@ -1,4 +1,9 @@
-use std::{borrow::Cow, ffi::OsStr, ops::ControlFlow, path::Path};
+use std::{
+    borrow::Cow,
+    ffi::{OsStr, OsString},
+    ops::ControlFlow,
+    path::Path,
+};
 
 use crate::{
     common::{Context, Error},
@@ -68,7 +73,7 @@ pub(in crate::sudo) fn run_list(cmd_opts: SudoListOptions) -> Result<(), Error> 
 fn auth_invoking_user(
     context: &Context,
     sudoers: &mut Sudoers,
-    original_command: &Option<String>,
+    original_command: &Option<OsString>,
     other_user: &Option<User>,
 ) -> Result<ControlFlow<(), ()>, Error> {
     let inspected_user = other_user.as_ref().unwrap_or(&context.current_user);
@@ -102,7 +107,7 @@ fn auth_invoking_user(
 }
 
 fn check_sudo_command_perms(
-    original_command: &str,
+    original_command: &OsStr,
     context: Context,
     other_user: &Option<User>,
     sudoers: &mut Sudoers,
@@ -124,20 +129,21 @@ fn check_sudo_command_perms(
         if !context.command.resolved {
             return Err(Error::CommandNotFound(context.command.command));
         }
-        let command_is_relative_path =
-            original_command.contains('/') && !Path::new(&original_command).is_absolute();
-        let command: Cow<_> = if command_is_relative_path {
-            original_command.into()
+        let command_is_relative_path = original_command.as_encoded_bytes().contains(&b'/')
+            && !Path::new(&original_command).is_absolute();
+        let command = if command_is_relative_path {
+            original_command
         } else {
             let resolved_command = &context.command.command;
-            resolved_command.display().to_string().into()
+            resolved_command.as_os_str()
         };
 
         if context.command.arguments.is_empty() {
-            println_ignore_io_error!("{command}");
+            println_ignore_io_error!("{}", command.display());
         } else {
             println_ignore_io_error!(
-                "{command} {}",
+                "{} {}",
+                command.display(),
                 context.command.arguments.join(OsStr::new(" ")).display(),
             );
         }
@@ -146,9 +152,9 @@ fn check_sudo_command_perms(
     Ok(())
 }
 
-fn format_list_command(original_command: &Option<String>) -> Cow<'static, str> {
+fn format_list_command(original_command: &Option<OsString>) -> Cow<'static, str> {
     if let Some(original_command) = original_command {
-        format!("list {original_command}").into()
+        format!("list {}", original_command.display()).into()
     } else {
         "list".into()
     }

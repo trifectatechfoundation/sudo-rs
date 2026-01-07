@@ -81,11 +81,7 @@ impl Context {
             sudo_call(&target_user, &target_group, || {
                 CommandAndArguments::build_from_args(
                     shell,
-                    sudo_options
-                        .positional_args
-                        .into_iter()
-                        .map(OsString::from)
-                        .collect(),
+                    sudo_options.positional_args.into_iter().collect(),
                     path,
                 )
             })?
@@ -230,11 +226,7 @@ impl Context {
             sudo_call(&target_user, &target_group, || {
                 CommandAndArguments::build_from_args(
                     None,
-                    sudo_options
-                        .positional_args
-                        .into_iter()
-                        .map(OsString::from)
-                        .collect(),
+                    sudo_options.positional_args.into_iter().collect(),
                     path,
                 )
             })?

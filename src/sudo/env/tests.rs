@@ -81,11 +81,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
     let command = CommandAndArguments::build_from_args(
         None,
-        sudo_options
-            .positional_args
-            .into_iter()
-            .map(|arg| arg.into())
-            .collect(),
+        sudo_options.positional_args.into_iter().collect(),
         &path,
     );
 
