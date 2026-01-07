@@ -1,6 +1,7 @@
 use std::{
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fmt::Display,
+    os::unix::ffi::OsStringExt,
     path::{Path, PathBuf},
 };
 
@@ -12,9 +13,7 @@ use super::resolve::{canonicalize, resolve_path};
 #[cfg_attr(test, derive(PartialEq))]
 pub struct CommandAndArguments {
     pub(crate) command: PathBuf,
-    // FIXME remove arguments and rename arguments_os
-    pub(crate) arguments: Vec<String>,
-    pub(crate) arguments_os: Vec<OsString>,
+    pub(crate) arguments: Vec<OsString>,
     pub(crate) resolved: bool,
     pub(crate) arg0: Option<PathBuf>,
 }
@@ -25,7 +24,7 @@ impl Display for CommandAndArguments {
         let args = self
             .arguments
             .iter()
-            .map(|a| a.escape_default().collect::<String>())
+            .map(|a| a.display().to_string().escape_default().collect::<String>())
             .collect::<Vec<_>>()
             .join(" ");
         write!(f, "{cmd} {args}")
@@ -33,20 +32,22 @@ impl Display for CommandAndArguments {
 }
 
 // when -i and -s are used, the arguments given to sudo are escaped "except for alphanumerics, underscores, hyphens, and dollar signs."
-fn escaped(arguments: Vec<String>) -> String {
+fn escaped(arguments: Vec<OsString>) -> OsString {
     arguments
         .into_iter()
         .map(|arg| {
-            arg.chars()
-                .map(|c| match c {
-                    '_' | '-' | '$' => c.to_string(),
-                    c if c.is_ascii_alphanumeric() => c.to_string(),
-                    _ => ['\\', c].iter().collect(),
-                })
-                .collect()
+            let mut escaped_arg = Vec::new();
+            for c in arg.into_encoded_bytes() {
+                match c {
+                    b'_' | b'-' | b'$' => escaped_arg.push(c),
+                    c if c.is_ascii_alphanumeric() => escaped_arg.push(c),
+                    _ => escaped_arg.extend_from_slice(&[b'\\', c]),
+                }
+            }
+            OsString::from_vec(escaped_arg)
         })
-        .collect::<Vec<String>>()
-        .join(" ")
+        .collect::<Vec<OsString>>()
+        .join(OsStr::new(" "))
 }
 
 //checks whether the Path is actually describing a qualified path (i.e. contains "/")
@@ -56,14 +57,18 @@ fn is_qualified(path: impl AsRef<Path>) -> bool {
 }
 
 impl CommandAndArguments {
-    pub fn build_from_args(shell: Option<PathBuf>, mut arguments: Vec<String>, path: &str) -> Self {
+    pub fn build_from_args(
+        shell: Option<PathBuf>,
+        mut arguments: Vec<OsString>,
+        path: &str,
+    ) -> Self {
         let mut resolved = true;
         let mut command;
         let mut arg0 = None;
         if let Some(chosen_shell) = shell {
             command = chosen_shell;
             if !arguments.is_empty() {
-                arguments = vec!["-c".to_string(), escaped(arguments)]
+                arguments = vec!["-c".into(), escaped(arguments)]
             }
         } else {
             command = arguments.first().map(|s| s.into()).unwrap_or_default();
@@ -82,8 +87,6 @@ impl CommandAndArguments {
             }
         }
 
-        let arguments_os = arguments.iter().map(OsString::from).collect();
-
         // resolve symlinks, even if the command was obtained through a PATH or SHELL
         // once again, failure to canonicalize should not stop the pipeline
         match canonicalize(&command) {
@@ -94,7 +97,6 @@ impl CommandAndArguments {
         CommandAndArguments {
             command,
             arguments,
-            arguments_os,
             resolved,
             arg0,
         }
@@ -103,15 +105,14 @@ impl CommandAndArguments {
 
 #[cfg(test)]
 mod test {
+    use std::ffi::OsString;
+
     use super::{CommandAndArguments, escaped};
 
     #[test]
     fn test_escaped() {
         let test = |src: &[&str], target: &str| {
-            assert_eq!(
-                &escaped(src.iter().map(|s| s.to_string()).collect()),
-                target
-            );
+            assert_eq!(&escaped(src.iter().map(OsString::from).collect()), target);
         };
         test(&["a", "b", "c"], "a b c");
         test(&["a", "b c"], "a b\\ c");
@@ -132,7 +133,6 @@ mod test {
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()],
-                arguments_os: vec!["hello".into()],
                 resolved: true,
                 arg0: Some("/usr/bin/fmt".into()),
             }
@@ -147,7 +147,6 @@ mod test {
             CommandAndArguments {
                 command: "/usr/bin/fmt".into(),
                 arguments: vec!["hello".into()],
-                arguments_os: vec!["hello".into()],
                 resolved: true,
                 arg0: Some("fmt".into()),
             }
@@ -162,7 +161,6 @@ mod test {
             CommandAndArguments {
                 command: "thisdoesnotexist".into(),
                 arguments: vec!["hello".into()],
-                arguments_os: vec!["hello".into()],
                 resolved: false,
                 arg0: Some("thisdoesnotexist".into()),
             }
@@ -177,7 +175,6 @@ mod test {
             CommandAndArguments {
                 command: "shell".into(),
                 arguments: vec!["-c".into(), "ls hello".into()],
-                arguments_os: vec!["-c".into(), "ls hello".into()],
                 resolved: false,
                 arg0: None,
             }

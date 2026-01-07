@@ -34,15 +34,19 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
                 Err(error) if error.raw_os_error() == Some(libc::ELOOP) => {
                     user_error!(
                         "{path}: editing symbolic links is not permitted",
-                        path = arg
+                        path = arg.display(),
                     )
                 }
                 Err(error) => {
-                    user_error!("error opening {path}: {error}", path = arg, error = error)
+                    user_error!(
+                        "error opening {path}: {error}",
+                        path = arg.display(),
+                        error = error,
+                    )
                 }
             }
         } else {
-            user_error!("invalid path: {path}", path = arg);
+            user_error!("invalid path: {path}", path = arg.display());
         }
     }
 
