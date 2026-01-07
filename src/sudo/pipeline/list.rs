@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::ControlFlow, path::Path};
+use std::{borrow::Cow, ffi::OsStr, ops::ControlFlow, path::Path};
 
 use crate::{
     common::{Context, Error},
@@ -136,7 +136,10 @@ fn check_sudo_command_perms(
         if context.command.arguments.is_empty() {
             println_ignore_io_error!("{command}");
         } else {
-            println_ignore_io_error!("{command} {}", context.command.arguments.join(" "));
+            println_ignore_io_error!(
+                "{command} {}",
+                context.command.arguments.join(OsStr::new(" ")).display(),
+            );
         }
     }
 

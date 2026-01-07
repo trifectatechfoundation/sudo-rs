@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::OsString;
 
 use crate::common::{Error, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::exec::RunOptions;
@@ -78,7 +79,15 @@ impl Context {
             };
 
             sudo_call(&target_user, &target_group, || {
-                CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
+                CommandAndArguments::build_from_args(
+                    shell,
+                    sudo_options
+                        .positional_args
+                        .into_iter()
+                        .map(OsString::from)
+                        .collect(),
+                    path,
+                )
             })?
         };
 
@@ -137,8 +146,8 @@ impl Context {
         // by the policy to edit that file. this is to prevent leaking information.
         let arguments = resolved_args
             .map(|arg| match arg {
-                Ok(arg) => arg,
-                Err(arg) => arg.to_owned(),
+                Ok(arg) => OsString::from(arg),
+                Err(arg) => OsString::from(arg),
             })
             .collect();
 
@@ -219,7 +228,15 @@ impl Context {
             };
 
             sudo_call(&target_user, &target_group, || {
-                CommandAndArguments::build_from_args(None, sudo_options.positional_args, path)
+                CommandAndArguments::build_from_args(
+                    None,
+                    sudo_options
+                        .positional_args
+                        .into_iter()
+                        .map(OsString::from)
+                        .collect(),
+                    path,
+                )
             })?
         };
 
@@ -272,7 +289,7 @@ impl Context {
             } else {
                 return Err(Error::CommandNotFound(self.command.command.clone()));
             },
-            arguments: &self.command.arguments_os,
+            arguments: &self.command.arguments,
             arg0: self.command.arg0.as_deref(),
             chdir: chdir.as_deref().map(ToOwned::to_owned),
             is_login: self.launch == LaunchType::Login,
