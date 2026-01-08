@@ -109,6 +109,34 @@ pub fn is_fifo_or_sock(fildes: BorrowedFd) -> bool {
     fstat_mode_any::<{ libc::S_IFIFO | libc::S_IFSOCK }>(&fildes)
 }
 
+#[cfg(target_os = "macos")]
+/// # Safety the same as libc::pipe
+pub unsafe extern "C" fn pipe2(fds: *mut c_int, flags: c_int) -> c_int {
+    // SAFETY: the caller has to ensure this call is safe
+    unsafe {
+        if libc::pipe(fds) == -1 {
+            return -1;
+        }
+    }
+
+    // SAFETY: this is safe due to the contract on fcntl(2)
+    let setflag = |fd| unsafe {
+        let flag = cerr(libc::fcntl(fd, libc::F_GETFL))?;
+        cerr(libc::fcntl(fd, libc::F_SETFL, flag | flags))
+    };
+
+    // SAFETY: the caller will have ensured fds points to two c_int's
+    unsafe {
+        if setflag(*fds).is_err() || setflag(*fds.add(1)).is_err() {
+            let _ = libc::close(*fds);
+            let _ = libc::close(*fds.add(1));
+            return -1;
+        };
+    }
+
+    0
+}
+
 #[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {
