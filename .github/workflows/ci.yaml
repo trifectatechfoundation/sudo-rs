@@ -436,6 +436,22 @@ jobs:
       - name: Build docs
         run: cargo doc --no-deps --document-private-items
 
+  gettext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install gettext
+        run: |
+          sudo apt update
+          sudo apt install gettext
+
+      - name: check translation consistency
+        run: |
+          result=""
+          for file in po/*.po; do msgfmt --verbose --check "$file" || result=failed; done
+          test -z "$result"
+
   audit:
     needs: clippy
     runs-on: ubuntu-latest
