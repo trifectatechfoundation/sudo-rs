@@ -104,7 +104,8 @@ pub fn is_fifo(fildes: BorrowedFd) -> bool {
     fstat_mode_set(&fildes, libc::S_IFIFO)
 }
 
-/// Wrapper around fnmatch for globbing
+/// Wrapper around fnmatch for globbing; for full compatibility it is
+/// required that the locale is set to support UTF8 strings.
 #[cfg(not(feature = "rust-glob"))]
 pub fn fnmatch(
     pattern: &crate::common::SudoString,
@@ -113,8 +114,9 @@ pub fn fnmatch(
     let pattern = pattern.as_cstr();
     let name = std::ffi::CString::new(name.as_os_str().as_bytes()).expect("path is not a C string");
 
-    // equivalent to "require_literal_separator"
-    let flags = libc::FNM_PATHNAME;
+    // equivalent to "require_literal_separator";
+    // NOESCAPE has no equivalent in Rust-glob and is the default there
+    let flags = libc::FNM_PATHNAME | libc::FNM_NOESCAPE;
 
     // SAFETY: fnmatch is passed two valid pointers to a CString
     match unsafe { libc::fnmatch(pattern.as_ptr(), name.as_ptr(), flags) } {
