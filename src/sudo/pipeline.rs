@@ -105,8 +105,6 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     environment::dangerous_extend(&mut target_env, trusted_vars);
 
-    let pid = context.process.pid;
-
     // prepare switch of apparmor profile
     #[cfg(feature = "apparmor")]
     if let Some(profile) = &controls.apparmor_profile {
@@ -128,7 +126,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     match command_exit_reason? {
         ExitReason::Code(code) => exit(code),
         ExitReason::Signal(signal) => {
-            crate::system::kill(pid, signal)?;
+            crate::system::kill(Process::process_id(), signal)?;
         }
     }
 
