@@ -11,7 +11,7 @@ use std::{
 
 use libc::{ioctl, winsize, TIOCSWINSZ};
 
-use crate::cutils::{cerr, is_fifo, os_string_from_ptr, safe_isatty};
+use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 
 use super::interface::ProcessId;
 
@@ -187,7 +187,7 @@ pub(crate) trait Terminal: sealed::Sealed {
     where
         Self: sealed::SafeTty;
     fn ttyname(&self) -> io::Result<OsString>;
-    fn is_pipe(&self) -> bool;
+    fn is_pipe_or_socket(&self) -> bool;
     fn tcgetsid(&self) -> io::Result<ProcessId>
     where
         Self: sealed::SafeTty;
@@ -241,8 +241,8 @@ impl<F: AsFd> Terminal for F {
         Ok(unsafe { os_string_from_ptr(buf.as_ptr()) })
     }
 
-    fn is_pipe(&self) -> bool {
-        is_fifo(self.as_fd())
+    fn is_pipe_or_socket(&self) -> bool {
+        is_fifo_or_sock(self.as_fd())
     }
 
     fn tcgetsid(&self) -> io::Result<ProcessId> {
