@@ -8,7 +8,7 @@ mod use_pty;
 use std::{
     borrow::Cow,
     env,
-    ffi::{c_int, OsStr},
+    ffi::{c_int, OsStr, OsString},
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
@@ -63,7 +63,7 @@ pub enum Umask {
 
 pub struct RunOptions<'a> {
     pub command: &'a Path,
-    pub arguments: &'a [String],
+    pub arguments: &'a [OsString],
     pub arg0: Option<&'a Path>,
     pub chdir: Option<PathBuf>,
     pub is_login: bool,

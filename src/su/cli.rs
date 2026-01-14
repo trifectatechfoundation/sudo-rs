@@ -1,4 +1,4 @@
-use std::{mem, path::PathBuf};
+use std::{ffi::OsString, mem, path::PathBuf};
 
 use crate::common::SudoString;
 
@@ -49,7 +49,7 @@ impl TryFrom<SuOptions> for SuVersionOptions {
 #[cfg_attr(test, derive(PartialEq))]
 pub struct SuRunOptions {
     // -c
-    pub command: Option<String>,
+    pub command: Option<OsString>,
     // -g
     pub group: Vec<SudoString>,
     // -l
@@ -64,7 +64,7 @@ pub struct SuRunOptions {
     pub whitelist_environment: Vec<String>,
 
     pub user: SudoString,
-    pub arguments: Vec<String>,
+    pub arguments: Vec<OsString>,
 }
 
 #[cfg(test)]
@@ -106,7 +106,7 @@ impl TryFrom<SuOptions> for SuRunOptions {
         } else {
             positional_args.remove(0)
         };
-        let arguments = positional_args;
+        let arguments = positional_args.into_iter().map(OsString::from).collect();
 
         Ok(Self {
             command,
@@ -182,7 +182,7 @@ impl<T> IsAbsent for Vec<T> {
 #[derive(Debug, Default, PartialEq)]
 pub(super) struct SuOptions {
     // -c
-    command: Option<String>,
+    command: Option<OsString>,
     // -g
     group: Vec<SudoString>,
     // -h
@@ -222,7 +222,7 @@ impl SuOptions {
             takes_argument: true,
             set: |sudo_options, argument| {
                 if argument.is_some() {
-                    sudo_options.command = argument;
+                    sudo_options.command = argument.map(OsString::from);
                     Ok(())
                 } else {
                     Err("no command provided".into())
@@ -555,7 +555,7 @@ mod tests {
     fn it_parses_arguments() {
         let expected = SuAction::Run(SuRunOptions {
             user: "ferris".into(),
-            arguments: vec!["script.sh".to_string()],
+            arguments: vec!["script.sh".into()],
             ..<_>::default()
         });
 
@@ -565,7 +565,7 @@ mod tests {
     #[test]
     fn it_parses_command() {
         let expected = SuAction::Run(SuRunOptions {
-            command: Some("'echo hi'".to_string()),
+            command: Some("'echo hi'".into()),
             ..<_>::default()
         });
         assert_eq!(expected, parse(&["-c", "'echo hi'"]));
@@ -574,7 +574,7 @@ mod tests {
         assert_eq!(expected, parse(&["--command='echo hi'"]));
 
         let expected = SuAction::Run(SuRunOptions {
-            command: Some("env".to_string()),
+            command: Some("env".into()),
             ..<_>::default()
         });
         assert_eq!(expected, parse(&["-c", "env"]));
@@ -705,7 +705,7 @@ mod tests {
     #[test]
     fn flags_after_dash() {
         let expected = SuAction::Run(SuRunOptions {
-            command: Some("echo".to_string()),
+            command: Some("echo".into()),
             login: true,
             ..<_>::default()
         });
@@ -716,7 +716,7 @@ mod tests {
     fn only_positional_args_after_dashdash() {
         let expected = SuAction::Run(SuRunOptions {
             user: "ferris".into(),
-            arguments: vec!["-c".to_string(), "echo".to_string()],
+            arguments: vec!["-c".into(), "echo".into()],
             ..<_>::default()
         });
         assert_eq!(expected, parse(&["--", "ferris", "-c", "echo"]));

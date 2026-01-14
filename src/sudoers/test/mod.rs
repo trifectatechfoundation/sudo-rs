@@ -151,7 +151,7 @@ fn permission_test() {
     macro_rules! FAIL {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr) => {
             let (Sudoers { rules,aliases,settings, customisers }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
-            let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
+            let cmdvec = $command.split_whitespace().map(OsString::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
             assert_eq!(Sudoers { rules, aliases, settings, customisers }.check(&Named($user), &system::Hostname::fake($server), req).flags, None);
         }
@@ -160,7 +160,7 @@ fn permission_test() {
     macro_rules! pass {
         ([$($sudo:expr),*], $user:expr => $req:expr, $server:expr; $command:expr $(=> [$($key:ident : $val:expr),*])?) => {
             let (Sudoers { rules,aliases,settings, customisers }, _) = analyze(Path::new("/etc/fakesudoers"), sudoer![$($sudo),*]);
-            let cmdvec = $command.split_whitespace().map(String::from).collect::<Vec<_>>();
+            let cmdvec = $command.split_whitespace().map(OsString::from).collect::<Vec<_>>();
             let req = Request { user: $req.0, group: $req.1, command: &realpath(cmdvec[0].as_ref()), arguments: &cmdvec[1..].to_vec() };
             let result = Sudoers { rules, aliases, settings, customisers }.check(&Named($user), &system::Hostname::fake($server), req).flags;
             assert!(!result.is_none());
@@ -635,7 +635,7 @@ fn default_specific_test() {
     assert!(!mod_sudoers.settings.use_pty());
     assert!(mod_sudoers.settings.env_keep().contains("COLORS"));
     assert_eq!(mod_sudoers.settings.secure_path(), Some("/bin"));
-    mod_sudoers.specify_command(Path::new("/bin/foo"), &["".to_string(), "a".to_string()]);
+    mod_sudoers.specify_command(Path::new("/bin/foo"), &["".into(), "a".into()]);
     assert!(mod_sudoers.settings.env_keep().is_empty());
 
     let (mut mod_sudoers, _) = sudoers();
@@ -644,14 +644,14 @@ fn default_specific_test() {
         &Named("admin"),
         Some(&Named("self")),
     );
-    mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["thrice".to_string()]);
+    mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["thrice".into()]);
     assert!(mod_sudoers.settings.env_editor());
     assert!(!mod_sudoers.settings.use_pty());
     assert!(mod_sudoers.settings.env_keep().contains("COLORS"));
     assert_eq!(mod_sudoers.settings.secure_path(), None);
 
     let (mut mod_sudoers, _) = sudoers();
-    mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["twice".to_string()]);
+    mod_sudoers.specify_command(Path::new("/usr/bin/rr"), &["twice".into()]);
     assert!(mod_sudoers.settings.use_pty());
 }
 
