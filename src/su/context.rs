@@ -210,6 +210,7 @@ impl SuContext {
             group: &self.group,
             umask: Umask::Preserve,
 
+            background: false,
             use_pty: true,
             noexec: false,
         }
