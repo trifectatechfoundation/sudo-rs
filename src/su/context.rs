@@ -9,7 +9,7 @@ use std::{
 use crate::common::{error::Error, resolve::CurrentUser};
 use crate::exec::{RunOptions, Umask};
 use crate::log::user_warn;
-use crate::system::{Group, Process, User};
+use crate::system::{Group, User};
 use crate::{common::resolve::is_valid_executable, system::interface::UserId};
 
 type Environment = HashMap<OsString, OsString>;
@@ -32,7 +32,6 @@ pub(crate) struct SuContext {
     pub(crate) user: User,
     pub(crate) requesting_user: CurrentUser,
     group: Group,
-    pub(crate) process: Process,
 }
 
 /// check that a shell is not restricted / exists in /etc/shells
@@ -50,8 +49,6 @@ fn is_restricted(shell: &Path) -> bool {
 
 impl SuContext {
     pub(crate) fn from_env(options: SuRunOptions) -> Result<SuContext, Error> {
-        let process = crate::system::Process::new();
-
         // resolve environment, reset if this is a login
         let mut environment = if options.login {
             Environment::default()
@@ -197,7 +194,6 @@ impl SuContext {
             user,
             requesting_user,
             group,
-            process,
         })
     }
 }

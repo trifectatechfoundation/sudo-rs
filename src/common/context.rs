@@ -5,7 +5,7 @@ use crate::exec::RunOptions;
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::sudoers::{DirChange, Restrictions};
-use crate::system::{audit::sudo_call, Group, Hostname, Process, User};
+use crate::system::{audit::sudo_call, Group, Hostname, User};
 
 use super::{
     command::CommandAndArguments,
@@ -30,7 +30,6 @@ pub struct Context {
     // system
     pub hostname: Hostname,
     pub current_user: CurrentUser,
-    pub process: Process,
     // sudoedit
     pub files_to_edit: Vec<Option<SudoPath>>,
 }
@@ -98,7 +97,6 @@ impl Context {
             bell: sudo_options.bell,
             prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit: vec![],
         })
     }
@@ -166,7 +164,6 @@ impl Context {
             bell: sudo_options.bell,
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit,
         })
     }
@@ -190,7 +187,6 @@ impl Context {
             bell: sudo_options.bell,
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit: vec![],
         })
     }
@@ -237,7 +233,6 @@ impl Context {
             bell: sudo_options.bell,
             prompt: sudo_options.prompt,
             non_interactive: sudo_options.non_interactive,
-            process: Process::new(),
             files_to_edit: vec![],
         })
     }

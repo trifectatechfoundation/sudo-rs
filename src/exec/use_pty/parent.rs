@@ -115,7 +115,7 @@ pub(in crate::exec) fn exec_pty(
     // the pipes. Investigate why.
     if !io::stdin().is_terminal_for_pgrp(parent_pgrp) {
         dev_info!("stdin is not a terminal, command will inherit it");
-        if io::stdin().is_pipe() {
+        if io::stdin().is_pipe_or_socket() {
             exec_bg = true;
         }
         command.stdin(Stdio::inherit());
@@ -130,7 +130,7 @@ pub(in crate::exec) fn exec_pty(
 
     if !io::stdout().is_terminal_for_pgrp(parent_pgrp) {
         dev_info!("stdout is not a terminal, command will inherit it");
-        if io::stdout().is_pipe() {
+        if io::stdout().is_pipe_or_socket() {
             exec_bg = true;
             preserve_oflag = true;
         }
@@ -144,7 +144,7 @@ pub(in crate::exec) fn exec_pty(
 
     // If there is another process later in the pipeline, don't interfere
     // with its access to the Tty
-    if io::stdout().is_pipe() {
+    if io::stdout().is_pipe_or_socket() {
         foreground = false;
     }
 

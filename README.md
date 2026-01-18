@@ -42,13 +42,13 @@ The sudo-rs package on Arch Linux is typically up-to-date.
 
 ### Fedora
 
-If you are running Fedora 41 or later, you can use:
+On Fedora you can use:
 ```sh
 dnf install sudo-rs
 ```
 This will offer the functionality using the commands `sudo-rs`, `visudo-rs` and `su-rs` to avoid conflicts.
 
-The version packaged is based on release 0.2.6 from May 2025 which is missing `sudoedit`, `NOEXEC:`, and a few other improvements.
+The version packaged in Fedora is usually the latest.
 
 ### Debian
 If you are running Debian 13 (trixie) or later you can use:

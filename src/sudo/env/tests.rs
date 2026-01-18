@@ -5,7 +5,7 @@ use crate::sudo::{
     env::environment::{get_target_environment, Environment},
 };
 use crate::system::interface::{GroupId, UserId};
-use crate::system::{Group, Hostname, Process, User};
+use crate::system::{Group, Hostname, User};
 use std::collections::{HashMap, HashSet};
 
 const TESTS: &str = "
@@ -130,7 +130,6 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         stdin: sudo_options.stdin,
         prompt: sudo_options.prompt,
         non_interactive: sudo_options.non_interactive,
-        process: Process::new(),
         use_session_records: false,
         bell: false,
         files_to_edit: vec![],

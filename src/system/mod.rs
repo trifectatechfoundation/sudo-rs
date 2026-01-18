@@ -610,21 +610,13 @@ impl WithProcess {
 
 #[derive(Debug, Clone)]
 pub struct Process {
-    pub pid: ProcessId,
     pub parent_pid: Option<ProcessId>,
     pub session_id: ProcessId,
-}
-
-impl Default for Process {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl Process {
     pub fn new() -> Process {
         Process {
-            pid: Self::process_id(),
             parent_pid: Self::parent_id(),
             session_id: Self::session_id(),
         }
