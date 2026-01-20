@@ -35,7 +35,7 @@ impl SignalHandler {
     pub(crate) fn register(
         signal: SignalNumber,
         behavior: SignalHandlerBehavior,
-        state: &mut Option<SignalsState>
+        state: &mut Option<SignalsState>,
     ) -> io::Result<Self> {
         if Self::FORBIDDEN.contains(&signal) {
             panic!(
@@ -46,7 +46,7 @@ impl SignalHandler {
 
         let action = SignalAction::new(behavior)?;
         let original_action = action.register(signal)?;
-        if let Some(state) = state{
+        if let Some(state) = state {
             state.updated(signal)?;
         }
 

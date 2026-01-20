@@ -35,7 +35,7 @@ pub(in crate::exec) fn exec_pty(
     // Allocate a pseudoterminal.
     let pty = get_pty(pty_owner)?;
 
-    let mut original_signals = match SignalsState::save(){
+    let mut original_signals = match SignalsState::save() {
         Ok(original_signals) => Some(original_signals),
         Err(err) => {
             dev_warn!("cannot save state original signals: {err}");
@@ -50,11 +50,19 @@ pub(in crate::exec) fn exec_pty(
     })?;
 
     // We don't want to receive SIGTTIN/SIGTTOU
-    match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore, &mut original_signals) {
+    match SignalHandler::register(
+        SIGTTIN,
+        SignalHandlerBehavior::Ignore,
+        &mut original_signals,
+    ) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTIN: {err}"),
     }
-    match SignalHandler::register(SIGTTOU, SignalHandlerBehavior::Ignore, &mut original_signals) {
+    match SignalHandler::register(
+        SIGTTOU,
+        SignalHandlerBehavior::Ignore,
+        &mut original_signals,
+    ) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
     }
@@ -248,7 +256,7 @@ pub(in crate::exec) fn exec_pty(
         term_raw,
         preserve_oflag,
         &mut registry,
-        &mut original_signals
+        &mut original_signals,
     )?;
 
     // Restore the signal mask now that the handlers have been setup.
@@ -341,7 +349,7 @@ impl ParentClosure {
         term_raw: bool,
         preserve_oflag: bool,
         registry: &mut EventRegistry<Self>,
-        original_signals: &mut Option<SignalsState>
+        original_signals: &mut Option<SignalsState>,
     ) -> io::Result<Self> {
         // Enable nonblocking assertions as we will poll this inside the event loop.
         backchannel.set_nonblocking_asserts(true);
@@ -532,9 +540,10 @@ impl ParentClosure {
         registry: &mut EventRegistry<Self>,
     ) -> Option<SignalNumber> {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
-        let sigcont_handler = SignalHandler::register_untracked(SIGCONT, SignalHandlerBehavior::Ignore)
-            .map_err(|err| dev_warn!("cannot set handler for SIGCONT: {err}"))
-            .ok();
+        let sigcont_handler =
+            SignalHandler::register_untracked(SIGCONT, SignalHandlerBehavior::Ignore)
+                .map_err(|err| dev_warn!("cannot set handler for SIGCONT: {err}"))
+                .ok();
 
         if let SIGTTOU | SIGTTIN = signal {
             // If sudo is already the foreground process we can resume the command in the

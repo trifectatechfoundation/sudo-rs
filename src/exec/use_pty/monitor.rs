@@ -41,15 +41,23 @@ pub(super) fn exec_monitor(
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
     original_set: Option<SignalSet>,
-    mut original_signals: Option<SignalsState>
+    mut original_signals: Option<SignalsState>,
 ) -> io::Result<Infallible> {
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
-    match SignalHandler::register(SIGTTIN, SignalHandlerBehavior::Ignore, &mut original_signals) {
+    match SignalHandler::register(
+        SIGTTIN,
+        SignalHandlerBehavior::Ignore,
+        &mut original_signals,
+    ) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTIN: {err}"),
     }
-    match SignalHandler::register(SIGTTOU, SignalHandlerBehavior::Ignore, &mut original_signals) {
+    match SignalHandler::register(
+        SIGTTOU,
+        SignalHandlerBehavior::Ignore,
+        &mut original_signals,
+    ) {
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
     }
@@ -121,7 +129,7 @@ pub(super) fn exec_monitor(
         errpipe_rx,
         backchannel,
         &mut registry,
-        &mut original_signals
+        &mut original_signals,
     )?;
 
     // Restore the signal mask now that the handlers have been setup.
@@ -227,7 +235,7 @@ impl<'a> MonitorClosure<'a> {
         errpipe_rx: BinPipe<i32>,
         backchannel: &'a mut MonitorBackchannel,
         registry: &mut EventRegistry<Self>,
-        original_signals: &mut Option<SignalsState>
+        original_signals: &mut Option<SignalsState>,
     ) -> io::Result<Self> {
         // Store the pgid of the monitor.
         let monitor_pgrp = getpgrp();

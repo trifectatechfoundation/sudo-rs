@@ -33,7 +33,7 @@ pub(super) fn exec_no_pty(
 ) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
-    let mut original_signals = match SignalsState::save(){
+    let mut original_signals = match SignalsState::save() {
         Ok(original_signals) => Some(original_signals),
         Err(err) => {
             dev_warn!("cannot save state original signals: {err}");
@@ -73,7 +73,13 @@ pub(super) fn exec_no_pty(
 
     let mut registry = EventRegistry::new();
 
-    let mut closure = ExecClosure::new(command_pid, sudo_pid, errpipe_rx, &mut registry, &mut original_signals)?;
+    let mut closure = ExecClosure::new(
+        command_pid,
+        sudo_pid,
+        errpipe_rx,
+        &mut registry,
+        &mut original_signals,
+    )?;
 
     // Restore the signal mask now that the handlers have been setup.
     if let Some(set) = original_set {
@@ -113,7 +119,7 @@ impl ExecClosure {
         sudo_pid: ProcessId,
         errpipe_rx: BinPipe<i32>,
         registry: &mut EventRegistry<Self>,
-        original_signals: &mut Option<SignalsState>
+        original_signals: &mut Option<SignalsState>,
     ) -> io::Result<Self> {
         registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
 
