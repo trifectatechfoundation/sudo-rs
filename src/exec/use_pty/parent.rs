@@ -35,13 +35,7 @@ pub(in crate::exec) fn exec_pty(
     // Allocate a pseudoterminal.
     let pty = get_pty(pty_owner)?;
 
-    let mut original_signals = match SignalsState::save() {
-        Ok(original_signals) => Some(original_signals),
-        Err(err) => {
-            dev_warn!("cannot save state original signals: {err}");
-            None
-        }
-    };
+    let mut original_signals = SignalsState::save()?;
 
     // Create backchannels to communicate with the monitor.
     let mut backchannels = BackchannelPair::new().map_err(|err| {
@@ -256,7 +250,7 @@ pub(in crate::exec) fn exec_pty(
         term_raw,
         preserve_oflag,
         &mut registry,
-        &mut original_signals,
+        original_signals,
     )?;
 
     // Restore the signal mask now that the handlers have been setup.
@@ -327,6 +321,7 @@ struct ParentClosure {
     backchannel: ParentBackchannel,
     message_queue: VecDeque<MonitorMessage>,
     backchannel_write_handle: EventHandle,
+    original_signals: SignalsState,
     signal_stream: &'static SignalStream,
     signal_handlers: [SignalHandler; ParentClosure::SIGNALS.len()],
 }
@@ -349,7 +344,7 @@ impl ParentClosure {
         term_raw: bool,
         preserve_oflag: bool,
         registry: &mut EventRegistry<Self>,
-        original_signals: &mut Option<SignalsState>,
+        mut original_signals: SignalsState,
     ) -> io::Result<Self> {
         // Enable nonblocking assertions as we will poll this inside the event loop.
         backchannel.set_nonblocking_asserts(true);
@@ -365,7 +360,7 @@ impl ParentClosure {
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| ParentEvent::Signal);
 
-        let signal_handlers = register_handlers(Self::SIGNALS, original_signals)?;
+        let signal_handlers = register_handlers(Self::SIGNALS, &mut original_signals)?;
 
         Ok(Self {
             monitor_pid: Some(monitor_pid),
@@ -380,6 +375,7 @@ impl ParentClosure {
             backchannel,
             message_queue: VecDeque::new(),
             backchannel_write_handle,
+            original_signals,
             signal_stream,
             signal_handlers,
         })
@@ -540,10 +536,13 @@ impl ParentClosure {
         registry: &mut EventRegistry<Self>,
     ) -> Option<SignalNumber> {
         // Ignore `SIGCONT` while suspending to avoid resuming the terminal twice.
-        let sigcont_handler =
-            SignalHandler::register_untracked(SIGCONT, SignalHandlerBehavior::Ignore)
-                .map_err(|err| dev_warn!("cannot set handler for SIGCONT: {err}"))
-                .ok();
+        let sigcont_handler = SignalHandler::register(
+            SIGCONT,
+            SignalHandlerBehavior::Ignore,
+            &mut self.original_signals,
+        )
+        .map_err(|err| dev_warn!("cannot set handler for SIGCONT: {err}"))
+        .ok();
 
         if let SIGTTOU | SIGTTIN = signal {
             // If sudo is already the foreground process we can resume the command in the
@@ -584,9 +583,13 @@ impl ParentClosure {
         }
 
         let signal_handler = if signal != SIGSTOP {
-            SignalHandler::register_untracked(signal, SignalHandlerBehavior::Default)
-                .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
-                .ok()
+            SignalHandler::register(
+                signal,
+                SignalHandlerBehavior::Default,
+                &mut self.original_signals,
+            )
+            .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
+            .ok()
         } else {
             None
         };
