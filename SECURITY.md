@@ -21,7 +21,7 @@ also follow the steps at https://www.sudo.ws/security/policy/
 We prefer to receive reports in English. If necessary, we also understand Spanish, German and Dutch.
 
 ## Disclosure Policy
-Like original sudo, we adhere to the principle of [Coordinated Vulnerability Disclosure](https://vuls.cert.org/confluence/display/CVD/Executive+Summary).
+Like original sudo, we adhere to the principle of [Coordinated Vulnerability Disclosure](https://certcc.github.io/CERT-Guide-to-CVD/tutorials/cvd_in_a_nutshell/).
 
 # Security Advisories
 Security advisories will be published [on GitHub](https://github.com/trifectatechfoundation/sudo-rs/security/advisories) and possibly through other channels.
