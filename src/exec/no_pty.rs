@@ -33,13 +33,7 @@ pub(super) fn exec_no_pty(
 ) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
-    let mut original_signals = match SignalsState::save() {
-        Ok(original_signals) => Some(original_signals),
-        Err(err) => {
-            dev_warn!("cannot save state original signals: {err}");
-            None
-        }
-    };
+    let original_signals = SignalsState::save()?;
 
     // Block all the signals until we are done setting up the signal handlers so we don't miss
     // SIGCHLD.
@@ -78,7 +72,7 @@ pub(super) fn exec_no_pty(
         sudo_pid,
         errpipe_rx,
         &mut registry,
-        &mut original_signals,
+        original_signals,
     )?;
 
     // Restore the signal mask now that the handlers have been setup.
@@ -104,6 +98,7 @@ struct ExecClosure {
     sudo_pid: ProcessId,
     parent_pgrp: ProcessId,
     errpipe_rx: BinPipe<i32>,
+    original_signals: SignalsState,
     signal_stream: &'static SignalStream,
     signal_handlers: [SignalHandler; ExecClosure::SIGNALS.len()],
 }
@@ -119,7 +114,7 @@ impl ExecClosure {
         sudo_pid: ProcessId,
         errpipe_rx: BinPipe<i32>,
         registry: &mut EventRegistry<Self>,
-        original_signals: &mut Option<SignalsState>,
+        mut original_signals: SignalsState,
     ) -> io::Result<Self> {
         registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
 
@@ -127,13 +122,14 @@ impl ExecClosure {
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| ExecEvent::Signal);
 
-        let signal_handlers = register_handlers(Self::SIGNALS, original_signals)?;
+        let signal_handlers = register_handlers(Self::SIGNALS, &mut original_signals)?;
 
         Ok(Self {
             command_pid: Some(command_pid),
             errpipe_rx,
             sudo_pid,
             parent_pgrp: getpgrp(),
+            original_signals,
             signal_stream,
             signal_handlers,
         })
@@ -161,7 +157,7 @@ impl ExecClosure {
     }
 
     /// Suspend the main process.
-    fn suspend_parent(&self, signal: SignalNumber) {
+    fn suspend_parent(&mut self, signal: SignalNumber) {
         let mut opt_tty = UserTerm::open().ok();
         let mut opt_pgrp = None;
 
@@ -199,9 +195,13 @@ impl ExecClosure {
         }
 
         let sigtstp_handler = if signal == SIGTSTP {
-            SignalHandler::register_untracked(signal, SignalHandlerBehavior::Default)
-                .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
-                .ok()
+            SignalHandler::register(
+                signal,
+                SignalHandlerBehavior::Default,
+                &mut self.original_signals,
+            )
+            .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
+            .ok()
         } else {
             None
         };

@@ -41,7 +41,7 @@ pub(super) fn exec_monitor(
     foreground: bool,
     backchannel: &mut MonitorBackchannel,
     original_set: Option<SignalSet>,
-    mut original_signals: Option<SignalsState>,
+    mut original_signals: SignalsState,
 ) -> io::Result<Infallible> {
     // SIGTTIN and SIGTTOU are ignored here but the docs state that it shouldn't
     // be possible to receive them in the first place. Investigate
@@ -235,7 +235,7 @@ impl<'a> MonitorClosure<'a> {
         errpipe_rx: BinPipe<i32>,
         backchannel: &'a mut MonitorBackchannel,
         registry: &mut EventRegistry<Self>,
-        original_signals: &mut Option<SignalsState>,
+        original_signals: &mut SignalsState,
     ) -> io::Result<Self> {
         // Store the pgid of the monitor.
         let monitor_pgrp = getpgrp();

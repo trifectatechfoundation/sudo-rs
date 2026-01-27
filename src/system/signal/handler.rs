@@ -16,14 +16,6 @@ pub(crate) struct SignalHandler {
 impl SignalHandler {
     const FORBIDDEN: &'static [SignalNumber] = &[SIGKILL, SIGSTOP];
 
-    #[inline]
-    pub(crate) fn register_untracked(
-        signal: SignalNumber,
-        behavior: SignalHandlerBehavior,
-    ) -> io::Result<Self> {
-        Self::register(signal, behavior, &mut None)
-    }
-
     /// Register a new handler for the given signal with the provided behavior.
     ///
     /// # Panics
@@ -35,7 +27,7 @@ impl SignalHandler {
     pub(crate) fn register(
         signal: SignalNumber,
         behavior: SignalHandlerBehavior,
-        state: &mut Option<SignalsState>,
+        state: &mut SignalsState,
     ) -> io::Result<Self> {
         if Self::FORBIDDEN.contains(&signal) {
             panic!(
@@ -46,9 +38,7 @@ impl SignalHandler {
 
         let action = SignalAction::new(behavior)?;
         let original_action = action.register(signal)?;
-        if let Some(state) = state {
-            state.updated(signal)?;
-        }
+        state.updated(signal)?;
 
         Ok(Self {
             signal,
