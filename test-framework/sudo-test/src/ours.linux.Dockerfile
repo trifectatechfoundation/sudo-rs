@@ -6,7 +6,8 @@ RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
 ARG SUDO_BUILD_FEATURES
-RUN --mount=type=cache,target=/usr/src/sudo/target cargo build --locked --features="$SUDO_BUILD_FEATURES" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
+RUN --mount=type=cache,target=/usr/src/sudo/target RUSTFLAGS="-C instrument-coverage" cargo build --locked --features="$SUDO_BUILD_FEATURES" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
+RUN find / -name '*.profraw' -exec rm {} \;
 # set setuid on install
 RUN install -m 4755 build/sudo /usr/bin/sudo && \
     install -m 4755 build/su /usr/bin/su && \
