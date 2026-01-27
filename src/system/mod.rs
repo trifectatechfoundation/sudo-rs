@@ -42,7 +42,7 @@ compile_error!("sudo-rs only works on Linux and FreeBSD");
 
 pub(crate) fn _exit(status: c_int) -> ! {
     // SAFETY: this function is safe to call
-    unsafe { libc::_exit(status) }
+    unsafe { libc::exit(status) }
 }
 
 /// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
