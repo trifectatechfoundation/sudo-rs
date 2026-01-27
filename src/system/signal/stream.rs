@@ -14,7 +14,7 @@ use crate::{cutils::cerr, log::dev_error};
 use super::{
     handler::{SignalHandler, SignalHandlerBehavior},
     info::SignalInfo,
-    signal_name, SignalNumber,
+    signal_name, SignalNumber, SignalsState,
 };
 
 static STREAM: OnceLock<SignalStream> = OnceLock::new();
@@ -85,20 +85,29 @@ impl SignalStream {
     }
 }
 
+#[inline]
+pub(crate) fn register_handlers_untracked<const N: usize>(
+    signals: [SignalNumber; N],
+) -> io::Result<[SignalHandler; N]> {
+    register_handlers(signals, &mut None)
+}
+
 #[track_caller]
 pub(crate) fn register_handlers<const N: usize>(
     signals: [SignalNumber; N],
+    original_signals: &mut Option<SignalsState>,
 ) -> io::Result<[SignalHandler; N]> {
     let mut handlers = signals.map(|signal| (signal, MaybeUninit::uninit()));
 
     for (signal, handler) in &mut handlers {
-        *handler = SignalHandler::register(*signal, SignalHandlerBehavior::Stream)
-            .map(MaybeUninit::new)
-            .map_err(|err| {
-                let name = signal_name(*signal);
-                dev_error!("cannot setup handler for {name}: {err}");
-                err
-            })?;
+        *handler =
+            SignalHandler::register(*signal, SignalHandlerBehavior::Stream, original_signals)
+                .map(MaybeUninit::new)
+                .map_err(|err| {
+                    let name = signal_name(*signal);
+                    dev_error!("cannot setup handler for {name}: {err}");
+                    err
+                })?;
     }
 
     // SAFETY: if the above for-loop has terminated, every handler will have

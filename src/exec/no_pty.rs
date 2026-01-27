@@ -10,7 +10,7 @@ use crate::{
     common::bin_serde::BinPipe,
     system::signal::{
         consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber,
-        SignalSet, SignalStream,
+        SignalSet, SignalStream, SignalsState,
     },
 };
 use crate::{
@@ -33,6 +33,14 @@ pub(super) fn exec_no_pty(
 ) -> io::Result<ExitReason> {
     // FIXME (ogsudo): Initialize the policy plugin's session here.
 
+    let mut original_signals = match SignalsState::save() {
+        Ok(original_signals) => Some(original_signals),
+        Err(err) => {
+            dev_warn!("cannot save state original signals: {err}");
+            None
+        }
+    };
+
     // Block all the signals until we are done setting up the signal handlers so we don't miss
     // SIGCHLD.
     let original_set = match SignalSet::full().and_then(|set| set.block()) {
@@ -54,7 +62,7 @@ pub(super) fn exec_no_pty(
         err
     })?
     else {
-        exec_command(command, original_set, errpipe_tx);
+        exec_command(command, original_set, original_signals, errpipe_tx);
     };
 
     if let Some(spawner) = spawn_noexec_handler {
@@ -65,7 +73,13 @@ pub(super) fn exec_no_pty(
 
     let mut registry = EventRegistry::new();
 
-    let mut closure = ExecClosure::new(command_pid, sudo_pid, errpipe_rx, &mut registry)?;
+    let mut closure = ExecClosure::new(
+        command_pid,
+        sudo_pid,
+        errpipe_rx,
+        &mut registry,
+        &mut original_signals,
+    )?;
 
     // Restore the signal mask now that the handlers have been setup.
     if let Some(set) = original_set {
@@ -105,6 +119,7 @@ impl ExecClosure {
         sudo_pid: ProcessId,
         errpipe_rx: BinPipe<i32>,
         registry: &mut EventRegistry<Self>,
+        original_signals: &mut Option<SignalsState>,
     ) -> io::Result<Self> {
         registry.register_event(&errpipe_rx, PollEvent::Readable, |_| ExecEvent::ErrPipe);
 
@@ -112,7 +127,7 @@ impl ExecClosure {
 
         registry.register_event(signal_stream, PollEvent::Readable, |_| ExecEvent::Signal);
 
-        let signal_handlers = register_handlers(Self::SIGNALS)?;
+        let signal_handlers = register_handlers(Self::SIGNALS, original_signals)?;
 
         Ok(Self {
             command_pid: Some(command_pid),
@@ -184,7 +199,7 @@ impl ExecClosure {
         }
 
         let sigtstp_handler = if signal == SIGTSTP {
-            SignalHandler::register(signal, SignalHandlerBehavior::Default)
+            SignalHandler::register_untracked(signal, SignalHandlerBehavior::Default)
                 .map_err(|err| dev_warn!("cannot set handler for {}: {err}", signal_fmt(signal)))
                 .ok()
         } else {

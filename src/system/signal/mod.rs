@@ -2,11 +2,13 @@
 mod handler;
 mod info;
 mod set;
+mod state;
 mod stream;
 
 pub(crate) use handler::{SignalHandler, SignalHandlerBehavior};
 pub(crate) use set::SignalSet;
-pub(crate) use stream::{register_handlers, SignalStream};
+pub(crate) use state::SignalsState;
+pub(crate) use stream::{register_handlers, register_handlers_untracked, SignalStream};
 
 use std::borrow::Cow;
 use std::ffi::c_int;

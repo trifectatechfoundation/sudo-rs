@@ -20,7 +20,7 @@ use crate::{
     system::{
         file::{create_temporary_dir, Chown, FileLock},
         interface::{GroupId, UserId},
-        signal::{consts::*, register_handlers, SignalStream},
+        signal::{consts::*, register_handlers_untracked, SignalStream},
         Hostname, User,
     },
 };
@@ -197,7 +197,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
 
     let signal_stream = SignalStream::init()?;
 
-    let handlers = register_handlers([SIGTERM, SIGHUP, SIGINT, SIGQUIT])?;
+    let handlers = register_handlers_untracked([SIGTERM, SIGHUP, SIGINT, SIGQUIT])?;
 
     let tmp_dir = create_temporary_dir()?;
     let tmp_path = tmp_dir.join("sudoers");
