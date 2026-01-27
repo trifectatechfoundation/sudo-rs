@@ -211,3 +211,18 @@ fn stdout_foreign_pty() {
     assert_contains!(foreign_term_sudo, " 1 -> /dev/pts/1");
     assert_contains!(foreign_term_sudo, " 2 -> /dev/pts/2");
 }
+
+#[test]
+fn stdout_pipe_tty() {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, "Defaults use_pty"]).build();
+
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "echo -n 'hello world' | socat -d0 STDIO SYSTEM:'sudo cat /dev/tty | cat',pty",
+        ])
+        .tty(true)
+        .output(&env);
+
+    assert_eq!(output.stdout(), "hello world");
+}
