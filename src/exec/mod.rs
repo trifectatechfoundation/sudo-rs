@@ -206,14 +206,12 @@ pub enum ExitReason {
 fn exec_command(
     mut command: Command,
     original_set: Option<SignalSet>,
-    original_signal: Option<SignalsState>,
+    mut original_signal: SignalsState,
     mut errpipe_tx: BinPipe<i32>,
 ) -> ! {
     // Restore the signal handlers of modified signals
-    if let Some(mut original_signal) = original_signal {
-        if let Err(err) = original_signal.restore() {
-            dev_warn!("cannot restore signal states: {err}");
-        }
+    if let Err(err) = original_signal.restore() {
+        dev_warn!("cannot restore signal states: {err}");
     }
 
     // Restore the signal mask now that the handlers have been setup.

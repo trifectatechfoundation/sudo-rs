@@ -85,17 +85,10 @@ impl SignalStream {
     }
 }
 
-#[inline]
-pub(crate) fn register_handlers_untracked<const N: usize>(
-    signals: [SignalNumber; N],
-) -> io::Result<[SignalHandler; N]> {
-    register_handlers(signals, &mut None)
-}
-
 #[track_caller]
 pub(crate) fn register_handlers<const N: usize>(
     signals: [SignalNumber; N],
-    original_signals: &mut Option<SignalsState>,
+    original_signals: &mut SignalsState,
 ) -> io::Result<[SignalHandler; N]> {
     let mut handlers = signals.map(|signal| (signal, MaybeUninit::uninit()));
 
