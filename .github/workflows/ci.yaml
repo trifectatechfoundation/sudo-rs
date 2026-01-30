@@ -446,7 +446,7 @@ jobs:
           sudo apt update
           sudo apt install gettext
 
-      - name: check translation consistency
+      - name: Check translation consistency
         run: |
           result=""
           for file in po/*.po; do msgfmt --verbose --check "$file" || result=failed; done
