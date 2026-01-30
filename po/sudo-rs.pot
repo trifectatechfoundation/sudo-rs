@@ -456,28 +456,50 @@ msgstr ""
 msgid "environment variable"
 msgstr ""
 
+#: src/sudo/cli/help.rs:13
+msgid "sudo - run commands as another user"
+msgstr ""
+
+#: src/sudo/pipeline.rs:32
+#, rust-format
+msgid ""
+"sudoers file not found: {path}\n"
+"\n"
+"The sudoers file is required for sudo-rs to function. Please ensure:\n"
+"- The file exists at the expected location\n"
+"- You have the necessary permissions to read it\n"
+"- If setting up sudo-rs for the first time, create a sudoers file with "
+"appropriate permissions\n"
+"\n"
+"For more information, see the sudo-rs documentation."
+msgstr ""
+
+#: src/sudo/pipeline.rs:43
+#, rust-format
+msgid "invalid configuration: {error}"
+msgstr ""
+
 #: src/sudo/cli/help.rs:3
 msgid ""
 "usage: sudo -h | -K | -k | -V\n"
-"usage: sudo [-BknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | "
+"usage: sudo [-ABbknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | "
 "-s] [command [arg ...]]\n"
-"usage: sudo -v [-BknS] [-p prompt] [-g group] [-u user]\n"
-"usage: sudo -l [-BknS] [-p prompt] [-U user] [-g group] [-u user] [command "
+"usage: sudo -v [-ABknS] [-p prompt] [-g group] [-u user]\n"
+"usage: sudo -l [-ABknS] [-p prompt] [-U user] [-g group] [-u user] [command "
 "[arg ...]]\n"
-"usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] "
+"usage: sudo -e [-ABknS] [-p prompt] [-D directory] [-g group] [-u user] "
 "file ..."
-msgstr ""
-
-#: src/sudo/cli/help.rs:13
-msgid "sudo - run commands as another user"
 msgstr ""
 
 #: src/sudo/cli/help.rs:17
 msgid ""
 "Options:\n"
+"  -A, --askpass                 use a helper program for password prompting\n"
+"  -b, --background              run command in the background\n"
 "  -B, --bell                    ring bell when prompting\n"
 "  -D, --chdir=directory         change the working directory before running "
 "command\n"
+"  -e, --edit                    edit files instead of running a command\n"
 "  -g, --group=group             run command as the specified group name or "
 "ID\n"
 "  -h, --help                    display help message and exit\n"
@@ -498,24 +520,6 @@ msgid ""
 "  -V, --version                 display version information and exit\n"
 "  -v, --validate                update user's timestamp without running a "
 "command\n"
+"      --preserve-env=list       preserve specific environment variables\n"
 "  --                            stop processing command line arguments"
-msgstr ""
-
-#: src/sudo/pipeline.rs:32
-#, rust-format
-msgid ""
-"sudoers file not found: {path}\n"
-"\n"
-"The sudoers file is required for sudo-rs to function. Please ensure:\n"
-"- The file exists at the expected location\n"
-"- You have the necessary permissions to read it\n"
-"- If setting up sudo-rs for the first time, create a sudoers file with "
-"appropriate permissions\n"
-"\n"
-"For more information, see the sudo-rs documentation."
-msgstr ""
-
-#: src/sudo/pipeline.rs:43
-#, rust-format
-msgid "invalid configuration: {error}"
 msgstr ""
