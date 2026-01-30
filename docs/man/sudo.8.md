@@ -39,6 +39,11 @@ are introduced.
 
 # OPTIONS
 
+`-A`, `--askpass`
+:   Normally, if sudo requires a password, it will read it from the user's terminal.  If the -A (askpass) option is specified, a (possibly graphical)
+    helper program is executed to read the user's password and output the password to the standard output.  If the SUDO_ASKPASS environment variable is
+    set, it specifies the path to the helper program. If no askpass program is available, sudo will exit with an error.
+
 `-B`, `--bell`
 : Ring the bell as part of the password prompt when a terminal is present.
 
