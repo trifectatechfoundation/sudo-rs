@@ -2,7 +2,7 @@ pub fn usage_msg() -> &'static str {
     xlat!(
         "\
 usage: sudo -h | -K | -k | -V
-usage: sudo [-BknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
+usage: sudo [-BbknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
 usage: sudo -v [-BknS] [-p prompt] [-g group] [-u user]
 usage: sudo -l [-BknS] [-p prompt] [-U user] [-g group] [-u user] [command [arg ...]]
 usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] file ..."
@@ -15,6 +15,7 @@ fn descriptor() -> &'static str {
 
 fn help_msg() -> &'static str {
     xlat!("Options:
+  -b, --background              run command in the background
   -B, --bell                    ring bell when prompting
   -D, --chdir=directory         change the working directory before running command
   -g, --group=group             run command as the specified group name or ID
