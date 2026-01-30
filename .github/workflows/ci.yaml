@@ -436,6 +436,19 @@ jobs:
       - name: Build docs
         run: cargo doc --no-deps --document-private-items
 
+      - name: Check CLI consistency
+        run: |
+          result=""
+          documented_flags=$(grep -Eoe '"--?[A-Za-z][^"]*"' src/sudo/cli/mod.rs | tr -d '"' | sort -u | grep -v -e '-[EH]' -e '--set-home')
+          for flag in $documented_flags; do
+            for doc in src/sudo/cli/help.rs docs/man/sudo.8.md; do
+              if ! grep -qFe "$flag" "$doc"; then
+                result=failed; echo option "'$flag'" missing from "$doc"
+              fi
+            done
+          done
+          test -z "$result"
+
   gettext:
     runs-on: ubuntu-latest
     steps:
