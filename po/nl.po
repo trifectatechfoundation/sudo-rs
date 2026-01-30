@@ -15,84 +15,84 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/common/error.rs:55
+#: src/common/error.rs:51
 #, rust-format
 msgid "Sorry, user {user} is not allowed to execute '{command}' as {other_user} on {hostname}."
 msgstr "Sorry, gebruiker {user} mag '{command}' niet uitvoeren als {other_user} op {hostname}"
 
-#: src/common/error.rs:64
+#: src/common/error.rs:60
 #, rust-format
 msgid "Sorry, user {user} may not run {command} on {hostname}."
 msgstr "Sorry, gebruiker {user} mag {command} niet uitvoeren op {hostname}."
 
-#: src/common/error.rs:72
+#: src/common/error.rs:68
 msgid "sudo must be owned by uid 0 and have the setuid bit set"
 msgstr "sudo moet eigendom zijn van uid 0 en de setuid bit gezet hebben"
 
-#: src/common/error.rs:75
+#: src/common/error.rs:71
 #, rust-format
 msgid "'{path}': command not found"
 msgstr "'{path}': opdracht niet gevonden"
 
-#: src/common/error.rs:78
+#: src/common/error.rs:74
 #, rust-format
 msgid "'{path}': invalid command"
 msgstr "'{path}': ongeldige opdracht"
 
-#: src/common/error.rs:80
+#: src/common/error.rs:76
 #, rust-format
 msgid "user '{user}' not found"
 msgstr "gebruiker '{user}' niet gevonden"
 
-#: src/common/error.rs:81
+#: src/common/error.rs:77
 #, rust-format
 msgid "group '{group}' not found"
 msgstr "groep '{group}' niet gevonden"
 
 #. TRANSLATORS: This is a well-known quote, try to preserve it in translation.
-#: src/common/error.rs:84
+#: src/common/error.rs:80
 #, rust-format
 msgid "I'm sorry {user}. I'm afraid I can't do that"
 msgstr "Het spijt me, {user}. Ik ben bang dat ik dat niet kan doen."
 
-#: src/common/error.rs:86
+#: src/common/error.rs:82
 msgid "interactive authentication is required"
 msgstr "interactieve authenticatie is vereist"
 
-#: src/common/error.rs:90
+#: src/common/error.rs:86
 msgid "you are not allowed to set the following environment variables:"
 msgstr "het is niet toegestaan de volgende omgevingsvariabelen te zetten:"
 
-#: src/common/error.rs:106
+#: src/common/error.rs:102
 #, rust-format
 msgid "cannot execute '{path}': {error}"
 msgstr "kan '{path}' niet uitvoeren: {error}"
 
-#: src/common/error.rs:111 src/pam/error.rs:226
+#: src/common/error.rs:107 src/pam/error.rs:226
 #, rust-format
 msgid "IO error: {error}"
 msgstr "Invoer/uitvoer-fout: {error}"
 
-#: src/common/error.rs:117
+#: src/common/error.rs:113
 #, rust-format
 msgid "maximum {num} incorrect authentication attempts"
 msgstr "maximum van {num} authenticatiepogingen bereikt"
 
-#: src/common/error.rs:123
+#: src/common/error.rs:119
 #, rust-format
 msgid "you are not allowed to use '--chdir {path}' with '{command}'"
 msgstr "het is niet toegestaan '--chdir {path}' te gebruiken met '{command}'"
 
-#: src/common/error.rs:131 src/common/error.rs:138 src/pam/error.rs:211
+#: src/common/error.rs:127 src/common/error.rs:134 src/pam/error.rs:211
 msgid "Unexpected null character in input"
 msgstr "Onverwachte NUL-byte in input"
 
-#: src/common/error.rs:145
+#: src/common/error.rs:141
 #, rust-format
 msgid "unable to change AppArmor profile to {profile}: {error}"
 msgstr "kan AppArmor profiel niet omzeten naar {profile}: {error}"
 
-#: src/exec/mod.rs:141
+#: src/exec/mod.rs:154
 #, rust-format
 msgid "unable to change directory to {path}: {error}"
 msgstr "kan niet naar map {path} gaan: {error}"
@@ -172,29 +172,33 @@ msgstr "authenticatie"
 #: src/sudo/cli/help.rs:3
 msgid ""
 "usage: sudo -h | -K | -k | -V\n"
-"usage: sudo [-BknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command "
+"usage: sudo [-ABbknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command "
 "[arg ...]]\n"
-"usage: sudo -v [-BknS] [-p prompt] [-g group] [-u user]\n"
-"usage: sudo -l [-BknS] [-p prompt] [-U user] [-g group] [-u user] [command [arg ...]]\n"
-"usage: sudo -e [-BknS] [-p prompt] [-D directory] [-g group] [-u user] file ..."
+"usage: sudo -v [-ABknS] [-p prompt] [-g group] [-u user]\n"
+"usage: sudo -l [-ABknS] [-p prompt] [-U user] [-g group] [-u user] [command [arg ...]]\n"
+"usage: sudo -e [-ABknS] [-p prompt] [-D directory] [-g group] [-u user] file ..."
 msgstr ""
 "gebruik: sudo -h | -K | -k | -V\n"
-"gebruik: sudo [-BknS] [-p prompt] [-D map] [-g groep] [-u gebruiker] [-i | -s] [opdracht "
+"gebruik: sudo [-ABbknS] [-p prompt] [-D map] [-g groep] [-u gebruiker] [-i | -s] [opdracht "
 "[arg ...]]\n"
-"gebruik: sudo -v [-BknS] [-p prompt] [-g groep] [-u gebruiker]\n"
-"gebruik: sudo -l [-BknS] [-p prompt] [-U gebruiker] [-g groep] [-u gebruiker] [opdracht "
+"gebruik: sudo -v [-ABknS] [-p prompt] [-g groep] [-u gebruiker]\n"
+"gebruik: sudo -l [-ABknS] [-p prompt] [-U gebruiker] [-g groep] [-u gebruiker] [opdracht "
 "[arg ...]]\n"
-"gebruik: sudo -e [-BknS] [-p prompt] [-D map] [-g groep] [-u gebruiker] bestand ..."
+"gebruik: sudo -e [-ABknS] [-p prompt] [-D map] [-g groep] [-u gebruiker] bestand ..."
 
 #: src/sudo/cli/help.rs:13
 msgid "sudo - run commands as another user"
 msgstr "sudo - voer opdrachten uit als een ander"
 
 #: src/sudo/cli/help.rs:17
+#, fuzzy
 msgid ""
 "Options:\n"
+"  -A, --askpass                 use a helper program for password prompting\n"
+"  -b, --background              run command in the background\n"
 "  -B, --bell                    ring bell when prompting\n"
 "  -D, --chdir=directory         change the working directory before running command\n"
+"  -e, --edit                    edit files instead of running a command\n"
 "  -g, --group=group             run command as the specified group name or ID\n"
 "  -h, --help                    display help message and exit\n"
 "  -i, --login                   run login shell as the target user; a command may also be "
@@ -211,11 +215,15 @@ msgid ""
 "  -u, --user=user               run command (or edit file) as specified user name or ID\n"
 "  -V, --version                 display version information and exit\n"
 "  -v, --validate                update user's timestamp without running a command\n"
+"      --preserve-env=list       preserve specific environment variables\n"
 "  --                            stop processing command line arguments"
 msgstr ""
 "Opties:\n"
+"  -A, --askpass                 vraag het wachtwoord via een hulpprogramma\n"
+"  -b, --background              voer de opdracht uit in de achtergrond\n"
 "  -B, --bell                    geef audiosignaal voor een prompt\n"
 "  -D, --chdir=directory         wijzig de map voor uitvoering\n"
+"  -e, --edit                    bewerk bestanden in plaats van een opdracht uit te voeren\n"
 "  -g, --group=groep             voer opdracht uit onder de bepaalde groep\n"
 "  -h, --help                    geef dit bericht weer\n"
 "  -i, --login                   open de login shell van de gebruiker\n"
@@ -231,6 +239,7 @@ msgstr ""
 "  -u, --user=gebruiker          voer de opdracht uit als deze gebruiker\n"
 "  -V, --version                 geef versie-informatie weer\n"
 "  -v, --validate                hernieuw authenticatie zonder nieuwe opdracht\n"
+"      --preserve-env=list       bewaar de aangegeven omgevingsvariabelen\n"
 "  --                            stop met het verwerken van opties"
 
 #: src/sudo/cli/help_edit.rs:3
@@ -272,44 +281,44 @@ msgstr ""
 "  -V, --version                 geef versie-informatie weer\n"
 "  --                            stop met het verwerken van opties"
 
-#: src/sudo/cli/mod.rs:210 src/sudo/cli/mod.rs:275 src/sudo/cli/mod.rs:347 src/sudo/cli/mod.rs:433
-#: src/sudo/cli/mod.rs:446 src/sudo/cli/mod.rs:846
+#: src/sudo/cli/mod.rs:152 src/sudo/cli/mod.rs:217 src/sudo/cli/mod.rs:289 src/sudo/cli/mod.rs:378
+#: src/sudo/cli/mod.rs:391 src/sudo/cli/mod.rs:797
 #, rust-format
 msgid "{context} cannot be used together with {option}"
 msgstr "{context} en {option} kunnen niet tegelijkertijd gebruikt worden"
 
-#: src/sudo/cli/mod.rs:284
+#: src/sudo/cli/mod.rs:226
 msgid "must specify at least one file path"
 msgstr "verwacht tenminste één bestandsnaam"
 
-#: src/sudo/cli/mod.rs:359
+#: src/sudo/cli/mod.rs:301
 #, rust-format
 msgid "'{option}' flag must be accompanied by a command"
 msgstr "'{option}' flag moet gevolgd worden door een opdracht"
 
-#: src/sudo/cli/mod.rs:442
+#: src/sudo/cli/mod.rs:387
 msgid "command (positional argument)"
 msgstr "opdracht (als argument)"
 
-#: src/sudo/cli/mod.rs:457
+#: src/sudo/cli/mod.rs:402
 msgid "expected one of: --login, --shell, a command as a positional argument"
 msgstr "verwacht één van de volgende: --login, --shell, een opdracht als argument"
 
-#: src/sudo/cli/mod.rs:586
+#: src/sudo/cli/mod.rs:534
 #, rust-format
 msgid "'{option}' does not take any arguments"
 msgstr "'{option}' verwacht geen argumenten"
 
-#: src/sudo/cli/mod.rs:595 src/sudo/cli/mod.rs:623
+#: src/sudo/cli/mod.rs:543 src/sudo/cli/mod.rs:571
 #, rust-format
 msgid "'{option}' expects an argument"
 msgstr "'{option}' verwacht een argument"
 
-#: src/sudo/cli/mod.rs:613
+#: src/sudo/cli/mod.rs:561
 msgid "invalid option '='"
 msgstr "ongeldige optie '='"
 
-#: src/sudo/cli/mod.rs:666
+#: src/sudo/cli/mod.rs:614
 msgid ""
 "expected one of these actions: --help, --version, --remove-timestamp, --validate, --list, --edit, "
 "--login, --shell, a command as a positional argument, --reset-timestamp"
@@ -317,24 +326,24 @@ msgstr ""
 "gebruik een van deze acties: --help, --version, --remove-timestamp, --validate, --list, --edit, --"
 "login, --shell, een opdracht, --reset-timestamp"
 
-#: src/sudo/cli/mod.rs:703
+#: src/sudo/cli/mod.rs:654
 #, rust-format
 msgid "preserving the entire environment is not supported, '{flag}' is ignored"
 msgstr "de hele omgeving bewaren wordt niet ondersteund, '{flag}' is genegeerd"
 
-#: src/sudo/cli/mod.rs:747 src/sudo/cli/mod.rs:776
+#: src/sudo/cli/mod.rs:698 src/sudo/cli/mod.rs:727
 msgid "invalid option provided"
 msgstr "ongeldige optie"
 
-#: src/sudo/cli/mod.rs:794
+#: src/sudo/cli/mod.rs:745
 msgid "sudoedit doesn't need to be run via sudo"
 msgstr "sudoedit hoeft niet via sudo aangeroepen te worden"
 
-#: src/sudo/cli/mod.rs:897
+#: src/sudo/cli/mod.rs:849
 msgid "command"
 msgstr "opdracht"
 
-#: src/sudo/cli/mod.rs:898
+#: src/sudo/cli/mod.rs:850
 msgid "environment variable"
 msgstr "omgevingsvariabele"
 
@@ -455,22 +464,22 @@ msgstr "sudoersbestand niet gevonden op {path}"
 msgid "invalid configuration: {error}"
 msgstr "configuratiefout: {error}"
 
-#: src/sudo/pipeline/edit.rs:38
+#: src/sudo/pipeline/edit.rs:36
 #, rust-format
 msgid "{path}: editing symbolic links is not permitted"
 msgstr "symbolische links in {path} zijn niet toegestaan"
 
-#: src/sudo/pipeline/edit.rs:43
+#: src/sudo/pipeline/edit.rs:41
 #, rust-format
 msgid "error opening {path}: {error}"
 msgstr "kan {path} niet openen: {error}"
 
-#: src/sudo/pipeline/edit.rs:47
+#: src/sudo/pipeline/edit.rs:45
 #, rust-format
 msgid "invalid path: {path}"
 msgstr "ongeldig pad: {path}"
 
-#: src/sudo/pipeline/edit.rs:52
+#: src/sudo/pipeline/edit.rs:50
 msgid "please address the problems and try again"
 msgstr "los de problemen op en probeer opnieuw"
 
