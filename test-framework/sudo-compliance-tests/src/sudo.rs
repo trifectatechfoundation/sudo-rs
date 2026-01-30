@@ -3,6 +3,7 @@ mod apparmor;
 mod child_process;
 mod cli;
 mod env_reset;
+mod flag_background;
 mod flag_chdir;
 mod flag_group;
 mod flag_help;

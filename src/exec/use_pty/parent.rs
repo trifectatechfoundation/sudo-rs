@@ -1,8 +1,12 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::io;
+use std::os::fd::{FromRawFd, OwnedFd};
 use std::process::{Command, Stdio};
 
+use libc::{close, O_CLOEXEC};
+
+use crate::cutils::cerr;
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
 use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
@@ -31,6 +35,7 @@ pub(in crate::exec) fn exec_pty(
     mut command: Command,
     user_tty: UserTerm,
     pty_owner: &User,
+    background: bool,
 ) -> io::Result<ExitReason> {
     // Allocate a pseudoterminal.
     let pty = get_pty(pty_owner)?;
@@ -65,7 +70,7 @@ pub(in crate::exec) fn exec_pty(
     // `policy_init_session`.
     // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
 
-    // Fetch the parent process group so we can signals to it.
+    // Fetch the parent process group so we can send signals to it.
     let parent_pgrp = getpgrp();
 
     // Set all the IO streams for the command to the follower side of the pty.
@@ -90,6 +95,10 @@ pub(in crate::exec) fn exec_pty(
         ParentEvent::Tty,
         ParentEvent::Pty,
     );
+
+    if background {
+        tty_pipe.disable_input(&mut registry);
+    }
 
     let user_tty = tty_pipe.left_mut();
 
@@ -116,11 +125,32 @@ pub(in crate::exec) fn exec_pty(
     // FIXME: ogsudo creates pipes for the IO streams and uses events to read from the strams to
     // the pipes. Investigate why.
     if !io::stdin().is_terminal_for_pgrp(parent_pgrp) {
-        dev_info!("stdin is not a terminal, command will inherit it");
-        if io::stdin().is_pipe_or_socket() {
+        if background {
+            // Running in background (sudo -b), no access to terminal input.
+            // In non-pty mode, the command runs in an orphaned process
+            // group and reads from the controlling terminal fail with EIO.
+            // We cannot do the same while running in a pty but if we set
+            // stdin to a half-closed pipe, reads from it will get EOF.
+            dev_info!("stdin is not a terminal, creating a pipe");
             exec_bg = true;
+
+            let mut pipes = [-1, -1];
+            // SAFETY: A valid pointer to a mutable array of 2 fds is passed in.
+            unsafe {
+                cerr(libc::pipe2(pipes.as_mut_ptr(), O_CLOEXEC))?;
+            }
+            // SAFETY: pipe2 created two owned pipe fds.
+            unsafe {
+                command.stdin(OwnedFd::from_raw_fd(pipes[0]));
+                close(pipes[1]);
+            }
+        } else {
+            dev_info!("stdin is not a terminal, command will inherit it");
+            if io::stdin().is_pipe_or_socket() {
+                exec_bg = true;
+            }
+            command.stdin(Stdio::inherit());
         }
-        command.stdin(Stdio::inherit());
 
         if foreground && parent_pgrp != sudo_pid {
             // If sudo is not the process group leader and stdin is not a terminal we might be

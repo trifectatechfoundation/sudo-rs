@@ -132,6 +132,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         non_interactive: sudo_options.non_interactive,
         use_session_records: false,
         bell: false,
+        background: false,
         files_to_edit: vec![],
     }
 }

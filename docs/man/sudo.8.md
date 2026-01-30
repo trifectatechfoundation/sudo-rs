@@ -9,7 +9,7 @@ title: SUDO(8) sudo-rs 0.2.11 | sudo-rs
 # SYNOPSIS
 
 `sudo` `-h` | `-K` | `-k` | `-V`\
-`sudo` \[`-u` *user*\] \[`-g` *group*\] \[`-D` *directory*\] \[`-BknS`\] \[`-i` | `-s`\] \[`VAR=value`\] \[<*command*>\]\
+`sudo` \[`-u` *user*\] \[`-g` *group*\] \[`-D` *directory*\] \[`-BbknS`\] \[`-i` | `-s`\] \[`VAR=value`\] \[<*command*>\]\
 `sudo` `-v` \[`-BknS`\] \[`-u` *user*\]  \[`-g` *group*\]\
 `sudo` `-l` \[`-BknS`\] \[`-U` *user*\] \[`-u` *user*\]  \[`-g` *group*\] \[command \[arg ...\]\]\
 `sudo` `-e` \[`-BknS`\] \[`-u` *user*\] \[`-g` *group*\] file ...\
@@ -41,6 +41,11 @@ are introduced.
 
 `-B`, `--bell`
 : Ring the bell as part of the password prompt when a terminal is present.
+
+`-b`, `--background`
+:   Run the given *command* in the background. It is not possible to use shell
+    job control to manipulate background processes started by sudo-rs. Most
+    interactive *command*s will fail to work properly in background mode.
 
 `-D` *directory*, `--chdir`=*directory*
 :   Run the *command* in the specified *directory* instead of the current
