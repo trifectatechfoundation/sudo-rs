@@ -120,6 +120,10 @@ are introduced.
     was specified, the shell from the user's password database entry will be
     used instead. If a *command* is specified, it is passed to the shell using the `-c` option.
 
+`--preserve-env=list`
+:   Indicates to the security policy that the user wishes to add the comma-separated list of environment variables to those preserved from the user's environment.
+    The security policy may return an error if the user does not have permission to preserve the environment. This option may be specified multiple times.
+
 `-e`, `--edit`, `sudoedit`
 
 :   Edit one or more files instead of running a command.  In lieu of a path name, the string "sudoedit" is used when consulting the security policy.  If the user is authorized by the policy, the following steps are taken:

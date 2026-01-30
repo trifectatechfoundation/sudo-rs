@@ -34,6 +34,7 @@ fn help_msg() -> &'static str {
   -u, --user=user               run command (or edit file) as specified user name or ID
   -V, --version                 display version information and exit
   -v, --validate                update user's timestamp without running a command
+      --preserve-env=list       preserve specific environment variables
   --                            stop processing command line arguments")
 }
 
