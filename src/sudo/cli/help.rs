@@ -19,6 +19,7 @@ fn help_msg() -> &'static str {
   -b, --background              run command in the background
   -B, --bell                    ring bell when prompting
   -D, --chdir=directory         change the working directory before running command
+  -e, --edit                    edit files instead of running a command
   -g, --group=group             run command as the specified group name or ID
   -h, --help                    display help message and exit
   -i, --login                   run login shell as the target user; a command may also be specified

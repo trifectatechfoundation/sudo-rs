@@ -120,9 +120,9 @@ are introduced.
     was specified, the shell from the user's password database entry will be
     used instead. If a *command* is specified, it is passed to the shell using the `-c` option.
 
-`-e`, `sudoedit`
+`-e`, `--edit`, `sudoedit`
 
-    Edit one or more files instead of running a command.  In lieu of a path name, the string "sudoedit" is used when consulting the security policy.  If the user is authorized by the policy, the following steps are taken:
+:   Edit one or more files instead of running a command.  In lieu of a path name, the string "sudoedit" is used when consulting the security policy.  If the user is authorized by the policy, the following steps are taken:
 
     1. Temporary copies are made of the files to be edited with the owner set to the invoking user.
 
