@@ -39,6 +39,11 @@ are introduced.
 
 # OPTIONS
 
+`-A`, `--askpass`
+:   Normally, if sudo requires a password, it will read it from the user's terminal.  If the -A (askpass) option is specified, a (possibly graphical)
+    helper program is executed to read the user's password and output the password to the standard output.  If the SUDO_ASKPASS environment variable is
+    set, it specifies the path to the helper program. If no askpass program is available, sudo will exit with an error.
+
 `-B`, `--bell`
 : Ring the bell as part of the password prompt when a terminal is present.
 
@@ -115,9 +120,13 @@ are introduced.
     was specified, the shell from the user's password database entry will be
     used instead. If a *command* is specified, it is passed to the shell using the `-c` option.
 
-`-e`, `sudoedit`
+`--preserve-env=list`
+:   Indicates to the security policy that the user wishes to add the comma-separated list of environment variables to those preserved from the user's environment.
+    The security policy may return an error if the user does not have permission to preserve the environment. This option may be specified multiple times.
 
-    Edit one or more files instead of running a command.  In lieu of a path name, the string "sudoedit" is used when consulting the security policy.  If the user is authorized by the policy, the following steps are taken:
+`-e`, `--edit`, `sudoedit`
+
+:   Edit one or more files instead of running a command.  In lieu of a path name, the string "sudoedit" is used when consulting the security policy.  If the user is authorized by the policy, the following steps are taken:
 
     1. Temporary copies are made of the files to be edited with the owner set to the invoking user.
 

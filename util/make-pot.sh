@@ -12,7 +12,7 @@ fi
 potfile="$WORK_ROOT/po/sudo-rs.pot"
 test -e "$potfile" && EXISTING="--join-existing --omit-header"
 
-cd "$WORK_ROOT" && find src -name "*.rs" -not -path "*/gettext/*" | xargs xgettext \
+cd "$WORK_ROOT" && find src -name "*.rs" -not -path "*/gettext/*" -not -path "*/su/*" | xargs xgettext \
   --package-name="sudo-rs" \
   --package-version="$SUDO_RS_VERSION" \
   --msgid-bugs-address="https://github.com/trifectatechfoundation/sudo-rs/issues" \
