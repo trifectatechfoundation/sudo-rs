@@ -190,7 +190,7 @@ where
 }
 
 /// Check whether a path points to a regular file and any executable flag is set
-pub(crate) fn is_valid_executable(path: &PathBuf) -> bool {
+pub(crate) fn is_valid_executable(path: &Path) -> bool {
     if path.is_file() {
         match fs::metadata(path) {
             Ok(meta) => meta.mode() & 0o111 != 0,
@@ -216,12 +216,12 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
         // construct a possible executable absolute path candidate
         .map(|path| path.join(command))
         // check whether the candidate is a regular file and any executable flag is set
-        .find(is_valid_executable)
+        .find(|arg| is_valid_executable(arg))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use crate::common::resolve::CurrentUser;
     use crate::system::ROOT_GROUP_NAME;
@@ -234,41 +234,46 @@ mod tests {
         let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
         assert!(is_valid_executable(
-            &resolve_path(&PathBuf::from("yes"), path).unwrap()
+            &resolve_path(Path::new("yes"), path).unwrap()
         ));
 
         assert!(is_valid_executable(
-            &resolve_path(&PathBuf::from("whoami"), path).unwrap()
+            &resolve_path(Path::new("whoami"), path).unwrap()
         ));
 
         assert!(is_valid_executable(
-            &resolve_path(&PathBuf::from("env"), path).unwrap()
+            &resolve_path(Path::new("env"), path).unwrap()
         ));
-        assert_eq!(
-            resolve_path(&PathBuf::from("thisisnotonyourfs"), path),
-            None
-        );
-        assert_eq!(resolve_path(&PathBuf::from("thisisnotonyourfs"), "."), None);
+        assert_eq!(resolve_path(Path::new("thisisnotonyourfs"), path), None);
+        assert_eq!(resolve_path(Path::new("thisisnotonyourfs"), "."), None);
     }
 
     #[test]
     fn test_cwd_resolve_path() {
         // We modify the path to contain ".", which is supposed to be ignored
-        let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:.";
+        let path = ".";
 
-        let cwd = std::env::current_dir().unwrap();
+        struct Guard(PathBuf);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                std::env::set_current_dir(&self.0).unwrap();
+            }
+        }
 
-        // we filter for executable files, so it is most likely going to pick one of the shell
-        // scripts in the project's root
-        let some_file = cwd
-            .read_dir()
+        let _guard = Guard(std::env::current_dir().unwrap());
+
+        std::env::set_current_dir("/usr/bin").unwrap();
+
+        // this test assumes that /sbin and /bin won't contain commands that
+        // have the same name
+        let some_file = std::fs::read_dir(".")
             .unwrap()
             .filter_map(|entry| entry.ok())
             .find_map(|entry| {
-                let pathbuf = PathBuf::from(entry.file_name());
-                is_valid_executable(&pathbuf).then_some(pathbuf)
+                let path = PathBuf::from(entry.file_name());
+                is_valid_executable(&path).then_some(path)
             })
-            .unwrap();
+            .unwrap_or_default();
 
         assert_eq!(resolve_path(&some_file, path), None);
     }
