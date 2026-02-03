@@ -154,7 +154,7 @@ Note that in real-world attacks, sudo vulnerabilities would usually be combined 
 
 This is an unanswerable question. The real question of course is: what is the *probability* of discovering a bug in sudo-rs, compared to that in original sudo?
 
-One the one hand: we are a newer project, so we are likely to have messed up at some point. So for sure, we expect that sudo-rs will have some bugs that original sudo doesn't have. We have even shipped sudo-rs versions that had known bugs, and we will probably continue to do so in the future. Being open about this is normal for open source/free software. 
+On the one hand: we are a newer project, so we are likely to have messed up at some point. So for sure, we expect that sudo-rs will have some bugs that original sudo doesn't have. We have even shipped sudo-rs versions that had known bugs, and we will probably continue to do so in the future. Being open about this is normal for open source/free software. 
 
 On the other hand, we have found several bugs in original sudo while we were implementing sudo-rs, and through our compliance testing framework we can clearly see that original sudo also is still actively introducing and fixing bugs.
 
