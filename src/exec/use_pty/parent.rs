@@ -597,6 +597,7 @@ impl ParentClosure {
                         self.term_raw = true;
                     }
                     // Resume command in the foreground
+                    self.tty_pipe.enable_input(registry);
                     return Some(SIGCONT_FG);
                 }
             }
