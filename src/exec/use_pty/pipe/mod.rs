@@ -74,6 +74,12 @@ impl<L: Read + Write + AsFd, R: Read + Write + AsFd> Pipe<L, R> {
         self.background = true;
     }
 
+    /// Start/resume the poll events of the left end of this pipe.
+    pub(super) fn enable_input<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
+        self.buffer_lr.read_handle.resume(registry);
+        self.background = false;
+    }
+
     /// Resume the poll events of this pipe
     pub(super) fn resume_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
         if !self.background {
