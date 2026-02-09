@@ -15,7 +15,7 @@ static TEXT_DOMAIN: OnceLock<&'static CStr> = OnceLock::new();
 #[cfg(feature = "gettext")]
 pub(crate) fn textdomain(domain: &'static CStr) {
     use libc::{nl_langinfo, setlocale, CODESET, LC_ALL};
-    let utf8 = cstr!("UTF-8");
+    let utf8 = c"UTF-8";
 
     // SAFETY: in all cases the functions are passed valid null-terminated C strings;
     // in the case of nl_langinfo, it is guaranteed by the spec to always return a valid
@@ -79,6 +79,19 @@ pub(crate) fn gettext(text: &'static CStr) -> &'static str {
     }
     .to_str()
     .expect("translation files are corrupted")
+}
+
+#[cfg(feature = "gettext")]
+macro_rules! cstr {
+    ($lit:literal) => {{
+        // this `const` item produces compile time errors = it performs the checks at compile time
+        const CS: &'static std::ffi::CStr =
+            match std::ffi::CStr::from_bytes_until_nul(concat!($lit, "\0").as_bytes()) {
+                Ok(x) => x,
+                Err(_) => panic!("string literal did not pass CStr checks"),
+            };
+        CS
+    }};
 }
 
 #[cfg(feature = "gettext")]
@@ -172,8 +185,8 @@ mod test {
     #[cfg(feature = "gettext")]
     fn it_works() {
         use super::*;
-        textdomain(cstr!("libc"));
-        let input = cstr!("Hello World");
+        textdomain(c"libc");
+        let input = c"Hello World";
         // inputs that are not translated are not translated
         assert_eq!(gettext(input), input.to_str().unwrap());
         // .. in fact they are the same object

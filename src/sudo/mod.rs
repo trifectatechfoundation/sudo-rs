@@ -67,7 +67,7 @@ fn sudo_process() -> Result<(), Error> {
     dev_info!("development logs are enabled");
 
     #[cfg(feature = "gettext")]
-    crate::gettext::textdomain(cstr!("sudo-rs"));
+    crate::gettext::textdomain(c"sudo-rs");
 
     self_check()?;
 

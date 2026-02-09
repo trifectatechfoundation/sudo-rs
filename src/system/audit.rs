@@ -300,8 +300,8 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
     for component in components {
         let dir: CString = match component {
             Component::Normal(dir) => CString::new(dir.as_bytes())?,
-            Component::CurDir => cstr!(".").to_owned(),
-            Component::ParentDir => cstr!("..").to_owned(),
+            Component::CurDir => c".".to_owned(),
+            Component::ParentDir => c"..".to_owned(),
             _ => {
                 return Err(io::Error::new(
                     ErrorKind::InvalidInput,
@@ -357,7 +357,7 @@ mod test {
     fn test_traverse_secure_open_negative() {
         use crate::common::resolve::CurrentUser;
 
-        let root = User::from_name(cstr!("root")).unwrap().unwrap();
+        let root = User::from_name(c"root").unwrap().unwrap();
         let user = CurrentUser::resolve().unwrap();
 
         // not allowed -- invalid

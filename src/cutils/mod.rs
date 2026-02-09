@@ -112,7 +112,6 @@ pub fn is_fifo_or_sock(fildes: BorrowedFd) -> bool {
 #[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {
-    use std::ffi::c_char;
 
     use super::{os_string_from_ptr, string_from_ptr};
 
@@ -120,16 +119,16 @@ mod test {
     fn miri_test_str_to_ptr() {
         let strp = |ptr| unsafe { string_from_ptr(ptr) };
         assert_eq!(strp(std::ptr::null()), "");
-        assert_eq!(strp("\0".as_ptr() as *const c_char), "");
-        assert_eq!(strp("hello\0".as_ptr() as *const c_char), "hello");
+        assert_eq!(strp(c"".as_ptr()), "");
+        assert_eq!(strp(c"hello".as_ptr()), "hello");
     }
 
     #[test]
     fn miri_test_os_str_to_ptr() {
         let strp = |ptr| unsafe { os_string_from_ptr(ptr) };
         assert_eq!(strp(std::ptr::null()), "");
-        assert_eq!(strp("\0".as_ptr() as *const c_char), "");
-        assert_eq!(strp("hello\0".as_ptr() as *const c_char), "hello");
+        assert_eq!(strp(c"".as_ptr()), "");
+        assert_eq!(strp(c"hello".as_ptr()), "hello");
     }
 
     #[test]

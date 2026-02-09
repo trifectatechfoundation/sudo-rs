@@ -38,7 +38,7 @@ fn apparmor_prepare_exec(new_profile: &str) -> io::Result<()> {
     }
 
     // SAFETY: dlsym will either return a function pointer of the right signature or NULL.
-    let aa_change_onexec = unsafe { libc::dlsym(handle, cstr!("aa_change_onexec").as_ptr()) };
+    let aa_change_onexec = unsafe { libc::dlsym(handle, c"aa_change_onexec".as_ptr()) };
 
     if aa_change_onexec.is_null() {
         // SAFETY: Always safe to call
