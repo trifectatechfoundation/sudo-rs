@@ -10,7 +10,7 @@ publish = true
 categories = ["command-line-interface"]
 exclude = ["audit", "proofs", "util"]
 
-rust-version = "1.70"
+rust-version = "1.85"
 
 default-run = "sudo"
 
