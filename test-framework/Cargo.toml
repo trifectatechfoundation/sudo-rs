@@ -3,6 +3,7 @@ members = ["sudo-test", "sudo-compliance-tests", "e2e-tests"]
 resolver = "2"
 
 [workspace.package]
+edition = "2024"
 rust-version = "1.85"
 
 [profile.dev.package.insta]

@@ -13,7 +13,7 @@ pub fn cerr<Int: Copy + TryInto<c_long>>(res: Int) -> std::io::Result<Int> {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
     #[cfg_attr(
         any(target_os = "macos", target_os = "ios", target_os = "freebsd"),
         link_name = "__error"
@@ -23,7 +23,7 @@ extern "C" {
         link_name = "__errno"
     )]
     #[cfg_attr(target_os = "linux", link_name = "__errno_location")]
-    fn errno_location() -> *mut c_int;
+    safe fn errno_location() -> *mut c_int;
 }
 
 pub fn set_errno(no: c_int) {

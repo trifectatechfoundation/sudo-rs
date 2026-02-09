@@ -166,7 +166,7 @@ macro_rules! xlat_println {
 #[cfg(feature = "gettext")]
 mod gettext_sys {
     #[cfg_attr(target_os = "freebsd", link(name = "intl"))]
-    extern "C" {
+    unsafe extern "C" {
         pub fn dgettext(
             domain: *const libc::c_char,
             msgid: *const libc::c_char,
