@@ -70,8 +70,9 @@ pub unsafe fn os_string_from_ptr(ptr: *const c_char) -> OsString {
 }
 
 fn fstat_mode_any<const MASK: libc::mode_t>(fildes: &BorrowedFd) -> bool {
-    // FIXME put this in a const block once the MSRV has been bumped enough
-    assert!(MASK & libc::S_IFMT == MASK);
+    const {
+        assert!(MASK & libc::S_IFMT == MASK);
+    }
 
     // The Rust standard library doesn't have FileTypeExt on Std{in,out,err}, so we
     // can't just use FileTypeExt::is_char_device and have to resort to libc::fstat.

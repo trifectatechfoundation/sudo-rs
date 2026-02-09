@@ -7,7 +7,10 @@ use std::{
     env, ffi,
     fs::{File, Permissions},
     io::{self, BufRead, Read, Seek, Write},
-    os::unix::prelude::{MetadataExt, PermissionsExt},
+    os::unix::{
+        fs::fchown,
+        prelude::{MetadataExt, PermissionsExt},
+    },
     path::{Path, PathBuf},
     process::Command,
     str,
@@ -18,8 +21,8 @@ use crate::{
     sudo::{candidate_sudoers_file, diagnostic},
     sudoers::{self, Sudoers},
     system::{
-        file::{create_temporary_dir, Chown, FileLock},
-        interface::{GroupId, UserId},
+        file::{create_temporary_dir, FileLock},
+        interface::UserId,
         signal::{consts::*, register_handlers, SignalStream, SignalsState},
         Hostname, User,
     },
@@ -186,7 +189,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     }
 
     if owner || file_arg.is_none() {
-        sudoers_file.chown(UserId::ROOT, GroupId::new(0))?;
+        fchown(&sudoers_file, Some(0), Some(0))?;
     }
 
     let signal_stream = SignalStream::init()?;

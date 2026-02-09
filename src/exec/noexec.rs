@@ -4,7 +4,7 @@
 
 use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
 use std::ffi::{c_int, c_uint, c_ulong, c_void};
-use std::mem::{align_of, size_of, zeroed};
+use std::mem::{align_of, offset_of, size_of, zeroed};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
@@ -63,8 +63,9 @@ struct NotifyAllocs {
 /// Linux reserves the right to demand the memory for an object of type T
 /// to be over-allocated; this function ensures that happens.
 fn alloc_dynamic<T>(runtime_size: u16) -> (*mut T, usize) {
-    // FIXME put this in a const block once the MSRV has been bumped enough
-    assert!(size_of::<T>() > 0);
+    const {
+        assert!(size_of::<T>() > 0);
+    }
 
     let layout = Layout::from_size_align(
         cmp::max(runtime_size.into(), size_of::<T>()),
@@ -373,11 +374,8 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> io::Result<SpawnNoexec
         command.pre_exec(move || {
             let tx_fd = tx_fd.take().unwrap();
 
-            // FIXME replace with offset_of!(seccomp_data, nr) once MSRV is bumped to 1.77
-            // SAFETY: seccomp_data can be safely zero-initialized.
-            let dummy: seccomp_data = zeroed();
-            let nr_offset = (&dummy.nr) as *const _ as usize - &dummy as *const _ as usize;
-            let arch_offset = (&dummy.arch) as *const _ as usize - &dummy as *const _ as usize;
+            let nr_offset = offset_of!(seccomp_data, nr);
+            let arch_offset = offset_of!(seccomp_data, arch);
 
             // SAFETY: libc unnecessarily marks these functions as unsafe
             #[rustfmt::skip]
