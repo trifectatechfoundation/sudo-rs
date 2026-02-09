@@ -5,5 +5,3 @@
 !Cargo.lock
 !Cargo.toml
 !src/**/*
-!bin/**/*
-!build.rs
