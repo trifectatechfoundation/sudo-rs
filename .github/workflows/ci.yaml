@@ -249,8 +249,8 @@ jobs:
       - name: Correct permissions
         run: sudo chmod -R 755 /usr/share
 
-      - name: Install rust 1.70
-        run: rustup override set 1.70
+      - name: Install rust 1.85
+        run: rustup override set 1.85
 
       - name: Install dependencies
         run: |

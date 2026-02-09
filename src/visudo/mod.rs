@@ -7,7 +7,10 @@ use std::{
     env, ffi,
     fs::{File, Permissions},
     io::{self, BufRead, Read, Seek, Write},
-    os::unix::prelude::{MetadataExt, PermissionsExt},
+    os::unix::{
+        fs::fchown,
+        prelude::{MetadataExt, PermissionsExt},
+    },
     path::{Path, PathBuf},
     process::Command,
     str,
@@ -18,8 +21,8 @@ use crate::{
     sudo::{candidate_sudoers_file, diagnostic},
     sudoers::{self, Sudoers},
     system::{
-        file::{create_temporary_dir, Chown, FileLock},
-        interface::{GroupId, UserId},
+        file::{create_temporary_dir, FileLock},
+        interface::UserId,
         signal::{consts::*, register_handlers, SignalStream, SignalsState},
         Hostname, User,
     },
@@ -98,13 +101,10 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         let mode = metadata.permissions().mode() & 0o777;
 
         if mode != 0o440 {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "{}: bad permissions, should be mode 0440, but found {mode:04o}",
-                    sudoers_path.display()
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "{}: bad permissions, should be mode 0440, but found {mode:04o}",
+                sudoers_path.display()
+            )));
         }
     }
 
@@ -112,13 +112,10 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         let owner = (metadata.uid(), metadata.gid());
 
         if owner != (0, 0) {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "{}: wrong owner (uid, gid) should be (0, 0), but found {owner:?}",
-                    sudoers_path.display()
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "{}: wrong owner (uid, gid) should be (0, 0), but found {owner:?}",
+                sudoers_path.display()
+            )));
         }
     }
 
@@ -139,7 +136,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         diagnostic::diagnostic!("syntax error: {message}", path @ location);
     }
 
-    Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
+    Err(io::Error::other("invalid sudoers file"))
 }
 
 fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
@@ -192,7 +189,7 @@ fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
     }
 
     if owner || file_arg.is_none() {
-        sudoers_file.chown(UserId::ROOT, GroupId::new(0))?;
+        fchown(&sudoers_file, Some(0), Some(0))?;
     }
 
     let signal_stream = SignalStream::init()?;

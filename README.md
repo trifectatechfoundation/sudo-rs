@@ -135,7 +135,7 @@ If you **don't** have Todd Miller's `sudo` installed, you also have to make sure
 
 ### Building from source
 
-Sudo-rs is written in Rust. The minimum required Rust version is 1.70. If your
+Sudo-rs is written in Rust. The minimum required Rust version is 1.85. If your
 Linux distribution does not package that version (or a later one), you can always
 install the most recent version through [rustup]. You also need the C development
 files for PAM (`libpam0g-dev` on Debian, `pam-devel` on Fedora).

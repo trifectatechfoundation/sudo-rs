@@ -4,7 +4,7 @@ use std::os::unix::ffi::OsStringExt;
 use std::path::PathBuf;
 
 pub(crate) fn create_temporary_dir() -> io::Result<PathBuf> {
-    let template = cstr!("/tmp/sudoers-XXXXXX").to_owned();
+    let template = c"/tmp/sudoers-XXXXXX".to_owned();
 
     // SAFETY: mkdtemp is passed a valid null-terminated C string
     let ptr = unsafe { libc::mkdtemp(template.into_raw()) };

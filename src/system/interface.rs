@@ -191,8 +191,8 @@ mod test {
     #[test]
     fn test_unix_user() {
         let user = |name| User::from_name(name).unwrap().unwrap();
-        test_user(user(cstr!("root")), cstr!("root"));
-        test_user(user(cstr!("daemon")), cstr!("daemon"));
+        test_user(user(c"root"), c"root");
+        test_user(user(c"daemon"), c"daemon");
     }
 
     #[test]
@@ -200,6 +200,6 @@ mod test {
         let group = |name| Group::from_name(name).unwrap().unwrap();
         let root_group_cstr = CString::new(ROOT_GROUP_NAME).unwrap();
         test_group(group(root_group_cstr.as_c_str()), ROOT_GROUP_NAME);
-        test_group(group(cstr!("daemon")), "daemon");
+        test_group(group(c"daemon"), "daemon");
     }
 }

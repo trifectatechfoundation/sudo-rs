@@ -2,7 +2,7 @@
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    ffi::{c_char, c_int, c_long, c_uint, CStr},
+    ffi::{c_int, c_long, c_uint, CStr},
     fmt, fs, io,
     mem::MaybeUninit,
     ops,
@@ -240,10 +240,7 @@ impl Hostname {
 }
 
 pub fn syslog(priority: c_int, facility: c_int, message: &CStr) {
-    const MSG: *const c_char = match CStr::from_bytes_until_nul(b"%s\0") {
-        Ok(cstr) => cstr.as_ptr(),
-        Err(_) => panic!("syslog formatting string is not null-terminated"),
-    };
+    const MSG: &CStr = c"%s";
 
     // SAFETY:
     // - "MSG" is a constant expression that is a null-terminated C string that represents "%s";
@@ -252,7 +249,7 @@ pub fn syslog(priority: c_int, facility: c_int, message: &CStr) {
     // - message.as_ptr() is a pointer to a proper null-terminated C string (message being a &CStr)
     // for more info: read the manpage for syslog(2)
     unsafe {
-        libc::syslog(priority | facility, MSG, message.as_ptr());
+        libc::syslog(priority | facility, MSG.as_ptr(), message.as_ptr());
     }
 }
 
@@ -274,7 +271,7 @@ fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
     #[allow(irrefutable_let_patterns)]
     #[allow(clippy::useless_conversion)]
     let Ok(len) = groups.len().try_into() else {
-        return Err(io::Error::new(io::ErrorKind::Other, "too many groups"));
+        return Err(io::Error::other("too many groups"));
     };
     // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
     // We can cast to gid_t because `GroupId` is marked as transparent
@@ -741,10 +738,7 @@ impl Process {
         // the startime field is stored in ticks since the system start, so we need to know how many
         // ticks go into a second
         let ticks_per_second = crate::cutils::sysconf(libc::_SC_CLK_TCK).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "Could not retrieve system config variable for ticks per second",
-            )
+            io::Error::other("Could not retrieve system config variable for ticks per second")
         })? as u64;
 
         // finally compute the system time at which the process was started
@@ -902,10 +896,7 @@ mod tests {
     fn test_get_user_and_group_by_id() {
         let fixed_users = &[
             (UserId::ROOT, "root"),
-            (
-                User::from_name(cstr!("daemon")).unwrap().unwrap().uid,
-                "daemon",
-            ),
+            (User::from_name(c"daemon").unwrap().unwrap().uid, "daemon"),
         ];
         for &(id, name) in fixed_users {
             let root = User::from_uid(id).unwrap().unwrap();
@@ -915,10 +906,7 @@ mod tests {
 
         let fixed_groups = &[
             (GroupId::new(0), ROOT_GROUP_NAME),
-            (
-                Group::from_name(cstr!("daemon")).unwrap().unwrap().gid,
-                "daemon",
-            ),
+            (Group::from_name(c"daemon").unwrap().unwrap().gid, "daemon"),
         ];
         for &(id, name) in fixed_groups {
             let root = Group::from_gid(id).unwrap().unwrap();

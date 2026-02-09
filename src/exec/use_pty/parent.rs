@@ -317,7 +317,7 @@ pub(in crate::exec) fn exec_pty(
 }
 
 fn get_pty(pty_owner: &User) -> io::Result<Pty> {
-    let tty_gid = Group::from_name(cstr!("tty"))
+    let tty_gid = Group::from_name(c"tty")
         .unwrap_or(None)
         .map(|group| group.gid);
 

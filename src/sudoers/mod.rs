@@ -633,7 +633,7 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> impl Fn(&Command)
     };
     move |(cmdpat, argpat)| {
         cmdpat.matches_path_with(cmd, opts)
-            && argpat.as_ref().map_or(true, |vec| args == vec.as_ref())
+            && argpat.as_ref().is_none_or(|vec| args == vec.as_ref())
     }
 }
 
