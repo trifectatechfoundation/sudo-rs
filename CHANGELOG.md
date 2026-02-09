@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.12] - 2025-02-09
+
+### Added
+- Support for `-b / --background` to run commands in the background
+
+### Changed
+- visudo will now complain about unsupported command tags (#1401)
+
+### Fixed
+- When run in a pipe from ksh with `use_pty` would put the
+  TTY in an unusable state (#1417, introduced in 0.2.11)
+- When run as the last command in a pipe with `use_pty`, sudo-rs would not
+  grant the executed command access to the TTY (#1263)
+- Documentation didn't explicitly mention `-A` (#1431)
+
 ## [0.2.11] - 2025-12-16
 
 ### Added
