@@ -158,12 +158,11 @@ impl ParentBackchannel {
     /// Calling this method will block until the socket is ready for writing.
     #[track_caller]
     pub(super) fn send(&mut self, event: &MonitorMessage) -> io::Result<()> {
-        self.socket.write(event).map_err(|err| {
+        self.socket.write(event).inspect_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
             }
-            err
         })
     }
 
@@ -172,12 +171,11 @@ impl ParentBackchannel {
     /// Calling this method will block until the socket is ready for reading.
     #[track_caller]
     pub(super) fn recv(&mut self) -> io::Result<ParentMessage> {
-        let msg = self.socket.read().map_err(|err| {
+        let msg = self.socket.read().inspect_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
             }
-            err
         })?;
         Ok(msg)
     }
@@ -277,12 +275,11 @@ impl MonitorBackchannel {
     /// Calling this method will block until the socket is ready for writing.
     #[track_caller]
     pub(super) fn send(&mut self, event: &ParentMessage) -> io::Result<()> {
-        self.socket.write(event).map_err(|err| {
+        self.socket.write(event).inspect_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
             }
-            err
         })
     }
 
@@ -291,12 +288,11 @@ impl MonitorBackchannel {
     /// Calling this method will block until the socket is ready for reading.
     #[track_caller]
     pub(super) fn recv(&mut self) -> io::Result<MonitorMessage> {
-        let msg = self.socket.read().map_err(|err| {
+        let msg = self.socket.read().inspect_err(|err| {
             #[cfg(debug_assertions)]
             if self.nonblocking_asserts {
                 assert_ne!(err.kind(), io::ErrorKind::WouldBlock);
             }
-            err
         })?;
         Ok(msg)
     }

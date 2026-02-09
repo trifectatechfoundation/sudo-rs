@@ -98,13 +98,10 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         let mode = metadata.permissions().mode() & 0o777;
 
         if mode != 0o440 {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "{}: bad permissions, should be mode 0440, but found {mode:04o}",
-                    sudoers_path.display()
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "{}: bad permissions, should be mode 0440, but found {mode:04o}",
+                sudoers_path.display()
+            )));
         }
     }
 
@@ -112,13 +109,10 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         let owner = (metadata.uid(), metadata.gid());
 
         if owner != (0, 0) {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "{}: wrong owner (uid, gid) should be (0, 0), but found {owner:?}",
-                    sudoers_path.display()
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "{}: wrong owner (uid, gid) should be (0, 0), but found {owner:?}",
+                sudoers_path.display()
+            )));
         }
     }
 
@@ -139,7 +133,7 @@ fn check(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {
         diagnostic::diagnostic!("syntax error: {message}", path @ location);
     }
 
-    Err(io::Error::new(io::ErrorKind::Other, "invalid sudoers file"))
+    Err(io::Error::other("invalid sudoers file"))
 }
 
 fn run(file_arg: Option<&str>, perms: bool, owner: bool) -> io::Result<()> {

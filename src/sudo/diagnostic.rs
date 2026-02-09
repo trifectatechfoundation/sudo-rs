@@ -25,8 +25,7 @@ pub(crate) fn cited_error(message: &str, span: Span, path: impl AsRef<Path>) {
             .take(col - 1)
             .map(|c| if c.is_whitespace() { c } else { ' ' })
             .collect::<String>();
-        let lineunder = std::iter::repeat('~')
-            .take(end_col - col)
+        let lineunder = std::iter::repeat_n('~', end_col - col)
             .skip(1)
             .collect::<String>();
         eprintln_ignore_io_error!("{line}");

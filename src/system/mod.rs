@@ -274,7 +274,7 @@ fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
     #[allow(irrefutable_let_patterns)]
     #[allow(clippy::useless_conversion)]
     let Ok(len) = groups.len().try_into() else {
-        return Err(io::Error::new(io::ErrorKind::Other, "too many groups"));
+        return Err(io::Error::other("too many groups"));
     };
     // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
     // We can cast to gid_t because `GroupId` is marked as transparent
@@ -741,10 +741,7 @@ impl Process {
         // the startime field is stored in ticks since the system start, so we need to know how many
         // ticks go into a second
         let ticks_per_second = crate::cutils::sysconf(libc::_SC_CLK_TCK).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "Could not retrieve system config variable for ticks per second",
-            )
+            io::Error::other("Could not retrieve system config variable for ticks per second")
         })? as u64;
 
         // finally compute the system time at which the process was started
