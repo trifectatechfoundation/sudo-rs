@@ -32,6 +32,38 @@ fn can_find_command_not_visible_to_regular_user() {
 }
 
 #[test]
+//Cross-reference: sudoers::secure_path::if_set_searches_program_in_secure_path for
+//testing that relative paths in secure_path are also not matched.
+fn does_not_use_relative_paths() {
+    let path = "/root/my-script";
+    let env = Env("Defaults ignore_dot
+ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+    .user(USERNAME)
+    .file(path, TextFile("#!/bin/sh").chmod("100"))
+    .build();
+
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            &format!("export PATH=.; cd /root; {BIN_SUDO} my-script"),
+        ])
+        .output(&env);
+
+    output.assert_exit_code(1);
+
+    if sudo_test::is_original_sudo() {
+        assert_eq!(
+            output.stderr(),
+            "sudo: ignoring \"my-script\" found in '.'
+Use \"sudo ./my-script\" if this is the \"my-script\" you wish to run."
+        );
+    } else {
+        //NOTE: we don't have a specialized error message for this case
+        assert_eq!(output.stderr(), "sudo: 'my-script': command not found");
+    }
+}
+
+#[test]
 fn when_path_is_unset_does_not_search_in_default_path_set_for_command_execution() {
     let path = "/usr/bin/my-script";
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD)

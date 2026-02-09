@@ -221,7 +221,7 @@ pub(crate) fn resolve_path(command: &Path, path: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
 
     use crate::common::resolve::CurrentUser;
     use crate::system::ROOT_GROUP_NAME;
@@ -246,36 +246,6 @@ mod tests {
         ));
         assert_eq!(resolve_path(Path::new("thisisnotonyourfs"), path), None);
         assert_eq!(resolve_path(Path::new("thisisnotonyourfs"), "."), None);
-    }
-
-    #[test]
-    fn test_cwd_resolve_path() {
-        // We modify the path to contain ".", which is supposed to be ignored
-        let path = ".";
-
-        struct Guard(PathBuf);
-        impl Drop for Guard {
-            fn drop(&mut self) {
-                std::env::set_current_dir(&self.0).unwrap();
-            }
-        }
-
-        let _guard = Guard(std::env::current_dir().unwrap());
-
-        std::env::set_current_dir("/usr/bin").unwrap();
-
-        // this test assumes that /sbin and /bin won't contain commands that
-        // have the same name
-        let some_file = std::fs::read_dir(".")
-            .unwrap()
-            .filter_map(|entry| entry.ok())
-            .find_map(|entry| {
-                let path = PathBuf::from(entry.file_name());
-                is_valid_executable(&path).then_some(path)
-            })
-            .unwrap_or_default();
-
-        assert_eq!(resolve_path(&some_file, path), None);
     }
 
     #[test]
