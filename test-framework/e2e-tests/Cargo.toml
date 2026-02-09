@@ -3,6 +3,7 @@ edition = "2021"
 name = "e2e-tests"
 publish = false
 version = "0.0.0"
+rust-version.workspace = true
 
 [dependencies]
 sudo-test.path = "../sudo-test"
