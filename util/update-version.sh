@@ -14,9 +14,27 @@ if [ -z "$NEW_VERSION" ]; then
     exit 1
 fi
 
+if ! grep -m1 '^## ' "$PROJECT_DIR"/CHANGELOG.md | grep -q -o "[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}"; then
+    echo "Date not formatted correctly in CHANGELOG.md."
+    exit 1
+fi
+
+if ! grep -m2 '^## ' "$PROJECT_DIR"/CHANGELOG.md | grep -o "[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}" | sort -r --check=silent; then
+    echo "Release date of $NEW_VERSION must be more recent than the previous version."
+    exit 1
+fi
+
+YEAR=$(grep -m1 '^## ' "$PROJECT_DIR"/CHANGELOG.md | grep -o "[0-9]\{4\}")
+for license in COPYRIGHT LICENSE-MIT; do
+    if ! grep -q "$YEAR" "$PROJECT_DIR/$license"; then
+        echo "Bump year in $license to $YEAR"
+        exit 1
+    fi
+done
+
 if [ "$CURRENT_VERSION" == "$NEW_VERSION" ]; then
     echo "Cargo.toml was already at $NEW_VERSION"
-    exit 1
+    exit 2
 else
     echo "Updating version in Cargo.toml to $NEW_VERSION"
     sed -i 's/^version\s*=\s*".*"/version = "'"$NEW_VERSION"'"/' "$PROJECT_DIR/Cargo.toml"
