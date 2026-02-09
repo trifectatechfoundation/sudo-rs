@@ -2,6 +2,9 @@
 members = ["sudo-test", "sudo-compliance-tests", "e2e-tests"]
 resolver = "2"
 
+[workspace.package]
+rust-version = "1.85"
+
 [profile.dev.package.insta]
 opt-level = 3
 

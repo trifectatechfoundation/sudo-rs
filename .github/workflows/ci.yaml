@@ -266,6 +266,9 @@ jobs:
       - name: Run tests
         run: cargo test --workspace --all-targets --release
 
+      - name: Check test framework
+        run: cd test-framework && cargo check --workspace --all-targets
+
   build-and-test-fedora:
     runs-on: ubuntu-latest
     container: fedora:latest
