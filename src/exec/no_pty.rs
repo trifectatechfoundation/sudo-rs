@@ -1,28 +1,28 @@
 use std::{ffi::c_int, io, process::Command};
 
 use super::{
+    ExitReason, HandleSigchld,
     event::PollEvent,
     event::{EventRegistry, Process, StopReason},
     io_util::was_interrupted,
-    terminate_process, ExitReason, HandleSigchld,
+    terminate_process,
 };
 use crate::{
     common::bin_serde::BinPipe,
     system::signal::{
-        consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber,
-        SignalSet, SignalStream, SignalsState,
+        SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream, SignalsState,
+        consts::*, register_handlers,
     },
 };
 use crate::{
-    exec::{exec_command, handle_sigchld, signal_fmt, SpawnNoexecHandler},
+    exec::{SpawnNoexecHandler, exec_command, handle_sigchld, signal_fmt},
     log::{dev_error, dev_info, dev_warn},
     system::{
-        fork, getpgid, getpgrp,
+        ForkResult, fork, getpgid, getpgrp,
         interface::ProcessId,
         kill, killpg,
         term::{Terminal, UserTerm},
         wait::WaitOptions,
-        ForkResult,
     },
 };
 

@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ffi::{c_uint, CStr, CString};
+use std::ffi::{CStr, CString, c_uint};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
@@ -11,7 +11,7 @@ use std::os::unix::{
 use std::path::{Component, Path};
 
 use super::{
-    cerr, inject_group, interface::UnixUser, set_supplementary_groups, Group, GroupId, User, UserId,
+    Group, GroupId, User, UserId, cerr, inject_group, interface::UnixUser, set_supplementary_groups,
 };
 use crate::common::resolve::CurrentUser;
 
@@ -306,7 +306,7 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
                 return Err(io::Error::new(
                     ErrorKind::InvalidInput,
                     xlat!("error in provided path"),
-                ))
+                ));
             }
         };
 

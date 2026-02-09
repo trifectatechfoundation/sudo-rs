@@ -1,7 +1,7 @@
 use sudo_test::User;
 use sudo_test::{Command, Env};
 
-use crate::{helpers, USERNAME};
+use crate::{USERNAME, helpers};
 
 #[test]
 fn rootpw_can_be_per_host_correct_host() {

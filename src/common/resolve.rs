@@ -11,7 +11,7 @@ use std::{
 };
 
 use super::SudoString;
-use super::{context::LaunchType, Error};
+use super::{Error, context::LaunchType};
 
 #[derive(PartialEq, Debug)]
 enum NameOrId<'a, T: FromStr> {
@@ -226,7 +226,7 @@ mod tests {
     use crate::common::resolve::CurrentUser;
     use crate::system::ROOT_GROUP_NAME;
 
-    use super::{is_valid_executable, resolve_path, resolve_target_user_and_group, NameOrId};
+    use super::{NameOrId, is_valid_executable, resolve_path, resolve_target_user_and_group};
 
     #[test]
     fn test_resolve_path() {

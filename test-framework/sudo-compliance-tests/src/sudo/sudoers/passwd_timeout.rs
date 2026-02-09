@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use sudo_test::{Command, Env, TextFile, User};
 
-use crate::{Result, PASSWORD, USERNAME};
+use crate::{PASSWORD, Result, USERNAME};
 
 #[test]
 fn time_out() -> Result<()> {

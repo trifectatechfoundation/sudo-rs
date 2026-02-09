@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use sudo_test::{Command, Env, User, BIN_TRUE, ROOT_GROUP};
+use sudo_test::{BIN_TRUE, Command, Env, ROOT_GROUP, User};
 
 use crate::{GROUPNAME, PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
 

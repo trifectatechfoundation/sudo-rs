@@ -1,4 +1,4 @@
-use sudo_test::{Command, Directory, Env, TextFile, ROOT_GROUP};
+use sudo_test::{Command, Directory, Env, ROOT_GROUP, TextFile};
 
 use crate::{DEFAULT_EDITOR, OTHER_USERNAME, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 

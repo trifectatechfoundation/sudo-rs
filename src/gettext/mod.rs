@@ -14,7 +14,7 @@ static TEXT_DOMAIN: OnceLock<&'static CStr> = OnceLock::new();
 
 #[cfg(feature = "gettext")]
 pub(crate) fn textdomain(domain: &'static CStr) {
-    use libc::{nl_langinfo, setlocale, CODESET, LC_ALL};
+    use libc::{CODESET, LC_ALL, nl_langinfo, setlocale};
     let utf8 = c"UTF-8";
 
     // SAFETY: in all cases the functions are passed valid null-terminated C strings;

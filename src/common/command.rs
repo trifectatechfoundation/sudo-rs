@@ -97,7 +97,7 @@ impl CommandAndArguments {
 
 #[cfg(test)]
 mod test {
-    use super::{escaped, CommandAndArguments};
+    use super::{CommandAndArguments, escaped};
 
     #[test]
     fn test_escaped() {

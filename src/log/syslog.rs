@@ -7,7 +7,7 @@ pub struct Syslog;
 
 mod internal {
     use crate::system::syslog;
-    use std::ffi::{c_int, CStr};
+    use std::ffi::{CStr, c_int};
 
     const DOTDOTDOT_START: &[u8] = b"[...] ";
     const DOTDOTDOT_END: &[u8] = b" [...]";

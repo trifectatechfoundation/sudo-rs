@@ -1,6 +1,6 @@
 //! Scenarios where a password does not need to be provided
 
-use sudo_test::{Command, Env, User, BIN_LS, BIN_TRUE};
+use sudo_test::{BIN_LS, BIN_TRUE, Command, Env, User};
 
 use crate::{GROUPNAME, SUDOERS_NO_LECTURE, SUDOERS_ROOT_ALL, USERNAME};
 
@@ -137,7 +137,9 @@ fn v_flag_without_pwd_fails_if_nopasswd_is_not_set_for_all_users_entries() {
         } else {
             assert_contains!(
                 stderr,
-                format!("[sudo] password for {USERNAME}: \nsudo: no password was provided\nsudo: a password is required")
+                format!(
+                    "[sudo] password for {USERNAME}: \nsudo: no password was provided\nsudo: a password is required"
+                )
             );
         }
     } else {

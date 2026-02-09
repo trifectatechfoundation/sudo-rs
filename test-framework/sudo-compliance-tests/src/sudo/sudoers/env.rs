@@ -1,9 +1,9 @@
 mod check;
 mod keep;
 
-use sudo_test::{is_original_sudo, Command, Env};
+use sudo_test::{Command, Env, is_original_sudo};
 
-use crate::{helpers, EnvList, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{EnvList, SUDOERS_ALL_ALL_NOPASSWD, helpers};
 
 const BAD_TZ_VALUES: &[&str] = &[
     // "It consists of a fully-qualified path name, optionally prefixed with a colon (‘:’), that
@@ -444,9 +444,11 @@ fn key_value_syntax_needs_double_quotes(env_list: EnvList) {
         .args(["sudo", "env"])
         .output(&env);
     if !is_original_sudo() {
-        assert!(output
-            .stderr()
-            .contains("double quotes are required for VAR=value pairs"));
+        assert!(
+            output
+                .stderr()
+                .contains("double quotes are required for VAR=value pairs")
+        );
     }
 
     let stdout = output.stdout();

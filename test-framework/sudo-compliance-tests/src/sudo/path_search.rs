@@ -1,6 +1,6 @@
-use sudo_test::{Command, Env, TextFile, BIN_SUDO};
+use sudo_test::{BIN_SUDO, Command, Env, TextFile};
 
-use crate::{helpers, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{SUDOERS_ALL_ALL_NOPASSWD, USERNAME, helpers};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {

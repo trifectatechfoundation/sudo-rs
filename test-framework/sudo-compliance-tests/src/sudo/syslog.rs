@@ -1,6 +1,6 @@
-use sudo_test::{Command, Env, BIN_TRUE};
+use sudo_test::{BIN_TRUE, Command, Env};
 
-use crate::{helpers::Rsyslogd, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_ALL, USERNAME};
+use crate::{SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_ALL, USERNAME, helpers::Rsyslogd};
 
 #[test]
 fn sudo_logs_every_executed_command() {

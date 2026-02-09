@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, Group, User};
 
-use crate::{Result, GROUPNAME, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{GROUPNAME, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {

@@ -1,8 +1,8 @@
-use sudo_test::{is_original_sudo, Command, Env, EnvNoImplicit, TextFile};
+use sudo_test::{Command, Env, EnvNoImplicit, TextFile, is_original_sudo};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, ETC_SUDOERS, LOGS_PATH},
     SUDOERS_ALL_ALL_NOPASSWD,
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, ETC_SUDOERS, LOGS_PATH},
 };
 
 const BAD_SUDOERS: &str = "this is fine";

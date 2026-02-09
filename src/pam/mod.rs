@@ -1,5 +1,5 @@
 use std::{
-    ffi::{c_int, c_void, CStr, CString, OsStr, OsString},
+    ffi::{CStr, CString, OsStr, OsString, c_int, c_void},
     io,
     os::raw::c_char,
     os::unix::prelude::OsStrExt,
@@ -138,11 +138,7 @@ impl PamContext {
 
     /// Get the PAM flag value for the silent flag
     fn silent_flag(&self) -> i32 {
-        if self.silent {
-            PAM_SILENT as _
-        } else {
-            0
-        }
+        if self.silent { PAM_SILENT as _ } else { 0 }
     }
 
     /// Get the PAM flag value for the disallow_null_authtok flag

@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{Result, PANIC_EXIT_CODE, PASSWORD, USERNAME};
+use crate::{PANIC_EXIT_CODE, PASSWORD, Result, USERNAME};
 
 mod cli;
 mod env;
@@ -51,7 +51,9 @@ fn target_user_must_exist_in_passwd_db() {
     output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("user {USERNAME} does not exist or the user entry does not contain all the required fields")
+        format!(
+            "user {USERNAME} does not exist or the user entry does not contain all the required fields"
+        )
     } else {
         format!("user '{USERNAME}' not found")
     };

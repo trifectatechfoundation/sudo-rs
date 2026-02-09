@@ -5,12 +5,12 @@ use crate::exec::RunOptions;
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::sudoers::{DirChange, Restrictions};
-use crate::system::{audit::sudo_call, Group, Hostname, User};
+use crate::system::{Group, Hostname, User, audit::sudo_call};
 
 use super::{
-    command::CommandAndArguments,
-    resolve::{resolve_shell, resolve_target_user_and_group, CurrentUser},
     SudoPath,
+    command::CommandAndArguments,
+    resolve::{CurrentUser, resolve_shell, resolve_target_user_and_group},
 };
 
 #[derive(Debug)]

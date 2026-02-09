@@ -2,7 +2,7 @@
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    ffi::{c_int, c_long, c_uint, CStr},
+    ffi::{CStr, c_int, c_long, c_uint},
     fmt, fs, io,
     mem::MaybeUninit,
     ops,
@@ -144,7 +144,7 @@ pub(crate) unsafe fn fork() -> io::Result<ForkResult> {
 #[cfg(test)]
 unsafe fn fork_for_test(child_func: impl FnOnce() -> std::convert::Infallible) -> ProcessId {
     use std::io::Write;
-    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::process::exit;
 
     // SAFETY: Not really safe, but this is test only code.
@@ -631,11 +631,7 @@ impl Process {
         // NOTE libstd casts the `i32` that `libc::getppid` returns into `u32`
         // here we cast it back into `i32` (`ProcessId`)
         let pid = ProcessId::new(unix::process::parent_id() as i32);
-        if !pid.is_valid() {
-            None
-        } else {
-            Some(pid)
-        }
+        if !pid.is_valid() { None } else { Some(pid) }
     }
 
     /// Get the session id for the current process
@@ -871,9 +867,8 @@ mod tests {
     use crate::system::interface::{GroupId, ProcessId, UserId};
 
     use super::{
-        fork_for_test, getpgrp, setpgid,
+        Group, ROOT_GROUP_NAME, User, WithProcess, fork_for_test, getpgrp, setpgid,
         wait::{Wait, WaitOptions},
-        Group, User, WithProcess, ROOT_GROUP_NAME,
     };
 
     pub(super) fn tempfile() -> std::io::Result<std::fs::File> {
@@ -1071,7 +1066,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn proc_stat_test() {
-        use super::{read_proc_stat, Process, WithProcess::Current};
+        use super::{Process, WithProcess::Current, read_proc_stat};
         // The process can be '(uninterruptible) sleeping' or 'running': it looks like the state
         // field of /proc/pid/stat will show the state for the main thread of the process rather
         // than for the process as a whole.

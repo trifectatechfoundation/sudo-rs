@@ -2,7 +2,7 @@ use std::io;
 
 use crate::log::dev_warn;
 
-use super::{consts::*, set::SignalAction, signal_name, SignalNumber, SignalsState};
+use super::{SignalNumber, SignalsState, consts::*, set::SignalAction, signal_name};
 
 /// A handler for a signal.
 ///

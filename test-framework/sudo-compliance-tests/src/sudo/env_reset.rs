@@ -4,8 +4,8 @@ use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
 use crate::{
-    helpers, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH, SUDO_ENV_DEFAULT_TERM,
-    SUDO_RS_IS_UNSTABLE, USERNAME,
+    SUDO_ENV_DEFAULT_PATH, SUDO_ENV_DEFAULT_TERM, SUDO_RS_IS_UNSTABLE, SUDOERS_ROOT_ALL_NOPASSWD,
+    USERNAME, helpers,
 };
 
 // NOTE if 'env_reset' is not in `/etc/sudoers` it is enabled by default

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use sudo_test::{Command, Env, User};
 
-use crate::{helpers::Rsyslogd, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME, helpers::Rsyslogd};
 
 fn wait_until_rsyslogd_starts_up() {
     std::thread::sleep(Duration::from_secs(1));
@@ -48,7 +48,9 @@ fn logs_every_session() {
 
     assert_contains!(
         auth_log,
-        format!("pam_unix(su:session): session opened for user {target_user}(uid={target_userid}) by (uid={invoking_userid})")
+        format!(
+            "pam_unix(su:session): session opened for user {target_user}(uid={target_userid}) by (uid={invoking_userid})"
+        )
     );
 
     assert_contains!(

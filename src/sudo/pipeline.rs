@@ -10,11 +10,11 @@ use crate::exec::ExitReason;
 use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
-use crate::sudo::pam::{attempt_authenticate, init_pam, pre_exec, InitPamArgs};
+use crate::sudo::pam::{InitPamArgs, attempt_authenticate, init_pam, pre_exec};
 use crate::sudoers::{AuthenticatingUser, Authentication, Authorization, Judgement, Sudoers};
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
-use crate::system::{escape_os_str_lossy, Process};
+use crate::system::{Process, escape_os_str_lossy};
 
 mod list;
 pub(super) use list::run_list;

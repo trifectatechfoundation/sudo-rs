@@ -8,7 +8,7 @@ mod use_pty;
 use std::{
     borrow::Cow,
     env,
-    ffi::{c_int, OsStr},
+    ffi::{OsStr, c_int},
     io,
     os::unix::ffi::OsStrExt,
     os::unix::process::CommandExt,
@@ -19,15 +19,15 @@ use std::{
 
 use crate::{
     common::{
-        bin_serde::BinPipe, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2,
+        HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, bin_serde::BinPipe,
     },
     exec::no_pty::exec_no_pty,
     log::{dev_info, dev_warn, user_error},
     system::{
-        ForkResult, Group, User, _exit, fork,
+        _exit, ForkResult, Group, User, fork,
         interface::ProcessId,
         kill, killpg, mark_fds_as_cloexec, set_target_user, setpgid,
-        signal::{consts::*, signal_name, SignalNumber, SignalSet, SignalsState},
+        signal::{SignalNumber, SignalSet, SignalsState, consts::*, signal_name},
         term::UserTerm,
         wait::{Wait, WaitError, WaitOptions},
     },
@@ -36,7 +36,7 @@ use crate::{
 use self::{
     event::{EventRegistry, Process},
     io_util::was_interrupted,
-    use_pty::{exec_pty, SIGCONT_BG, SIGCONT_FG},
+    use_pty::{SIGCONT_BG, SIGCONT_FG, exec_pty},
 };
 
 #[cfg(target_os = "linux")]
@@ -334,11 +334,7 @@ fn signal_fmt(signal: SignalNumber) -> Cow<'static, str> {
 }
 
 const fn cond_fmt<'a>(cond: bool, true_s: &'a str, false_s: &'a str) -> &'a str {
-    if cond {
-        true_s
-    } else {
-        false_s
-    }
+    if cond { true_s } else { false_s }
 }
 
 const fn opt_fmt(cond: bool, s: &str) -> &str {

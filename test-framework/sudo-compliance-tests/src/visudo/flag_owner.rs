@@ -1,8 +1,8 @@
-use sudo_test::{Command, Env, TextFile, ROOT_GROUP};
+use sudo_test::{Command, Env, ROOT_GROUP, TextFile};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, TMP_SUDOERS},
     USERNAME,
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, TMP_SUDOERS},
 };
 
 #[test]

@@ -12,11 +12,11 @@ use crate::{
 };
 
 use super::{
+    Process, WithProcess,
     audit::secure_open_cookie_file,
     file::FileLock,
     interface::{DeviceId, ProcessId, UserId},
     time::{ProcessCreateTime, SystemTime},
-    Process, WithProcess,
 };
 
 type BoolStorage = u8;
@@ -75,7 +75,10 @@ impl SessionRecordFile {
             Some(v) if v == Self::FILE_VERSION => (),
             x => {
                 if let Some(v) = x {
-                    auth_info!("Session records file for user '{for_user}' has invalid version {v}, only file version {} is supported, resetting", Self::FILE_VERSION);
+                    auth_info!(
+                        "Session records file for user '{for_user}' has invalid version {v}, only file version {} is supported, resetting",
+                        Self::FILE_VERSION
+                    );
                 } else {
                     auth_info!(
                         "Session records file did not contain file version information, resetting"
@@ -155,7 +158,10 @@ impl SessionRecordFile {
         match self.file.read_exact(&mut buf) {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
                 // there was half a record here, we clear the rest of the file
-                auth_info!("Found incomplete record in session records file for {}, clearing rest of the file", self.for_user);
+                auth_info!(
+                    "Found incomplete record in session records file for {}, clearing rest of the file",
+                    self.for_user
+                );
                 self.file.set_len(curr_pos)?;
                 return Ok(None);
             }
@@ -168,7 +174,10 @@ impl SessionRecordFile {
             Err(_) => {
                 // any error assumes that this file is nonsense from this point
                 // onwards, so we clear the file up to the start of this record
-                auth_info!("Found invalid record in session records file for {}, clearing rest of the file", self.for_user);
+                auth_info!(
+                    "Found invalid record in session records file for {}, clearing rest of the file",
+                    self.for_user
+                );
 
                 self.file.set_len(curr_pos)?;
                 Ok(None)
@@ -527,7 +536,7 @@ impl SessionRecord {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
                     "Invalid boolean value detected in input stream",
-                ))
+                ));
             }
         };
 
@@ -576,9 +585,9 @@ mod tests {
 
     use super::*;
     use crate::common::{SudoPath, SudoString};
+    use crate::system::User;
     use crate::system::interface::GroupId;
     use crate::system::tests::tempfile;
-    use crate::system::User;
 
     static TEST_USER_ID: UserId = UserId::ROOT;
 

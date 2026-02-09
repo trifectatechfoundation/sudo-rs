@@ -1,8 +1,8 @@
 use sudo_test::{
-    Command, Env, TextFile, User, BIN_FALSE, BIN_LS, BIN_PWD, BIN_SUDO, BIN_TRUE, ETC_SUDOERS,
+    BIN_FALSE, BIN_LS, BIN_PWD, BIN_SUDO, BIN_TRUE, Command, ETC_SUDOERS, Env, TextFile, User,
 };
 
-use crate::{Result, PANIC_EXIT_CODE, PASSWORD, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{PANIC_EXIT_CODE, PASSWORD, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 mod credential_caching;
 mod flag_other_user;

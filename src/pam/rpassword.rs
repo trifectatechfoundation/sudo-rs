@@ -20,10 +20,10 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fs, mem};
 
-use libc::{tcsetattr, termios, ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL};
+use libc::{ECHO, ECHONL, ICANON, TCSANOW, VEOF, VERASE, VKILL, tcsetattr, termios};
 
 use crate::cutils::{cerr, safe_isatty};
-use crate::pam::{askpass, PamError, PamResult};
+use crate::pam::{PamError, PamResult, askpass};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
 
 use super::securemem::PamBuffer;

@@ -1,5 +1,5 @@
 use std::{
-    ffi::{c_char, c_int, c_long, CStr, OsStr, OsString},
+    ffi::{CStr, OsStr, OsString, c_char, c_int, c_long},
     os::{
         fd::{AsRawFd, BorrowedFd},
         unix::prelude::OsStrExt,

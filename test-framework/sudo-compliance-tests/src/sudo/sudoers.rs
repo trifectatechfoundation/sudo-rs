@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use sudo_test::{Command, Env, TextFile, User, ETC_DIR, ROOT_GROUP};
+use sudo_test::{Command, ETC_DIR, Env, ROOT_GROUP, TextFile, User};
 
 use crate::{PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
 

@@ -1,9 +1,9 @@
-use sudo_test::{helpers::assert_ls_output, Command, Env, TextFile, ROOT_GROUP};
-use sudo_test::{is_original_sudo, EnvNoImplicit};
+use sudo_test::{Command, Env, ROOT_GROUP, TextFile, helpers::assert_ls_output};
+use sudo_test::{EnvNoImplicit, is_original_sudo};
 
 use crate::{
-    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
     SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL, USERNAME,
+    visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, ETC_SUDOERS, LOGS_PATH, TMP_SUDOERS},
 };
 
 macro_rules! assert_snapshot {

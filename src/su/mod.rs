@@ -4,14 +4,14 @@ use crate::common::error::Error;
 use crate::exec::ExitReason;
 use crate::log::user_warn;
 use crate::pam::{PamContext, PamError, PamErrorType};
-use crate::system::term::current_tty_name;
 use crate::system::Process;
+use crate::system::term::current_tty_name;
 
 use std::{env, process};
 
 use cli::SuAction;
 use context::SuContext;
-use help::{long_help_message, USAGE_MSG};
+use help::{USAGE_MSG, long_help_message};
 
 use self::cli::SuRunOptions;
 

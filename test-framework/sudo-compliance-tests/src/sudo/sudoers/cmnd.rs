@@ -1,6 +1,6 @@
 //! Test the Cmnd_Spec component of the user specification: <user> ALL=(ALL:ALL) <cmnd_spec>
 
-use sudo_test::{Command, Env, TextFile, BIN_LS, BIN_TRUE, ETC_SUDOERS};
+use sudo_test::{BIN_LS, BIN_TRUE, Command, ETC_SUDOERS, Env, TextFile};
 
 use crate::USERNAME;
 

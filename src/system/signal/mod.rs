@@ -8,7 +8,7 @@ mod stream;
 pub(crate) use handler::{SignalHandler, SignalHandlerBehavior};
 pub(crate) use set::SignalSet;
 pub(crate) use state::SignalsState;
-pub(crate) use stream::{register_handlers, SignalStream};
+pub(crate) use stream::{SignalStream, register_handlers};
 
 use std::borrow::Cow;
 use std::ffi::c_int;

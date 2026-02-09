@@ -4,26 +4,26 @@ use std::io;
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::process::{Command, Stdio};
 
-use libc::{close, O_CLOEXEC};
+use libc::{O_CLOEXEC, close};
 
 use crate::cutils::cerr;
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
-use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::use_pty::SIGCONT_FG;
-use crate::exec::{cond_fmt, handle_sigchld, signal_fmt, terminate_process, HandleSigchld};
+use crate::exec::use_pty::monitor::exec_monitor;
 use crate::exec::{
+    ExitReason, SpawnNoexecHandler,
     io_util::retry_while_interrupted,
     use_pty::backchannel::{BackchannelPair, MonitorMessage, ParentBackchannel, ParentMessage},
-    ExitReason, SpawnNoexecHandler,
 };
+use crate::exec::{HandleSigchld, cond_fmt, handle_sigchld, signal_fmt, terminate_process};
 use crate::log::{dev_error, dev_info, dev_warn};
 use crate::system::signal::{
-    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
-    SignalStream, SignalsState,
+    SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream, SignalsState,
+    consts::*, register_handlers,
 };
 use crate::system::term::{Pty, PtyFollower, PtyLeader, TermSize, Terminal, UserTerm};
 use crate::system::wait::WaitOptions;
-use crate::system::{chown, fork, getpgrp, kill, killpg, ForkResult, Group, User, _exit};
+use crate::system::{_exit, ForkResult, Group, User, chown, fork, getpgrp, kill, killpg};
 use crate::system::{getpgid, interface::ProcessId};
 
 use super::pipe::Pipe;

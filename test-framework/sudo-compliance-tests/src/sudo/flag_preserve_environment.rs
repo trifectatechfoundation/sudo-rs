@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{helpers, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{SUDOERS_ALL_ALL_NOPASSWD, helpers};
 
 #[test]
 fn env_var_is_preserved() {

@@ -1,8 +1,8 @@
 use core::fmt;
 
 use sudo_test::{
-    helpers::{self, PsAuxEntry},
     Command, Env,
+    helpers::{self, PsAuxEntry},
 };
 
 enum Binary {

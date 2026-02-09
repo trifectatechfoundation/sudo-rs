@@ -1,7 +1,7 @@
 //! Test the first component of the user specification: `<user_list> ALL=(ALL:ALL) ALL`
 
 use pretty_assertions::assert_eq;
-use sudo_test::{Command, Env, User, BIN_TRUE, ROOT_GROUP};
+use sudo_test::{BIN_TRUE, Command, Env, ROOT_GROUP, User};
 
 use crate::{PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
 

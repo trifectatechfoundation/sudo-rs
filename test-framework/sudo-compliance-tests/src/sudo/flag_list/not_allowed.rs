@@ -80,8 +80,9 @@ fn flag_uppercase_u_plus_command() {
                  as {other_user} on {hostname}."
             )) {
                 // This is the output of newer sudo versions and sudo-rs
-                let diagnostic =
-                format!("Sorry, user {USERNAME} is not allowed to execute 'list true' as {other_user} on {hostname}.");
+                let diagnostic = format!(
+                    "Sorry, user {USERNAME} is not allowed to execute 'list true' as {other_user} on {hostname}."
+                );
                 assert_contains!(output.stderr(), diagnostic);
             }
         }

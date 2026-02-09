@@ -1,5 +1,5 @@
 use crate::{SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
-use sudo_test::{Command, Env, TextFile, BIN_PWD};
+use sudo_test::{BIN_PWD, Command, Env, TextFile};
 
 #[test]
 fn cwd_not_set_cannot_change_dir() {

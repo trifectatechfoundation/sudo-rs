@@ -12,9 +12,10 @@ use std::{
 use crate::{cutils::cerr, log::dev_error};
 
 use super::{
+    SignalNumber, SignalsState,
     handler::{SignalHandler, SignalHandlerBehavior},
     info::SignalInfo,
-    signal_name, SignalNumber, SignalsState,
+    signal_name,
 };
 
 static STREAM: OnceLock<SignalStream> = OnceLock::new();

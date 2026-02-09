@@ -7,7 +7,7 @@ use crate::system::signal::{self, SignalSet};
 
 use super::sys::*;
 
-use super::{error::PamResult, rpassword, securemem::PamBuffer, PamError, PamErrorType};
+use super::{PamError, PamErrorType, error::PamResult, rpassword, securemem::PamBuffer};
 
 /// Each message in a PAM conversation will have a message style. Each of these
 /// styles must be handled separately.
@@ -304,8 +304,8 @@ pub(super) unsafe extern "C" fn converse<C: Converser>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::pin::Pin;
     use PamMessageStyle::*;
+    use std::pin::Pin;
 
     struct PamMessage {
         msg: String,

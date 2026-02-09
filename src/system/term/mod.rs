@@ -1,7 +1,7 @@
 mod user_term;
 
 use std::{
-    ffi::{c_char, c_uchar, CString, OsString},
+    ffi::{CString, OsString, c_char, c_uchar},
     fmt,
     fs::File,
     io,
@@ -9,7 +9,7 @@ use std::{
     ptr::null_mut,
 };
 
-use libc::{ioctl, winsize, TIOCSWINSZ};
+use libc::{TIOCSWINSZ, ioctl, winsize};
 
 use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 

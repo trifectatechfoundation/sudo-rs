@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, User};
 
-use crate::{helpers, ENV_PATH, USERNAME};
+use crate::{ENV_PATH, USERNAME, helpers};
 
 #[test]
 fn it_works() {

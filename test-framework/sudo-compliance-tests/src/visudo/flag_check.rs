@@ -1,8 +1,8 @@
 use sudo_test::{Command, Env, TextFile};
 
 use crate::{
-    visudo::{ETC_DIR, ETC_SUDOERS},
     SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
+    visudo::{ETC_DIR, ETC_SUDOERS},
 };
 
 use super::TMP_SUDOERS;
