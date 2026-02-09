@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    common::{Context, Error},
+    common::{Context, DisplayOsStr, Error},
     sudo::cli::SudoListOptions,
     sudoers::{Authorization, ListRequest, Request, Sudoers},
     system::User,
@@ -139,12 +139,12 @@ fn check_sudo_command_perms(
         };
 
         if context.command.arguments.is_empty() {
-            println_ignore_io_error!("{}", command.display());
+            println_ignore_io_error!("{}", DisplayOsStr(command));
         } else {
             println_ignore_io_error!(
                 "{} {}",
-                command.display(),
-                context.command.arguments.join(OsStr::new(" ")).display(),
+                DisplayOsStr(command),
+                DisplayOsStr(&context.command.arguments.join(OsStr::new(" "))),
             );
         }
     }
@@ -154,7 +154,7 @@ fn check_sudo_command_perms(
 
 fn format_list_command(original_command: &Option<OsString>) -> Cow<'static, str> {
     if let Some(original_command) = original_command {
-        format!("list {}", original_command.display()).into()
+        format!("list {}", DisplayOsStr(original_command)).into()
     } else {
         "list".into()
     }
