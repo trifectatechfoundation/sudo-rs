@@ -10,6 +10,7 @@ mod entry;
 mod tokens;
 
 use std::collections::{HashMap, HashSet};
+use std::ffi::{OsStr, OsString};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -55,7 +56,7 @@ pub struct Request<'a, User: UnixUser, Group: UnixGroup> {
     pub user: &'a User,
     pub group: &'a Group,
     pub command: &'a Path,
-    pub arguments: &'a [String],
+    pub arguments: &'a [OsString],
 }
 
 pub struct ListRequest<'a, User: UnixUser, Group: UnixGroup> {
@@ -140,7 +141,7 @@ impl Sudoers {
         }
     }
 
-    fn specify_command(&mut self, command: &Path, arguments: &[String]) {
+    fn specify_command(&mut self, command: &Path, arguments: &[OsString]) {
         let customisers = std::mem::take(&mut self.customisers.cmnd);
 
         let cmnd_matcher = &match_command((command, arguments));
@@ -626,14 +627,16 @@ fn match_token<T: basic_parser::Token + std::ops::Deref<Target = String>>(
     move |token| token.as_str() == text
 }
 
-fn match_command<'a>((cmd, args): (&'a Path, &'a [String])) -> impl Fn(&Command) -> bool + 'a {
+fn match_command<'a>((cmd, args): (&'a Path, &'a [OsString])) -> impl Fn(&Command) -> bool + 'a {
     let opts = glob::MatchOptions {
         require_literal_separator: true,
         ..glob::MatchOptions::new()
     };
     move |(cmdpat, argpat)| {
         cmdpat.matches_path_with(cmd, opts)
-            && argpat.as_ref().is_none_or(|vec| args == vec.as_ref())
+            && argpat
+                .as_ref()
+                .is_none_or(|vec| args.iter().eq(vec.into_iter().map(OsStr::new)))
     }
 }
 
