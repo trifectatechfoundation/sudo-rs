@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.12] - 2025-02-09
+## [0.2.12] - 2026-02-09
 
 ### Added
 - Support for `-b / --background` to run commands in the background
