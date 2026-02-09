@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use super::super::cli::SudoEditOptions;
-use crate::common::{Context, Error};
+use crate::common::{Context, DisplayOsStr, Error};
 use crate::exec::ExitReason;
 use crate::log::{user_error, user_info};
 use crate::sudoers::Authorization;
@@ -34,19 +34,19 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
                 Err(error) if error.raw_os_error() == Some(libc::ELOOP) => {
                     user_error!(
                         "{path}: editing symbolic links is not permitted",
-                        path = arg.display(),
+                        path = DisplayOsStr(arg),
                     )
                 }
                 Err(error) => {
                     user_error!(
                         "error opening {path}: {error}",
-                        path = arg.display(),
+                        path = DisplayOsStr(arg),
                         error = error,
                     )
                 }
             }
         } else {
-            user_error!("invalid path: {path}", path = arg.display());
+            user_error!("invalid path: {path}", path = DisplayOsStr(arg));
         }
     }
 

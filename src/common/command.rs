@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::common::DisplayOsStr;
 use crate::system::escape_os_str_lossy;
 
 use super::resolve::{canonicalize, resolve_path};
@@ -24,7 +25,12 @@ impl Display for CommandAndArguments {
         let args = self
             .arguments
             .iter()
-            .map(|a| a.display().to_string().escape_default().collect::<String>())
+            .map(|a| {
+                DisplayOsStr(a)
+                    .to_string()
+                    .escape_default()
+                    .collect::<String>()
+            })
             .collect::<Vec<_>>()
             .join(" ");
         write!(f, "{cmd} {args}")

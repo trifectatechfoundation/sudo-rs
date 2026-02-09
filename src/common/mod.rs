@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+use std::ffi::OsStr;
+use std::fmt::{self, Write};
+
 pub use command::CommandAndArguments;
 pub use context::Context;
 pub use error::Error;
@@ -22,3 +25,24 @@ pub const HARDENED_ENUM_VALUE_1: u32 = 0xad5d6da; // 101011010101110101101101101
 pub const HARDENED_ENUM_VALUE_2: u32 = 0x69d61fc8; // 1101001110101100001111111001000
 pub const HARDENED_ENUM_VALUE_3: u32 = 0x1629e037; // 0010110001010011110000000110111
 pub const HARDENED_ENUM_VALUE_4: u32 = 0x1fc8d3ac; // 11111110010001101001110101100
+
+// FIXME replace with OsStr::display() once our MSRV is 1.87
+pub(crate) struct DisplayOsStr<'a>(pub(crate) &'a OsStr);
+
+impl fmt::Display for DisplayOsStr<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for chunk in self.0.as_encoded_bytes().utf8_chunks() {
+            let valid = chunk.valid();
+            // If we successfully decoded the whole chunk as a valid string then
+            // we can return a direct formatting of the string which will also
+            // respect various formatting flags if possible.
+            if chunk.invalid().is_empty() {
+                return valid.fmt(f);
+            }
+
+            f.write_str(valid)?;
+            f.write_char(char::REPLACEMENT_CHARACTER)?;
+        }
+        Ok(())
+    }
+}
