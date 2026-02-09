@@ -5,7 +5,7 @@
 use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
 use std::ffi::{c_int, c_uint, c_ulong, c_void};
 use std::mem::{align_of, offset_of, size_of, zeroed};
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::Command;
@@ -13,7 +13,7 @@ use std::ptr::{self, addr_of};
 use std::{cmp, io, thread};
 
 use libc::{
-    close, cmsghdr, iovec, msghdr, prctl, recvmsg, seccomp_data, seccomp_notif, seccomp_notif_resp,
+    cmsghdr, iovec, msghdr, prctl, recvmsg, seccomp_data, seccomp_notif, seccomp_notif_resp,
     seccomp_notif_sizes, sendmsg, sock_filter, sock_fprog, syscall, SYS_execve, SYS_execveat,
     SYS_seccomp, __errno_location, BPF_ABS, BPF_ALU, BPF_AND, BPF_JEQ, BPF_JMP, BPF_JUMP, BPF_K,
     BPF_LD, BPF_RET, BPF_STMT, BPF_W, CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_SPACE, EACCES,
@@ -113,9 +113,9 @@ fn alloc_notify_allocs() -> NotifyAllocs {
 /// # Safety
 ///
 /// `ioctl(fd, request, ptr)` must be safe to call
-unsafe fn ioctl<T>(fd: RawFd, request: c_ulong, ptr: *mut T) -> Option<()> {
+unsafe fn ioctl<T>(fd: BorrowedFd, request: c_ulong, ptr: *mut T) -> Option<()> {
     // SAFETY: By function contract
-    if unsafe { libc::ioctl(fd, request as _, ptr) } == -1 {
+    if unsafe { libc::ioctl(fd.as_raw_fd(), request as _, ptr) } == -1 {
         // SAFETY: Trivial
         if unsafe { *__errno_location() } == ENOENT {
             None
@@ -147,7 +147,7 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         std::ptr::write_bytes(req.cast::<u8>(), 0, req_size);
 
         // SAFETY: A valid pointer to a seccomp_notify is passed in; notify_fd is valid.
-        ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_RECV, req)?;
+        ioctl(notify_fd.as_fd(), SECCOMP_IOCTL_NOTIF_RECV, req)?;
 
         // Allow the first execve call as this is sudo itself starting the target executable.
         // SAFETY: resp is a valid pointer to a seccomp_notify_resp.
@@ -155,7 +155,7 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
         create_response(&mut *resp);
 
         // SAFETY: A valid pointer to a seccomp_notify_resp is passed in; notify_fd is valid.
-        ioctl(notify_fd.as_raw_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp)
+        ioctl(notify_fd.as_fd(), SECCOMP_IOCTL_NOTIF_SEND, resp)
     };
 
     loop {
@@ -195,7 +195,7 @@ union SingleRightAnciliaryData {
 }
 
 /// Receives a raw file descriptor from the provided UnixStream
-fn receive_fd(rx_fd: UnixStream) -> RawFd {
+fn receive_fd(rx_fd: UnixStream) -> OwnedFd {
     let mut data = [0u8; 1];
     let mut iov = iovec {
         iov_base: &mut data as *mut [u8; 1] as *mut c_void,
@@ -234,11 +234,11 @@ fn receive_fd(rx_fd: UnixStream) -> RawFd {
         {
             unreachable!("unexpected response from Linux kernel");
         }
-        CMSG_DATA(cmsgp).cast::<c_int>().read()
+        OwnedFd::from_raw_fd(CMSG_DATA(cmsgp).cast::<c_int>().read())
     }
 }
 
-fn send_fd(tx_fd: UnixStream, notify_fd: RawFd) -> io::Result<()> {
+fn send_fd(tx_fd: UnixStream, notify_fd: OwnedFd) -> io::Result<()> {
     let mut data = [0u8; 1];
     let mut iov = iovec {
         iov_base: &mut data as *mut [u8; 1] as *mut c_void,
@@ -264,7 +264,7 @@ fn send_fd(tx_fd: UnixStream, notify_fd: RawFd) -> io::Result<()> {
         (*cmsgp).cmsg_level = SOL_SOCKET;
         (*cmsgp).cmsg_type = SCM_RIGHTS;
         (*cmsgp).cmsg_len = CMSG_LEN(size_of::<c_int>() as u32) as _;
-        ptr::write(CMSG_DATA(cmsgp).cast::<c_int>(), notify_fd);
+        ptr::write(CMSG_DATA(cmsgp).cast::<c_int>(), notify_fd.as_raw_fd());
     }
 
     // SAFETY: A valid socket fd and a valid initialized msghdr are passed in.
@@ -282,7 +282,7 @@ impl SpawnNoexecHandler {
         thread::spawn(move || {
             let notify_fd = receive_fd(self.0);
             // SAFETY: notify_fd is a valid seccomp_unotify fd.
-            unsafe { handle_notifications(OwnedFd::from_raw_fd(notify_fd)) };
+            unsafe { handle_notifications(notify_fd) };
         });
     }
 }
@@ -449,10 +449,7 @@ pub(crate) fn add_noexec_filter(command: &mut Command) -> io::Result<SpawnNoexec
                 return Err(io::Error::last_os_error());
             }
 
-            send_fd(tx_fd, notify_fd)?;
-
-            // SAFETY: Nothing will access the notify_fd after this call.
-            close(notify_fd);
+            send_fd(tx_fd, OwnedFd::from_raw_fd(notify_fd))?;
 
             Ok(())
         });
