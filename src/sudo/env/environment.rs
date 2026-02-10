@@ -4,7 +4,7 @@ use std::{
     os::unix::prelude::OsStrExt,
 };
 
-use crate::common::{CommandAndArguments, Context, Error};
+use crate::common::{CommandAndArguments, Context, Error, context::LaunchType};
 use crate::sudoers::Restrictions;
 use crate::system::{PATH_MAX, audit::zoneinfo_path};
 
@@ -214,11 +214,15 @@ pub fn get_target_environment(
     // env_keep list take precedence over those in the PAM environment
     let mut environment: HashMap<_, _> = additional_env.into_iter().collect();
 
-    environment.extend(
-        current_env
-            .into_iter()
-            .filter(|(key, value)| should_keep(key, value, settings)),
-    );
+    let login_vars: &[_] = if context.launch == LaunchType::Login {
+        &["HOME", "SHELL", "USER", "LOGNAME"].map(OsStr::new)
+    } else {
+        &[]
+    };
+
+    environment.extend(current_env.into_iter().filter(|(key, value)| {
+        !login_vars.contains(&key.as_os_str()) && should_keep(key, value, settings)
+    }));
 
     add_extra_env(context, settings, sudo_ps1, &mut environment);
 
