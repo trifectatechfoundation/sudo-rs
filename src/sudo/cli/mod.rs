@@ -391,7 +391,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
                     "{context} cannot be used together with {option}",
                     context = "--login",
                     option = "--shell"
-                ))
+                ));
             }
             (false, false, true) => {
                 if cfg!(debug_assertions) {

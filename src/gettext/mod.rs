@@ -14,7 +14,7 @@ static TEXT_DOMAIN: OnceLock<&'static CStr> = OnceLock::new();
 
 #[cfg(feature = "gettext")]
 pub(crate) fn textdomain(domain: &'static CStr) {
-    use libc::{nl_langinfo, setlocale, CODESET, LC_ALL};
+    use libc::{CODESET, LC_ALL, nl_langinfo, setlocale};
     let utf8 = c"UTF-8";
 
     // SAFETY: in all cases the functions are passed valid null-terminated C strings;
@@ -166,7 +166,7 @@ macro_rules! xlat_println {
 #[cfg(feature = "gettext")]
 mod gettext_sys {
     #[cfg_attr(target_os = "freebsd", link(name = "intl"))]
-    extern "C" {
+    unsafe extern "C" {
         pub fn dgettext(
             domain: *const libc::c_char,
             msgid: *const libc::c_char,

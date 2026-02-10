@@ -393,8 +393,8 @@ fn default_multi_test() {
     let (mut sudoers, _) = analyze(
         Path::new("/etc/fakesudoers"),
         sudoer![
-        "Defaults !env_editor, use_pty, env_keep = \"FOO BAR\", env_keep -= BAR, secure_path=/etc"
-    ],
+            "Defaults !env_editor, use_pty, env_keep = \"FOO BAR\", env_keep -= BAR, secure_path=/etc"
+        ],
     );
     sudoers.specify_host_user_runas(
         &system::Hostname::fake("host"),
@@ -659,10 +659,12 @@ fn default_specific_test() {
 fn useralias_underscore_regression() {
     let sudo = parse_line("FOO_BAR ALL=ALL");
     let spec = sudo.as_spec().expect("`Sudo::Spec`");
-    assert!(spec.users[0]
-        .as_allow()
-        .expect("`Qualified::Allow`")
-        .is_alias());
+    assert!(
+        spec.users[0]
+            .as_allow()
+            .expect("`Qualified::Allow`")
+            .is_alias()
+    );
 }
 
 #[test]

@@ -2,7 +2,7 @@
 #![allow(non_upper_case_globals)]
 #![cfg_attr(not(target_arch = "x86_64"), allow(unused))]
 
-use std::alloc::{handle_alloc_error, GlobalAlloc, Layout};
+use std::alloc::{GlobalAlloc, Layout, handle_alloc_error};
 use std::ffi::{c_int, c_uint, c_ulong, c_void};
 use std::mem::{align_of, offset_of, size_of, zeroed};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
@@ -13,13 +13,13 @@ use std::ptr::{self, addr_of};
 use std::{cmp, io, thread};
 
 use libc::{
-    cmsghdr, iovec, msghdr, prctl, recvmsg, seccomp_data, seccomp_notif, seccomp_notif_resp,
-    seccomp_notif_sizes, sendmsg, sock_filter, sock_fprog, syscall, SYS_execve, SYS_execveat,
-    SYS_seccomp, __errno_location, BPF_ABS, BPF_ALU, BPF_AND, BPF_JEQ, BPF_JMP, BPF_JUMP, BPF_K,
-    BPF_LD, BPF_RET, BPF_STMT, BPF_W, CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_SPACE, EACCES,
-    ENOENT, MSG_TRUNC, PR_SET_NO_NEW_PRIVS, SCM_RIGHTS, SECCOMP_FILTER_FLAG_NEW_LISTENER,
+    __errno_location, BPF_ABS, BPF_ALU, BPF_AND, BPF_JEQ, BPF_JMP, BPF_JUMP, BPF_K, BPF_LD,
+    BPF_RET, BPF_STMT, BPF_W, CMSG_DATA, CMSG_FIRSTHDR, CMSG_LEN, CMSG_SPACE, EACCES, ENOENT,
+    MSG_TRUNC, PR_SET_NO_NEW_PRIVS, SCM_RIGHTS, SECCOMP_FILTER_FLAG_NEW_LISTENER,
     SECCOMP_GET_NOTIF_SIZES, SECCOMP_RET_ALLOW, SECCOMP_RET_KILL_PROCESS, SECCOMP_SET_MODE_FILTER,
-    SECCOMP_USER_NOTIF_FLAG_CONTINUE, SOL_SOCKET,
+    SECCOMP_USER_NOTIF_FLAG_CONTINUE, SOL_SOCKET, SYS_execve, SYS_execveat, SYS_seccomp, cmsghdr,
+    iovec, msghdr, prctl, recvmsg, seccomp_data, seccomp_notif, seccomp_notif_resp,
+    seccomp_notif_sizes, sendmsg, sock_filter, sock_fprog, syscall,
 };
 
 const SECCOMP_RET_USER_NOTIF: c_uint = 0x7fc00000;

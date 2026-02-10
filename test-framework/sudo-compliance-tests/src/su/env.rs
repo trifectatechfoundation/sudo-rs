@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sudo_test::{Command, Env, User};
 
-use crate::{helpers, ENV_PATH, USERNAME};
+use crate::{ENV_PATH, USERNAME, helpers};
 
 #[test]
 fn vars_set_by_su_when_target_is_root() {

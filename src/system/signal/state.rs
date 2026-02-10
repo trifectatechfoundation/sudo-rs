@@ -5,7 +5,7 @@ use crate::log::dev_debug;
 use crate::system::make_zeroed_sigaction;
 use crate::system::signal::signal_name;
 
-use super::{consts::*, SignalNumber};
+use super::{SignalNumber, consts::*};
 
 struct State {
     sa: libc::sigaction,

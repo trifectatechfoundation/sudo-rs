@@ -167,7 +167,7 @@ impl UnixGroup for super::Group {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::system::{Group, User, ROOT_GROUP_NAME};
+    use crate::system::{Group, ROOT_GROUP_NAME, User};
     use std::ffi::CString;
 
     fn test_user(user: impl UnixUser, name_c: &CStr) {

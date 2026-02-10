@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, User, BIN_TRUE};
+use sudo_test::{BIN_TRUE, Command, Env, User};
 
 use crate::{GROUPNAME, USERNAME};
 

@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, BIN_FALSE, BIN_LS, BIN_TRUE};
+use sudo_test::{BIN_FALSE, BIN_LS, BIN_TRUE, Command, Env};
 
 use crate::HOSTNAME;
 

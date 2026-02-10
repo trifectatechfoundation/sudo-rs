@@ -11,9 +11,9 @@ use std::{io, process};
 use crate::common::SudoPath;
 use crate::exec::ExitReason;
 use crate::log::{user_error, user_info};
-use crate::system::file::{create_temporary_dir, FileLock};
+use crate::system::file::{FileLock, create_temporary_dir};
 use crate::system::wait::{Wait, WaitError, WaitOptions};
-use crate::system::{fork, mark_fds_as_cloexec, ForkResult};
+use crate::system::{ForkResult, fork, mark_fds_as_cloexec};
 
 struct ParentFileInfo<'a> {
     path: &'a Path,

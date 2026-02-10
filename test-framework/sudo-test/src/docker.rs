@@ -9,7 +9,7 @@ use std::{
 
 use tempfile::NamedTempFile;
 
-use crate::{base_image, Result, SudoUnderTest};
+use crate::{Result, SudoUnderTest, base_image};
 
 pub use self::command::{As, Child, Command, Output};
 

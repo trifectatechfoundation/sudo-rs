@@ -1,4 +1,4 @@
-use sudo_test::{Command, Directory, Env, TextFile, ETC_DIR, ETC_PARENT_DIR};
+use sudo_test::{Command, Directory, ETC_DIR, ETC_PARENT_DIR, Env, TextFile};
 
 use crate::{SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_ALL, SUDOERS_USER_ALL_NOPASSWD, USERNAME};
 

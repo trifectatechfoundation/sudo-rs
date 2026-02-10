@@ -2,7 +2,7 @@ use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env, User};
 
 use crate::{
-    Result, GROUPNAME, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL_NOPASSWD,
+    GROUPNAME, Result, SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_ROOT_ALL_NOPASSWD,
     SUDOERS_USER_ALL_NOPASSWD, USERNAME,
 };
 

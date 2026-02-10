@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, ETC_DIR};
+use sudo_test::{Command, ETC_DIR, Env, TextFile};
 
 use crate::visudo::{CHMOD_EXEC, DEFAULT_EDITOR, LOGS_PATH};
 

@@ -388,7 +388,7 @@ jobs:
       - name: Install rust-bindgen
         uses: taiki-e/install-action@cc33365ec7e3350bc47bf935f247582cc6f68344 # v2.65.12
         with:
-          tool: bindgen-cli@0.70.1
+          tool: bindgen-cli@0.72.1
 
       - name: Install cargo-minify
         run: cargo install --locked --git https://github.com/tweedegolf/cargo-minify cargo-minify

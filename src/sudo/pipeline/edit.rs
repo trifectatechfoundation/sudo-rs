@@ -5,7 +5,7 @@ use crate::common::{Context, Error};
 use crate::exec::ExitReason;
 use crate::log::{user_error, user_info};
 use crate::sudoers::Authorization;
-use crate::system::{audit, Process};
+use crate::system::{Process, audit};
 
 pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     let policy = super::read_sudoers()?;

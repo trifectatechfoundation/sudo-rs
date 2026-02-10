@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{helpers, EnvList, SUDOERS_ROOT_ALL_NOPASSWD, SUDO_RS_IS_UNSTABLE};
+use crate::{EnvList, SUDO_RS_IS_UNSTABLE, SUDOERS_ROOT_ALL_NOPASSWD, helpers};
 
 // see 'environment' section in `man sudo`
 // "SUDO_PS1: If set, PS1 will be set to its value for the program being run."

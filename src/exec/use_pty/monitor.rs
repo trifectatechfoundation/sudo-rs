@@ -2,8 +2,8 @@ use std::{convert::Infallible, ffi::c_int, io, process::Command};
 
 use crate::exec::{opt_fmt, signal_fmt};
 use crate::system::signal::{
-    consts::*, register_handlers, SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet,
-    SignalStream, SignalsState,
+    SignalHandler, SignalHandlerBehavior, SignalNumber, SignalSet, SignalStream, SignalsState,
+    consts::*, register_handlers,
 };
 use crate::{
     common::bin_serde::BinPipe,
@@ -15,22 +15,21 @@ use crate::{
     },
 };
 use crate::{
+    exec::{HandleSigchld, handle_sigchld, terminate_process},
+    system::{
+        _exit, ForkResult, fork, getpgid, getpgrp,
+        interface::ProcessId,
+        kill, setpgid, setsid,
+        term::{PtyFollower, Terminal},
+        wait::{Wait, WaitError, WaitOptions},
+    },
+};
+use crate::{
     exec::{
         event::{PollEvent, StopReason},
         use_pty::{SIGCONT_BG, SIGCONT_FG},
     },
     log::{dev_error, dev_info, dev_warn},
-};
-use crate::{
-    exec::{handle_sigchld, terminate_process, HandleSigchld},
-    system::{
-        _exit, fork, getpgid, getpgrp,
-        interface::ProcessId,
-        kill, setpgid, setsid,
-        term::{PtyFollower, Terminal},
-        wait::{Wait, WaitError, WaitOptions},
-        ForkResult,
-    },
 };
 
 use super::CommandStatus;

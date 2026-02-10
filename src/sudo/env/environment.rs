@@ -6,7 +6,7 @@ use std::{
 
 use crate::common::{CommandAndArguments, Context, Error};
 use crate::sudoers::Restrictions;
-use crate::system::{audit::zoneinfo_path, PATH_MAX};
+use crate::system::{PATH_MAX, audit::zoneinfo_path};
 
 use super::wildcard_match::wildcard_match;
 

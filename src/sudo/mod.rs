@@ -1,12 +1,12 @@
 #![deny(unsafe_code)]
 
-use crate::common::resolve::CurrentUser;
 use crate::common::Error;
+use crate::common::resolve::CurrentUser;
 use crate::log::dev_info;
+use crate::system::User;
 use crate::system::interface::UserId;
 use crate::system::timestamp::RecordScope;
-use crate::system::User;
-use crate::system::{timestamp::SessionRecordFile, Process};
+use crate::system::{Process, timestamp::SessionRecordFile};
 #[cfg(test)]
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]

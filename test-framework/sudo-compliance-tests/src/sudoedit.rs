@@ -1,9 +1,9 @@
 use sudo_test::{
-    helpers::assert_ls_output, Command, Env, EnvNoImplicit, TextFile, ETC_SUDOERS, ROOT_GROUP,
+    Command, ETC_SUDOERS, Env, EnvNoImplicit, ROOT_GROUP, TextFile, helpers::assert_ls_output,
 };
 
 use crate::{
-    Result, DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
+    DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
 };
 
 mod limits;

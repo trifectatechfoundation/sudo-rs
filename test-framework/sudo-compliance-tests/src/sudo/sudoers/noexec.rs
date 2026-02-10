@@ -1,6 +1,6 @@
 //! Test the NOEXEC tag and the noexec option
 
-use sudo_test::{Command, Env, BIN_TRUE};
+use sudo_test::{BIN_TRUE, Command, Env};
 
 use crate::{Result, USERNAME};
 

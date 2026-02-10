@@ -3,10 +3,10 @@
 
 use pretty_assertions::assert_eq;
 use sudo_test::{
-    Command, Env, EnvNoImplicit, PAM_D_SUDO_PATH, PAM_D_SU_PATH, STOCK_PAM_D_SU, STOCK_PAM_D_SUDO,
+    Command, Env, EnvNoImplicit, PAM_D_SU_PATH, PAM_D_SUDO_PATH, STOCK_PAM_D_SU, STOCK_PAM_D_SUDO,
 };
 
-use crate::{helpers, EnvList, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{EnvList, SUDOERS_ALL_ALL_NOPASSWD, helpers};
 
 const ETC_ENVIRONMENT_PATH: &str = "/etc/environment";
 const SECURITY_PAM_ENV_PATH: &str = "/etc/security/pam_env.conf";

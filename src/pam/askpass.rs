@@ -9,7 +9,7 @@ use libc::O_CLOEXEC;
 use crate::cutils::cerr;
 use crate::log::user_error;
 use crate::system::interface::ProcessId;
-use crate::system::{fork, mark_fds_as_cloexec, ForkResult};
+use crate::system::{ForkResult, fork, mark_fds_as_cloexec};
 
 pub(super) fn spawn_askpass(program: &Path, prompt: &str) -> io::Result<(ProcessId, OwnedFd)> {
     // Create socket

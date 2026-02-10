@@ -1,6 +1,6 @@
 use sudo_test::{
-    helpers::{self, PsAuxEntry, PRINT_PTY_OWNER},
     Command, Env,
+    helpers::{self, PRINT_PTY_OWNER, PsAuxEntry},
 };
 
 #[derive(Debug)]

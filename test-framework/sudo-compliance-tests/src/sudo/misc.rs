@@ -1,6 +1,6 @@
-use sudo_test::{helpers::assert_ls_output, is_original_sudo, Command, Env, User, BIN_SUDO};
+use sudo_test::{BIN_SUDO, Command, Env, User, helpers::assert_ls_output, is_original_sudo};
 
-use crate::{Result, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{PANIC_EXIT_CODE, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {

@@ -2,7 +2,7 @@ use std::iter;
 
 use sudo_test::{Command, Env};
 
-use crate::{helpers, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_TERM};
+use crate::{SUDO_ENV_DEFAULT_TERM, SUDOERS_ALL_ALL_NOPASSWD, helpers};
 
 use super::BAD_TZ_VALUES;
 

@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, BIN_TRUE};
+use sudo_test::{BIN_TRUE, Command, Env};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {

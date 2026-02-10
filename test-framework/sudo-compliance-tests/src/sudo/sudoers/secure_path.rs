@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, BIN_SUDO};
+use sudo_test::{BIN_SUDO, Command, Env, TextFile};
 
 use crate::SUDOERS_ALL_ALL_NOPASSWD;
 

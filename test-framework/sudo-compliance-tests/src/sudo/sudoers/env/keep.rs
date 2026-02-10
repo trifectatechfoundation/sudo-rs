@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{helpers, SUDOERS_ALL_ALL_NOPASSWD, SUDO_ENV_DEFAULT_PATH};
+use crate::{SUDO_ENV_DEFAULT_PATH, SUDOERS_ALL_ALL_NOPASSWD, helpers};
 
 const ENV_LIST: crate::EnvList = crate::EnvList::Keep;
 

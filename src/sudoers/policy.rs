@@ -2,7 +2,7 @@ use super::Sudoers;
 
 use super::Judgement;
 use crate::common::{
-    SudoPath, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2,
+    HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
 };
 use crate::exec::Umask;
 use crate::sudoers::ast::{ExecControl, Tag};

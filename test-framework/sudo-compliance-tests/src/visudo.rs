@@ -1,11 +1,11 @@
 use std::{thread, time::Duration};
 
 use sudo_test::{
-    helpers::assert_ls_output, Command, Env, EnvNoImplicit, TextFile, ETC_DIR, ETC_SUDOERS,
-    ROOT_GROUP,
+    Command, ETC_DIR, ETC_SUDOERS, Env, EnvNoImplicit, ROOT_GROUP, TextFile,
+    helpers::assert_ls_output,
 };
 
-use crate::{Result, DEFAULT_EDITOR, PANIC_EXIT_CODE, SUDOERS_ALL_ALL_NOPASSWD};
+use crate::{DEFAULT_EDITOR, PANIC_EXIT_CODE, Result, SUDOERS_ALL_ALL_NOPASSWD};
 
 mod flag_check;
 mod flag_file;
@@ -292,7 +292,9 @@ rm $2",
     if sudo_test::is_original_sudo() {
         assert_contains!(
             stderr,
-            format!("visudo: unable to re-open temporary file ({ETC_DIR}/sudoers.tmp), {ETC_DIR}/sudoers unchanged")
+            format!(
+                "visudo: unable to re-open temporary file ({ETC_DIR}/sudoers.tmp), {ETC_DIR}/sudoers unchanged"
+            )
         );
     } else {
         assert_snapshot!(stderr.replace(ETC_DIR, "<ETC_DIR>"));

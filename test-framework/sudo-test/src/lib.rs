@@ -8,8 +8,8 @@ use std::{
     env,
     path::Path,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Once,
+        atomic::{AtomicBool, Ordering},
     },
 };
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sudo_test::{Command, Env, User};
 
-use crate::{helpers, ENV_PATH, USERNAME};
+use crate::{ENV_PATH, USERNAME, helpers};
 
 #[test]
 fn it_works() {
@@ -178,7 +178,9 @@ fn warning_is_printed_when_home_directory_does_not_exist() {
             "su: warning: cannot change directory to /home/{USERNAME}: No such file or directory"
         )
     } else {
-        format!("su: unable to change directory to /home/{USERNAME}: No such file or directory (os error 2)")
+        format!(
+            "su: unable to change directory to /home/{USERNAME}: No such file or directory (os error 2)"
+        )
     };
 
     assert_contains!(output.stderr(), diagnostic);

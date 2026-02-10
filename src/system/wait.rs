@@ -191,7 +191,9 @@ mod tests {
 
         // Waiting when there are no children should fail.
         let WaitError::Io(err) = command_pid.wait(WaitOptions::new()).unwrap_err() else {
-            panic!("`WaitError::NotReady` should not happens if `WaitOptions::no_hang` was not called.");
+            panic!(
+                "`WaitError::NotReady` should not happens if `WaitOptions::no_hang` was not called."
+            );
         };
         assert_eq!(err.raw_os_error(), Some(libc::ECHILD));
     }

@@ -1,13 +1,13 @@
 use core::fmt;
 
 use crate::sudoers::{
+    VecOrd,
     ast::{Identifier, Qualified, UserSpecifier},
     tokens::{ChDir, Meta},
-    VecOrd,
 };
 use crate::{
-    common::{resolve::CurrentUser, SudoString},
-    system::{interface::UserId, User},
+    common::{SudoString, resolve::CurrentUser},
+    system::{User, interface::UserId},
 };
 
 use self::verbose::Verbose;

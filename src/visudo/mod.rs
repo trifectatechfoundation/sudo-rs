@@ -21,15 +21,15 @@ use crate::{
     sudo::{candidate_sudoers_file, diagnostic},
     sudoers::{self, Sudoers},
     system::{
-        file::{create_temporary_dir, FileLock},
-        interface::UserId,
-        signal::{consts::*, register_handlers, SignalStream, SignalsState},
         Hostname, User,
+        file::{FileLock, create_temporary_dir},
+        interface::UserId,
+        signal::{SignalStream, SignalsState, consts::*, register_handlers},
     },
 };
 
 use self::cli::{VisudoAction, VisudoOptions};
-use self::help::{long_help_message, USAGE_MSG};
+use self::help::{USAGE_MSG, long_help_message};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -305,7 +305,10 @@ fn edit_sudoers_file(
             })?;
 
         if !errors.is_empty() {
-            writeln!(stderr, "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n")?;
+            writeln!(
+                stderr,
+                "The provided sudoers file format is not recognized or contains syntax errors. Please review:\n"
+            )?;
 
             for crate::sudoers::Error {
                 message,

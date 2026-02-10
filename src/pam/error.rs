@@ -1,4 +1,4 @@
-use std::ffi::{c_int, NulError};
+use std::ffi::{NulError, c_int};
 use std::fmt;
 use std::path::PathBuf;
 use std::str::Utf8Error;

@@ -239,7 +239,9 @@ fn trailing_env_vars_are_external_args() {
     );
     assert_eq!(
         cmd.positional_args,
-        ["command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg", "BARBAZ=5"]
+        [
+            "command", "BAZ=3", "arg", "FOOBAR=4", "command", "arg", "BARBAZ=5"
+        ]
     );
 }
 

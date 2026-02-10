@@ -1,6 +1,6 @@
 use crate::{cutils::cerr, system::make_zeroed_sigaction};
 
-use super::{handler::SignalHandlerBehavior, SignalNumber};
+use super::{SignalNumber, handler::SignalHandlerBehavior};
 
 use std::ffi::c_int;
 use std::io;

@@ -5,7 +5,7 @@ use std::{
     os::fd::{AsFd, AsRawFd, RawFd},
 };
 
-use libc::{pollfd, POLLIN, POLLOUT};
+use libc::{POLLIN, POLLOUT, pollfd};
 
 use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1};
 use crate::{cutils::cerr, log::dev_debug};

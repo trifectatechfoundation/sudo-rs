@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, TextFile, User, BIN_BASH, BIN_TRUE};
+use sudo_test::{BIN_BASH, BIN_TRUE, Command, Env, TextFile, User};
 
 use crate::{PASSWORD, USERNAME};
 

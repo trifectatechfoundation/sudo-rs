@@ -1,6 +1,6 @@
-use sudo_test::{Command, Env, TextFile, User, BIN_FALSE, BIN_TRUE};
+use sudo_test::{BIN_FALSE, BIN_TRUE, Command, Env, TextFile, User};
 
-use crate::{helpers, PASSWORD, USERNAME};
+use crate::{PASSWORD, USERNAME, helpers};
 
 #[test]
 fn vars_home_and_shell_are_preserved_for_root() {

@@ -2,7 +2,7 @@ use crate::common::resolve::CurrentUser;
 use crate::common::{CommandAndArguments, Context};
 use crate::sudo::{
     cli::{SudoAction, SudoRunOptions},
-    env::environment::{get_target_environment, Environment},
+    env::environment::{Environment, get_target_environment},
 };
 use crate::system::interface::{GroupId, UserId};
 use crate::system::{Group, Hostname, User};

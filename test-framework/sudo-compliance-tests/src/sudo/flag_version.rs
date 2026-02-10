@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{Result, PANIC_EXIT_CODE};
+use crate::{PANIC_EXIT_CODE, Result};
 
 #[test]
 fn does_not_panic_on_io_errors() -> Result<()> {
