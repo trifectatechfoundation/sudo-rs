@@ -1,6 +1,2 @@
-CARGO_CRATES=	diff-0.1.13 \
-		glob-0.3.3 \
-		libc-0.2.177 \
-		log-0.4.28 \
-		pretty_assertions-1.4.1 \
-		yansi-1.0.1
+CARGO_CRATES=	glob-0.3.3 \
+		libc-0.2.180
