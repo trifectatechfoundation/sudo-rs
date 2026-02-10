@@ -62,14 +62,13 @@ fn add_extra_env(
     );
     environment.insert("SUDO_USER".into(), context.current_user.name.clone().into());
     environment.insert("SUDO_HOME".into(), context.current_user.home.clone().into());
-    // target user
     // The current SHELL variable should determine the shell to run when -s is passed, if none set use passwd entry
     environment
         .entry("SHELL".into())
         .or_insert_with(|| context.target_user.shell.clone().into());
-    // HOME' Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
+    // HOME: Set to the home directory of the target user if -i or -H are specified, env_reset or always_set_home are
     // set in sudoers, or when the -s option is specified and set_home is set in sudoers.
-    // Since we always want to do env_reset -> always set HOME
+    // In sudo-rs env_reset is mandatory, so we always set HOME unless it's in the env_keep list.
     environment
         .entry("HOME".into())
         .or_insert_with(|| context.target_user.home.clone().into());
