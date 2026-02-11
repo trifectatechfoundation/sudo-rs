@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, TextFile, User};
 
-use crate::{SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{SUDOERS_ALL_ALL_NOPASSWD, USERNAME, helpers};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -239,4 +239,66 @@ fn shell_with_open_permissions_is_accepted() {
         .args(["-u", USERNAME, "-i"])
         .output(&env)
         .assert_success();
+}
+
+#[test]
+fn login_env_overrides_env_keep() {
+    let env = Env("
+ALL ALL=(ALL:ALL) NOPASSWD: ALL
+Defaults secure_path = \"/usr/bin:/usr/sbin\"
+Defaults env_keep = \"PATH HOME SHELL USER LOGNAME\"
+")
+    .user(User(USERNAME))
+    .build();
+
+    // "sudo --login" has special behaviour which overrides secure_path with the login path (for determining the environment),
+    // and also overrides the env_keep list for selected variables.
+
+    let env_vars = [
+        "PATH=/bin:/ignored",
+        "HOME=/tmp",
+        "SHELL=/bin/true",
+        "USER=ghost",
+        "LOGNAME=wheel",
+    ];
+
+    // first of all, check that HOME is preserved in the usual case, so the env_keep
+    // is actualy recognized and we're not passing this test due to some other bug
+    let output = Command::new("env")
+        .args(env_vars)
+        .args(["sudo", "-u", USERNAME, "env"])
+        .output(&env);
+
+    output.assert_success();
+
+    let stdout = output.stdout();
+    let sudo_env = helpers::parse_env_output(&stdout);
+
+    assert_eq!(*sudo_env.get("HOME").unwrap(), "/tmp");
+    assert_eq!(*sudo_env.get("SHELL").unwrap(), "/bin/true");
+    assert_eq!(*sudo_env.get("USER").unwrap(), "ghost");
+    assert_eq!(*sudo_env.get("LOGNAME").unwrap(), "wheel");
+    assert_eq!(
+        sudo_env.get("PATH").unwrap(),
+        &"/usr/bin:/usr/sbin".to_string()
+    );
+
+    // now check that `-i` adds special behaviour
+    let output = Command::new("env")
+        .args(env_vars)
+        .args(["sudo", "-u", USERNAME, "-i", "env"])
+        .output(&env);
+
+    output.assert_success();
+
+    let stdout = output.stdout();
+    let sudo_env = helpers::parse_env_output(&stdout);
+    assert_eq!(*sudo_env.get("HOME").unwrap(), format!("/home/{USERNAME}"));
+    assert_eq!(*sudo_env.get("SHELL").unwrap(), "/bin/sh");
+    assert_eq!(*sudo_env.get("USER").unwrap(), USERNAME);
+    assert_eq!(*sudo_env.get("LOGNAME").unwrap(), USERNAME);
+    assert_eq!(
+        sudo_env.get("PATH").unwrap(),
+        &"/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games".to_string()
+    );
 }
