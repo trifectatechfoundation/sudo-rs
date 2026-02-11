@@ -91,9 +91,17 @@ pub(super) enum Hidden<T> {
     WithFeedback(T),
 }
 
-/// Stub!
+/// Heuristically determine the length of the final (potentially incomplete) UTF8 sequence
 fn last_char_size(slice: &[u8]) -> usize {
-    1
+    let start = |byte| byte & 0b1100_0000 == 0b1100_0000;
+    let trail = |byte| byte & 0b1100_0000 == 0b1000_0000;
+
+    match slice {
+        [.., a, b] if start(a) && trail(b) => 2,
+        [.., a, b, c] if start(a) && [b, c].into_iter().all(trail) => 3,
+        [.., a, b, c, d] if start(a) && [b, c, d].into_iter().all(trail) => 4,
+        _ => 1,
+    }
 }
 
 /// Reads a password from the given file descriptor while optionally showing feedback to the user.
