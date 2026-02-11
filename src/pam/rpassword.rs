@@ -91,6 +91,11 @@ pub(super) enum Hidden<T> {
     WithFeedback(T),
 }
 
+/// Stub!
+fn last_char_size(slice: &[u8]) -> usize {
+    1
+}
+
 /// Reads a password from the given file descriptor while optionally showing feedback to the user.
 fn read_unbuffered(
     source: &mut dyn io::Read,
@@ -164,8 +169,9 @@ fn read_unbuffered(
             if read_byte == input.term_orig.c_cc[VERASE] {
                 if pw_len > 0 {
                     feedback.pop();
-                    password[pw_len - 1] = 0;
-                    pw_len -= 1;
+                    let chunk = last_char_size(&password[..pw_len]);
+                    password[pw_len - chunk..pw_len].fill(0);
+                    pw_len -= chunk;
                 }
                 continue;
             }
@@ -181,7 +187,9 @@ fn read_unbuffered(
         if let Some(dest) = password.get_mut(pw_len) {
             *dest = read_byte;
             pw_len += 1;
-            feedback.push();
+            if last_char_size(&password[..pw_len]) == 1 {
+                feedback.push();
+            }
         } else {
             return Err(PamError::IncorrectPasswordAttempt);
         }
