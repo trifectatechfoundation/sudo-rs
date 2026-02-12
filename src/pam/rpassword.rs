@@ -97,6 +97,7 @@ fn last_char_size(slice: &[u8]) -> usize {
     let trail = |byte| byte & 0b1100_0000 == 0b1000_0000;
 
     match slice {
+        [] => 0,
         [.., a, b] if start(a) && trail(b) => 2,
         [.., a, b, c] if start(a) && [b, c].into_iter().all(trail) => 3,
         [.., a, b, c, d] if start(a) && [b, c, d].into_iter().all(trail) => 4,
@@ -175,12 +176,10 @@ fn read_unbuffered(
             }
 
             if read_byte == input.term_orig.c_cc[VERASE] {
-                if pw_len > 0 {
-                    feedback.pop();
-                    let chunk = last_char_size(&password[..pw_len]);
-                    password[pw_len - chunk..pw_len].fill(0);
-                    pw_len -= chunk;
-                }
+                feedback.pop();
+                let chunk = last_char_size(&password[..pw_len]);
+                password[pw_len - chunk..pw_len].fill(0);
+                pw_len -= chunk;
                 continue;
             }
 
