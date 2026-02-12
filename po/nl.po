@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: sudo-rs 0.2.10\n"
+"Project-Id-Version: sudo-rs 0.2.12\n"
 "Report-Msgid-Bugs-To: https://github.com/trifectatechfoundation/sudo-rs/issues\n"
 "POT-Creation-Date: 2025-12-08 17:30+0100\n"
 "PO-Revision-Date: 2025-12-24 11:15+0100\n"
