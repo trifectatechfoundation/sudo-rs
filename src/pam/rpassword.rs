@@ -112,8 +112,7 @@ fn read_unbuffered(
     hide_input: &Hidden<HiddenInput>,
 ) -> PamResult<PamBuffer> {
     struct Bullets<'a> {
-        visible_len: usize,
-        enabled: bool,
+        visible_len: Option<usize>,
         sink: &'a mut dyn io::Write,
     }
 
@@ -121,23 +120,26 @@ fn read_unbuffered(
 
     impl Bullets<'_> {
         fn push(&mut self) {
-            if self.enabled {
+            if let Some(ref mut len) = self.visible_len {
                 let _ = self.sink.write(BULLET);
-                self.visible_len += 1;
+                *len += 1;
             }
         }
 
         fn pop(&mut self) {
-            if self.visible_len > 0 {
-                erase_feedback(self.sink, 1);
-                self.visible_len -= 1;
+            match self.visible_len {
+                Some(ref mut len) if *len > 0 => {
+                    erase_feedback(self.sink, 1);
+                    *len -= 1;
+                }
+                _ => {}
             }
         }
 
         fn clear(&mut self) {
-            if self.visible_len > 0 {
-                erase_feedback(self.sink, self.visible_len);
-                self.visible_len = 0;
+            if let Some(ref mut len) = self.visible_len {
+                erase_feedback(self.sink, *len);
+                *len = 0;
             }
         }
     }
@@ -151,8 +153,7 @@ fn read_unbuffered(
     }
 
     let mut feedback = Bullets {
-        visible_len: 0,
-        enabled: matches!(hide_input, Hidden::WithFeedback(_)),
+        visible_len: matches!(hide_input, Hidden::WithFeedback(_)).then_some(0),
         sink,
     };
 
