@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::ffi::OsStr;
+use std::str;
 use std::{borrow::Cow, ffi::OsString, mem, os::unix::ffi::OsStrExt};
 
 use crate::common::{DisplayOsStr, SudoPath, SudoString};
@@ -499,6 +500,13 @@ enum SudoArg {
     Rest(Vec<OsString>),
 }
 
+fn demand_utf8(arg: &OsStr) -> String {
+    xlat!(
+        "argument '{arg}' is not valid UTF-8",
+        arg = DisplayOsStr(arg)
+    )
+}
+
 impl SudoArg {
     const TAKES_ARGUMENT_SHORT: &'static [char] = &['D', 'g', 'h', 'p', 'R', 'U', 'u'];
     const TAKES_ARGUMENT: &'static [&'static str] = &[
@@ -524,12 +532,8 @@ impl SudoArg {
                 processed.push(SudoArg::Rest(arg_iter.collect()));
                 break;
             } else if let Some(unprefixed) = arg.as_encoded_bytes().strip_prefix(b"--") {
-                let Ok(unprefixed) = std::str::from_utf8(unprefixed) else {
-                    return Err(xlat!(
-                        "option '{option}' is not valid UTF-8",
-                        option = DisplayOsStr(&arg)
-                    ));
-                };
+                let unprefixed = str::from_utf8(unprefixed).map_err(|_| demand_utf8(&arg))?;
+
                 if let Some((key, value)) = unprefixed.split_once('=') {
                     // convert assignment to normal tokens
 
@@ -545,12 +549,8 @@ impl SudoArg {
                 } else if Self::TAKES_ARGUMENT.contains(&unprefixed) {
                     let arg = String::from_utf8(arg.into_encoded_bytes()).expect("already checked");
                     if let Some(next) = arg_iter.next() {
-                        let Ok(next) = std::str::from_utf8(next.as_encoded_bytes()) else {
-                            return Err(xlat!(
-                                "argument '{next}' is not valid UTF-8",
-                                next = DisplayOsStr(&next),
-                            ));
-                        };
+                        let next = str::from_utf8(next.as_encoded_bytes())
+                            .map_err(|_| demand_utf8(&next))?;
                         processed.push(SudoArg::Argument(arg, next.to_owned()));
                     } else {
                         Err(xlat!("'{option}' expects an argument", option = arg))?;
@@ -560,12 +560,7 @@ impl SudoArg {
                     processed.push(SudoArg::Flag(arg));
                 }
             } else if let Some(unprefixed) = arg.as_bytes().strip_prefix(b"-") {
-                let Ok(unprefixed) = std::str::from_utf8(unprefixed) else {
-                    return Err(xlat!(
-                        "option '{option}' is not valid UTF-8",
-                        option = DisplayOsStr(&arg)
-                    ));
-                };
+                let unprefixed = str::from_utf8(unprefixed).map_err(|_| demand_utf8(&arg))?;
 
                 // split combined shorthand options
                 let mut chars = unprefixed.chars();
@@ -584,12 +579,8 @@ impl SudoArg {
                         if next.is_some() {
                             processed.push(SudoArg::Argument(flag, rest.to_string()));
                         } else if let Some(next) = arg_iter.next() {
-                            let Ok(next) = std::str::from_utf8(next.as_encoded_bytes()) else {
-                                return Err(xlat!(
-                                    "argument '{next}' is not valid UTF-8",
-                                    next = DisplayOsStr(&next),
-                                ));
-                            };
+                            let next = str::from_utf8(next.as_encoded_bytes())
+                                .map_err(|_| demand_utf8(&next))?;
                             processed.push(SudoArg::Argument(flag, next.to_owned()));
                         } else if curr == 'h' {
                             // short version of --help has no arguments
@@ -789,12 +780,7 @@ fn try_to_env_var(arg: &OsStr) -> Result<Option<(String, String)>, String> {
         return Ok(None);
     }
 
-    let Ok(arg) = std::str::from_utf8(arg.as_encoded_bytes()) else {
-        return Err(xlat!(
-            "argument '{arg}' is not valid UTF-8",
-            arg = DisplayOsStr(arg),
-        ));
-    };
+    let arg = str::from_utf8(arg.as_encoded_bytes()).map_err(|_| demand_utf8(arg))?;
 
     let (name, value) = arg
         .split_once('=')
