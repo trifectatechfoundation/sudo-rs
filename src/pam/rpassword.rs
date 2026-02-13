@@ -91,37 +91,75 @@ pub(super) enum Hidden<T> {
     WithFeedback(T),
 }
 
+/// Heuristically determine the length of the final (potentially incomplete) UTF8 sequence
+fn last_char_size(slice: &[u8]) -> usize {
+    let start = |byte| byte & 0b1100_0000 == 0b1100_0000;
+    let trail = |byte| byte & 0b1100_0000 == 0b1000_0000;
+
+    match slice {
+        [] => 0,
+        [.., a, b] if start(a) && trail(b) => 2,
+        [.., a, b, c] if start(a) && [b, c].into_iter().all(trail) => 3,
+        [.., a, b, c, d] if start(a) && [b, c, d].into_iter().all(trail) => 4,
+        _ => 1,
+    }
+}
+
 /// Reads a password from the given file descriptor while optionally showing feedback to the user.
 fn read_unbuffered(
     source: &mut dyn io::Read,
     sink: &mut dyn io::Write,
     hide_input: &Hidden<HiddenInput>,
 ) -> PamResult<PamBuffer> {
-    struct ExitGuard<'a> {
-        pw_len: usize,
-        feedback: bool,
+    struct Bullets<'a> {
+        visible_len: Option<usize>,
         sink: &'a mut dyn io::Write,
     }
 
-    // Ensure we erase the password feedback no matter how we exit read_unbuffered
-    impl Drop for ExitGuard<'_> {
-        fn drop(&mut self) {
-            if self.feedback {
-                erase_feedback(self.sink, self.pw_len);
+    const BULLET: &[u8] = b"*";
+
+    impl Bullets<'_> {
+        fn push(&mut self) {
+            if let Some(ref mut len) = self.visible_len {
+                let _ = self.sink.write(BULLET);
+                *len += 1;
             }
+        }
+
+        fn pop(&mut self) {
+            match self.visible_len {
+                Some(ref mut len) if *len > 0 => {
+                    erase_feedback(self.sink, 1);
+                    *len -= 1;
+                }
+                _ => {}
+            }
+        }
+
+        fn clear(&mut self) {
+            if let Some(ref mut len) = self.visible_len {
+                erase_feedback(self.sink, *len);
+                *len = 0;
+            }
+        }
+    }
+
+    // Ensure we erase the password feedback no matter how we exit read_unbuffered
+    impl Drop for Bullets<'_> {
+        fn drop(&mut self) {
+            self.clear();
             let _ = self.sink.write(b"\n");
         }
     }
 
-    let mut password = PamBuffer::default();
-    let mut state = ExitGuard {
-        pw_len: 0,
-        feedback: matches!(hide_input, Hidden::WithFeedback(_)),
+    let mut feedback = Bullets {
+        visible_len: matches!(hide_input, Hidden::WithFeedback(_)).then_some(0),
         sink,
     };
 
-    // invariant: the amount of nonzero-bytes in the buffer correspond
-    // with the amount of asterisks on the terminal (both tracked in `pw_len`)
+    let mut password = PamBuffer::default();
+    let mut pw_len = 0;
+
     #[allow(clippy::unbuffered_bytes)]
     for read_byte in source.bytes() {
         let read_byte = read_byte.map_err(|err| match err {
@@ -139,38 +177,33 @@ fn read_unbuffered(
             }
 
             if read_byte == input.term_orig.c_cc[VERASE] {
-                if state.pw_len > 0 {
-                    if let Hidden::WithFeedback(_) = hide_input {
-                        erase_feedback(state.sink, 1);
-                    }
-                    password[state.pw_len - 1] = 0;
-                    state.pw_len -= 1;
-                }
+                feedback.pop();
+                let chunk = last_char_size(&password[..pw_len]);
+                password[pw_len - chunk..pw_len].fill(0);
+                pw_len -= chunk;
                 continue;
             }
 
             if read_byte == input.term_orig.c_cc[VKILL] {
-                if let Hidden::WithFeedback(_) = hide_input {
-                    erase_feedback(state.sink, state.pw_len);
-                }
+                feedback.clear();
                 password.fill(0);
-                state.pw_len = 0;
+                pw_len = 0;
                 continue;
             }
         }
 
-        if let Some(dest) = password.get_mut(state.pw_len) {
+        if let Some(dest) = password.get_mut(pw_len) {
             *dest = read_byte;
-            state.pw_len += 1;
-            if let Hidden::WithFeedback(_) = hide_input {
-                let _ = state.sink.write(b"*");
+            pw_len += 1;
+            if last_char_size(&password[..pw_len]) == 1 {
+                feedback.push();
             }
         } else {
             return Err(PamError::IncorrectPasswordAttempt);
         }
     }
 
-    if state.pw_len == 0 {
+    if pw_len == 0 {
         // In case of EOF or Ctrl-D we don't want to ask for a password a second
         // time, so return an error.
         Err(PamError::NoPasswordProvided)
