@@ -79,11 +79,7 @@ fn parse_env_commands(input: &str) -> Vec<(&str, Environment)> {
 
 fn create_test_context(sudo_options: SudoRunOptions) -> Context {
     let path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin".to_string();
-    let command = CommandAndArguments::build_from_args(
-        None,
-        sudo_options.positional_args.into_iter().collect(),
-        &path,
-    );
+    let command = CommandAndArguments::build_from_args(None, sudo_options.positional_args, &path);
 
     let current_user = CurrentUser::fake(User {
         uid: UserId::new(1000),
