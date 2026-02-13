@@ -2,7 +2,7 @@
 
 use std::ffi::OsStr;
 use std::str;
-use std::{borrow::Cow, ffi::OsString, mem, os::unix::ffi::OsStrExt};
+use std::{borrow::Cow, ffi::OsString, mem};
 
 use crate::common::{DisplayOsStr, SudoPath, SudoString};
 use crate::log::user_warn;
@@ -27,7 +27,7 @@ pub enum SudoAction {
 pub(super) fn is_sudoedit(command_path: Option<OsString>) -> bool {
     std::path::Path::new(&command_path.unwrap_or_default())
         .file_name()
-        .is_some_and(|name| name.as_bytes().starts_with(b"sudoedit"))
+        .is_some_and(|name| name.as_encoded_bytes().starts_with(b"sudoedit"))
 }
 
 impl SudoAction {
@@ -559,7 +559,7 @@ impl SudoArg {
                     let arg = String::from_utf8(arg.into_encoded_bytes()).expect("already checked");
                     processed.push(SudoArg::Flag(arg));
                 }
-            } else if let Some(unprefixed) = arg.as_bytes().strip_prefix(b"-") {
+            } else if let Some(unprefixed) = arg.as_encoded_bytes().strip_prefix(b"-") {
                 let unprefixed = str::from_utf8(unprefixed).map_err(|_| demand_utf8(&arg))?;
 
                 // split combined shorthand options
@@ -755,7 +755,7 @@ impl SudoOptions {
                         // works because the OS directly splits at b'/' without regards
                         // for if it is part of another character (which it can't be
                         // with UTF-8 anyways).
-                        let is_dir = cmd.as_os_str().as_bytes().ends_with(b"/");
+                        let is_dir = cmd.as_os_str().as_encoded_bytes().ends_with(b"/");
                         if !options.edit
                             && !is_dir
                             && (cmd.ends_with("sudoedit") || cmd.ends_with("sudoedit-rs"))
