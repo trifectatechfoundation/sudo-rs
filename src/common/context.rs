@@ -79,11 +79,7 @@ impl Context {
             };
 
             sudo_call(&target_user, &target_group, || {
-                CommandAndArguments::build_from_args(
-                    shell,
-                    sudo_options.positional_args.into_iter().collect(),
-                    path,
-                )
+                CommandAndArguments::build_from_args(shell, sudo_options.positional_args, path)
             })?
         };
 
@@ -224,11 +220,7 @@ impl Context {
             };
 
             sudo_call(&target_user, &target_group, || {
-                CommandAndArguments::build_from_args(
-                    None,
-                    sudo_options.positional_args.into_iter().collect(),
-                    path,
-                )
+                CommandAndArguments::build_from_args(None, sudo_options.positional_args, path)
             })?
         };
 
