@@ -15,6 +15,14 @@ use super::{
 };
 use crate::common::resolve::CurrentUser;
 
+#[cfg(target_os = "linux")]
+pub(crate) fn no_new_privs_enabled() -> io::Result<bool> {
+    // SAFETY: prctl(PR_GET_NO_NEW_PRIVS) can never cause UB
+    let no_new_privs =
+        crate::cutils::cerr(unsafe { libc::prctl(libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) })?;
+    Ok(no_new_privs != 0)
+}
+
 /// Temporary change privileges --- essentially a 'mini sudo'
 /// This is only used for sudoedit.
 pub(crate) fn sudo_call<T>(

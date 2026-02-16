@@ -131,12 +131,16 @@ fn sudo_process() -> Result<(), Error> {
 }
 
 fn self_check() -> Result<(), Error> {
-    let euid = User::effective_uid();
-    if euid == UserId::ROOT {
-        Ok(())
-    } else {
-        Err(Error::SelfCheck)
+    #[cfg(target_os = "linux")]
+    if crate::system::audit::no_new_privs_enabled()? {
+        return Err(Error::SelfCheckNoNewPrivs);
     }
+
+    if User::effective_uid() != UserId::ROOT {
+        return Err(Error::SelfCheckSetuid);
+    }
+
+    Ok(())
 }
 
 pub fn main() {
