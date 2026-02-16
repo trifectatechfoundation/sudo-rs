@@ -1,12 +1,10 @@
 use std::ffi::OsStr;
-use std::process::exit;
 use std::time::Duration;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
 use super::diagnostic;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
-use crate::exec::ExitReason;
 use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
@@ -123,14 +121,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     pam_context.close_session();
 
-    match command_exit_reason? {
-        ExitReason::Code(code) => exit(code),
-        ExitReason::Signal(signal) => {
-            crate::system::kill(Process::process_id(), signal)?;
-        }
-    }
-
-    Ok(())
+    match command_exit_reason?.exit_process()? {}
 }
 
 pub fn run_validate(cmd_opts: SudoValidateOptions) -> Result<(), Error> {

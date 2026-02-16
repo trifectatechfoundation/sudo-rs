@@ -7,11 +7,11 @@ mod use_pty;
 
 use std::{
     borrow::Cow,
+    convert::Infallible,
     env,
     ffi::{OsStr, OsString, c_int},
     io,
-    os::unix::ffi::OsStrExt,
-    os::unix::process::CommandExt,
+    os::unix::{ffi::OsStrExt, process::CommandExt},
     path::{Path, PathBuf},
     process::{self, Command},
     time::Duration,
@@ -215,6 +215,18 @@ pub fn run_command(
 pub enum ExitReason {
     Code(i32),
     Signal(i32),
+}
+
+impl ExitReason {
+    pub(crate) fn exit_process(self) -> Result<Infallible, crate::common::Error> {
+        match self {
+            ExitReason::Code(code) => process::exit(code),
+            ExitReason::Signal(signal) => {
+                crate::system::kill(crate::system::Process::process_id(), signal)?;
+                unreachable!();
+            }
+        }
+    }
 }
 
 fn exec_command(

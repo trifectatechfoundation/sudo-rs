@@ -1,13 +1,11 @@
 #![forbid(unsafe_code)]
 
 use crate::common::error::Error;
-use crate::exec::ExitReason;
 use crate::log::user_warn;
 use crate::pam::{PamContext, PamError, PamErrorType};
-use crate::system::Process;
 use crate::system::term::current_tty_name;
 
-use std::{env, process};
+use std::env;
 
 use cli::SuAction;
 use context::SuContext;
@@ -111,14 +109,7 @@ fn run(options: SuRunOptions) -> Result<(), Error> {
 
     pam.close_session();
 
-    match command_exit_reason? {
-        ExitReason::Code(code) => process::exit(code),
-        ExitReason::Signal(signal) => {
-            crate::system::kill(Process::process_id(), signal)?;
-        }
-    }
-
-    Ok(())
+    match command_exit_reason?.exit_process()? {}
 }
 
 pub fn main() {

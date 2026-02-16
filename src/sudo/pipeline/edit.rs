@@ -1,11 +1,8 @@
-use std::process::exit;
-
 use super::super::cli::SudoEditOptions;
 use crate::common::{Context, DisplayOsStr, Error};
-use crate::exec::ExitReason;
 use crate::log::{user_error, user_info};
 use crate::sudoers::Authorization;
-use crate::system::{Process, audit};
+use crate::system::audit;
 
 pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
     let policy = super::read_sudoers()?;
@@ -66,12 +63,5 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
     pam_context.close_session();
 
-    match command_exit_reason? {
-        ExitReason::Code(code) => exit(code),
-        ExitReason::Signal(signal) => {
-            crate::system::kill(Process::process_id(), signal)?;
-        }
-    }
-
-    Ok(())
+    match command_exit_reason?.exit_process()? {}
 }
