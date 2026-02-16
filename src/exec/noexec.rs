@@ -189,7 +189,6 @@ unsafe fn handle_notifications(notify_fd: OwnedFd) -> ! {
 #[repr(C)]
 union SingleRightAnciliaryData {
     // SAFETY: Not actually unsafe
-    #[allow(clippy::undocumented_unsafe_blocks)] // Clippy doesn't understand the safety comment
     buf: [u8; unsafe { CMSG_SPACE(size_of::<c_int>() as u32) as usize }],
     _align: cmsghdr,
 }

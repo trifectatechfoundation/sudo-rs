@@ -97,8 +97,7 @@ macro_rules! cstr {
 #[cfg(feature = "gettext")]
 macro_rules! xlat {
     ($text: literal) => {{
-        #[allow(dead_code)]
-        const _OK: () = $crate::gettext::check::check_keys($text, &[]);
+        const _: () = $crate::gettext::check::check_keys($text, &[]);
         $crate::gettext::gettext(cstr!($text))
     }};
 
@@ -107,8 +106,7 @@ macro_rules! xlat {
         use $crate::gettext::display::{Convert, Reference, Wrap};
         use std::ops::Deref;
 
-        #[allow(dead_code)]
-        const _OK: () = $crate::gettext::check::check_keys(
+        const _: () = $crate::gettext::check::check_keys(
             $text,
             &[$(stringify!($id)),*]
         );

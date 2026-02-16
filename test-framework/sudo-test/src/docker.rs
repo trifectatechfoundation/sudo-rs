@@ -181,7 +181,6 @@ pub fn build_base_image() {
 
     match SudoUnderTest::from_env() {
         SudoUnderTest::Ours => {
-            #[allow(clippy::vec_init_then_push)]
             let sudo_build_features: String =
                 env::var("SUDO_BUILD_FEATURES").unwrap_or_else(|_| {
                     [

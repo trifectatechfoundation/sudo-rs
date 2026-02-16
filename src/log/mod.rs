@@ -1,4 +1,3 @@
-#![allow(unused_macros)]
 use self::simple_logger::SimpleLogger;
 use self::syslog::Syslog;
 use std::fmt;
