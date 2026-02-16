@@ -313,12 +313,11 @@ mod tests {
         config.check_should_keep("PATH", "FOO", true);
     }
 
-    #[allow(clippy::useless_format)]
     #[allow(clippy::bool_assert_comparison)]
     #[test]
     fn test_tzinfo() {
         let path_zoneinfo = zoneinfo_path().unwrap();
-        assert_eq!(is_safe_tz("Europe/Amsterdam".as_bytes()), true);
+        assert_eq!(is_safe_tz(b"Europe/Amsterdam"), true);
         assert_eq!(
             is_safe_tz(format!("{path_zoneinfo}/Europe/London").as_bytes()),
             true
@@ -327,11 +326,8 @@ mod tests {
             is_safe_tz(format!(":{path_zoneinfo}/Europe/Amsterdam").as_bytes()),
             true
         );
-        assert_eq!(is_safe_tz(format!("/Europe/Amsterdam").as_bytes()), false);
-        assert_eq!(
-            is_safe_tz(format!("/schaap/Europe/Amsterdam").as_bytes()),
-            false
-        );
+        assert_eq!(is_safe_tz(b"/Europe/Amsterdam"), false);
+        assert_eq!(is_safe_tz(b"/schaap/Europe/Amsterdam"), false);
         assert_eq!(
             is_safe_tz(format!("{path_zoneinfo}/../Europe/London").as_bytes()),
             false
