@@ -363,11 +363,6 @@ jobs:
           rustup override set nightly
           rustup component add miri
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install libpam0g-dev
-
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
 
