@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::OsString;
 
 use crate::common::{Error, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::exec::RunOptions;
@@ -137,8 +138,8 @@ impl Context {
         // by the policy to edit that file. this is to prevent leaking information.
         let arguments = resolved_args
             .map(|arg| match arg {
-                Ok(arg) => arg,
-                Err(arg) => arg.to_owned(),
+                Ok(arg) => OsString::from(arg),
+                Err(arg) => OsString::from(arg),
             })
             .collect();
 
