@@ -27,7 +27,7 @@ use crate::{
         _exit, ForkResult, Group, User, fork,
         interface::ProcessId,
         kill, killpg, mark_fds_as_cloexec, set_target_user, setpgid,
-        signal::{SignalNumber, SignalSet, SignalsState, consts::*, signal_name},
+        signal::{SignalNumber, SignalSet, SignalsState, consts::*, exit_with_signal, signal_name},
         term::UserTerm,
         wait::{Wait, WaitError, WaitOptions},
     },
@@ -221,10 +221,7 @@ impl ExitReason {
     pub(crate) fn exit_process(self) -> Result<Infallible, crate::common::Error> {
         match self {
             ExitReason::Code(code) => process::exit(code),
-            ExitReason::Signal(signal) => {
-                crate::system::kill(crate::system::Process::process_id(), signal)?;
-                unreachable!();
-            }
+            ExitReason::Signal(signal) => exit_with_signal(signal),
         }
     }
 }
