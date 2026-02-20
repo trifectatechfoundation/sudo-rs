@@ -157,7 +157,13 @@ impl Token for AliasName {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
-pub type Command = (SimpleCommand, Option<Box<[String]>>);
+#[repr(u32)]
+pub enum Args {
+    All = HARDENED_ENUM_VALUE_0,
+    Exact(Box<[String]>) = HARDENED_ENUM_VALUE_1,
+}
+
+pub type Command = (SimpleCommand, Args);
 
 /// A type that is specific to 'only commands', that can only happen in "Defaults!command" contexts;
 /// which is essentially a subset of "Command"
@@ -176,7 +182,7 @@ impl Token for Command {
 
         let argpat = if args.is_empty() {
             // if no arguments are mentioned, anything is allowed
-            None
+            Args::All
         } else {
             if args.first().is_some_and(|x| x.starts_with('^')) {
                 // regular expressions are not supported, give an error message. If there is only a
@@ -191,10 +197,10 @@ impl Token for Command {
             if args.iter().any(|arg| arg.chars().any(|c| "?*".contains(c))) {
                 return Err("wildcards are not allowed in command arguments".to_string());
             }
-            Some(args.into_boxed_slice())
+            Args::Exact(args.into_boxed_slice())
         };
 
-        if command.as_str() == "list" && argpat.is_some() {
+        if command.as_str() == "list" && matches!(argpat, Args::Exact(_)) {
             return Err("list does not take arguments".to_string());
         }
 

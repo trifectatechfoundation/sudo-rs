@@ -441,7 +441,8 @@ fn sudoedit_recognized() {
         panic!();
     };
     assert_eq!(cmd.as_str(), "sudoedit");
-    assert_eq!(args.unwrap().as_ref(), &["/etc/tmux.conf"][..]);
+    let Args::Exact(args) = args else { panic!() };
+    assert_eq!(args.as_ref(), &["/etc/tmux.conf"][..]);
 }
 
 #[test]

@@ -634,9 +634,10 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [OsString])) -> impl Fn(&Comman
     };
     move |(cmdpat, argpat)| {
         cmdpat.matches_path_with(cmd, opts)
-            && argpat
-                .as_ref()
-                .is_none_or(|vec| args.iter().eq(vec.into_iter().map(OsStr::new)))
+            && match argpat {
+                Args::All => true,
+                Args::Exact(vec) => args.iter().eq(vec.into_iter().map(OsStr::new)),
+            }
     }
 }
 
@@ -763,7 +764,9 @@ fn analyze(
                             cfg.customisers.cmnd.push((
                                 specs
                                     .into_iter()
-                                    .map(|spec| spec.map(|simple_command| (simple_command, None)))
+                                    .map(|spec| {
+                                        spec.map(|simple_command| (simple_command, Args::All))
+                                    })
                                     .collect(),
                                 params,
                             ));

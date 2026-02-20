@@ -14,7 +14,7 @@ use self::verbose::Verbose;
 
 use super::{
     ast::{Authenticate, Def, EnvironmentControl, ExecControl, RunAs, Tag},
-    tokens::Command,
+    tokens::{Args, Command},
 };
 
 mod verbose;
@@ -254,7 +254,7 @@ fn write_spec<'a>(
 
         Meta::Only((cmd, args)) => {
             write!(f, "{cmd}")?;
-            if let Some(args) = args {
+            if let Args::Exact(args) = args {
                 for arg in args.iter() {
                     write!(f, " {arg}")?;
                 }
