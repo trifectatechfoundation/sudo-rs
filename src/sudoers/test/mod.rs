@@ -228,6 +228,11 @@ fn permission_test() {
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help");
     pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");
+    FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help only me");
+    pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help me please");
+    pass!(["user ALL=/bin/hel* *"], "user" => root(), "server"; "/bin/help me please");
+    pass!(["user ALL=/bin/hel* me *"], "user" => root(), "server"; "/bin/help me please");
+    pass!(["user ALL=/bin/hel* me please *"], "user" => root(), "server"; "/bin/help me please");
 
     pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::None]);
     pass!(["root ALL=(ALL:ALL) /bin/foo"], "root" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Nopasswd]);
@@ -421,6 +426,12 @@ fn invalid_directive() {
 #[should_panic = "embedded $ in username"]
 fn invalid_username() {
     parse_eval::<ast::Sudo>("User_Alias FOO = $dollar");
+}
+
+#[test]
+#[should_panic = "wildcards are not allowed in command arguments"]
+fn wildcard_in_argument() {
+    parse_eval::<ast::Sudo>("user ALL=/bin/hello w*");
 }
 
 #[test]
