@@ -6,7 +6,7 @@ use crate::sudoers::{
     tokens::{ChDir, Meta},
 };
 use crate::{
-    common::{SudoString, resolve::CurrentUser},
+    common::{DisplayOsStr, SudoString, resolve::CurrentUser},
     system::{User, interface::UserId},
 };
 
@@ -257,7 +257,7 @@ fn write_spec<'a>(
             match args {
                 Args::Exact(args) => {
                     for arg in args {
-                        write!(f, " {arg}")?;
+                        write!(f, " {}", DisplayOsStr(arg))?;
                     }
                     if args.is_empty() {
                         write!(f, " \"\"")?;
@@ -265,7 +265,7 @@ fn write_spec<'a>(
                 }
                 Args::Prefix(args) => {
                     for arg in args {
-                        write!(f, " {arg}")?;
+                        write!(f, " {}", DisplayOsStr(arg))?;
                     }
                     if !args.is_empty() {
                         write!(f, " *")?;

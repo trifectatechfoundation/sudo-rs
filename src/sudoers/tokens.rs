@@ -157,11 +157,12 @@ impl Token for AliasName {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
+use std::ffi::OsString;
 #[derive(PartialEq)]
 #[repr(u32)]
 pub enum Args {
-    Prefix(Box<[String]>) = HARDENED_ENUM_VALUE_0,
-    Exact(Box<[String]>) = HARDENED_ENUM_VALUE_1,
+    Prefix(Box<[OsString]>) = HARDENED_ENUM_VALUE_0,
+    Exact(Box<[OsString]>) = HARDENED_ENUM_VALUE_1,
 }
 
 pub type Command = (SimpleCommand, Args);
@@ -177,7 +178,7 @@ impl Token for Command {
         // the tokenizer should not give us a token that consists of only whitespace
         let mut cmd_iter = s.split_whitespace();
         let cmd = cmd_iter.next().unwrap().to_string();
-        let mut args = cmd_iter.map(String::from).collect::<Vec<String>>();
+        let mut args = cmd_iter.map(OsString::from).collect::<Vec<OsString>>();
 
         let command = SimpleCommand::construct(cmd)?;
 
@@ -185,27 +186,33 @@ impl Token for Command {
             // if no arguments are mentioned, anything is allowed
             Args::Prefix(Box::default())
         } else {
-            if args.first().is_some_and(|x| x.starts_with('^')) {
+            if args
+                .first()
+                .is_some_and(|x| x.as_encoded_bytes().starts_with(b"^"))
+            {
                 // regular expressions are not supported, give an error message. If there is only a
                 // terminating '$', this is not treated as a malformed regex by millersudo, so we don't
                 // need to seperately check for that
                 return Err("regular expressions are not supported".to_string());
             }
-            let match_type = match args.last().map(|x| -> &str { x }) {
+            let match_type = match args.last().map(|x| x.as_encoded_bytes()) {
                 // if the magic * appears, any further arguments are allowed
-                Some("*") => {
+                Some(b"*") => {
                     args.pop();
                     Args::Prefix
                 }
                 // if the magic "" appears, no (further) arguments are allowed
-                Some("\"\"") => {
+                Some(b"\"\"") => {
                     args.pop();
                     Args::Exact
                 }
                 _ => Args::Exact,
             };
 
-            if args.iter().any(|arg| arg.chars().any(|c| "?*".contains(c))) {
+            if args
+                .iter()
+                .any(|arg| arg.as_encoded_bytes().iter().any(|c| b"?*".contains(c)))
+            {
                 return Err("wildcards are not allowed in command arguments".to_string());
             }
 

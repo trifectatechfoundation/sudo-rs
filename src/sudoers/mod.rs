@@ -10,7 +10,7 @@ mod entry;
 mod tokens;
 
 use std::collections::{HashMap, HashSet};
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -635,12 +635,8 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [OsString])) -> impl Fn(&Comman
     move |(cmdpat, argpat)| {
         cmdpat.matches_path_with(cmd, opts)
             && match argpat {
-                Args::Prefix(vec) => args
-                    .iter()
-                    .take(vec.len())
-                    .eq(vec.into_iter().map(OsStr::new)),
-
-                Args::Exact(vec) => args.iter().eq(vec.into_iter().map(OsStr::new)),
+                Args::Prefix(vec) => args.starts_with(vec),
+                Args::Exact(vec) => args == vec.as_ref(),
             }
     }
 }
