@@ -635,7 +635,11 @@ fn match_command<'a>((cmd, args): (&'a Path, &'a [OsString])) -> impl Fn(&Comman
     move |(cmdpat, argpat)| {
         cmdpat.matches_path_with(cmd, opts)
             && match argpat {
-                Args::All => true,
+                Args::Prefix(vec) => args
+                    .iter()
+                    .take(vec.len())
+                    .eq(vec.into_iter().map(OsStr::new)),
+
                 Args::Exact(vec) => args.iter().eq(vec.into_iter().map(OsStr::new)),
             }
     }
@@ -765,7 +769,9 @@ fn analyze(
                                 specs
                                     .into_iter()
                                     .map(|spec| {
-                                        spec.map(|simple_command| (simple_command, Args::All))
+                                        spec.map(|simple_command| {
+                                            (simple_command, Args::Prefix(Box::default()))
+                                        })
                                     })
                                     .collect(),
                                 params,

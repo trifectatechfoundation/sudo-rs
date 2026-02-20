@@ -254,9 +254,22 @@ fn write_spec<'a>(
 
         Meta::Only((cmd, args)) => {
             write!(f, "{cmd}")?;
-            if let Args::Exact(args) = args {
-                for arg in args.iter() {
-                    write!(f, " {arg}")?;
+            match args {
+                Args::Exact(args) => {
+                    for arg in args {
+                        write!(f, " {arg}")?;
+                    }
+                    if args.is_empty() {
+                        write!(f, " \"\"")?;
+                    }
+                }
+                Args::Prefix(args) => {
+                    for arg in args {
+                        write!(f, " {arg}")?;
+                    }
+                    if !args.is_empty() {
+                        write!(f, " *")?;
+                    }
                 }
             }
         }

@@ -157,9 +157,10 @@ impl Token for AliasName {
 
 /// A struct that represents valid command strings; this can contain escape sequences and are
 /// limited to 1024 characters.
+#[derive(PartialEq)]
 #[repr(u32)]
 pub enum Args {
-    All = HARDENED_ENUM_VALUE_0,
+    Prefix(Box<[String]>) = HARDENED_ENUM_VALUE_0,
     Exact(Box<[String]>) = HARDENED_ENUM_VALUE_1,
 }
 
@@ -182,7 +183,7 @@ impl Token for Command {
 
         let argpat = if args.is_empty() {
             // if no arguments are mentioned, anything is allowed
-            Args::All
+            Args::Prefix(Box::default())
         } else {
             if args.first().is_some_and(|x| x.starts_with('^')) {
                 // regular expressions are not supported, give an error message. If there is only a
@@ -190,17 +191,28 @@ impl Token for Command {
                 // need to seperately check for that
                 return Err("regular expressions are not supported".to_string());
             }
-            if args.last().is_some_and(|x| x == "\"\"") {
+            let match_type = match args.last().map(|x| -> &str { x }) {
+                // if the magic * appears, any further arguments are allowed
+                Some("*") => {
+                    args.pop();
+                    Args::Prefix
+                }
                 // if the magic "" appears, no (further) arguments are allowed
-                args.pop();
-            }
+                Some("\"\"") => {
+                    args.pop();
+                    Args::Exact
+                }
+                _ => Args::Exact,
+            };
+
             if args.iter().any(|arg| arg.chars().any(|c| "?*".contains(c))) {
                 return Err("wildcards are not allowed in command arguments".to_string());
             }
-            Args::Exact(args.into_boxed_slice())
+
+            match_type(args.into_boxed_slice())
         };
 
-        if command.as_str() == "list" && matches!(argpat, Args::Exact(_)) {
+        if command.as_str() == "list" && argpat != Args::Prefix(Box::default()) {
             return Err("list does not take arguments".to_string());
         }
 
