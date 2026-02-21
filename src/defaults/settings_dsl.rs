@@ -172,7 +172,6 @@ macro_rules! defaults {
         }
 
         impl Default for Settings {
-            #[allow(unused_parens)]
             fn default() -> Self {
                 Self {
                     $($name: initializer_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)),*
@@ -180,8 +179,6 @@ macro_rules! defaults {
             }
         }
 
-        #[allow(clippy::diverging_sub_expression)]
-        #[allow(unreachable_code)]
         pub fn negate(name: &str) -> Option<SettingsModifier> {
             match name {
                 $(

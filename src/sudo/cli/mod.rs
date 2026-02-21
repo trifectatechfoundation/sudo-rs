@@ -1,9 +1,10 @@
 #![forbid(unsafe_code)]
 
-use std::os::unix::ffi::OsStrExt;
-use std::{borrow::Cow, mem};
+use std::ffi::OsStr;
+use std::str;
+use std::{borrow::Cow, ffi::OsString, mem};
 
-use crate::common::{SudoPath, SudoString};
+use crate::common::{DisplayOsStr, SudoPath, SudoString};
 use crate::log::user_warn;
 
 pub mod help;
@@ -23,23 +24,23 @@ pub enum SudoAction {
     Version(SudoVersionOptions),
 }
 
-pub(super) fn is_sudoedit(command_path: Option<String>) -> bool {
+pub(super) fn is_sudoedit(command_path: Option<OsString>) -> bool {
     std::path::Path::new(&command_path.unwrap_or_default())
         .file_name()
-        .is_some_and(|name| name.as_bytes().starts_with(b"sudoedit"))
+        .is_some_and(|name| name.as_encoded_bytes().starts_with(b"sudoedit"))
 }
 
 impl SudoAction {
     /// try to parse and environment variable assignment
     /// parse command line arguments from the environment and handle errors
     pub fn from_env() -> Result<Self, String> {
-        Self::try_parse_from(std::env::args())
+        Self::try_parse_from(std::env::args_os())
     }
 
     pub fn try_parse_from<I, T>(iter: I) -> Result<Self, String>
     where
         I: IntoIterator<Item = T>,
-        T: Into<String> + Clone,
+        T: Into<OsString> + Clone,
     {
         let opts = SudoOptions::try_parse_from(iter)?;
         opts.validate()
@@ -190,7 +191,7 @@ pub struct SudoEditOptions {
     pub group: Option<SudoString>,
     // -u
     pub user: Option<SudoString>,
-    pub positional_args: Vec<String>,
+    pub positional_args: Vec<OsString>,
 }
 
 impl TryFrom<SudoOptions> for SudoEditOptions {
@@ -265,7 +266,7 @@ pub struct SudoListOptions {
     // -u
     pub user: Option<SudoString>,
 
-    pub positional_args: Vec<String>,
+    pub positional_args: Vec<OsString>,
 }
 
 impl TryFrom<SudoOptions> for SudoListOptions {
@@ -351,7 +352,7 @@ pub struct SudoRunOptions {
     pub login: bool,
     // -s
     pub shell: bool,
-    pub positional_args: Vec<String>,
+    pub positional_args: Vec<OsString>,
 }
 
 impl TryFrom<SudoOptions> for SudoRunOptions {
@@ -476,7 +477,7 @@ struct SudoOptions {
     version: bool,
 
     // arguments passed straight through, either separated by -- or just trailing.
-    positional_args: Vec<String>,
+    positional_args: Vec<OsString>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -496,7 +497,14 @@ enum SudoArg {
     Flag(String),
     Argument(String, String),
     Environment(String, String),
-    Rest(Vec<String>),
+    Rest(Vec<OsString>),
+}
+
+fn demand_utf8(arg: &OsStr) -> String {
+    xlat!(
+        "argument '{arg}' is not valid UTF-8",
+        arg = DisplayOsStr(arg)
+    )
 }
 
 impl SudoArg {
@@ -515,7 +523,7 @@ impl SudoArg {
     /// the iterator should only iterate over the actual arguments
     fn normalize_arguments<I>(mut arg_iter: I) -> Result<Vec<Self>, String>
     where
-        I: Iterator<Item = String>,
+        I: Iterator<Item = OsString>,
     {
         let mut processed = vec![];
 
@@ -523,7 +531,9 @@ impl SudoArg {
             if arg == "--" {
                 processed.push(SudoArg::Rest(arg_iter.collect()));
                 break;
-            } else if let Some(unprefixed) = arg.strip_prefix("--") {
+            } else if let Some(unprefixed) = arg.as_encoded_bytes().strip_prefix(b"--") {
+                let unprefixed = str::from_utf8(unprefixed).map_err(|_| demand_utf8(&arg))?;
+
                 if let Some((key, value)) = unprefixed.split_once('=') {
                     // convert assignment to normal tokens
 
@@ -537,15 +547,21 @@ impl SudoArg {
                     }
                     processed.push(SudoArg::Argument("--".to_string() + key, value.to_string()));
                 } else if Self::TAKES_ARGUMENT.contains(&unprefixed) {
+                    let arg = String::from_utf8(arg.into_encoded_bytes()).expect("already checked");
                     if let Some(next) = arg_iter.next() {
-                        processed.push(SudoArg::Argument(arg, next));
+                        let next = str::from_utf8(next.as_encoded_bytes())
+                            .map_err(|_| demand_utf8(&next))?;
+                        processed.push(SudoArg::Argument(arg, next.to_owned()));
                     } else {
                         Err(xlat!("'{option}' expects an argument", option = arg))?;
                     }
                 } else {
+                    let arg = String::from_utf8(arg.into_encoded_bytes()).expect("already checked");
                     processed.push(SudoArg::Flag(arg));
                 }
-            } else if let Some(unprefixed) = arg.strip_prefix('-') {
+            } else if let Some(unprefixed) = arg.as_encoded_bytes().strip_prefix(b"-") {
+                let unprefixed = str::from_utf8(unprefixed).map_err(|_| demand_utf8(&arg))?;
+
                 // split combined shorthand options
                 let mut chars = unprefixed.chars();
 
@@ -563,7 +579,9 @@ impl SudoArg {
                         if next.is_some() {
                             processed.push(SudoArg::Argument(flag, rest.to_string()));
                         } else if let Some(next) = arg_iter.next() {
-                            processed.push(SudoArg::Argument(flag, next));
+                            let next = str::from_utf8(next.as_encoded_bytes())
+                                .map_err(|_| demand_utf8(&next))?;
+                            processed.push(SudoArg::Argument(flag, next.to_owned()));
                         } else if curr == 'h' {
                             // short version of --help has no arguments
                             processed.push(SudoArg::Flag(flag));
@@ -575,7 +593,7 @@ impl SudoArg {
                         processed.push(SudoArg::Flag(flag));
                     }
                 }
-            } else if let Some((key, value)) = try_to_env_var(&arg) {
+            } else if let Some((key, value)) = try_to_env_var(&arg)? {
                 processed.push(SudoArg::Environment(key, value));
             } else {
                 let mut rest = vec![arg];
@@ -622,7 +640,7 @@ impl SudoOptions {
     fn try_parse_from<I, T>(iter: I) -> Result<Self, String>
     where
         I: IntoIterator<Item = T>,
-        T: Into<String> + Clone,
+        T: Into<OsString> + Clone,
     {
         let mut arg_iter = iter.into_iter().map(Into::into);
 
@@ -737,7 +755,7 @@ impl SudoOptions {
                         // works because the OS directly splits at b'/' without regards
                         // for if it is part of another character (which it can't be
                         // with UTF-8 anyways).
-                        let is_dir = cmd.as_os_str().as_bytes().ends_with(b"/");
+                        let is_dir = cmd.as_os_str().as_encoded_bytes().ends_with(b"/");
                         if !options.edit
                             && !is_dir
                             && (cmd.ends_with("sudoedit") || cmd.ends_with("sudoedit-rs"))
@@ -757,13 +775,21 @@ impl SudoOptions {
     }
 }
 
-fn try_to_env_var(arg: &str) -> Option<(String, String)> {
-    let (name, value) = arg.split_once('=')?;
+fn try_to_env_var(arg: &OsStr) -> Result<Option<(String, String)>, String> {
+    if !arg.as_encoded_bytes().contains(&b'=') {
+        return Ok(None);
+    }
+
+    let arg = str::from_utf8(arg.as_encoded_bytes()).map_err(|_| demand_utf8(arg))?;
+
+    let (name, value) = arg
+        .split_once('=')
+        .expect("checked above that an = is present");
 
     if name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-        Some((name.to_owned(), value.to_owned()))
+        Ok(Some((name.to_owned(), value.to_owned())))
     } else {
-        None
+        Ok(None)
     }
 }
 

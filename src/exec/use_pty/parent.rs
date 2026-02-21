@@ -189,7 +189,6 @@ pub(in crate::exec) fn exec_pty(
     // Start in raw mode unless we're part of a pipeline or backgrounded.
     if foreground && !exec_bg {
         // Clearer this way that set_raw_mode only conditionally runs
-        #[allow(clippy::collapsible_if)]
         if user_tty.set_raw_mode(false, preserve_oflag).is_ok() {
             term_raw = true;
         }

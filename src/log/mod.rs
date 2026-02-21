@@ -1,4 +1,3 @@
-#![allow(unused_macros)]
 use self::simple_logger::SimpleLogger;
 use self::syslog::Syslog;
 use std::fmt;
@@ -30,13 +29,11 @@ macro_rules! logger_macro {
 logger_macro!(auth_warn is Warn to "sudo::auth" with format_args);
 logger_macro!(auth_info is Info to "sudo::auth" with format_args);
 // logger_macro!(auth_debug is Debug to "sudo::auth" with format_args);
-// logger_macro!(auth_trace is Trace to "sudo::auth" with format_args);
 
 logger_macro!(user_error is Error to "sudo::user" with xlat);
 logger_macro!(user_warn is Warn to "sudo::user" with xlat);
 logger_macro!(user_info is Info to "sudo::user" with xlat);
 // logger_macro!(user_debug is Debug to "sudo::user" with xlat);
-// logger_macro!(user_trace is Trace to "sudo::user" with xlat);
 
 macro_rules! dev_logger_macro {
     ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
@@ -130,13 +127,11 @@ impl SudoLogger {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-#[allow(unused)]
 pub enum Level {
     Error,
     Warn,
     Info,
     Debug,
-    Trace,
 }
 
 trait Log: Send + Sync {

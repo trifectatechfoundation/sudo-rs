@@ -137,7 +137,6 @@ impl Log for Syslog {
             Level::Warn => libc::LOG_WARNING,
             Level::Info => libc::LOG_INFO,
             Level::Debug => libc::LOG_DEBUG,
-            Level::Trace => libc::LOG_DEBUG,
         };
 
         let mut writer = SysLogMessageWriter::new(priority, FACILITY);

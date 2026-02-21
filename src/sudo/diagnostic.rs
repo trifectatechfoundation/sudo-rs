@@ -42,11 +42,15 @@ macro_rules! diagnostic {
         if let Some(range) = $pos {
             $crate::sudo::diagnostic::cited_error(&format!($str), range, $path);
         } else {
-            eprintln_ignore_io_error!("sudo: {}", format!($str));
+            for line in format!($str).split('\n') {
+                eprintln_ignore_io_error!("sudo: {}", line);
+            }
         }
     };
     ($str:expr) => {{
-        eprintln_ignore_io_error!("sudo: {}", format!($str));
+        for line in format!($str).split('\n') {
+            eprintln_ignore_io_error!("sudo: {}", line);
+        }
     }};
 }
 

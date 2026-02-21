@@ -12,7 +12,8 @@ pub enum Error {
         hostname: Hostname,
         other_user: Option<SudoString>,
     },
-    SelfCheck,
+    SelfCheckSetuid,
+    SelfCheckNoNewPrivs,
     CommandNotFound(PathBuf),
     InvalidCommand(PathBuf),
     ChDirNotAllowed {
@@ -64,8 +65,16 @@ impl fmt::Display for Error {
                     )
                 }
             }
-            Error::SelfCheck => {
+            Error::SelfCheckSetuid => {
                 xlat_write!(f, "sudo must be owned by uid 0 and have the setuid bit set")
+            }
+            Error::SelfCheckNoNewPrivs => {
+                xlat_write!(
+                    f,
+                    "The \"no new privileges\" flag is set, which prevents sudo from running as root.\n\
+                    If sudo is running in a container, you may need to adjust the container \
+                    configuration to disable the flag."
+                )
             }
             Error::CommandNotFound(p) => {
                 xlat_write!(f, "'{path}': command not found", path = p.display())
