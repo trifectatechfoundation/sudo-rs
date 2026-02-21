@@ -242,70 +242,76 @@ fn wildcards_are_allowed_for_args() {
 
     Command::new("sudo")
         .arg("true")
-        .arg("/root/ hello world")
+        .args(["/root/", "hello", "world"])
         .output(&env)
         .assert_success();
 }
 
 #[test]
 fn arguments_can_be_supplied() {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE}")).build();
+    for supplied_arg in ["", "*"] {
+        let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} {supplied_arg}")).build();
 
-    Command::new("sudo")
-        .arg("true")
-        .arg("/root/ hello world")
-        .output(&env)
-        .assert_success();
+        Command::new("sudo")
+            .arg("true")
+            .args(["/root/", "hello", "world"])
+            .output(&env)
+            .assert_success();
 
-    Command::new("sudo")
-        .arg("true")
-        .arg("foo")
-        .output(&env)
-        .assert_success();
+        Command::new("sudo")
+            .arg("true")
+            .arg("foo")
+            .output(&env)
+            .assert_success();
+    }
 }
 
 #[test]
 fn arguments_can_be_forced() {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} hello")).build();
+    for supplied_arg in ["hello world", "hello *"] {
+        let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} {supplied_arg}")).build();
 
-    Command::new("sudo")
-        .arg("true")
-        .arg("hello")
-        .output(&env)
-        .assert_success();
+        Command::new("sudo")
+            .arg("true")
+            .args(["hello", "world"])
+            .output(&env)
+            .assert_success();
 
-    let output = Command::new("sudo")
-        .arg("true")
-        .arg("/root/ hello world")
-        .output(&env);
+        let output = Command::new("sudo")
+            .arg("true")
+            .args(["/root/", "hello", "world"])
+            .output(&env);
 
-    output.assert_exit_code(1);
+        output.assert_exit_code(1);
 
-    let diagnostic = if sudo_test::is_original_sudo() {
-        format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
-    } else {
-        "I'm sorry root. I'm afraid I can't do that".to_owned()
-    };
-    assert_contains!(output.stderr(), diagnostic);
+        let diagnostic = if sudo_test::is_original_sudo() {
+            format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
+        } else {
+            "I'm sorry root. I'm afraid I can't do that".to_owned()
+        };
+        assert_contains!(output.stderr(), diagnostic);
+    }
 }
 
 #[test]
-fn arguments_can_be_forbidded() {
-    let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} \"\"")).build();
+fn arguments_can_be_forbidden() {
+    for supplied_arg in ["\"\"", "/root/"] {
+        let env = Env(format!("ALL ALL=(ALL:ALL) {BIN_TRUE} {supplied_arg}")).build();
 
-    let output = Command::new("sudo")
-        .arg("true")
-        .arg("/root/ hello world")
-        .output(&env);
+        let output = Command::new("sudo")
+            .arg("true")
+            .args(["/root/", "hello", "world"])
+            .output(&env);
 
-    output.assert_exit_code(1);
+        output.assert_exit_code(1);
 
-    let diagnostic = if sudo_test::is_original_sudo() {
-        format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
-    } else {
-        "I'm sorry root. I'm afraid I can't do that".to_owned()
-    };
-    assert_contains!(output.stderr(), diagnostic);
+        let diagnostic = if sudo_test::is_original_sudo() {
+            format!("user root is not allowed to execute '{BIN_TRUE} /root/ hello world' as root")
+        } else {
+            "I'm sorry root. I'm afraid I can't do that".to_owned()
+        };
+        assert_contains!(output.stderr(), diagnostic);
+    }
 }
 
 #[test]

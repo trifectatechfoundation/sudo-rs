@@ -139,7 +139,7 @@ A Host_List is made up of one or more host names.  Again, the value of an item m
                    Cmnd ',' Cmnd_List
 
      command name ::= file name |
-                      file name args |
+                      file name args ['*'] |
                       file name '""'
 
      Cmnd ::= '!'* command name |
@@ -148,7 +148,7 @@ A Host_List is made up of one or more host names.  Again, the value of an item m
               '!'* "list"
               '!'* "sudoedit" [file name]
 
-A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the Wildcards section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments (which in sudo-rs may *not* include wildcards). Alternately, you can specify "" to indicate that the command may only be run without command line arguments.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
+A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the Wildcards section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments that have to be used, in which case the command line has to match exactly. You can use the special argument "" to indicate that the command may only be run *without* command line arguments, or the argument ‘*’ to match any trailing arguments. You cannot use wildcards inside the argument list.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
 
 If a Cmnd has associated command line arguments, then the arguments in the Cmnd must match exactly those given by the user on the command line.
 Note that the following characters must be escaped with a ‘\\’ if they are used in command arguments: ‘,’, ‘:’, ‘=’, ‘\\’.
@@ -319,7 +319,7 @@ sudo allows shell-style wildcards (aka meta or glob characters) to be used in ho
 
 Note that these are not regular expressions.  Unlike a regular expression there is no way to match one or more characters within a range.
 
-Wildcards in command line arguments are not supported---using these in original versions of sudo was usually a sign of mis-configuration and consequently sudo-rs simply forbids using them.
+Wildcards in command line arguments are not supported---using these in original versions of sudo was usually a sign of mis-configuration and consequently sudo-rs simply forbids using them. The only supported use is ‘*’ as the final argument to indicate "zero or more subsequent arguments" as noted above.
 
 ## Including other files from within sudoers
 

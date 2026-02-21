@@ -228,6 +228,11 @@ fn permission_test() {
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help");
     pass!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me");
     FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help me please");
+    FAIL!(["user ALL=/bin/hel* me"], "user" => root(), "server"; "/bin/help only me");
+    pass!(["user ALL=/bin/hel*"], "user" => root(), "server"; "/bin/help me please");
+    pass!(["user ALL=/bin/hel* *"], "user" => root(), "server"; "/bin/help me please");
+    pass!(["user ALL=/bin/hel* me *"], "user" => root(), "server"; "/bin/help me please");
+    pass!(["user ALL=/bin/hel* me please *"], "user" => root(), "server"; "/bin/help me please");
 
     pass!(["user ALL=(ALL:ALL) /bin/foo"], "user" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::None]);
     pass!(["root ALL=(ALL:ALL) /bin/foo"], "root" => root(), "server"; "/bin/foo" => [authenticate: Authenticate::Nopasswd]);
@@ -424,6 +429,12 @@ fn invalid_username() {
 }
 
 #[test]
+#[should_panic = "wildcards are not allowed in command arguments"]
+fn wildcard_in_argument() {
+    parse_eval::<ast::Sudo>("user ALL=/bin/hello w*");
+}
+
+#[test]
 fn inclusive_username() {
     let UserSpecifier::User(Identifier::Name(sirin)) = parse_eval::<ast::UserSpecifier>("şirin")
     else {
@@ -441,7 +452,8 @@ fn sudoedit_recognized() {
         panic!();
     };
     assert_eq!(cmd.as_str(), "sudoedit");
-    assert_eq!(args.unwrap().as_ref(), &["/etc/tmux.conf"][..]);
+    let Args::Exact(args) = args else { panic!() };
+    assert_eq!(args.as_ref(), &["/etc/tmux.conf"][..]);
 }
 
 #[test]

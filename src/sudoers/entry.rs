@@ -6,7 +6,7 @@ use crate::sudoers::{
     tokens::{ChDir, Meta},
 };
 use crate::{
-    common::{SudoString, resolve::CurrentUser},
+    common::{DisplayOsStr, SudoString, resolve::CurrentUser},
     system::{User, interface::UserId},
 };
 
@@ -14,7 +14,7 @@ use self::verbose::Verbose;
 
 use super::{
     ast::{Authenticate, Def, EnvironmentControl, ExecControl, RunAs, Tag},
-    tokens::Command,
+    tokens::{Args, Command},
 };
 
 mod verbose;
@@ -254,9 +254,22 @@ fn write_spec<'a>(
 
         Meta::Only((cmd, args)) => {
             write!(f, "{cmd}")?;
-            if let Some(args) = args {
-                for arg in args.iter() {
-                    write!(f, " {arg}")?;
+            match args {
+                Args::Exact(args) => {
+                    for arg in args {
+                        write!(f, " {}", DisplayOsStr(arg))?;
+                    }
+                    if args.is_empty() {
+                        write!(f, " \"\"")?;
+                    }
+                }
+                Args::Prefix(args) => {
+                    for arg in args {
+                        write!(f, " {}", DisplayOsStr(arg))?;
+                    }
+                    if !args.is_empty() {
+                        write!(f, " *")?;
+                    }
                 }
             }
         }
