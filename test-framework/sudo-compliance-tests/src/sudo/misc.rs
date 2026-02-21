@@ -400,3 +400,16 @@ fn rootpw_takes_priority_over_targetpw() {
         .output(&env);
     assert!(!output.status().success());
 }
+
+#[test]
+fn signal_handlers_should_be_restored_before_execve() {
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD]).build();
+
+    let stdout = Command::new("/bin/sh")
+        .args(["-c", "(false | timeout 1 sudo head /dev/tty); true"])
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    assert_eq!(stdout, "");
+}
