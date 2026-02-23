@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::ffi::{c_int, c_void};
 use std::time::Duration;
 
@@ -97,7 +98,7 @@ pub struct CLIConverser {
     pub(super) name: String,
     pub(super) use_askpass: bool,
     pub(super) use_stdin: bool,
-    pub(super) bell: bool,
+    pub(super) bell: Cell<bool>,
     pub(super) password_feedback: bool,
     pub(super) password_timeout: Option<Duration>,
 }
@@ -134,7 +135,12 @@ impl CLIConverser {
         } else if self.use_stdin {
             Terminal::open_stdie()?
         } else {
-            Terminal::open_tty()?
+            let mut tty = Terminal::open_tty()?;
+            if self.bell.replace(false) {
+                tty.bell()?;
+            }
+
+            tty
         };
 
         Ok((term, SignalGuard::unblock_interrupts()))
@@ -154,9 +160,6 @@ impl Converser for CLIConverser {
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
         let (mut tty, _guard) = self.open()?;
-        if self.bell && !self.use_stdin {
-            tty.bell()?;
-        }
         tty.read_input(
             msg,
             self.password_timeout,

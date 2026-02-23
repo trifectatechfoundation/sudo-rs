@@ -63,7 +63,7 @@ impl PamContext {
         target_user: Option<&str>,
     ) -> PamResult<PamContext> {
         let converser = CLIConverser {
-            bell,
+            bell: bell.into(),
             name: converser_name.to_owned(),
             use_askpass,
             use_stdin,
