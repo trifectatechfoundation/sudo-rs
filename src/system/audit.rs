@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::ffi::{CStr, CString, c_uint};
+use std::ffi::{CStr, CString, c_int, c_uint};
 use std::fs::{DirBuilder, File, Metadata, OpenOptions};
 use std::io::{self, Error, ErrorKind};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
@@ -240,6 +240,11 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
     }
 }
 
+fn faccess_at(parent: BorrowedFd, path: &CStr, mode: c_int, flags: c_int) -> io::Result<()> {
+    // SAFETY: by design, a correct CStr pointer is passed to faccessat
+    cerr(unsafe { libc::faccessat(parent.as_raw_fd(), path.as_ptr(), mode, flags) }).map(|_| ())
+}
+
 /// This opens a file for sudoedit, performing security checks (see below) and
 /// opening with reduced privileges.
 pub fn secure_open_for_sudoedit(
@@ -248,24 +253,30 @@ pub fn secure_open_for_sudoedit(
     target_user: &User,
     target_group: &Group,
 ) -> io::Result<File> {
-    sudo_call(target_user, target_group, || {
-        if current_user.is_root() {
+    if current_user.is_root() {
+        sudo_call(target_user, target_group, || {
             OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
                 .truncate(false)
                 .open(path)
-        } else {
-            traversed_secure_open(path, current_user)
-        }
-    })?
+        })?
+    } else {
+        traversed_secure_open(path, current_user, target_user, target_group)
+    }
 }
 
 /// This opens a file making sure that
 /// - no directory leading up to the file is editable by the user
 /// - no components are a symbolic link
-fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::Result<File> {
+fn traversed_secure_open(
+    path: impl AsRef<Path>,
+    #[cfg(not(test))] forbidden_user: &CurrentUser,
+    #[cfg(test)] forbidden_user: &User,
+    target_user: &User,
+    target_group: &Group,
+) -> io::Result<File> {
     let path = path.as_ref();
 
     let Some(file_name) = path.file_name() else {
@@ -295,12 +306,24 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
             ));
         }
 
-        if perms & mode(Category::World, Op::Write) != 0
-            || (perms & mode(Category::Group, Op::Write) != 0)
-                && forbidden_user.in_group_by_gid(GroupId::new(meta.gid()))
-            || (perms & mode(Category::Owner, Op::Write) != 0)
-                && forbidden_user.uid.inner() == meta.uid()
-        {
+        let user_has_write_perms = if cfg!(test) {
+            // During testing we do a less comprehensive check as we don't have
+            // permission set the real user id to arbitrary users, but faccessat
+            // looks at the real user id.
+            perms & mode(Category::World, Op::Write) != 0
+                || (perms & mode(Category::Group, Op::Write) != 0)
+                    && forbidden_user.in_group_by_gid(GroupId::new(meta.gid()))
+                || (perms & mode(Category::Owner, Op::Write) != 0)
+                    && forbidden_user.uid.inner() == meta.uid()
+        } else {
+            // Only works when forbidden_user is current user. This is enforced
+            // by accepting CurrentUser outside of test mode.
+            // We don't pass AT_EACCESS to faccessat to make it check using the
+            // real user id rather than the effective user id.
+            faccess_at(file.as_fd(), c"", libc::W_OK, libc::AT_EMPTY_PATH).is_ok()
+        };
+
+        if user_has_write_perms {
             Err(io::Error::new(
                 ErrorKind::PermissionDenied,
                 xlat!("cannot open a file in a path writable by the user"),
@@ -326,11 +349,16 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
             }
         };
 
-        cur = open_at(cur.as_fd(), &dir, false)?.into();
+        sudo_call(target_user, target_group, || {
+            cur = open_at(cur.as_fd(), &dir, false)?.into();
+            io::Result::Ok(())
+        })??;
         user_cannot_write(&cur)?;
     }
-
-    cur = open_at(cur.as_fd(), &CString::new(file_name.as_bytes())?, true)?.into();
+    sudo_call(target_user, target_group, || {
+        cur = open_at(cur.as_fd(), &CString::new(file_name.as_bytes())?, true)?.into();
+        io::Result::Ok(())
+    })??;
     user_cannot_write(&cur)?;
 
     Ok(cur)
@@ -377,17 +405,17 @@ mod test {
         let user = CurrentUser::resolve().unwrap();
 
         // not allowed -- invalid
-        assert!(traversed_secure_open("/", &root).is_err());
+        assert!(traversed_secure_open("/", &root, &user, &user.group()).is_err());
         // not allowed since the path is not absolute
-        assert!(traversed_secure_open("./hello.txt", &root).is_err());
+        assert!(traversed_secure_open("./hello.txt", &root, &user, &user.group()).is_err());
         // not allowed since root can write to "/"
-        assert!(traversed_secure_open("/hello.txt", &root).is_err());
+        assert!(traversed_secure_open("/hello.txt", &root, &user, &user.group()).is_err());
         // not allowed since "/tmp" is a directory
-        assert!(traversed_secure_open("/tmp", &user).is_err());
+        assert!(traversed_secure_open("/tmp", &user, &user, &user.group()).is_err());
         // not allowed since anybody can write to "/tmp"
-        assert!(traversed_secure_open("/tmp/foo/hello.txt", &user).is_err());
+        assert!(traversed_secure_open("/tmp/foo/hello.txt", &user, &user, &user.group()).is_err());
         // not allowed since "/bin" is a symlink
-        assert!(traversed_secure_open("/bin/hello.txt", &user).is_err());
+        assert!(traversed_secure_open("/bin/hello.txt", &user, &user, &user.group()).is_err());
     }
 
     #[test]
@@ -395,6 +423,7 @@ mod test {
         use crate::common::resolve::CurrentUser;
         use crate::system::{GroupId, UserId};
 
+        let user = CurrentUser::resolve().unwrap();
         let other_user = CurrentUser::fake(User {
             uid: UserId::new(1042),
             gid: GroupId::new(1042),
@@ -409,7 +438,7 @@ mod test {
         let path = std::env::current_dir()
             .unwrap()
             .join("sudo-rs-test-file.txt");
-        let file = traversed_secure_open(&path, &other_user).unwrap();
+        let file = traversed_secure_open(&path, &other_user, &user, &user.group()).unwrap();
         if file.metadata().is_ok_and(|meta| meta.len() == 0) {
             std::fs::remove_file(path).unwrap();
         }
