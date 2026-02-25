@@ -287,6 +287,14 @@ fn traversed_secure_open(path: impl AsRef<Path>, forbidden_user: &User) -> io::R
         let meta = file.metadata()?;
         let perms = meta.permissions().mode();
 
+        if meta.uid() == forbidden_user.uid.inner() {
+            // Owner can change file permissions
+            return Err(io::Error::new(
+                ErrorKind::PermissionDenied,
+                xlat!("cannot open a file in a path writable by the user"),
+            ));
+        }
+
         if perms & mode(Category::World, Op::Write) != 0
             || (perms & mode(Category::Group, Op::Write) != 0)
                 && forbidden_user.in_group_by_gid(GroupId::new(meta.gid()))
