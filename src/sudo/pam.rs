@@ -14,6 +14,7 @@ pub(super) struct InitPamArgs<'a> {
     pub(super) bell: bool,
     pub(super) non_interactive: bool,
     pub(super) password_feedback: bool,
+    pub(super) password_feedback_brief: bool,
     pub(super) password_timeout: Option<Duration>,
     pub(super) auth_prompt: Option<String>,
     pub(super) auth_user: &'a str,
@@ -30,6 +31,7 @@ pub(super) fn init_pam(
         bell,
         non_interactive,
         password_feedback,
+        password_feedback_brief,
         password_timeout,
         auth_prompt,
         auth_user,
@@ -50,6 +52,7 @@ pub(super) fn init_pam(
         bell,
         non_interactive,
         password_feedback,
+        password_feedback_brief,
         password_timeout,
         Some(auth_user),
     )?;

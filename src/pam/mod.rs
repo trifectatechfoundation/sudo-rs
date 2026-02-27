@@ -59,6 +59,7 @@ impl PamContext {
         bell: bool,
         no_interact: bool,
         password_feedback: bool,
+        password_feedback_brief: bool,
         password_timeout: Option<Duration>,
         target_user: Option<&str>,
     ) -> PamResult<PamContext> {
@@ -68,6 +69,7 @@ impl PamContext {
             use_askpass,
             use_stdin,
             password_feedback,
+            password_feedback_brief,
             password_timeout,
         };
 

@@ -150,6 +150,7 @@ fn auth_and_update_record_file(
         password_timeout,
         ref credential,
         pwfeedback,
+        pwfeedback_brief,
         noninteractive_auth,
     }: Authentication,
 ) -> Result<PamContext, Error> {
@@ -180,6 +181,7 @@ fn auth_and_update_record_file(
         bell: context.bell,
         non_interactive: context.non_interactive,
         password_feedback: pwfeedback,
+        password_feedback_brief: pwfeedback_brief,
         password_timeout,
         auth_prompt: context.prompt.clone(),
         auth_user: &auth_user.name,

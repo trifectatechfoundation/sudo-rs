@@ -31,6 +31,7 @@ pub struct Authentication {
     pub allowed_attempts: u16,
     pub prior_validity: Duration,
     pub pwfeedback: bool,
+    pub pwfeedback_brief: bool,
     pub password_timeout: Option<Duration>,
     pub noninteractive_auth: bool,
 }
@@ -42,6 +43,7 @@ impl super::Settings {
             allowed_attempts: self.passwd_tries().try_into().unwrap(),
             prior_validity: Duration::from_secs(self.timestamp_timeout()),
             pwfeedback: self.pwfeedback(),
+            pwfeedback_brief: self.pwfeedback_brief(),
             password_timeout: match self.passwd_timeout() {
                 0 => None,
                 timeout => Some(Duration::from_secs(timeout)),
@@ -199,6 +201,7 @@ mod test {
                 prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: true,
+                pwfeedback_brief: false,
                 noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
             },
@@ -217,6 +220,7 @@ mod test {
                 prior_validity: Duration::from_secs(15 * 60),
                 credential: AuthenticatingUser::InvokingUser,
                 pwfeedback: true,
+                pwfeedback_brief: false,
                 noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
             },

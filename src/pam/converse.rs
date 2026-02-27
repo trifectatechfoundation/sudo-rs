@@ -100,6 +100,7 @@ pub struct CLIConverser {
     pub(super) use_stdin: bool,
     pub(super) bell: Cell<bool>,
     pub(super) password_feedback: bool,
+    pub(super) password_feedback_brief: bool,
     pub(super) password_timeout: Option<Duration>,
 }
 
@@ -163,7 +164,9 @@ impl Converser for CLIConverser {
         tty.read_input(
             msg,
             self.password_timeout,
-            if self.password_feedback {
+            if self.password_feedback_brief {
+                Hidden::WithTransientFeedback(())
+            } else if self.password_feedback {
                 Hidden::WithFeedback(())
             } else {
                 Hidden::Yes(())

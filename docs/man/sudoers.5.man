@@ -766,6 +766,17 @@ determine the length of the password being entered.
 This flag is on by default.
 .RE
 .IP \[bu] 2
+pwfeedback_brief
+.RS 2
+.PP
+When set, sudo will briefly flash an asterisk at a fixed cursor position
+for each keystroke during password entry, then immediately erase it.
+This provides confirmation that input is being received without revealing
+the password length.
+This flag takes precedence over pwfeedback when both are set.
+This flag is off by default.
+.RE
+.IP \[bu] 2
 rootpw
 .RS 2
 .PP

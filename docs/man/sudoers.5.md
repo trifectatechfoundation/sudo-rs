@@ -386,6 +386,10 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
   By default, sudo reads the password like most other Unix programs, by turning off echo until the user hits the return (or enter) key.  Some users become confused by this as it appears to them that sudo has hung at this point.  When pwfeedback is set, sudo will provide visual feedback when the user presses a key.  Note that this does have a security impact as an onlooker may be able to determine the length of the password being entered.  This flag is on by default.
 
+* pwfeedback_brief
+
+  When set, sudo will briefly flash an asterisk at a fixed cursor position for each keystroke during password entry, then immediately erase it.  This provides confirmation that input is being received without revealing the password length.  This flag takes precedence over pwfeedback when both are set.  This flag is off by default.
+
 * rootpw
 
   If set, sudo will prompt for the root password instead of the password of the invoking user when running a command or editing a file.  This flag is off by default.

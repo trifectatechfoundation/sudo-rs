@@ -40,6 +40,7 @@ defaults! {
     use_pty                   = true
     visiblepw                 = false  #ignored
     pwfeedback                = true
+    pwfeedback_brief          = false
     rootpw                    = false
     targetpw                  = false
     noexec                    = false
