@@ -33,7 +33,7 @@ defaults! {
     env_reset                 = true   #ignored
     fqdn                      = false  #ignored
     ignore_dot                = true   #ignored
-    lecture                   = false  #ignored
+    lecture                   = never (!= never) [always, once, never] #ignored
     mailerpath                = None (!= None) #ignored
     mail_badpass              = true   #ignored
     match_group_by_gid        = false  #ignored
@@ -139,6 +139,18 @@ mod test {
         assert_eq! { def.secure_path, None };
         assert! { def.env_check.is_empty() };
         assert_eq! { def.verifypw, enums::verifypw::never };
+
+        let SettingKind::Text(f) = set("lecture").unwrap() else {
+            panic!()
+        };
+        f("always").unwrap()(&mut def);
+        assert_eq! { def.lecture, enums::lecture::always };
+        f("once").unwrap()(&mut def);
+        assert_eq! { def.lecture, enums::lecture::once };
+        f("never").unwrap()(&mut def);
+        assert_eq! { def.lecture, enums::lecture::never};
+        negate("lecture").unwrap()(&mut def);
+        assert_eq! { def.lecture, enums::lecture::never };
 
         let SettingKind::Flag(f) = set("env_reset").unwrap() else {
             panic!()
