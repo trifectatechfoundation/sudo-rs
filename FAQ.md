@@ -55,7 +55,7 @@ In most cases, not that much. Your password prompt will look differently.
 
 In other cases, if you have crafted a very specialized configuration, you may notice that some features are missing. This can be by design (e.g. we do not want sudo-rs to send email, or initiate any form of network connection), or simply an oversight. This should not happen with default configurations, so if this happens to you, you should have good chance of diagnosing the change necessary.
 
-If you think we are missing a feature that is not on our roadmap, or that we should priorities higher, *do* file a feature request on our GitHub page!
+If you think we are missing a feature that is not on our roadmap, or that we should prioritize higher, *do* file a feature request on our GitHub page!
 
 ## What is the advantage of rewriting sudo in Rust?
 
@@ -216,7 +216,7 @@ Certainly. There are features that sudo-rs doesn't support (such as sending mail
 
 There may also be socio-economic reasons. If you are operating in a highly conservative environment, that may also be a reason why you might prefer sudo: it has a lot of history behind it and is widely accepted. If you're the sysadmin that installed sudo on every workstation in your organization, you're unlikely to be blamed if a vulnerability is discovered.
 
-The good news is, original sudo is still being maintained. All sudo-rs is does is give you more freedom to choose which implementation of sudo to use. Freedom is good.
+The good news is, original sudo is still being maintained. All sudo-rs does is give you more freedom to choose which implementation of sudo to use. Freedom is good.
 
 ## What is the "test framework" all about?
 
@@ -232,8 +232,8 @@ Todd Miller is not part of the sudo-rs team, but he has collaborated with us and
 in original sudo and were not sure whether to copy this or not, he would [chime in](https://github.com/trifectatechfoundation/sudo-rs/issues/427#issuecomment-1589619556)
 with useful advice.
 
-We have collaborated on vulnerabilities that required mitigations from both of us, for example around our three advisories, as well as 
-[CVE-2023-42465](https://www.packetlabs.net/posts/sudo-command-is-vulnerable-to-rowhammer/) and [CVE-2023-2002](https://www.cve.org/CVERecord?id=CVE-2023-2002)). He has also [fixed a bug](https://github.com/trifectatechfoundation/sudo-rs/pull/1017) in the FreeBSD port of sudo-rs.
+We have collaborated on vulnerabilities that required mitigations from both of us, for example around our three of our advisories, as well as 
+[CVE-2023-42465](https://www.packetlabs.net/posts/sudo-command-is-vulnerable-to-rowhammer/) and [CVE-2023-2002](https://www.cve.org/CVERecord?id=CVE-2023-2002). He has also [fixed a bug](https://github.com/trifectatechfoundation/sudo-rs/pull/1017) in the FreeBSD port of sudo-rs.
 
 ## How did sudo-rs development affect original sudo?
 
