@@ -1,6 +1,6 @@
 name: CI
 
-permissions: read-all
+permissions: {}
 
 on:
   push:
@@ -19,6 +19,8 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -55,6 +57,8 @@ jobs:
       updated: ${{ steps.filter.outputs.test-framework }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: filter
@@ -71,6 +75,8 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -101,6 +107,8 @@ jobs:
       CI: true
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: set up docker buildx
         run: docker buildx create --name builder --use
@@ -149,6 +157,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
@@ -178,6 +188,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Correct permissions
         run: sudo chmod -R 755 /usr/share
@@ -214,6 +226,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Correct permissions
         run: sudo chmod -R 755 /usr/share
@@ -245,6 +259,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Correct permissions
         run: sudo chmod -R 755 /usr/share
@@ -275,6 +291,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
@@ -300,6 +318,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
@@ -327,6 +347,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Correct permissions
         run: sudo chmod -R 755 /usr/share
@@ -356,6 +378,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Install nightly rust and miri
         run: |
@@ -374,6 +398,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
@@ -400,6 +426,8 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Run rustfmt
         run: |
@@ -413,6 +441,8 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
@@ -427,6 +457,8 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Register rust problem matcher
         run: echo "::add-matcher::.github/problem-matchers/rust.json"
@@ -451,6 +483,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Install gettext
         run: |
@@ -468,6 +502,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Install cargo-audit
         uses: taiki-e/install-action@68675c5a5f1a6950c3975d33f3ae0ef155e5bf3d # v2.68.15
