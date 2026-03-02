@@ -190,6 +190,11 @@ fn read_unbuffered(
                 pw_len = 0;
                 continue;
             }
+
+            if read_byte == b'\t' && feedback.visible_len.take().is_some() {
+                feedback.clear();
+                let _ = feedback.sink.write(b"(no echo)");
+            }
         }
 
         if let Some(dest) = password.get_mut(pw_len) {
