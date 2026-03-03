@@ -2,7 +2,8 @@ use super::Sudoers;
 
 use super::Judgement;
 use crate::common::{
-    HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
+    CommandAndArguments, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2,
+    SudoPath,
 };
 use crate::exec::Umask;
 use crate::sudoers::ast::{ExecControl, Tag};
@@ -146,12 +147,14 @@ impl Judgement {
         }
     }
 
-    pub(crate) fn preferred_editor(&self) -> std::path::PathBuf {
+    pub(crate) fn preferred_editor(&self) -> CommandAndArguments {
         //if no editor could be selected, fall back to /bin/vi;
         //note that /bin/vi is also likely to have been tried as part of
         //the "editor" setting, so this is a last-resort
-        super::select_editor(&self.settings, true)
-            .unwrap_or_else(|| std::path::PathBuf::from("/usr/bin/vi"))
+        super::select_editor(&self.settings, true).unwrap_or_else(|| CommandAndArguments {
+            command: std::path::PathBuf::from("/usr/bin/vi"),
+            ..Default::default()
+        })
     }
 }
 

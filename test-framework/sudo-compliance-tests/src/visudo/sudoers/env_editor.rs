@@ -180,7 +180,6 @@ echo '{expected}' > {LOGS_PATH}"
 }
 
 #[test]
-#[ignore = "gh1491"]
 fn sudo_editor_with_arguments() {
     let env = Env("").build();
     let output = Command::new("env")

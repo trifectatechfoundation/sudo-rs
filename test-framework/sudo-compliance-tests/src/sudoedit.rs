@@ -460,7 +460,6 @@ id -Gn",
 }
 
 #[test]
-#[ignore = "gh1491"]
 fn sudo_editor_with_arguments() {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build();
     let output = Command::new("env")

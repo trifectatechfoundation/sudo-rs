@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{io, process};
 
-use crate::common::SudoPath;
+use crate::common::{CommandAndArguments, SudoPath};
 use crate::exec::ExitReason;
 use crate::log::{user_error, user_info};
 use crate::system::file::{FileLock, create_temporary_dir};
@@ -32,7 +32,7 @@ struct ChildFileInfo<'a> {
 }
 
 pub(super) fn edit_files(
-    editor: &Path,
+    editor: CommandAndArguments,
     selected_files: Vec<(&SudoPath, File)>,
 ) -> io::Result<ExitReason> {
     let mut files = vec![];
@@ -188,7 +188,7 @@ impl Drop for TempDirDropGuard {
     }
 }
 
-fn handle_child(editor: &Path, file: Vec<ChildFileInfo<'_>>) -> ! {
+fn handle_child(editor: CommandAndArguments, file: Vec<ChildFileInfo<'_>>) -> ! {
     match handle_child_inner(editor, file) {
         Ok(()) => process::exit(0),
         Err(err) => {
@@ -199,7 +199,10 @@ fn handle_child(editor: &Path, file: Vec<ChildFileInfo<'_>>) -> ! {
 }
 
 // FIXME maybe use pipes once std::io::pipe has been stabilized long enough.
-fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Result<(), String> {
+fn handle_child_inner(
+    editor: CommandAndArguments,
+    mut files: Vec<ChildFileInfo<'_>>,
+) -> Result<(), String> {
     mark_fds_as_cloexec().map_err(|e| format!("Failed to mark fds as CLOEXEC: {e}"))?;
 
     // Drop root privileges.
@@ -251,7 +254,8 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
     }
 
     // Spawn editor
-    let status = Command::new(editor)
+    let status = Command::new(&editor.command)
+        .args(editor.arguments)
         .args(
             files
                 .iter()
@@ -261,7 +265,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         .map_err(|e| {
             xlat!(
                 "failed to run editor {path}: {error}",
-                path = editor.display(),
+                path = editor.command.display(),
                 error = e
             )
         })?;
