@@ -4,7 +4,7 @@ use super::tokens::*;
 use crate::common::SudoString;
 use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, HARDENED_ENUM_VALUE_3,
-    HARDENED_ENUM_VALUE_4,
+    HARDENED_ENUM_VALUE_4, HARDENED_ENUM_VALUE_5,
 };
 use crate::defaults;
 
@@ -158,7 +158,8 @@ pub enum Sudo {
     Decl(Directive) = HARDENED_ENUM_VALUE_1,
     Include(String, Span) = HARDENED_ENUM_VALUE_2,
     IncludeDir(String, Span) = HARDENED_ENUM_VALUE_3,
-    LineComment = HARDENED_ENUM_VALUE_4,
+    Remote(String, Span) = HARDENED_ENUM_VALUE_4,
+    LineComment = HARDENED_ENUM_VALUE_5,
 }
 
 /// grammar:
@@ -591,6 +592,10 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         Some(Username(key)) if key == "includedir" => {
             let (path, span) = get_path(stream, key_pos)?;
             Sudo::IncludeDir(path, span)
+        }
+        Some(Username(key)) if key == "socket" => {
+            let (path, span) = get_path(stream, key_pos)?;
+            Sudo::Remote(path, span)
         }
         _ => unrecoverable!(pos = key_pos, stream, "unknown directive"),
     };

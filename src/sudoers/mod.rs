@@ -786,6 +786,21 @@ fn analyze(
                         safety_count,
                     ),
 
+                    Sudo::Remote(path, span) => {
+                        let socket_path = Path::new(&path);
+                        if socket_path.is_relative() {
+                            diagnostics.push(Error {
+                                source: Some(cur_path.to_owned()),
+                                location: Some(span),
+                                message: format!(
+                                    "cannot open socket {path}: path must be absolute"
+                                ),
+                            });
+                        }
+
+                        todo!("do something similar as 'include()'");
+                    }
+
                     Sudo::IncludeDir(path, span) => {
                         if path.contains("%h") {
                             diagnostics.push(Error {
