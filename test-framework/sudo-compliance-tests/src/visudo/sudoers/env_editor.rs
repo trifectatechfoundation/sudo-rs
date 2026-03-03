@@ -1,6 +1,5 @@
-use sudo_test::{Command, Env, TextFile};
-
 use crate::visudo::{CHMOD_EXEC, DEFAULT_EDITOR, EDITOR_DUMMY, LOGS_PATH};
+use sudo_test::{Command, Env, TextFile};
 
 #[test]
 fn when_disabled_env_vars_are_ignored() {
@@ -178,4 +177,15 @@ echo '{expected}' > {LOGS_PATH}"
 
         assert_eq!(expected, actual);
     }
+}
+
+#[test]
+#[ignore = "gh1491"]
+fn sudo_editor_with_arguments() {
+    let env = Env("").build();
+    let output = Command::new("env")
+        .arg("SUDO_EDITOR=echo -n 1 2 3")
+        .arg("visudo")
+        .output(&env);
+    assert_starts_with!(output.stdout(), "1 2 3 --");
 }
