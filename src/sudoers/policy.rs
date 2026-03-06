@@ -1,3 +1,8 @@
+//! Data types and traits that represent what the "terms and conditions" are after a successful
+//! permission check.
+//!
+//! The trait definitions can be part of some global crate in the future, if we support more
+//! than just the sudoers file.
 use super::Sudoers;
 
 use super::Judgement;
@@ -7,11 +12,6 @@ use crate::common::{
 use crate::exec::Umask;
 use crate::sudoers::ast::{ExecControl, Tag};
 use crate::system::{Hostname, User};
-/// Data types and traits that represent what the "terms and conditions" are after a successful
-/// permission check.
-///
-/// The trait definitions can be part of some global crate in the future, if we support more
-/// than just the sudoers file.
 use std::collections::HashSet;
 use std::time::Duration;
 use std::{ffi::OsString, path::PathBuf};
