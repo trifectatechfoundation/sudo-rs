@@ -63,13 +63,13 @@ The reasons that were mentioned in the [blog post](https://tweedegolf.nl/en/blog
 
 1. Obviously, better memory safety. In C a programmer needs to pay attention at every turn to check that memory is being used correctly. The Rust programming language helps the programmer avoid mistakes by tracking data allocation "at compile time". On top of that, it performs runtime checks to prevent the worst possible outcome in case mistakes do happen.
 
-2. Rust can be used as a systems language, like C, but it also facilitates programming at a much higher level of abstraction. For example, parts of the business logic of sudo-rs are implemented using `enum` types, and evaluated by chaining Rust "iterators" together. And of course our entire code base leans into the ease-of-use offered by `Option` and `Result` types. To achieve the same thing in C, a programmer would need to explicitly implement the logic underpinning those concept themselves. (Which is what you will find that original sudo has done---and that added complexity is where bugs can thrive).
+2. Rust can be used as a systems language, like C, but it also facilitates programming at a much higher level of abstraction. For example, parts of the business logic of sudo-rs are implemented using `enum` types, and evaluated by chaining Rust "iterators" together. And of course our entire code base leans into the ease-of-use offered by `Option` and `Result` types. To achieve the same thing in C, a programmer would need to explicitly implement the logic underpinning those concept themselves. (Which is what you will find that original sudo has done---and this added complexity is where bugs can thrive).
 
 3. A rewrite is also a good time for a rethink. As in every realistic piece of software, there are many many code paths in original sudo [that are seldom exercised](https://www.stratascale.com/vulnerability-alert-CVE-2025-32463-sudo-chroot) in normal usage. Bugs can lurk there as well, undiscovered for years until someone takes a look. But, if some code paths are seldom executed, why include them at all? This of course is the lesson that OpenBSD's `doas` teaches us.
 
 ## Why are you replacing a battle-tested utility?
 
-Even though some people like to say that original sudo is "battle tested", that is only true for the most common usage scenarios. You can also say that COBOL is battle tested technology. And since sudo-rs is in fact a derived work of 'original' sudo, we also benefit from the "battle tested"-ness of the original. For example, we have [studied the past CVE's](https://github.com/trifectatechfoundation/sudo-rs/blob/main/docs/sudo-cve.md) so we don't fall prey to them.
+Even though some people like to say that original sudo is "battle tested", that is only true for the most common usage scenarios. You can also say that COBOL is battle tested technology. And since sudo-rs is in fact a derived work of 'original' sudo, we also benefit from the "battle tested"-ness of the original. For example, we have [studied the past CVEs](https://github.com/trifectatechfoundation/sudo-rs/blob/main/docs/sudo-cve.md) so we don't fall prey to them.
 
 What is correct to say is that the maintainer of sudo, Todd Miller, has been battle tested. He has had the job of maintaining sudo for many years now, either in his spare time or in time graciously donated by his employer. Many millions of people (including tech giants) benefit from this.
 
@@ -84,7 +84,7 @@ We also listen to user feedback. Unsurprisingly, most enhancement requests were 
 
 And if you can't find it, feel free to open an issue!
 
-Note that original sudo also changes things much more frequently than people think. For example, a quick scan through the git history of plugins/sudoers/defaults.c shows: [sudo-project/sudo@6a1fe42](https://github.com/sudo-project/sudo/commit/6a1fe42), [sudo-project/sudo@fce45b2](https://github.com/sudo-project/sudo/commit/fce45b2), [sudo-project/sudo@894daa8](https://github.com/sudo-project/sudo/commit/894daa8), [sudo-project/sudo@85fef8b](https://github.com/sudo-project/sudo/commit/85fef8b) (this one adds an option to allow a user to revert behaviour that changed in an earlier release), [sudo-project/sudo@df8f066](https://github.com/sudo-project/sudo/commit/df8f066), [sudo-project/sudo@278a8ba](https://github.com/sudo-project/sudo/commit/278a8ba). In particularly, in 2023 Todd Miller [enabled `use_pty` by default](https://github.com/sudo-project/sudo/issues/258) in sudo, which was a major change as it directly impacts how programs are executed.
+Note that original sudo also changes things much more frequently than people think. For example, a quick scan through the git history of plugins/sudoers/defaults.c shows: [sudo-project/sudo@6a1fe42](https://github.com/sudo-project/sudo/commit/6a1fe42), [sudo-project/sudo@fce45b2](https://github.com/sudo-project/sudo/commit/fce45b2), [sudo-project/sudo@894daa8](https://github.com/sudo-project/sudo/commit/894daa8), [sudo-project/sudo@85fef8b](https://github.com/sudo-project/sudo/commit/85fef8b) (this one adds an option to allow a user to revert behaviour that changed in an earlier release), [sudo-project/sudo@df8f066](https://github.com/sudo-project/sudo/commit/df8f066), [sudo-project/sudo@278a8ba](https://github.com/sudo-project/sudo/commit/278a8ba). Particularly, in 2023 Todd Miller [enabled `use_pty` by default](https://github.com/sudo-project/sudo/issues/258) in sudo, which was a major change as it directly impacts how programs are executed.
 
 ## If I do `grep unsafe` why do I find hundreds of occurrences?
 
@@ -104,7 +104,7 @@ At the very least, a few hundred lines of well-documented `unsafe` code is still
 
 We didn't.
 
-sudo is not a GNU tool but a cross-platform software project maintained by Todd Miller. He is not affiliated with the GNU project, but with OpenBSD. It is licensed under the OpenBSD license, which is functionally equivalent to the MIT license that one can choose for sudo-rs. Early on [sudo did contain GPL-licensed parts](https://www.sudo.ws/about/history/#root-group-sudo), but all it was removed by 1999.
+sudo is not a GNU tool but a cross-platform software project maintained by Todd Miller. He is not affiliated with the GNU project, but with OpenBSD. It is licensed under the OpenBSD license, which is functionally equivalent to the MIT license that one can choose for sudo-rs. Early on [sudo did contain GPL-licensed parts](https://www.sudo.ws/about/history/#root-group-sudo), but these were removed by 1999.
 
 The reason Trifecta Tech Foundation keeps sudo-rs under the MIT+Apache 2.0 dual license is simply this: it is the most common in the Rust ecosystem, and it is exactly as permissive as the OpenBSD license towards end-users. In fact, requiring that external contributors also agree with distribution under Apache 2.0 actually makes sudo-rs a tiny bit more tightly licensed.
 
@@ -150,7 +150,7 @@ On Linux, it is available as the OpenDoas port, which requires quite a bit of gl
 > There are fewer eyes on random `doas` ports, just because `sudo` had a vulnerability
 > does not mean random doas ports are more secure if they are not reviewed.
 
-OpenDoas also has one unresolved CVE related to TTY hijacking for 2 years (https://nvd.nist.gov/vuln/search/results?query=opendoas) for which a remedy isn't easy (https://github.com/Duncaen/OpenDoas/issues/106). This is an attack scenario that sudo-rs, like sudo, util-linux's su and systemd's run0 have remedies for (and have had to spend substantial effort in "getting things right"). It's also clear that *at the time of writing* OpenDoas is not that actively maintained (https://github.com/Duncaen/OpenDoas/pull/124).
+OpenDoas has also had one unresolved CVE related to TTY hijacking for 2 years (https://nvd.nist.gov/vuln/search/results?query=opendoas) for which a remedy isn't easy (https://github.com/Duncaen/OpenDoas/issues/106). This is an attack scenario that sudo-rs, like sudo, util-linux's su and systemd's run0 have remedies for (and have had to spend substantial effort in "getting things right"). It's also clear that *at the time of writing* OpenDoas is not that actively maintained (https://github.com/Duncaen/OpenDoas/pull/124).
 
 That being said, we admire the minimalist approach exemplified by doas, and this is expressed by what we internally call our "Berlin Criteria" in our [contributing guidelines](CONTRIBUTING.md).
 
@@ -202,7 +202,7 @@ Most of the bugs we are talking about here are so small that no ordinary user wi
 
 This is all talking about simple *bugs*. For vulnerabilities, we dare to give a bolder answer. Sudo-rs uses a memory safe-by-design approach with the aim of dramatically lowering the risk of a memory safety bug. For original sudo, this risk is only reduced compared to other C projects because it has been around for a long time. We expect the probability of a memory safety vulnerability to be discovered in sudo-rs to be dramatically small---especially because we know which parts of the code they could be hiding in. And to this day, none have been found.
 
-For non-memory safety related vulnerabilities, we rely on our reduced feature set. Two recent CVE's in original sudo, [CVE-2025-32463](https://www.sudo.ws/security/advisories/chroot_bug/) and [ CVE-2025-32462](https://www.sudo.ws/security/advisories/host_any/) did not affect sudo-rs because of this reason. Secondly, because Rust allows describing the "business logic" in a more humanly readable way than C, it would also have been highly unlikely that we would have been susceptible to [CVE-2023-22809](https://www.sudo.ws/security/advisories/sudoedit_any/).
+For non-memory safety related vulnerabilities, we rely on our reduced feature set. Two recent CVEs in original sudo, [CVE-2025-32463](https://www.sudo.ws/security/advisories/chroot_bug/) and [ CVE-2025-32462](https://www.sudo.ws/security/advisories/host_any/) did not affect sudo-rs because of this reason. Secondly, because Rust allows describing the "business logic" in a more humanly readable way than C, it would also have been highly unlikely that we would have been susceptible to [CVE-2023-22809](https://www.sudo.ws/security/advisories/sudoedit_any/).
 
 ## Has sudo-rs been audited?
 
