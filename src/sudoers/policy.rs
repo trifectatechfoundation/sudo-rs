@@ -3,9 +3,8 @@
 //!
 //! The trait definitions can be part of some global crate in the future, if we support more
 //! than just the sudoers file.
-use super::Sudoers;
 
-use super::Judgement;
+use super::{Judgement, Sudoers};
 use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
 };
