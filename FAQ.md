@@ -84,7 +84,7 @@ We also listen to user feedback. Unsurprisingly, most enhancement requests were 
 
 And if you can't find it, feel free to open an issue!
 
-Note that original sudo also changes things much more frequently than people think. For example, a quick scan through the git history of plugins/sudoers/defaults.c shows: sudo-project/sudo@6a1fe42, sudo-project/sudo@fce45b2, sudo-project/sudo@894daa8, sudo-project/sudo@85fef8b (this one adds an option to allow a user to revert behaviour that changed in an earlier release), sudo-project/sudo@df8f066, sudo-project/sudo@278a8ba. In particularly, in 2023 Todd Miller [enabled `use_pty` by default](https://github.com/sudo-project/sudo/issues/258) in sudo, which was a major change as it directly impacts how programs are executed.
+Note that original sudo also changes things much more frequently than people think. For example, a quick scan through the git history of plugins/sudoers/defaults.c shows: [sudo-project/sudo@6a1fe42](https://github.com/sudo-project/sudo/commit/6a1fe42), [sudo-project/sudo@fce45b2](https://github.com/sudo-project/sudo/commit/fce45b2), [sudo-project/sudo@894daa8](https://github.com/sudo-project/sudo/commit/894daa8), [sudo-project/sudo@85fef8b](https://github.com/sudo-project/sudo/commit/85fef8b) (this one adds an option to allow a user to revert behaviour that changed in an earlier release), [sudo-project/sudo@df8f066](https://github.com/sudo-project/sudo/commit/df8f066), [sudo-project/sudo@278a8ba](https://github.com/sudo-project/sudo/commit/278a8ba). In particularly, in 2023 Todd Miller [enabled `use_pty` by default](https://github.com/sudo-project/sudo/issues/258) in sudo, which was a major change as it directly impacts how programs are executed.
 
 ## If I do `grep unsafe` why do I find hundreds of occurrences?
 
@@ -92,21 +92,21 @@ Because they are necessary.
 
 The `unsafe` keyword is part of Rust's memory safety design. The most important thing it allows is dereferencing "raw pointers", and calling other functions marked as "unsafe", such as those found in the C library. Because sudo-rs is a system utility, it needs to interface with the operating system and system libraries, which are written in C. Most of the `unsafe` code in sudo-rs lives at those seams. A prime example of this is the `setuid()` function itself---without which it would be really hard to write sudo.
 
-Also note that about half of our `unsafe` blocks happens in unit test code---to test our "unsafe parts". For the other half, every usage of `unsafe` is accompanied by a `SAFETY` specification, every one of which has been vetted by at least two sudo-rs team members.
+Also note that about half of our `unsafe` blocks happen in unit test code---to test our "unsafe parts". For the other half, every usage of `unsafe` is accompanied by a `SAFETY` specification, each of which has been vetted by at least two sudo-rs team members.
 
-Finally, wherever it was possible, we use [Miri](https://github.com/rust-lang/miri) to test our `unsafe` blocks to be sure we didn't create any so-called "undefined behaviour".
+Finally, wherever possible, we use [Miri](https://github.com/rust-lang/miri) to test our `unsafe` blocks to be sure we didn't create any so-called "undefined behaviour".
 
 We have seen some attempts at 'myth busting' Rust code by counting the number of times `unsafe` occurs. But that is mistaking the forest for the trees. Of course we understand the criticism: sudo-rs is a new program and needs to prove itself. But we are not spreading myths about sudo-rs having "memory safety-by-design" at its core.
 
-At the very least, a few hundred lines of well-documented `unsafe` code is still less than hundreds of thousands of them.
+At the very least, a few hundred lines of well-documented `unsafe` code is still less than hundreds of thousands.
 
 ## Why did you get rid of the GNU license?
 
 We didn't.
 
-sudo is not a GNU tool but a cross-platform software project maintained by Todd Miller. It existed long before the GNU project did. It is licensed under the OpenBSD license, which is functionally equivalent to the MIT license that one can choose for sudo-rs.
+sudo is not a GNU tool but a cross-platform software project maintained by Todd Miller. He is not affiliated with the GNU project, but with OpenBSD. It is licensed under the OpenBSD license, which is functionally equivalent to the MIT license that one can choose for sudo-rs. Early on [sudo did contain GPL-licensed parts](https://www.sudo.ws/about/history/#root-group-sudo), but all it was removed by 1999.
 
-The reason Trifecta Tech Foundation keeps sudo-rs under the MIT+Apache 2.0 dual license is simply this: it is the most common in the Rust ecosystem, and it is exactly as permissive as original sudo towards end-users. In fact, requiring that external contributors also agree with distribution under Apache 2.0 actually makes sudo-rs a tiny bit more tightly licensed.
+The reason Trifecta Tech Foundation keeps sudo-rs under the MIT+Apache 2.0 dual license is simply this: it is the most common in the Rust ecosystem, and it is exactly as permissive as the OpenBSD license towards end-users. In fact, requiring that external contributors also agree with distribution under Apache 2.0 actually makes sudo-rs a tiny bit more tightly licensed.
 
 We understand the objections that some people may have when a piece of software that falls under the GPL gets re-implemented under a more permissive license. It also wouldn't make good engineering sense for sudo-rs to use a more permissive license than Todd Miller uses, because it would mean we wouldn't be able to consult his source code. 
 
@@ -150,15 +150,15 @@ On Linux, it is available as the OpenDoas port, which requires quite a bit of gl
 > There are fewer eyes on random `doas` ports, just because `sudo` had a vulnerability
 > does not mean random doas ports are more secure if they are not reviewed.
 
-OpenDoas also has one unresolved CVE related to TTY hijacking for 2 years (https://nvd.nist.gov/vuln/search/results?query=opendoas) for which a remedy isn't easy (https://github.com/Duncaen/OpenDoas/issues/106). This is an attack scenario that sudo-rs, like sudo, util-linux's su and systemd's run0 have remedies for (and have had to spent substantial effort in "getting things right"). It's also clear that *at the time of writing* OpenDoas is not that actively maintained (https://github.com/Duncaen/OpenDoas/pull/124).
+OpenDoas also has one unresolved CVE related to TTY hijacking for 2 years (https://nvd.nist.gov/vuln/search/results?query=opendoas) for which a remedy isn't easy (https://github.com/Duncaen/OpenDoas/issues/106). This is an attack scenario that sudo-rs, like sudo, util-linux's su and systemd's run0 have remedies for (and have had to spend substantial effort in "getting things right"). It's also clear that *at the time of writing* OpenDoas is not that actively maintained (https://github.com/Duncaen/OpenDoas/pull/124).
 
 That being said, we admire the minimalist approach exemplified by doas, and this is expressed by what we internally call our "Berlin Criteria" in our [contributing guidelines](CONTRIBUTING.md).
 
-If we zoom in on a line-for-line comparison, how does sudo-rs compare to OpenDoas' ~5000 lines of C code? sudo-rs is around 40.000 lines of Rust code. Of those, 25.000 lines are test code, which leaves around 15.000 lines of production code. Of those, less than 350 are "unsafe". If we compare both to original sudo, we find that it contains over 180.000 lines of C. So on this spectrum, it is much closer to doas than to original sudo.
+If we zoom in on a line-for-line comparison, how does sudo-rs compare to OpenDoas' ~5000 lines of C code? sudo-rs is around 40.000 lines of Rust code. Of those, 25.000 lines are test code, which leaves around 15.000 lines of production code. Of those, less than 350 are "unsafe". If we compare both to original sudo, we find that it contains over 180.000 lines of C. So on this spectrum, sudo-rs is much closer to doas than to original sudo.
 
 On a more practical side, as with run0, switching to doas would require users to rewrite their sudoers configurations to doas configurations. That might be possible in many cases, but not all.
 
-This is not say that *you* should not use OpenDoas. TTY hijacking attack might not be relevant for you (for example, because you disabled the feature that allows it in the Linux kernel), and you may need the tiny footprint or prefer the simpler configuration file. But OpenDoas (at least in its current form) isn't a solution for everybody.
+This is not to say that *you* should not use OpenDoas. TTY hijacking attack might not be relevant for you (for example, because you disabled the feature that allows it in the Linux kernel), and you may need the tiny footprint or prefer the simpler configuration file. But OpenDoas (at least in its current form) isn't a solution for everybody.
 
 ### What about run0?
 
@@ -198,7 +198,7 @@ On the one hand: we are a newer project, so we are likely to have messed up at s
 
 On the other hand, we have found several bugs in original sudo while we were implementing sudo-rs, and through our compliance testing framework we can clearly see that original sudo also is still actively introducing and fixing bugs.
 
-Most of the bugs we are talking about here as so small that no ordinary user will ever encounter them. Many of the more noticeable bugs have already been discovered by early adopters of sudo-rs, who have been sending in bug reports for over two years.
+Most of the bugs we are talking about here are so small that no ordinary user will ever encounter them. Many of the more noticeable bugs have already been discovered by early adopters of sudo-rs, who have been sending in bug reports for over two years.
 
 This is all talking about simple *bugs*. For vulnerabilities, we dare to give a bolder answer. Sudo-rs uses a memory safe-by-design approach with the aim of dramatically lowering the risk of a memory safety bug. For original sudo, this risk is only reduced compared to other C projects because it has been around for a long time. We expect the probability of a memory safety vulnerability to be discovered in sudo-rs to be dramatically small---especially because we know which parts of the code they could be hiding in. And to this day, none have been found.
 
