@@ -14,7 +14,6 @@ use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::common::CommandAndArguments;
 use crate::common::resolve::{is_valid_executable, resolve_path};
 use crate::defaults;
 use crate::log::auth_warn;
@@ -297,7 +296,7 @@ impl Sudoers {
         on_host: &system::Hostname,
         am_user: &User,
         target_user: &User,
-    ) -> Option<CommandAndArguments> {
+    ) -> Option<(PathBuf, Vec<OsString>)> {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
 
         select_editor(&self.settings, self.settings.env_editor())
@@ -306,7 +305,7 @@ impl Sudoers {
 
 /// Retrieve the chosen editor from a settings object, filtering based on whether the
 /// environment is trusted (sudoedit) or maybe less so (visudo)
-fn select_editor(settings: &Settings, trusted_env: bool) -> Option<CommandAndArguments> {
+fn select_editor(settings: &Settings, trusted_env: bool) -> Option<(PathBuf, Vec<OsString>)> {
     let blessed_editors = settings.editor();
 
     let is_whitelisted = |path: &Path| -> bool {
@@ -336,11 +335,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> Option<CommandAndArg
             };
 
             if is_whitelisted(&editor) {
-                return Some(CommandAndArguments {
-                    command: editor,
-                    arguments,
-                    ..Default::default()
-                });
+                return Some((editor, arguments));
             }
         }
     }
@@ -350,10 +345,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> Option<CommandAndArg
     for editor in blessed_editors.split(':') {
         let editor = PathBuf::from(editor);
         if is_valid_executable(&editor) {
-            return Some(CommandAndArguments {
-                command: editor,
-                ..Default::default()
-            });
+            return Some((editor, vec![]));
         }
     }
 
