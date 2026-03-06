@@ -1,5 +1,6 @@
 #![allow(unsafe_code)]
 
+use std::ffi::OsString;
 use std::fs::File;
 use std::io::{Read, Seek, Write};
 use std::net::Shutdown;
@@ -32,7 +33,7 @@ struct ChildFileInfo<'a> {
 }
 
 pub(super) fn edit_files(
-    editor: &Path,
+    editor: (PathBuf, Vec<OsString>),
     selected_files: Vec<(&SudoPath, File)>,
 ) -> io::Result<ExitReason> {
     let mut files = vec![];
@@ -188,7 +189,7 @@ impl Drop for TempDirDropGuard {
     }
 }
 
-fn handle_child(editor: &Path, file: Vec<ChildFileInfo<'_>>) -> ! {
+fn handle_child(editor: (PathBuf, Vec<OsString>), file: Vec<ChildFileInfo<'_>>) -> ! {
     match handle_child_inner(editor, file) {
         Ok(()) => process::exit(0),
         Err(err) => {
@@ -199,7 +200,10 @@ fn handle_child(editor: &Path, file: Vec<ChildFileInfo<'_>>) -> ! {
 }
 
 // FIXME maybe use pipes once std::io::pipe has been stabilized long enough.
-fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Result<(), String> {
+fn handle_child_inner(
+    editor: (PathBuf, Vec<OsString>),
+    mut files: Vec<ChildFileInfo<'_>>,
+) -> Result<(), String> {
     mark_fds_as_cloexec().map_err(|e| format!("Failed to mark fds as CLOEXEC: {e}"))?;
 
     // Drop root privileges.
@@ -251,7 +255,8 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
     }
 
     // Spawn editor
-    let status = Command::new(editor)
+    let status = Command::new(&editor.0)
+        .args(editor.1)
         .args(
             files
                 .iter()
@@ -261,7 +266,7 @@ fn handle_child_inner(editor: &Path, mut files: Vec<ChildFileInfo<'_>>) -> Resul
         .map_err(|e| {
             xlat!(
                 "failed to run editor {path}: {error}",
-                path = editor.display(),
+                path = editor.0.display(),
                 error = e
             )
         })?;

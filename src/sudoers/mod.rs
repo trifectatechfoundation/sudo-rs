@@ -296,7 +296,7 @@ impl Sudoers {
         on_host: &system::Hostname,
         am_user: &User,
         target_user: &User,
-    ) -> Option<PathBuf> {
+    ) -> Option<(PathBuf, Vec<OsString>)> {
         self.specify_host_user_runas(on_host, am_user, Some(target_user));
 
         select_editor(&self.settings, self.settings.env_editor())
@@ -305,7 +305,7 @@ impl Sudoers {
 
 /// Retrieve the chosen editor from a settings object, filtering based on whether the
 /// environment is trusted (sudoedit) or maybe less so (visudo)
-fn select_editor(settings: &Settings, trusted_env: bool) -> Option<PathBuf> {
+fn select_editor(settings: &Settings, trusted_env: bool) -> Option<(PathBuf, Vec<OsString>)> {
     let blessed_editors = settings.editor();
 
     let is_whitelisted = |path: &Path| -> bool {
@@ -315,8 +315,13 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> Option<PathBuf> {
     // find editor in environment, if possible
 
     for key in ["SUDO_EDITOR", "VISUAL", "EDITOR"] {
-        if let Some(editor) = std::env::var_os(key) {
-            let editor = PathBuf::from(editor);
+        if let Ok(editor_env) = std::env::var(key) {
+            let mut arguments = editor_env.split(' ');
+
+            let Some(editor) = arguments.next().map(PathBuf::from) else {
+                continue;
+            };
+            let arguments = arguments.map(OsString::from).collect();
 
             let editor = if is_valid_executable(&editor) {
                 editor
@@ -330,7 +335,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> Option<PathBuf> {
             };
 
             if is_whitelisted(&editor) {
-                return Some(editor);
+                return Some((editor, arguments));
             }
         }
     }
@@ -340,7 +345,7 @@ fn select_editor(settings: &Settings, trusted_env: bool) -> Option<PathBuf> {
     for editor in blessed_editors.split(':') {
         let editor = PathBuf::from(editor);
         if is_valid_executable(&editor) {
-            return Some(editor);
+            return Some((editor, vec![]));
         }
     }
 

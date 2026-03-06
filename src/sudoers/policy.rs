@@ -1,19 +1,19 @@
-use super::Sudoers;
+//! Data types and traits that represent what the "terms and conditions" are after a successful
+//! permission check.
+//!
+//! The trait definitions can be part of some global crate in the future, if we support more
+//! than just the sudoers file.
 
-use super::Judgement;
+use super::{Judgement, Sudoers};
 use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
 };
 use crate::exec::Umask;
 use crate::sudoers::ast::{ExecControl, Tag};
 use crate::system::{Hostname, User};
-/// Data types and traits that represent what the "terms and conditions" are after a successful
-/// permission check.
-///
-/// The trait definitions can be part of some global crate in the future, if we support more
-/// than just the sudoers file.
 use std::collections::HashSet;
 use std::time::Duration;
+use std::{ffi::OsString, path::PathBuf};
 
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -146,12 +146,12 @@ impl Judgement {
         }
     }
 
-    pub(crate) fn preferred_editor(&self) -> std::path::PathBuf {
+    pub(crate) fn preferred_editor(&self) -> (PathBuf, Vec<OsString>) {
         //if no editor could be selected, fall back to /bin/vi;
         //note that /bin/vi is also likely to have been tried as part of
         //the "editor" setting, so this is a last-resort
         super::select_editor(&self.settings, true)
-            .unwrap_or_else(|| std::path::PathBuf::from("/usr/bin/vi"))
+            .unwrap_or_else(|| (std::path::PathBuf::from("/usr/bin/vi"), vec![]))
     }
 }
 

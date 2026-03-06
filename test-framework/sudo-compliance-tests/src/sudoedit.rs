@@ -458,3 +458,16 @@ id -Gn",
         format!("{USERNAME}\nusers\n{USERNAME}\nusers")
     );
 }
+
+#[test]
+fn sudo_editor_with_arguments() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).user(USERNAME).build();
+    let output = Command::new("env")
+        .arg("SUDO_EDITOR=echo -n 1 2 3")
+        .arg("sudoedit")
+        .arg("/foo.txt")
+        .as_user(USERNAME)
+        .output(&env);
+
+    assert_starts_with!(output.stdout(), "1 2 3");
+}

@@ -278,7 +278,8 @@ fn edit_sudoers_file(
         })?;
 
     loop {
-        Command::new(&editor_path)
+        Command::new(&editor_path.0)
+            .args(&editor_path.1)
             .arg("--")
             .arg(tmp_path)
             .spawn()
@@ -287,7 +288,7 @@ fn edit_sudoers_file(
                     io::ErrorKind::NotFound,
                     format!(
                         "specified editor ({}) could not be used",
-                        editor_path.display()
+                        editor_path.0.display()
                     ),
                 )
             })?

@@ -58,7 +58,7 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
         let editor = policy.preferred_editor();
 
-        crate::sudo::edit::edit_files(&editor, opened_files)
+        crate::sudo::edit::edit_files(editor, opened_files)
     };
 
     pam_context.close_session();
