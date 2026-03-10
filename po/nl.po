@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sudo-rs 0.2.12\n"
 "Report-Msgid-Bugs-To: https://github.com/trifectatechfoundation/sudo-rs/issues\n"
-"POT-Creation-Date: 2025-12-08 17:30+0100\n"
+"POT-Creation-Date: 2026-10-03 17:30+0100\n"
 "PO-Revision-Date: 2025-12-24 11:15+0100\n"
 "Last-Translator: Liset Roos <liset@tweedegolf.com>\n"
 "Language-Team: Language =nl\n"
@@ -15,79 +15,89 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/common/error.rs:51
+#: src/common/error.rs:52
 #, rust-format
 msgid "Sorry, user {user} is not allowed to execute '{command}' as {other_user} on {hostname}."
 msgstr "Sorry, gebruiker {user} mag '{command}' niet uitvoeren als {other_user} op {hostname}"
 
-#: src/common/error.rs:60
+#: src/common/error.rs:61
 #, rust-format
 msgid "Sorry, user {user} may not run {command} on {hostname}."
 msgstr "Sorry, gebruiker {user} mag {command} niet uitvoeren op {hostname}."
 
-#: src/common/error.rs:68
+#: src/common/error.rs:69
 msgid "sudo must be owned by uid 0 and have the setuid bit set"
 msgstr "sudo moet eigendom zijn van uid 0 en de setuid bit gezet hebben"
 
-#: src/common/error.rs:71
+#: src/common/error.rs:74
+msgid ""
+"The \"no new privileges\" flag is set, which prevents sudo from running as root.\n"
+"If sudo is running in a container, you may need to adjust the container configuration to disable "
+"the flag."
+msgstr
+"sudo kan geen root-permissies krijgen omdat \"no new privileges\" aan staat.\n"
+"Als sudo in een container draait, kan het helpen om de instellingen aan te passen "
+"en deze vlag uit te zetten."
+
+#: src/common/error.rs:80
 #, rust-format
 msgid "'{path}': command not found"
 msgstr "'{path}': opdracht niet gevonden"
 
-#: src/common/error.rs:74
+#: src/common/error.rs:83
 #, rust-format
 msgid "'{path}': invalid command"
 msgstr "'{path}': ongeldige opdracht"
 
-#: src/common/error.rs:76
+#: src/common/error.rs:85
 #, rust-format
 msgid "user '{user}' not found"
 msgstr "gebruiker '{user}' niet gevonden"
 
-#: src/common/error.rs:77
+#: src/common/error.rs:86
 #, rust-format
 msgid "group '{group}' not found"
 msgstr "groep '{group}' niet gevonden"
 
 #. TRANSLATORS: This is a well-known quote, try to preserve it in translation.
-#: src/common/error.rs:80
+#: src/common/error.rs:89
 #, rust-format
 msgid "I'm sorry {user}. I'm afraid I can't do that"
 msgstr "Het spijt me, {user}. Ik ben bang dat ik dat niet kan doen."
 
-#: src/common/error.rs:82
+#: src/common/error.rs:91
 msgid "interactive authentication is required"
 msgstr "interactieve authenticatie is vereist"
 
-#: src/common/error.rs:86
+#: src/common/error.rs:95
 msgid "you are not allowed to set the following environment variables:"
 msgstr "het is niet toegestaan de volgende omgevingsvariabelen te zetten:"
 
-#: src/common/error.rs:102
+#: src/common/error.rs:111
 #, rust-format
 msgid "cannot execute '{path}': {error}"
 msgstr "kan '{path}' niet uitvoeren: {error}"
 
-#: src/common/error.rs:107 src/pam/error.rs:226
+#: src/common/error.rs:116 src/pam/error.rs:226
 #, rust-format
 msgid "IO error: {error}"
 msgstr "Invoer/uitvoer-fout: {error}"
 
-#: src/common/error.rs:113
+#: src/common/error.rs:122
 #, rust-format
 msgid "maximum {num} incorrect authentication attempts"
 msgstr "maximum van {num} authenticatiepogingen bereikt"
 
-#: src/common/error.rs:119
+#: src/common/error.rs:128
 #, rust-format
 msgid "you are not allowed to use '--chdir {path}' with '{command}'"
 msgstr "het is niet toegestaan '--chdir {path}' te gebruiken met '{command}'"
 
-#: src/common/error.rs:127 src/common/error.rs:134 src/pam/error.rs:211
+#: src/common/error.rs:136 src/common/error.rs:143 src/pam/error.rs:211
 msgid "Unexpected null character in input"
 msgstr "Onverwachte NUL-byte in input"
 
-#: src/common/error.rs:141
+#: src/common/error.rs:150
 #, rust-format
 msgid "unable to change AppArmor profile to {profile}: {error}"
 msgstr "kan AppArmor profiel niet omzeten naar {profile}: {error}"
@@ -102,7 +112,7 @@ msgstr "kan niet naar map {path} gaan: {error}"
 msgid "Failed to run askpass program {path}: {error}"
 msgstr "Kon askpass programma {path} niet starten: {error}"
 
-#: src/pam/converse.rs:147
+#: src/pam/converse.rs:153
 msgid "input needed"
 msgstr "input nodig"
 
@@ -281,44 +291,49 @@ msgstr ""
 "  -V, --version                 geef versie-informatie weer\n"
 "  --                            stop met het verwerken van opties"
 
-#: src/sudo/cli/mod.rs:152 src/sudo/cli/mod.rs:217 src/sudo/cli/mod.rs:289 src/sudo/cli/mod.rs:378
-#: src/sudo/cli/mod.rs:391 src/sudo/cli/mod.rs:797
+#: src/sudo/cli/mod.rs:153 src/sudo/cli/mod.rs:218 src/sudo/cli/mod.rs:290 src/sudo/cli/mod.rs:379
+#: src/sudo/cli/mod.rs:392 src/sudo/cli/mod.rs:823
 #, rust-format
 msgid "{context} cannot be used together with {option}"
 msgstr "{context} en {option} kunnen niet tegelijkertijd gebruikt worden"
 
-#: src/sudo/cli/mod.rs:226
+#: src/sudo/cli/mod.rs:227
 msgid "must specify at least one file path"
 msgstr "verwacht tenminste één bestandsnaam"
 
-#: src/sudo/cli/mod.rs:301
+#: src/sudo/cli/mod.rs:302
 #, rust-format
 msgid "'{option}' flag must be accompanied by a command"
 msgstr "'{option}' flag moet gevolgd worden door een opdracht"
 
-#: src/sudo/cli/mod.rs:387
+#: src/sudo/cli/mod.rs:388
 msgid "command (positional argument)"
 msgstr "opdracht (als argument)"
 
-#: src/sudo/cli/mod.rs:402
+#: src/sudo/cli/mod.rs:403
 msgid "expected one of: --login, --shell, a command as a positional argument"
 msgstr "verwacht één van de volgende: --login, --shell, een opdracht als argument"
 
-#: src/sudo/cli/mod.rs:534
+#: src/sudo/cli/mod.rs:505
+#, rust-format
+msgid "argument '{arg}' is not valid UTF-8"
+msgstr "argument '{arg}' is geen geldige UTF-8"
+
+#: src/sudo/cli/mod.rs:544
 #, rust-format
 msgid "'{option}' does not take any arguments"
 msgstr "'{option}' verwacht geen argumenten"
 
-#: src/sudo/cli/mod.rs:543 src/sudo/cli/mod.rs:571
+#: src/sudo/cli/mod.rs:556 src/sudo/cli/mod.rs:589
 #, rust-format
 msgid "'{option}' expects an argument"
 msgstr "'{option}' verwacht een argument"
 
-#: src/sudo/cli/mod.rs:561
+#: src/sudo/cli/mod.rs:577
 msgid "invalid option '='"
 msgstr "ongeldige optie '='"
 
-#: src/sudo/cli/mod.rs:614
+#: src/sudo/cli/mod.rs:632
 msgid ""
 "expected one of these actions: --help, --version, --remove-timestamp, --validate, --list, --edit, "
 "--login, --shell, a command as a positional argument, --reset-timestamp"
@@ -326,28 +341,28 @@ msgstr ""
 "gebruik een van deze acties: --help, --version, --remove-timestamp, --validate, --list, --edit, --"
 "login, --shell, een opdracht, --reset-timestamp"
 
-#: src/sudo/cli/mod.rs:654
+#: src/sudo/cli/mod.rs:672
 #, rust-format
 msgid "preserving the entire environment is not supported, '{flag}' is ignored"
 msgstr "de hele omgeving bewaren wordt niet ondersteund, '{flag}' is genegeerd"
 
-#: src/sudo/cli/mod.rs:698 src/sudo/cli/mod.rs:727
+#: src/sudo/cli/mod.rs:716 src/sudo/cli/mod.rs:745
 msgid "invalid option provided"
 msgstr "ongeldige optie"
 
-#: src/sudo/cli/mod.rs:745
+#: src/sudo/cli/mod.rs:763
 msgid "sudoedit doesn't need to be run via sudo"
 msgstr "sudoedit hoeft niet via sudo aangeroepen te worden"
 
-#: src/sudo/cli/mod.rs:849
+#: src/sudo/cli/mod.rs:875
 msgid "command"
 msgstr "opdracht"
 
-#: src/sudo/cli/mod.rs:850
+#: src/sudo/cli/mod.rs:876
 msgid "environment variable"
 msgstr "omgevingsvariabele"
 
-#: src/sudo/edit.rs:46
+#: src/sudo/edit.rs:47
 #, rust-format
 msgid "failed to read metadata for {path}: {error}"
 msgstr "kan meta-data van {path} niet lezen: {error}"
@@ -357,87 +372,87 @@ msgstr "kan meta-data van {path} niet lezen: {error}"
 msgid "file {path} is not a regular file"
 msgstr "{path} is geen regulier bestand"
 
-#: src/sudo/edit.rs:64
+#: src/sudo/edit.rs:65
 #, rust-format
 msgid "failed to lock {path}: {error}"
 msgstr "kan geen lock krijgen op {path}: {error}"
 
-#: src/sudo/edit.rs:77
+#: src/sudo/edit.rs:78
 #, rust-format
 msgid "failed to read {path}: {error}"
 msgstr "kan {path} niet lezen: {error}"
 
-#: src/sudo/edit.rs:144
+#: src/sudo/edit.rs:145
 #, rust-format
 msgid "{path} unchanged"
 msgstr "{path} ongewijzigd"
 
-#: src/sudo/edit.rs:164
+#: src/sudo/edit.rs:165
 #, rust-format
 msgid "failed to write {path}: {error}"
 msgstr "kan {path} niet schrijven: {error}"
 
-#: src/sudo/edit.rs:183
+#: src/sudo/edit.rs:184
 #, rust-format
 msgid "failed to remove temporary directory {path}: {error}"
 msgstr "kan tijdelijke map {path} niet verwijderen: {error}"
 
-#: src/sudo/edit.rs:195
+#: src/sudo/edit.rs:196
 #, rust-format
 msgid "{error}"
 msgstr ""
 
-#: src/sudo/edit.rs:213
+#: src/sudo/edit.rs:217
 #, rust-format
 msgid "failed to create temporary directory: {error}"
 msgstr "kan geen tijdelijke map maken: {error}"
 
-#: src/sudo/edit.rs:221
+#: src/sudo/edit.rs:225
 #, rust-format
 msgid "failed to create temporary directory {path}: {error}"
 msgstr "kan tijdelijke map {path} niet aanmaken: {error}"
 
-#: src/sudo/edit.rs:235
+#: src/sudo/edit.rs:239
 #, rust-format
 msgid "failed to create temporary file {path}: {error}"
 msgstr "kan tijdelijk bestand {path} niet aanmaken: {error}"
 
-#: src/sudo/edit.rs:244
+#: src/sudo/edit.rs:248
 #, rust-format
 msgid "failed to write to temporary file {path}: {error}"
 msgstr "kan tijdelijk bestand {path} niet schrijven: {error}"
 
-#: src/sudo/edit.rs:263
+#: src/sudo/edit.rs:268
 #, rust-format
 msgid "failed to run editor {path}: {error}"
 msgstr "kan editor {path} niet starten: {error}"
 
-#: src/sudo/edit.rs:284
+#: src/sudo/edit.rs:289
 #, rust-format
 msgid "failed to read from temporary file {path}: {error}"
 msgstr "kan tijdelijk bestand {path} niet lezen: {error}"
 
-#: src/sudo/edit.rs:293
+#: src/sudo/edit.rs:298
 #, rust-format
 msgid "failed to remove temporary file {path}: {error}"
 msgstr "kan tijdelijk bestand {path} niet verwijderen: {error}"
 
 #. TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
-#: src/sudo/edit.rs:302
+#: src/sudo/edit.rs:307
 msgid "yn"
 msgstr "jn"
 
-#: src/sudo/edit.rs:306
+#: src/sudo/edit.rs:311
 #, rust-format
 msgid "sudoedit: truncate {path} to zero? (y/n) [n] "
 msgstr "sudoedit: {path} leegmaken? (j/n) [n] "
 
-#: src/sudo/edit.rs:319
+#: src/sudo/edit.rs:324
 #, rust-format
 msgid "not overwriting {path}"
 msgstr "{path} wordt niet overschreven"
 
-#: src/sudo/edit.rs:323 src/sudo/edit.rs:332
+#: src/sudo/edit.rs:328 src/sudo/edit.rs:337
 #, rust-format
 msgid "failed to write data to parent: {error}"
 msgstr "kon geen data schrijven naar het ouderproces: {error}"
@@ -446,7 +461,7 @@ msgstr "kon geen data schrijven naar het ouderproces: {error}"
 msgid "Authentication failed, try again."
 msgstr "Authenticatie mislukt, probeer opnieuw."
 
-#: src/sudo/pipeline.rs:32
+#: src/sudo/pipeline.rs:30
 #, rust-format
 msgid ""
 "sudoers file not found: {path}\n"
@@ -459,36 +474,36 @@ msgid ""
 "For more information, see the sudo-rs documentation."
 msgstr "sudoersbestand niet gevonden op {path}"
 
-#: src/sudo/pipeline.rs:43
+#: src/sudo/pipeline.rs:41
 #, rust-format
 msgid "invalid configuration: {error}"
 msgstr "configuratiefout: {error}"
 
-#: src/sudo/pipeline/edit.rs:36
+#: src/sudo/pipeline/edit.rs:33
 #, rust-format
 msgid "{path}: editing symbolic links is not permitted"
 msgstr "symbolische links in {path} zijn niet toegestaan"
 
-#: src/sudo/pipeline/edit.rs:41
+#: src/sudo/pipeline/edit.rs:39
 #, rust-format
 msgid "error opening {path}: {error}"
 msgstr "kan {path} niet openen: {error}"
 
-#: src/sudo/pipeline/edit.rs:45
+#: src/sudo/pipeline/edit.rs:46
 #, rust-format
 msgid "invalid path: {path}"
 msgstr "ongeldig pad: {path}"
 
-#: src/sudo/pipeline/edit.rs:50
+#: src/sudo/pipeline/edit.rs:51
 msgid "please address the problems and try again"
 msgstr "los de problemen op en probeer opnieuw"
 
-#: src/sudo/pipeline/list.rs:43
+#: src/sudo/pipeline/list.rs:48
 #, rust-format
 msgid "User {user} may run the following commands on {hostname}:"
 msgstr "Gebruiker {user} mag de volgende opdrachten uitvoeren op {hostname}:"
 
-#: src/sudo/pipeline/list.rs:58
+#: src/sudo/pipeline/list.rs:63
 #, rust-format
 msgid "User {user} is not allowed to run sudo on {hostname}."
 msgstr "Gebruiker {user} mag sudo niet uitvoeren op {hostname}."
@@ -520,38 +535,38 @@ msgstr "Opties"
 msgid "Cwd"
 msgstr "Cwd"
 
-#: src/system/audit.rs:147
+#: src/system/audit.rs:155
 #, rust-format
 msgid "{path} must be owned by root"
 msgstr "{path} moet eigendom zijn van root"
 
-#: src/system/audit.rs:152
+#: src/system/audit.rs:160
 #, rust-format
 msgid "{path} cannot be group-writable"
 msgstr "{path} mag geen schrijfrechten aan de groep toekennen"
 
-#: src/system/audit.rs:157
+#: src/system/audit.rs:165
 #, rust-format
 msgid "{path} cannot be world-writable"
 msgstr "{path} mag geen universele schrijfrechten toekennen"
 
-#: src/system/audit.rs:198
+#: src/system/audit.rs:206
 #, rust-format
 msgid "{path} has no valid parent directory"
 msgstr "{path} bevindt zich niet in een geldige map"
 
-#: src/system/audit.rs:266
+#: src/system/audit.rs:285
 msgid "invalid path"
 msgstr "pad ongeldig"
 
-#: src/system/audit.rs:274
+#: src/system/audit.rs:293
 msgid "path must be absolute"
 msgstr "pad moet absoluut zijn"
 
-#: src/system/audit.rs:290
+#: src/system/audit.rs:305 src/system/audit.rs:329
 msgid "cannot open a file in a path writable by the user"
 msgstr "kan geen bestand openen in een pad waarop de gebruiker schrijfrechten heeft"
 
-#: src/system/audit.rs:308
+#: src/system/audit.rs:347
 msgid "error in provided path"
 msgstr "fout in het opgegeven pad"
