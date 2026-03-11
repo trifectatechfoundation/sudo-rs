@@ -36,7 +36,7 @@ msgid ""
 "the flag."
 msgstr
 "sudo kan geen root-permissies krijgen omdat \"no new privileges\" aan staat.\n"
-"Als sudo in een container draait, kan het helpen om de instellingen aan te passen "
+"Als sudo in een container draait, is het misschien nodig om deze vlag in de containerinstellingen uit te zetten "
 "en deze vlag uit te zetten."
 
 #: src/common/error.rs:80
