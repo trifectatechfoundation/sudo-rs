@@ -10,6 +10,8 @@ title: SUDOERS(5) sudo-rs 0.2.13 | sudo-rs
 
 The `sudo-rs` policy determines a user's sudo privileges. The policy is driven by the */etc/sudoers file*.  The policy format is described in detail in the **SUDOERS FILE FORMAT** section.
 
+For a minimal starter configuration, see `docs/examples/sudoers.example` in the source tree. Copy it to */etc/sudoers* (or an include directory) and validate with `visudo -c` before use.
+
 The format used by sudo-rs is a subset of the one used by the sudo-project as maintained by Todd Miller, but syntax-compatible.
 
 ## User Authentication

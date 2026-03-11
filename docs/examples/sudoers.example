@@ -1,0 +1,17 @@
+# Example sudoers file for sudo-rs
+#
+# Copy to /etc/sudoers (or an include dir) and run:
+#   visudo -c
+# to validate syntax before use.
+
+Defaults        env_reset
+Defaults        mail_badpass
+
+# User privilege specification
+root    ALL=(ALL:ALL) ALL
+
+# Allow members of group sudo to run any command
+%sudo   ALL=(ALL:ALL) ALL
+
+# Uncomment to allow passwordless sudo for the sudo group
+# %sudo ALL=(ALL:ALL) NOPASSWD: ALL
