@@ -85,7 +85,7 @@ The `env_check` list is not empty by default and contains the following environm
 
 These variables can be removed from the list using either the override (`=`) or remove (`-=`) operators.
 
-### Applies to both `env_keep` and `env_checek`
+### Applies to both `env_keep` and `env_check`
 
 #### `!` clears the list
 
