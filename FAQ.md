@@ -271,7 +271,7 @@ Bugs fixed in sudo 1.9.18:
 * https://git.sudo.ws/sudo/commit/?id=e2a2982153a39eb793adfc9f2a8524adfdae8c6f
 * https://git.sudo.ws/sudo/commit/?id=526677d016c451e032041b9487051b881839844c
 * https://git.sudo.ws/sudo/commit/?id=bcbaca6f69c68a9c249fed96514889a9cc886048
-* https://git.sudo.ws/sudo/commit/?id=59f6eceb17ca1996260881f2128a339dd2e7ed3d
+* https://git.sudo.ws/sudo/commit/?id=70c1ee4b44f5b15822919c05ffbde857fa879e48
 * https://git.sudo.ws/sudo/commit/?id=1c254b330490216857b5b79a071ca4a8ca6bb522
 * https://git.sudo.ws/sudo/commit/?id=9080a379296d384c035ff62eed970e3d49d49674
 * https://git.sudo.ws/sudo/commit/?id=2faf4c878d623e1b9ef642e116751c9543d848f7
