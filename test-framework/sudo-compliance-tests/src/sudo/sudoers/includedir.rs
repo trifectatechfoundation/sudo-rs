@@ -117,7 +117,14 @@ fn ignores_and_warns_about_file_with_bad_perms() {
 
     output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
-        format!("{ETC_DIR}/sudoers.d/a is world writable")
+        // FIXME: a recent change in ogsudo has broken this error message,
+        // and this regression has sadly also been back-ported into trixie.
+        // see: https://github.com/sudo-project/sudo/issues/525
+        //
+        // the full error message should be:
+        //
+        // format!("{ETC_DIR}/sudoers.d/a is world writable")
+        " is world writable".to_string()
     } else {
         format!("{ETC_DIR}/sudoers.d/a cannot be world-writable")
     };
@@ -146,10 +153,17 @@ fn ignores_and_warns_about_file_with_bad_ownership() {
 
     output.assert_success();
     let diagnostic = if sudo_test::is_original_sudo() {
+        // FIXME: a recent change in ogsudo has broken this error message,
+        // and this regression has sadly also been back-ported into trixie.
+        // see: https://github.com/sudo-project/sudo/issues/525
+        //
+        // the full error message should be:
+        //
+        // format!("{ETC_DIR}/sudoers.d/a is owned by uid ...., should be 0")
         if cfg!(target_os = "freebsd") {
-            format!("{ETC_DIR}/sudoers.d/a is owned by uid 1001, should be 0")
+            " is owned by uid 1001, should be 0".to_string()
         } else {
-            format!("{ETC_DIR}/sudoers.d/a is owned by uid 1000, should be 0")
+            " is owned by uid 1000, should be 0".to_string()
         }
     } else {
         format!("{ETC_DIR}/sudoers.d/a must be owned by root")
