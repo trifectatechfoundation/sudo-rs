@@ -243,35 +243,38 @@ This also furthered the harmonization between sudo-rs and sudo on their common f
 
 Bugs fixed in sudo 1.9.14:
 
-* https://github.com/sudo-project/sudo/commit/471028351650aa4477e59a1701608ffae5b1d4a2
-* https://github.com/sudo-project/sudo/commit/8c1559e0e34fa83b061f148b63fc8e091a4b2517
-* https://github.com/sudo-project/sudo/commit/64ab8cd23643feced561a1aabcc6be547e81ad58
-* https://github.com/sudo-project/sudo/commit/78e65e14ea18278a904beddd54b964609b715762
+* https://git.sudo.ws/sudo/commit/?id=471028351650aa4477e59a1701608ffae5b1d4a2
+* https://git.sudo.ws/sudo/commit/?id=8c1559e0e34fa83b061f148b63fc8e091a4b2517
+* https://git.sudo.ws/sudo/commit/?id=64ab8cd23643feced561a1aabcc6be547e81ad58
+* https://git.sudo.ws/sudo/commit/?id=78e65e14ea18278a904beddd54b964609b715762
 
 Bugs fixed in sudo 1.9.15:
 
-* https://github.com/sudo-project/sudo/commit/e7d4c05acea3f15fd8bcc4949acb7e06940284c1 
-* https://github.com/sudo-project/sudo/commit/1c7a20d7447937cd2e29b61c9c013f5b1df76fd6
-* https://github.com/sudo-project/sudo/commit/d1625f9c8325abe4f5c3706d4ac9442fcccc91ad
-* https://github.com/sudo-project/sudo/commit/db704c22ec248c871907cfd966091a28332e1d0f
-* https://github.com/sudo-project/sudo/commit/d486db46cf25f09b19aeb9109d58531f3a3d2d33
-* https://github.com/sudo-project/sudo/commit/7363ad7b3230b7b03a83f68a0ea33b4144c78a79
+* https://git.sudo.ws/sudo/commit/?id=e7d4c05acea3f15fd8bcc4949acb7e06940284c1 
+* https://git.sudo.ws/sudo/commit/?id=1c7a20d7447937cd2e29b61c9c013f5b1df76fd6
+* https://git.sudo.ws/sudo/commit/?id=d1625f9c8325abe4f5c3706d4ac9442fcccc91ad
+* https://git.sudo.ws/sudo/commit/?id=db704c22ec248c871907cfd966091a28332e1d0f
+* https://git.sudo.ws/sudo/commit/?id=d486db46cf25f09b19aeb9109d58531f3a3d2d33
+* https://git.sudo.ws/sudo/commit/?id=7363ad7b3230b7b03a83f68a0ea33b4144c78a79
 
 Bugs fixed in sudo 1.9.17:
 
-* https://github.com/sudo-project/sudo/commit/0be9f0f947139b32feaa5cd7b5d858069e0af48c
-* https://github.com/sudo-project/sudo/commit/4dbb07c19bdeba34c93243adeb0114715afff473
-* https://github.com/sudo-project/sudo/commit/b04386f63163d99eb67a78f9af8515b3af13c8b0
-* https://github.com/sudo-project/sudo/commit/82ebb1eaa92368952ae92ee0819b573f24e304cd
-* https://github.com/sudo-project/sudo/commit/28837b2af1d98c08f0cb75dd075fc290435775a1
+* https://git.sudo.ws/sudo/commit/?id=0be9f0f947139b32feaa5cd7b5d858069e0af48c
+* https://git.sudo.ws/sudo/commit/?id=4dbb07c19bdeba34c93243adeb0114715afff473
+* https://git.sudo.ws/sudo/commit/?id=b04386f63163d99eb67a78f9af8515b3af13c8b0
+* https://git.sudo.ws/sudo/commit/?id=82ebb1eaa92368952ae92ee0819b573f24e304cd
+* https://git.sudo.ws/sudo/commit/?id=28837b2af1d98c08f0cb75dd075fc290435775a1
 
 Bugs fixed in sudo 1.9.18:
 
-* https://github.com/sudo-project/sudo/commit/12724d1b73d6d7dd3197ceadefdd9e600fcda537
-* https://github.com/sudo-project/sudo/commit/e2a2982153a39eb793adfc9f2a8524adfdae8c6f
-* https://github.com/sudo-project/sudo/commit/526677d016c451e032041b9487051b881839844c
-* https://github.com/sudo-project/sudo/commit/bcbaca6f69c68a9c249fed96514889a9cc886048
-* https://github.com/sudo-project/sudo/commit/59f6eceb17ca1996260881f2128a339dd2e7ed3d
+* https://git.sudo.ws/sudo/commit/?id=12724d1b73d6d7dd3197ceadefdd9e600fcda537
+* https://git.sudo.ws/sudo/commit/?id=e2a2982153a39eb793adfc9f2a8524adfdae8c6f
+* https://git.sudo.ws/sudo/commit/?id=526677d016c451e032041b9487051b881839844c
+* https://git.sudo.ws/sudo/commit/?id=bcbaca6f69c68a9c249fed96514889a9cc886048
+* https://git.sudo.ws/sudo/commit/?id=59f6eceb17ca1996260881f2128a339dd2e7ed3d
+* https://git.sudo.ws/sudo/commit/?id=1c254b330490216857b5b79a071ca4a8ca6bb522
+* https://git.sudo.ws/sudo/commit/?id=9080a379296d384c035ff62eed970e3d49d49674
+* https://git.sudo.ws/sudo/commit/?id=2faf4c878d623e1b9ef642e116751c9543d848f7
 
 Time permitting, we would also like to contribute our improvements to the Linux seccomp-based `NOEXEC` mechanism back to the sudo project.
 
