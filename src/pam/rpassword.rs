@@ -260,8 +260,9 @@ fn read_unbuffered(
                 continue;
             }
 
-            if read_byte == b'\t' && feedback.visible_len.take().is_some() {
+            if read_byte == b'\t' && feedback.visible_len.is_some() {
                 feedback.clear();
+                feedback.visible_len = None;
                 let _ = feedback.sink.write(b"(no echo)");
                 continue;
             }
