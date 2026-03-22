@@ -295,7 +295,7 @@ fn edit_sudoers_file(
             .wait_with_output()?;
 
         let (sudoers, errors) = File::open(tmp_path)
-            .and_then(|reader| Sudoers::read(reader, tmp_path))
+            .and_then(|reader| Sudoers::read(reader, sudoers_path))
             .map_err(|err| {
                 io_msg!(
                     err,
