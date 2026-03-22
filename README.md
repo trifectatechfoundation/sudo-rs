@@ -59,10 +59,11 @@ apt-get install sudo-rs
 This will offer the functionality using the commands `sudo-rs`, `visudo-rs`. If you want to invoke sudo-rs
 via the usual commands `sudo` and `visudo` instead, prepend `/usr/lib/cargo/bin` to your current `$PATH` variable.
 
-Due to a misconfiguration in this package, `su-rs` cannot be used because it does not have the setuid flag set.
-
 The sudo-rs version packaged in Debian 13 (trixie) is based on release 0.2.5 from April 2025 which is missing `sudoedit`, `NOEXEC:`,
-and several other improvements, but is up-to-date with respect to security patches. Debian unstable (sid) may have a newer version.
+and many other usability and compatibility improvements, but is up-to-date with respect to security patches. Due to a misconfiguration
+in this package, `su-rs` cannot be used because it does not have the setuid flag set.
+
+Debian unstable (sid) may have a newer version.
 
 ### FreeBSD
 
