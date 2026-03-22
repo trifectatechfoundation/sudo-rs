@@ -260,3 +260,43 @@ cat $2 >> {LOGS_PATH}"
 
     assert_eq!(["# 1"], &*comments);
 }
+
+#[test]
+fn include_files_relative_to_original() {
+    let env = Env("@include sudoers-extra")
+        .file(format!("{ETC_DIR}/sudoers-extra"), "")
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+/usr/bin/true",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build();
+
+    let output = Command::new("visudo").output(&env);
+    output.assert_success();
+
+    assert!(!output.stdout().starts_with("What now?"));
+}
+
+#[test]
+fn include_dir_relative_to_original() {
+    let env = Env("@includedir sudoers.d")
+        .file(format!("{ETC_DIR}/sudoers.d/a"), "")
+        .file(
+            DEFAULT_EDITOR,
+            TextFile(
+                "#!/bin/sh
+/usr/bin/true",
+            )
+            .chmod(CHMOD_EXEC),
+        )
+        .build();
+
+    let output = Command::new("visudo").output(&env);
+    output.assert_success();
+
+    assert!(!output.stdout().starts_with("What now?"));
+}
