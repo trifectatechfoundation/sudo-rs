@@ -665,6 +665,10 @@ fn get_directive<'a>(
                 || (stream.get_pos().0 == begin_pos.0
                     && stream.get_pos().1 - begin_pos.1 == DEFAULTS_LEN);
 
+            // check that there is no line continuation between the introducing syntax (:>!@) and
+            // the start of the user/host/runas/cmd
+            let mut line_check = begin_pos;
+
             let scope = if allow_scope_modifier {
                 if keyword[DEFAULTS_LEN..].starts_with('@') {
                     // Backtrack and start parsing following the '@' sign
@@ -672,12 +676,16 @@ fn get_directive<'a>(
                     stream.advance(DEFAULTS_LEN + 1);
                     skip_trailing_whitespace(stream)?;
 
+                    line_check = stream.get_pos();
                     ConfigScope::Host(expect_nonterminal(stream)?)
                 } else if is_syntax(':', stream)? {
+                    line_check = stream.get_pos();
                     ConfigScope::User(expect_nonterminal(stream)?)
                 } else if is_syntax('!', stream)? {
+                    line_check = stream.get_pos();
                     ConfigScope::Command(expect_nonterminal(stream)?)
                 } else if is_syntax('>', stream)? {
+                    line_check = stream.get_pos();
                     ConfigScope::RunAs(expect_nonterminal(stream)?)
                 } else {
                     ConfigScope::Generic
@@ -685,6 +693,16 @@ fn get_directive<'a>(
             } else {
                 ConfigScope::Generic
             };
+
+            // this is here to add strictness, since ogsudo also doesn't allow
+            // line continuation in specific-defaults
+            if line_check.0 != begin_pos.0 {
+                unrecoverable!(
+                    pos = (begin_pos.0, begin_pos.1 + DEFAULTS_LEN),
+                    stream,
+                    "line continuation not allowed right after this"
+                );
+            }
 
             make(Defaults(expect_nonterminal(stream)?, scope))
         }
