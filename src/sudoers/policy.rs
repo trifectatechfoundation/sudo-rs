@@ -9,7 +9,7 @@ use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
 };
 use crate::exec::Umask;
-use crate::sudoers::ast::{ExecControl, Tag};
+use crate::sudoers::ast::{EnvironmentControl, ExecControl, Tag};
 use crate::system::{Hostname, User};
 use std::collections::HashSet;
 use std::time::Duration;
@@ -111,9 +111,9 @@ impl Judgement {
                 Restrictions {
                     use_pty: self.settings.use_pty(),
                     trust_environment: match tag.env {
-                        super::EnvironmentControl::Implicit => self.settings.setenv(),
-                        super::EnvironmentControl::Setenv => true,
-                        super::EnvironmentControl::Nosetenv => false,
+                        EnvironmentControl::Implicit => self.settings.setenv(),
+                        EnvironmentControl::Setenv => true,
+                        EnvironmentControl::Nosetenv => false,
                     },
                     noexec: match tag.noexec {
                         ExecControl::Implicit => self.settings.noexec(),
