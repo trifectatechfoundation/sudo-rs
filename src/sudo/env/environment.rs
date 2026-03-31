@@ -281,6 +281,7 @@ mod tests {
                         #[cfg(feature = "apparmor")]
                         apparmor_profile: None,
                         noexec: false,
+                        log: crate::sudoers::Logging::Auth,
                     }
                 ),
                 expected,
