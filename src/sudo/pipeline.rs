@@ -9,7 +9,9 @@ use crate::log::{auth_info, auth_warn};
 use crate::pam::PamContext;
 use crate::sudo::env::environment;
 use crate::sudo::pam::{InitPamArgs, attempt_authenticate, init_pam, pre_exec};
-use crate::sudoers::{AuthenticatingUser, Authentication, Authorization, Judgement, Sudoers};
+use crate::sudoers::{
+    AuthenticatingUser, Authentication, Authorization, Judgement, Logging, Sudoers,
+};
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{Process, escape_os_str_lossy};
@@ -113,7 +115,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     let options = context.try_as_run_options(&controls)?;
 
     // Log after try_as_run_options to avoid logging if the command is not resolved
-    log_command_execution(&context);
+    log_command_execution(controls.log, &context);
 
     // run command and return corresponding exit code
     let command_exit_reason = crate::exec::run_command(options, target_env)
@@ -263,7 +265,10 @@ impl AuthStatus {
     }
 }
 
-fn log_command_execution(context: &Context) {
+fn log_command_execution(log: Logging, context: &Context) {
+    if matches!(log, Logging::Disabled) {
+        return;
+    }
     let tty_info = if let Ok(tty_name) = current_tty_name() {
         format!("TTY={} ;", escape_os_str_lossy(&tty_name))
     } else {
