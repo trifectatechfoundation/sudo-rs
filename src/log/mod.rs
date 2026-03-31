@@ -1,18 +1,21 @@
 use self::simple_logger::SimpleLogger;
 use self::syslog::Syslog;
 use std::fmt;
-use std::ops::Deref;
 use std::sync::OnceLock;
 
 mod simple_logger;
 mod syslog;
 
 macro_rules! logger_macro {
-    ($name:ident is $rule_level:ident to $target:literal with $filter:ident, $d:tt) => {
+    ($name:ident is $rule_level:ident to $target:ident with $filter:ident, $d:tt) => {
         macro_rules! $name {
             ($d($d arg:tt)+) => {
                 if let Some(logger) = $crate::log::LOGGER.get() {
-                    logger.log($crate::log::Level::$rule_level, $target, $filter!($d($d arg)+));
+                    logger.log(
+                        $crate::log::Level::$rule_level,
+                        $crate::log::Sink::$target,
+                        $filter!($d($d arg)+)
+                    );
                 }
             };
         }
@@ -20,30 +23,27 @@ macro_rules! logger_macro {
         pub(crate) use $name;
     };
 
-    ($name:ident is $rule_level:ident to $target:literal with $filter:ident) => {
+    ($name:ident is $rule_level:ident to $target:ident with $filter:ident) => {
         logger_macro!($name is $rule_level to $target with $filter, $);
     };
 }
 
-// logger_macro!(auth_error is Error to "sudo::auth");
-logger_macro!(auth_warn is Warn to "sudo::auth" with format_args);
-logger_macro!(auth_info is Info to "sudo::auth" with format_args);
-// logger_macro!(auth_debug is Debug to "sudo::auth" with format_args);
+logger_macro!(auth_warn is Warn to AuthLog with format_args);
+logger_macro!(auth_info is Info to AuthLog with format_args);
 
-logger_macro!(user_error is Error to "sudo::user" with xlat);
-logger_macro!(user_warn is Warn to "sudo::user" with xlat);
-logger_macro!(user_info is Info to "sudo::user" with xlat);
-// logger_macro!(user_debug is Debug to "sudo::user" with xlat);
+logger_macro!(user_error is Error to User with xlat);
+logger_macro!(user_warn is Warn to User with xlat);
+logger_macro!(user_info is Info to User with xlat);
 
 macro_rules! dev_logger_macro {
-    ($name:ident is $rule_level:ident to $target:expr, $d:tt) => {
+    ($name:ident is $rule_level:ident, $d:tt) => {
         macro_rules! $name {
             ($d($d arg:tt)+) => {
                 if std::cfg!(feature = "dev") {
                     if let Some(logger) = $crate::log::LOGGER.get() {
                         logger.log(
                             $crate::log::Level::$rule_level,
-                            $target,
+                            $crate::log::Sink::DevLog,
                             format_args!("{}: {}",
                                 std::panic::Location::caller(),
                                 format_args!($d($d arg)+)
@@ -56,29 +56,28 @@ macro_rules! dev_logger_macro {
 
         pub(crate) use $name;
     };
-    ($name:ident is $rule_level:ident to $target:expr) => {
-        dev_logger_macro!($name is $rule_level to $target, $);
+    ($name:ident is $rule_level:ident) => {
+        dev_logger_macro!($name is $rule_level, $);
     };
 }
 
-dev_logger_macro!(dev_error is Error to "sudo::dev");
-dev_logger_macro!(dev_warn is Warn to "sudo::dev");
-dev_logger_macro!(dev_info is Info to "sudo::dev");
-dev_logger_macro!(dev_debug is Debug to "sudo::dev");
-//dev_logger_macro!(dev_trace is Trace to "sudo::dev");
+dev_logger_macro!(dev_error is Error);
+dev_logger_macro!(dev_warn is Warn);
+dev_logger_macro!(dev_info is Info);
+dev_logger_macro!(dev_debug is Debug);
 
 pub static LOGGER: OnceLock<SudoLogger> = OnceLock::new();
 
 #[derive(Default)]
-pub struct SudoLogger(Vec<(String, Box<dyn Log>)>);
+pub struct SudoLogger(Vec<(Sink, Box<dyn Log>)>);
 
 impl SudoLogger {
     pub fn new(prefix: &'static str) -> Self {
         let mut logger: Self = Default::default();
 
-        logger.add_logger("sudo::auth", Syslog);
+        logger.add_logger(Sink::AuthLog, Syslog);
 
-        logger.add_logger("sudo::user", SimpleLogger::to_stderr(prefix));
+        logger.add_logger(Sink::User, SimpleLogger::to_stderr(prefix));
 
         #[cfg(feature = "dev")]
         {
@@ -87,7 +86,7 @@ impl SudoLogger {
                 .unwrap_or_else(|| {
                     std::env::temp_dir().join(format!("sudo-dev-{}.log", std::process::id()))
                 });
-            logger.add_logger("sudo::dev", SimpleLogger::to_file(path, "").unwrap());
+            logger.add_logger(Sink::DevLog, SimpleLogger::to_file(path, "").unwrap());
         }
 
         logger
@@ -100,38 +99,36 @@ impl SudoLogger {
     }
 
     /// Add a logger for a specific prefix to the stack
-    fn add_logger(
-        &mut self,
-        prefix: impl ToString + Deref<Target = str>,
-        logger: impl Log + 'static,
-    ) {
-        let prefix = if prefix.ends_with("::") {
-            prefix.to_string()
-        } else {
-            // given a prefix `my::prefix`, we want to match `my::prefix::somewhere`
-            // but not `my::prefix_to_somewhere`
-            format!("{}::", prefix.to_string())
-        };
-        self.0.push((prefix, Box::new(logger)))
+    fn add_logger(&mut self, sink: Sink, logger: impl Log + 'static) {
+        self.0.push((sink, Box::new(logger)))
     }
 }
 
 impl SudoLogger {
-    pub fn log(&self, level: Level, target: &str, args: impl fmt::Display) {
-        for (prefix, l) in self.0.iter() {
-            if target == &prefix[..prefix.len() - 2] || target.starts_with(prefix) {
+    pub fn log(&self, level: Level, target: Sink, args: impl fmt::Display) {
+        for (sink, l) in self.0.iter() {
+            if target == *sink {
                 l.log(level, &args);
             }
         }
     }
 }
 
+#[repr(u32)]
+#[derive(PartialEq)]
+pub enum Sink {
+    AuthLog = crate::common::HARDENED_ENUM_VALUE_0,
+    User = crate::common::HARDENED_ENUM_VALUE_1,
+    DevLog = crate::common::HARDENED_ENUM_VALUE_2,
+}
+
+#[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Level {
-    Error,
-    Warn,
-    Info,
-    Debug,
+    Error = crate::common::HARDENED_ENUM_VALUE_0,
+    Warn = crate::common::HARDENED_ENUM_VALUE_1,
+    Info = crate::common::HARDENED_ENUM_VALUE_2,
+    Debug = crate::common::HARDENED_ENUM_VALUE_3,
 }
 
 trait Log: Send + Sync {
