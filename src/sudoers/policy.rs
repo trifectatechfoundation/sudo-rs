@@ -69,6 +69,7 @@ pub struct Restrictions<'a> {
     pub chdir: DirChange<'a>,
     pub path: Option<&'a str>,
     pub umask: Umask,
+    pub log: Logging,
     #[cfg(feature = "apparmor")]
     pub apparmor_profile: Option<String>,
 }
@@ -79,6 +80,14 @@ pub struct Restrictions<'a> {
 pub enum DirChange<'a> {
     Strict(Option<&'a SudoPath>) = HARDENED_ENUM_VALUE_0,
     Any = HARDENED_ENUM_VALUE_1,
+}
+
+#[must_use]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
+pub enum Logging {
+    Auth = HARDENED_ENUM_VALUE_0,
+    Disabled = HARDENED_ENUM_VALUE_1,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -132,6 +141,11 @@ impl Judgement {
                         } else {
                             Umask::Extend(mask)
                         }
+                    },
+                    log: if self.settings.log_allowed() {
+                        Logging::Auth
+                    } else {
+                        Logging::Disabled
                     },
                     #[cfg(feature = "apparmor")]
                     apparmor_profile: tag

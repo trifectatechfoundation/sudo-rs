@@ -76,7 +76,9 @@ pub struct Judgement {
 
 mod policy;
 
-pub use policy::{AuthenticatingUser, Authentication, Authorization, DirChange, Restrictions};
+pub use policy::{
+    AuthenticatingUser, Authentication, Authorization, DirChange, Logging, Restrictions,
+};
 
 pub use self::entry::Entry;
 
