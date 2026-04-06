@@ -56,6 +56,8 @@ fn set_cloexec(fd: c_int) -> io::Result<()> {
 /// Returns Ok(true) on success, Ok(false) if unsupported, Err on any other failure.
 #[cfg(not(target_os = "macos"))]
 fn try_close_range(lowfd: c_int) -> io::Result<bool> {
+    // SAFETY: this function is safe to call:
+    // - any errors while closing a specific fd will be effectively ignored
     #[allow(clippy::diverging_sub_expression)]
     let res = unsafe {
         'a: {
