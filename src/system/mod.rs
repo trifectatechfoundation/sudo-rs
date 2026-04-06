@@ -16,10 +16,9 @@ use crate::{
 };
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
-#[cfg(target_os = "macos")]
 use libc::STDERR_FILENO;
 #[cfg(not(target_os = "macos"))]
-use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
+use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS};
 use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
