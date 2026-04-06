@@ -109,12 +109,51 @@ fn set_cloexec(fd: c_int) -> io::Result<()> {
                     cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
                 }
             }
+/// Attempts to set CLOEXEC on all fds >= lowfd via proc_pidinfo(PROC_PIDLISTFDS).
+/// Returns Ok(true) on success, Ok(false) if proc_pidinfo is unavailable, Err on failure.
+#[cfg(target_os = "macos")]
+fn try_proc_pidinfo(lowfd: c_int) -> io::Result<bool> {
+    const WIGGLE_ROOM: i32 = 4;
 
-            Ok(())
-        }
-        Err(err) => Err(err),
-        Ok(_) => Ok(()),
+    let pid = unsafe { libc::getpid() };
+
+    // SAFETY: passing a null buffer with size 0 just queries the required buffer size.
+    let needed =
+        unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, std::ptr::null_mut(), 0) };
+
+    // If needed is zero, there are no open files.
+    // If needed is less than zero, alternate methods should be considered
+    // Either way, we want to recover, so throw unavailable.
+    if needed <= 0 {
+        return Ok(false);
     }
+
+    // Allocate with wiggle room for any extraneous fds opened between the two calls.
+    let cap = needed + (libc::PROC_PIDLISTFD_SIZE * WIGGLE_ROOM);
+    let count = cap as usize / std::mem::size_of::<libc::proc_fdinfo>();
+    let mut buf: Vec<libc::proc_fdinfo> = Vec::with_capacity(count);
+
+    // SAFETY: since proc_fdinfo is a plain C struct... we assume that proc_pidinfo fills the allocation safely.
+    let filled =
+        unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, buf.as_mut_ptr().cast(), cap) };
+
+    if filled <= 0 {
+        return Ok(false);
+    }
+
+    let pidlistfd_size = std::mem::size_of::<libc::proc_fdinfo>();
+    let n = filled as usize / pidlistfd_size;
+
+    // SAFETY: proc_pidinfo wrote `n` valid entries into the buffer.
+    unsafe { buf.set_len(n) };
+
+    for info in &buf {
+        if info.proc_fd >= lowfd {
+            set_cloexec(info.proc_fd)?;
+        }
+    }
+
+    Ok(true)
 }
 
 pub(crate) enum ForkResult {
