@@ -80,32 +80,6 @@ fn set_cloexec(fd: c_int) -> io::Result<()> {
             // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
             // fallback to finding all open fds using /proc/self/fd.
 
-            // FIXME use /dev/fd on macOS
-            for entry in fs::read_dir("/proc/self/fd")? {
-                let entry = entry?;
-                let file_name = entry.file_name();
-                let file_name = file_name.to_str().ok_or(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "procfs returned non-integer fd name",
-                ))?;
-                if file_name == "." || file_name == ".." {
-                    continue;
-                }
-                let fd = file_name.parse::<c_int>().map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "procfs returned non-integer fd name",
-                    )
-                })?;
-                if fd < lowfd {
-                    continue;
-                }
-                // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
-                // going to need it after exec.
-                unsafe {
-                    cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
-                }
-            }
 /// Attempts to set CLOEXEC on all fds >= lowfd via proc_pidinfo(PROC_PIDLISTFDS).
 /// Returns Ok(true) on success, Ok(false) if proc_pidinfo is unavailable, Err on failure.
 #[cfg(target_os = "macos")]
@@ -151,6 +125,33 @@ fn try_proc_pidinfo(lowfd: c_int) -> io::Result<bool> {
     }
 
     Ok(true)
+}
+
+/// Sets CLOEXEC on all fds >= lowfd by walking an fd directory
+/// (/proc/self/fd on Linux/FreeBSD, /dev/fd on macOS).
+fn cloexec_via_fd_dir(lowfd: c_int, path: &str) -> io::Result<()> {
+    for entry in fs::read_dir(path)? {
+        let file_name = entry?.file_name();
+
+        if file_name == "." || file_name == ".." {
+            continue;
+        }
+
+        let fd = file_name
+            .to_str()
+            .and_then(|s| s.parse::<c_int>().ok())
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "fd directory returned non-integer fd name",
+                )
+            })?;
+
+        if fd >= lowfd {
+            set_cloexec(fd)?;
+        }
+    }
+    Ok(())
 }
 
 /// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
