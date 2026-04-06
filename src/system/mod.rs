@@ -52,8 +52,10 @@ fn set_cloexec(fd: c_int) -> io::Result<()> {
     unsafe { cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC)) }.map(|_| ())
 }
 
-    // SAFETY: this function is safe to call:
-    // - any errors while closing a specific fd will be effectively ignored
+/// Attempts close_range(CLOSE_RANGE_CLOEXEC) for all fds >= lowfd.
+/// Returns Ok(true) on success, Ok(false) if unsupported, Err on any other failure.
+#[cfg(not(target_os = "macos"))]
+fn try_close_range(lowfd: c_int) -> io::Result<bool> {
     #[allow(clippy::diverging_sub_expression)]
     let res = unsafe {
         'a: {
@@ -74,11 +76,12 @@ fn set_cloexec(fd: c_int) -> io::Result<()> {
             ));
         }
     };
-
     match res {
-        Err(err) if err.raw_os_error() == Some(ENOSYS) || err.raw_os_error() == Some(EINVAL) => {
-            // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
-            // fallback to finding all open fds using /proc/self/fd.
+        Ok(_) => Ok(true),
+        Err(e) if e.raw_os_error() == Some(ENOSYS) || e.raw_os_error() == Some(EINVAL) => Ok(false),
+        Err(e) => Err(e),
+    }
+}
 
 /// Attempts to set CLOEXEC on all fds >= lowfd via proc_pidinfo(PROC_PIDLISTFDS).
 /// Returns Ok(true) on success, Ok(false) if proc_pidinfo is unavailable, Err on failure.
