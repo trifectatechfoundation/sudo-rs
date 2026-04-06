@@ -47,9 +47,6 @@ pub(crate) fn _exit(status: c_int) -> ! {
     unsafe { libc::_exit(status) }
 }
 
-/// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
-pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
-    let lowfd = STDERR_FILENO + 1;
 fn set_cloexec(fd: c_int) -> io::Result<()> {
     // SAFETY: This only sets the CLOEXEC flag; it does not close or invalidate the fd.
     unsafe { cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC)) }.map(|_| ())
@@ -154,6 +151,31 @@ fn try_proc_pidinfo(lowfd: c_int) -> io::Result<bool> {
     }
 
     Ok(true)
+}
+
+/// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
+pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
+    let lowfd = STDERR_FILENO + 1;
+
+    // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
+    // so our fallback on all platforms to finding all open fds using /proc/self/fd.
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        if try_close_range(lowfd)? {
+            return Ok(());
+        }
+
+        return cloexec_via_fd_dir(lowfd, "/proc/self/fd");
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if try_proc_pidinfo(lowfd)? {
+            return Ok(());
+        }
+        cloexec_via_fd_dir(lowfd, "/dev/fd")
+    }
 }
 
 pub(crate) enum ForkResult {
