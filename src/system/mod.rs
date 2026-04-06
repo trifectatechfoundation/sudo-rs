@@ -51,6 +51,10 @@ pub(crate) fn _exit(status: c_int) -> ! {
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
     let lowfd = STDERR_FILENO + 1;
+fn set_cloexec(fd: c_int) -> io::Result<()> {
+    // SAFETY: This only sets the CLOEXEC flag; it does not close or invalidate the fd.
+    unsafe { cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC)) }.map(|_| ())
+}
 
     // SAFETY: this function is safe to call:
     // - any errors while closing a specific fd will be effectively ignored
