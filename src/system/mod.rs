@@ -170,7 +170,7 @@ pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
             return Ok(());
         }
 
-        return cloexec_via_fd_dir(lowfd, "/proc/self/fd");
+        cloexec_via_fd_dir(lowfd, "/proc/self/fd")
     }
 
     #[cfg(target_os = "macos")]
