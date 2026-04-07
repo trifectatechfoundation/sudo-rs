@@ -70,6 +70,7 @@ pub struct ListRequest<'a, User: UnixUser, Group: UnixGroup> {
 pub struct Judgement {
     flags: Option<Tag>,
     settings: Settings,
+    runcwd: Option<tokens::ChDir>,
 }
 
 mod policy;
@@ -176,9 +177,15 @@ impl Sudoers {
             }
         }
 
+        let runcwd = self.settings.runcwd().and_then(|s| {
+            use basic_parser::Token;
+            tokens::ChDir::construct(s.to_string()).ok()
+        });
+
         Judgement {
             flags,
             settings: self.settings.clone(),
+            runcwd,
         }
     }
 
