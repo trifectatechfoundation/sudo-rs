@@ -434,11 +434,11 @@ fn runcwd_defaults_integration_test() {
         Path::new("/etc/fakesudoers"),
         sudoer!["Defaults runcwd = *", "user ALL=(ALL:ALL) ALL"],
     );
-    let cmdvec = vec![OsString::from("/bin/ls")];
+    let cmd = realpath(Path::new("/bin/ls"));
     let req = Request {
         user: root().0,
         group: root().1,
-        command: &realpath(cmdvec[0].as_ref()),
+        command: &cmd,
         arguments: &[],
     };
     let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
@@ -452,11 +452,11 @@ fn runcwd_defaults_integration_test() {
         Path::new("/etc/fakesudoers"),
         sudoer!["Defaults runcwd = /tmp", "user ALL=(ALL:ALL) ALL"],
     );
-    let cmdvec = vec![OsString::from("/bin/ls")];
+    let cmd = realpath(Path::new("/bin/ls"));
     let req = Request {
         user: root().0,
         group: root().1,
-        command: &realpath(cmdvec[0].as_ref()),
+        command: &cmd,
         arguments: &[],
     };
     let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
@@ -470,11 +470,11 @@ fn runcwd_defaults_integration_test() {
         Path::new("/etc/fakesudoers"),
         sudoer!["Defaults runcwd = /tmp", "user ALL=(ALL:ALL) CWD=/usr ALL"],
     );
-    let cmdvec = vec![OsString::from("/bin/ls")];
+    let cmd = realpath(Path::new("/bin/ls"));
     let req = Request {
         user: root().0,
         group: root().1,
-        command: &realpath(cmdvec[0].as_ref()),
+        command: &cmd,
         arguments: &[],
     };
     let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
@@ -492,11 +492,11 @@ fn runcwd_defaults_integration_test() {
             "user ALL=(ALL:ALL) ALL"
         ],
     );
-    let cmdvec = vec![OsString::from("/bin/ls")];
+    let cmd = realpath(Path::new("/bin/ls"));
     let req = Request {
         user: root().0,
         group: root().1,
-        command: &realpath(cmdvec[0].as_ref()),
+        command: &cmd,
         arguments: &[],
     };
     let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
