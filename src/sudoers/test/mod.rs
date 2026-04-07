@@ -425,8 +425,9 @@ fn runcwd_defaults_integration_test() {
     use crate::sudoers::policy::{Authorization, DirChange};
 
     let root = || (&Named("root"), &Named("root"));
-    let realpath =
-        |path: &std::path::Path| crate::common::resolve::canonicalize(path).unwrap_or(path.to_path_buf());
+    let realpath = |path: &std::path::Path| {
+        crate::common::resolve::canonicalize(path).unwrap_or(path.to_path_buf())
+    };
 
     // runcwd=* allows --chdir
     let (mut sudoers, _) = analyze(
@@ -462,18 +463,12 @@ fn runcwd_defaults_integration_test() {
     let Authorization::Allowed(_, restrictions) = judgement.authorization() else {
         panic!("should be allowed")
     };
-    assert_eq!(
-        restrictions.chdir,
-        DirChange::Strict(Some(&"/tmp".into()))
-    );
+    assert_eq!(restrictions.chdir, DirChange::Strict(Some(&"/tmp".into())));
 
     // explicit CWD tag overrides runcwd
     let (mut sudoers, _) = analyze(
         Path::new("/etc/fakesudoers"),
-        sudoer![
-            "Defaults runcwd = /tmp",
-            "user ALL=(ALL:ALL) CWD=/usr ALL"
-        ],
+        sudoer!["Defaults runcwd = /tmp", "user ALL=(ALL:ALL) CWD=/usr ALL"],
     );
     let cmdvec = vec![OsString::from("/bin/ls")];
     let req = Request {
@@ -486,10 +481,7 @@ fn runcwd_defaults_integration_test() {
     let Authorization::Allowed(_, restrictions) = judgement.authorization() else {
         panic!("should be allowed")
     };
-    assert_eq!(
-        restrictions.chdir,
-        DirChange::Strict(Some(&"/usr".into()))
-    );
+    assert_eq!(restrictions.chdir, DirChange::Strict(Some(&"/usr".into())));
 
     // negation (!runcwd) resets to default
     let (mut sudoers, _) = analyze(
