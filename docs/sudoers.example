@@ -1,0 +1,43 @@
+# /etc/sudoers-rs (or /etc/sudoers) - example configuration for sudo-rs
+#
+# sudo-rs reads /etc/sudoers-rs if it exists, otherwise /etc/sudoers.
+# Edit with visudo to prevent syntax errors from locking you out.
+#
+# The format is a subset of Todd Miller's sudoers; see the sudoers(5)
+# man page shipped with sudo-rs for the full grammar.
+#
+# sudo-rs specific notes:
+#   - env_reset is always enabled (cannot be disabled)
+#   - use_pty is enabled by default
+#   - pwfeedback is enabled by default
+#   - timestamp_type is always tty
+#   - authentication is always via PAM (sudo and sudo-i services)
+#   - the sudoers file must be valid UTF-8
+
+# ---------- Defaults ----------
+
+# Set a safe default PATH for commands run via sudo
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Require password re-entry after 5 minutes of inactivity (default is 15)
+Defaults timestamp_timeout=5
+
+# ---------- Aliases ----------
+
+# Group related commands for easier management
+Cmnd_Alias SHUTDOWN = /sbin/poweroff, /sbin/reboot, /sbin/halt
+Cmnd_Alias PKGMGMT = /usr/bin/apt, /usr/bin/apt-get, /usr/bin/dpkg
+
+# ---------- User specifications ----------
+
+# Members of the sudo group can run any command as any user
+%sudo ALL=(ALL:ALL) ALL
+
+# The admin user can run anything without a password
+# admin ALL=(ALL:ALL) NOPASSWD: ALL
+
+# Allow the deploy user to restart services without a password
+# deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart myapp, /usr/bin/systemctl status myapp
+
+# Allow the ops group to shut down and manage packages
+# %ops ALL=(root) SHUTDOWN, PKGMGMT
