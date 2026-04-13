@@ -6,7 +6,8 @@ RUN cargo search sudo
 WORKDIR /usr/src/sudo
 COPY . .
 ARG SUDO_BUILD_FEATURES
-RUN --mount=type=cache,target=/usr/src/sudo/target RUSTFLAGS="-C instrument-coverage" cargo build --locked --features="$SUDO_BUILD_FEATURES" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
+# -runtime-counter-relocation=true is necessary for continuous mode to work
+RUN --mount=type=cache,target=/usr/src/sudo/target RUSTFLAGS="-C instrument-coverage -Cllvm-args=-runtime-counter-relocation=true" cargo build --locked --features="$SUDO_BUILD_FEATURES" --bins && mkdir -p build && cp target/debug/sudo build/sudo && cp target/debug/su build/su && cp target/debug/visudo build/visudo
 RUN find / -name '*.profraw' -exec rm {} \;
 # set setuid on install
 RUN install -m 4755 build/sudo /usr/bin/sudo && \
@@ -23,3 +24,5 @@ RUN userdel ubuntu || true
 WORKDIR /tmp
 # This env var needs to be set when compiled with the dev feature
 ENV SUDO_RS_IS_UNSTABLE="I accept that my system may break unexpectedly"
+# %c enables continuous mode
+ENV LLVM_PROFILE_FILE="%m_%p%c.profraw"
