@@ -64,6 +64,12 @@ report)
 		-path-equivalence="/usr/src/sudo,$project_dir" \
                 "$@";;
 
+report-html)
+	$0 export "$@" > "$SUDO_TEST_PROFRAW_DIR"/lcov
+	genhtml "$SUDO_TEST_PROFRAW_DIR"/lcov -o "$SUDO_TEST_PROFRAW_DIR"/html
+	xdg-open "$SUDO_TEST_PROFRAW_DIR"/html/index.html
+	;;
+
 show)
 	llvm-cov show \
 		--color \
