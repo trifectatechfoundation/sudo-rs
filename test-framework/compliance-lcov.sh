@@ -15,6 +15,7 @@ project_dir="$(realpath "${0%/*}/..")"
 
 profdata="$SUDO_TEST_PROFRAW_DIR"/sudo-rs.profdata
 binary="$SUDO_TEST_PROFRAW_DIR"/sudo-rs
+binary2="$SUDO_TEST_PROFRAW_DIR"/su-rs
 
 # to merge coverage data from unit tests is only possible with 'export'
 # also, the function coverage will become flawed
@@ -27,6 +28,7 @@ llvm-profdata merge \
 
 dockerid=$(docker create sudo-test-rs)
 docker cp -q "$dockerid":/usr/bin/sudo "$binary"
+docker cp -q "$dockerid":/usr/bin/su "$binary2"
 docker rm "$dockerid" > /dev/null
 
 arg="$1"
@@ -44,7 +46,7 @@ export)
 		--ignore-filename-regex='tests[.]rs' \
 		--ignore-filename-regex='gettext/check[.]rs' \
 		--instr-profile="$profdata" \
-		--object "$binary" \
+		--object "$binary" "$binary2" \
                 $(find "$project_dir"/target/llvm-cov-target/debug/deps -maxdepth 1 -type f -executable -printf '--object %p\n') \
                 "$@" \
                 | sed "s:/usr/src/sudo:$project_dir:g";;
@@ -60,7 +62,7 @@ report)
 		--ignore-filename-regex='tests[.]rs' \
 		--ignore-filename-regex='gettext/check[.]rs' \
 		--instr-profile="$profdata" \
-		--object "$binary" \
+		--object "$binary" "$binary2" \
 		-path-equivalence="/usr/src/sudo,$project_dir" \
                 "$@";;
 
@@ -81,7 +83,7 @@ show)
 		--ignore-filename-regex='tests[.]rs' \
 		--ignore-filename-regex='gettext/check[.]rs' \
 		--instr-profile="$profdata" \
-		--object "$binary" \
+		--object "$binary" "$binary2" \
 		-path-equivalence="/usr/src/sudo,$project_dir" \
                 "$@";;
 
