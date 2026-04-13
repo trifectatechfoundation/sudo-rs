@@ -217,7 +217,7 @@ pub fn build_base_image() {
             let sudo_build_features: String =
                 env::var("SUDO_BUILD_FEATURES").unwrap_or_else(|_| {
                     [
-                        "gettext",
+                        //"gettext", // xlat! macro argument uncovered otherwise for whatever reason
                         #[cfg(not(target_os = "freebsd"))]
                         "pam-login",
                         #[cfg(feature = "apparmor")]
