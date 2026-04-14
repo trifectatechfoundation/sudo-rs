@@ -1,0 +1,44 @@
+## sudoers file.
+##
+## This file SHOULD be edited with the 'visudo' command as root.
+## Failure to use 'visudo' may result in syntax or file permission errors
+## that prevent sudo from running.
+##
+## See the sudoers man page for the details on how to write a sudoers file.
+
+## Defaults specification
+##
+## Preserve editor environment variables for visudo.
+## To preserve these for all commands, remove the "!visudo" qualifier.
+Defaults!/usr/sbin/visudo env_keep += "SUDO_EDITOR EDITOR VISUAL"
+##
+## Use a hard-coded PATH instead of the user's to find commands.
+## This also helps prevent poorly written scripts from running
+## arbitrary commands under sudo.
+Defaults secure_path="/usr/sbin:/usr/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+##
+## Uncomment this to allow commands run by sudo to see the
+## environment variables set by sshd(8).
+# Defaults env_keep += "SSH_*"
+##
+## Uncomment to disable "use_pty" when running commands as root.
+## Commands run as non-root users will run in a pseudo-terminal,
+## not the user's own terminal, to prevent command injection.
+# Defaults>root !use_pty
+##
+## Uncomment if the historical silent password prompt is desired
+# Defaults !pwfeedback
+
+### User privilege specifications
+
+## Allow root to execute any command
+root ALL=(ALL:ALL) ALL
+
+## Allow members of group sudo to execute any command
+%sudo	ALL=(ALL:ALL) ALL
+
+## Same thing without a password
+# %sudo ALL=(ALL:ALL) NOPASSWD: ALL
+
+## Read drop-in files from /usr/etc/sudoers.d
+@includedir /usr/etc/sudoers.d
