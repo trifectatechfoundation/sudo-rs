@@ -868,17 +868,17 @@ fn analyze(
                                     "cannot open socket {path}: path must be absolute"
                                 ),
                             });
+                        } else {
+                            include(
+                                cfg,
+                                cur_path,
+                                span,
+                                socket_path,
+                                diagnostics,
+                                include_state,
+                                IncludeDirective::Remote,
+                            );
                         }
-
-                        include(
-                            cfg,
-                            cur_path,
-                            span,
-                            socket_path,
-                            diagnostics,
-                            include_state,
-                            IncludeDirective::Remote,
-                        );
                     }
 
                     Sudo::IncludeDir(path, span) => {
