@@ -111,3 +111,42 @@ fn test_remote_sudoers_succeeds() {
 fn test_remote_sudoers_fails() {
     remote_sudoers_run(false);
 }
+
+#[test]
+// This is the same test as above, except we verify that the relative socket
+// which accidentally exists isn't opened
+fn test_relative_remote_sudoers_fail() {
+    let socket_path = "relative.socket";
+    let user = "user1";
+    let machine = "local";
+    let base_dir = "/secret";
+    let include_dir = format!("{}/conf.d", base_dir);
+    let include_file = format!("{}/01-conf", include_dir);
+
+    let env = Env(format!("@socket {}", socket_path))
+        .directory(sudo_test::Directory(base_dir).chmod("700"))
+        .directory(sudo_test::Directory(&include_dir).chmod("700"))
+        .file(&include_file, TextFile("garbage").chmod("600"))
+        .user(User(user))
+        .hostname(machine)
+        .build();
+
+    // Launch the server
+    let rules = format!(
+        "{} ALL=(ALL) NOPASSWD: /usr/bin/true\n@include {}\n@includedir {}\n@socket ./relative.socket",
+        user, include_file, include_dir
+    );
+    let server = launch_server(&format!("/tmp/{socket_path}"), rules, &env);
+    server.assert_success();
+
+    // Launch the client
+    let output = Command::new("sh")
+        .args(["-c", &format!("cd /tmp; sudo -l -U {user}")])
+        .output(&env);
+
+    // Check the results
+    let expected = format!("User {user} is not allowed to run sudo on {machine}.");
+
+    let stdout = output.stdout();
+    assert_eq!(stdout, expected);
+}
