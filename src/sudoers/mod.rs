@@ -688,6 +688,7 @@ fn analyze(
     path: &Path,
     sudoers: impl IntoIterator<Item = basic_parser::Parsed<Sudo>>,
 ) -> (Sudoers, Vec<Error>) {
+    use crate::common::{HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
     use Directive::*;
 
     let mut result: Sudoers = Default::default();
@@ -697,9 +698,10 @@ fn analyze(
     /// - inclusion is forbidden (as when the @socket directive is used)
     /// - inclusion is allowed but we need to ensure we didn't go beyond the limit
     #[derive(Clone, Copy)]
+    #[repr(u32)]
     enum IncludeState {
-        Forbidden,
-        Allowed(u8),
+        Forbidden = HARDENED_ENUM_VALUE_0,
+        Allowed(u8) = HARDENED_ENUM_VALUE_1,
     }
 
     impl IncludeState {
@@ -721,10 +723,11 @@ fn analyze(
     }
 
     /// The directive that produced the inclusion.
+    #[repr(u32)]
     enum IncludeDirective {
-        Include,
-        IncludeDir,
-        Remote,
+        Include = HARDENED_ENUM_VALUE_0,
+        IncludeDir = HARDENED_ENUM_VALUE_1,
+        Remote = HARDENED_ENUM_VALUE_2,
     }
 
     impl fmt::Display for IncludeDirective {
