@@ -132,10 +132,7 @@ fn test_relative_remote_sudoers_fail() {
         .build();
 
     // Launch the server
-    let rules = format!(
-        "{} ALL=(ALL) NOPASSWD: /usr/bin/true\n@include {}\n@includedir {}\n@socket ./relative.socket",
-        user, include_file, include_dir
-    );
+    let rules = "ALL ALL=(ALL) NOPASSWD: ALL".to_string();
     let server = launch_server(&format!("/tmp/{socket_path}"), rules, &env);
     server.assert_success();
 
@@ -145,8 +142,12 @@ fn test_relative_remote_sudoers_fail() {
         .output(&env);
 
     // Check the results
-    let expected = format!("User {user} is not allowed to run sudo on {machine}.");
-
-    let stdout = output.stdout();
-    assert_eq!(stdout, expected);
+    assert_contains!(
+        output.stderr(),
+        format!("cannot open socket {socket_path}: path must be absolute")
+    );
+    assert_eq!(
+        output.stdout(),
+        format!("User {user} is not allowed to run sudo on {machine}.")
+    );
 }

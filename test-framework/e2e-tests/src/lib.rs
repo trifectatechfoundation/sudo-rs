@@ -5,6 +5,9 @@ mod regression;
 mod su;
 mod sudoers;
 
+#[macro_use]
+extern crate sudo_test;
+
 const USERNAME: &str = "ferris";
 
 #[test]

@@ -3,7 +3,7 @@
 use core::fmt;
 
 #[macro_use]
-mod macros;
+extern crate sudo_test;
 
 mod helpers;
 mod su;

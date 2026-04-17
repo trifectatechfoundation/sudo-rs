@@ -21,6 +21,7 @@ pub use docker::{Child, Command, Output};
 mod constants;
 mod docker;
 pub mod helpers;
+pub mod macros;
 
 type Error = Box<dyn std::error::Error>;
 type Result<T> = core::result::Result<T, Error>;
