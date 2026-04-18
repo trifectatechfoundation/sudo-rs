@@ -22,6 +22,18 @@ pub(super) struct InitPamArgs<'a> {
     pub(super) hostname: &'a str,
 }
 
+fn normalize_sudo_prompt(mut prompt: String) -> String {
+    if let Some(stripped) = prompt.strip_prefix("[sudo] ") {
+        prompt = stripped.to_owned();
+    }
+
+    if prompt.ends_with(':') {
+        prompt.pop();
+    }
+
+    prompt
+}
+
 pub(super) fn init_pam(
     InitPamArgs {
         launch,
@@ -82,6 +94,7 @@ pub(super) fn init_pam(
                     }
                 }
             }
+            final_prompt = normalize_sudo_prompt(final_prompt);
             pam.set_auth_prompt(Some(final_prompt));
         }
     }

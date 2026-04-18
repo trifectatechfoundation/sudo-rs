@@ -28,6 +28,52 @@ fn reads_prompt_flag() {
 }
 
 #[test]
+fn normalizes_sudo_prompt_flag() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | sudo -S -p '[sudo] password:' true"
+        ))
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_success();
+
+    if sudo_test::is_original_sudo() {
+        assert_eq!(output.stderr(), "[sudo] password:");
+    } else {
+        assert_eq!(output.stderr(), "[sudo: password] Password: ");
+    }
+}
+
+#[test]
+fn normalizes_sudo_prompt_env() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "echo {PASSWORD} | env SUDO_PROMPT='[sudo] password:' sudo -S true"
+        ))
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_success();
+
+    if sudo_test::is_original_sudo() {
+        assert_eq!(output.stderr(), "[sudo] password:");
+    } else {
+        assert_eq!(output.stderr(), "[sudo: password] Password: ");
+    }
+}
+
+#[test]
 fn empty_prompt_disables_prompt() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .user(User(USERNAME).password(PASSWORD))
