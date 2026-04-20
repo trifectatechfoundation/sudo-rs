@@ -119,9 +119,6 @@ fn test_relative_remote_sudoers_fail() {
     let socket_path = "relative.socket";
     let user = "user1";
     let machine = "local";
-    let base_dir = "/secret";
-    let include_dir = format!("{}/conf.d", base_dir);
-    let include_file = format!("{}/01-conf", include_dir);
 
     let env = Env(format!("@socket {}", socket_path))
         .user(User(user))
