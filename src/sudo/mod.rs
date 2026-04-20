@@ -23,7 +23,7 @@ pub(crate) use env::environment::PATH_DEFAULT;
 mod pam;
 mod pipeline;
 
-#[cfg_attr(not(feature = "dev"), allow(dead_code))]
+#[cfg(feature = "dev")]
 fn unstable_warning() {
     let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
 
