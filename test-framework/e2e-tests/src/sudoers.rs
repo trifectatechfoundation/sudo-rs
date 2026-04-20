@@ -124,9 +124,6 @@ fn test_relative_remote_sudoers_fail() {
     let include_file = format!("{}/01-conf", include_dir);
 
     let env = Env(format!("@socket {}", socket_path))
-        .directory(sudo_test::Directory(base_dir).chmod("700"))
-        .directory(sudo_test::Directory(&include_dir).chmod("700"))
-        .file(&include_file, TextFile("garbage").chmod("600"))
         .user(User(user))
         .hostname(machine)
         .build();
