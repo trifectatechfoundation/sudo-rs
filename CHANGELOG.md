@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.14] - 2026-05-xx
+
+### Added
+- Support for receiving a sudoers configuration over a socket. This is unstable.
+  To enable, build with with `--features unstable-remote-sudoers`; this will
+  allow configuring the `@socket` directive in `/etc/sudoers`.
+- A Spanish translation of the command line interface
+
+### Changed
+- `su` will allow changing to an account that has no password set, like util-linux
+  and FreeBSD `su`. Also, minor fixes in `su` documentation (#1516)
+
+### Fixed
+- Suspended process would not always be properly resumed (#1527)
+- Papercuts in the TAB shortcut used to disable pwfeedback (#1504, #1514)
+- `visudo` gave incorrect syntax errors for relative @include paths (#1524)
+- Minor parse error in host-specific Defaults (#1509)
+
 ## [0.2.13] - 2026-03-10
 
 ### Added
