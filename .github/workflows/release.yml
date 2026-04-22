@@ -66,14 +66,21 @@ jobs:
           path: release_files
 
       - name: Prepare release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "Release files:"
           ls -l release_files
           echo
 
+          # Add the fixed header to the release notes
+          echo 'To use the precompiled binaries attached below, consult our [manual installation instructions](https://github.com/trifectatechfoundation/sudo-rs?tab=readme-ov-file#installing-our-pre-compiled-x86-64-binaries)' > notes.md
+
           # Extract the first changelog entry from CHANGELOG.md
           echo "Changelog:"
-          sed -n '4,${ /^## /q; p; }' CHANGELOG.md | tee changes.md
+          sed -n '4,${ /^## /q; p; }' CHANGELOG.md | tee -a notes.md
+
+          util/gh-credits.sh >> notes.md
 
       - name: Create release
         env:
@@ -87,6 +94,6 @@ jobs:
 
           gh release create "$RELEASE" --draft \
             --title "Version ${RELEASE#v}" \
-            --notes-file changes.md release_files/* \
+            --notes-file notes.md release_files/* \
             --verify-tag
           echo "Draft release successfully created. Please review and publish."
