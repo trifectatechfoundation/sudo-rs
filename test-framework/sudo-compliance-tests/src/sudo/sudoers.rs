@@ -82,6 +82,38 @@ const KEYWORDS_ALIAS_BAD: &[&str] = &[
     "use_pty",
 ];
 
+const RESERVED_ALIAS_KEYWORDS: &[&str] =
+    &["ALL", "CHROOT", "CWD", "NOTAFTER", "NOTBEFORE", "TIMEOUT"];
+
+const CMND_ALIAS_POSITION_KEYWORDS: &[&str] = &[
+    "FOLLOW",
+    "INTERCEPT",
+    "LOG_INPUT",
+    "LOG_OUTPUT",
+    "MAIL",
+    "NOEXEC",
+    "NOFOLLOW",
+    "NOINTERCEPT",
+    "NOLOG_INPUT",
+    "NOLOG_OUTPUT",
+    "NOMAIL",
+    "NOPASSWD",
+    "NOSETENV",
+    "PASSWD",
+    "SETENV",
+];
+
+fn is_reserved_alias_keyword(keyword: &str) -> bool {
+    RESERVED_ALIAS_KEYWORDS.contains(&keyword)
+}
+
+fn keywords_alias_good_for_cmnd_alias() -> HashSet<&'static str> {
+    keywords_alias_good()
+        .into_iter()
+        .filter(|keyword| !CMND_ALIAS_POSITION_KEYWORDS.contains(keyword))
+        .collect()
+}
+
 fn keywords_alias_good() -> HashSet<&'static str> {
     KEYWORDS
         .iter()

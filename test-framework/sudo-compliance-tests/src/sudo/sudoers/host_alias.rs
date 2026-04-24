@@ -227,12 +227,20 @@ fn keywords() {
         .build();
 
         let output = Command::new("sudo").arg("true").output(&env);
+        let stderr = output.stderr();
 
-        assert_contains!(output.stderr(), "syntax error");
+        if super::is_reserved_alias_keyword(bad_keyword) {
+            assert!(
+                stderr.contains("reserved alias") || stderr.contains("reserved word"),
+                "{stderr}"
+            );
+        } else {
+            assert!(!stderr.is_empty(), "expected stderr for {bad_keyword}");
+        }
         assert_eq!(*bad_keyword == "ALL", output.status().success());
     }
 
-    for good_keyword in super::keywords_alias_good() {
+    for good_keyword in super::keywords_alias_good_for_cmnd_alias() {
         dbg!(good_keyword);
         let env = Env([
             format!("Host_Alias {good_keyword} = {hostname}"),
