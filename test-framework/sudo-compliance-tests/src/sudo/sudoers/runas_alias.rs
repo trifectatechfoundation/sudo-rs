@@ -387,7 +387,6 @@ fn aliases_given_on_one_line_divided_by_colon() {
 }
 
 #[test]
-#[ignore = "gh700"]
 fn keywords() {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);
