@@ -26,10 +26,8 @@ To avoid that and/or to get the latest version, you can use our prepackaged bina
 ### Ubuntu 25.10 (Questing Quokka) and later versions
 
 #### Versions
-| Ubuntu Version | sudo-rs Version |
-|----------------|----------------|
-| 25.10          | 0.2.8-1ubuntu5.2 |
-| 26.04 LTS      | 0.2.13-0ubuntu1 |
+The sudo-rs package in Ubuntu 25.10 is based on v0.2.8 with additional bug fixes that will be part of v0.2.9.  
+The package in Ubuntu 26.04 LTS is based on v0.2.13 with an additional bug fix that will be part of v0.2.14.
 sudo-rs is installed and enabled by default; you can control which sudo version is being used by running
 
 ```sh
