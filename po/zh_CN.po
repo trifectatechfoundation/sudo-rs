@@ -184,35 +184,35 @@ msgstr "sudo 必须归属 UID 0 并设置 setuid 位"
 #: src/common/error.rs:80
 #, rust-format
 msgid "'{path}': command not found"
-msgstr ""
+msgstr "'{path}': 未找到命令"
 
 #: src/common/error.rs:83
 #, rust-format
 msgid "'{path}': invalid command"
-msgstr ""
+msgstr "'{path}': 无效命令"
 
 #: src/common/error.rs:85
 #, rust-format
 msgid "user '{user}' not found"
-msgstr ""
+msgstr "用户 '{user}' 未找到"
 
 #: src/common/error.rs:86
 #, rust-format
 msgid "group '{group}' not found"
-msgstr ""
+msgstr "组 '{group}' 未找到"
 
 #: src/common/error.rs:91
 msgid "interactive authentication is required"
-msgstr ""
+msgstr "需要交互式身份验证"
 
 #: src/common/error.rs:95
 msgid "you are not allowed to set the following environment variables:"
-msgstr ""
+msgstr "您不允许设置以下环境变量："
 
 #: src/common/error.rs:111
 #, rust-format
 msgid "cannot execute '{path}': {error}"
-msgstr ""
+msgstr "无法执行 '{path}'：{error}"
 
 #: src/common/error.rs:122
 #, rust-format
@@ -222,12 +222,12 @@ msgstr "认证失败超过 {num}"
 #: src/common/error.rs:128
 #, rust-format
 msgid "you are not allowed to use '--chdir {path}' with '{command}'"
-msgstr ""
+msgstr "你不被允许在 '{command}' 中使用 '--chdir {path}'"
 
 #: src/common/error.rs:150
 #, rust-format
 msgid "unable to change AppArmor profile to {profile}: {error}"
-msgstr ""
+msgstr "无法将 AppArmor 配置文件更改为 {profile}：{error}"
 
 #: src/sudo/pam.rs:127
 msgid "Authentication failed, try again."
@@ -236,82 +236,82 @@ msgstr "对不起，请重试"
 #: src/exec/mod.rs:154
 #, rust-format
 msgid "unable to change directory to {path}: {error}"
-msgstr ""
+msgstr "无法更改目录到 {path}：{error}"
 
 #: src/sudo/edit.rs:47
 #, rust-format
 msgid "failed to read metadata for {path}: {error}"
-msgstr ""
+msgstr "读取 {path} 的元数据失败：{error}"
 
 #: src/sudo/edit.rs:55
 #, rust-format
 msgid "file {path} is not a regular file"
-msgstr ""
+msgstr "文件 {path} 不是普通文件"
 
 #: src/sudo/edit.rs:65
 #, rust-format
 msgid "failed to lock {path}: {error}"
-msgstr ""
+msgstr "锁定 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:78
 #, rust-format
 msgid "failed to read {path}: {error}"
-msgstr ""
+msgstr "读取 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:145
 #, rust-format
 msgid "{path} unchanged"
-msgstr ""
+msgstr "{path} 未更改"
 
 #: src/sudo/edit.rs:165
 #, rust-format
 msgid "failed to write {path}: {error}"
-msgstr ""
+msgstr "写入 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:184
 #, rust-format
 msgid "failed to remove temporary directory {path}: {error}"
-msgstr ""
+msgstr "删除临时目录 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:196
 #, rust-format
 msgid "{error}"
-msgstr ""
+msgstr "{error}"
 
 #: src/sudo/edit.rs:217
 #, rust-format
 msgid "failed to create temporary directory: {error}"
-msgstr ""
+msgstr "创建临时目录失败：{error}"
 
 #: src/sudo/edit.rs:225
 #, rust-format
 msgid "failed to create temporary directory {path}: {error}"
-msgstr ""
+msgstr "创建临时目录 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:239
 #, rust-format
 msgid "failed to create temporary file {path}: {error}"
-msgstr ""
+msgstr "创建临时文件 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:248
 #, rust-format
 msgid "failed to write to temporary file {path}: {error}"
-msgstr ""
+msgstr "写入临时文件 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:268
 #, rust-format
 msgid "failed to run editor {path}: {error}"
-msgstr ""
+msgstr "运行编辑器 {path} 失败：{error}"
 
 #: src/sudo/edit.rs:289
 #, rust-format
 msgid "failed to read from temporary file {path}: {error}"
-msgstr ""
+msgstr "从临时文件 {path} 读取失败：{error}"
 
 #: src/sudo/edit.rs:298
 #, rust-format
 msgid "failed to remove temporary file {path}: {error}"
-msgstr ""
+msgstr "删除临时文件 {path} 失败：{error}"
 
 #. TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
 #: src/sudo/edit.rs:307
@@ -321,46 +321,45 @@ msgstr ""
 #: src/sudo/edit.rs:311
 #, rust-format
 msgid "sudoedit: truncate {path} to zero? (y/n) [n] "
-msgstr ""
+msgstr "sudoedit：是否将 {path} 截断为 0 字节？(y/n) [n]"
 
 #: src/sudo/edit.rs:324
 #, rust-format
 msgid "not overwriting {path}"
-msgstr ""
+msgstr "未覆盖 {path}"
 
 #: src/sudo/edit.rs:328 src/sudo/edit.rs:337
 #, rust-format
 msgid "failed to write data to parent: {error}"
-msgstr ""
+msgstr "写入父目录数据失败：{error}"
 
 #: src/sudo/pipeline/edit.rs:33
 #, rust-format
 msgid "{path}: editing symbolic links is not permitted"
-msgstr ""
+msgstr "{path}: 不允许编辑符号链接"
 
 #: src/sudo/pipeline/edit.rs:39
 #, rust-format
 msgid "error opening {path}: {error}"
-msgstr ""
+msgstr "{path}: 打开文件时出错：{error}"
 
 #: src/sudo/pipeline/edit.rs:46
 #, rust-format
 msgid "invalid path: {path}"
-msgstr ""
+msgstr "{path}: 无效的路径"
 
 #: src/sudo/pipeline/edit.rs:51
 msgid "please address the problems and try again"
-msgstr ""
+msgstr "请解决这些问题后重试"
 
 #: src/sudo/pipeline/list.rs:48
 #, rust-format
 msgid "User {user} may run the following commands on {hostname}:"
-msgstr ""
-
+msgstr "用户 {user} 可以在 {hostname} 上运行以下命令："
 #: src/sudo/pipeline/list.rs:63
 #, rust-format
 msgid "User {user} is not allowed to run sudo on {hostname}."
-msgstr ""
+msgstr "用户 {user} 不被允许在 {hostname} 上运行 sudo。"
 
 #: src/sudo/cli/help_edit.rs:3
 msgid ""
@@ -449,15 +448,15 @@ msgstr ""
 
 #: src/sudo/cli/mod.rs:875
 msgid "command"
-msgstr ""
+msgstr "命令"
 
 #: src/sudo/cli/mod.rs:876
 msgid "environment variable"
-msgstr ""
+msgstr "环境变量"
 
 #: src/sudo/cli/help.rs:13
 msgid "sudo - run commands as another user"
-msgstr ""
+msgstr "sudo - 以另一个用户身份运行命令"
 
 #: src/sudo/pipeline.rs:30
 #, rust-format
