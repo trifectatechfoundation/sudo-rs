@@ -41,7 +41,7 @@ msgid "RunAsGroups"
 msgstr "RunAsGroups"
 
 #: src/sudoers/entry/verbose.rs:70
-msgid "Options"
+msgid "选项"
 msgstr ""
 
 #. TRANSLATORS: This is sudo-specific jargon.
@@ -68,7 +68,7 @@ msgstr "账户验证失败，您的账户是否已被锁定？"
 
 #: src/pam/error.rs:219
 msgid "Account or password is expired, reset your password and try again"
-msgstr ""
+msgstr "账户或密码已过期，请重置密码后重试"
 
 #: src/pam/error.rs:223
 msgid "Password expired, contact your system administrator"
@@ -82,19 +82,19 @@ msgstr "PAM 错误：{error}"
 #: src/pam/error.rs:226 src/common/error.rs:116
 #, rust-format
 msgid "IO error: {error}"
-msgstr ""
+msgstr "IO 错误：{error}"
 
 #: src/pam/error.rs:227
 msgid "A terminal is required to authenticate"
-msgstr ""
+msgstr "需要终端来进行身份验证"
 
 #: src/pam/error.rs:231
 msgid "It was not possible to get a list of environment variables"
-msgstr ""
+msgstr "无法获取环境变量列表"
 
 #: src/pam/error.rs:234
 msgid "Interaction is required"
-msgstr ""
+msgstr "需要交互"
 
 #: src/pam/error.rs:236
 msgid "Authentication required but not attempted"
@@ -102,85 +102,84 @@ msgstr "需要认证，但尚未尝试"
 
 #: src/pam/error.rs:239
 msgid "Incorrect authentication attempt"
-msgstr ""
+msgstr "认证尝试失败"
 
 #: src/pam/error.rs:241
 msgid "timed out"
-msgstr ""
-
+msgstr "超时"
 #: src/pam/error.rs:245
 #, rust-format
 msgid "Sorry, user {user} is not allowed to authenticate as {other_user}."
-msgstr ""
+msgstr "抱歉，用户 {user} 不被允许以 {other_user} 身份进行身份验证。"
 
 #: src/pam/error.rs:251
 msgid "No askpass program specified in SUDO_ASKPASS"
-msgstr ""
+msgstr "SUDO_ASKPASS 中未指定 askpass 程序"
 
 #: src/pam/error.rs:256
 #, rust-format
 msgid "Askpass program '{path}' is not an absolute path"
-msgstr ""
+msgstr "Askpass 程序 '{path}' 不是绝对路径"
 
 #: src/pam/mod.rs:86
 msgid "authenticate"
-msgstr ""
+msgstr "验证"
 
 #: src/pam/converse.rs:153
 msgid "input needed"
-msgstr ""
+msgstr "需要输入"
 
 #: src/system/audit.rs:155
 #, rust-format
 msgid "{path} must be owned by root"
-msgstr ""
+msgstr "{path} 必须属于 root"
 
 #: src/system/audit.rs:160
 #, rust-format
 msgid "{path} cannot be group-writable"
-msgstr ""
+msgstr "{path} 不能被组写入"
 
 #: src/system/audit.rs:165
 #, rust-format
 msgid "{path} cannot be world-writable"
-msgstr ""
+msgstr "{path} 不能被所有人写入"
 
 #: src/system/audit.rs:206
 #, rust-format
 msgid "{path} has no valid parent directory"
-msgstr ""
+msgstr "{path} 没有有效的父目录"
 
 #: src/system/audit.rs:285
 msgid "invalid path"
-msgstr ""
+msgstr "无效路径"
 
 #: src/system/audit.rs:293
 msgid "path must be absolute"
-msgstr ""
+msgstr "路径必须是绝对路径"
 
 #: src/system/audit.rs:305 src/system/audit.rs:329
 msgid "cannot open a file in a path writable by the user"
-msgstr ""
+msgstr "无法在用户可写入的路径中打开文件"
 
 #: src/system/audit.rs:347
 msgid "error in provided path"
-msgstr ""
+msgstr "提供的路径有误"
 
 #: src/common/error.rs:52
 #, rust-format
 msgid ""
 "Sorry, user {user} is not allowed to execute '{command}' as {other_user} on "
 "{hostname}."
-msgstr ""
+msgstr "抱歉，用户 {user} 不允许以 {other_user} 的身份在 {hostname} 上执行 '{command}'。"
 
 #: src/common/error.rs:61
 #, rust-format
 msgid "Sorry, user {user} may not run {command} on {hostname}."
-msgstr ""
+msgstr "抱歉，用户 {user} 不允许在 {hostname} 上运行 {command}。"
 
 #: src/common/error.rs:69
 msgid "sudo must be owned by uid 0 and have the setuid bit set"
-msgstr ""
+msgstr "sudo 必须归属 UID 0 并设置 setuid 位"
 
 #: src/common/error.rs:80
 #, rust-format
