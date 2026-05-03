@@ -399,13 +399,12 @@ fn keywords() {
         let output = Command::new("sudo").arg("true").output(&env);
         let stderr = output.stderr();
 
+        assert_contains!(stderr, "syntax error");
         if super::is_reserved_alias_keyword(bad_keyword) {
             assert!(
                 stderr.contains("reserved alias") || stderr.contains("reserved word"),
                 "{stderr}"
             );
-        } else {
-            assert!(!stderr.is_empty(), "expected stderr for {bad_keyword}");
         }
         assert_eq!(*bad_keyword == "ALL", output.status().success());
     }
