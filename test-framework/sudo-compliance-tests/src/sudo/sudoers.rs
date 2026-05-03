@@ -46,7 +46,9 @@ const KEYWORDS: &[&str] = &[
     "PASSWD",
     "Runas_Alias",
     "SETENV",
+    "ROLE",
     "TIMEOUT",
+    "TYPE",
     "User_Alias",
     "env_check",
     "env_delete",
@@ -69,7 +71,9 @@ const KEYWORDS_ALIAS_BAD: &[&str] = &[
     "NOTAFTER",
     "NOTBEFORE",
     "Runas_Alias",
+    "ROLE",
     "TIMEOUT",
+    "TYPE",
     "User_Alias",
     "env_check",
     "env_delete",
@@ -82,8 +86,16 @@ const KEYWORDS_ALIAS_BAD: &[&str] = &[
     "use_pty",
 ];
 
-const RESERVED_ALIAS_KEYWORDS: &[&str] =
-    &["ALL", "CHROOT", "CWD", "NOTAFTER", "NOTBEFORE", "TIMEOUT"];
+const RESERVED_ALIAS_KEYWORDS: &[&str] = &[
+    "ALL",
+    "CHROOT",
+    "CWD",
+    "NOTAFTER",
+    "NOTBEFORE",
+    "ROLE",
+    "TIMEOUT",
+    "TYPE",
+];
 
 const CMND_ALIAS_POSITION_KEYWORDS: &[&str] = &[
     "FOLLOW",

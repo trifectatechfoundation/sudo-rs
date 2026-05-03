@@ -286,6 +286,8 @@ fn permission_test() {
     SYNTAX!(["User_Alias NOTAFTER = user1"]);
     SYNTAX!(["Runas_Alias NOTBEFORE = root"]);
     SYNTAX!(["Cmnd_Alias TIMEOUT = /bin/ls"]);
+    SYNTAX!(["User_Alias ROLE = sudouser"]);
+    SYNTAX!(["User_Alias TYPE = sudouser"]);
 
     pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
     FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");

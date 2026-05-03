@@ -608,7 +608,7 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
 fn is_reserved_alias(name: &str) -> bool {
     matches!(
         name,
-        "ALL" | "CHROOT" | "CWD" | "NOTAFTER" | "NOTBEFORE" | "TIMEOUT"
+        "ALL" | "CHROOT" | "CWD" | "NOTAFTER" | "NOTBEFORE" | "ROLE" | "TIMEOUT" | "TYPE"
     )
 }
 
