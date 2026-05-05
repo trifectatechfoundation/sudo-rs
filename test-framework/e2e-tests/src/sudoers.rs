@@ -18,7 +18,7 @@ fn test_remote_sudoers_check() {
     let include_dir = format!("{}/conf.d", base_dir);
     let include_file = format!("{}/01-conf", include_dir);
 
-    let env = Env(format!("@socket {}", socket_path))
+    let env = Env(format!("@socket (root:root) {}", socket_path))
         .directory(sudo_test::Directory(base_dir).chmod("700"))
         .directory(sudo_test::Directory(&include_dir).chmod("700"))
         .file(&include_file, TextFile("garbage").chmod("600"))
@@ -27,7 +27,7 @@ fn test_remote_sudoers_check() {
 
     // Launch the server
     let rules = format!(
-        "{} ALL=(ALL) NOPASSWD: /usr/bin/true\n@include {}\n@includedir {}\n@socket /fake/socket",
+        "{} ALL=(ALL) NOPASSWD: /usr/bin/true\n@include {}\n@includedir {}\n@socket (root:root) /fake/socket",
         user, include_file, include_dir
     );
     let server = launch_server(socket_path, rules, &env);
@@ -74,7 +74,7 @@ fn remote_sudoers_run(should_succeed: bool) {
     let user = "user1";
     let base_dir = "/secret";
 
-    let env = Env(format!("@socket {}", socket_path))
+    let env = Env(format!("@socket (root:root) {}", socket_path))
         .directory(sudo_test::Directory(base_dir).chmod("700"))
         .user(User(user))
         .build();
@@ -120,7 +120,7 @@ fn test_relative_remote_sudoers_fail() {
     let user = "user1";
     let machine = "local";
 
-    let env = Env(format!("@socket {}", socket_path))
+    let env = Env(format!("@socket (root:root) {}", socket_path))
         .user(User(user))
         .hostname(machine)
         .build();
