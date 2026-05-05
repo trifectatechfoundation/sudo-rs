@@ -343,13 +343,15 @@ sudo will suspend processing of the current file and read each file in /etc/sudo
 
 Note that unlike files included via @include, visudo will not edit the files in a @includedir directory unless one of them contains a syntax error.  It is still possible to run visudo with the -f flag to edit the files directly, but this will not catch the redefinition of an alias that is also present in a different file.
 
-When managing enterprise-wide sudoers rules, it is sometimes preferable to store them in a centralized repository. The @socket directive can be used to include the contents provided by a server application over a unix domain socket. For example, providing:
+When managing enterprise-wide sudoers rules, it is sometimes preferable to store them in a centralized repository. The @socket directive can be used to include the contents provided by a server application over a Unix domain socket. For example, providing:
 
-         @socket /var/run/providers/sudoers.socket
+         @socket (sssd:sssd) /var/run/providers/sudoers.socket
 
-will make sudo open that socket, read the rules and close it, as if it was an included file. The rules must follow the same syntax used in the sudoers files. There is, however, one exception: when reading from a socket, the @include, @includedir and @socket directives are not accepted.
+will make sudo open that socket, read the rules, and close it, as if it were an included file. The rules must follow the same syntax used in the sudoers files. There is, however, one exception: when reading from a socket, the @include, @includedir, and @socket directives are not accepted.
 
-Please note that the contents read from a socket are immutable from sudo's point of view and visudo will not be able to edit them.
+For security reasons, a user and optionally a group must be given, enclosed in parentheses and separated by a colon. Users and groups can be specified either by their name or by their numeric id preceded by a hash sign (#). When the socket is opened, and before any interaction with it, sudo will check that the peer process at the other side of the socket runs as the declared user and group (if the latter was provided). If any of these conditions fail, the socket is immediately closed and discarded. Only POSIX groups can be used.
+
+Please note that visudo cannot read from a socket. Furthermore, the contents retrieved from a socket are considered immutable by sudo.
 
 ## Other special characters and reserved words
 

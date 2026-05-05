@@ -54,6 +54,14 @@ pub enum UserSpecifier {
     NonunixGroup(Identifier) = HARDENED_ENUM_VALUE_2,
 }
 
+/// Peer credentials specification for @socket directive
+#[cfg(feature = "unstable-remote-sudoers")]
+#[cfg_attr(test, derive(Clone, Debug))]
+pub struct PeerSpec {
+    pub user: Identifier,
+    pub group: Option<Identifier>,
+}
+
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
 pub struct RunAs {
     pub users: SpecList<UserSpecifier>,
@@ -159,7 +167,7 @@ pub enum Sudo {
     Include(String, Span) = HARDENED_ENUM_VALUE_2,
     IncludeDir(String, Span) = HARDENED_ENUM_VALUE_3,
     #[cfg(feature = "unstable-remote-sudoers")]
-    Remote(String, Span) = HARDENED_ENUM_VALUE_4,
+    Remote(String, PeerSpec, Span) = HARDENED_ENUM_VALUE_4,
     LineComment = HARDENED_ENUM_VALUE_5,
 }
 
@@ -566,6 +574,8 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         } else {
             let value_pos = stream.get_pos();
             let IncludePath(path) = expect_nonterminal(stream)?;
+            skip_trailing_whitespace(stream)?;
+            // After skipping whitespaces, the next char should be '\n'
             if stream.peek() != Some('\n') {
                 unrecoverable!(
                     pos = value_pos,
@@ -577,6 +587,37 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         };
         make((
             path,
+            Span {
+                start: key_pos,
+                end: stream.get_pos(),
+            },
+        ))
+    }
+
+    #[cfg(feature = "unstable-remote-sudoers")]
+    fn get_peer(stream: &mut CharStream, key_pos: (usize, usize)) -> Parsed<(PeerSpec, Span)> {
+        if !stream.eat_char('(') {
+            unrecoverable!(
+                pos = stream.get_pos(),
+                stream,
+                "expected user credentials in parentheses"
+            )
+        }
+
+        // Parse user identifier (can be name or #id)
+        let user = expect_nonterminal::<Identifier>(stream)?;
+
+        // Parse optional group after ':'
+        let group = if stream.eat_char(':') {
+            // Group identifier (can be name or #id)
+            Some(expect_nonterminal::<Identifier>(stream)?)
+        } else {
+            None
+        };
+
+        expect_syntax(')', stream)?;
+        make((
+            PeerSpec { user, group },
             Span {
                 start: key_pos,
                 end: stream.get_pos(),
@@ -596,8 +637,9 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         }
         #[cfg(feature = "unstable-remote-sudoers")]
         Some(Username(key)) if key == "socket" => {
+            let (peer_spec, _peer_span) = get_peer(stream, key_pos)?;
             let (path, span) = get_path(stream, key_pos)?;
-            Sudo::Remote(path, span)
+            Sudo::Remote(path, peer_spec, span)
         }
         _ => unrecoverable!(pos = key_pos, stream, "unknown directive"),
     };

@@ -669,22 +669,31 @@ directly, but this will not catch the redefinition of an alias that is
 also present in a different file.
 .PP
 When managing enterprise-wide sudoers rules, it is sometimes preferable
-to store them in a centralized repository. The \[at]socket directive can be
-used to include the contents provided by a server application over a unix
-domain socket. For example, providing:
+to store them in a centralized repository. The \[at]socket directive can
+be used to include the contents provided by a server application over a
+Unix domain socket. For example, providing:
 .IP
 .EX
-     \[at]socket /var/run/providers/sudoers.socket
+     \[at]socket (sssd:%sssd) /var/run/providers/sudoers.socket
 .EE
 .PP
-will make sudo open that socket, read the rules and close it, as if it
-was an included file. The rules must follow the same syntax used in the
-sudoers files. There is, however, one exception: when reading from a
-socket, the \[at]include, \[at]includedir and \[at]socket directives
-are not accepted.
+will make sudo open that socket, read the rules, and close it, as if it
+were an included file. The rules must follow the same syntax used in the
+sudoers files. There is, however, one exception: when reading from a socket,
+the \[at]include, \[at]includedir, and \[at]socket directives are not
+accepted.
 .PP
-Please note that the contents read from a socket are immutable from
-sudo's point of view and visudo will not be able to edit them.
+For security reasons, a user and optionally a group must be given,
+enclosed in parentheses and separated by a colon. Users and groups can
+be specified either by their name or by their numeric id preceded by a
+hash sign (#). When the socket is opened, and before any interaction with
+it, sudo will check that the peer process at the other side of the socket
+runs as the declared user and group (if the latter was provided). If any
+of these conditions fail, the socket is immediately closed and discarded.
+Only POSIX groups can be used.
+.PP
+Please note that visudo cannot read from a socket. Furthermore, the
+contents retrieved from a socket are considered immutable by sudo.
 .SS Other special characters and reserved words
 The pound sign (`#') is used to indicate a comment (unless it is part of
 a #include directive or unless it occurs in the context of a user name
