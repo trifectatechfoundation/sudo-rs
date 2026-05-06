@@ -1,3 +1,5 @@
+#![cfg(feature = "unstable-remote-sudoers")]
+
 use sudo_test::{Command, Env, Output, TextFile, User};
 
 fn launch_server(socket_path: &str, rules: String, env: &Env) -> Output {
