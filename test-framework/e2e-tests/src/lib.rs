@@ -5,6 +5,7 @@ mod regression;
 mod su;
 mod sudoers;
 
+#[cfg(feature = "unstable-remote-sudoers")]
 #[macro_use]
 extern crate sudo_test;
 
