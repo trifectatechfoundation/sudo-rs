@@ -128,12 +128,12 @@ fn sudo_process() -> Result<(), Error> {
 }
 
 fn self_check() -> Result<(), Error> {
-    #[cfg(target_os = "linux")]
-    if crate::system::audit::no_new_privs_enabled()? {
-        return Err(Error::SelfCheckNoNewPrivs);
-    }
-
     if User::effective_uid() != UserId::ROOT {
+        #[cfg(target_os = "linux")]
+        if crate::system::audit::no_new_privs_enabled()? {
+            return Err(Error::SelfCheckNoNewPrivs);
+        }
+
         return Err(Error::SelfCheckSetuid);
     }
 
