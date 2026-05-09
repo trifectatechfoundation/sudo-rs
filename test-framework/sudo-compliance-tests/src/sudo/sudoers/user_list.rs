@@ -1,6 +1,5 @@
 //! Test the first component of the user specification: `<user_list> ALL=(ALL:ALL) ALL`
 
-use pretty_assertions::assert_eq;
 use sudo_test::{BIN_TRUE, Command, Env, ROOT_GROUP, User};
 
 use crate::{PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
@@ -363,10 +362,14 @@ fn user_alias_keywords() {
         } else {
             assert!(!stderr.is_empty(), "expected stderr for {bad_keyword}");
         }
-        assert_eq!(*bad_keyword == "ALL", output.status().success());
+        if *bad_keyword == "ALL" {
+            assert!(output.status().success());
+        } else {
+            output.assert_exit_code(1);
+        }
     }
 
-    for good_keyword in super::keywords_alias_good_for_cmnd_alias() {
+    for good_keyword in super::keywords_alias_good() {
         dbg!(good_keyword);
         let env = Env([
             format!("User_Alias {good_keyword} = root"),

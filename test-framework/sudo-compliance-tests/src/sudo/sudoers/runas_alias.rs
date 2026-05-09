@@ -409,10 +409,14 @@ fn keywords() {
         } else {
             assert!(!stderr.is_empty(), "expected stderr for {bad_keyword}");
         }
-        assert_eq!(*bad_keyword == "ALL", output.status().success());
+        if *bad_keyword == "ALL" {
+            assert!(output.status().success());
+        } else {
+            output.assert_exit_code(1);
+        }
     }
 
-    for good_keyword in super::keywords_alias_good_for_cmnd_alias() {
+    for good_keyword in super::keywords_alias_good() {
         dbg!(good_keyword);
         let env = Env([
             format!("Runas_Alias {good_keyword} = root"),
