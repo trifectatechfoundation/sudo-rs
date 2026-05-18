@@ -47,7 +47,7 @@ msgstr "选项"
 #. TRANSLATORS: This is sudo-specific jargon.
 #: src/sudoers/entry/verbose.rs:79
 msgid "Cwd"
-msgstr "RunAsGroups"
+msgstr "当前工作目录"
 
 #: src/pam/askpass.rs:55
 #, rust-format
