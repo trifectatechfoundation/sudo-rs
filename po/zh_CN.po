@@ -231,7 +231,7 @@ msgstr "无法将 AppArmor 配置文件更改为 {profile}：{error}"
 
 #: src/sudo/pam.rs:127
 msgid "Authentication failed, try again."
-msgstr "对不起，请重试"
+msgstr "抱歉，认证失败，请重试"
 
 #: src/exec/mod.rs:154
 #, rust-format
