@@ -527,20 +527,33 @@ impl Group {
 
     /// Lookup group for gid without returning an error when a /etc/group entry is missing.
     fn from_gid_unchecked(gid: GroupId) -> std::io::Result<Group> {
-        let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_gr_size as usize];
+        // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
+        let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
+
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getgrgid_r(
-                gid.inner(),
-                grp.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut grp_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getgrgid_r(
+                    gid.inner(),
+                    grp.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut grp_ptr,
+                )
+            };
+            match result {
+                0 => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("group buffer size exceeds limit (>{max_gr_size})");
+        };
+
         if grp_ptr.is_null() {
             Ok(Group { gid, name: None })
         } else {
@@ -563,20 +576,32 @@ impl Group {
     }
 
     pub fn from_name(name_c: &CStr) -> std::io::Result<Option<Group>> {
-        let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_gr_size as usize];
+        // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
+        let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getgrnam_r(
-                name_c.as_ptr(),
-                grp.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut grp_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getgrnam_r(
+                    name_c.as_ptr(),
+                    grp.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut grp_ptr,
+                )
+            };
+            match result {
+                0 => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("group buffer size exceeds limit (>{max_gr_size})");
+        };
+
         if grp_ptr.is_null() {
             Ok(None)
         } else {
