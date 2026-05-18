@@ -316,7 +316,7 @@ msgstr "删除临时文件 {path} 失败：{error}"
 #. TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
 #: src/sudo/edit.rs:307
 msgid "yn"
-msgstr ""
+msgstr "yn"
 
 #: src/sudo/edit.rs:311
 #, rust-format
@@ -366,6 +366,8 @@ msgid ""
 "usage: sudoedit -h | -V\n"
 "usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
 msgstr ""
+"用法: sudoedit -h | -V\n"
+"用法: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
 
 #: src/sudo/cli/help_edit.rs:10
 msgid "sudoedit - edit files as another user"
@@ -388,6 +390,18 @@ msgid ""
 "  -V, --version                 display version information and exit\n"
 "  --                            stop processing command line arguments"
 msgstr ""
+"选项：\n"
+"  -B, --bell                    提示输入时响铃\n"
+"  -g, --group=group             以指定的组名或组 ID 运行命令\n"
+"  -h, --help                    显示帮助信息并退出\n"
+"  -k, --reset-timestamp         使时间戳文件失效\n"
+"  -n, --non-interactive         非交互模式，不使用提示\n"
+"  -p, --prompt=prompt           使用指定的密码提示符\n"
+"  -S, --stdin                   从标准输入读取密码\n"
+"  -u, --user=user               以指定用户名或用户 ID 运行命令（或编辑文件）\n"
+"  -V, --version                 显示版本信息并退出\n"
+"  --                            停止处理命令行参数"
+
 
 #: src/sudo/cli/mod.rs:153 src/sudo/cli/mod.rs:218 src/sudo/cli/mod.rs:290
 #: src/sudo/cli/mod.rs:379 src/sudo/cli/mod.rs:392 src/sudo/cli/mod.rs:823
