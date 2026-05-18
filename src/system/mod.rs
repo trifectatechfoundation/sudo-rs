@@ -371,34 +371,33 @@ impl User {
     /// This function expects `pwd` to be a result from a successful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
-        let mut buf_len: c_int = 32;
-        let mut groups_buffer: Vec<libc::gid_t>;
+        //NOTE: on Linux, getgrouplist could be used to simply inquire as to the size needed;
+        //but on FreeBSD, getgrouplist does not specify this in its function contract, so a
+        //blind allocation loop is needed.
+        let Some(groups_buffer) =
+            dynamic_fill::<libc::gid_t, std::num::TryFromIntError>(32..65536, |groups_buffer| {
+                let mut buf_len: c_int = groups_buffer.len() as c_int;
+                // SAFETY: getgrouplist is passed valid pointers
+                // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
+                let result = cerr(unsafe {
+                    libc::getgrouplist(
+                        pwd.pw_name,
+                        pwd.pw_gid,
+                        groups_buffer.as_mut_ptr(),
+                        &mut buf_len,
+                    )
+                });
 
-        while {
-            groups_buffer = vec![0; buf_len as usize];
-            // SAFETY: getgrouplist is passed valid pointers
-            // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
-            let result = unsafe {
-                libc::getgrouplist(
-                    pwd.pw_name,
-                    pwd.pw_gid,
-                    groups_buffer.as_mut_ptr(),
-                    &mut buf_len,
-                )
-            };
-
-            result == -1
-        } {
-            if buf_len >= 65536 {
-                panic!("user has too many groups (> 65536), this should not happen");
-            }
-
-            buf_len *= 2;
-        }
-
-        groups_buffer.resize_with(buf_len as usize, || {
-            panic!("invalid groups count returned from getgrouplist, this should not happen")
-        });
+                Ok(if result.is_ok() {
+                    Some(buf_len.try_into()?)
+                } else {
+                    None
+                })
+            })
+            .expect("negative group size, this should not happen")
+        else {
+            panic!("user has too many groups (> 65536), this should not happen");
+        };
 
         // SAFETY: All pointers were initialized by a successful call to `getpwXXX_r` as per the
         // safety invariant of this function.
