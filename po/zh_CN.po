@@ -576,7 +576,7 @@ msgstr ""
 
 #: src/common/error.rs:74
 msgid ""
-"The "no new privileges" flag is set, which prevents sudo from running as "
+"The \"no new privileges\" flag is set, which prevents sudo from running as "
 "root.\n"
 "If sudo is running in a container, you may need to adjust the container "
 "configuration to disable the flag."
