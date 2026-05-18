@@ -421,10 +421,9 @@ msgstr "'{option}' 不接受任何参数"
 #, rust-format
 msgid "'{option}' expects an argument"
 msgstr "'{option}' 需要一个参数"
-
 #: src/sudo/cli/mod.rs:577
 msgid "invalid option '='"
-msgstr ""
+msgstr "无效的选项 '='"
 
 #: src/sudo/cli/mod.rs:632
 msgid ""
@@ -432,19 +431,21 @@ msgid ""
 "validate, --list, --edit, --login, --shell, a command as a positional "
 "argument, --reset-timestamp"
 msgstr ""
+"需要以下操作之一：--help、--version、--remove-timestamp、--"
+"validate、--list、--edit、--login、--shell、作为位置参数的命令，或 --reset-timestamp"
 
 #: src/sudo/cli/mod.rs:672
 #, rust-format
 msgid "preserving the entire environment is not supported, '{flag}' is ignored"
-msgstr ""
+msgstr "不支持保留整个环境，'{flag}' 已被忽略"
 
 #: src/sudo/cli/mod.rs:716 src/sudo/cli/mod.rs:745
 msgid "invalid option provided"
-msgstr ""
+msgstr "提供了无效的选项"
 
 #: src/sudo/cli/mod.rs:763
 msgid "sudoedit doesn't need to be run via sudo"
-msgstr ""
+msgstr "sudoedit 无需通过 sudo 运行"
 
 #: src/sudo/cli/mod.rs:875
 msgid "command"
