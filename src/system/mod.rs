@@ -371,34 +371,33 @@ impl User {
     /// This function expects `pwd` to be a result from a successful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
-        let mut buf_len: c_int = 32;
-        let mut groups_buffer: Vec<libc::gid_t>;
+        //NOTE: on Linux, getgrouplist could be used to simply inquire as to the size needed;
+        //but on FreeBSD, getgrouplist does not specify this in its function contract, so a
+        //blind allocation loop is needed.
+        let Some(groups_buffer) =
+            dynamic_fill::<libc::gid_t, std::num::TryFromIntError>(32..65536, |groups_buffer| {
+                let mut buf_len: c_int = groups_buffer.len() as c_int;
+                // SAFETY: getgrouplist is passed valid pointers
+                // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
+                let result = cerr(unsafe {
+                    libc::getgrouplist(
+                        pwd.pw_name,
+                        pwd.pw_gid,
+                        groups_buffer.as_mut_ptr(),
+                        &mut buf_len,
+                    )
+                });
 
-        while {
-            groups_buffer = vec![0; buf_len as usize];
-            // SAFETY: getgrouplist is passed valid pointers
-            // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
-            let result = unsafe {
-                libc::getgrouplist(
-                    pwd.pw_name,
-                    pwd.pw_gid,
-                    groups_buffer.as_mut_ptr(),
-                    &mut buf_len,
-                )
-            };
-
-            result == -1
-        } {
-            if buf_len >= 65536 {
-                panic!("user has too many groups (> 65536), this should not happen");
-            }
-
-            buf_len *= 2;
-        }
-
-        groups_buffer.resize_with(buf_len as usize, || {
-            panic!("invalid groups count returned from getgrouplist, this should not happen")
-        });
+                Ok(if result.is_ok() {
+                    Some(buf_len.try_into()?)
+                } else {
+                    None
+                })
+            })
+            .expect("negative group size, this should not happen")
+        else {
+            panic!("user has too many groups (> 65536), this should not happen");
+        };
 
         // SAFETY: All pointers were initialized by a successful call to `getpwXXX_r` as per the
         // safety invariant of this function.
@@ -528,20 +527,33 @@ impl Group {
 
     /// Lookup group for gid without returning an error when a /etc/group entry is missing.
     fn from_gid_unchecked(gid: GroupId) -> std::io::Result<Group> {
-        let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_gr_size as usize];
+        // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
+        let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
+
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getgrgid_r(
-                gid.inner(),
-                grp.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut grp_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getgrgid_r(
+                    gid.inner(),
+                    grp.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut grp_ptr,
+                )
+            };
+            match result {
+                0 => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("group buffer size exceeds limit (>{max_gr_size})");
+        };
+
         if grp_ptr.is_null() {
             Ok(Group { gid, name: None })
         } else {
@@ -564,20 +576,32 @@ impl Group {
     }
 
     pub fn from_name(name_c: &CStr) -> std::io::Result<Option<Group>> {
-        let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_gr_size as usize];
+        // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
+        let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getgrnam_r(
-                name_c.as_ptr(),
-                grp.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut grp_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getgrnam_r(
+                    name_c.as_ptr(),
+                    grp.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut grp_ptr,
+                )
+            };
+            match result {
+                0 => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("group buffer size exceeds limit (>{max_gr_size})");
+        };
+
         if grp_ptr.is_null() {
             Ok(None)
         } else {
