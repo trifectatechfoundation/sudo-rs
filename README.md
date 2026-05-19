@@ -23,7 +23,7 @@ only change your own invocations of `sudo` to sudo-rs and not affect other progr
 
 To avoid that and/or to get the latest version, you can use our prepackaged binaries (see below).
 
-### Ubuntu 25.10 (Questing Quokka)
+### Ubuntu 25.10 (Questing Quokka) and 26.04 (Resolute Raccoon)
 
 sudo-rs is installed and enabled by default; you can control which sudo version is being used by running
 
@@ -31,7 +31,9 @@ sudo-rs is installed and enabled by default; you can control which sudo version 
 update-alternatives --config sudo
 ```
 
-The sudo-rs package is based on v0.2.8 with additional bug fixes that will be part of v0.2.9.
+#### Versions
+The sudo-rs package in Ubuntu 25.10 is based on v0.2.8 with additional bug fixes backported from newer versions.
+The package in Ubuntu 26.04 LTS is based on v0.2.13 with additional bug fixes.
 
 ### Arch Linux
 
