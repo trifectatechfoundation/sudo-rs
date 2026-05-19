@@ -41,7 +41,12 @@ SUB_FILES=	sudoers
 PLIST_SUB+=	RS_SUFFIX=${RS_SUFFIX}
 PORTDOCS=	CHANGELOG.md CONTRIBUTING.md COPYRIGHT LICENSE-* README.md SECURITY.md
 
-OPTIONS_DEFINE=	DOCS
+OPTIONS_DEFINE=	DOCS NLS
+OPTIONS_SUB=	yes
+
+NLS_USES=	gettext
+NLS_CARGO_FEATURES=	gettext
+NLS_RUSTFLAGS=	-L ${LOCALBASE} -lintl
 
 post-install:
 	${MV} ${STAGEDIR}${PREFIX}/bin/visudo ${STAGEDIR}${PREFIX}/sbin/visudo${RS_SUFFIX}
@@ -66,5 +71,11 @@ post-install:
 post-install-DOCS-on:
 	${MKDIR} ${STAGEDIR}${DOCSDIR}
 	cd ${WRKSRC} && ${INSTALL_DATA} ${PORTDOCS} ${STAGEDIR}${DOCSDIR}
+
+post-install-NLS-on:
+.for lang in en es nl pl zh_CN
+	cd ${WRKSRC}/po && msgfmt ${lang}.po -o sudo-rs.mo
+	${INSTALL_DATA} ${WRKSRC}/po/sudo-rs.mo ${STAGEDIR}${PREFIX}/share/locale/${lang}/LC_MESSAGES/
+.endfor
 
 .include <bsd.port.mk>
