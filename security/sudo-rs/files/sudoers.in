@@ -10,12 +10,12 @@
 ##
 ## Preserve editor environment variables for visudo.
 ## To preserve these for all commands, remove the "!visudo" qualifier.
-Defaults!/usr/local/sbin/visudo env_keep += "SUDO_EDITOR EDITOR VISUAL"
+Defaults!%%PREFIX%%/sbin/visudo env_keep += "SUDO_EDITOR EDITOR VISUAL"
 ##
 ## Use a hard-coded PATH instead of the user's to find commands.
 ## This also helps prevent poorly written scripts from running
 ## arbitrary commands under sudo.
-Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults secure_path="%%PREFIX%%/sbin:%%PREFIX%%/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ##
 ## Uncomment if needed to preserve environmental variables related to the
 ## FreeBSD pkg utility and fetch.
@@ -49,6 +49,9 @@ Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/b
 ## not the user's own terminal, to prevent command injection.
 # Defaults>root !use_pty
 ##
+## Uncomment if the historical silent password prompt is desired
+# Defaults !pwfeedback
+##
 
 ##
 ## User privilege specification
@@ -69,5 +72,5 @@ root ALL=(ALL:ALL) ALL
 # Defaults targetpw  # Ask for the password of the target user
 # ALL ALL=(ALL:ALL) ALL  # WARNING: only use this together with 'Defaults targetpw'
 
-## Read drop-in files from /usr/local/etc/sudoers.d
-@includedir sudoers.d
+## Read drop-in files from %%PREFIX%%/etc/sudoers.d
+@includedir %%PREFIX%%/etc/sudoers.d

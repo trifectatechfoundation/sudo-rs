@@ -1,6 +1,7 @@
 PORTNAME=	sudo-rs
 DISTVERSIONPREFIX=	v
-DISTVERSION=	0.2.12
+DISTVERSION=	0.2.13
+PORTREVISION=	2
 CATEGORIES=	security
 
 MAINTAINER=	marc@trifectatech.org
@@ -35,6 +36,8 @@ RS_SUFFIX=		-rs
 PLIST_SUB+=		NO_COEXIST="@comment "
 .endif
 
+SUB_FILES=	sudoers
+
 PLIST_SUB+=	RS_SUFFIX=${RS_SUFFIX}
 PORTDOCS=	CHANGELOG.md CONTRIBUTING.md COPYRIGHT LICENSE-* README.md SECURITY.md
 
@@ -55,7 +58,7 @@ post-install:
 	${RM} ${STAGEDIR}${PREFIX}/bin/su
 .if ${FLAVOR} == default
 	${INSTALL_DATA} ${FILESDIR}/pam.conf ${STAGEDIR}${PREFIX}/etc/pam.d/sudo.default
-	${INSTALL_DATA} ${FILESDIR}/sudoers ${STAGEDIR}${PREFIX}/etc/sudoers.dist
+	${INSTALL_DATA} ${WRKDIR}/sudoers ${STAGEDIR}${PREFIX}/etc/sudoers.dist
 .else
 	${MV} ${STAGEDIR}${PREFIX}/bin/sudo ${STAGEDIR}${PREFIX}/bin/sudo${RS_SUFFIX}
 .endif
