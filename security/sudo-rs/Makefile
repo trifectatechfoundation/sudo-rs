@@ -1,6 +1,7 @@
 PORTNAME=	sudo-rs
 DISTVERSIONPREFIX=	v
 DISTVERSION=	0.2.14
+PORTREVISION=	1
 CATEGORIES=	security
 
 MAINTAINER=	marc@trifectatech.org
@@ -40,7 +41,16 @@ SUB_FILES=	sudoers
 PLIST_SUB+=	RS_SUFFIX=${RS_SUFFIX}
 PORTDOCS=	CHANGELOG.md CONTRIBUTING.md COPYRIGHT LICENSE-* README.md SECURITY.md
 
-OPTIONS_DEFINE=	DOCS
+OPTIONS_DEFINE=	DOCS NLS
+OPTIONS_SUB=	yes
+
+.include <bsd.port.options.mk>
+
+.if ${PORT_OPTIONS:MNLS}
+USES+=			gettext
+CARGO_FEATURES+=	gettext
+RUSTFLAGS+=		-L ${LOCALBASE}/lib
+.endif
 
 post-install:
 	${MV} ${STAGEDIR}${PREFIX}/bin/visudo ${STAGEDIR}${PREFIX}/sbin/visudo${RS_SUFFIX}
@@ -65,5 +75,11 @@ post-install:
 post-install-DOCS-on:
 	${MKDIR} ${STAGEDIR}${DOCSDIR}
 	cd ${WRKSRC} && ${INSTALL_DATA} ${PORTDOCS} ${STAGEDIR}${DOCSDIR}
+
+post-install-NLS-on:
+.for lang in de es nl pl zh_CN
+	cd ${WRKSRC}/po && msgfmt ${lang}.po -o sudo-rs.mo
+	${INSTALL_DATA} ${WRKSRC}/po/sudo-rs.mo ${STAGEDIR}${PREFIX}/share/locale/${lang}/LC_MESSAGES/
+.endfor
 
 .include <bsd.port.mk>

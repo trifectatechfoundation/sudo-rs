@@ -10,3 +10,8 @@ share/man/man8/visudo%%RS_SUFFIX%%.8.gz
 @dir etc/sudoers.d
 @dir /var/db/sudo
 @dir /var/run/sudo
+%%NLS%%share/locale/de/LC_MESSAGES/sudo-rs.mo
+%%NLS%%share/locale/es/LC_MESSAGES/sudo-rs.mo
+%%NLS%%share/locale/nl/LC_MESSAGES/sudo-rs.mo
+%%NLS%%share/locale/pl/LC_MESSAGES/sudo-rs.mo
+%%NLS%%share/locale/zh_CN/LC_MESSAGES/sudo-rs.mo
