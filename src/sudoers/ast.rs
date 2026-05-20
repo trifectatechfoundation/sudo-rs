@@ -605,6 +605,13 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
     make(result)
 }
 
+fn is_reserved_alias(name: &str) -> bool {
+    matches!(
+        name,
+        "ALL" | "CHROOT" | "CWD" | "NOTAFTER" | "NOTBEFORE" | "ROLE" | "TIMEOUT" | "TYPE"
+    )
+}
+
 /// grammar:
 /// ```text
 /// name = definition [ : name = definition [ : ... ] ]
@@ -618,11 +625,12 @@ where
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let begin_pos = stream.get_pos();
         let AliasName(name) = try_nonterminal(stream)?;
-        if name == "ALL" {
+        if is_reserved_alias(&name) {
             unrecoverable!(
                 pos = begin_pos,
                 stream,
-                "the reserved alias ALL cannot be redefined"
+                "the reserved alias {} cannot be redefined",
+                name
             );
         }
         expect_syntax('=', stream)?;
