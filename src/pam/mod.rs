@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use crate::log::dev_info;
 use crate::system::signal::{self, SignalSet};
 
 use converse::ConverserData;
@@ -33,6 +34,11 @@ const PAM_DATA_SILENT: std::ffi::c_int = 0;
 
 pub use converse::CLIConverser;
 
+#[inline]
+fn default_auth_prompt() -> &'static str {
+    xlat!("authenticate")
+}
+
 pub struct PamContext {
     data_ptr: *mut ConverserData<CLIConverser>,
     pamh: *mut pam_handle_t,
@@ -43,6 +49,8 @@ pub struct PamContext {
 }
 
 impl PamContext {
+    const SUDO_PROMPT_ENV: &'static str = "SUDO_PROMPT";
+
     /// Build the PamContext with the CLI conversation function.
     ///
     /// The target user is optional and may also be set after the context was
@@ -83,7 +91,7 @@ impl PamContext {
             converser,
             converser_name: converser_name.to_owned(),
             no_interact,
-            auth_prompt: Some(xlat!("authenticate").to_owned()),
+            auth_prompt: Some(default_auth_prompt().to_owned()),
             error: None,
             panicked: false,
         }));
@@ -150,11 +158,50 @@ impl PamContext {
         }
     }
 
+    fn put_env(&mut self, pam_env: &CStr) -> PamResult<()> {
+        // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`) and
+        // `pam_env` is a valid null-terminated string.
+        pam_err(unsafe { pam_putenv(self.pamh, pam_env.as_ptr()) })
+    }
+
+    fn clear_sudo_prompt(&mut self) -> PamResult<()> {
+        let prompt_name =
+            CString::new(Self::SUDO_PROMPT_ENV).expect("SUDO_PROMPT literal must not contain NUL");
+        self.put_env(&prompt_name)
+    }
+
+    fn set_sudo_prompt_for_auth(&mut self) {
+        // SAFETY: self.data_ptr was created by Box::into_raw
+        let auth_prompt = unsafe { (*self.data_ptr).auth_prompt.clone() };
+        let Some(auth_prompt) = auth_prompt else {
+            return;
+        };
+        if auth_prompt == default_auth_prompt() {
+            return;
+        }
+
+        let Ok(prompt_env) = CString::new(format!("{}={auth_prompt}", Self::SUDO_PROMPT_ENV))
+        else {
+            dev_info!("could not set SUDO_PROMPT in PAM env: prompt contains a null byte");
+            return;
+        };
+
+        if let Err(err) = self.put_env(&prompt_env) {
+            dev_info!("pam_putenv(SUDO_PROMPT=...) failed before auth: {}", err);
+        }
+    }
+
     /// Run authentication for the account
     pub fn authenticate(&mut self, for_user: &str) -> PamResult<()> {
         let mut flags = 0;
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
+
+        match self.clear_sudo_prompt() {
+            Ok(()) | Err(PamError::Pam(PamErrorType::BadItem)) => {}
+            Err(err) => return Err(err),
+        }
+        self.set_sudo_prompt_for_auth();
 
         // Temporarily mask SIGINT and SIGQUIT.
         let cur_signals = SignalSet::empty().and_then(|mut set| {
@@ -165,6 +212,10 @@ impl PamContext {
 
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
         let auth_res = pam_err(unsafe { pam_authenticate(self.pamh, flags) });
+
+        if let Err(err) = self.clear_sudo_prompt() {
+            dev_info!("pam_putenv(SUDO_PROMPT) failed after auth: {}", err);
+        }
 
         // Restore signals
         if let Ok(set) = cur_signals {

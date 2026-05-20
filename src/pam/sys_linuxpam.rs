@@ -90,6 +90,12 @@ unsafe extern "C" {
     ) -> *const std::ffi::c_char;
 }
 unsafe extern "C" {
+    pub fn pam_putenv(
+        pamh: *mut pam_handle_t,
+        name_value: *const std::ffi::c_char,
+    ) -> std::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn pam_getenvlist(pamh: *mut pam_handle_t) -> *mut *mut std::ffi::c_char;
 }
 unsafe extern "C" {
@@ -120,10 +126,4 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn pam_chauthtok(pamh: *mut pam_handle_t, flags: std::ffi::c_int) -> std::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pam_putenv(
-        pamh: *mut pam_handle_t,
-        name_value: *const std::ffi::c_char,
-    ) -> std::ffi::c_int;
 }
