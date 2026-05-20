@@ -254,7 +254,19 @@ impl<F: AsFd> Terminal for F {
 
 /// Try to get the path of the current TTY
 pub fn current_tty_name() -> io::Result<OsString> {
-    std::io::stdin().ttyname()
+    if let Some(tty_name) = [
+        std::io::stdin().ttyname(),
+        std::io::stdout().ttyname(),
+        std::io::stderr().ttyname(),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
+    {
+        return Ok(tty_name);
+    }
+
+    Err(io::ErrorKind::Unsupported.into())
 }
 
 #[repr(transparent)]
