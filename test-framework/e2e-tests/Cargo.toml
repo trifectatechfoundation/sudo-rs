@@ -10,3 +10,4 @@ sudo-test.path = "../sudo-test"
 
 [features]
 apparmor = ["sudo-test/apparmor"]
+unstable-remote-sudoers = []

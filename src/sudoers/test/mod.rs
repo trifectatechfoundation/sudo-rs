@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use super::ast;
 use super::char_stream::CharStream;
 use super::*;
-use basic_parser::{parse_eval, parse_lines, parse_string};
+use basic_parser::{Status, parse_eval, parse_lines, parse_string};
 
 impl<T> Qualified<T> {
     pub fn as_allow(&self) -> Option<&T> {
@@ -119,6 +119,14 @@ macro_rules! sudoer {
         parse_lines(&mut CharStream::new(&[$($e),*, ""].join("\n")))
             .into_iter()
             .map(|x| Ok::<_,basic_parser::Status>(x.unwrap()))
+    }
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+macro_rules! sudoer_err {
+    ($($e:expr),*) => {
+        parse_lines(&mut CharStream::new(&[$($e),*, ""].join("\n")))
+            .into_iter()
     }
 }
 
@@ -730,6 +738,129 @@ fn regression_check_recursion() {
     );
 
     assert!(!error.is_empty());
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+enum ExpectedUser<'a> {
+    Name(&'a str),
+    Uid(u32),
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+enum ExpectedGroup<'a> {
+    Name(&'a str),
+    Gid(u32),
+    None,
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn assert_remote_failure(line: &str, expected_msg: &str) {
+    let option: Option<Result<Sudo, Status>> = sudoer_err![line].next();
+    let result = option.expect("Expected Some");
+
+    let Err(status) = result else {
+        panic!("Expected Err");
+    };
+
+    let Status::Fatal(_, msg) = status else {
+        panic!("Expected Fatal status");
+    };
+    assert_eq!(msg, expected_msg);
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn assert_remote(
+    line: &str,
+    expected_path: &str,
+    expected_user: ExpectedUser,
+    expected_group: ExpectedGroup,
+) {
+    use crate::sudoers::ast::{Identifier, Sudo, UserSpecifier};
+
+    let result = parse_line(line);
+    let Sudo::Remote(path, peer_spec, _) = result else {
+        panic!("Expected Sudo::Remote");
+    };
+
+    assert_eq!(path, expected_path);
+
+    match expected_user {
+        ExpectedUser::Name(name) => {
+            let UserSpecifier::User(Identifier::Name(actual_name)) = &peer_spec.user else {
+                panic!("Expected user name '{}'", name);
+            };
+            assert_eq!(actual_name.as_ref(), name);
+        }
+        ExpectedUser::Uid(uid) => {
+            let UserSpecifier::User(Identifier::ID(actual_uid)) = &peer_spec.user else {
+                panic!("Expected user ID {}", uid);
+            };
+            assert_eq!(*actual_uid, uid);
+        }
+    }
+
+    match expected_group {
+        ExpectedGroup::Name(name) => {
+            let Some(UserSpecifier::Group(Identifier::Name(actual_name))) = &peer_spec.group else {
+                panic!("Expected group name '{}'", name);
+            };
+            assert_eq!(actual_name.as_ref(), name);
+        }
+        ExpectedGroup::Gid(gid) => {
+            let Some(UserSpecifier::Group(Identifier::ID(actual_gid))) = &peer_spec.group else {
+                panic!("Expected group ID {}", gid);
+            };
+            assert_eq!(*actual_gid, gid);
+        }
+        ExpectedGroup::None => {
+            assert!(peer_spec.group.is_none(), "Expected no group");
+        }
+    }
+}
+
+#[test]
+#[cfg(feature = "unstable-remote-sudoers")]
+fn remote_parsing() {
+    assert_remote(
+        "@socket /var/run/fake-1.socket (user1:%group1)",
+        "/var/run/fake-1.socket",
+        ExpectedUser::Name("user1"),
+        ExpectedGroup::Name("group1"),
+    );
+
+    assert_remote(
+        "@socket /var/run/fake-2.socket (#2000:%#2000)",
+        "/var/run/fake-2.socket",
+        ExpectedUser::Uid(2000),
+        ExpectedGroup::Gid(2000),
+    );
+
+    assert_remote(
+        "@socket /var/run/fake-3.socket (user3:%#3000)",
+        "/var/run/fake-3.socket",
+        ExpectedUser::Name("user3"),
+        ExpectedGroup::Gid(3000),
+    );
+
+    assert_remote(
+        "@socket /var/run/fake-4.socket (user4)",
+        "/var/run/fake-4.socket",
+        ExpectedUser::Name("user4"),
+        ExpectedGroup::None,
+    );
+
+    assert_remote_failure("@socket", "expected elem");
+    assert_remote_failure(
+        "@socket /path/socket.5",
+        "expected user credentials in parentheses",
+    );
+    assert_remote_failure("@socket /var/run/fake-6.socket ()", "expected elem");
+    assert_remote_failure("@socket /var/run/fake-7.socket (:%#7000)", "expected elem");
+    assert_remote_failure("@socket /var/run/fake-8.socket (:%user8)", "expected elem");
+    assert_remote_failure(
+        "@socket /var/run/fake-9.socket (user9:%:nonposix)",
+        "non-POSIX groups are not accepted",
+    );
 }
 
 fn test_topo_sort(n: usize) {
