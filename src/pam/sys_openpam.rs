@@ -124,3 +124,9 @@ unsafe extern "C" {
         _error_number: std::ffi::c_int,
     ) -> *const std::ffi::c_char;
 }
+unsafe extern "C" {
+    pub fn pam_putenv(
+        _pamh: *mut pam_handle_t,
+        _name_value: *const std::ffi::c_char,
+    ) -> std::ffi::c_int;
+}
