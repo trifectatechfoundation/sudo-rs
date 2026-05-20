@@ -7,6 +7,7 @@ use crate::common::{
     HARDENED_ENUM_VALUE_4, HARDENED_ENUM_VALUE_5,
 };
 use crate::defaults;
+use std::path::Path;
 
 /// The Sudoers file allows negating items with the exclamation mark.
 #[cfg_attr(test, derive(Debug, Eq))]
@@ -129,6 +130,11 @@ pub struct PermissionSpec {
 pub type Defs<T> = Vec<Def<T>>;
 pub struct Def<T>(pub String, pub SpecList<T>);
 
+pub struct DefaultsParameter {
+    pub modifier: defaults::SettingsModifier,
+    pub warn_relative_secure_path: bool,
+}
+
 /// AST object for directive specifications (aliases, arguments, etc)
 #[repr(u32)]
 pub enum Directive {
@@ -136,7 +142,7 @@ pub enum Directive {
     HostAlias(Defs<Hostname>) = HARDENED_ENUM_VALUE_1,
     CmndAlias(Defs<Command>) = HARDENED_ENUM_VALUE_2,
     RunasAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
-    Defaults(Vec<defaults::SettingsModifier>, ConfigScope) = HARDENED_ENUM_VALUE_4,
+    Defaults(Vec<DefaultsParameter>, ConfigScope) = HARDENED_ENUM_VALUE_4,
 }
 
 /// AST object for the 'context' (host, user, cmnd, runas) of a Defaults directive
@@ -703,7 +709,7 @@ fn get_directive<'a>(
 /// ```text
 /// parameter = name [+-]?= ...
 /// ```
-impl Parse for defaults::SettingsModifier {
+impl Parse for DefaultsParameter {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let id_pos = stream.get_pos();
 
@@ -746,7 +752,10 @@ impl Parse for defaults::SettingsModifier {
                     unrecoverable!(pos = id_pos, stream, "{name} is not a list parameter");
                 };
 
-                make(checker(mode, parse_vars(stream)?))
+                make(DefaultsParameter {
+                    modifier: checker(mode, parse_vars(stream)?),
+                    warn_relative_secure_path: false,
+                })
             };
 
         // Parse a text parameter
@@ -776,7 +785,10 @@ impl Parse for defaults::SettingsModifier {
                 }
             };
 
-            make(modifier)
+            make(DefaultsParameter {
+                modifier,
+                warn_relative_secure_path: false,
+            })
         } else {
             let DefaultName(name) = try_nonterminal(stream)?;
             let Some(cfg) = defaults::set(&name) else {
@@ -796,7 +808,10 @@ impl Parse for defaults::SettingsModifier {
                     defaults::SettingKind::Integer(checker) => {
                         let Numeric(denotation) = expect_nonterminal(stream)?;
                         if let Some(modifier) = checker(&denotation) {
-                            make(modifier)
+                            make(DefaultsParameter {
+                                modifier,
+                                warn_relative_secure_path: false,
+                            })
                         } else {
                             unrecoverable!(
                                 pos = value_pos,
@@ -808,7 +823,10 @@ impl Parse for defaults::SettingsModifier {
                     defaults::SettingKind::List(checker) => {
                         let items = parse_vars(stream)?;
 
-                        make(checker(defaults::ListMode::Set, items))
+                        make(DefaultsParameter {
+                            modifier: checker(defaults::ListMode::Set, items),
+                            warn_relative_secure_path: false,
+                        })
                     }
                     defaults::SettingKind::Text(checker) => {
                         let text = text_item(stream)?;
@@ -819,7 +837,12 @@ impl Parse for defaults::SettingsModifier {
                                 "'{text}' is not a valid value for {name}"
                             );
                         };
-                        make(modifier)
+
+                        make(DefaultsParameter {
+                            modifier,
+                            warn_relative_secure_path: name == "secure_path"
+                                && text.split(':').any(|entry| Path::new(entry).is_relative()),
+                        })
                     }
                 }
             } else {
@@ -827,10 +850,13 @@ impl Parse for defaults::SettingsModifier {
                     unrecoverable!(pos = id_pos, stream, "'{name}' is not a boolean setting");
                 };
 
-                make(modifier)
+                make(DefaultsParameter {
+                    modifier,
+                    warn_relative_secure_path: false,
+                })
             }
         }
     }
 }
 
-impl Many for defaults::SettingsModifier {}
+impl Many for DefaultsParameter {}

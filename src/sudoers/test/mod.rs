@@ -434,6 +434,20 @@ fn default_multi_test() {
 }
 
 #[test]
+fn relative_secure_path_emits_diagnostic() {
+    let (_, diagnostics) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer!["Defaults secure_path=\".:/bin\""],
+    );
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(
+        diagnostics[0].message,
+        "relative paths in secure_path are ignored for command lookup"
+    );
+}
+
+#[test]
 #[should_panic]
 fn invalid_directive() {
     parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");
