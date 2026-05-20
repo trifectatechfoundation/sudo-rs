@@ -408,6 +408,10 @@ fn default_set_test() {
     assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = never").is_ok());
+
+    assert!(parse_string::<Sudo>("Defaults runcwd = *").is_ok());
+    assert!(parse_string::<Sudo>("Defaults runcwd = /usr/local").is_ok());
+    assert!(parse_string::<Sudo>("Defaults !runcwd").is_ok());
 }
 
 #[test]
@@ -431,6 +435,92 @@ fn default_multi_test() {
         sudoers.settings.env_keep(),
         &["FOO".to_string()].into_iter().collect()
     );
+}
+
+#[test]
+fn runcwd_defaults_integration_test() {
+    use crate::sudoers::policy::{Authorization, DirChange};
+
+    let root = || (&Named("root"), &Named("root"));
+    let realpath = |path: &std::path::Path| {
+        crate::common::resolve::canonicalize(path).unwrap_or(path.to_path_buf())
+    };
+
+    // runcwd=* allows --chdir
+    let (mut sudoers, _) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer!["Defaults runcwd = *", "user ALL=(ALL:ALL) ALL"],
+    );
+    let cmd = realpath(Path::new("/bin/ls"));
+    let req = Request {
+        user: root().0,
+        group: root().1,
+        command: &cmd,
+        arguments: &[],
+    };
+    let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
+    let Authorization::Allowed(_, restrictions) = judgement.authorization() else {
+        panic!("should be allowed")
+    };
+    assert_eq!(restrictions.chdir, DirChange::Any);
+
+    // runcwd=/tmp sets specific directory
+    let (mut sudoers, _) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer!["Defaults runcwd = /tmp", "user ALL=(ALL:ALL) ALL"],
+    );
+    let cmd = realpath(Path::new("/bin/ls"));
+    let req = Request {
+        user: root().0,
+        group: root().1,
+        command: &cmd,
+        arguments: &[],
+    };
+    let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
+    let Authorization::Allowed(_, restrictions) = judgement.authorization() else {
+        panic!("should be allowed")
+    };
+    assert_eq!(restrictions.chdir, DirChange::Strict(Some(&"/tmp".into())));
+
+    // explicit CWD tag overrides runcwd
+    let (mut sudoers, _) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer!["Defaults runcwd = /tmp", "user ALL=(ALL:ALL) CWD=/usr ALL"],
+    );
+    let cmd = realpath(Path::new("/bin/ls"));
+    let req = Request {
+        user: root().0,
+        group: root().1,
+        command: &cmd,
+        arguments: &[],
+    };
+    let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
+    let Authorization::Allowed(_, restrictions) = judgement.authorization() else {
+        panic!("should be allowed")
+    };
+    assert_eq!(restrictions.chdir, DirChange::Strict(Some(&"/usr".into())));
+
+    // negation (!runcwd) resets to default
+    let (mut sudoers, _) = analyze(
+        Path::new("/etc/fakesudoers"),
+        sudoer![
+            "Defaults runcwd = *",
+            "Defaults !runcwd",
+            "user ALL=(ALL:ALL) ALL"
+        ],
+    );
+    let cmd = realpath(Path::new("/bin/ls"));
+    let req = Request {
+        user: root().0,
+        group: root().1,
+        command: &cmd,
+        arguments: &[],
+    };
+    let judgement = sudoers.check(&Named("user"), &system::Hostname::fake("server"), req);
+    let Authorization::Allowed(_, restrictions) = judgement.authorization() else {
+        panic!("should be allowed")
+    };
+    assert_eq!(restrictions.chdir, DirChange::Strict(None));
 }
 
 #[test]

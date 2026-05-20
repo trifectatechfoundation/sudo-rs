@@ -48,6 +48,7 @@ defaults! {
     insults                   = false  #ignored
 
     setenv                    = false
+    runcwd                    = None (!= None)
     apparmor_profile          = None (!= None)
     umask                     = 0o022 (!= 0o777) {octal_mode}
     umask_override            = false
