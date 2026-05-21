@@ -8,12 +8,20 @@ use std::{
     os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
     ptr::null_mut,
 };
+#[cfg(target_os = "linux")]
+use std::{
+    fs,
+    os::unix::fs::{FileTypeExt, MetadataExt},
+    path::{Path, PathBuf},
+};
 
 use libc::{TIOCSWINSZ, ioctl, winsize};
 
 use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 
 use super::interface::ProcessId;
+#[cfg(target_os = "linux")]
+use super::{Process, WithProcess};
 
 pub(crate) use user_term::UserTerm;
 
@@ -254,7 +262,99 @@ impl<F: AsFd> Terminal for F {
 
 /// Try to get the path of the current TTY
 pub fn current_tty_name() -> io::Result<OsString> {
-    std::io::stdin().ttyname()
+    #[cfg(target_os = "linux")]
+    if let Ok(Some(tty_dev)) = Process::tty_device_id(WithProcess::Current) {
+        if let Ok(Some(tty_name)) = ttyname_from_dev_linux(tty_dev.inner()) {
+            return Ok(tty_name);
+        }
+    }
+
+    if let Some(tty_name) = [
+        std::io::stdin().ttyname(),
+        std::io::stdout().ttyname(),
+        std::io::stderr().ttyname(),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
+    {
+        return Ok(tty_name);
+    }
+
+    Err(io::ErrorKind::Unsupported.into())
+}
+
+#[cfg(target_os = "linux")]
+fn ttyname_from_dev_linux(tty_dev: libc::dev_t) -> io::Result<Option<OsString>> {
+    if let Some(tty_name) = ttyname_from_proc_self_fd(tty_dev)? {
+        return Ok(Some(tty_name));
+    }
+    if let Some(tty_name) = dev_check(Path::new("/dev/console"), tty_dev)? {
+        return Ok(Some(tty_name));
+    }
+    if let Some(tty_name) = find_tty_in_dir(Path::new("/dev/pts"), tty_dev)? {
+        return Ok(Some(tty_name));
+    }
+    find_tty_in_dir(Path::new("/dev"), tty_dev)
+}
+
+#[cfg(target_os = "linux")]
+fn ttyname_from_proc_self_fd(tty_dev: libc::dev_t) -> io::Result<Option<OsString>> {
+    for fd in libc::STDIN_FILENO..=libc::STDERR_FILENO {
+        let mut st = std::mem::MaybeUninit::<libc::stat>::uninit();
+        // SAFETY: `st` points to uninitialized memory for libc to write the stat struct.
+        if unsafe { libc::fstat(fd, st.as_mut_ptr()) } != 0 {
+            continue;
+        }
+        // SAFETY: fstat() succeeded.
+        let st = unsafe { st.assume_init() };
+        if (st.st_mode & libc::S_IFMT) != libc::S_IFCHR || st.st_rdev != tty_dev {
+            continue;
+        }
+        let link = PathBuf::from(format!("/proc/self/fd/{fd}"));
+        if let Ok(path) = fs::read_link(link) {
+            return Ok(Some(path.into_os_string()));
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(target_os = "linux")]
+fn dev_check(path: &Path, tty_dev: libc::dev_t) -> io::Result<Option<OsString>> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err),
+    };
+    if metadata.file_type().is_char_device() && metadata.rdev() == tty_dev {
+        return Ok(Some(path.as_os_str().to_os_string()));
+    }
+    Ok(None)
+}
+
+#[cfg(target_os = "linux")]
+fn find_tty_in_dir(dir: &Path, tty_dev: libc::dev_t) -> io::Result<Option<OsString>> {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err),
+    };
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+        if metadata.file_type().is_char_device() && metadata.rdev() == tty_dev {
+            return Ok(Some(entry.path().into_os_string()));
+        }
+    }
+
+    Ok(None)
 }
 
 #[repr(transparent)]
