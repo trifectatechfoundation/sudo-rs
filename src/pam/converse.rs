@@ -129,27 +129,89 @@ impl Drop for SignalGuard {
 }
 
 impl CLIConverser {
-    fn open(&self) -> PamResult<(Terminal<'_>, SignalGuard)> {
-        let term = if self.use_askpass {
-            Terminal::open_askpass()?
-        } else if self.use_stdin {
-            Terminal::open_stdie()?
-        } else {
-            let mut tty = Terminal::open_tty()?;
-            if self.bell.replace(false) {
-                tty.bell()?;
-            }
+    fn open(&self, style: PamMessageStyle) -> PamResult<(Terminal<'_>, SignalGuard)> {
+        let term = match style {
+            PamMessageStyle::PromptEchoOff if self.use_askpass => Terminal::open_askpass()?,
+            PamMessageStyle::PromptEchoOff if self.use_stdin => Terminal::open_stdie()?,
+            PamMessageStyle::PromptEchoOff => match Terminal::open_tty() {
+                Ok(mut tty) => {
+                    if self.bell.replace(false) {
+                        tty.bell()?;
+                    }
 
-            tty
+                    tty
+                }
+                Err(PamError::TtyRequired) => {
+                    match Self::tty_unavailable_fallback(style, AskpassEnv::from_env()) {
+                        TtyUnavailableFallback::Askpass => Terminal::open_askpass()?,
+                        TtyUnavailableFallback::Stdie => Terminal::open_stdie()?,
+                        TtyUnavailableFallback::Error => return Err(PamError::TtyRequired),
+                    }
+                }
+                Err(err) => return Err(err),
+            },
+            _ if self.use_stdin => Terminal::open_stdie()?,
+            _ => match Terminal::open_tty() {
+                Ok(mut tty) => {
+                    if self.bell.replace(false) {
+                        tty.bell()?;
+                    }
+
+                    tty
+                }
+                Err(PamError::TtyRequired) => Terminal::open_stdie()?,
+                Err(err) => return Err(err),
+            },
         };
 
         Ok((term, SignalGuard::unblock_interrupts()))
+    }
+
+    fn tty_unavailable_fallback(
+        style: PamMessageStyle,
+        askpass_env: AskpassEnv,
+    ) -> TtyUnavailableFallback {
+        match style {
+            PamMessageStyle::PromptEchoOff if askpass_env.can_use_askpass() => {
+                TtyUnavailableFallback::Askpass
+            }
+            PamMessageStyle::PromptEchoOff => TtyUnavailableFallback::Error,
+            PamMessageStyle::PromptEchoOn
+            | PamMessageStyle::ErrorMessage
+            | PamMessageStyle::TextInfo => TtyUnavailableFallback::Stdie,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TtyUnavailableFallback {
+    Askpass,
+    Stdie,
+    Error,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct AskpassEnv {
+    has_display: bool,
+    has_askpass: bool,
+}
+
+impl AskpassEnv {
+    fn from_env() -> Self {
+        Self {
+            has_display: std::env::var_os("DISPLAY").is_some(),
+            has_askpass: std::env::var_os("SUDO_ASKPASS").is_some(),
+        }
+    }
+
+    fn can_use_askpass(self) -> bool {
+        self.has_display && self.has_askpass
     }
 }
 
 impl Converser for CLIConverser {
     fn handle_normal_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        let (mut tty, _guard) = self.open()?;
+        let (mut tty, _guard) = self.open(PamMessageStyle::PromptEchoOn)?;
         let input_needed = xlat!("input needed");
         tty.read_input(
             &format!("[{}: {input_needed} {msg} ", self.name),
@@ -159,7 +221,7 @@ impl Converser for CLIConverser {
     }
 
     fn handle_hidden_prompt(&self, msg: &str) -> PamResult<PamBuffer> {
-        let (mut tty, _guard) = self.open()?;
+        let (mut tty, _guard) = self.open(PamMessageStyle::PromptEchoOff)?;
         tty.read_input(
             msg,
             self.password_timeout,
@@ -172,12 +234,12 @@ impl Converser for CLIConverser {
     }
 
     fn handle_error(&self, msg: &str) -> PamResult<()> {
-        let (mut tty, _) = self.open()?;
+        let (mut tty, _) = self.open(PamMessageStyle::ErrorMessage)?;
         Ok(tty.prompt(&format!("[{} error] {msg}\n", self.name))?)
     }
 
     fn handle_info(&self, msg: &str) -> PamResult<()> {
-        let (mut tty, _) = self.open()?;
+        let (mut tty, _) = self.open(PamMessageStyle::TextInfo)?;
         Ok(tty.prompt(&format!("[{}] {msg}\n", self.name))?)
     }
 }
@@ -472,5 +534,93 @@ mod test {
         assert_eq!(dummy_pam(&[msg(ErrorMessage, "oops")], pam_conv), vec![]);
 
         assert!(hello.panicked); // allowed now
+    }
+
+    #[test]
+    fn tty_unavailable_fallback_for_hidden_prompt_uses_askpass_only_with_display_and_askpass() {
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOff,
+                AskpassEnv {
+                    has_display: true,
+                    has_askpass: true,
+                },
+            ),
+            TtyUnavailableFallback::Askpass
+        );
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOff,
+                AskpassEnv {
+                    has_display: true,
+                    has_askpass: false,
+                },
+            ),
+            TtyUnavailableFallback::Error
+        );
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOff,
+                AskpassEnv {
+                    has_display: false,
+                    has_askpass: true,
+                },
+            ),
+            TtyUnavailableFallback::Error
+        );
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOff,
+                AskpassEnv {
+                    has_display: false,
+                    has_askpass: false,
+                },
+            ),
+            TtyUnavailableFallback::Error
+        );
+    }
+
+    #[test]
+    fn tty_unavailable_fallback_for_non_hidden_prompt_uses_stdio() {
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOn,
+                AskpassEnv {
+                    has_display: true,
+                    has_askpass: true,
+                },
+            ),
+            TtyUnavailableFallback::Stdie
+        );
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOn,
+                AskpassEnv {
+                    has_display: true,
+                    has_askpass: false,
+                },
+            ),
+            TtyUnavailableFallback::Stdie
+        );
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOn,
+                AskpassEnv {
+                    has_display: false,
+                    has_askpass: true,
+                },
+            ),
+            TtyUnavailableFallback::Stdie
+        );
+        assert_eq!(
+            CLIConverser::tty_unavailable_fallback(
+                PamMessageStyle::PromptEchoOn,
+                AskpassEnv {
+                    has_display: false,
+                    has_askpass: false,
+                },
+            ),
+            TtyUnavailableFallback::Stdie
+        );
     }
 }
