@@ -173,6 +173,32 @@ fn sudo_dash_i_uses_correct_service_file() {
 }
 
 #[test]
+#[cfg(target_os = "linux")]
+fn pam_tty_is_set_when_stdio_fds_are_not_ttys() {
+    let (tmp_dir, pam_env_value, repro_log) = test_temp_paths("stdio-fds-not-ttys");
+
+    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"exec 3>&1
+expected_tty=$(tty <&3)
+exec </dev/null >{repro_log} 2>&1
+sudo true
+printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
+cat {pam_env_value} >&3"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
+    assert_pam_tty_matches_expected(&expected, &pam_env);
+}
+
+#[test]
 #[cfg_attr(target_os = "freebsd", ignore = "pam_exec wiring differs on FreeBSD")]
 fn pam_tty_with_stdout_redirect_uses_stdin_tty() {
     let (tmp_dir, pam_env_value, repro_log) = test_temp_paths("stdout-not-a-tty");
@@ -236,6 +262,32 @@ fn pam_tty_with_stdout_and_stderr_redirect_uses_stdin_tty() {
             r#"exec 3>&1
 expected_tty=$(tty <&3)
 sudo true >{repro_log} 2>&1
+printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
+cat {pam_env_value} >&3"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
+    assert_pam_tty_matches_expected(&expected, &pam_env);
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn pam_tty_is_set_when_stdin_is_closed_and_stdio_fds_are_not_ttys() {
+    let (tmp_dir, pam_env_value, repro_log) = test_temp_paths("stdin-closed-stdio-not-ttys");
+
+    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"exec 3>&1
+expected_tty=$(tty <&3)
+exec 0<&- >{repro_log} 2>&1
+sudo true
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
 cat {pam_env_value} >&3"#
         ))
