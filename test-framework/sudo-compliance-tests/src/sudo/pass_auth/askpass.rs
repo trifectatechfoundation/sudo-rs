@@ -42,6 +42,50 @@ fn no_tty_uses_askpass_when_display_is_set() {
 }
 
 #[test]
+fn no_tty_uses_askpass_when_wayland_display_is_set() {
+    if sudo_test::is_original_sudo() {
+        // Upstream sudo behavior is pending https://github.com/sudo-project/sudo/pull/540
+        return;
+    }
+
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .file("/bin/askpass", generate_askpass(PASSWORD))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    Command::new("sh")
+        .args([
+            "-c",
+            "SUDO_ASKPASS=/bin/askpass WAYLAND_DISPLAY=wayland-0 sudo true </dev/null >/tmp/repro.log 2>&1",
+        ])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
+
+#[test]
+fn no_tty_uses_askpass_when_wayland_socket_is_set() {
+    if sudo_test::is_original_sudo() {
+        // Upstream sudo behavior is pending https://github.com/sudo-project/sudo/pull/540
+        return;
+    }
+
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .file("/bin/askpass", generate_askpass(PASSWORD))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    Command::new("sh")
+        .args([
+            "-c",
+            "SUDO_ASKPASS=/bin/askpass WAYLAND_SOCKET=7 sudo true </dev/null >/tmp/repro.log 2>&1",
+        ])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
+
+#[test]
 fn no_tty_does_not_use_askpass_without_display() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .file("/bin/askpass", generate_askpass(PASSWORD))
