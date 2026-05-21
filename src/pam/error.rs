@@ -177,6 +177,7 @@ pub enum PamError {
     Pam(PamErrorType),
     IoError(std::io::Error),
     TtyRequired,
+    TtyRequiredNoTtyPrompt,
     EnvListFailure,
     InteractionRequired,
     NoPasswordProvided,
@@ -225,6 +226,10 @@ impl fmt::Display for PamError {
             PamError::Pam(tp) => xlat_write!(f, "PAM error: {error}", error = tp.get_err_msg()),
             PamError::IoError(e) => xlat_write!(f, "IO error: {error}", error = e),
             PamError::TtyRequired => xlat_write!(f, "A terminal is required to authenticate"),
+            PamError::TtyRequiredNoTtyPrompt => xlat_write!(
+                f,
+                "A terminal is required to authenticate; either use the -S option to read the password from standard input or configure an askpass helper"
+            ),
             PamError::EnvListFailure => {
                 xlat_write!(
                     f,

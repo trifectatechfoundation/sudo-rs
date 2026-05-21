@@ -145,7 +145,9 @@ impl CLIConverser {
                     match Self::tty_unavailable_fallback(style, AskpassEnv::from_env()) {
                         TtyUnavailableFallback::Askpass => Terminal::open_askpass()?,
                         TtyUnavailableFallback::Stdie => Terminal::open_stdie()?,
-                        TtyUnavailableFallback::Error => return Err(PamError::TtyRequired),
+                        TtyUnavailableFallback::Error => {
+                            return Err(Self::tty_required_error());
+                        }
                     }
                 }
                 Err(err) => return Err(err),
@@ -180,6 +182,10 @@ impl CLIConverser {
             | PamMessageStyle::ErrorMessage
             | PamMessageStyle::TextInfo => TtyUnavailableFallback::Stdie,
         }
+    }
+
+    fn tty_required_error() -> PamError {
+        PamError::TtyRequiredNoTtyPrompt
     }
 }
 
@@ -624,5 +630,13 @@ mod test {
             ),
             TtyUnavailableFallback::Stdie
         );
+    }
+
+    #[test]
+    fn tty_required_error_is_no_tty_prompt() {
+        assert!(matches!(
+            CLIConverser::tty_required_error(),
+            PamError::TtyRequiredNoTtyPrompt
+        ));
     }
 }
