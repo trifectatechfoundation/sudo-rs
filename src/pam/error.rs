@@ -178,6 +178,7 @@ pub enum PamError {
     IoError(std::io::Error),
     TtyRequired,
     TtyRequiredNoTtyPrompt,
+    TtyRequiredSsh,
     EnvListFailure,
     InteractionRequired,
     NoPasswordProvided,
@@ -229,6 +230,10 @@ impl fmt::Display for PamError {
             PamError::TtyRequiredNoTtyPrompt => xlat_write!(
                 f,
                 "A terminal is required to authenticate; either use the -S option to read the password from standard input or configure an askpass helper"
+            ),
+            PamError::TtyRequiredSsh => xlat_write!(
+                f,
+                "A terminal is required to authenticate; either use ssh's -t option or configure an askpass helper"
             ),
             PamError::EnvListFailure => {
                 xlat_write!(
