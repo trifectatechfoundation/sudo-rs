@@ -25,6 +25,93 @@ fn correct_password() {
 }
 
 #[test]
+fn no_tty_uses_askpass_when_display_is_set() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .file("/bin/askpass", generate_askpass(PASSWORD))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    Command::new("sh")
+        .args([
+            "-c",
+            "SUDO_ASKPASS=/bin/askpass DISPLAY=:0 sudo true </dev/null >/tmp/repro.log 2>&1",
+        ])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
+
+#[test]
+fn no_tty_uses_askpass_with_custom_prompt_when_display_is_set() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .file(
+            "/bin/askpass",
+            TextFile(format!(
+                "#!/bin/sh\necho \"$1\" > /tmp/prompt\necho {PASSWORD}"
+            ))
+            .chmod(CHMOD_EXEC),
+        )
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    Command::new("sh")
+        .args([
+            "-c",
+            "SUDO_ASKPASS=/bin/askpass DISPLAY=:0 sudo -p 'my fancy prompt' true </dev/null >/tmp/repro.log 2>&1",
+        ])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    let output = Command::new("cat").arg("/tmp/prompt").output(&env);
+    assert_contains!(output.stdout(), "my fancy prompt");
+}
+
+#[test]
+fn no_tty_does_not_use_askpass_without_display() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .file("/bin/askpass", generate_askpass(PASSWORD))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "SUDO_ASKPASS=/bin/askpass sudo true </dev/null >/tmp/repro.log",
+        ])
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_exit_code(1);
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a terminal is required to read the password"
+    } else {
+        "A terminal is required to authenticate"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+}
+
+#[test]
+fn no_tty_with_display_but_without_askpass_still_fails() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    let output = Command::new("sh")
+        .args(["-c", "DISPLAY=:0 sudo true </dev/null >/tmp/repro.log"])
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_exit_code(1);
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a terminal is required to read the password"
+    } else {
+        "A terminal is required to authenticate"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+}
+
+#[test]
 fn incorrect_password() {
     let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
         .file("/bin/askpass", generate_askpass("incorrect-password"))
