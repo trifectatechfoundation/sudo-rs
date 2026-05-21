@@ -185,7 +185,19 @@ impl CLIConverser {
     }
 
     fn tty_required_error() -> PamError {
+        if std::env::var_os("SSH_CONNECTION").is_some() && std::env::var_os("SSH_TTY").is_none() {
+            Self::tty_required_error_ssh()
+        } else {
+            Self::tty_required_error_no_tty_prompt()
+        }
+    }
+
+    fn tty_required_error_no_tty_prompt() -> PamError {
         PamError::TtyRequiredNoTtyPrompt
+    }
+
+    fn tty_required_error_ssh() -> PamError {
+        PamError::TtyRequiredSsh
     }
 }
 
@@ -633,10 +645,18 @@ mod test {
     }
 
     #[test]
-    fn tty_required_error_is_no_tty_prompt() {
+    fn tty_required_error_no_tty_prompt_uses_s_hint() {
         assert!(matches!(
-            CLIConverser::tty_required_error(),
+            CLIConverser::tty_required_error_no_tty_prompt(),
             PamError::TtyRequiredNoTtyPrompt
+        ));
+    }
+
+    #[test]
+    fn tty_required_error_ssh_uses_ssh_t_hint() {
+        assert!(matches!(
+            CLIConverser::tty_required_error_ssh(),
+            PamError::TtyRequiredSsh
         ));
     }
 }
