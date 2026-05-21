@@ -199,7 +199,9 @@ struct AskpassEnv {
 impl AskpassEnv {
     fn from_env() -> Self {
         Self {
-            has_display: std::env::var_os("DISPLAY").is_some(),
+            has_display: std::env::var_os("DISPLAY").is_some()
+                || std::env::var_os("WAYLAND_DISPLAY").is_some()
+                || std::env::var_os("WAYLAND_SOCKET").is_some(),
             has_askpass: std::env::var_os("SUDO_ASKPASS").is_some(),
         }
     }
