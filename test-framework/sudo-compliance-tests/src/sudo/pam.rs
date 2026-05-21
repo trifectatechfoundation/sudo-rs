@@ -102,3 +102,49 @@ fn sudo_dash_i_uses_correct_service_file() {
         .output(&env)
         .assert_success();
 }
+
+#[test]
+#[cfg_attr(target_os = "freebsd", ignore = "pam_echo behavior differs on FreeBSD")]
+fn no_tty_pam_text_info_falls_back_to_stdio() {
+    let env = Env("ALL ALL=(ALL:ALL) ALL")
+        .user(USERNAME)
+        .file(
+            "/etc/pam.d/sudo",
+            [
+                "auth optional pam_echo.so Hello sudo-rs, I am PAM",
+                "auth sufficient pam_permit.so",
+            ]
+            .join("\n"),
+        )
+        .build();
+
+    Command::new("sh")
+        .args(["-c", "sudo true </dev/null >/tmp/repro.log 2>&1"])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
+
+#[test]
+#[cfg_attr(target_os = "freebsd", ignore = "pam_echo behavior differs on FreeBSD")]
+fn no_tty_pam_text_info_uses_stdio_fallback() {
+    let env = Env("ALL ALL=(ALL:ALL) NOPASSWD: ALL")
+        .file(
+            "/etc/pam.d/sudo",
+            [
+                "auth sufficient pam_permit.so",
+                "account sufficient pam_permit.so",
+                "session optional pam_echo.so Hello sudo-rs, I am PAM",
+                "session sufficient pam_permit.so",
+            ]
+            .join("\n"),
+        )
+        .user(USERNAME)
+        .build();
+
+    Command::new("sh")
+        .args(["-c", "sudo true </dev/null"])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
