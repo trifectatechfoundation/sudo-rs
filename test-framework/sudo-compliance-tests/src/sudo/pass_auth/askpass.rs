@@ -128,9 +128,9 @@ fn no_tty_does_not_use_askpass_without_display() {
 
     output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
-        "a terminal is required to read the password"
+        "a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"
     } else {
-        "A terminal is required to authenticate"
+        "A terminal is required to authenticate; either use the -S option to read the password from standard input or configure an askpass helper"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
@@ -148,9 +148,9 @@ fn no_tty_with_display_but_without_askpass_still_fails() {
 
     output.assert_exit_code(1);
     let diagnostic = if sudo_test::is_original_sudo() {
-        "a terminal is required to read the password"
+        "a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"
     } else {
-        "A terminal is required to authenticate"
+        "A terminal is required to authenticate; either use the -S option to read the password from standard input or configure an askpass helper"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
