@@ -1,6 +1,7 @@
 use sudo_test::{Command, Env, User};
 
 const VKILL_BYTE: u8 = b'U' & 0x1f; // 0x15
+const VWERASE_BYTE: u8 = b'W' & 0x1f; // 0x17
 const VERASE_BYTE: u8 = 0x7f; // DEL (default on Linux)
 
 /// Convert a byte value to a printf octal escape string (e.g. 0x15 -> "\\025").
@@ -50,6 +51,21 @@ fn vkill_clears_password_field() {
     assert!(
         success,
         "VKILL did not clear the password field. stdout: {stdout}"
+    );
+}
+
+#[test]
+fn vwerase_clears_password_field() {
+    let env = Env("ferris ALL=(ALL:ALL) ALL")
+        .user(User("ferris").password("testpass"))
+        .build();
+    let (success, stdout) = run_sudo_with_input(
+        &env,
+        &format!("wrong{}testpass\\n", octal_escape(VWERASE_BYTE)),
+    );
+    assert!(
+        success,
+        "VWERASE did not clear the password field. stdout: {stdout}"
     );
 }
 
