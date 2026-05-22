@@ -376,3 +376,28 @@ fn pam_tty_is_not_pts_when_command_has_no_tty() {
         "PAM_TTY should not resolve to a pts path without an allocated tty: {pam_tty}"
     );
 }
+
+#[test]
+#[cfg_attr(target_os = "freebsd", ignore = "pam_exec wiring differs on FreeBSD")]
+fn pam_tty_with_stdin_pipe_uses_controlling_tty() {
+    let (tmp_dir, pam_env_value, repro_log) = test_temp_paths("stdin-pipe");
+
+    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"exec 3>&1
+expected_tty=$(tty <&3)
+printf 'through-a-pipe\n' | sudo true >{repro_log} 2>&1
+printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
+cat {pam_env_value} >&3"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
+    assert_pam_tty_matches_expected(&expected, &pam_env);
+}
