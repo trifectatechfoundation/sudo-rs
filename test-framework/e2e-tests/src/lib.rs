@@ -2,6 +2,7 @@
 
 mod pty;
 mod regression;
+mod rpassword;
 mod su;
 mod sudoers;
 
