@@ -75,9 +75,9 @@ pub(crate) fn sudo_call<T>(
             // restore privileges in reverse order
             (|| {
                 // SAFETY: this function is always safe to call
-                cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&self.0), KEEP_UID) })?;
+                cerr(unsafe { libc::setreuid(KEEP_UID, UserId::inner(&self.0)) })?;
                 // SAFETY: this function is always safe to call
-                cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&self.1), KEEP_GID) })?;
+                cerr(unsafe { libc::setregid(KEEP_GID, GroupId::inner(&self.1)) })?;
                 set_supplementary_groups(&self.2)
             })()
             .expect("could not restore to saved user id");
@@ -88,9 +88,9 @@ pub(crate) fn sudo_call<T>(
 
     set_supplementary_groups(&target_groups)?;
     // SAFETY: this function is always safe to call
-    cerr(unsafe { libc::setresgid(KEEP_GID, GroupId::inner(&target_group.gid), KEEP_GID) })?;
+    cerr(unsafe { libc::setregid(KEEP_GID, GroupId::inner(&target_group.gid)) })?;
     // SAFETY: this function is always safe to call
-    cerr(unsafe { libc::setresuid(KEEP_UID, UserId::inner(&target_user.uid), KEEP_UID) })?;
+    cerr(unsafe { libc::setreuid(KEEP_UID, UserId::inner(&target_user.uid)) })?;
 
     let result = operation();
 
@@ -286,6 +286,7 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
     }
 }
 
+#[allow(dead_code)]
 fn faccess_at(parent: BorrowedFd, path: &CStr, mode: c_int, flags: c_int) -> io::Result<()> {
     // SAFETY: by design, a correct CStr pointer is passed to faccessat
     cerr(unsafe { libc::faccessat(parent.as_raw_fd(), path.as_ptr(), mode, flags) }).map(|_| ())
@@ -352,7 +353,8 @@ fn traversed_secure_open(
             ));
         }
 
-        let user_has_write_perms = if cfg!(test) {
+        #[cfg(any(test, target_os = "macos"))]
+        let user_has_write_perms = {
             // During testing we do a less comprehensive check as we don't have
             // permission to set the real user id to arbitrary users, but faccessat
             // looks at the real user id.
@@ -361,7 +363,9 @@ fn traversed_secure_open(
                     && forbidden_user.in_group_by_gid(GroupId::new(meta.gid()))
                 || (perms & mode(Category::Owner, Op::Write) != 0)
                     && forbidden_user.uid.inner() == meta.uid()
-        } else {
+        };
+        #[cfg(not(any(test, target_os = "macos")))]
+        let user_has_write_perms = {
             // Only works when forbidden_user is current user. This is enforced
             // by accepting CurrentUser outside of test mode.
             // We don't pass AT_EACCESS to faccessat to make it check using the

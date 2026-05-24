@@ -21,11 +21,14 @@ impl SystemTime {
     }
 
     pub fn now() -> std::io::Result<SystemTime> {
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+        let clock_source = libc::CLOCK_BOOTTIME;
+        #[cfg(target_os = "macos")]
+        let clock_source = libc::CLOCK_MONOTONIC;
+
         let mut spec = MaybeUninit::<libc::timespec>::uninit();
         // SAFETY: valid pointer is passed to clock_gettime
-        crate::cutils::cerr(unsafe {
-            libc::clock_gettime(libc::CLOCK_BOOTTIME, spec.as_mut_ptr())
-        })?;
+        crate::cutils::cerr(unsafe { libc::clock_gettime(clock_source, spec.as_mut_ptr()) })?;
         // SAFETY: The `libc::clock_gettime` will correctly initialize `spec`,
         // otherwise it will return early with the `?` operator.
         let spec = unsafe { spec.assume_init() };
