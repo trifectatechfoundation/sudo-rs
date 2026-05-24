@@ -110,7 +110,8 @@ pub fn is_fifo_or_sock(fildes: BorrowedFd) -> bool {
 }
 
 #[cfg(target_os = "macos")]
-/// # Safety the same as libc::pipe
+/// # Safety
+/// Same as `libc::pipe`.
 pub unsafe extern "C" fn pipe2(fds: *mut c_int, flags: c_int) -> c_int {
     // SAFETY: the caller has to ensure this call is safe
     unsafe {
