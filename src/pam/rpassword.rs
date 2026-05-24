@@ -479,12 +479,13 @@ mod test {
     use libc::O_CLOEXEC;
 
     use super::*;
+    use crate::cutils::pipe2;
 
     fn make_pipe() -> (File, File) {
         // SAFETY: A valid pointer to a mutable array of 2 fds is passed in.
         unsafe {
             let mut pipes = [-1, -1];
-            cerr(libc::pipe2(pipes.as_mut_ptr(), O_CLOEXEC)).unwrap();
+            cerr(pipe2(pipes.as_mut_ptr(), O_CLOEXEC)).unwrap();
             (File::from_raw_fd(pipes[0]), File::from_raw_fd(pipes[1]))
         }
     }
