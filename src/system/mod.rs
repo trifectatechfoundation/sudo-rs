@@ -2,7 +2,7 @@
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    ffi::{CStr, c_int, c_long, c_uint},
+    ffi::{CStr, c_int, c_long},
     fmt, fs, io,
     mem::MaybeUninit,
     ops,
@@ -19,6 +19,8 @@ pub use libc::PATH_MAX;
 use libc::STDERR_FILENO;
 #[cfg(not(target_os = "macos"))]
 use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS};
+#[cfg(not(target_os = "macos"))]
+use std::ffi::c_uint;
 use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
@@ -91,6 +93,7 @@ fn try_close_range(lowfd: c_int) -> io::Result<bool> {
 fn try_proc_pidinfo(lowfd: c_int) -> io::Result<bool> {
     const WIGGLE_ROOM: i32 = 4;
 
+    // SAFETY: getpid() is always safe to call.
     let pid = unsafe { libc::getpid() };
 
     // SAFETY: passing a null buffer with size 0 just queries the required buffer size.
@@ -667,6 +670,7 @@ impl Group {
 
 pub enum WithProcess {
     Current,
+    #[allow(dead_code)]
     Other(ProcessId),
 }
 
@@ -804,7 +808,7 @@ impl Process {
     /// Returns the device identifier of the TTY device that is currently
     /// attached to the given process
     #[cfg(target_os = "macos")]
-    pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
+    pub fn tty_device_id(_pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         Ok(None)
     }
 
@@ -841,7 +845,7 @@ impl Process {
 
     /// Get the process starting time of a specific process
     #[cfg(target_os = "macos")]
-    pub fn starting_time(pid: WithProcess) -> io::Result<ProcessCreateTime> {
+    pub fn starting_time(_pid: WithProcess) -> io::Result<ProcessCreateTime> {
         Ok(ProcessCreateTime::new(0, 0))
     }
 }
