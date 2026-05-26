@@ -142,9 +142,6 @@ pub(super) fn pre_exec(
     pam: &mut PamContext,
     target_user: &str,
 ) -> Result<Vec<(OsString, OsString)>, Error> {
-    // make sure that the user that needed to authenticate has a valid token
-    pam.validate_account_or_change_auth_token()?;
-
     // check what the current user in PAM is
     let user = pam.get_user()?;
     if user != target_user {

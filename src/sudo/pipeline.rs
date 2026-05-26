@@ -11,7 +11,7 @@ use crate::sudo::env::environment;
 use crate::sudo::pam::{InitPamArgs, attempt_authenticate, init_pam, pre_exec};
 use crate::sudoers::{AuthenticatingUser, Authentication, Authorization, Judgement, Sudoers};
 use crate::system::term::current_tty_name;
-use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
+use crate::system::timestamp::{LookupResult, RecordScope, SessionRecordFile};
 use crate::system::{Process, escape_os_str_lossy};
 
 mod list;
@@ -198,12 +198,15 @@ fn auth_and_update_record_file(
             context.non_interactive,
             allowed_attempts,
         )?;
-        if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
-            match record_file.create(scope, &auth_user) {
-                Ok(_) => (),
-                Err(e) => {
-                    auth_warn!("Could not update session record file with new record: {e}");
-                }
+    }
+
+    pam_context.validate_account_or_change_auth_token()?;
+
+    if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+        match record_file.create(scope, &auth_user) {
+            Ok(_) => (),
+            Err(e) => {
+                auth_warn!("Could not update session record file with new record: {e}");
             }
         }
     }
@@ -226,10 +229,10 @@ fn determine_auth_status(
     } else if let (true, Some(record_for)) = (use_session_records, record_for) {
         match SessionRecordFile::open_for_user(current_user, prior_validity) {
             Ok(mut sr) => {
-                match sr.touch(record_for, auth_user) {
-                    // if a record was found and updated within the timeout, we do not need to authenticate
-                    Ok(TouchResult::Updated { .. }) => AuthStatus::new(false, Some(sr)),
-                    Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => {
+                match sr.lookup(record_for, auth_user) {
+                    // if a record was found within the timeout, we do not need to authenticate
+                    Ok(LookupResult::Valid { .. }) => AuthStatus::new(false, Some(sr)),
+                    Ok(LookupResult::NotFound | LookupResult::Outdated { .. }) => {
                         AuthStatus::new(true, Some(sr))
                     }
                     Err(e) => {

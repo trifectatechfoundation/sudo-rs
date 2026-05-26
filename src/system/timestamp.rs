@@ -190,6 +190,7 @@ impl SessionRecordFile {
     /// that record time to the current time. This will not create a new record
     /// when one is not found. A record will only be updated if it is still
     /// valid at this time.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn touch(&mut self, scope: RecordScope, auth_user: &AuthUser) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
         let lock = FileLock::exclusive(&self.file, false)?;
@@ -224,6 +225,32 @@ impl SessionRecordFile {
 
         lock.unlock()?;
         Ok(TouchResult::NotFound)
+    }
+
+    /// Try and find a valid record for the given scope and auth user id without
+    /// updating the record timestamp.
+    pub fn lookup(&mut self, scope: RecordScope, auth_user: &AuthUser) -> io::Result<LookupResult> {
+        let lock = FileLock::exclusive(&self.file, false)?;
+        self.seek_to_first_record()?;
+        while let Some(record) = self.next_record()? {
+            if record.enabled && record.matches(&scope, auth_user) {
+                let now = SystemTime::now()?;
+                let result = if record.written_between(now - self.timeout, now) {
+                    LookupResult::Valid {
+                        time: record.timestamp,
+                    }
+                } else {
+                    LookupResult::Outdated {
+                        time: record.timestamp,
+                    }
+                };
+                lock.unlock()?;
+                return Ok(result);
+            }
+        }
+
+        lock.unlock()?;
+        Ok(LookupResult::NotFound)
     }
 
     /// Disable all records that match the given scope.
@@ -308,6 +335,7 @@ impl SessionRecordFile {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TouchResult {
     /// The record was found and within the timeout, and it was refreshed
@@ -318,6 +346,16 @@ pub enum TouchResult {
     /// A record was found, but it was no longer valid
     Outdated { time: SystemTime },
     /// A record was not found that matches the input
+    NotFound,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum LookupResult {
+    /// The record was found and is within the timeout.
+    Valid { time: SystemTime },
+    /// A record was found, but it was no longer valid.
+    Outdated { time: SystemTime },
+    /// A record was not found that matches the input.
     NotFound,
 }
 
