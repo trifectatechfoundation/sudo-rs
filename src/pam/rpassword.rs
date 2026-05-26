@@ -89,6 +89,12 @@ fn erase_feedback(sink: &mut dyn io::Write, i: usize) {
             return;
         }
     }
+
+    // Erase everyting after the cursor to make sure we don't leak the password
+    // size through the amount of spaces that are shown if you select the line
+    // containing the password in your terminal emulator.
+    // CSI n K: Erase in Line, 0 = erase from cursor to end of line
+    let _ = sink.write(b"\x1b[0K");
 }
 
 #[derive(Clone)]
