@@ -109,8 +109,8 @@ pub fn is_fifo_or_sock(fildes: BorrowedFd) -> bool {
     fstat_mode_any::<{ libc::S_IFIFO | libc::S_IFSOCK }>(&fildes)
 }
 
-/// Dynamically obtain the correct buffer size (within boundds)
-pub fn dynamic_fill<T: Default + Clone, E>(
+/// Dynamically obtain the correct buffer size (within bounds)
+pub fn dynamic_fill<T: Default + Copy, E>(
     range: std::ops::Range<usize>,
     mut fill: impl FnMut(&mut [T]) -> Result<Option<usize>, E>,
 ) -> Result<Option<Vec<T>>, E> {

@@ -371,24 +371,24 @@ impl User {
     /// This function expects `pwd` to be a result from a successful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
-        //NOTE: on Linux, getgrouplist could be used to simply inquire as to the size needed;
-        //but on FreeBSD, getgrouplist does not specify this in its function contract, so a
-        //blind allocation loop is needed.
+        // NOTE: on Linux, getgrouplist could be used to simply inquire as to the size needed;
+        // but on FreeBSD, getgrouplist does not specify this in its function contract, so a
+        // blind allocation loop is needed.
         let Some(groups_buffer) =
             dynamic_fill::<libc::gid_t, std::num::TryFromIntError>(32..65536, |groups_buffer| {
                 let mut buf_len: c_int = groups_buffer.len() as c_int;
                 // SAFETY: getgrouplist is passed valid pointers
                 // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
-                let result = cerr(unsafe {
+                let result = unsafe {
                     libc::getgrouplist(
                         pwd.pw_name,
                         pwd.pw_gid,
                         groups_buffer.as_mut_ptr(),
                         &mut buf_len,
                     )
-                });
+                };
 
-                Ok(if result.is_ok() {
+                Ok(if result != -1 {
                     Some(buf_len.try_into()?)
                 } else {
                     None
