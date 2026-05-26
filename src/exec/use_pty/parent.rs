@@ -557,7 +557,7 @@ impl ParentClosure {
 
     /// Suspend sudo if the command is suspended.
     ///
-    /// Return `SIGCONT_FG` or `SIGCONT_BG` to state whether the command should be resumend in the
+    /// Return `SIGCONT_FG` or `SIGCONT_BG` to state whether the command should be resumed in the
     /// foreground or not.
     fn suspend_pty(
         &mut self,
@@ -587,6 +587,8 @@ impl ParentClosure {
                     signal_fmt(signal)
                 );
                 if !self.term_raw {
+                    // Format the same as og-sudo to reduce risk of divergence
+                    #[allow(clippy::collapsible_if)]
                     if self
                         .tty_pipe
                         .left_mut()
@@ -595,10 +597,10 @@ impl ParentClosure {
                     {
                         self.term_raw = true;
                     }
-                    // Resume command in the foreground
-                    self.tty_pipe.enable_input(registry);
-                    return Some(SIGCONT_FG);
                 }
+                // Resume command in the foreground
+                self.tty_pipe.enable_input(registry);
+                return Some(SIGCONT_FG);
             }
         }
 
