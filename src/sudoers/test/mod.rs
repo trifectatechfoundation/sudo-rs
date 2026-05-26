@@ -597,6 +597,16 @@ fn defaults_regression() {
 }
 
 #[test]
+fn user_id_regression() {
+    assert!(parse_line("#499999999999 ALL=ALL").is_line_comment());
+    assert!(parse_line("#49999999999 ALL=ALL").is_line_comment());
+    assert!(try_parse_line("Defaults:#49999999999 use_pty").is_none());
+    assert!(try_parse_line("Defaults:#4999999999 use_pty").is_none());
+    assert!(parse_line("#1999999999 ALL=ALL").is_spec());
+    assert!(parse_line("Defaults:#1999999999 use_pty").is_decl());
+}
+
+#[test]
 fn specific_defaults() {
     assert!(parse_line("Defaults !use_pty").is_decl());
     assert!(try_parse_line("Defaults!use_pty").is_none());

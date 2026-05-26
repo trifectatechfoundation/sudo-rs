@@ -12,7 +12,7 @@ mod names {
     use crate::sudoers::ast::*;
     use crate::sudoers::tokens;
 
-    impl UserFriendly for tokens::Digits {
+    impl UserFriendly for tokens::DigitsU32 {
         const DESCRIPTION: &'static str = "number";
     }
 
