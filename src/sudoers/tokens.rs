@@ -40,13 +40,15 @@ impl Token for Username {
 
 impl Many for Username {}
 
-pub struct Digits(pub u32);
+pub struct DigitsU32(pub u32);
 
-impl Token for Digits {
-    const MAX_LEN: usize = 9;
+impl Token for DigitsU32 {
+    const MAX_LEN: usize = 10;
 
     fn construct(s: String) -> Result<Self, String> {
-        Ok(Digits(s.parse().unwrap()))
+        s.parse()
+            .map(Self)
+            .map_err(|_| "value too large".to_string())
     }
 
     fn accept(c: char) -> bool {

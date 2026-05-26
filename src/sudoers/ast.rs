@@ -171,7 +171,7 @@ pub enum Sudo {
 impl Parse for Identifier {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
         if stream.eat_char('#') {
-            let Digits(guid) = expect_nonterminal(stream)?;
+            let DigitsU32(guid) = expect_nonterminal(stream)?;
             make(Identifier::ID(guid))
         } else {
             let Username(name) = try_nonterminal(stream)?;
