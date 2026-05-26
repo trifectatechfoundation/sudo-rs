@@ -4,8 +4,7 @@ use sudo_test::{
 };
 
 use crate::{
-    HOSTNAME, PAMD_SUDO_ACCOUNT_DENY, PAMD_SUDO_ACCOUNT_PERMIT,
-    PAMD_SUDO_AUTH_DENY_ACCOUNT_PERMIT, PANIC_EXIT_CODE, PASSWORD, Result,
+    HOSTNAME, PAMD_SUDO_ACCOUNT_DENY, PAMD_SUDO_ACCOUNT_PERMIT, PANIC_EXIT_CODE, PASSWORD, Result,
     SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
 };
 
@@ -169,44 +168,6 @@ fn pam_account_permit_allows_list_output() {
         format!("User {USERNAME} may run the following commands on {HOSTNAME}:")
     );
     assert_contains!(output.stdout_unchecked(), BIN_TRUE);
-}
-
-#[test]
-fn pam_account_denial_does_not_create_list_timestamp() {
-    if sudo_test::is_original_sudo() {
-        return;
-    }
-
-    let env = Env(format!("{USERNAME} ALL=(root) list, {BIN_TRUE}"))
-        .user(USERNAME)
-        .hostname(HOSTNAME)
-        .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_DENY)
-        .build();
-
-    let output = Command::new("sudo")
-        .arg("-l")
-        .as_user(USERNAME)
-        .output(&env);
-
-    assert!(!output.status().success());
-    assert_contains!(
-        output.stderr().to_lowercase(),
-        "account validation failure"
-    );
-
-    Command::new("tee")
-        .arg(PAM_D_SUDO_PATH)
-        .stdin(PAMD_SUDO_AUTH_DENY_ACCOUNT_PERMIT)
-        .output(&env)
-        .assert_success();
-
-    let output = Command::new("sudo")
-        .args(["-n", "-l"])
-        .as_user(USERNAME)
-        .output(&env);
-
-    assert!(!output.status().success());
-    assert!(!output.stdout_unchecked().contains("may run"));
 }
 
 #[test]

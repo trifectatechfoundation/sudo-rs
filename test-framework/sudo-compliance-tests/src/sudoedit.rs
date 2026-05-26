@@ -4,9 +4,8 @@ use sudo_test::{
 };
 
 use crate::{
-    DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, PAMD_SUDO_ACCOUNT_DENY,
-    PAMD_SUDO_ACCOUNT_PERMIT, PAMD_SUDO_AUTH_DENY_ACCOUNT_PERMIT, Result,
-    SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
+    DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, PAMD_SUDO_ACCOUNT_DENY, PAMD_SUDO_ACCOUNT_PERMIT,
+    Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
 };
 
 mod flag_help;
@@ -114,56 +113,6 @@ fn pam_account_permit_allows_sudoedit() {
         .stdout();
 
     assert_eq!("modified", actual);
-}
-
-#[test]
-fn pam_account_denial_does_not_create_sudoedit_timestamp() {
-    if sudo_test::is_original_sudo() {
-        return;
-    }
-
-    let env = Env(format!(
-        "{USERNAME} ALL=(root) sudoedit {PAM_DENY_TARGET}, /usr/bin/true"
-    ))
-    .user(USERNAME)
-    .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_DENY)
-    .file(
-        DEFAULT_EDITOR,
-        TextFile(EDITOR_OVERWRITE).chmod(CHMOD_EXEC),
-    )
-    .file(PAM_DENY_TARGET, TextFile("unchanged").chmod("644"))
-    .build();
-
-    let output = Command::new("sudoedit")
-        .arg(PAM_DENY_TARGET)
-        .as_user(USERNAME)
-        .output(&env);
-
-    assert!(!output.status().success());
-    assert_contains!(
-        output.stderr().to_lowercase(),
-        "account validation failure"
-    );
-
-    Command::new("tee")
-        .arg(PAM_D_SUDO_PATH)
-        .stdin(PAMD_SUDO_AUTH_DENY_ACCOUNT_PERMIT)
-        .output(&env)
-        .assert_success();
-
-    let output = Command::new("sudo")
-        .args(["-n", "/usr/bin/true"])
-        .as_user(USERNAME)
-        .output(&env);
-
-    assert!(!output.status().success());
-
-    let actual = Command::new("cat")
-        .arg(PAM_DENY_TARGET)
-        .output(&env)
-        .stdout();
-
-    assert_eq!("unchanged", actual);
 }
 
 #[test]

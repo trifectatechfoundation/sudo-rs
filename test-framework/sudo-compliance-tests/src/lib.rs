@@ -37,8 +37,6 @@ const PAMD_SUDO_ACCOUNT_DENY: &str =
     "auth sufficient pam_permit.so\naccount requisite pam_deny.so\nsession optional pam_permit.so";
 const PAMD_SUDO_ACCOUNT_PERMIT: &str =
     "auth sufficient pam_permit.so\naccount sufficient pam_permit.so\nsession optional pam_permit.so";
-const PAMD_SUDO_AUTH_DENY_ACCOUNT_PERMIT: &str =
-    "auth requisite pam_deny.so\naccount sufficient pam_permit.so\nsession optional pam_permit.so";
 
 const OG_SUDO_STANDARD_LECTURE: &str = "\nWe trust you have received the usual lecture from the local System\nAdministrator. It usually boils down to these three things:\n\n    #1) Respect the privacy of others.\n    #2) Think before you type.\n    #3) With great power comes great responsibility.";
 
