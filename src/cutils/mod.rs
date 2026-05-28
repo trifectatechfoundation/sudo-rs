@@ -129,7 +129,7 @@ pub fn dynamic_fill<T: Default + Copy, E>(
                 if buffer.len() >= range.end {
                     return Ok(None);
                 } else {
-                    buffer.resize_with(std::cmp::max(buffer.len() * 2, range.end), T::default)
+                    buffer.resize_with(std::cmp::min(buffer.len() * 2, range.end), T::default)
                 }
             }
         }
@@ -175,9 +175,10 @@ mod test {
     #[test]
     fn test_dynamic_fill() {
         assert_eq!(
-            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>(
+            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>({
+                assert!(buf.len() < 50);
                 (buf.len() >= 23).then_some(23)
-            ))
+            }))
             .unwrap()
             .unwrap()
             .len(),
@@ -185,9 +186,10 @@ mod test {
         );
 
         assert_eq!(
-            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>(
+            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>({
+                assert!(buf.len() <= 50);
                 (buf.len() >= 50).then_some(23)
-            ))
+            }))
             .unwrap()
             .unwrap()
             .len(),
@@ -195,9 +197,10 @@ mod test {
         );
 
         assert!(
-            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>(
-                (buf.len() > 50).then_some(23)
-            ))
+            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>({
+                assert!(buf.len() <= 50);
+                None
+            }))
             .unwrap()
             .is_none()
         );
