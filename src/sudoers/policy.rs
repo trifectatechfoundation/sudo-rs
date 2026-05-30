@@ -113,7 +113,7 @@ impl Judgement {
                     },
                     env_keep: self.settings.env_keep(),
                     env_check: self.settings.env_check(),
-                    chdir: match tag.cwd.as_ref().or(self.runcwd.as_ref()) {
+                    chdir: match tag.cwd.as_ref() {
                         None => DirChange::Strict(None),
                         Some(super::ChDir::Any) => DirChange::Any,
                         Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
@@ -243,39 +243,5 @@ mod test {
         assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/usr".into()))));
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/bin".into())));
         assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/bin".into()))));
-    }
-
-    #[test]
-    fn runcwd_defaults_test() {
-        let mut judge = Judgement {
-            flags: Some(Tag::default()),
-            ..Default::default()
-        };
-        fn chdir(judge: &mut Judgement) -> DirChange<'_> {
-            let Authorization::Allowed(_, ctl) = judge.authorization() else {
-                panic!()
-            };
-            ctl.chdir
-        }
-
-        // no runcwd set: default behavior (strict, no chdir)
-        assert_eq!(chdir(&mut judge), DirChange::Strict(None));
-
-        // runcwd=* allows any directory
-        judge.runcwd = Some(ChDir::Any);
-        assert_eq!(chdir(&mut judge), DirChange::Any);
-
-        // runcwd=/tmp sets a specific default directory
-        judge.runcwd = Some(ChDir::Path("/tmp".into()));
-        assert_eq!(chdir(&mut judge), DirChange::Strict(Some(&"/tmp".into())));
-
-        // explicit CWD tag overrides runcwd
-        judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/usr".into())));
-        assert_eq!(chdir(&mut judge), DirChange::Strict(Some(&"/usr".into())));
-
-        // explicit CWD=* tag overrides runcwd path
-        judge.runcwd = Some(ChDir::Path("/tmp".into()));
-        judge.mod_flag(|tag| tag.cwd = Some(ChDir::Any));
-        assert_eq!(chdir(&mut judge), DirChange::Any);
     }
 }

@@ -70,7 +70,6 @@ pub struct ListRequest<'a, User: UnixUser, Group: UnixGroup> {
 pub struct Judgement {
     flags: Option<Tag>,
     settings: Settings,
-    runcwd: Option<tokens::ChDir>,
 }
 
 mod policy;
@@ -171,21 +170,24 @@ impl Sudoers {
             am_user.is_root() || (request.user == am_user && in_group(am_user, request.group));
 
         let mut flags = check_permission(self, am_user, on_host, request);
-        if let Some(Tag { authenticate, .. }) = flags.as_mut() {
+        if let Some(tag) = flags.as_mut() {
             if skip_passwd {
-                *authenticate = Authenticate::Nopasswd;
+                tag.authenticate = Authenticate::Nopasswd;
+            }
+
+            // a `runcwd` default acts as the working directory when no explicit CWD was set
+            if tag.cwd.is_none() {
+                use basic_parser::Token;
+                tag.cwd = self
+                    .settings
+                    .runcwd()
+                    .and_then(|s| tokens::ChDir::construct(s.to_string()).ok());
             }
         }
-
-        let runcwd = self.settings.runcwd().and_then(|s| {
-            use basic_parser::Token;
-            tokens::ChDir::construct(s.to_string()).ok()
-        });
 
         Judgement {
             flags,
             settings: self.settings.clone(),
-            runcwd,
         }
     }
 

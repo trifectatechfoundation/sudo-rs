@@ -16,6 +16,7 @@ mod noexec;
 mod passwd_timeout;
 mod run_as;
 mod runas_alias;
+mod runcwd;
 mod secure_path;
 mod specific_defaults;
 mod timestamp_timeout;
