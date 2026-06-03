@@ -408,6 +408,10 @@ fn default_set_test() {
     assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = never").is_ok());
+
+    assert!(parse_string::<Sudo>("Defaults runcwd = *").is_ok());
+    assert!(parse_string::<Sudo>("Defaults runcwd = /usr/local").is_ok());
+    assert!(parse_string::<Sudo>("Defaults !runcwd").is_ok());
 }
 
 #[test]
