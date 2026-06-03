@@ -248,7 +248,7 @@ impl Context {
         controls: &Restrictions,
     ) -> Result<RunOptions<'_>, Error> {
         // see if the chdir flag is permitted
-        let chdir = match controls.chdir {
+        let chdir = match &controls.chdir {
             DirChange::Any => self.chdir.as_ref(),
             DirChange::Strict(optdir) => {
                 if let Some(chdir) = &self.chdir {
@@ -257,7 +257,7 @@ impl Context {
                         command: self.command.command.clone(),
                     });
                 } else {
-                    optdir
+                    optdir.as_ref()
                 }
             }
         };
