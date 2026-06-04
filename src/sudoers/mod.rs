@@ -25,6 +25,8 @@ use ast::*;
 use tokens::*;
 
 pub type Settings = defaults::Settings;
+#[cfg(feature = "unstable-remote-sudoers")]
+pub use ast::{Identifier, PeerSpec, UserSpecifier};
 pub use basic_parser::Span;
 
 /// How many nested include files do we allow?
@@ -419,8 +421,11 @@ fn open_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
 }
 
 #[cfg(feature = "unstable-remote-sudoers")]
-fn open_remote_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
-    let source = audit::secure_open_remote_sudoers(path)?;
+fn open_remote_sudoers(
+    path: &Path,
+    peer_spec: &ast::PeerSpec,
+) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
+    let source = audit::secure_open_remote_sudoers(path, peer_spec)?;
     read_sudoers(source)
 }
 
@@ -767,55 +772,66 @@ fn analyze(
         }
     }
 
-    fn include(
-        cfg: &mut Sudoers,
-        parent: &Path,
+    struct IncludeContext<'a> {
+        path: &'a Path,
+        parent: &'a Path,
         span: Span,
-        path: &Path,
-        diagnostics: &mut Vec<Error>,
-        include_state: &mut IncludeState,
+        diagnostics: &'a mut Vec<Error>,
+        include_state: &'a mut IncludeState,
         include_source: IncludeDirective,
-    ) {
+        #[cfg(feature = "unstable-remote-sudoers")]
+        peer_spec: Option<&'a ast::PeerSpec>,
+    }
+
+    fn include(cfg: &mut Sudoers, ctx: &mut IncludeContext) {
         // IncludeState::limit_reached() will also detect forbidden includes
-        if include_state.limit_reached() {
-            let message = match include_state {
+        if ctx.include_state.limit_reached() {
+            let message = match ctx.include_state {
                 IncludeState::Allowed(_) => {
-                    format!("include file limit reached opening '{}'", path.display())
+                    format!(
+                        "include file limit reached opening '{}'",
+                        ctx.path.display()
+                    )
                 }
                 #[cfg(feature = "unstable-remote-sudoers")]
                 IncludeState::Forbidden => {
-                    format!("{} forbidden at this stage", include_source)
+                    format!("{} forbidden at this stage", ctx.include_source)
                 }
             };
-            diagnostics.push(Error {
-                source: Some(parent.to_owned()),
-                location: Some(span),
+            ctx.diagnostics.push(Error {
+                source: Some(ctx.parent.to_owned()),
+                location: Some(ctx.span),
                 message,
             });
         } else {
-            let (res, next_state, kind) = match include_source {
+            let (res, next_state, kind) = match ctx.include_source {
                 #[cfg(feature = "unstable-remote-sudoers")]
-                IncludeDirective::Remote => (
-                    open_remote_sudoers(path),
-                    &mut IncludeState::Forbidden,
-                    "socket",
-                ),
-                _ => (open_sudoers(path), include_state.inc(), "file"),
+                IncludeDirective::Remote => {
+                    let peer = ctx
+                        .peer_spec
+                        .expect("peer_spec required for Remote include");
+                    (
+                        open_remote_sudoers(ctx.path, peer),
+                        &mut IncludeState::Forbidden,
+                        "socket",
+                    )
+                }
+                _ => (open_sudoers(ctx.path), ctx.include_state.inc(), "file"),
             };
 
             match res {
-                Ok(subsudoer) => process(cfg, path, subsudoer, diagnostics, next_state),
+                Ok(subsudoer) => process(cfg, ctx.path, subsudoer, ctx.diagnostics, next_state),
                 Err(e) => {
                     let message = if e.kind() == io::ErrorKind::NotFound {
                         // improve the error message in this case
-                        format!("cannot open sudoers {} '{}'", kind, path.display())
+                        format!("cannot open sudoers {} '{}'", kind, ctx.path.display())
                     } else {
                         e.to_string()
                     };
 
-                    diagnostics.push(Error {
-                        source: Some(parent.to_owned()),
-                        location: Some(span),
+                    ctx.diagnostics.push(Error {
+                        source: Some(ctx.parent.to_owned()),
+                        location: Some(ctx.span),
                         message,
                     })
                 }
@@ -869,16 +885,20 @@ fn analyze(
 
                     Sudo::Include(path, span) => include(
                         cfg,
-                        cur_path,
-                        span,
-                        &resolve_relative(cur_path, path),
-                        diagnostics,
-                        include_state,
-                        IncludeDirective::Include,
+                        &mut IncludeContext {
+                            path: &resolve_relative(cur_path, path),
+                            parent: cur_path,
+                            span,
+                            diagnostics,
+                            include_state,
+                            include_source: IncludeDirective::Include,
+                            #[cfg(feature = "unstable-remote-sudoers")]
+                            peer_spec: None,
+                        },
                     ),
 
                     #[cfg(feature = "unstable-remote-sudoers")]
-                    Sudo::Remote(path, span) => {
+                    Sudo::Remote(path, peer_spec, span) => {
                         let socket_path = Path::new(&path);
                         if socket_path.is_relative() {
                             diagnostics.push(Error {
@@ -891,12 +911,15 @@ fn analyze(
                         } else {
                             include(
                                 cfg,
-                                cur_path,
-                                span,
-                                socket_path,
-                                diagnostics,
-                                include_state,
-                                IncludeDirective::Remote,
+                                &mut IncludeContext {
+                                    path: socket_path,
+                                    parent: cur_path,
+                                    span,
+                                    diagnostics,
+                                    include_state,
+                                    include_source: IncludeDirective::Remote,
+                                    peer_spec: Some(&peer_spec),
+                                },
                             );
                         }
                     }
@@ -938,12 +961,16 @@ fn analyze(
                         for file in safe_files {
                             include(
                                 cfg,
-                                cur_path,
-                                span,
-                                file.as_ref(),
-                                diagnostics,
-                                include_state,
-                                IncludeDirective::IncludeDir,
+                                &mut IncludeContext {
+                                    path: file.as_ref(),
+                                    parent: cur_path,
+                                    span,
+                                    diagnostics,
+                                    include_state,
+                                    include_source: IncludeDirective::IncludeDir,
+                                    #[cfg(feature = "unstable-remote-sudoers")]
+                                    peer_spec: None,
+                                },
                             )
                         }
                     }

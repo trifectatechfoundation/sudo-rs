@@ -17,6 +17,8 @@ use super::{
     Group, GroupId, User, UserId, cerr, inject_group, interface::UnixUser, set_supplementary_groups,
 };
 use crate::common::resolve::CurrentUser;
+#[cfg(feature = "unstable-remote-sudoers")]
+use crate::sudoers::{Identifier, PeerSpec};
 
 #[cfg(target_os = "linux")]
 pub(crate) fn no_new_privs_enabled() -> io::Result<bool> {
@@ -98,6 +100,31 @@ pub(crate) fn sudo_call<T>(
     Ok(result)
 }
 
+#[cfg(feature = "unstable-remote-sudoers")]
+/// Get the credentials of the peer at the other side of the socket
+fn get_peer_credentials(stream: &UnixStream) -> io::Result<libc::ucred> {
+    let mut ucred = libc::ucred {
+        pid: 0,
+        uid: 0,
+        gid: 0,
+    };
+    let mut ucred_size = size_of::<libc::ucred>() as libc::socklen_t;
+
+    // SAFETY: An out pointer for the correct type and length are passed.
+    // FIXME use UnixStream::peer_cred() once stable in our MSRV.
+    unsafe {
+        cerr(libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_PEERCRED,
+            &mut ucred as *mut _ as *mut libc::c_void,
+            &mut ucred_size,
+        ))?;
+    }
+
+    Ok(ucred)
+}
+
 /// Drop root privileges by setting effective user id equal to the real user id.
 /// This routine will panic if the process is not privileged.
 pub fn irrevocably_drop_privileges() {
@@ -141,8 +168,11 @@ pub fn secure_open_sudoers(path: impl AsRef<Path>) -> io::Result<File> {
 }
 
 #[cfg(feature = "unstable-remote-sudoers")]
-pub fn secure_open_remote_sudoers(path: impl AsRef<Path>) -> io::Result<BufReader<UnixStream>> {
-    secure_open_socket_impl(path.as_ref())
+pub fn secure_open_remote_sudoers(
+    path: impl AsRef<Path>,
+    peer_spec: &PeerSpec,
+) -> io::Result<BufReader<UnixStream>> {
+    secure_open_socket_impl(path.as_ref(), peer_spec)
 }
 
 /// Open a timestamp cookie file using various security checks
@@ -237,10 +267,100 @@ fn secure_open_impl(
     Ok(file)
 }
 
+#[cfg(feature = "unstable-remote-sudoers")]
+fn check_user(peer_uid: libc::uid_t, user_id: &Identifier) -> io::Result<()> {
+    match user_id {
+        Identifier::Name(name) => {
+            let name_cstr = CString::new(name.as_ref()).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "user name contains null byte")
+            })?;
+            let expected_user = User::from_name(&name_cstr)
+                .map_err(|e| io::Error::other(e.to_string()))?
+                .ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("user '{}' not found", name),
+                    )
+                })?;
+            if peer_uid != expected_user.uid.inner() {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!(
+                        "peer process must run as user '{}' (uid {}) but runs as {}",
+                        name,
+                        expected_user.uid.inner(),
+                        peer_uid
+                    ),
+                ));
+            }
+        }
+        Identifier::ID(uid) => {
+            if peer_uid != *uid {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!(
+                        "peer process must run as uid {} but runs as {}",
+                        uid, peer_uid
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn check_group(peer_gid: libc::gid_t, group_id: Option<&Identifier>) -> io::Result<()> {
+    let Some(group_id) = group_id else {
+        return Ok(());
+    };
+
+    match group_id {
+        Identifier::Name(name) => {
+            let name_cstr = CString::new(name.as_ref()).map_err(|_| {
+                io::Error::new(io::ErrorKind::InvalidInput, "group name contains null byte")
+            })?;
+            let expected_group = Group::from_name(&name_cstr)
+                .map_err(|e| io::Error::other(e.to_string()))?
+                .ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("group '{}' not found", name),
+                    )
+                })?;
+            if peer_gid != expected_group.gid.inner() {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!(
+                        "peer process must run as group '{}' (gid {}) but runs as gid {}",
+                        name,
+                        expected_group.gid.inner(),
+                        peer_gid
+                    ),
+                ));
+            }
+        }
+        Identifier::ID(gid) => {
+            if peer_gid != *gid {
+                return Err(io::Error::new(
+                    io::ErrorKind::PermissionDenied,
+                    format!(
+                        "peer process must run as gid {} but runs as {}",
+                        gid, peer_gid
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 // Open the socket at path, provided that it is "secure".
 // "Secure" means that it passes the `checks` function above.
 #[cfg(feature = "unstable-remote-sudoers")]
-fn secure_open_socket_impl(path: &Path) -> io::Result<BufReader<UnixStream>> {
+fn secure_open_socket_impl(path: &Path, peer_spec: &PeerSpec) -> io::Result<BufReader<UnixStream>> {
+    // Check the metadata on the filesystem as extra security,
+    // even knowing that it produces a TOCTOU.
     let meta = fs::metadata(path)?;
     checks(path, meta)?;
     if let Some(parent_dir) = path.parent() {
@@ -256,6 +376,15 @@ fn secure_open_socket_impl(path: &Path) -> io::Result<BufReader<UnixStream>> {
     }
 
     let stream = UnixStream::connect(path)?;
+
+    // Check the peer's credentials to avoid the TOCTOU.
+    let peer_creds = get_peer_credentials(&stream)?;
+
+    // If there is an error in these checks, the function returns immediately
+    // leaving `stream` out of scope and forcing the closing of the socket.
+    check_user(peer_creds.uid, &peer_spec.user)?;
+    check_group(peer_creds.gid, peer_spec.group.as_ref())?;
+
     stream.shutdown(Shutdown::Write)?;
     let reader = BufReader::new(stream);
 
