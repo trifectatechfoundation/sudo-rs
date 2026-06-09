@@ -1,0 +1,5 @@
+rules:
+  unpinned-images:
+    ignore:
+      - ci.yaml:285
+      - ci.yaml:312
