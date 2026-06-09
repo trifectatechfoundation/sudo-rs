@@ -208,6 +208,8 @@ fn auth_and_update_record_file(
         }
     }
 
+    pam_context.validate_account_or_change_auth_token()?;
+
     Ok(pam_context)
 }
 
