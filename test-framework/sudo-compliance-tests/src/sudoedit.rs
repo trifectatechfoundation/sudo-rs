@@ -4,7 +4,7 @@ use sudo_test::{
 };
 
 use crate::{
-    DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, PAMD_SUDO_ACCOUNT_DENY, PAMD_SUDO_ACCOUNT_PERMIT,
+    DEFAULT_EDITOR, GROUPNAME, PAMD_SUDO_ACCOUNT_DENY, PAMD_SUDO_ACCOUNT_PERMIT, PANIC_EXIT_CODE,
     Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
 };
 
@@ -55,10 +55,7 @@ fn pam_account_denial_blocks_sudoedit_before_file_modification() {
     ))
     .user(USERNAME)
     .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_DENY)
-    .file(
-        DEFAULT_EDITOR,
-        TextFile(EDITOR_OVERWRITE).chmod(CHMOD_EXEC),
-    )
+    .file(DEFAULT_EDITOR, TextFile(EDITOR_OVERWRITE).chmod(CHMOD_EXEC))
     .file(PAM_DENY_TARGET, TextFile("unchanged").chmod("644"))
     .build();
 
@@ -74,10 +71,7 @@ fn pam_account_denial_blocks_sudoedit_before_file_modification() {
         .output(&env);
 
     assert!(!output.status().success());
-    assert_contains!(
-        output.stderr().to_lowercase(),
-        "account validation failure"
-    );
+    assert_contains!(output.stderr().to_lowercase(), "account validation failure");
 
     let actual = Command::new("cat")
         .arg(PAM_DENY_TARGET)
@@ -94,10 +88,7 @@ fn pam_account_permit_allows_sudoedit() {
     ))
     .user(USERNAME)
     .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_PERMIT)
-    .file(
-        DEFAULT_EDITOR,
-        TextFile(EDITOR_OVERWRITE).chmod(CHMOD_EXEC),
-    )
+    .file(DEFAULT_EDITOR, TextFile(EDITOR_OVERWRITE).chmod(CHMOD_EXEC))
     .file(PAM_DENY_TARGET, TextFile("unchanged").chmod("644"))
     .build();
 

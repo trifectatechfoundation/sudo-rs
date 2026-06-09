@@ -1,6 +1,6 @@
 use sudo_test::{
-    BIN_FALSE, BIN_LS, BIN_PWD, BIN_SUDO, BIN_TRUE, Command, ETC_SUDOERS, Env,
-    PAM_D_SUDO_PATH, TextFile, User,
+    BIN_FALSE, BIN_LS, BIN_PWD, BIN_SUDO, BIN_TRUE, Command, ETC_SUDOERS, Env, PAM_D_SUDO_PATH,
+    TextFile, User,
 };
 
 use crate::{
@@ -142,10 +142,7 @@ fn pam_account_denial_blocks_list_output() {
         .output(&env);
 
     assert!(!output.status().success());
-    assert_contains!(
-        output.stderr().to_lowercase(),
-        "account validation failure"
-    );
+    assert_contains!(output.stderr().to_lowercase(), "account validation failure");
     assert!(!output.stdout_unchecked().contains("may run"));
 }
 
