@@ -248,8 +248,8 @@ impl Context {
         controls: &Restrictions,
     ) -> Result<RunOptions<'_>, Error> {
         // see if the chdir flag is permitted
-        let mut chdir = match controls.chdir {
-            DirChange::Any => self.chdir.clone(),
+        let chdir = match &controls.chdir {
+            DirChange::Any => self.chdir.as_ref(),
             DirChange::Strict(optdir) => {
                 if let Some(chdir) = &self.chdir {
                     return Err(Error::ChDirNotAllowed {
@@ -257,15 +257,15 @@ impl Context {
                         command: self.command.command.clone(),
                     });
                 } else {
-                    optdir.cloned()
+                    optdir.as_ref()
                 }
             }
         };
 
         // expand tildes in the path with the users home directory
-        if let Some(dir) = chdir.take() {
-            chdir = Some(dir.expand_tilde_in_path(&self.target_user.name)?);
-        }
+        let chdir = chdir
+            .map(|dir| dir.expand_tilde_in_path(&self.target_user.name))
+            .transpose()?;
 
         Ok(RunOptions {
             command: if self.command.resolved {

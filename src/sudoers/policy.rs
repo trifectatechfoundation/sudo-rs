@@ -66,7 +66,7 @@ pub struct Restrictions<'a> {
     pub noexec: bool,
     pub env_keep: &'a HashSet<String>,
     pub env_check: &'a HashSet<String>,
-    pub chdir: DirChange<'a>,
+    pub chdir: DirChange,
     pub path: Option<&'a str>,
     pub umask: Umask,
     #[cfg(feature = "apparmor")]
@@ -76,8 +76,8 @@ pub struct Restrictions<'a> {
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[repr(u32)]
-pub enum DirChange<'a> {
-    Strict(Option<&'a SudoPath>) = HARDENED_ENUM_VALUE_0,
+pub enum DirChange {
+    Strict(Option<SudoPath>) = HARDENED_ENUM_VALUE_0,
     Any = HARDENED_ENUM_VALUE_1,
 }
 
@@ -113,7 +113,12 @@ impl Judgement {
                     },
                     env_keep: self.settings.env_keep(),
                     env_check: self.settings.env_check(),
-                    chdir: match tag.cwd.as_ref() {
+                    chdir: match tag.cwd.clone().or_else(|| {
+                        // a `runcwd` default acts as the working directory when no explicit CWD was set
+                        self.settings
+                            .runcwd()
+                            .and_then(|s| super::basic_parser::Token::construct(s.to_string()).ok())
+                    }) {
                         None => DirChange::Strict(None),
                         Some(super::ChDir::Any) => DirChange::Any,
                         Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
@@ -230,7 +235,7 @@ mod test {
             flags: Some(Tag::default()),
             ..Default::default()
         };
-        fn chdir(judge: &mut Judgement) -> DirChange<'_> {
+        fn chdir(judge: &mut Judgement) -> DirChange {
             let Authorization::Allowed(_, ctl) = judge.authorization() else {
                 panic!()
             };
@@ -240,8 +245,8 @@ mod test {
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Any));
         assert_eq!(chdir(&mut judge), DirChange::Any);
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/usr".into())));
-        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/usr".into()))));
+        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some("/usr".into()))));
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/bin".into())));
-        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/bin".into()))));
+        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some("/bin".into()))));
     }
 }
