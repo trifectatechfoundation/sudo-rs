@@ -281,6 +281,13 @@ fn permission_test() {
     pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/ls, /bin/true"], "user" => request! { sudo }, "server"; "/bin/true");
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
+    SYNTAX!(["Host_Alias CHROOT = server"]);
+    SYNTAX!(["User_Alias CWD = user1"]);
+    SYNTAX!(["User_Alias NOTAFTER = user1"]);
+    SYNTAX!(["Runas_Alias NOTBEFORE = root"]);
+    SYNTAX!(["Cmnd_Alias TIMEOUT = /bin/ls"]);
+    SYNTAX!(["User_Alias ROLE = sudouser"]);
+    SYNTAX!(["User_Alias TYPE = sudouser"]);
 
     pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
     FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
@@ -591,8 +598,17 @@ fn nullbyte_regression() {
 }
 
 #[test]
-fn alias_all_regression() {
-    assert!(try_parse_line("User_Alias ALL = sudouser").is_none())
+fn reserved_alias_names_are_rejected_for_alias_definitions() {
+    for line in [
+        "User_Alias ALL = sudouser",
+        "User_Alias CWD = sudouser",
+        "Host_Alias CHROOT = server",
+        "Cmnd_Alias TIMEOUT = /bin/ls",
+        "Runas_Alias NOTBEFORE = root",
+        "User_Alias NOTAFTER = sudouser",
+    ] {
+        assert!(try_parse_line(line).is_none(), "{line}");
+    }
 }
 
 #[test]
