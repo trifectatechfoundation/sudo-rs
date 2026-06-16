@@ -354,9 +354,7 @@ fn user_alias_keywords() {
 
         if super::is_reserved_alias_keyword(bad_keyword) {
             assert!(
-                stderr.contains("reserved alias")
-                    || stderr.contains("reserved word")
-                    || stderr.contains("syntax error"),
+                stderr.contains("reserved word") || stderr.contains("syntax error"),
                 "{stderr}"
             );
         } else {

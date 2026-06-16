@@ -629,7 +629,7 @@ where
             unrecoverable!(
                 pos = begin_pos,
                 stream,
-                "the reserved alias {} cannot be redefined",
+                "reserved word {} used as an alias name",
                 name
             );
         }
