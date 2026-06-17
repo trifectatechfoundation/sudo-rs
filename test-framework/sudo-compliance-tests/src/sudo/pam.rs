@@ -446,3 +446,30 @@ cat {pam_env_value} >&3"#
     let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
     assert_pam_tty_matches_expected(&expected, &pam_env);
 }
+
+#[test]
+fn pam_tty_with_background_stdin_here_string_uses_controlling_tty() {
+    let (tmp_dir, pam_env_value) = test_temp_paths("background-stdin-here-string");
+
+    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+
+    let stdout = Command::new("bash")
+        .arg("-c")
+        .arg(format!(
+            r#"exec 3>&1
+expected_tty=$(tty <&3)
+set -m
+sudo -S -p '' true <<< '{PASSWORD}' >/dev/null 2>&1 &
+sudo_pid=$!
+wait "$sudo_pid"
+printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
+cat {pam_env_value} >&3"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
+    assert_pam_tty_matches_expected(&expected, &pam_env);
+}
