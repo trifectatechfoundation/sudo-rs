@@ -5,14 +5,12 @@ use std::{
     path::Path,
 };
 
-use crate::system::{Process, WithProcess, term::Terminal};
+use crate::system::{DeviceId, Process, WithProcess, term::Terminal};
 
 pub(super) fn ttyname_from_dev() -> io::Result<Option<OsString>> {
     let Ok(Some(tty_dev)) = Process::tty_device_id(WithProcess::Current) else {
         return Ok(None);
     };
-
-    let tty_dev = tty_dev.inner();
 
     let tty_name = dev_check(Path::new("/dev/console"), tty_dev)
         .or_else(|| ttyname_from_stdioe(tty_dev))
@@ -26,11 +24,11 @@ pub(super) fn ttyname_from_dev() -> io::Result<Option<OsString>> {
     }
 }
 
-fn is_our_tty(metadata: fs::Metadata, tty_dev: libc::dev_t) -> bool {
-    metadata.file_type().is_char_device() && metadata.rdev() == tty_dev
+fn is_our_tty(metadata: fs::Metadata, tty_dev: DeviceId) -> bool {
+    metadata.file_type().is_char_device() && metadata.rdev() == tty_dev.inner()
 }
 
-fn ttyname_from_stdioe(tty_dev: libc::dev_t) -> Option<OsString> {
+fn ttyname_from_stdioe(tty_dev: DeviceId) -> Option<OsString> {
     [
         io::stdin().ttyname(),
         io::stdout().ttyname(),
@@ -41,18 +39,14 @@ fn ttyname_from_stdioe(tty_dev: libc::dev_t) -> Option<OsString> {
     .find_map(|ttyname| dev_check(ttyname.as_ref(), tty_dev))
 }
 
-fn dev_check(path: &Path, tty_dev: libc::dev_t) -> Option<OsString> {
+fn dev_check(path: &Path, tty_dev: DeviceId) -> Option<OsString> {
     let metadata = fs::metadata(path).ok()?;
 
-    if is_our_tty(metadata, tty_dev) {
-        Some(path.into())
-    } else {
-        None
-    }
+    is_our_tty(metadata, tty_dev).then(|| path.into())
 }
 
-fn find_tty_in_dir(dir: &Path, tty_dev: libc::dev_t) -> Option<OsString> {
-    for entry in fs::read_dir(dir).ok()?.flatten() {
+fn find_tty_in_dir(dir: &Path, tty_dev: DeviceId) -> Option<OsString> {
+    for entry in fs::read_dir(dir).ok()?.filter_map(|entry| entry.ok()) {
         if let Ok(metadata) = entry.metadata() {
             if is_our_tty(metadata, tty_dev) {
                 return Some(entry.path().into());
