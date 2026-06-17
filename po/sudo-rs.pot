@@ -49,7 +49,7 @@ msgstr ""
 msgid "Cwd"
 msgstr ""
 
-#: src/pam/askpass.rs:55
+#: src/pam/askpass.rs:53
 #, rust-format
 msgid "Failed to run askpass program {path}: {error}"
 msgstr ""
@@ -130,39 +130,39 @@ msgstr ""
 msgid "input needed"
 msgstr ""
 
-#: src/system/audit.rs:155
+#: src/system/audit.rs:181
 #, rust-format
 msgid "{path} must be owned by root"
 msgstr ""
 
-#: src/system/audit.rs:160
+#: src/system/audit.rs:186
 #, rust-format
 msgid "{path} cannot be group-writable"
 msgstr ""
 
-#: src/system/audit.rs:165
+#: src/system/audit.rs:191
 #, rust-format
 msgid "{path} cannot be world-writable"
 msgstr ""
 
-#: src/system/audit.rs:206
+#: src/system/audit.rs:228 src/system/audit.rs:253
 #, rust-format
 msgid "{path} has no valid parent directory"
 msgstr ""
 
-#: src/system/audit.rs:285
+#: src/system/audit.rs:331
 msgid "invalid path"
 msgstr ""
 
-#: src/system/audit.rs:293
+#: src/system/audit.rs:339
 msgid "path must be absolute"
 msgstr ""
 
-#: src/system/audit.rs:305 src/system/audit.rs:329
+#: src/system/audit.rs:351 src/system/audit.rs:375
 msgid "cannot open a file in a path writable by the user"
 msgstr ""
 
-#: src/system/audit.rs:347
+#: src/system/audit.rs:393
 msgid "error in provided path"
 msgstr ""
 
@@ -279,57 +279,57 @@ msgstr ""
 msgid "{error}"
 msgstr ""
 
-#: src/sudo/edit.rs:217
+#: src/sudo/edit.rs:215
 #, rust-format
 msgid "failed to create temporary directory: {error}"
 msgstr ""
 
-#: src/sudo/edit.rs:225
+#: src/sudo/edit.rs:223
 #, rust-format
 msgid "failed to create temporary directory {path}: {error}"
 msgstr ""
 
-#: src/sudo/edit.rs:239
+#: src/sudo/edit.rs:237
 #, rust-format
 msgid "failed to create temporary file {path}: {error}"
 msgstr ""
 
-#: src/sudo/edit.rs:248
+#: src/sudo/edit.rs:246
 #, rust-format
 msgid "failed to write to temporary file {path}: {error}"
 msgstr ""
 
-#: src/sudo/edit.rs:268
+#: src/sudo/edit.rs:266
 #, rust-format
 msgid "failed to run editor {path}: {error}"
 msgstr ""
 
-#: src/sudo/edit.rs:289
+#: src/sudo/edit.rs:287
 #, rust-format
 msgid "failed to read from temporary file {path}: {error}"
 msgstr ""
 
-#: src/sudo/edit.rs:298
+#: src/sudo/edit.rs:296
 #, rust-format
 msgid "failed to remove temporary file {path}: {error}"
 msgstr ""
 
 #. TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
-#: src/sudo/edit.rs:307
+#: src/sudo/edit.rs:305
 msgid "yn"
 msgstr ""
 
-#: src/sudo/edit.rs:311
+#: src/sudo/edit.rs:309
 #, rust-format
 msgid "sudoedit: truncate {path} to zero? (y/n) [n] "
 msgstr ""
 
-#: src/sudo/edit.rs:324
+#: src/sudo/edit.rs:322
 #, rust-format
 msgid "not overwriting {path}"
 msgstr ""
 
-#: src/sudo/edit.rs:328 src/sudo/edit.rs:337
+#: src/sudo/edit.rs:326 src/sudo/edit.rs:335
 #, rust-format
 msgid "failed to write data to parent: {error}"
 msgstr ""
