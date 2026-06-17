@@ -398,3 +398,27 @@ cat {pam_env_value} >&3"#
     let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
     assert_pam_tty_matches_expected(&expected, &pam_env);
 }
+
+#[test]
+fn pam_tty_is_set_when_stdout_is_closed_even_if_stdin_stderr_are_ttys() {
+    let (tmp_dir, pam_env_value) = test_temp_paths("stdout-closed-stdin-stderr-ttys");
+
+    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"exec 3>&1
+expected_tty=$(tty <&3)
+sudo true >&-
+printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
+cat {pam_env_value} >&3"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
+    assert_pam_tty_matches_expected(&expected, &pam_env);
+}
