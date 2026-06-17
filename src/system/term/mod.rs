@@ -258,7 +258,7 @@ impl<F: AsFd> Terminal for F {
 /// Try to get the path of the current TTY
 pub fn current_tty_name() -> io::Result<OsString> {
     #[cfg(target_os = "linux")]
-    if let Ok(Some(tty_name)) = find_tty::ttyname_from_dev() {
+    if let Some(tty_name) = find_tty::ttyname_from_dev() {
         return Ok(tty_name);
     }
 
