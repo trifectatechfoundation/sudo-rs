@@ -4,6 +4,7 @@ use sudo_test::{Command, Env, User};
 
 use crate::{PASSWORD, USERNAME};
 
+#[cfg(target_os = "linux")]
 mod env;
 
 #[test]
