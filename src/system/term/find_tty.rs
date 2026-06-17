@@ -8,22 +8,15 @@ use std::{
 use crate::system::{Process, WithProcess};
 
 pub(super) fn ttyname_from_dev() -> Option<OsString> {
-    let Ok(Some(tty_dev)) = Process::tty_device_id(WithProcess::Current) else {
-        return None;
-    };
+    let tty_dev = Process::tty_device_id(WithProcess::Current)
+        .ok()
+        .flatten()?
+        .inner();
 
-    let tty_dev = tty_dev.inner();
-    if let Some(tty_name) = ttyname_from_proc_self_fd(tty_dev) {
-        return Some(tty_name);
-    }
-    if let Some(tty_name) = dev_check(Path::new("/dev/console"), tty_dev) {
-        return Some(tty_name);
-    }
-    if let Some(tty_name) = find_tty_in_dir(Path::new("/dev/pts"), tty_dev) {
-        return Some(tty_name);
-    }
-
-    find_tty_in_dir(Path::new("/dev"), tty_dev)
+    dev_check(Path::new("/dev/console"), tty_dev)
+        .or_else(|| ttyname_from_proc_self_fd(tty_dev))
+        .or_else(|| find_tty_in_dir(Path::new("/dev/pts"), tty_dev))
+        .or_else(|| find_tty_in_dir(Path::new("/dev"), tty_dev))
 }
 
 fn ttyname_from_proc_self_fd(tty_dev: libc::dev_t) -> Option<OsString> {
@@ -57,17 +50,11 @@ fn dev_check(path: &Path, tty_dev: libc::dev_t) -> Option<OsString> {
 }
 
 fn find_tty_in_dir(dir: &Path, tty_dev: libc::dev_t) -> Option<OsString> {
-    for entry in fs::read_dir(dir).ok()? {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(_) => continue,
-        };
-        let metadata = match entry.metadata() {
-            Ok(metadata) => metadata,
-            Err(_) => continue,
-        };
-        if metadata.file_type().is_char_device() && metadata.rdev() == tty_dev {
-            return Some(entry.path().into_os_string());
+    for entry in fs::read_dir(dir).ok()?.flatten() {
+        if let Ok(metadata) = entry.metadata() {
+            if metadata.file_type().is_char_device() && metadata.rdev() == tty_dev {
+                return Some(entry.path().into_os_string());
+            }
         }
     }
 
