@@ -7,16 +7,23 @@ use std::{
 
 use crate::system::{Process, WithProcess, term::Terminal};
 
-pub(super) fn ttyname_from_dev() -> Option<OsString> {
-    let tty_dev = Process::tty_device_id(WithProcess::Current)
-        .ok()
-        .flatten()?
-        .inner();
+pub(super) fn ttyname_from_dev() -> io::Result<Option<OsString>> {
+    let Ok(Some(tty_dev)) = Process::tty_device_id(WithProcess::Current) else {
+        return Ok(None);
+    };
 
-    dev_check(Path::new("/dev/console"), tty_dev)
+    let tty_dev = tty_dev.inner();
+
+    let tty_name = dev_check(Path::new("/dev/console"), tty_dev)
         .or_else(|| ttyname_from_stdioe(tty_dev))
         .or_else(|| find_tty_in_dir(Path::new("/dev/pts"), tty_dev))
-        .or_else(|| find_tty_in_dir(Path::new("/dev"), tty_dev))
+        .or_else(|| find_tty_in_dir(Path::new("/dev"), tty_dev));
+
+    if tty_name.is_some() {
+        Ok(tty_name)
+    } else {
+        Err(io::ErrorKind::NotFound.into())
+    }
 }
 
 fn is_our_tty(metadata: fs::Metadata, tty_dev: libc::dev_t) -> bool {
