@@ -77,15 +77,6 @@ pub fn sudo_version() -> SudoVersion {
     }
 }
 
-/// Location of the sudo pam config
-pub const PAM_D_SUDO_PATH: &str = "/etc/pam.d/sudo";
-/// The default `/etc/pam.d/sudo` on Debian
-pub const STOCK_PAM_D_SUDO: &str = "#%PAM-1.0\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session-noninteractive";
-/// Location of the su pam config
-pub const PAM_D_SU_PATH: &str = "/etc/pam.d/su";
-/// The default `/etc/pam.d/su` on Debian
-pub const STOCK_PAM_D_SU: &str = "#%PAM-1.0\nauth       sufficient pam_rootok.so\nsession    optional   pam_mail.so nopen\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session";
-
 enum SudoUnderTest {
     Ours,
     Theirs,
@@ -130,9 +121,11 @@ pub fn Env(sudoers: impl Into<TextFile>) -> EnvBuilder {
         .insert_str(0, "Defaults !fqdn, !lecture, !mailerpath\n");
     builder.file(ETC_SUDOERS, sudoers);
 
-    // Ubuntu uses pam_env to set a bunch of extra env vars that various tests don't expect to be set.
-    builder.default_file(PAM_D_SUDO_PATH, STOCK_PAM_D_SUDO);
-    builder.default_file(PAM_D_SU_PATH, STOCK_PAM_D_SU);
+    if cfg!(target_os = "linux") {
+        // Ubuntu uses pam_env to set a bunch of extra env vars that various tests don't expect to be set.
+        builder.default_file(PAM_D_SUDO_PATH, STOCK_PAM_D_SUDO);
+        builder.default_file(PAM_D_SU_PATH, STOCK_PAM_D_SU);
+    }
 
     if cfg!(target_os = "freebsd") {
         // Many tests expect the users group to exist, but FreeBSD doesn't actually use it.

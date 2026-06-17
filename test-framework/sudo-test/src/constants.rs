@@ -67,3 +67,20 @@ pub const BIN_BASH: &str = "/usr/bin/bash";
 /// The path to the `bash` binary.
 #[cfg(target_os = "freebsd")]
 pub const BIN_BASH: &str = "/usr/local/bin/bash";
+
+/// Location of the sudo pam config
+#[cfg(target_os = "linux")]
+pub const PAM_D_SUDO_PATH: &str = "/etc/pam.d/sudo";
+
+/// Location of the sudo pam config
+#[cfg(target_os = "freebsd")]
+pub const PAM_D_SUDO_PATH: &str = "/usr/local/etc/pam.d/sudo";
+
+/// The default pam config on Debian
+pub const STOCK_PAM_D_SUDO: &str = "#%PAM-1.0\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session-noninteractive";
+
+/// Location of the su pam config
+pub const PAM_D_SU_PATH: &str = "/etc/pam.d/su";
+
+/// The default `/etc/pam.d/su` on Debian
+pub const STOCK_PAM_D_SU: &str = "#%PAM-1.0\nauth       sufficient pam_rootok.so\nsession    optional   pam_mail.so nopen\nsession    required   pam_limits.so\n@include common-auth\n@include common-account\n@include common-session";
