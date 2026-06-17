@@ -19,6 +19,10 @@ pub(super) fn ttyname_from_dev() -> Option<OsString> {
         .or_else(|| find_tty_in_dir(Path::new("/dev"), tty_dev))
 }
 
+fn is_our_tty(metadata: fs::Metadata, tty_dev: libc::dev_t) -> bool {
+    metadata.file_type().is_char_device() && metadata.rdev() == tty_dev
+}
+
 fn ttyname_from_proc_self_fd(tty_dev: libc::dev_t) -> Option<OsString> {
     for fd in libc::STDIN_FILENO..=libc::STDERR_FILENO {
         let mut st = std::mem::MaybeUninit::<libc::stat>::uninit();
@@ -42,8 +46,8 @@ fn ttyname_from_proc_self_fd(tty_dev: libc::dev_t) -> Option<OsString> {
 fn dev_check(path: &Path, tty_dev: libc::dev_t) -> Option<OsString> {
     let metadata = fs::metadata(path).ok()?;
 
-    if metadata.file_type().is_char_device() && metadata.rdev() == tty_dev {
-        Some(path.as_os_str().to_os_string())
+    if is_our_tty(metadata, tty_dev) {
+        Some(path.into())
     } else {
         None
     }
@@ -52,8 +56,8 @@ fn dev_check(path: &Path, tty_dev: libc::dev_t) -> Option<OsString> {
 fn find_tty_in_dir(dir: &Path, tty_dev: libc::dev_t) -> Option<OsString> {
     for entry in fs::read_dir(dir).ok()?.flatten() {
         if let Ok(metadata) = entry.metadata() {
-            if metadata.file_type().is_char_device() && metadata.rdev() == tty_dev {
-                return Some(entry.path().into_os_string());
+            if is_our_tty(metadata, tty_dev) {
+                return Some(entry.path().into());
             }
         }
     }
