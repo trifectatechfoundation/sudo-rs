@@ -127,13 +127,13 @@ We recommend installing sudo-rs and su-rs in your `/usr/local` hierarchy so it d
 manager of your Linux distribution. You can achieve this using the commands:
 
 ```sh
-sudo tar -C /usr/local -xvf sudo-0.2.13.tar.gz
+sudo tar -C /usr/local -xvf sudo-0.2.14.tar.gz
 ```
 
 and for su-rs:
 
 ```sh
-sudo tar -C /usr/local -xvf su-0.2.13.tar.gz
+sudo tar -C /usr/local -xvf su-0.2.14.tar.gz
 ```
 
 This will install sudo-rs and su-rs in `/usr/local/bin` using the usual commands `sudo`, `visudo`, `sudoedit` and `su`. Please double check
