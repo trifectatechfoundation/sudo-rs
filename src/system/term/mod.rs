@@ -269,19 +269,10 @@ pub fn current_tty_name() -> io::Result<OsString> {
         }
     }
 
-    if let Some(tty_name) = [
-        std::io::stdin().ttyname(),
-        std::io::stdout().ttyname(),
-        std::io::stderr().ttyname(),
-    ]
-    .into_iter()
-    .flatten()
-    .next()
-    {
-        return Ok(tty_name);
-    }
-
-    Err(io::ErrorKind::Unsupported.into())
+    io::stdin()
+        .ttyname()
+        .or_else(|_| io::stdout().ttyname())
+        .or_else(|_| io::stderr().ttyname())
 }
 
 #[cfg(target_os = "linux")]
