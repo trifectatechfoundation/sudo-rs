@@ -16,9 +16,16 @@ fn build_pam_capture_env() -> sudo_test::Env {
     Env("ALL ALL=(ALL:ALL) ALL")
         .user(USERNAME)
         .file(
+            "/tmp/env",
+            r#"#! /bin/sh
+umask a+r
+/usr/bin/env > "$1"
+"#,
+        )
+        .file(
             "/etc/pam.d/sudo",
             format!(
-                r#"auth optional pam_exec.so log={PAM_ENV_VALUE} /usr/bin/env
+                r#"auth optional pam_exec.so /bin/sh /tmp/env {PAM_ENV_VALUE}
 auth sufficient pam_permit.so"#
             ),
         )

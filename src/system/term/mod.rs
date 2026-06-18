@@ -15,7 +15,6 @@ use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 
 use super::interface::ProcessId;
 
-#[cfg(target_os = "linux")]
 mod find_tty;
 
 pub(crate) use user_term::UserTerm;
@@ -257,7 +256,6 @@ impl<F: AsFd> Terminal for F {
 
 /// Try to get the path of the current TTY
 pub fn current_tty_name() -> io::Result<OsString> {
-    #[cfg(target_os = "linux")]
     if let Some(tty) = find_tty::ttyname_from_dev()? {
         return Ok(tty);
     }
