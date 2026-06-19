@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use sudo_test::{Command, Directory, Env, User};
+use sudo_test::{Command, Env, User};
 
 use crate::{PASSWORD, USERNAME};
 
@@ -10,25 +10,15 @@ use crate::{PASSWORD, USERNAME};
 mod env;
 
 const TEST_ENV_EXPECTED_TTY: &str = "SUDO_RS_TEST_ENV_EXPECTED_TTY";
+const PAM_ENV_VALUE: &str = "/tmp/PAM_ENV_VALUE";
 
-fn test_temp_paths(test_name: &str) -> (String, String) {
-    let base = std::env::temp_dir().join(format!("sudo-rs-pam-{test_name}"));
-    let value = base.join("pam_env_value");
-
-    (
-        base.to_string_lossy().into_owned(),
-        value.to_string_lossy().into_owned(),
-    )
-}
-
-fn build_pam_capture_env(tmp_dir: &str, pam_env_value: &str) -> sudo_test::Env {
+fn build_pam_capture_env() -> sudo_test::Env {
     Env("ALL ALL=(ALL:ALL) ALL")
         .user(USERNAME)
-        .directory(Directory(tmp_dir).chmod("777"))
         .file(
             "/etc/pam.d/sudo",
             format!(
-                r#"auth optional pam_exec.so log={pam_env_value} /usr/bin/env
+                r#"auth optional pam_exec.so log={PAM_ENV_VALUE} /usr/bin/env
 auth sufficient pam_permit.so"#
             ),
         )
@@ -181,9 +171,7 @@ fn sudo_dash_i_uses_correct_service_file() {
 
 #[test]
 fn pam_tty_is_set_when_stdio_fds_are_not_ttys() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdio-fds-not-ttys");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -193,7 +181,7 @@ expected_tty=$(tty <&3)
 exec </dev/null >/dev/null 2>&1
 sudo true
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -206,9 +194,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_with_stdout_redirect_uses_stdin_tty() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdout-not-a-tty");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -218,7 +204,7 @@ expected_tty=$(tty <&3)
 exec >/dev/null
 sudo true
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -231,9 +217,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_with_stderr_redirect_uses_stdin_tty() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stderr-not-a-tty");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -242,7 +226,7 @@ fn pam_tty_with_stderr_redirect_uses_stdin_tty() {
 expected_tty=$(tty <&3)
 sudo true 2>/dev/null
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -255,9 +239,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_with_stdout_and_stderr_redirect_uses_stdin_tty() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdout-and-stderr-not-ttys");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -266,7 +248,7 @@ fn pam_tty_with_stdout_and_stderr_redirect_uses_stdin_tty() {
 expected_tty=$(tty <&3)
 sudo true >/dev/null 2>&1
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -279,9 +261,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_is_set_when_stdin_is_closed_and_stdio_fds_are_not_ttys() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdin-closed-stdio-not-ttys");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -291,7 +271,7 @@ expected_tty=$(tty <&3)
 exec 0<&- >/dev/null 2>&1
 sudo true
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -304,9 +284,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_is_set_when_stdin_is_closed_even_if_stdout_stderr_are_ttys() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdin-closed-stdout-stderr-ttys");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -316,7 +294,7 @@ expected_tty=$(tty <&3)
 exec 0<&-
 sudo true
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -329,9 +307,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_is_set_when_stdin_is_devnull_even_if_stdout_stderr_are_ttys() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdin-devnull-stdout-stderr-ttys");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -341,7 +317,7 @@ expected_tty=$(tty <&3)
 exec </dev/null
 sudo true
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -354,9 +330,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_is_not_pts_when_command_has_no_tty() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("no-tty");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -364,7 +338,7 @@ fn pam_tty_is_not_pts_when_command_has_no_tty() {
             r#"expected_tty=$(tty -s || echo '')
 sudo true
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty"
-cat {pam_env_value}"#
+cat {PAM_ENV_VALUE}"#
         ))
         .as_user(USERNAME)
         .output(&env)
@@ -377,9 +351,7 @@ cat {pam_env_value}"#
 
 #[test]
 fn pam_tty_with_stdin_pipe_uses_controlling_tty() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdin-pipe");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -388,7 +360,7 @@ fn pam_tty_with_stdin_pipe_uses_controlling_tty() {
 expected_tty=$(tty <&3)
 printf 'through-a-pipe\n' | sudo true >/dev/null 2>&1
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -401,9 +373,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_is_set_when_stdout_is_closed_even_if_stdin_stderr_are_ttys() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdout-closed-stdin-stderr-ttys");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("sh")
         .arg("-c")
@@ -412,7 +382,7 @@ fn pam_tty_is_set_when_stdout_is_closed_even_if_stdin_stderr_are_ttys() {
 expected_tty=$(tty <&3)
 sudo true >&-
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -425,9 +395,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_with_stdin_here_string_uses_controlling_tty() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("stdin-here-string");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("bash")
         .arg("-c")
@@ -436,7 +404,7 @@ fn pam_tty_with_stdin_here_string_uses_controlling_tty() {
 expected_tty=$(tty <&3)
 sudo -S -p '' true <<< '{PASSWORD}'
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
@@ -449,9 +417,7 @@ cat {pam_env_value} >&3"#
 
 #[test]
 fn pam_tty_with_background_stdin_here_string_uses_controlling_tty() {
-    let (tmp_dir, pam_env_value) = test_temp_paths("background-stdin-here-string");
-
-    let env = build_pam_capture_env(tmp_dir.as_str(), pam_env_value.as_str());
+    let env = build_pam_capture_env();
 
     let stdout = Command::new("bash")
         .arg("-c")
@@ -463,7 +429,7 @@ sudo -S -p '' true <<< '{PASSWORD}' >/dev/null 2>&1 &
 sudo_pid=$!
 wait "$sudo_pid"
 printf '%s=%s\n' '{TEST_ENV_EXPECTED_TTY}' "$expected_tty" >&3
-cat {pam_env_value} >&3"#
+cat {PAM_ENV_VALUE} >&3"#
         ))
         .as_user(USERNAME)
         .tty(true)
