@@ -148,7 +148,7 @@ A Host_List is made up of one or more host names.  Again, the value of an item m
               '!'* "list"
               '!'* "sudoedit" [file name]
 
-A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the Wildcards section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments that have to be used, in which case the command line has to match exactly. You can use the special argument "" to indicate that the command may only be run *without* command line arguments, or the argument ‘*’ to match any trailing arguments. You cannot use wildcards inside the argument list.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
+A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the *Wildcards* section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments that have to be used, in which case the command line has to match exactly. You can use the special argument "" to indicate that the command may only be run *without* command line arguments, or the argument ‘*’ to match any trailing arguments. You cannot use wildcards inside the argument list.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
 
 If a Cmnd has associated command line arguments, then the arguments in the Cmnd must match exactly those given by the user on the command line.
 Note that the following characters must be escaped with a ‘\\’ if they are used in command arguments: ‘,’, ‘:’, ‘=’, ‘\\’.
@@ -278,7 +278,7 @@ In the following example, user aaron may run /usr/bin/more and /usr/bin/vi but s
 
         aaron   shanty = NOEXEC: /usr/bin/more, /usr/bin/vi
 
-See the _Preventing shell escapes_ section below for more details on how NOEXEC works and whether or not it suits your purpose.
+See the *Preventing shell escapes* section below for more details on how NOEXEC works and whether or not it suits your purpose.
 
 ### PASSWD and NOPASSWD
 
@@ -381,7 +381,7 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 * noexec
 
-  If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the Preventing shell escapes section at the end of this manual.  This flag is off by default.
+  If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the *Preventing shell escapes* section at the end of this manual.  This flag is off by default.
 
 * noninteractive_auth
   If set, authentication will be attempted even in non-interactive mode (when sudo's -n option is specified).  This allows authentication methods that don't require user interaction to succeed.  Authentication methods that require input from the user's terminal will still fail.  If disabled, authentication will not be attempted in non-interactive mode.  This flag is off by default.
@@ -445,6 +445,10 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 * apparmor_profile
 
   The default AppArmor profile to transition into when executing a command. The default apparmor_profile can be overridden for individual sudoers entries by specifying the APPARMOR_PROFILE option. This option is only available when sudo-rs is built with AppArmor support. This option is not set by default.
+
+* runcwd
+
+  If set, sudo will use this value for the working directory when running a command. The special value “\*” will allow the user to specify the working directory via sudo's -D option.  See the *Chdir_Spec* section for more details.
 
 * secure_path
 
