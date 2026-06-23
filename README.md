@@ -118,6 +118,12 @@ apk add sudo-rs
 
 This will install the `sudo`, `visudo` and `sudoedit` commands (but not replace `su`, which is still offered through BusyBox).
 
+To install the `sudo-rs` version of `su`, which is packaged separately, run:
+
+```sh
+apk add sudo-rs-su
+```
+
 ### Installing our pre-compiled x86-64 binaries
 
 You can also switch to sudo-rs manually by using our pre-compiled tarballs.
