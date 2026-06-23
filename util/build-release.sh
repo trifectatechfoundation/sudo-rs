@@ -29,52 +29,50 @@ target_su="$TARGET_DIR_BASE/su-$SUDO_RS_VERSION.tar.gz"
 set -x
 
 # Build sudo
-umask u=rwx,g=rx,o=rx
-mkdir -p "$target_dir_sudo/bin"
-mkdir -p "$target_dir_sudo/share/man/man8"
-mkdir -p "$target_dir_sudo/share/man/man5"
-cat "$PROJECT_DIR/target/release/sudo" > "$target_dir_sudo/bin/sudo"
-cat "$PROJECT_DIR/target/release/visudo" > "$target_dir_sudo/bin/visudo"
+install -d -m 0755 "$target_dir_sudo/bin"
+install -d -m 0755 "$target_dir_sudo/share/man/man8"
+install -d -m 0755 "$target_dir_sudo/share/man/man5"
+install -m 0755 "$PROJECT_DIR/target/release/sudo" "$target_dir_sudo/bin/sudo"
+install -m 0755 "$PROJECT_DIR/target/release/visudo" "$target_dir_sudo/bin/visudo"
 ln -s sudo "$target_dir_sudo/bin/sudoedit"
-cat "$PROJECT_DIR/docs/man/sudo.8.man" > "$target_dir_sudo/share/man/man8/sudo.8"
-cat "$PROJECT_DIR/docs/man/visudo.8.man" > "$target_dir_sudo/share/man/man8/visudo.8"
-cat "$PROJECT_DIR/docs/man/sudoers.5.man" > "$target_dir_sudo/share/man/man5/sudoers.5"
+install -m 0644 "$PROJECT_DIR/docs/man/sudo.8.man" "$target_dir_sudo/share/man/man8/sudo.8"
+install -m 0644 "$PROJECT_DIR/docs/man/visudo.8.man" "$target_dir_sudo/share/man/man8/visudo.8"
+install -m 0644 "$PROJECT_DIR/docs/man/sudoers.5.man" "$target_dir_sudo/share/man/man5/sudoers.5"
 ln -s "sudo.8" "$target_dir_sudo/share/man/man8/sudoedit.8"
-mkdir -p "$target_dir_sudo/share/doc/sudo-rs/sudo"
-cat "$PROJECT_DIR/README.md" > "$target_dir_sudo/share/doc/sudo-rs/sudo/README.md"
-cat "$PROJECT_DIR/CHANGELOG.md" > "$target_dir_sudo/share/doc/sudo-rs/sudo/CHANGELOG.md"
-cat "$PROJECT_DIR/SECURITY.md" > "$target_dir_sudo/share/doc/sudo-rs/sudo/SECURITY.md"
-cat "$PROJECT_DIR/COPYRIGHT" > "$target_dir_sudo/share/doc/sudo-rs/sudo/COPYRIGHT"
-cat "$PROJECT_DIR/LICENSE-APACHE" > "$target_dir_sudo/share/doc/sudo-rs/sudo/LICENSE-APACHE"
-cat "$PROJECT_DIR/LICENSE-MIT" > "$target_dir_sudo/share/doc/sudo-rs/sudo/LICENSE-MIT"
+install -d -m 0755 "$target_dir_sudo/share/doc/sudo-rs/sudo"
+install -m 0644 "$PROJECT_DIR/README.md" "$target_dir_sudo/share/doc/sudo-rs/sudo/README.md"
+install -m 0644 "$PROJECT_DIR/CHANGELOG.md" "$target_dir_sudo/share/doc/sudo-rs/sudo/CHANGELOG.md"
+install -m 0644 "$PROJECT_DIR/SECURITY.md" "$target_dir_sudo/share/doc/sudo-rs/sudo/SECURITY.md"
+install -m 0644 "$PROJECT_DIR/COPYRIGHT" "$target_dir_sudo/share/doc/sudo-rs/sudo/COPYRIGHT"
+install -m 0644 "$PROJECT_DIR/LICENSE-APACHE" "$target_dir_sudo/share/doc/sudo-rs/sudo/LICENSE-APACHE"
+install -m 0644 "$PROJECT_DIR/LICENSE-MIT" "$target_dir_sudo/share/doc/sudo-rs/sudo/LICENSE-MIT"
 
 fakeroot -- bash <<EOF
 set -eo pipefail
 set -x
 chown -R root:root "$target_dir_sudo"
-chmod +xs "$target_dir_sudo/bin/sudo"
-chmod +x "$target_dir_sudo/bin/visudo"
+chmod 4755 "$target_dir_sudo/bin/sudo"
 (cd $target_dir_sudo && tar --mtime="UTC $DATE 00:00:00" --sort=name --use-compress-program='gzip -9n' -cpvf "$target_sudo" *)
 EOF
 
 # Build su
-mkdir -p "$target_dir_su/bin"
-mkdir -p "$target_dir_su/share/man/man1"
-cat "$PROJECT_DIR/target/release/su" > "$target_dir_su/bin/su"
-cat "$PROJECT_DIR/docs/man/su.1.man" > "$target_dir_su/share/man/man1/su.1"
-mkdir -p "$target_dir_su/share/doc/sudo-rs/su"
-cat "$PROJECT_DIR/README.md" > "$target_dir_su/share/doc/sudo-rs/su/README.md"
-cat "$PROJECT_DIR/CHANGELOG.md" > "$target_dir_su/share/doc/sudo-rs/su/CHANGELOG.md"
-cat "$PROJECT_DIR/SECURITY.md" > "$target_dir_su/share/doc/sudo-rs/su/SECURITY.md"
-cat "$PROJECT_DIR/COPYRIGHT" > "$target_dir_su/share/doc/sudo-rs/su/COPYRIGHT"
-cat "$PROJECT_DIR/LICENSE-APACHE" > "$target_dir_su/share/doc/sudo-rs/su/LICENSE-APACHE"
-cat "$PROJECT_DIR/LICENSE-MIT" > "$target_dir_su/share/doc/sudo-rs/su/LICENSE-MIT"
+install -d -m 0755 "$target_dir_su/bin"
+install -d -m 0755 "$target_dir_su/share/man/man1"
+install -m 0755 "$PROJECT_DIR/target/release/su" "$target_dir_su/bin/su"
+install -m 0644 "$PROJECT_DIR/docs/man/su.1.man" "$target_dir_su/share/man/man1/su.1"
+install -d -m 0755 "$target_dir_su/share/doc/sudo-rs/su"
+install -m 0644 "$PROJECT_DIR/README.md" "$target_dir_su/share/doc/sudo-rs/su/README.md"
+install -m 0644 "$PROJECT_DIR/CHANGELOG.md" "$target_dir_su/share/doc/sudo-rs/su/CHANGELOG.md"
+install -m 0644 "$PROJECT_DIR/SECURITY.md" "$target_dir_su/share/doc/sudo-rs/su/SECURITY.md"
+install -m 0644 "$PROJECT_DIR/COPYRIGHT" "$target_dir_su/share/doc/sudo-rs/su/COPYRIGHT"
+install -m 0644 "$PROJECT_DIR/LICENSE-APACHE" "$target_dir_su/share/doc/sudo-rs/su/LICENSE-APACHE"
+install -m 0644 "$PROJECT_DIR/LICENSE-MIT" "$target_dir_su/share/doc/sudo-rs/su/LICENSE-MIT"
 
 fakeroot -- bash <<EOF
 set -eo pipefail
 set -x
 chown -R root:root "$target_dir_su"
-chmod +xs "$target_dir_su/bin/su"
+chmod 4755 "$target_dir_su/bin/su"
 (cd $target_dir_su && tar --mtime="UTC $DATE 00:00:00" --sort=name --use-compress-program='gzip -9n' -cpvf "$target_su" *)
 EOF
 
