@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.2.14] - 2026-06-23
+
+### Added
+- Support for `Defaults runcwd` (#1448)
+- Experimental support for receiving a sudoers configuration over a socket.
+  To enable, build with with `--features unstable-remote-sudoers`; this will
+  allow configuring the `@socket` directive in `/etc/sudoers`.
+- Spanish, German and Simplified Chinese translations
+
+### Changed
+- `su` will allow changing to an account that has no password set, like util-linux
+  and FreeBSD `su`. Also, minor fixes in `su` documentation (#1516)
+- PAM account modules now also run for sudoedit (#1612)
+- Reserved keywords are now rejected as alias names (#700)
+- Password feedback is more thoroughly cleared from the TTY (#1599)
+
+### Fixed
+- Groups with many users were not loaded properly (#1572)
+- Suspended processes would not always be properly resumed (#1527, #1598)
+- `PAM_TTY` was not always properly computed (#1593)
+- sudo would refuse to run if `no_new_privs` is set but caller is root (#1581)
+- Erroneous parse error if line continuations were used inside the argument list
+  of a /etc/sudoers rule (#1571)
+- `visudo` gave incorrect syntax errors for relative @include paths (#1524)
+- Minor parse errors in host-specific Defaults and uid/gids (#1509, #1602)
+- Papercuts in the TAB shortcut used to disable pwfeedback (#1504, #1514)
+
 ## [0.2.13] - 2026-03-10
 
 ### Added
