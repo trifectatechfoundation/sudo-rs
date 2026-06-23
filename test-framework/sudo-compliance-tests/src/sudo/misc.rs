@@ -400,3 +400,22 @@ fn rootpw_takes_priority_over_targetpw() {
         .output(&env);
     assert!(!output.status().success());
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn tish_you_spoke_french() {
+    let env = Env("")
+        .file("/tmp/install-po.sh", include_str!("misc/install-po.sh"))
+        .build();
+
+    let _output = Command::new("sh").arg("/tmp/install-po.sh").output(&env);
+    assert_contains!(_output.stdout(), "Generation complete.");
+
+    let output = Command::new("env")
+        .arg("LANG=fy_NL.utf8")
+        .args(["sudo", "true"])
+        .output(&env);
+
+    output.assert_exit_code(1);
+    assert_contains!(output.stderr(), "twadde weach");
+}
