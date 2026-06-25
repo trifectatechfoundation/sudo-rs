@@ -545,7 +545,10 @@ impl Group {
                 )
             };
             match result {
-                0 => Ok(Some(buf.len())),
+                // These values signify the group doesn't exist, so send a "garbage" response
+                // that asks Rust to make no changes to the buffer size (since no actual group is filled in), triggering the
+                // `grp_ptr.is_null()` check and then cascading into a group not found message
+                0 | libc::ENOENT | libc::ESRCH | libc::EBADF | libc::EPERM => Ok(Some(buf.len())),
                 libc::ERANGE => Ok(None),
                 _ => Err(io::Error::from_raw_os_error(result)),
             }
@@ -593,7 +596,10 @@ impl Group {
                 )
             };
             match result {
-                0 => Ok(Some(buf.len())),
+                // These values signify the group doesn't exist, so send a "garbage" response
+                // that asks Rust to make no changes to the buffer size (since no actual group is filled in), triggering the
+                // `grp_ptr.is_null()` check and then cascading into a group not found message
+                0 | libc::ENOENT | libc::ESRCH | libc::EBADF | libc::EPERM => Ok(Some(buf.len())),
                 libc::ERANGE => Ok(None),
                 _ => Err(io::Error::from_raw_os_error(result)),
             }
@@ -932,6 +938,13 @@ mod tests {
             assert_eq!(root.gid, id);
             assert_eq!(root.name.unwrap(), name);
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_group_lookup_fails_gracefully() {
+        assert_eq!(Group::from_gid(GroupId::new(32767)).unwrap(), None);
+        assert_eq!(Group::from_name(c"nosuchgroupexists").unwrap(), None);
     }
 
     #[test]
