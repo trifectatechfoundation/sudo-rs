@@ -1,3 +1,6 @@
+use std::sync::mpsc;
+use std::time::Duration;
+
 use sudo_test::{Command, Env, TextFile, User};
 
 #[test]
@@ -86,5 +89,62 @@ fn correct_password_with_tab() {
             .as_user(username)
             .output(&env)
             .assert_success();
+    }
+}
+
+#[test]
+fn sigttou_in_foreground_does_not_deadlock_sudo() {
+    let inner_sh = "\
+for _ in 1 2 3 4; do
+    kill -TTOU $$
+done
+echo did-not-deadlock
+";
+
+    let launch_pl = r#"use strict;
+use warnings;
+use POSIX ();
+
+my $pid = fork();
+die "fork failed: $!" unless defined $pid;
+if ($pid == 0) {
+    POSIX::setpgid(0, 0) or die "setpgid (child) failed: $!";
+    exec("sh", "-c", "sudo sh /root/inner.sh | cat") or die "exec failed: $!";
+}
+POSIX::setpgid($pid, $pid);
+eval { POSIX::tcsetpgrp(0, $pid) };
+
+waitpid($pid, 0);
+exit($? == 0 ? 0 : 1);
+"#;
+
+    let env = Env(TextFile("ALL ALL=(ALL:ALL) NOPASSWD: ALL").chmod("644"))
+        .file("/root/inner.sh", TextFile(inner_sh).chmod("755"))
+        .file("/root/launch.pl", TextFile(launch_pl).chmod("755"))
+        .build();
+
+    let child = Command::new("perl")
+        .arg("/root/launch.pl")
+        // a tty is required for sudo to run the command in a pty
+        .tty(true)
+        .spawn(&env);
+
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(child.wait());
+    });
+
+    match rx.recv_timeout(Duration::from_secs(30)) {
+        Ok(output) => {
+            output.assert_success();
+            assert!(
+                output.stdout_unchecked().contains("did-not-deadlock"),
+                "unexpected output: {:?}",
+                output.stdout_unchecked()
+            );
+        }
+        Err(_) => panic!(
+            "sudo deadlocked after the command was stopped twice by SIGTTOU"
+        ),
     }
 }
