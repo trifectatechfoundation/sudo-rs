@@ -43,9 +43,6 @@ dev = []
 # compilation using "cargo --all-features", which should not be used on sudo-rs
 do-not-use-all-features = []
 
-# sudoedit support is now always enabled. this feature only exists for back compat reasons
-sudoedit = []
-
 [profile.release]
 strip = "symbols"
 lto = true
