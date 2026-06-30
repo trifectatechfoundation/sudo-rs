@@ -8,6 +8,7 @@ use super::{Judgement, Sudoers};
 use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
 };
+use crate::defaults::enums;
 use crate::exec::Umask;
 use crate::sudoers::ast::{EnvironmentControl, ExecControl, Tag};
 use crate::system::{Hostname, User};
@@ -33,6 +34,7 @@ pub struct Authentication {
     pub pwfeedback: bool,
     pub password_timeout: Option<Duration>,
     pub noninteractive_auth: bool,
+    pub scope: AuthenticationScope,
 }
 
 impl super::Settings {
@@ -45,6 +47,10 @@ impl super::Settings {
             password_timeout: match self.passwd_timeout() {
                 0 => None,
                 timeout => Some(Duration::from_secs(timeout)),
+            },
+            scope: match self.timestamp_type() {
+                enums::timestamp_type::tty => AuthenticationScope::Tty,
+                enums::timestamp_type::ppid => AuthenticationScope::PPid,
             },
             noninteractive_auth: self.noninteractive_auth(),
             credential: if self.rootpw() {
@@ -96,6 +102,16 @@ pub enum AuthenticatingUser {
     InvokingUser = HARDENED_ENUM_VALUE_0,
     Root = HARDENED_ENUM_VALUE_1,
     TargetUser = HARDENED_ENUM_VALUE_2,
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
+/// The scope for the authentication being re-used:
+/// - Tty: valid for all future invocations in this TTY
+/// - PPid: valid for all future invocations under the current parent
+pub enum AuthenticationScope {
+    Tty = HARDENED_ENUM_VALUE_0,
+    PPid = HARDENED_ENUM_VALUE_1,
 }
 
 impl Judgement {
@@ -220,6 +236,7 @@ mod test {
                 pwfeedback: true,
                 noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
+                scope: AuthenticationScope::Tty,
             },
         );
 
@@ -238,6 +255,7 @@ mod test {
                 pwfeedback: true,
                 noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
+                scope: AuthenticationScope::Tty,
             },
         );
         assert_eq!(restrictions, restrictions2);
