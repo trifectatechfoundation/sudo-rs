@@ -104,6 +104,7 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
         // see `SudoOptions::validate`
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         debug_assert!(reset_timestamp);
+
         reject_all("--reset-timestamp", opts)?;
 
         Ok(Self {})
@@ -154,6 +155,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
                 option = "--stdin"
             ));
         }
+
         reject_all("--validate", opts)?;
 
         Ok(Self {
