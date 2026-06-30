@@ -938,7 +938,6 @@ mod tests {
         }
     }
 
-    #[cfg(target_os = "linux")]
     #[test]
     fn test_group_lookup_fails_gracefully() {
         assert_eq!(Group::from_gid(GroupId::new(32767)).unwrap(), None);
