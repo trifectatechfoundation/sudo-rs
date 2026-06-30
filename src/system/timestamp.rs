@@ -418,9 +418,10 @@ impl RecordScope {
     }
 
     /// Tries to determine a record match scope for the current context.
+    /// This tries tying credentials to the TTY first before falling back to parent PID mode.
     /// This should never produce an error since any actual error should just be
     /// ignored and no session record file should be used in that case.
-    pub fn for_process(process: &Process) -> Option<RecordScope> {
+    pub fn for_tty(process: &Process) -> Option<RecordScope> {
         let tty = Process::tty_device_id(WithProcess::Current);
         if let Ok(Some(tty_device)) = tty {
             if let Ok(init_time) = Process::starting_time(WithProcess::Other(process.session_id)) {
@@ -433,7 +434,17 @@ impl RecordScope {
                 auth_warn!("Could not get terminal foreground process starting time");
                 None
             }
-        } else if let Some(parent_pid) = process.parent_pid {
+        } else {
+            Self::for_ppid(process)
+        }
+    }
+
+    /// Tries to determine a record match scope for the current context.
+    /// Trying credentials tied to the parent PID only.
+    /// This should never produce an error since any actual error should just be
+    /// ignored and no session record file should be used in that case.
+    pub fn for_ppid(process: &Process) -> Option<RecordScope> {
+        if let Some(parent_pid) = process.parent_pid {
             if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
                 Some(RecordScope::Ppid {
                     group_pid: parent_pid,
