@@ -10,7 +10,8 @@ use crate::pam::PamContext;
 use crate::sudo::env::environment;
 use crate::sudo::pam::{InitPamArgs, attempt_authenticate, init_pam, pre_exec};
 use crate::sudoers::{
-    AuthenticatingUser, Authentication, Authorization, Judgement, Logging, Sudoers,
+    AuthenticatingUser, Authentication, AuthenticationScope, Authorization, Judgement, Logging,
+    Sudoers,
 };
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
@@ -166,8 +167,11 @@ fn auth_and_update_record_file(
         }
     };
 
-    //TODO: we should indicate the preference for Ppid to RecordScope::for_process
-    let scope = RecordScope::for_tty(&Process::new());
+    let scope = match scope {
+        AuthenticationScope::Tty => RecordScope::for_tty(&Process::new()),
+        AuthenticationScope::PPid => RecordScope::for_ppid(&Process::new()),
+    };
+
     let mut auth_status = determine_auth_status(
         must_authenticate,
         context.use_session_records,
