@@ -22,7 +22,7 @@ use std::{fs, mem};
 
 use libc::{
     ECHO, ECHONL, ICANON, SIGALRM, SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGTSTP, SIGTTIN, SIGTTOU,
-    TCSANOW, VEOF, VERASE, VKILL, tcsetattr, termios,
+    TCSANOW, VEOF, VERASE, VKILL, VWERASE, tcsetattr, termios,
 };
 
 use crate::cutils::{cerr, safe_isatty};
@@ -259,7 +259,9 @@ fn read_unbuffered(
                 continue;
             }
 
-            if read_byte == input.term_orig.c_cc[VKILL] {
+            if read_byte == input.term_orig.c_cc[VKILL]
+                || read_byte == input.term_orig.c_cc[VWERASE]
+            {
                 feedback.clear();
                 password.fill(0);
                 pw_len = 0;
