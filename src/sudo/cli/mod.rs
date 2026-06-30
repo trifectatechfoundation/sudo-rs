@@ -88,7 +88,6 @@ impl TryFrom<SudoOptions> for SudoRemoveTimestampOptions {
         let remove_timestamp = mem::take(&mut opts.remove_timestamp);
         debug_assert!(remove_timestamp);
 
-        opts.env_var_list.clear();
         reject_all("--remove-timestamp", opts)?;
 
         Ok(Self {})
@@ -105,8 +104,6 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
         // see `SudoOptions::validate`
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         debug_assert!(reset_timestamp);
-
-        opts.env_var_list.clear();
         reject_all("--reset-timestamp", opts)?;
 
         Ok(Self {})
@@ -157,7 +154,6 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
                 option = "--stdin"
             ));
         }
-        opts.env_var_list.clear();
         reject_all("--validate", opts)?;
 
         Ok(Self {
@@ -829,7 +825,9 @@ fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(
     }
 }
 
-fn reject_all(context: &str, opts: SudoOptions) -> Result<(), String> {
+fn reject_all(context: &str, mut opts: SudoOptions) -> Result<(), String> {
+        // gh #1578: env var arguments are ignored for these actions, like original sudo
+    opts.env_var_list.clear();
     macro_rules! check_options {
         ($($field:ident $(= $name:expr)?,)*) => {{
             let SudoOptions { $($field),* } = opts;
