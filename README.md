@@ -274,6 +274,7 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 * `timestamp_type` is always set at `tty`.
 * `sudoedit_checkdir` is always `on`, and `sudoedit_follow` is always `off`.
 * `logfile` is not supported --- logging is always done via syslog.
+* `log_denied` is ignored -- denied invocations are always logged.
 
 Some other notable restrictions to be aware of:
 

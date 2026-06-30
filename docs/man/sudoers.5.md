@@ -379,11 +379,17 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 ### Boolean Flags:
 
+* log_allowed
+
+  If set, sudoers will log commands allowed by the policy to the system log.
+  This flag is on by default.
+
 * noexec
 
   If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the *Preventing shell escapes* section at the end of this manual.  This flag is off by default.
 
 * noninteractive_auth
+
   If set, authentication will be attempted even in non-interactive mode (when sudo's -n option is specified).  This allows authentication methods that don't require user interaction to succeed.  Authentication methods that require input from the user's terminal will still fail.  If disabled, authentication will not be attempted in non-interactive mode.  This flag is off by default.
 
 * env_editor
