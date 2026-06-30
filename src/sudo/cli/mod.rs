@@ -826,7 +826,7 @@ fn ensure_is_absent(context: &str, thing: &dyn IsAbsent, name: &str) -> Result<(
 }
 
 fn reject_all(context: &str, mut opts: SudoOptions) -> Result<(), String> {
-        // gh #1578: env var arguments are ignored for these actions, like original sudo
+    // actions that don't need env var arguments need to ignore them for compatibility with og-sudo.
     opts.env_var_list.clear();
     macro_rules! check_options {
         ($($field:ident $(= $name:expr)?,)*) => {{
