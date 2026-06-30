@@ -271,7 +271,7 @@ Exceptions to the above, with respect to your `/etc/sudoers` configuration:
 * `mail_badpass`, `always_set_home`, `always_query_group_plugin` and
   `match_group_by_gid` are not applicable to our implementation, but ignored for
   compatibility reasons.
-* `timestamp_type` is always set at `tty`.
+* `timestamp_type` can only be set to `tty` and `ppid`.
 * `sudoedit_checkdir` is always `on`, and `sudoedit_follow` is always `off`.
 * `logfile` is not supported --- logging is always done via syslog.
 

@@ -440,6 +440,16 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
   A colon (‘:’) separated list of editor path names used by **sudoedit** and **visudo**. For **sudoedit**, this list is used to find an editor when none of the SUDO_EDITOR, VISUAL or EDITOR environment variables are set to an editor that exists and is executable.  For **visudo**, it is used as a white list of allowed editors; **visudo** will choose the editor that matches the user's SUDO_EDITOR, VISUAL or EDITOR environment variable if possible, or the  first  editor in  the  list that exists and is executable if not. Unless invoked as **sudoedit**, sudo does not preserve the SUDO_EDITOR, VISUAL or EDITOR environment variables unless they are present in the **env_keep** list. The default on Linux is _/usr/bin/editor:/usr/bin/nano:/usr/bin/vi_. On FreeBSD the default is _/usr/bin/vi_.
 
+* timestamp_type
+
+  sudo-rs uses per-user timestamp files for credential caching.  The *timestamp_type* option can be used to specify the type of timestamp record used.  It has two possible values: _tty_ and _ppid_. There is no support for a _global_ or _kernel_ setting.
+
+  - _ppid_:  A single timestamp record is used for all processes with the same parent process ID (usually the shell).   Commands run from the same shell (or other common parent process) will not require a password while the timestamp is valid (see *timestamp_timeout*). Commands run via sudo with a different parent process ID, for example from a shell script, must be authenticated separately.
+
+  - _tty_:  One timestamp record is used for each terminal, which means that a user's login sessions are authenticated separately.  If no terminal is present, the behavior is the same as _ppid_.  Commands run from the same terminal will not require a password while the timestamp is valid.
+
+  The default value is **tty**.
+
 ## Strings that can be used in a boolean context:
 
 * apparmor_profile
