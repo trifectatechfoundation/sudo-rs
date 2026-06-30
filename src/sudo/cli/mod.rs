@@ -88,6 +88,7 @@ impl TryFrom<SudoOptions> for SudoRemoveTimestampOptions {
         let remove_timestamp = mem::take(&mut opts.remove_timestamp);
         debug_assert!(remove_timestamp);
 
+        opts.env_var_list.clear();
         reject_all("--remove-timestamp", opts)?;
 
         Ok(Self {})
@@ -105,6 +106,7 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
         let reset_timestamp = mem::take(&mut opts.reset_timestamp);
         debug_assert!(reset_timestamp);
 
+        opts.env_var_list.clear();
         reject_all("--reset-timestamp", opts)?;
 
         Ok(Self {})
@@ -155,7 +157,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
                 option = "--stdin"
             ));
         }
-
+        opts.env_var_list.clear();
         reject_all("--validate", opts)?;
 
         Ok(Self {
