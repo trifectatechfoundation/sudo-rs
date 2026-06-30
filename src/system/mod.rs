@@ -545,10 +545,10 @@ impl Group {
                 )
             };
             match result {
-                // These values signify the group doesn't exist, so send a "garbage" response
-                // that asks Rust to make no changes to the buffer size (since no actual group is filled in), triggering the
-                // `grp_ptr.is_null()` check and then cascading into a group not found message
-                0 | libc::ENOENT | libc::ESRCH | libc::EBADF | libc::EPERM => Ok(Some(buf.len())),
+                // These values signify the lookup could reach a conclusion (either the group exists,
+                // or it clearly doesn't). So don't try to increase the buffer size. If the group wasn't found,
+                // `grp_ptr` is set to NULL per the man page.
+                0 | libc::ENOENT => Ok(Some(buf.len())),
                 libc::ERANGE => Ok(None),
                 _ => Err(io::Error::from_raw_os_error(result)),
             }
@@ -596,10 +596,8 @@ impl Group {
                 )
             };
             match result {
-                // These values signify the group doesn't exist, so send a "garbage" response
-                // that asks Rust to make no changes to the buffer size (since no actual group is filled in), triggering the
-                // `grp_ptr.is_null()` check and then cascading into a group not found message
-                0 | libc::ENOENT | libc::ESRCH | libc::EBADF | libc::EPERM => Ok(Some(buf.len())),
+                // As above
+                0 | libc::ENOENT => Ok(Some(buf.len())),
                 libc::ERANGE => Ok(None),
                 _ => Err(io::Error::from_raw_os_error(result)),
             }
