@@ -165,7 +165,7 @@ fn auth_and_update_record_file(
     };
 
     //TODO: we should indicate the preference for Ppid to RecordScope::for_process
-    let scope = RecordScope::for_process(&Process::new());
+    let scope = RecordScope::for_tty(&Process::new());
     let mut auth_status = determine_auth_status(
         must_authenticate,
         context.use_session_records,
