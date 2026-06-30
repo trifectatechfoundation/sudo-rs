@@ -159,7 +159,8 @@ fn miscategorized_reset_timestamp_action() {
 
     output.assert_exit_code(1);
 }
-// gh #1578: these flags must IGNORE env var arguments, not reject them
+
+// gh #1578: these flags must ignore env var arguments, not reject them
 #[test]
 fn validate_ignores_env_var() {
     let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
