@@ -9,7 +9,7 @@ use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
 };
 use crate::exec::Umask;
-use crate::sudoers::ast::{ExecControl, Tag};
+use crate::sudoers::ast::{EnvironmentControl, ExecControl, Tag};
 use crate::system::{Hostname, User};
 use std::collections::HashSet;
 use std::time::Duration;
@@ -69,6 +69,7 @@ pub struct Restrictions<'a> {
     pub chdir: DirChange,
     pub path: Option<&'a str>,
     pub umask: Umask,
+    pub log: Logging,
     #[cfg(feature = "apparmor")]
     pub apparmor_profile: Option<String>,
 }
@@ -79,6 +80,14 @@ pub struct Restrictions<'a> {
 pub enum DirChange {
     Strict(Option<SudoPath>) = HARDENED_ENUM_VALUE_0,
     Any = HARDENED_ENUM_VALUE_1,
+}
+
+#[must_use]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
+pub enum Logging {
+    Auth = HARDENED_ENUM_VALUE_0,
+    Disabled = HARDENED_ENUM_VALUE_1,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -102,9 +111,9 @@ impl Judgement {
                 Restrictions {
                     use_pty: self.settings.use_pty(),
                     trust_environment: match tag.env {
-                        super::EnvironmentControl::Implicit => self.settings.setenv(),
-                        super::EnvironmentControl::Setenv => true,
-                        super::EnvironmentControl::Nosetenv => false,
+                        EnvironmentControl::Implicit => self.settings.setenv(),
+                        EnvironmentControl::Setenv => true,
+                        EnvironmentControl::Nosetenv => false,
                     },
                     noexec: match tag.noexec {
                         ExecControl::Implicit => self.settings.noexec(),
@@ -137,6 +146,11 @@ impl Judgement {
                         } else {
                             Umask::Extend(mask)
                         }
+                    },
+                    log: if self.settings.log_allowed() {
+                        Logging::Auth
+                    } else {
+                        Logging::Disabled
                     },
                     #[cfg(feature = "apparmor")]
                     apparmor_profile: tag

@@ -45,6 +45,9 @@ defaults! {
     noexec                    = false
     noninteractive_auth       = false
 
+    log_allowed               = true
+    log_denied                = true #ignored
+
     insults                   = false  #ignored
 
     setenv                    = false

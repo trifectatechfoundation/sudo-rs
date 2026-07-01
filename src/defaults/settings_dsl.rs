@@ -147,16 +147,16 @@ macro_rules! emit {
 macro_rules! defaults {
     ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])? $({$fn: expr})? $(#$attribute:ident)?)*) => {
         #[allow(non_camel_case_types)]
-        mod enums {
+        pub(crate) mod enums {
             $($(
                 #[derive(Clone,Copy,Debug,Default)]
                 #[cfg_attr(test, derive(PartialEq, Eq))]
-                pub enum $name { #[default] $($key),* }
+                pub(crate) enum $name { #[default] $($key),* }
             )?)*
         }
 
         #[derive(Clone)]
-        pub struct Settings {
+        pub(crate) struct Settings {
             $($name: storage_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value)),*
         }
 
@@ -164,7 +164,7 @@ macro_rules! defaults {
         impl Settings {
             $(
             emit! { $($attribute)?;
-                pub fn $name(&self) -> referent_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value) {
+                pub(crate) fn $name(&self) -> referent_of!($name, $(=int $fn;)?$(=int $first;)?$($(=enum $key;)*)? $value) {
                     result_of!(self.$name, $(=value $fn;)?$(=value $first;)?$($(=value $key;)*)? $value)
                 }
             }
@@ -179,7 +179,7 @@ macro_rules! defaults {
             }
         }
 
-        pub fn negate(name: &str) -> Option<SettingsModifier> {
+        pub(crate) fn negate(name: &str) -> Option<SettingsModifier> {
             match name {
                 $(
                 stringify!($name) if ifdef!($($negate)?; true; has_standard_negator!($value)) => {
@@ -196,7 +196,7 @@ macro_rules! defaults {
             }
         }
 
-        pub fn set(name: &str) -> Option<SettingKind> {
+        pub(crate) fn set(name: &str) -> Option<SettingKind> {
             match name {
             $(
                 stringify!($name) => Some(modifier_of!($name, $(=int $fn;)?$(=int $first ..= $last $(@ $radix)?;)?$($(=enum $key;)*)? $value)),
