@@ -545,7 +545,10 @@ impl Group {
                 )
             };
             match result {
-                0 => Ok(Some(buf.len())),
+                // These values signify the lookup could reach a conclusion (either the group exists,
+                // or it clearly doesn't). So don't try to increase the buffer size. If the group wasn't found,
+                // `grp_ptr` is set to NULL per the man page.
+                0 | libc::ENOENT => Ok(Some(buf.len())),
                 libc::ERANGE => Ok(None),
                 _ => Err(io::Error::from_raw_os_error(result)),
             }
@@ -593,7 +596,8 @@ impl Group {
                 )
             };
             match result {
-                0 => Ok(Some(buf.len())),
+                // As above
+                0 | libc::ENOENT => Ok(Some(buf.len())),
                 libc::ERANGE => Ok(None),
                 _ => Err(io::Error::from_raw_os_error(result)),
             }
@@ -932,6 +936,12 @@ mod tests {
             assert_eq!(root.gid, id);
             assert_eq!(root.name.unwrap(), name);
         }
+    }
+
+    #[test]
+    fn test_group_lookup_fails_gracefully() {
+        assert_eq!(Group::from_gid(GroupId::new(32767)).unwrap(), None);
+        assert_eq!(Group::from_name(c"nosuchgroupexists").unwrap(), None);
     }
 
     #[test]
