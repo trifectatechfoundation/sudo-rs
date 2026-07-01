@@ -147,7 +147,7 @@ macro_rules! emit {
 macro_rules! defaults {
     ($($name:ident = $value:tt $((!= $negate:tt))? $([$($key:ident),*])? $([$first:literal ..= $last:literal$(; radix: $radix: expr)?])? $({$fn: expr})? $(#$attribute:ident)?)*) => {
         #[allow(non_camel_case_types)]
-        mod enums {
+        pub mod enums {
             $($(
                 #[derive(Clone,Copy,Debug,Default)]
                 #[cfg_attr(test, derive(PartialEq, Eq))]

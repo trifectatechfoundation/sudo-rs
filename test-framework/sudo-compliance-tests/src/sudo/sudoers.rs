@@ -20,6 +20,7 @@ mod runcwd;
 mod secure_path;
 mod specific_defaults;
 mod timestamp_timeout;
+mod timestamp_type;
 mod user_list;
 
 const KEYWORDS: &[&str] = &[
