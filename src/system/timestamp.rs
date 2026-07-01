@@ -422,20 +422,19 @@ impl RecordScope {
     /// This should never produce an error since any actual error should just be
     /// ignored and no session record file should be used in that case.
     pub fn for_tty(process: &Process) -> Option<RecordScope> {
-        let tty = Process::tty_device_id(WithProcess::Current);
-        if let Ok(Some(tty_device)) = tty {
-            if let Ok(init_time) = Process::starting_time(WithProcess::Other(process.session_id)) {
-                Some(RecordScope::Tty {
-                    tty_device,
-                    session_pid: process.session_id,
-                    init_time,
-                })
-            } else {
-                auth_warn!("Could not get terminal foreground process starting time");
-                None
-            }
+        let Ok(Some(tty_device)) = Process::tty_device_id(WithProcess::Current) else {
+            return Self::for_ppid(process);
+        };
+
+        if let Ok(init_time) = Process::starting_time(WithProcess::Other(process.session_id)) {
+            Some(RecordScope::Tty {
+                tty_device,
+                session_pid: process.session_id,
+                init_time,
+            })
         } else {
-            Self::for_ppid(process)
+            auth_warn!("Could not get terminal foreground process starting time");
+            None
         }
     }
 
@@ -444,18 +443,16 @@ impl RecordScope {
     /// This should never produce an error since any actual error should just be
     /// ignored and no session record file should be used in that case.
     pub fn for_ppid(process: &Process) -> Option<RecordScope> {
-        if let Some(parent_pid) = process.parent_pid {
-            if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
-                Some(RecordScope::Ppid {
-                    group_pid: parent_pid,
-                    session_pid: process.session_id,
-                    init_time,
-                })
-            } else {
-                auth_warn!("Could not get parent process starting time");
-                None
-            }
+        let parent_pid = process.parent_pid?;
+
+        if let Ok(init_time) = Process::starting_time(WithProcess::Other(parent_pid)) {
+            Some(RecordScope::Ppid {
+                group_pid: parent_pid,
+                session_pid: process.session_id,
+                init_time,
+            })
         } else {
+            auth_warn!("Could not get parent process starting time");
             None
         }
     }
