@@ -4,7 +4,26 @@ use crate::{SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USER_ALL_ALL, USERNAME, helpers::R
 
 #[test]
 fn sudo_logs_every_executed_command() {
-    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+    for log_allowed in ["", "Defaults log_allowed"] {
+        let env = Env([log_allowed, SUDOERS_ALL_ALL_NOPASSWD]).build();
+        let rsyslog = Rsyslogd::start(&env);
+
+        let auth_log = rsyslog.auth_log();
+        assert_eq!("", auth_log);
+
+        Command::new("sudo")
+            .arg("true")
+            .output(&env)
+            .assert_success();
+
+        let auth_log = rsyslog.auth_log();
+        assert_contains!(auth_log, format!("COMMAND={BIN_TRUE}"));
+    }
+}
+
+#[test]
+fn sudo_respects_log_allowed() {
+    let env = Env(["Defaults !log_allowed", SUDOERS_ALL_ALL_NOPASSWD]).build();
     let rsyslog = Rsyslogd::start(&env);
 
     let auth_log = rsyslog.auth_log();
@@ -16,7 +35,7 @@ fn sudo_logs_every_executed_command() {
         .assert_success();
 
     let auth_log = rsyslog.auth_log();
-    assert_contains!(auth_log, format!("COMMAND={BIN_TRUE}"));
+    assert_not_contains!(auth_log, format!("COMMAND="));
 }
 
 #[test]
