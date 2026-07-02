@@ -763,19 +763,6 @@ fn regression_check_recursion() {
 }
 
 #[cfg(feature = "unstable-remote-sudoers")]
-enum ExpectedUser<'a> {
-    Name(&'a str),
-    Uid(u32),
-}
-
-#[cfg(feature = "unstable-remote-sudoers")]
-enum ExpectedGroup<'a> {
-    Name(&'a str),
-    Gid(u32),
-    None,
-}
-
-#[cfg(feature = "unstable-remote-sudoers")]
 fn assert_remote_failure(line: &str, expected_msg: &str) {
     let [Err(Status::Fatal(_, msg)), ..] = &parse_lines::<Sudo>(&mut CharStream::new(line))[..]
     else {
@@ -789,50 +776,17 @@ fn assert_remote_failure(line: &str, expected_msg: &str) {
 fn assert_remote(
     line: &str,
     expected_path: &str,
-    expected_user: ExpectedUser,
-    expected_group: ExpectedGroup,
+    expected_user: Identifier,
+    expected_group: Option<Identifier>,
 ) {
-    use crate::sudoers::ast::{Identifier, Sudo};
-
     let result = parse_line(line);
-    let Sudo::Remote(path, peer_spec, _) = result else {
+    let ast::Sudo::Remote(path, peer_spec, _) = result else {
         panic!("Expected Sudo::Remote");
     };
 
     assert_eq!(path, expected_path);
-
-    match expected_user {
-        ExpectedUser::Name(name) => {
-            let Identifier::Name(actual_name) = &peer_spec.user else {
-                panic!("Expected user name '{}'", name);
-            };
-            assert_eq!(actual_name.as_ref(), name);
-        }
-        ExpectedUser::Uid(uid) => {
-            let Identifier::ID(actual_uid) = &peer_spec.user else {
-                panic!("Expected user ID {}", uid);
-            };
-            assert_eq!(*actual_uid, uid);
-        }
-    }
-
-    match expected_group {
-        ExpectedGroup::Name(name) => {
-            let Some(Identifier::Name(actual_name)) = &peer_spec.group else {
-                panic!("Expected group name '{}'", name);
-            };
-            assert_eq!(actual_name.as_ref(), name);
-        }
-        ExpectedGroup::Gid(gid) => {
-            let Some(Identifier::ID(actual_gid)) = &peer_spec.group else {
-                panic!("Expected group ID {}", gid);
-            };
-            assert_eq!(*actual_gid, gid);
-        }
-        ExpectedGroup::None => {
-            assert!(peer_spec.group.is_none(), "Expected no group");
-        }
-    }
+    assert_eq!(expected_user, peer_spec.user);
+    assert_eq!(expected_group, peer_spec.group);
 }
 
 #[test]
@@ -841,29 +795,29 @@ fn remote_parsing() {
     assert_remote(
         "@socket (user1:group1) /var/run/fake-1.socket",
         "/var/run/fake-1.socket",
-        ExpectedUser::Name("user1"),
-        ExpectedGroup::Name("group1"),
+        Identifier::Name("user1".into()),
+        Some(Identifier::Name("group1".into())),
     );
 
     assert_remote(
         "@socket (#2000:#2000) /var/run/fake-2.socket",
         "/var/run/fake-2.socket",
-        ExpectedUser::Uid(2000),
-        ExpectedGroup::Gid(2000),
+        Identifier::ID(2000),
+        Some(Identifier::ID(2000)),
     );
 
     assert_remote(
         "@socket (user3:#3000) /var/run/fake-3.socket",
         "/var/run/fake-3.socket",
-        ExpectedUser::Name("user3"),
-        ExpectedGroup::Gid(3000),
+        Identifier::Name("user3".into()),
+        Some(Identifier::ID(3000)),
     );
 
     assert_remote(
         "@socket (user4) /var/run/fake-4.socket",
         "/var/run/fake-4.socket",
-        ExpectedUser::Name("user4"),
-        ExpectedGroup::None,
+        Identifier::Name("user4".into()),
+        None,
     );
 
     assert_remote_failure("@socket", "expected user credentials in parentheses");
