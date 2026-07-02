@@ -736,7 +736,7 @@ fn analyze(
         Include = HARDENED_ENUM_VALUE_0,
         IncludeDir = HARDENED_ENUM_VALUE_1,
         #[cfg(feature = "unstable-remote-sudoers")]
-        Remote = HARDENED_ENUM_VALUE_2,
+        Remote(PeerSpec) = HARDENED_ENUM_VALUE_2,
     }
 
     impl fmt::Display for IncludeDirective {
@@ -745,7 +745,7 @@ fn analyze(
                 IncludeDirective::Include => "@include",
                 IncludeDirective::IncludeDir => "@includedir",
                 #[cfg(feature = "unstable-remote-sudoers")]
-                IncludeDirective::Remote => "@socket",
+                IncludeDirective::Remote(_) => "@socket",
             };
             write!(f, "{s}")
         }
@@ -770,8 +770,6 @@ fn analyze(
         diagnostics: &'a mut Vec<Error>,
         include_state: &'a mut IncludeState,
         include_source: IncludeDirective,
-        #[cfg(feature = "unstable-remote-sudoers")]
-        peer_spec: Option<&'a ast::PeerSpec>,
     }
 
     fn include(cfg: &mut Sudoers, ctx: IncludeContext) {
@@ -797,16 +795,11 @@ fn analyze(
         } else {
             let (res, next_state, kind) = match ctx.include_source {
                 #[cfg(feature = "unstable-remote-sudoers")]
-                IncludeDirective::Remote => {
-                    let peer = ctx
-                        .peer_spec
-                        .expect("peer_spec required for Remote include");
-                    (
-                        open_remote_sudoers(ctx.path, peer),
-                        &mut IncludeState::Forbidden,
-                        "socket",
-                    )
-                }
+                IncludeDirective::Remote(peer) => (
+                    open_remote_sudoers(ctx.path, &peer),
+                    &mut IncludeState::Forbidden,
+                    "socket",
+                ),
                 _ => (open_sudoers(ctx.path), ctx.include_state.inc(), "file"),
             };
 
@@ -883,8 +876,6 @@ fn analyze(
                             diagnostics,
                             include_state,
                             include_source: IncludeDirective::Include,
-                            #[cfg(feature = "unstable-remote-sudoers")]
-                            peer_spec: None,
                         },
                     ),
 
@@ -908,8 +899,7 @@ fn analyze(
                                     span,
                                     diagnostics,
                                     include_state,
-                                    include_source: IncludeDirective::Remote,
-                                    peer_spec: Some(&peer_spec),
+                                    include_source: IncludeDirective::Remote(peer_spec),
                                 },
                             );
                         }
@@ -959,8 +949,6 @@ fn analyze(
                                     diagnostics,
                                     include_state,
                                     include_source: IncludeDirective::IncludeDir,
-                                    #[cfg(feature = "unstable-remote-sudoers")]
-                                    peer_spec: None,
                                 },
                             )
                         }
