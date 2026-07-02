@@ -122,14 +122,6 @@ macro_rules! sudoer {
     }
 }
 
-#[cfg(feature = "unstable-remote-sudoers")]
-macro_rules! sudoer_err {
-    ($($e:expr),*) => {
-        parse_lines(&mut CharStream::new(&[$($e),*, ""].join("\n")))
-            .into_iter()
-    }
-}
-
 // alternative to parse_eval, but goes through sudoer! directly
 #[must_use]
 fn parse_line(s: &str) -> Sudo {
@@ -785,16 +777,11 @@ enum ExpectedGroup<'a> {
 
 #[cfg(feature = "unstable-remote-sudoers")]
 fn assert_remote_failure(line: &str, expected_msg: &str) {
-    let option: Option<Result<Sudo, Status>> = sudoer_err![line].next();
-    let result = option.expect("Expected Some");
-
-    let Err(status) = result else {
-        panic!("Expected Err");
+    let [Err(Status::Fatal(_, msg)), ..] = &parse_lines::<Sudo>(&mut CharStream::new(line))[..]
+    else {
+        panic!("Expected Fatal error");
     };
 
-    let Status::Fatal(_, msg) = status else {
-        panic!("Expected Fatal status");
-    };
     assert_eq!(msg, expected_msg);
 }
 
