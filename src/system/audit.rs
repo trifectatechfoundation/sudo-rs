@@ -268,75 +268,57 @@ fn secure_open_impl(
 }
 
 #[cfg(feature = "unstable-remote-sudoers")]
-fn check_user(peer_uid: libc::uid_t, user_id: &Identifier) -> io::Result<()> {
-    match user_id {
-        Identifier::Name(name) => {
-            let name_cstr = CString::new(name.as_ref()).map_err(|_| {
-                io::Error::new(io::ErrorKind::InvalidInput, "user name contains null byte")
-            })?;
-            let expected_user = User::from_name(&name_cstr)
-                .map_err(|e| io::Error::other(e.to_string()))?
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::NotFound, format!("user '{name}' not found"))
-                })?;
-            if peer_uid != expected_user.uid.inner() {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!(
-                        "peer process must run as user '{name}' (uid {}) but runs as {peer_uid}",
-                        expected_user.uid.inner()
-                    ),
-                ));
-            }
-        }
-        Identifier::ID(uid) => {
-            if peer_uid != *uid {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!("peer process must run as uid {uid} but runs as {peer_uid}"),
-                ));
-            }
-        }
+fn check_peer<Id>(
+    peer_identity: Id,
+    expected: Option<&Identifier>,
+    class: &str,
+    lookup: impl Fn(&CStr) -> Option<Id>,
+    from_u32: impl Fn(u32) -> Id,
+) -> io::Result<()>
+where
+    Id: std::fmt::Display + Copy + PartialEq,
+{
+    let expected = match expected {
+        Some(Identifier::Name(name)) => lookup(name.as_cstr()).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("{class} '{name}' not found"),
+            )
+        })?,
+        Some(Identifier::ID(id)) => from_u32(*id),
+        None => return Ok(()),
+    };
+
+    if peer_identity == expected {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("peer process must run as {class} {expected} but runs as {peer_identity}"),
+        ))
     }
-    Ok(())
 }
 
 #[cfg(feature = "unstable-remote-sudoers")]
-fn check_group(peer_gid: libc::gid_t, group_id: Option<&Identifier>) -> io::Result<()> {
-    let Some(group_id) = group_id else {
-        return Ok(());
-    };
+fn check_group(peer_gid: GroupId, maybe_group: Option<&Identifier>) -> io::Result<()> {
+    check_peer(
+        peer_gid,
+        maybe_group,
+        "group",
+        |name| Group::from_name(name).ok().flatten().map(|x| x.gid),
+        GroupId::new,
+    )
+}
 
-    match group_id {
-        Identifier::Name(name) => {
-            let name_cstr = CString::new(name.as_ref()).map_err(|_| {
-                io::Error::new(io::ErrorKind::InvalidInput, "group name contains null byte")
-            })?;
-            let expected_group = Group::from_name(&name_cstr)
-                .map_err(|e| io::Error::other(e.to_string()))?
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::NotFound, format!("group '{name}' not found"))
-                })?;
-            if peer_gid != expected_group.gid.inner() {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!(
-                        "peer process must run as group '{name}' (gid {}) but runs as gid {peer_gid}",
-                        expected_group.gid.inner()
-                    ),
-                ));
-            }
-        }
-        Identifier::ID(gid) => {
-            if peer_gid != *gid {
-                return Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!("peer process must run as gid {gid} but runs as {peer_gid}"),
-                ));
-            }
-        }
-    }
-    Ok(())
+#[cfg(feature = "unstable-remote-sudoers")]
+fn check_user(peer_uid: UserId, user: &Identifier) -> io::Result<()> {
+    check_peer(
+        peer_uid,
+        Some(user),
+        "user",
+        |name| User::from_name(name).ok().flatten().map(|x| x.uid),
+        UserId::new,
+    )
 }
 
 // Open the socket at path, provided that it is "secure".
@@ -366,8 +348,8 @@ fn secure_open_socket_impl(path: &Path, peer_spec: &PeerSpec) -> io::Result<BufR
 
     // If there is an error in these checks, the function returns immediately
     // leaving `stream` out of scope and forcing the closing of the socket.
-    check_user(peer_creds.uid, &peer_spec.user)?;
-    check_group(peer_creds.gid, peer_spec.group.as_ref())?;
+    check_user(UserId::new(peer_creds.uid), &peer_spec.user)?;
+    check_group(GroupId::new(peer_creds.gid), peer_spec.group.as_ref())?;
 
     stream.shutdown(Shutdown::Write)?;
     let reader = BufReader::new(stream);
