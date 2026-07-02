@@ -574,8 +574,6 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         } else {
             let value_pos = stream.get_pos();
             let IncludePath(path) = expect_nonterminal(stream)?;
-            skip_trailing_whitespace(stream)?;
-            // After skipping whitespaces, the next char should be '\n'
             if stream.peek() != Some('\n') {
                 unrecoverable!(
                     pos = value_pos,
