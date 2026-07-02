@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use super::ast;
 use super::char_stream::CharStream;
 use super::*;
-use basic_parser::{parse_eval, parse_lines, parse_string};
+use basic_parser::{Status, parse_eval, parse_lines, parse_string};
 
 impl<T> Qualified<T> {
     pub fn as_allow(&self) -> Option<&T> {
@@ -760,6 +760,71 @@ fn regression_check_recursion() {
     );
 
     assert!(!error.is_empty());
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn assert_remote_failure(line: &str, expected_msg: &str) {
+    let [Err(Status::Fatal(_, msg)), ..] = &parse_lines::<Sudo>(&mut CharStream::new(line))[..]
+    else {
+        panic!("Expected Fatal error");
+    };
+
+    assert_eq!(msg, expected_msg);
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn assert_remote(
+    line: &str,
+    expected_path: &str,
+    expected_user: Identifier,
+    expected_group: Option<Identifier>,
+) {
+    let result = parse_line(line);
+    let ast::Sudo::Remote(path, peer_spec, _) = result else {
+        panic!("Expected Sudo::Remote");
+    };
+
+    assert_eq!(path, expected_path);
+    assert_eq!(expected_user, peer_spec.user);
+    assert_eq!(expected_group, peer_spec.group);
+}
+
+#[test]
+#[cfg(feature = "unstable-remote-sudoers")]
+fn remote_parsing() {
+    assert_remote(
+        "@socket ( user1:group1) /var/run/fake-1.socket",
+        "/var/run/fake-1.socket",
+        Identifier::Name("user1".into()),
+        Some(Identifier::Name("group1".into())),
+    );
+
+    assert_remote(
+        "@socket (#2000: #2000) /var/run/fake-2.socket",
+        "/var/run/fake-2.socket",
+        Identifier::ID(2000),
+        Some(Identifier::ID(2000)),
+    );
+
+    assert_remote(
+        "@socket (user3:#3000) /var/run/fake-3.socket",
+        "/var/run/fake-3.socket",
+        Identifier::Name("user3".into()),
+        Some(Identifier::ID(3000)),
+    );
+
+    assert_remote(
+        "@socket (user4) /var/run/fake-4.socket",
+        "/var/run/fake-4.socket",
+        Identifier::Name("user4".into()),
+        None,
+    );
+
+    assert_remote_failure("@socket", "expected elem");
+    assert_remote_failure("@socket /path/socket.5", "expected elem");
+    assert_remote_failure("@socket () /var/run/fake-6.socket", "expected elem");
+    assert_remote_failure("@socket (:#7000) /var/run/fake-7.socket", "expected elem");
+    assert_remote_failure("@socket (:user8) /var/run/fake-8.socket", "expected elem");
 }
 
 fn test_topo_sort(n: usize) {

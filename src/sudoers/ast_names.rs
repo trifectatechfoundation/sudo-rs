@@ -120,6 +120,11 @@ mod names {
     impl<T: UserFriendly> UserFriendly for tokens::Unquoted<T> {
         const DESCRIPTION: &'static str = T::DESCRIPTION;
     }
+
+    #[cfg(feature = "unstable-remote-sudoers")]
+    impl UserFriendly for PeerSpec {
+        const DESCRIPTION: &'static str = "user credentials in parentheses";
+    }
 }
 
 #[cfg(test)]

@@ -54,6 +54,14 @@ pub enum UserSpecifier {
     NonunixGroup(Identifier) = HARDENED_ENUM_VALUE_2,
 }
 
+/// Peer credentials specification for @socket directive
+#[cfg(feature = "unstable-remote-sudoers")]
+#[cfg_attr(test, derive(Clone, Debug))]
+pub struct PeerSpec {
+    pub user: Identifier,
+    pub group: Option<Identifier>,
+}
+
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
 pub struct RunAs {
     pub users: SpecList<UserSpecifier>,
@@ -159,7 +167,7 @@ pub enum Sudo {
     Include(String, Span) = HARDENED_ENUM_VALUE_2,
     IncludeDir(String, Span) = HARDENED_ENUM_VALUE_3,
     #[cfg(feature = "unstable-remote-sudoers")]
-    Remote(String, Span) = HARDENED_ENUM_VALUE_4,
+    Remote(String, PeerSpec, Span) = HARDENED_ENUM_VALUE_4,
     LineComment = HARDENED_ENUM_VALUE_5,
 }
 
@@ -556,6 +564,24 @@ impl Parse for Sudo {
     }
 }
 
+#[cfg(feature = "unstable-remote-sudoers")]
+impl Parse for PeerSpec {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
+        try_syntax('(', stream)?;
+
+        let user = expect_nonterminal(stream)?;
+
+        let group = if is_syntax(':', stream)? {
+            Some(expect_nonterminal(stream)?)
+        } else {
+            None
+        };
+
+        expect_syntax(')', stream)?;
+        make(PeerSpec { user, group })
+    }
+}
+
 /// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
 fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
     fn get_path(stream: &mut CharStream, key_pos: (usize, usize)) -> Parsed<(String, Span)> {
@@ -596,8 +622,9 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         }
         #[cfg(feature = "unstable-remote-sudoers")]
         Some(Username(key)) if key == "socket" => {
+            let peer_spec = expect_nonterminal(stream)?;
             let (path, span) = get_path(stream, key_pos)?;
-            Sudo::Remote(path, span)
+            Sudo::Remote(path, peer_spec, span)
         }
         _ => unrecoverable!(pos = key_pos, stream, "unknown directive"),
     };
