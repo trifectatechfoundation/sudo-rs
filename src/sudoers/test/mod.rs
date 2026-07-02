@@ -793,14 +793,14 @@ fn assert_remote(
 #[cfg(feature = "unstable-remote-sudoers")]
 fn remote_parsing() {
     assert_remote(
-        "@socket (user1:group1) /var/run/fake-1.socket",
+        "@socket ( user1:group1) /var/run/fake-1.socket",
         "/var/run/fake-1.socket",
         Identifier::Name("user1".into()),
         Some(Identifier::Name("group1".into())),
     );
 
     assert_remote(
-        "@socket (#2000:#2000) /var/run/fake-2.socket",
+        "@socket (#2000: #2000) /var/run/fake-2.socket",
         "/var/run/fake-2.socket",
         Identifier::ID(2000),
         Some(Identifier::ID(2000)),
@@ -820,11 +820,8 @@ fn remote_parsing() {
         None,
     );
 
-    assert_remote_failure("@socket", "expected user credentials in parentheses");
-    assert_remote_failure(
-        "@socket /path/socket.5",
-        "expected user credentials in parentheses",
-    );
+    assert_remote_failure("@socket", "expected elem");
+    assert_remote_failure("@socket /path/socket.5", "expected elem");
     assert_remote_failure("@socket () /var/run/fake-6.socket", "expected elem");
     assert_remote_failure("@socket (:#7000) /var/run/fake-7.socket", "expected elem");
     assert_remote_failure("@socket (:user8) /var/run/fake-8.socket", "expected elem");

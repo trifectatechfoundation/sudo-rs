@@ -564,6 +564,24 @@ impl Parse for Sudo {
     }
 }
 
+#[cfg(feature = "unstable-remote-sudoers")]
+impl Parse for PeerSpec {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
+        try_syntax('(', stream)?;
+
+        let user = expect_nonterminal(stream)?;
+
+        let group = if is_syntax(':', stream)? {
+            Some(expect_nonterminal(stream)?)
+        } else {
+            None
+        };
+
+        expect_syntax(')', stream)?;
+        make(PeerSpec { user, group })
+    }
+}
+
 /// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
 fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
     fn get_path(stream: &mut CharStream, key_pos: (usize, usize)) -> Parsed<(String, Span)> {
@@ -592,37 +610,6 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         ))
     }
 
-    #[cfg(feature = "unstable-remote-sudoers")]
-    fn get_peer(stream: &mut CharStream, key_pos: (usize, usize)) -> Parsed<(PeerSpec, Span)> {
-        if !stream.eat_char('(') {
-            unrecoverable!(
-                pos = stream.get_pos(),
-                stream,
-                "expected user credentials in parentheses"
-            )
-        }
-
-        // Parse user identifier (can be name or #id)
-        let user = expect_nonterminal::<Identifier>(stream)?;
-
-        // Parse optional group after ':'
-        let group = if stream.eat_char(':') {
-            // Group identifier (can be name or #id)
-            Some(expect_nonterminal::<Identifier>(stream)?)
-        } else {
-            None
-        };
-
-        expect_syntax(')', stream)?;
-        make((
-            PeerSpec { user, group },
-            Span {
-                start: key_pos,
-                end: stream.get_pos(),
-            },
-        ))
-    }
-
     let key_pos = stream.get_pos();
     let result = match try_nonterminal(stream)? {
         Some(Username(key)) if key == "include" => {
@@ -635,7 +622,7 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
         }
         #[cfg(feature = "unstable-remote-sudoers")]
         Some(Username(key)) if key == "socket" => {
-            let (peer_spec, _peer_span) = get_peer(stream, key_pos)?;
+            let peer_spec = expect_nonterminal(stream)?;
             let (path, span) = get_path(stream, key_pos)?;
             Sudo::Remote(path, peer_spec, span)
         }
