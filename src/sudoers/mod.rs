@@ -25,8 +25,6 @@ use ast::*;
 use tokens::*;
 
 pub type Settings = defaults::Settings;
-#[cfg(feature = "unstable-remote-sudoers")]
-pub use ast::{Identifier, PeerSpec, UserSpecifier};
 pub use basic_parser::Span;
 
 /// How many nested include files do we allow?
@@ -414,9 +412,46 @@ fn open_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
 #[cfg(feature = "unstable-remote-sudoers")]
 fn open_remote_sudoers(
     path: &Path,
-    peer_spec: &ast::PeerSpec,
+    peer: &PeerSpec,
 ) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
-    let source = audit::secure_open_remote_sudoers(path, peer_spec)?;
+    use system::{Group, User};
+
+    // these types deliberately don't have conversion traits defined to reduce
+    // the chance of mixing them up, but to keep things readable, let's define the common subset
+    let user_ctx = ("user", UserId::new, User::from_uid, User::from_name);
+    let group_ctx = ("group", GroupId::new, Group::from_gid, Group::from_name);
+
+    fn lookup<Id, T, E>(
+        ident: &Identifier,
+        (class, ctor, by_id, by_name): (
+            &str,
+            impl Fn(u32) -> Id,
+            impl Fn(Id) -> Result<Option<T>, E>,
+            impl Fn(&std::ffi::CStr) -> Result<Option<T>, E>,
+        ),
+    ) -> io::Result<T> {
+        match ident {
+            Identifier::ID(id) => by_id(ctor(*id)),
+            Identifier::Name(name) => by_name(name.as_cstr()),
+        }
+        .ok()
+        .flatten()
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("{class} '{ident}' not found"),
+            )
+        })
+    }
+
+    let user = lookup(&peer.user, user_ctx)?.uid;
+    let group = if let Some(group) = &peer.group {
+        Some(lookup(group, group_ctx)?.gid)
+    } else {
+        None
+    };
+
+    let source = audit::secure_open_remote_sudoers(path, user, group)?;
     read_sudoers(source)
 }
 

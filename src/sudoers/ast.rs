@@ -45,6 +45,15 @@ pub enum Identifier {
     ID(u32) = HARDENED_ENUM_VALUE_1,
 }
 
+impl std::fmt::Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            Self::Name(name) => write!(f, "{name}"),
+            Self::ID(id) => write!(f, "#{id}"),
+        }
+    }
+}
+
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
 #[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]

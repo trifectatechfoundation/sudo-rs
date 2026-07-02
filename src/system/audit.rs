@@ -17,8 +17,6 @@ use super::{
     Group, GroupId, User, UserId, cerr, inject_group, interface::UnixUser, set_supplementary_groups,
 };
 use crate::common::resolve::CurrentUser;
-#[cfg(feature = "unstable-remote-sudoers")]
-use crate::sudoers::{Identifier, PeerSpec};
 
 #[cfg(target_os = "linux")]
 pub(crate) fn no_new_privs_enabled() -> io::Result<bool> {
@@ -170,9 +168,10 @@ pub fn secure_open_sudoers(path: impl AsRef<Path>) -> io::Result<File> {
 #[cfg(feature = "unstable-remote-sudoers")]
 pub fn secure_open_remote_sudoers(
     path: impl AsRef<Path>,
-    peer_spec: &PeerSpec,
+    user: UserId,
+    group: Option<GroupId>,
 ) -> io::Result<BufReader<UnixStream>> {
-    secure_open_socket_impl(path.as_ref(), peer_spec)
+    secure_open_socket_impl(path.as_ref(), user, group)
 }
 
 /// Open a timestamp cookie file using various security checks
@@ -268,27 +267,10 @@ fn secure_open_impl(
 }
 
 #[cfg(feature = "unstable-remote-sudoers")]
-fn check_peer<Id>(
-    peer_identity: Id,
-    expected: Option<&Identifier>,
-    class: &str,
-    lookup: impl Fn(&CStr) -> Option<Id>,
-    from_u32: impl Fn(u32) -> Id,
-) -> io::Result<()>
+fn check_peer<Id>(peer_identity: Id, expected: Id, class: &str) -> io::Result<()>
 where
-    Id: std::fmt::Display + Copy + PartialEq,
+    Id: std::fmt::Display + PartialEq,
 {
-    let expected = match expected {
-        Some(Identifier::Name(name)) => lookup(name.as_cstr()).ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::NotFound,
-                format!("{class} '{name}' not found"),
-            )
-        })?,
-        Some(Identifier::ID(id)) => from_u32(*id),
-        None => return Ok(()),
-    };
-
     if peer_identity == expected {
         Ok(())
     } else {
@@ -299,32 +281,14 @@ where
     }
 }
 
-#[cfg(feature = "unstable-remote-sudoers")]
-fn check_group(peer_gid: GroupId, maybe_group: Option<&Identifier>) -> io::Result<()> {
-    check_peer(
-        peer_gid,
-        maybe_group,
-        "group",
-        |name| Group::from_name(name).ok().flatten().map(|x| x.gid),
-        GroupId::new,
-    )
-}
-
-#[cfg(feature = "unstable-remote-sudoers")]
-fn check_user(peer_uid: UserId, user: &Identifier) -> io::Result<()> {
-    check_peer(
-        peer_uid,
-        Some(user),
-        "user",
-        |name| User::from_name(name).ok().flatten().map(|x| x.uid),
-        UserId::new,
-    )
-}
-
 // Open the socket at path, provided that it is "secure".
 // "Secure" means that it passes the `checks` function above.
 #[cfg(feature = "unstable-remote-sudoers")]
-fn secure_open_socket_impl(path: &Path, peer_spec: &PeerSpec) -> io::Result<BufReader<UnixStream>> {
+fn secure_open_socket_impl(
+    path: &Path,
+    user: UserId,
+    group: Option<GroupId>,
+) -> io::Result<BufReader<UnixStream>> {
     // Check the metadata on the filesystem as extra security,
     // even knowing that it produces a TOCTOU.
     let meta = fs::metadata(path)?;
@@ -348,8 +312,10 @@ fn secure_open_socket_impl(path: &Path, peer_spec: &PeerSpec) -> io::Result<BufR
 
     // If there is an error in these checks, the function returns immediately
     // leaving `stream` out of scope and forcing the closing of the socket.
-    check_user(UserId::new(peer_creds.uid), &peer_spec.user)?;
-    check_group(GroupId::new(peer_creds.gid), peer_spec.group.as_ref())?;
+    check_peer(UserId::new(peer_creds.uid), user, "user")?;
+    if let Some(group) = group {
+        check_peer(GroupId::new(peer_creds.gid), group, "group")?;
+    }
 
     stream.shutdown(Shutdown::Write)?;
     let reader = BufReader::new(stream);
