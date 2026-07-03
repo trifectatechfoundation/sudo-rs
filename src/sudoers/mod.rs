@@ -416,27 +416,12 @@ fn open_remote_sudoers(
 ) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
     use system::{Group, User};
 
-    // these types deliberately don't have conversion traits defined to reduce
-    // the chance of mixing them up, but to keep things readable, let's define the common subset
-    let user_ctx = ("user", UserId::new, User::from_uid, User::from_name);
-    let group_ctx = ("group", GroupId::new, Group::from_gid, Group::from_name);
-
-    fn lookup<Id, T, E>(
+    fn check_validity<T, E>(
+        obj: Result<Option<T>, E>,
+        class: &str,
         ident: &Identifier,
-        (class, ctor, by_id, by_name): (
-            &str,
-            impl Fn(u32) -> Id,
-            impl Fn(Id) -> Result<Option<T>, E>,
-            impl Fn(&std::ffi::CStr) -> Result<Option<T>, E>,
-        ),
     ) -> io::Result<T> {
-        match ident {
-            Identifier::ID(id) => by_id(ctor(*id)),
-            Identifier::Name(name) => by_name(name.as_cstr()),
-        }
-        .ok()
-        .flatten()
-        .ok_or_else(|| {
+        obj.ok().flatten().ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("{class} '{ident}' not found"),
@@ -444,14 +429,23 @@ fn open_remote_sudoers(
         })
     }
 
-    let user = lookup(&peer.user, user_ctx)?.uid;
-    let group = if let Some(group) = &peer.group {
-        Some(lookup(group, group_ctx)?.gid)
-    } else {
-        None
+    let user = match &peer.user {
+        Identifier::Name(name) => User::from_name(name.as_cstr()),
+        Identifier::ID(id) => User::from_uid(UserId::new(*id)),
     };
 
-    let source = audit::secure_open_remote_sudoers(path, user, group)?;
+    let group = peer.group.as_ref().map(|group| match group {
+        Identifier::Name(name) => Group::from_name(name.as_cstr()),
+        Identifier::ID(id) => Group::from_gid(GroupId::new(*id)),
+    });
+
+    let user = check_validity(user, "user", &peer.user)?;
+
+    let group = group
+        .map(|g| check_validity(g, "group", peer.group.as_ref().unwrap()))
+        .transpose()?;
+
+    let source = audit::secure_open_remote_sudoers(path, user.uid, group.map(|x| x.gid))?;
     read_sudoers(source)
 }
 
