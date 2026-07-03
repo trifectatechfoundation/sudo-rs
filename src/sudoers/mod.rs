@@ -421,12 +421,14 @@ fn open_remote_sudoers(
         class: &str,
         ident: &Identifier,
     ) -> io::Result<T> {
-        obj.ok().flatten().ok_or_else(|| {
-            io::Error::new(
+        if let Ok(Some(inner)) = obj {
+            Ok(inner)
+        } else {
+            Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("{class} '{ident}' not found"),
-            )
-        })
+            ))
+        }
     }
 
     let user = match &peer.user {
