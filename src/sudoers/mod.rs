@@ -25,8 +25,6 @@ use ast::*;
 use tokens::*;
 
 pub type Settings = defaults::Settings;
-#[cfg(feature = "unstable-remote-sudoers")]
-pub use ast::{Identifier, PeerSpec, UserSpecifier};
 pub use basic_parser::Span;
 
 /// How many nested include files do we allow?
@@ -416,9 +414,42 @@ fn open_sudoers(path: &Path) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
 #[cfg(feature = "unstable-remote-sudoers")]
 fn open_remote_sudoers(
     path: &Path,
-    peer_spec: &ast::PeerSpec,
+    peer: &PeerSpec,
 ) -> io::Result<Vec<basic_parser::Parsed<Sudo>>> {
-    let source = audit::secure_open_remote_sudoers(path, peer_spec)?;
+    use system::{Group, User};
+
+    fn check_validity<T, E>(
+        obj: Result<Option<T>, E>,
+        class: &str,
+        ident: &Identifier,
+    ) -> io::Result<T> {
+        if let Ok(Some(inner)) = obj {
+            Ok(inner)
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("{class} '{ident}' not found"),
+            ))
+        }
+    }
+
+    let user = match &peer.user {
+        Identifier::Name(name) => User::from_name(name.as_cstr()),
+        Identifier::ID(id) => User::from_uid(UserId::new(*id)),
+    };
+
+    let group = peer.group.as_ref().map(|group| match group {
+        Identifier::Name(name) => Group::from_name(name.as_cstr()),
+        Identifier::ID(id) => Group::from_gid(GroupId::new(*id)),
+    });
+
+    let user = check_validity(user, "user", &peer.user)?;
+
+    let group = group
+        .map(|g| check_validity(g, "group", peer.group.as_ref().unwrap()))
+        .transpose()?;
+
+    let source = audit::secure_open_remote_sudoers(path, user.uid, group.map(|x| x.gid))?;
     read_sudoers(source)
 }
 
