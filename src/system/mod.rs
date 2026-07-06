@@ -2,7 +2,7 @@
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    ffi::{CStr, c_int, c_long, c_uint},
+    ffi::{CStr, c_int, c_long},
     fmt, fs, io,
     mem::MaybeUninit,
     ops,
@@ -16,10 +16,11 @@ use crate::{
 };
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
-#[cfg(target_os = "macos")]
 use libc::STDERR_FILENO;
 #[cfg(not(target_os = "macos"))]
-use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
+use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS};
+#[cfg(not(target_os = "macos"))]
+use std::ffi::c_uint;
 use time::ProcessCreateTime;
 
 use self::signal::SignalNumber;
@@ -48,11 +49,15 @@ pub(crate) fn _exit(status: c_int) -> ! {
     unsafe { libc::_exit(status) }
 }
 
-/// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
-#[cfg(not(target_os = "macos"))]
-pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
-    let lowfd = STDERR_FILENO + 1;
+fn set_cloexec(fd: c_int) -> io::Result<()> {
+    // SAFETY: This only sets the CLOEXEC flag; it does not close or invalidate the fd.
+    unsafe { cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC)) }.map(|_| ())
+}
 
+/// Attempts close_range(CLOSE_RANGE_CLOEXEC) for all fds >= lowfd.
+/// Returns Ok(true) on success, Ok(false) if unsupported, Err on any other failure.
+#[cfg(not(target_os = "macos"))]
+fn try_close_range(lowfd: c_int) -> io::Result<bool> {
     // SAFETY: this function is safe to call:
     // - any errors while closing a specific fd will be effectively ignored
     #[allow(clippy::diverging_sub_expression)]
@@ -75,56 +80,111 @@ pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
             ));
         }
     };
-
     match res {
-        Err(err) if err.raw_os_error() == Some(ENOSYS) || err.raw_os_error() == Some(EINVAL) => {
-            mark_fds_as_cloexec_fallback(lowfd);
-        }
-        Err(err) => Err(err),
-        Ok(_) => Ok(()),
+        Ok(_) => Ok(true),
+        Err(e) if e.raw_os_error() == Some(ENOSYS) || e.raw_os_error() == Some(EINVAL) => Ok(false),
+        Err(e) => Err(e),
     }
 }
 
+/// Attempts to set CLOEXEC on all fds >= lowfd via proc_pidinfo(PROC_PIDLISTFDS).
+/// Returns Ok(true) on success, Ok(false) if proc_pidinfo is unavailable, Err on failure.
 #[cfg(target_os = "macos")]
-pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
-    mark_fds_as_cloexec_fallback(STDERR_FILENO + 1)
+fn try_proc_pidinfo(lowfd: c_int) -> io::Result<bool> {
+    const WIGGLE_ROOM: i32 = 4;
+
+    // SAFETY: getpid() is always safe to call.
+    let pid = unsafe { libc::getpid() };
+
+    // SAFETY: passing a null buffer with size 0 just queries the required buffer size.
+    let needed =
+        unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, std::ptr::null_mut(), 0) };
+
+    // If needed is zero, there are no open files.
+    // If needed is less than zero, alternate methods should be considered
+    // Either way, we want to recover, so throw unavailable.
+    if needed <= 0 {
+        return Ok(false);
+    }
+
+    // Allocate with wiggle room for any extraneous fds opened between the two calls.
+    let cap = needed + (libc::PROC_PIDLISTFD_SIZE * WIGGLE_ROOM);
+    let count = cap as usize / std::mem::size_of::<libc::proc_fdinfo>();
+    let mut buf: Vec<libc::proc_fdinfo> = Vec::with_capacity(count);
+
+    // SAFETY: since proc_fdinfo is a plain C struct... we assume that proc_pidinfo fills the allocation safely.
+    let filled =
+        unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDLISTFDS, 0, buf.as_mut_ptr().cast(), cap) };
+
+    if filled <= 0 {
+        return Ok(false);
+    }
+
+    let pidlistfd_size = std::mem::size_of::<libc::proc_fdinfo>();
+    let n = filled as usize / pidlistfd_size;
+
+    // SAFETY: proc_pidinfo wrote `n` valid entries into the buffer.
+    unsafe { buf.set_len(n) };
+
+    for info in &buf {
+        if info.proc_fd >= lowfd {
+            set_cloexec(info.proc_fd)?;
+        }
+    }
+
+    Ok(true)
 }
 
-fn mark_fds_as_cloexec_fallback(lowfd: i32) -> io::Result<()> {
-    // If the kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
-    // fallback to finding all open fds using /proc/self/fd or /dev/fd
+/// Sets CLOEXEC on all fds >= lowfd by walking an fd directory
+/// (/proc/self/fd on Linux/FreeBSD, /dev/fd on macOS).
+fn cloexec_via_fd_dir(lowfd: c_int, path: &str) -> io::Result<()> {
+    for entry in fs::read_dir(path)? {
+        let file_name = entry?.file_name();
 
-    for entry in fs::read_dir(if cfg!(target_os = "linux") {
-        "/proc/self/fd"
-    } else {
-        "/dev/fd"
-    })? {
-        let entry = entry?;
-        let file_name = entry.file_name();
-        let file_name = file_name.to_str().ok_or(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "procfs returned non-integer fd name",
-        ))?;
         if file_name == "." || file_name == ".." {
             continue;
         }
-        let fd = file_name.parse::<c_int>().map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "procfs returned non-integer fd name",
-            )
-        })?;
-        if fd < lowfd {
-            continue;
-        }
-        // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
-        // going to need it after exec.
-        unsafe {
-            cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
+
+        let fd = file_name
+            .to_str()
+            .and_then(|s| s.parse::<c_int>().ok())
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "fd directory returned non-integer fd name",
+                )
+            })?;
+
+        if fd >= lowfd {
+            set_cloexec(fd)?;
         }
     }
-
     Ok(())
+}
+
+/// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
+pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
+    let lowfd = STDERR_FILENO + 1;
+
+    // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
+    // so our fallback on all platforms to finding all open fds using /proc/self/fd.
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        if try_close_range(lowfd)? {
+            return Ok(());
+        }
+
+        cloexec_via_fd_dir(lowfd, "/proc/self/fd")
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if try_proc_pidinfo(lowfd)? {
+            return Ok(());
+        }
+        cloexec_via_fd_dir(lowfd, "/dev/fd")
+    }
 }
 
 pub(crate) enum ForkResult {
@@ -610,6 +670,7 @@ impl Group {
 
 pub enum WithProcess {
     Current,
+    #[allow(dead_code)]
     Other(ProcessId),
 }
 
@@ -747,7 +808,7 @@ impl Process {
     /// Returns the device identifier of the TTY device that is currently
     /// attached to the given process
     #[cfg(target_os = "macos")]
-    pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
+    pub fn tty_device_id(_pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         Ok(None)
     }
 
@@ -784,7 +845,7 @@ impl Process {
 
     /// Get the process starting time of a specific process
     #[cfg(target_os = "macos")]
-    pub fn starting_time(pid: WithProcess) -> io::Result<ProcessCreateTime> {
+    pub fn starting_time(_pid: WithProcess) -> io::Result<ProcessCreateTime> {
         Ok(ProcessCreateTime::new(0, 0))
     }
 }
