@@ -101,31 +101,12 @@ done
 echo did-not-deadlock
 ";
 
-    let launch_pl = r#"use strict;
-use warnings;
-use POSIX ();
-
-my $pid = fork();
-die "fork failed: $!" unless defined $pid;
-if ($pid == 0) {
-    POSIX::setpgid(0, 0) or die "setpgid (child) failed: $!";
-    exec("sh", "-c", "sudo sh /root/inner.sh | cat") or die "exec failed: $!";
-}
-POSIX::setpgid($pid, $pid);
-eval { POSIX::tcsetpgrp(0, $pid) };
-
-waitpid($pid, 0);
-exit($? == 0 ? 0 : 1);
-"#;
-
     let env = Env(TextFile("ALL ALL=(ALL:ALL) NOPASSWD: ALL").chmod("644"))
         .file("/root/inner.sh", TextFile(inner_sh).chmod("755"))
-        .file("/root/launch.pl", TextFile(launch_pl).chmod("755"))
         .build();
 
-    let child = Command::new("perl")
-        .arg("/root/launch.pl")
-        // a tty is required for sudo to run the command in a pty
+    let child = Command::new("bash")
+        .args(["-c", "set -m; sudo sh /root/inner.sh | cat"])
         .tty(true)
         .spawn(&env);
 
@@ -143,8 +124,6 @@ exit($? == 0 ? 0 : 1);
                 output.stdout_unchecked()
             );
         }
-        Err(_) => panic!(
-            "sudo deadlocked after the command was stopped twice by SIGTTOU"
-        ),
+        Err(_) => panic!("sudo deadlocked after the command was stopped twice by SIGTTOU"),
     }
 }
