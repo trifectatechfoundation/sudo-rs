@@ -12,7 +12,7 @@ use crate::sudo::pam::{InitPamArgs, attempt_authenticate, init_pam, pre_exec};
 use crate::sudoers::{
     AuthenticatingUser, Authentication, Authorization, Judgement, Logging, Sudoers,
 };
-use crate::system::term::current_tty_name;
+use crate::system::term::{current_tty_name, lock_tty};
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{Process, escape_os_str_lossy};
 
@@ -163,6 +163,12 @@ fn auth_and_update_record_file(
         AuthenticatingUser::TargetUser => {
             AuthUser::from_user_for_targetpw(context.target_user.clone())
         }
+    };
+
+    let _guard = if context.non_interactive || context.stdin || context.askpass {
+        None
+    } else {
+        lock_tty()
     };
 
     let scope = RecordScope::for_process(&Process::new());
