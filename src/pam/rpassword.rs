@@ -15,7 +15,7 @@
 
 use std::ffi::c_void;
 use std::io::{self, ErrorKind};
-use std::os::fd::{AsFd, AsRawFd, BorrowedFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::{fs, mem};
@@ -33,6 +33,34 @@ use crate::system::signal::{
 use crate::system::wait::{Wait, WaitError, WaitOptions};
 
 use super::securemem::PamBuffer;
+
+/// A guard that holds an exclusive `flock` on a file descriptor.
+///
+/// When multiple sudo processes are piped together (e.g. `sudo a | sudo b`), they all
+/// try to read the password from `/dev/tty` simultaneously. This guard serializes access
+/// so only one process reads from the terminal at a time, preventing keystrokes from
+/// being split between concurrent readers.
+struct FlockGuard(RawFd);
+
+impl FlockGuard {
+    /// Acquire an exclusive lock on `fd`. Returns `None` if the lock cannot be acquired
+    /// (e.g. the filesystem does not support `flock`).
+    fn new(fd: BorrowedFd<'_>) -> Option<Self> {
+        // SAFETY: `fd` is a valid open file descriptor.
+        if unsafe { libc::flock(fd.as_raw_fd(), libc::LOCK_EX) } == 0 {
+            Some(FlockGuard(fd.as_raw_fd()))
+        } else {
+            None
+        }
+    }
+}
+
+impl Drop for FlockGuard {
+    fn drop(&mut self) {
+        // SAFETY: `self.0` is a valid file descriptor and `LOCK_UN` always succeeds.
+        unsafe { libc::flock(self.0, libc::LOCK_UN) };
+    }
+}
 
 struct HiddenInput<'a> {
     tty: BorrowedFd<'a>,
@@ -113,6 +141,16 @@ fn prompt_password(
     hidden: Hidden<()>,
 ) -> PamResult<PamBuffer> {
     'getpass: loop {
+        // Acquire an exclusive lock on the terminal so that when multiple sudo processes
+        // are reading from the same TTY (e.g. `sudo a | sudo b`), only one reads at a time.
+        // Without this, keystrokes from the user get split between concurrent readers and
+        // neither process receives the complete password.
+        let _lock = if safe_isatty(source) {
+            FlockGuard::new(source)
+        } else {
+            None
+        };
+
         let hide_input = match hidden.clone() {
             // If input is not a tty, we can't hide feedback.
             _ if !safe_isatty(source) => Hidden::No,
