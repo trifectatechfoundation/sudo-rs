@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::fs;
 use std::time::Duration;
 
 use super::cli::{SudoRunOptions, SudoValidateOptions};
@@ -12,6 +13,7 @@ use crate::sudo::pam::{InitPamArgs, attempt_authenticate, init_pam, pre_exec};
 use crate::sudoers::{
     AuthenticatingUser, Authentication, Authorization, Judgement, Logging, Sudoers,
 };
+use crate::system::file::FileLock;
 use crate::system::term::current_tty_name;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{Process, escape_os_str_lossy};
@@ -194,17 +196,42 @@ fn auth_and_update_record_file(
             return Err(Error::InteractionRequired);
         }
 
-        attempt_authenticate(
-            &mut pam_context,
-            &auth_user.name,
-            context.non_interactive,
-            allowed_attempts,
-        )?;
-        if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
-            match record_file.create(scope, &auth_user) {
-                Ok(_) => (),
-                Err(e) => {
-                    auth_warn!("Could not update session record file with new record: {e}");
+        // Acquire an exclusive flock on the TTY to serialize password-prompt
+        // access when multiple sudo processes are piped together (e.g.
+        // `sudo a | sudo b`). The lock is held for the entire duration of PAM
+        // authentication so that only one process reads from the TTY at a time.
+        let _tty_file = current_tty_name()
+            .ok()
+            .and_then(|tty| fs::OpenOptions::new().read(true).write(true).open(tty).ok());
+        let _tty_lock = _tty_file
+            .as_ref()
+            .and_then(|file| FileLock::exclusive(file, false).ok());
+
+        // Re-check the timestamp now that we hold the TTY lock. Another process
+        // in the pipe may have already authenticated and created a valid record
+        // while we were waiting for the lock. If so, skip PAM entirely.
+        let auth_already_done = context.use_session_records
+            && scope.is_some_and(|scope| {
+                SessionRecordFile::open_for_user(&context.current_user, prior_validity)
+                    .ok()
+                    .and_then(|mut sr| sr.touch(scope, &auth_user).ok())
+                    .is_some_and(|r| matches!(r, TouchResult::Updated { .. }))
+            });
+
+        if !auth_already_done {
+            attempt_authenticate(
+                &mut pam_context,
+                &auth_user.name,
+                context.non_interactive,
+                allowed_attempts,
+            )?;
+
+            if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+                match record_file.create(scope, &auth_user) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        auth_warn!("Could not update session record file with new record: {e}");
+                    }
                 }
             }
         }

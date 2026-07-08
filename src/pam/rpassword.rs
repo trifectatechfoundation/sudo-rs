@@ -27,7 +27,6 @@ use libc::{
 
 use crate::cutils::{cerr, safe_isatty};
 use crate::pam::{PamError, PamResult, askpass};
-use crate::system::file::FileLock;
 use crate::system::signal::{
     self, SignalHandler, SignalHandlerBehavior, SignalsState, exit_with_signal,
 };
@@ -430,7 +429,6 @@ impl Terminal<'_> {
                 prompt_password(stdin.as_fd(), stdout, prompt, timeout, hidden)
             }
             Terminal::Tty(file) => {
-                let _lock = FileLock::exclusive(file, false).ok();
                 prompt_password(file.as_fd(), &mut &*file, prompt, timeout, hidden)
             }
             Terminal::Askpass(program, sink) => {
