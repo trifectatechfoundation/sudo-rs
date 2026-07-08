@@ -201,7 +201,6 @@ msgid "sudo - run commands as another user"
 msgstr "sudo - voer opdrachten uit als een ander"
 
 #: src/sudo/cli/help.rs:17
-#, fuzzy
 msgid ""
 "Options:\n"
 "  -A, --askpass                 use a helper program for password prompting\n"
