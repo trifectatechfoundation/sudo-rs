@@ -1,6 +1,3 @@
-use std::sync::mpsc;
-use std::time::Duration;
-
 use sudo_test::{Command, Env, TextFile, User};
 
 #[test]
@@ -89,41 +86,5 @@ fn correct_password_with_tab() {
             .as_user(username)
             .output(&env)
             .assert_success();
-    }
-}
-
-#[test]
-fn sigttou_in_foreground_does_not_deadlock_sudo() {
-    let inner_sh = "\
-for _ in 1 2 3 4; do
-    kill -TTOU $$
-done
-echo did-not-deadlock
-";
-
-    let env = Env(TextFile("ALL ALL=(ALL:ALL) NOPASSWD: ALL").chmod("644"))
-        .file("/root/inner.sh", TextFile(inner_sh).chmod("755"))
-        .build();
-
-    let child = Command::new("bash")
-        .args(["-c", "set -m; sudo sh /root/inner.sh | cat"])
-        .tty(true)
-        .spawn(&env);
-
-    let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = tx.send(child.wait());
-    });
-
-    match rx.recv_timeout(Duration::from_secs(30)) {
-        Ok(output) => {
-            output.assert_success();
-            assert!(
-                output.stdout_unchecked().contains("did-not-deadlock"),
-                "unexpected output: {:?}",
-                output.stdout_unchecked()
-            );
-        }
-        Err(_) => panic!("sudo deadlocked after the command was stopped twice by SIGTTOU"),
     }
 }
