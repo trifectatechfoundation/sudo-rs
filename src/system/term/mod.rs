@@ -13,6 +13,7 @@ use libc::{TIOCSWINSZ, ioctl, winsize};
 
 use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 
+use super::file::FileLock;
 use super::interface::ProcessId;
 
 mod find_tty;
@@ -255,7 +256,7 @@ impl<F: AsFd> Terminal for F {
 }
 
 /// Try to get the path of the current TTY
-pub fn current_tty_name() -> io::Result<OsString> {
+pub(crate) fn current_tty_name() -> io::Result<OsString> {
     if let Some(tty) = find_tty::ttyname_from_dev()? {
         return Ok(tty);
     }
@@ -264,6 +265,17 @@ pub fn current_tty_name() -> io::Result<OsString> {
         .ttyname()
         .or_else(|_| io::stdout().ttyname())
         .or_else(|_| io::stderr().ttyname())
+}
+
+#[expect(unused)]
+pub(crate) struct TtyGuard(File, FileLock);
+
+/// Lock the tty to prevent contention over who owns the password prompt
+pub(crate) fn lock_tty() -> Option<TtyGuard> {
+    let tty = File::open("/dev/tty").ok()?;
+    let lock = FileLock::exclusive(&tty, false).ok()?;
+
+    Some(TtyGuard(tty, lock))
 }
 
 #[repr(transparent)]
