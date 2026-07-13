@@ -446,3 +446,28 @@ cat {PAM_ENV_VALUE} >&3"#
     let (expected, pam_env) = parse_expected_tty_and_pam_env(&stdout);
     assert_pam_tty_matches_expected(&expected, &pam_env);
 }
+
+#[test]
+fn empty_password_nullok() {
+    let env = Env(format!("{USERNAME} ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .file(
+            "/etc/pam.d/sudo",
+            "auth sufficient pam_unix.so nullok
+auth requisite pam_deny.so
+",
+        )
+        .build();
+
+    Command::new("passwd")
+        .args(["-d", USERNAME])
+        .output(&env)
+        .assert_success();
+
+    Command::new("sudo")
+        .args(["-S", "true"])
+        .as_user(USERNAME)
+        .stdin("")
+        .output(&env)
+        .assert_success();
+}
