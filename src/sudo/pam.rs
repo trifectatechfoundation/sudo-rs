@@ -54,7 +54,7 @@ pub(super) fn init_pam(
         Some(auth_user),
     )?;
     pam.mark_silent(matches!(launch, LaunchType::Direct));
-    pam.mark_allow_null_auth_token(false);
+    pam.mark_allow_null_auth_token(true);
     pam.set_requesting_user(requesting_user)?;
 
     match auth_prompt.as_deref() {
