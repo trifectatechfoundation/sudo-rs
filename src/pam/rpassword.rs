@@ -339,20 +339,14 @@ impl TimeoutRead<'_> {
             None => -1,
         };
 
-        if cfg!(miri) {
-            // Miri doesn't support poll: rust-lang/miri#4413
-            // FIXME(#1500) remove once miri supports it
-            pollfd[0].revents = libc::POLLIN;
-        } else {
-            // SAFETY: pollfd is initialized and its length matches
-            cerr(unsafe {
-                libc::poll(
-                    pollfd.as_mut_ptr(),
-                    pollfd.len().try_into().unwrap(),
-                    timeout,
-                )
-            })?;
-        }
+        // SAFETY: pollfd is initialized and its length matches
+        cerr(unsafe {
+            libc::poll(
+                pollfd.as_mut_ptr(),
+                pollfd.len().try_into().unwrap(),
+                timeout,
+            )
+        })?;
 
         // There may yet be data waiting to be read even if POLLHUP is set.
         if pollfd[0].revents & (pollmask | libc::POLLHUP) > 0 {
