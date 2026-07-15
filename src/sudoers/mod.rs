@@ -884,6 +884,19 @@ fn analyze(
                     Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
 
                     Sudo::Decl(Defaults(params, scope)) => {
+                        let mut modifiers = Vec::with_capacity(params.len());
+                        for param in params {
+                            if param.warn_relative_secure_path {
+                                diagnostics.push(Error {
+                                    source: Some(cur_path.to_owned()),
+                                    location: None,
+                                    message: "relative paths in secure_path are ignored for command lookup"
+                                        .to_string(),
+                                });
+                            }
+                            modifiers.push(param.modifier);
+                        }
+
                         if let ConfigScope::Command(specs) = scope {
                             cfg.customisers.cmnd.push((
                                 specs
@@ -894,10 +907,10 @@ fn analyze(
                                         })
                                     })
                                     .collect(),
-                                params,
+                                modifiers,
                             ));
                         } else {
-                            cfg.customisers.non_cmnd.push((scope, params));
+                            cfg.customisers.non_cmnd.push((scope, modifiers));
                         }
                     }
 
