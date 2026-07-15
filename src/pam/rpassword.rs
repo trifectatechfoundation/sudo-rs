@@ -144,7 +144,8 @@ fn prompt_password(
             })
         };
 
-        let res = read_unbuffered(&mut reader, sink, &hide_input);
+        let write_newline = !prompt.is_empty() || matches!(hide_input, Hidden::WithFeedback(_));
+        let res = read_unbuffered(&mut reader, sink, &hide_input, write_newline);
 
         drop(hide_input);
         drop(handlers);
@@ -184,10 +185,12 @@ fn read_unbuffered(
     source: &mut TimeoutRead<'_>,
     sink: &mut dyn io::Write,
     hide_input: &Hidden<HiddenInput>,
+    write_newline: bool,
 ) -> PamResult<PamBuffer> {
     struct Bullets<'a> {
         visible_len: Option<usize>,
         sink: &'a mut dyn io::Write,
+        write_newline: bool,
     }
 
     const BULLET: &[u8] = b"*";
@@ -222,13 +225,16 @@ fn read_unbuffered(
     impl Drop for Bullets<'_> {
         fn drop(&mut self) {
             self.clear();
-            let _ = self.sink.write(b"\n");
+            if self.write_newline {
+                let _ = self.sink.write(b"\n");
+            }
         }
     }
 
     let mut feedback = Bullets {
         visible_len: matches!(hide_input, Hidden::WithFeedback(_)).then_some(0),
         sink,
+        write_newline,
     };
 
     let mut password = PamBuffer::default();
@@ -429,7 +435,7 @@ impl Terminal<'_> {
                 let (command_pid, askpass_stdout) = askpass::spawn_askpass(program, prompt)?;
 
                 let mut reader = TimeoutRead::new(askpass_stdout.as_fd(), None);
-                let password = read_unbuffered(&mut reader, sink, &Hidden::No)?;
+                let password = read_unbuffered(&mut reader, sink, &Hidden::No, false)?;
 
                 loop {
                     match command_pid.wait(WaitOptions::new()) {
@@ -495,6 +501,7 @@ mod test {
             &mut TimeoutRead::new(rx.as_fd(), None),
             &mut stdout,
             &Hidden::No,
+            false,
         )
         .unwrap();
         // check that the \n is not part of input
@@ -512,6 +519,30 @@ mod test {
     }
 
     #[test]
+    fn empty_prompt_does_not_write_to_sink() {
+        let mut sink = Vec::new();
+        let (rx, mut tx) = make_pipe();
+        tx.write_all(b"password123\n").unwrap();
+        drop(tx);
+
+        prompt_password(rx.as_fd(), &mut sink, "", None, Hidden::No).unwrap();
+
+        assert!(sink.is_empty());
+    }
+
+    #[test]
+    fn displayed_prompt_ends_with_newline() {
+        let mut sink = Vec::new();
+        let (rx, mut tx) = make_pipe();
+        tx.write_all(b"password123\n").unwrap();
+        drop(tx);
+
+        prompt_password(rx.as_fd(), &mut sink, "Password: ", None, Hidden::No).unwrap();
+
+        assert_eq!(sink, b"Password: \n");
+    }
+
+    #[test]
     fn miri_test_longpwd() {
         let mut stdout = Vec::new();
         let (rx, mut tx) = make_pipe();
@@ -521,7 +552,8 @@ mod test {
             read_unbuffered(
                 &mut TimeoutRead::new(rx.as_fd(), None),
                 &mut stdout,
-                &Hidden::No
+                &Hidden::No,
+                false,
             )
             .is_ok()
         );
@@ -533,7 +565,8 @@ mod test {
             read_unbuffered(
                 &mut TimeoutRead::new(rx.as_fd(), None),
                 &mut stdout,
-                &Hidden::No
+                &Hidden::No,
+                false,
             )
             .is_err()
         );
