@@ -161,6 +161,11 @@ fn prompt_password(
             }
         }
 
+        // If there was a prompt, write a new line to move the cursor to the start
+        if !prompt.is_empty() {
+            let _ = write_unbuffered(sink, b"\n");
+        }
+
         return res;
     }
 }
@@ -222,7 +227,6 @@ fn read_unbuffered(
     impl Drop for Bullets<'_> {
         fn drop(&mut self) {
             self.clear();
-            let _ = self.sink.write(b"\n");
         }
     }
 
