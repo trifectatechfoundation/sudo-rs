@@ -1,4 +1,9 @@
-use std::{ffi::c_int, fs::File, io::Result, os::fd::AsRawFd};
+use std::{
+    ffi::c_int,
+    fs::File,
+    io::Result,
+    os::fd::{AsRawFd, RawFd},
+};
 
 use crate::cutils::cerr;
 
