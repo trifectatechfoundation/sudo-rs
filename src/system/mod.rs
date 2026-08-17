@@ -417,23 +417,33 @@ impl User {
     }
 
     pub fn from_uid(uid: UserId) -> Result<Option<User>, Error> {
-        let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_pw_size as usize];
+        let initial_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_pw_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
-        // SAFETY: getpwuid_r is passed valid (although partly uninitialized) pointers to memory,
-        // in particular `buf` points to an array of `buf.len()` bytes, as required.
-        // After this call, if `pwd_ptr` is not NULL, `*pwd_ptr` and `pwd` will be aliased;
-        // but we never dereference `pwd_ptr`.
-        cerr(unsafe {
-            libc::getpwuid_r(
-                uid.inner(),
-                pwd.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut pwd_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_pw_size..max_pw_size, |buf| {
+            // SAFETY: getpwuid_r is passed valid (although partly uninitialized) pointers to memory,
+            // in particular `buf` points to an array of `buf.len()` bytes, as required.
+            // After this call, if `pwd_ptr` is not NULL, `*pwd_ptr` and `pwd` will be aliased;
+            // but we never dereference `pwd_ptr`.
+            let result = unsafe {
+                libc::getpwuid_r(
+                    uid.inner(),
+                    pwd.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut pwd_ptr,
+                )
+            };
+            match result {
+                0 | libc::ENOENT => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("password buffer size exceeds limit (>{max_pw_size})");
+        };
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
@@ -476,21 +486,30 @@ impl User {
     }
 
     pub fn from_name(name_c: &CStr) -> Result<Option<User>, Error> {
-        let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_pw_size as usize];
+        let initial_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_pw_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
-
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getpwnam_r(
-                name_c.as_ptr(),
-                pwd.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut pwd_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_pw_size..max_pw_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getpwnam_r(
+                    name_c.as_ptr(),
+                    pwd.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut pwd_ptr,
+                )
+            };
+            match result {
+                0 | libc::ENOENT => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("password buffer size exceeds limit (>{max_pw_size})");
+        };
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
