@@ -485,6 +485,23 @@ fn sudoedit_recognized() {
 }
 
 #[test]
+fn command_accepts_tab_as_argument_separator() {
+    // TAB is ordinary sudoers whitespace between a command and its arguments.
+    // Rejecting it left the remainder of the line as "garbage at end of line".
+    let line = "ALL ALL=/usr/bin/ls\thuk";
+    assert!(parse_line(line).is_spec());
+
+    let CommandSpec(_, Qualified::Allow(Meta::Only((cmd, args)))) =
+        parse_eval::<ast::CommandSpec>("/usr/bin/ls\thuk")
+    else {
+        panic!();
+    };
+    assert_eq!(cmd.as_str(), "/usr/bin/ls");
+    let Args::Exact(args) = args else { panic!() };
+    assert_eq!(args.as_ref(), &["huk"][..]);
+}
+
+#[test]
 #[should_panic = "list does not take arguments"]
 fn list_does_not_take_args() {
     parse_eval::<ast::CommandSpec>("list /etc/tmux.conf");

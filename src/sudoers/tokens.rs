@@ -245,12 +245,15 @@ impl Token for Command {
     }
 
     fn accept(c: char) -> bool {
-        SimpleCommand::accept(c) || c == ' '
+        // Space and TAB separate command path from arguments (and arguments
+        // from each other), matching traditional sudoers whitespace.
+        SimpleCommand::accept(c) || c == ' ' || c == '\t'
     }
 
     const ALLOW_ESCAPE: bool = SimpleCommand::ALLOW_ESCAPE;
     fn escaped(c: char) -> bool {
-        SimpleCommand::escaped(c)
+        // Allow escaping TAB the same way as space when it appears in a path.
+        SimpleCommand::escaped(c) || c == '\t'
     }
 }
 
