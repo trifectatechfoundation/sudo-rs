@@ -245,7 +245,7 @@ impl Token for Command {
     }
 
     fn accept(c: char) -> bool {
-        SimpleCommand::accept(c) || c == ' '
+        SimpleCommand::accept(c) || matches!(c, ' ' | '\t')
     }
 
     const ALLOW_ESCAPE: bool = SimpleCommand::ALLOW_ESCAPE;
