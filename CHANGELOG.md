@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.15] - 2026-08-31
+
+### Added
+- `Defaults !log_allowed` to suppress writing successful command invocations
+  to the system log. (#1181)
+- `Defaults timestamp_type=ppid` to allow tightly binding cached credentials
+  to the parent process even if a TTY is present. (#1621)
+
+### Changed
+- Allow authenticating users that have an empty password set (#1656)
+- Environment variables supplied on the command line are now ignored instead
+  of resulting in an error message when used with `-v`, `-k` or `-K` (#1578)
+
+### Fixed
+- sudo used in pipe such as `sudo cmd1 | sudo cmd2` could result in a fight for
+  control over the TTY used for password input (#1650)
+- Groups loaded dynamically (for example by `pam_groups.so`) were not used for
+  policy judgments (#1660)
+- Fixed the error message when `sudo -g` was used with an invalid group (#1628)
+- No longer emit a newline after password entry if `-p ''` is used (#1648)
+- Tabs were not recognized as argument separators in /etc/sudoers (#1669)
+- `sudoedit /path/to/file` restrictions in `/etc/sudoers` could be circumvented
+  by causing a symlink race (GHSA-f42v-x7gq-phc8)
+
 ## [0.2.14] - 2026-06-23
 
 ### Added
