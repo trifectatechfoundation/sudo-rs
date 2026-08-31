@@ -64,10 +64,16 @@ ALL ALL=(ALL:ALL) NOPASSWD: ALL")
     for script in success_scripts {
         println!("{script}");
 
-        Command::new("sh")
-            .args(["-c", &script])
-            .output(&env)
-            .assert_success();
+        let output = Command::new("sh").args(["-c", &script]).output(&env);
+
+        output.assert_success();
+
+        if !sudo_test::is_original_sudo() {
+            assert_contains!(
+                output.stderr(),
+                "relative paths in secure_path are ignored for command lookup"
+            );
+        }
     }
 
     for script in failure_scripts {
