@@ -40,6 +40,8 @@ These CVEs/advisories are possibly relevant to sudo-rs:
 | CVE-2021-23239 [^25]   | https://www.sudo.ws/releases/stable/#1.9.5                                  |
 | CVE-2023-22809 [^20]   | https://www.sudo.ws/security/advisories/sudoedit_any/                       |
 | CVE-2023-28486 [^19]   | Syslog messages do not escape control characters                            |
+| CVE-2025-42465 [^26]   | https://www.sudo.ws/releases/stable/#1.9.15                                 |
+| CVE-2026-35535 [^27]   | https://cdn2.qualys.com/advisory/2026/03/10/crack-armor.txt                 |
 
 [^1]: All our path checks should only ever be done with absolute paths
 [^2]: We try to take care to only expose relevant information to the user
@@ -72,6 +74,14 @@ These CVEs/advisories are possibly relevant to sudo-rs:
        components are not writable by the calling user.
 [^25]: Sudo-rs opens all components of the path to be edited exactly once, and checks that all path components are
        not writable by the calling user.
+[^26]: Sudo-rs uses similar hardening as ogsudo does. But these is only so much that software
+       can do to protect itself: since code resides in memory, bitflips can also target that.
+       [It is questionable how realistic this threat is.](https://seclists.org/oss-sec/2025/q3/208).
+       Note also that the attack in ogsudo only targeted UNIX password authentication, which sudo-rs does not support.
+[^27]: This CVE technically is not applicable, since it pertains to mail functionality which sudo-rs does not have. But interpreting this
+       vulnerability broadly as "allows local privilege escalation if `CAP_SETUID` is denied", sudo-rs was not vulnerable.
+       Extra checks have been added to `setuid()/setgid()` calls as a precaution.
+
 
 ## Non-applicable CVEs
 
@@ -97,10 +107,12 @@ relevant at that time.
 | CVE-2019-14287 | This bug is not present, https://www.sudo.ws/security/advisories/minus_1_uid/                               |
 | CVE-2021-23240 | sudo-rs does not have SELinux support, https://www.sudo.ws/security/advisories/sudoedit_selinux/            |
 | CVE-2022-43995 | crypt/password backend is not implemented, only PAM                                                         |
+| CVE-2023-7090  | sudo-rs does not have SSSD functionality, https://www.sudo.ws/releases/legacy/#1.8.28                       |
 | CVE-2023-27320 | The chroot functionality is not implemented, https://www.sudo.ws/security/advisories/double_free/           |
 | CVE-2023-28487 | Sudoreplay is not implemented                                                                               |
 | CVE-2025-32462 | `sudo -h` is not implemented, https://www.sudo.ws/security/advisories/host_any/                             |
 | CVE-2025-32463 | The chroot functionality is not implemented, https://www.sudo.ws/security/advisories/chroot_bug/            |
+| CVE-2026-82474 | sudo-rs does not have INTERCEPT, [71fbe42](https://github.com/sudo-project/sudo/commit/71fbe42dcd5a1c8f799540583a2dfb2ae6221edf) |
 
 ## Disputed CVEs
 
