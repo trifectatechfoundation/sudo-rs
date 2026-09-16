@@ -1,0 +1,631 @@
+# Translation template file for sudo-rs
+# Copyright (C) 2026 Trifecta Tech Foundation
+# This file is distributed under the same license as the sudo-rs package.
+# Ekaterine Papava <papava.e@gtu.ge>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: sudo-rs 0.2.13\n"
+"Report-Msgid-Bugs-To: https://github.com/trifectatechfoundation/sudo-rs/"
+"issues\n"
+"POT-Creation-Date: 2026-10-03 17:30+0100\n"
+"PO-Revision-Date: 2026-09-16 09:40+0200\n"
+"Last-Translator: Ekaterine Papava <papava.e@gtu.ge>\n"
+"Language-Team: Georgian <(nothing)>\n"
+"Language: ka\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.9\n"
+
+#. TRANSLATORS: This is a well-known quote, try to preserve it in translation.
+#: src/common/error.rs:89
+#, rust-format
+msgid "I'm sorry {user}. I'm afraid I can't do that"
+msgstr "ვწუხვარ, {user}. სამწუხაროდ, ამას ვერ ვიზამ"
+
+#: src/sudoers/entry/verbose.rs:33
+msgid "Commands:"
+msgstr "ბრძანებები:"
+
+#: src/sudoers/entry/verbose.rs:46
+msgid "Sudoers entry:"
+msgstr "Sudoers-ის ჩანაწერი:"
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:54
+msgid "RunAsUsers"
+msgstr "RunAs-ის მომხმარებლები"
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:64
+msgid "RunAsGroups"
+msgstr "RunAs-ის ჯგუფები"
+
+#: src/sudoers/entry/verbose.rs:70
+msgid "Options"
+msgstr "პარამეტრები"
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:79
+msgid "Cwd"
+msgstr "Cwd"
+
+#: src/pam/askpass.rs:53
+#, rust-format
+msgid "Failed to run askpass program {path}: {error}"
+msgstr "გაშვების შეცდომა askpass პროგრამისთვის {path}: {error}"
+
+#: src/pam/error.rs:211 src/common/error.rs:136 src/common/error.rs:143
+msgid "Unexpected null character in input"
+msgstr "მოულოდნელი ნულოვანი სიმბოლო შეყვანაში"
+
+#: src/pam/error.rs:212
+msgid "Could not read input data as UTF-8 string"
+msgstr "შეყვანილი მონაცემების UTF-8 სტრიქონის სახით წაკითხვა შეუძლებელია"
+
+#: src/pam/error.rs:214
+msgid "Account validation failure, is your account locked?"
+msgstr "ანგარიშის გადამოწმება ჩავარდა. თქვენი ანგარიში დაბლოკილია?"
+
+#: src/pam/error.rs:219
+msgid "Account or password is expired, reset your password and try again"
+msgstr ""
+"ანგარიშის, ან პაროლის ვადა ამოწურულია. დააყენეთ თქვენი პაროლი თავიდან და "
+"კიდევ სცადეთ"
+
+#: src/pam/error.rs:223
+msgid "Password expired, contact your system administrator"
+msgstr "პაროლის ვადა ამოწურულია. დაუკავშირდით თქვენს სისტემურ ადმინისტრატორს"
+
+#: src/pam/error.rs:225
+#, rust-format
+msgid "PAM error: {error}"
+msgstr "PAM-ის შეცდომა: {error}"
+
+#: src/pam/error.rs:226 src/common/error.rs:116
+#, rust-format
+msgid "IO error: {error}"
+msgstr "შეტანა/გამოტანის შეცდომა: {error}"
+
+#: src/pam/error.rs:227
+msgid "A terminal is required to authenticate"
+msgstr "ავთენტიკაციისთვის საჭიროა ტერმინალი"
+
+#: src/pam/error.rs:231
+msgid "It was not possible to get a list of environment variables"
+msgstr "გარემოს ცვლადების სიის მიღება შეუძლებელი იყო"
+
+#: src/pam/error.rs:234
+msgid "Interaction is required"
+msgstr "ურთიერთქმედება აუცილებელია"
+
+#: src/pam/error.rs:236
+msgid "Authentication required but not attempted"
+msgstr "ავთენტიკაცია აუცილებელია, მაგრამ მცდელობა არ ყოფილა"
+
+#: src/pam/error.rs:239
+msgid "Incorrect authentication attempt"
+msgstr "არასწორი ავთენტიკაციის მცდელობა"
+
+#: src/pam/error.rs:241
+msgid "timed out"
+msgstr "ვადა გავიდა"
+
+#: src/pam/error.rs:245
+#, rust-format
+msgid "Sorry, user {user} is not allowed to authenticate as {other_user}."
+msgstr ""
+"უკაცრავად, მაგრამ მომხმარებელს {user} არ აქვს უფლება, გაიაროს ავთენტიკაცია, "
+"როგორც მომხმარებელმა {other_user}."
+
+#: src/pam/error.rs:251
+msgid "No askpass program specified in SUDO_ASKPASS"
+msgstr "გარემოს ცვლადში SUDO_ASKPASS პროგრამა askpass მითითებული არაა"
+
+#: src/pam/error.rs:256
+#, rust-format
+msgid "Askpass program '{path}' is not an absolute path"
+msgstr "Askpass პროგრამის ბილიკი '{path}' აბსოლუტური ბილიკი არაა"
+
+#: src/pam/mod.rs:86
+msgid "authenticate"
+msgstr "ავთენტიკაცია"
+
+#: src/pam/converse.rs:153
+msgid "input needed"
+msgstr "საჭიროა შეყვანა"
+
+#: src/system/audit.rs:181
+#, rust-format
+msgid "{path} must be owned by root"
+msgstr "{path}-ის მფლობელი root უნდა იყოს"
+
+#: src/system/audit.rs:186
+#, rust-format
+msgid "{path} cannot be group-writable"
+msgstr "{path} არ შეიძლება, ჯგუფის მიერ ჩაწერადი იყოს"
+
+#: src/system/audit.rs:191
+#, rust-format
+msgid "{path} cannot be world-writable"
+msgstr "{path} არ შეიძლება, ყველას მიერ ჩაწერადი იყოს"
+
+#: src/system/audit.rs:228 src/system/audit.rs:253
+#, rust-format
+msgid "{path} has no valid parent directory"
+msgstr "{path}-ს სწორი მშობელი საქაღალდე არ აქვს"
+
+#: src/system/audit.rs:331
+msgid "invalid path"
+msgstr "არასწორი ბილიკი"
+
+#: src/system/audit.rs:339
+msgid "path must be absolute"
+msgstr "ბილიკი აბსოლუტური უნდა იყოს"
+
+#: src/system/audit.rs:351 src/system/audit.rs:375
+msgid "cannot open a file in a path writable by the user"
+msgstr "მომხმარებლის მიერ ჩაწერად ბილიკზე ფაილის გახსნა შეუძლებელია"
+
+#: src/system/audit.rs:393
+msgid "error in provided path"
+msgstr "შეცდომა მოწოდებულ ბილიკში"
+
+#: src/common/error.rs:52
+#, rust-format
+msgid ""
+"Sorry, user {user} is not allowed to execute '{command}' as {other_user} on "
+"{hostname}."
+msgstr ""
+"უკაცრავად, მაგრამ მომხმარებელს {user} არ აქვს უფლება, გაუშვას ბრძანება "
+"'{command}' როგორც მომხმარებელმა {other_user} ჰოსტზე {hostname}."
+
+#: src/common/error.rs:61
+#, rust-format
+msgid "Sorry, user {user} may not run {command} on {hostname}."
+msgstr ""
+"უკაცრავად, მაგრამ მომხმარებელს {user} არ შეუძლია, გაუშვას ბრძანება {command} "
+"ჰოსტზე {hostname}."
+
+#: src/common/error.rs:69
+msgid "sudo must be owned by uid 0 and have the setuid bit set"
+msgstr ""
+"sudo-ის მფლობელი უნდა იყოს მომხმარებელი uid-ით 0 და დაყენებული ჰქონდეს ბიტი "
+"setuid"
+
+#: src/common/error.rs:80
+#, rust-format
+msgid "'{path}': command not found"
+msgstr "'{path}': ბრძანება აღმოჩენილი არაა"
+
+#: src/common/error.rs:83
+#, rust-format
+msgid "'{path}': invalid command"
+msgstr "'{path}': არასწორი ბრძანება"
+
+#: src/common/error.rs:85
+#, rust-format
+msgid "user '{user}' not found"
+msgstr "მომხმარებელი '{user}' აღმოჩენილი არაა"
+
+#: src/common/error.rs:86
+#, rust-format
+msgid "group '{group}' not found"
+msgstr "ჯგუფი '{group}' აღმოჩენილი არაა"
+
+#: src/common/error.rs:91
+msgid "interactive authentication is required"
+msgstr "აუცილებელია ინტერაქტიული ავთენტიკაცია"
+
+#: src/common/error.rs:95
+msgid "you are not allowed to set the following environment variables:"
+msgstr "თქვენ არ გაქვთ უფლება, დააყენოთ შემდეგი გარემოს ცვლადები:"
+
+#: src/common/error.rs:111
+#, rust-format
+msgid "cannot execute '{path}': {error}"
+msgstr "შეუძლებელია '{path}'-ის შესრულება: {error}"
+
+#: src/common/error.rs:122
+#, rust-format
+msgid "maximum {num} incorrect authentication attempts"
+msgstr "მაქსიმუმ {num} არასწორი ავთენტიკაციის მცდელობა"
+
+#: src/common/error.rs:128
+#, rust-format
+msgid "you are not allowed to use '--chdir {path}' with '{command}'"
+msgstr ""
+"თქვენ არ გაქვთ უფლება, გამოიყენოთ პარამეტრი '--chdir {path}' ბრძანებით "
+"'{command}'"
+
+#: src/common/error.rs:150
+#, rust-format
+msgid "unable to change AppArmor profile to {profile}: {error}"
+msgstr "შეუძლებელია AppArmor-ის პროფილის შეცვლა პროფილზე {profile}: {error}"
+
+#: src/sudo/pam.rs:127
+msgid "Authentication failed, try again."
+msgstr "ავთენტიკაციის შეცდომა. კიდევ სცადეთ."
+
+#: src/exec/mod.rs:154
+#, rust-format
+msgid "unable to change directory to {path}: {error}"
+msgstr "საქაღალდის შეცვლის შეცდომა მნიშვნელობაზე {path}: {error}"
+
+#: src/sudo/edit.rs:47
+#, rust-format
+msgid "failed to read metadata for {path}: {error}"
+msgstr "მეტამონაცემების წაკითხვის შეცდომა ბილიკისთვის {path}: {error}"
+
+#: src/sudo/edit.rs:55
+#, rust-format
+msgid "file {path} is not a regular file"
+msgstr "ფაილი {path} ჩვეულებრივი ფაილი არაა"
+
+#: src/sudo/edit.rs:65
+#, rust-format
+msgid "failed to lock {path}: {error}"
+msgstr "ვერ დავბლოკე {path}: {error}"
+
+#: src/sudo/edit.rs:78
+#, rust-format
+msgid "failed to read {path}: {error}"
+msgstr "ვერ წავიკითხე {path}: {error}"
+
+#: src/sudo/edit.rs:145
+#, rust-format
+msgid "{path} unchanged"
+msgstr "{path} არ შეცვლილა"
+
+#: src/sudo/edit.rs:165
+#, rust-format
+msgid "failed to write {path}: {error}"
+msgstr "ვერ ჩავწერე {path}: {error}"
+
+#: src/sudo/edit.rs:184
+#, rust-format
+msgid "failed to remove temporary directory {path}: {error}"
+msgstr "ვერ წავშალე დროებითი საქაღალდე {path}: {error}"
+
+#: src/sudo/edit.rs:196
+#, rust-format
+msgid "{error}"
+msgstr "{error}"
+
+#: src/sudo/edit.rs:215
+#, rust-format
+msgid "failed to create temporary directory: {error}"
+msgstr "დროებითი საქაღალდის შექმნა ჩავარდა: {error}"
+
+#: src/sudo/edit.rs:223
+#, rust-format
+msgid "failed to create temporary directory {path}: {error}"
+msgstr "ვერ შევქმენი დროებითი საქაღალდე {path}: {error}"
+
+#: src/sudo/edit.rs:237
+#, rust-format
+msgid "failed to create temporary file {path}: {error}"
+msgstr "ვერ შევქმენი დროებითი ფაილი {path}: {error}"
+
+#: src/sudo/edit.rs:246
+#, rust-format
+msgid "failed to write to temporary file {path}: {error}"
+msgstr "ჩაწერის შეცდომა დროებით ფაილში {path}: {error}"
+
+#: src/sudo/edit.rs:266
+#, rust-format
+msgid "failed to run editor {path}: {error}"
+msgstr "რედაქტორის {path} გაშვება ჩავარდა: {error}"
+
+#: src/sudo/edit.rs:287
+#, rust-format
+msgid "failed to read from temporary file {path}: {error}"
+msgstr "წაკითხვის შეცდომა დროებითი ფაილიდან {path}: {error}"
+
+#: src/sudo/edit.rs:296
+#, rust-format
+msgid "failed to remove temporary file {path}: {error}"
+msgstr "წაშლის შეცდომა დროებითი ფაილისთვის {path}: {error}"
+
+#. TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
+#: src/sudo/edit.rs:305
+msgid "yn"
+msgstr "yn"
+
+#: src/sudo/edit.rs:309
+#, rust-format
+msgid "sudoedit: truncate {path} to zero? (y/n) [n] "
+msgstr "sudoedit: მოხდეს ბილიკის {path} წაკვეთა ნულამდე? (y/n) [n] "
+
+#: src/sudo/edit.rs:322
+#, rust-format
+msgid "not overwriting {path}"
+msgstr "არ გადავაწერ თავზე ბილიკს {path}"
+
+#: src/sudo/edit.rs:326 src/sudo/edit.rs:335
+#, rust-format
+msgid "failed to write data to parent: {error}"
+msgstr "მონაცემების ჩაწერის შეცდომა მშობელში: {error}"
+
+#: src/sudo/pipeline/edit.rs:33
+#, rust-format
+msgid "{path}: editing symbolic links is not permitted"
+msgstr "{path}: სიმბოლური ბმულების ჩასწორება დაშვებული არაა"
+
+#: src/sudo/pipeline/edit.rs:39
+#, rust-format
+msgid "error opening {path}: {error}"
+msgstr "გახსნის შეცდომა ბილიკისთვის {path}: {error}"
+
+#: src/sudo/pipeline/edit.rs:46
+#, rust-format
+msgid "invalid path: {path}"
+msgstr "არასწორი ბილიკი: {path}"
+
+#: src/sudo/pipeline/edit.rs:51
+msgid "please address the problems and try again"
+msgstr "მოაგვარეთ პრობლემები და კიდევ სცადეთ"
+
+#: src/sudo/pipeline/list.rs:48
+#, rust-format
+msgid "User {user} may run the following commands on {hostname}:"
+msgstr ""
+"მომხმარებელს {user} შეუძლია შემდეგი ბრძანებების გაშვება ჰოსტზე {hostname}:"
+
+#: src/sudo/pipeline/list.rs:63
+#, rust-format
+msgid "User {user} is not allowed to run sudo on {hostname}."
+msgstr "მომხმარებელს {user} არ აქვს უფლება, გაუშვას sudo ჰოსტზე {hostname}."
+
+#: src/sudo/cli/help_edit.rs:3
+msgid ""
+"usage: sudoedit -h | -V\n"
+"usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
+msgstr ""
+"გამოყენება: sudoedit -h | -V\n"
+"გამოყენება: sudoedit [-BknS] [-p შეყვანა] [-g ჯგუფი] [-u მომხმარებელი] "
+"ფაილი ..."
+
+#: src/sudo/cli/help_edit.rs:10
+msgid "sudoedit - edit files as another user"
+msgstr "sudoedit - ფაილების ჩასწორება სხვა მომხმარებლით"
+
+#: src/sudo/cli/help_edit.rs:15
+msgid ""
+"Options:\n"
+"  -B, --bell                    ring bell when prompting\n"
+"  -g, --group=group             run command as the specified group name or "
+"ID\n"
+"  -h, --help                    display help message and exit\n"
+"  -k, --reset-timestamp         invalidate timestamp file\n"
+"  -n, --non-interactive         non-interactive mode, no prompts are used\n"
+"  -p, --prompt=prompt           use the specified password prompt\n"
+"  -S, --stdin                   read password from standard input\n"
+"  -u, --user=user               run command (or edit file) as specified "
+"user\n"
+"                                name or ID\n"
+"  -V, --version                 display version information and exit\n"
+"  --                            stop processing command line arguments"
+msgstr ""
+"პარამეტრები:\n"
+"  -B, --bell                    ზარის დარეკვა მოთხოვისას\n"
+"  -g, --group=group             ბრძანების გაშვება მითითებული ჯგუფის სახელით, "
+"ან ID-ით\n"
+"  -h, --help                    დახმარების შეტყობინების გამოტანა და გასვლა\n"
+"  -k, --reset-timestamp         დროის შტამპის ფაილის გაუქმება\n"
+"  -n, --non-interactive         არაინტერაქტიული რეჟიმი. შეყვანა მოთხოვნილი "
+"არ იქნება\n"
+"  -p, --prompt=prompt           მითითებული პაროლის შეყვანის გამოყენება\n"
+"  -S, --stdin                   პაროლის წაკითხვა სტანდარტული შეყვანიდან\n"
+"  -u, --user=user               ბრძანების გაშვება (ან ფაილის ჩასწორება) "
+"მითითებული მომხმარებლის\n"
+"                                სახელით, ან ID-ით\n"
+"  -V, --version                 ვერსიის ინფორმაციის გამოტანა და გასვლა\n"
+"  --                            ბრძანების სტრიქონის არგუმენტების დამუშავების "
+"შეწყვეტა"
+
+#: src/sudo/cli/mod.rs:153 src/sudo/cli/mod.rs:218 src/sudo/cli/mod.rs:290
+#: src/sudo/cli/mod.rs:379 src/sudo/cli/mod.rs:392 src/sudo/cli/mod.rs:823
+#, rust-format
+msgid "{context} cannot be used together with {option}"
+msgstr "კონტექსტს {context} ვერ გამოიყენებთ პარამეტრთან {option} ერთად"
+
+#: src/sudo/cli/mod.rs:227
+msgid "must specify at least one file path"
+msgstr "უნდა მიუთითოთ, სულ ცოტა, ერთი ფაილის ბილიკი"
+
+#: src/sudo/cli/mod.rs:302
+#, rust-format
+msgid "'{option}' flag must be accompanied by a command"
+msgstr "'{option}' ალამს ბრძანება უნდა მოჰყვებოდეს"
+
+#: src/sudo/cli/mod.rs:388
+msgid "command (positional argument)"
+msgstr "ბრძანება (პოზიციური არგუმენტი)"
+
+#: src/sudo/cli/mod.rs:403
+msgid "expected one of: --login, --shell, a command as a positional argument"
+msgstr ""
+"მოველოდი ერთერთს: --login, --shell, ბრძანებას პოზიციური არგუმენტის სახით"
+
+#: src/sudo/cli/mod.rs:544
+#, rust-format
+msgid "'{option}' does not take any arguments"
+msgstr "'{option}' არგუმენტებს არ იღებს"
+
+#: src/sudo/cli/mod.rs:556 src/sudo/cli/mod.rs:589
+#, rust-format
+msgid "'{option}' expects an argument"
+msgstr "'{option}' არგუმენტს მოელის"
+
+#: src/sudo/cli/mod.rs:577
+msgid "invalid option '='"
+msgstr "არასწორი პარამეტრი '='"
+
+#: src/sudo/cli/mod.rs:632
+msgid ""
+"expected one of these actions: --help, --version, --remove-timestamp, --"
+"validate, --list, --edit, --login, --shell, a command as a positional "
+"argument, --reset-timestamp"
+msgstr ""
+"მოველოდი ერთერთს ამ ქმედებებიდან: --help, --version, --remove-timestamp, --"
+"validate, --list, --edit, --login, --shell, ბრძანებას პოზიციური არგუმენტის "
+"სახით, --reset-timestamp"
+
+#: src/sudo/cli/mod.rs:672
+#, rust-format
+msgid "preserving the entire environment is not supported, '{flag}' is ignored"
+msgstr "მთელი გარემოს შენარჩუნება მხარდაჭერილი არაა. '{flag}' იგნორირებულია"
+
+#: src/sudo/cli/mod.rs:716 src/sudo/cli/mod.rs:745
+msgid "invalid option provided"
+msgstr "მოწოდებულია არასწორი პარამეტრი"
+
+#: src/sudo/cli/mod.rs:763
+msgid "sudoedit doesn't need to be run via sudo"
+msgstr "sudoedit-ს არ სჭირდება, sudo-ით რომ გაუშვათ"
+
+#: src/sudo/cli/mod.rs:875
+msgid "command"
+msgstr "ბრძანება"
+
+#: src/sudo/cli/mod.rs:876
+msgid "environment variable"
+msgstr "გარემოს ცვლადი"
+
+#: src/sudo/cli/help.rs:13
+msgid "sudo - run commands as another user"
+msgstr "sudo - ბრძანებების გაშვება სხვა მომხმარებლით"
+
+#: src/sudo/pipeline.rs:30
+#, rust-format
+msgid ""
+"sudoers file not found: {path}\n"
+"\n"
+"The sudoers file is required for sudo-rs to function. Please ensure:\n"
+"- The file exists at the expected location\n"
+"- You have the necessary permissions to read it\n"
+"- If setting up sudo-rs for the first time, create a sudoers file with "
+"appropriate permissions\n"
+"\n"
+"For more information, see the sudo-rs documentation."
+msgstr ""
+"ფაილი sudoers აღმოჩენილი არაა: {path}\n"
+"\n"
+"ფაილი sudoers აუცილებელია, რომ sudo-rs-მა იმუშაოს. დარწმუნდით რომ:\n"
+"- ფაილი არსებობს მოსალოდნელ ადგილას\n"
+"- გაქვთ უფლება, ის წაიკითხოთ\n"
+"- თუ sudo-rs-ის მორგებას პირველად ცდილობთ, შექმენით ფაილი sudoers სწორი "
+"წვდომებით\n"
+"\n"
+"მეტი ინფორმაციისთვის იხილეტ sudo-rs-ის დოკუმენტაცია."
+
+#: src/sudo/pipeline.rs:41
+#, rust-format
+msgid "invalid configuration: {error}"
+msgstr "არასწორი კონფიგურაცია: {error}"
+
+#: src/sudo/cli/help.rs:3
+msgid ""
+"usage: sudo -h | -K | -k | -V\n"
+"usage: sudo [-ABbknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | "
+"-s] [command [arg ...]]\n"
+"usage: sudo -v [-ABknS] [-p prompt] [-g group] [-u user]\n"
+"usage: sudo -l [-ABknS] [-p prompt] [-U user] [-g group] [-u user] [command "
+"[arg ...]]\n"
+"usage: sudo -e [-ABknS] [-p prompt] [-D directory] [-g group] [-u user] "
+"file ..."
+msgstr ""
+"გამოყენება: sudo -h | -K | -k | -V\n"
+"გამოყენება: sudo [-ABbknS] [-p შეყვანა] [-D საქაღალდე] [-g ჯგუფი] [-u "
+"მომხმარებელი] [-i | -s] [ბრძანება [არგ ...]]\n"
+"გამოყენება: sudo -v [-ABknS] [-p შეყვანა] [-g ჯგუფი] [-u მომხმარებელი]\n"
+"გამოყენება: sudo -l [-ABknS] [-p შეყვანა] [-U მომხმარებელი] [-g ჯგუფი] [-u "
+"მომხმარებელი] [ბრძანება [არგ ...]]\n"
+"გამოყენება: sudo -e [-ABknS] [-p შეყვანა] [-D საქაღალდე] [-g ჯგუფი] [-u "
+"მომხმარებელი] ფაილი ..."
+
+#: src/sudo/cli/help.rs:17
+msgid ""
+"Options:\n"
+"  -A, --askpass                 use a helper program for password prompting\n"
+"  -b, --background              run command in the background\n"
+"  -B, --bell                    ring bell when prompting\n"
+"  -D, --chdir=directory         change the working directory before running "
+"command\n"
+"  -e, --edit                    edit files instead of running a command\n"
+"  -g, --group=group             run command as the specified group name or "
+"ID\n"
+"  -h, --help                    display help message and exit\n"
+"  -i, --login                   run login shell as the target user; a "
+"command may also be specified\n"
+"  -K, --remove-timestamp        remove timestamp file completely\n"
+"  -k, --reset-timestamp         invalidate timestamp file\n"
+"  -l, --list                    list user's privileges or check a specific "
+"command; use twice for longer format\n"
+"  -n, --non-interactive         non-interactive mode, no prompts are used\n"
+"  -p, --prompt=prompt           use the specified password prompt\n"
+"  -S, --stdin                   read password from standard input\n"
+"  -s, --shell                   run shell as the target user; a command may "
+"also be specified\n"
+"  -U, --other-user=user         in list mode, display privileges for user\n"
+"  -u, --user=user               run command (or edit file) as specified user "
+"name or ID\n"
+"  -V, --version                 display version information and exit\n"
+"  -v, --validate                update user's timestamp without running a "
+"command\n"
+"      --preserve-env=list       preserve specific environment variables\n"
+"  --                            stop processing command line arguments"
+msgstr ""
+"პარამეტრები:\n"
+"  -A, --askpass                 დამხმარე პროგრამის გამოყენება პაროლის "
+"მოსათხოვად\n"
+"  -b, --background              ბრძანების ფონურად გაშვება\n"
+"  -B, --bell                    ზარის დარეკვა მოთხოვნისას\n"
+"  -D, --chdir=directory         სამუშაო საქაღალდის შეცვლა ბრძანების "
+"გაშვებალდე\n"
+"  -e, --edit                    ფაილების ჩასწორება ბრძანების გაშვების "
+"მაგიერ\n"
+"  -g, --group=group             ბრძანებსი გაშვება მითითებული ჯგუფის სახელით, "
+"ან ID-ით\n"
+"  -h, --help                    დახმარების შეტყობინების გამოტანა და გასვლა\n"
+"  -i, --login                   შესვლის გარის გაშვება სამიზნე მომხმარებლის "
+"სახით. ასევე შესაძლებელია ბრძანების მითითება\n"
+"  -K, --remove-timestamp        დროის შტამპის ფაილის სრულად წაშლა\n"
+"  -k, --reset-timestamp         დროის შტამპის ფაილის არასწორად გამოცხადება\n"
+"  -l, --list                    მომხმარებლის პრივილეგიების სია, ან "
+"მითითებული ბრძანების შემოწმება. უფრო გრძელი ფორმატისთვის გამოიყენეთ ორჯერ\n"
+"  -n, --non-interactive         არაინტერაქტიული რეჟიმი. შეყვანა მოთხოვნილი "
+"არ იქნება\n"
+"  -p, --prompt=prompt           მითითებული პაროლის მოთხოვნის გამოყენება\n"
+"  -S, --stdin                   პაროლის წაკითხვა სტანდარტული შეყვანიდან\n"
+"  -s, --shell                   გარსის გაშვება სამიზნე მომხმარებლის სახელით. "
+"ასევე შესაძლებელია ბრძანების მითითება\n"
+"  -U, --other-user=user         სიის რეჟიმში ასევე ნაჩვენები იქნება "
+"მომხმარებლის პრივილეგიები\n"
+"  -u, --user=user               ბრძანების გაშვება (ან ფაილის ჩასწორება) "
+"მითითითებული მომხმარებლის სახელით, ან ID-ით\n"
+"  -V, --version                 ვერსიის ინფორმაციის გამოტანა და გასვლა\n"
+"  -v, --validate                მომხმარებლის დროის შტამპის განახლება "
+"ბრძანების გაშვების გარესე\n"
+"      --preserve-env=list       სპეციფიკური გარემოს ცვლადების შენარჩუნება\n"
+"  --                            ბრძანების სტრიქონის არგუმენტების დამუშავების "
+"შეწყვეტა"
+
+#: src/common/error.rs:74
+msgid ""
+"The \"no new privileges\" flag is set, which prevents sudo from running as "
+"root.\n"
+"If sudo is running in a container, you may need to adjust the container "
+"configuration to disable the flag."
+msgstr ""
+"ალამი \"ახალი პრივილეგიების გარეშე\" დაყენებულია. ის ხელს უშლის sudo-ს, root-"
+"ით გაეშვას.\n"
+"თუ sudo გაშვებულაი კონტეინერში, შეიძლება, დაგჭირდეთ კონტეინერის "
+"კონფიგურაციის ცვლილება, რომ ეს ალამი გამორთოთ."
+
+#: src/sudo/cli/mod.rs:505
+#, rust-format
+msgid "argument '{arg}' is not valid UTF-8"
+msgstr "არგუმენტი '{arg}' სწორი UTF-8 არაა"
