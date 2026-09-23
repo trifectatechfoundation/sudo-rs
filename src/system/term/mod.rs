@@ -272,7 +272,12 @@ pub(crate) struct TtyGuard(File, FileLock);
 
 /// Lock the tty to prevent contention over who owns the password prompt
 pub(crate) fn lock_tty() -> Option<TtyGuard> {
-    let tty = File::open("/dev/tty").ok()?;
+    // Prefer the real device: flock() on /dev/tty's single shared inode serializes all terminals.
+    let tty = match find_tty::ttyname_from_dev() {
+        Ok(Some(path)) => File::open(path),
+        _ => File::open("/dev/tty"),
+    }
+    .ok()?;
     // og-sudo uses fcntl(F_SETLKW) instead of the flock() that FileLock::exclusive does.
     // This does mean in the unlikely case that sudo-rs and og-sudo are used inside the
     // same pipeline, they will still fight for access to the tty. Adding a separate lock
