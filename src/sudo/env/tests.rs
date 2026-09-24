@@ -114,6 +114,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         hostname: Hostname::fake("test-ubuntu"),
         command,
         current_user: current_user.clone(),
+        tty: Default::default(),
         target_user: if sudo_options.user.as_deref() == Some("test") {
             current_user.into()
         } else {

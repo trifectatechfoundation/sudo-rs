@@ -3,9 +3,12 @@ mod user_term;
 use std::{
     ffi::{CString, OsString, c_char, c_uchar},
     fmt,
-    fs::File,
+    fs::{File, OpenOptions},
     io,
-    os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
+    os::{
+        fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
+        unix::fs::OpenOptionsExt,
+    },
     ptr::null_mut,
 };
 
@@ -14,7 +17,8 @@ use libc::{TIOCSWINSZ, ioctl, winsize};
 use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 
 use super::file::FileLock;
-use super::interface::ProcessId;
+use super::interface::{DeviceId, ProcessId};
+use super::{Process, WithProcess};
 
 mod find_tty;
 
@@ -255,33 +259,64 @@ impl<F: AsFd> Terminal for F {
     }
 }
 
-/// Try to get the path of the current TTY
-pub(crate) fn current_tty_name() -> io::Result<OsString> {
-    if let Some(tty) = find_tty::ttyname_from_dev()? {
-        return Ok(tty);
+/// The TTY of the current process, resolved once and shared by all its users
+#[derive(Debug, Default)]
+pub(crate) struct CurrentTty {
+    /// Name to report (e.g. for PAM_TTY)
+    pub(crate) name: Option<OsString>,
+    /// Device of the controlling terminal
+    pub(crate) device: Option<DeviceId>,
+    /// Path of the controlling terminal device
+    pub(crate) path: Option<OsString>,
+}
+
+impl CurrentTty {
+    pub(crate) fn resolve() -> Self {
+        let device = Process::tty_device_id(WithProcess::Current).ok().flatten();
+        let path = device.and_then(find_tty::ttyname_from_dev);
+        let name = match device {
+            Some(_) => path.clone(),
+            None => io::stdin()
+                .ttyname()
+                .or_else(|_| io::stdout().ttyname())
+                .or_else(|_| io::stderr().ttyname())
+                .ok(),
+        };
+
+        Self { name, device, path }
     }
 
-    io::stdin()
-        .ttyname()
-        .or_else(|_| io::stdout().ttyname())
-        .or_else(|_| io::stderr().ttyname())
+    /// Open the controlling terminal device, if its path still refers to it
+    fn open_verified(&self) -> Option<File> {
+        let (path, device) = (self.path.as_ref()?, self.device?);
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOCTTY | libc::O_NONBLOCK)
+            .open(path)
+            .ok()?;
+
+        find_tty::is_our_tty(file.metadata().ok()?, device).then_some(file)
+    }
+
+    /// Lock the tty to prevent contention over who owns the password prompt
+    pub(crate) fn lock(&self) -> Option<TtyGuard> {
+        // Prefer the real device: flock() on /dev/tty's single shared inode serializes all terminals.
+        let tty = self
+            .open_verified()
+            .or_else(|| File::open("/dev/tty").ok())?;
+        // og-sudo uses fcntl(F_SETLKW) instead of the flock() that FileLock::exclusive does.
+        // This does mean in the unlikely case that sudo-rs and og-sudo are used inside the
+        // same pipeline, they will still fight for access to the tty. Adding a separate lock
+        // implementation for the tty is probably not worth it and changing the timestamp code
+        // to use fcntl(F_SETLKW) is iffy as flock() is much better behaved.
+        let lock = FileLock::exclusive(&tty, false).ok()?;
+
+        Some(TtyGuard(tty, lock))
+    }
 }
 
 #[expect(unused)]
 pub(crate) struct TtyGuard(File, FileLock);
-
-/// Lock the tty to prevent contention over who owns the password prompt
-pub(crate) fn lock_tty() -> Option<TtyGuard> {
-    let tty = File::open("/dev/tty").ok()?;
-    // og-sudo uses fcntl(F_SETLKW) instead of the flock() that FileLock::exclusive does.
-    // This does mean in the unlikely case that sudo-rs and og-sudo are used inside the
-    // same pipeline, they will still fight for access to the tty. Adding a separate lock
-    // implementation for the tty is probably not worth it and changing the timestamp code
-    // to use fcntl(F_SETLKW) is iffy as flock() is much better behaved.
-    let lock = FileLock::exclusive(&tty, false).ok()?;
-
-    Some(TtyGuard(tty, lock))
-}
 
 #[repr(transparent)]
 pub(crate) struct TermSize {
