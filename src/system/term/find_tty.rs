@@ -14,7 +14,7 @@ pub(super) fn ttyname_from_dev(tty_dev: DeviceId) -> Option<OsString> {
         .or_else(|| find_tty_in_dir(Path::new("/dev"), tty_dev))
 }
 
-fn is_our_tty(metadata: fs::Metadata, tty_dev: DeviceId) -> bool {
+pub(super) fn is_our_tty(metadata: fs::Metadata, tty_dev: DeviceId) -> bool {
     metadata.file_type().is_char_device() && metadata.rdev() == tty_dev.inner()
 }
 
