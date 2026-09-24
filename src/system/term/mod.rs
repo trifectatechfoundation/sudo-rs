@@ -3,9 +3,12 @@ mod user_term;
 use std::{
     ffi::{CString, OsString, c_char, c_uchar},
     fmt,
-    fs::File,
+    fs::{File, OpenOptions},
     io,
-    os::fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
+    os::{
+        fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
+        unix::fs::OpenOptionsExt,
+    },
     ptr::null_mut,
 };
 
@@ -286,7 +289,11 @@ impl CurrentTty {
     /// Open the controlling terminal device, if its path still refers to it
     fn open_verified(&self) -> Option<File> {
         let (path, device) = (self.path.as_ref()?, self.device?);
-        let file = File::open(path).ok()?;
+        let file = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOCTTY | libc::O_NONBLOCK)
+            .open(path)
+            .ok()?;
 
         find_tty::is_our_tty(file.metadata().ok()?, device).then_some(file)
     }
