@@ -3,7 +3,7 @@
 use crate::common::error::Error;
 use crate::log::user_warn;
 use crate::pam::{PamContext, PamError, PamErrorType};
-use crate::system::term::current_tty_name;
+use crate::system::term::CurrentTty;
 
 use std::env;
 
@@ -42,7 +42,7 @@ fn authenticate(requesting_user: &str, user: &str, login: bool) -> Result<PamCon
     pam.set_requesting_user(requesting_user)?;
 
     // attempt to set the TTY this session is communicating on
-    if let Ok(pam_tty) = current_tty_name() {
+    if let Some(pam_tty) = CurrentTty::resolve().name {
         pam.set_tty(&pam_tty)?;
     }
 

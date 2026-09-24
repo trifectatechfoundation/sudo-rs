@@ -14,7 +14,8 @@ use libc::{TIOCSWINSZ, ioctl, winsize};
 use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 
 use super::file::FileLock;
-use super::interface::ProcessId;
+use super::interface::{DeviceId, ProcessId};
+use super::{Process, WithProcess};
 
 mod find_tty;
 
@@ -255,16 +256,29 @@ impl<F: AsFd> Terminal for F {
     }
 }
 
-/// Try to get the path of the current TTY
-pub(crate) fn current_tty_name() -> io::Result<OsString> {
-    if let Some(tty) = find_tty::ttyname_from_dev()? {
-        return Ok(tty);
-    }
+/// The TTY of the current process, resolved once and shared by all its users
+#[derive(Debug, Default)]
+pub(crate) struct CurrentTty {
+    /// Name to report (e.g. for PAM_TTY)
+    pub(crate) name: Option<OsString>,
+    /// Device of the controlling terminal
+    pub(crate) device: Option<DeviceId>,
+}
 
-    io::stdin()
-        .ttyname()
-        .or_else(|_| io::stdout().ttyname())
-        .or_else(|_| io::stderr().ttyname())
+impl CurrentTty {
+    pub(crate) fn resolve() -> Self {
+        let device = Process::tty_device_id(WithProcess::Current).ok().flatten();
+        let name = match device {
+            Some(device) => find_tty::ttyname_from_dev(device),
+            None => io::stdin()
+                .ttyname()
+                .or_else(|_| io::stdout().ttyname())
+                .or_else(|_| io::stderr().ttyname())
+                .ok(),
+        };
+
+        Self { name, device }
+    }
 }
 
 #[expect(unused)]

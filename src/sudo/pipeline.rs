@@ -13,7 +13,7 @@ use crate::sudoers::{
     AuthenticatingUser, Authentication, AuthenticationScope, Authorization, Judgement, Logging,
     Sudoers,
 };
-use crate::system::term::{current_tty_name, lock_tty};
+use crate::system::term::lock_tty;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{Process, escape_os_str_lossy};
 
@@ -176,7 +176,7 @@ fn auth_and_update_record_file(
     };
 
     let scope = match scope {
-        AuthenticationScope::Tty => RecordScope::for_tty(&Process::new()),
+        AuthenticationScope::Tty => RecordScope::for_tty(&Process::new(), context.tty.device),
         AuthenticationScope::PPid => RecordScope::for_ppid(&Process::new()),
     };
     let mut auth_status = determine_auth_status(
@@ -201,6 +201,7 @@ fn auth_and_update_record_file(
         requesting_user: &context.current_user.name,
         target_user: &context.target_user.name,
         hostname: &context.hostname,
+        tty_name: context.tty.name.as_deref(),
     })?;
     if auth_status.must_authenticate {
         if context.non_interactive && !noninteractive_auth {
@@ -284,8 +285,8 @@ fn log_command_execution(log: Logging, context: &Context) {
     if matches!(log, Logging::Disabled) {
         return;
     }
-    let tty_info = if let Ok(tty_name) = current_tty_name() {
-        format!("TTY={} ;", escape_os_str_lossy(&tty_name))
+    let tty_info = if let Some(tty_name) = &context.tty.name {
+        format!("TTY={} ;", escape_os_str_lossy(tty_name))
     } else {
         String::from("")
     };
