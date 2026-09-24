@@ -283,14 +283,20 @@ impl CurrentTty {
         Self { name, device, path }
     }
 
+    /// Open the controlling terminal device, if its path still refers to it
+    fn open_verified(&self) -> Option<File> {
+        let (path, device) = (self.path.as_ref()?, self.device?);
+        let file = File::open(path).ok()?;
+
+        find_tty::is_our_tty(file.metadata().ok()?, device).then_some(file)
+    }
+
     /// Lock the tty to prevent contention over who owns the password prompt
     pub(crate) fn lock(&self) -> Option<TtyGuard> {
         // Prefer the real device: flock() on /dev/tty's single shared inode serializes all terminals.
-        let tty = match &self.path {
-            Some(path) => File::open(path),
-            None => File::open("/dev/tty"),
-        }
-        .ok()?;
+        let tty = self
+            .open_verified()
+            .or_else(|| File::open("/dev/tty").ok())?;
         // og-sudo uses fcntl(F_SETLKW) instead of the flock() that FileLock::exclusive does.
         // This does mean in the unlikely case that sudo-rs and og-sudo are used inside the
         // same pipeline, they will still fight for access to the tty. Adding a separate lock
