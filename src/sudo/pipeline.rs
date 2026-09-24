@@ -13,7 +13,6 @@ use crate::sudoers::{
     AuthenticatingUser, Authentication, AuthenticationScope, Authorization, Judgement, Logging,
     Sudoers,
 };
-use crate::system::term::lock_tty;
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
 use crate::system::{Process, escape_os_str_lossy};
 
@@ -172,7 +171,7 @@ fn auth_and_update_record_file(
     let _guard = if context.non_interactive || context.stdin || context.askpass {
         None
     } else {
-        lock_tty()
+        context.tty.lock()
     };
 
     let scope = match scope {

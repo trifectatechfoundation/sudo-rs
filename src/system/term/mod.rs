@@ -263,13 +263,16 @@ pub(crate) struct CurrentTty {
     pub(crate) name: Option<OsString>,
     /// Device of the controlling terminal
     pub(crate) device: Option<DeviceId>,
+    /// Path of the controlling terminal device
+    pub(crate) path: Option<OsString>,
 }
 
 impl CurrentTty {
     pub(crate) fn resolve() -> Self {
         let device = Process::tty_device_id(WithProcess::Current).ok().flatten();
+        let path = device.and_then(find_tty::ttyname_from_dev);
         let name = match device {
-            Some(device) => find_tty::ttyname_from_dev(device),
+            Some(_) => path.clone(),
             None => io::stdin()
                 .ttyname()
                 .or_else(|_| io::stdout().ttyname())
@@ -277,25 +280,30 @@ impl CurrentTty {
                 .ok(),
         };
 
-        Self { name, device }
+        Self { name, device, path }
+    }
+
+    /// Lock the tty to prevent contention over who owns the password prompt
+    pub(crate) fn lock(&self) -> Option<TtyGuard> {
+        // Prefer the real device: flock() on /dev/tty's single shared inode serializes all terminals.
+        let tty = match &self.path {
+            Some(path) => File::open(path),
+            None => File::open("/dev/tty"),
+        }
+        .ok()?;
+        // og-sudo uses fcntl(F_SETLKW) instead of the flock() that FileLock::exclusive does.
+        // This does mean in the unlikely case that sudo-rs and og-sudo are used inside the
+        // same pipeline, they will still fight for access to the tty. Adding a separate lock
+        // implementation for the tty is probably not worth it and changing the timestamp code
+        // to use fcntl(F_SETLKW) is iffy as flock() is much better behaved.
+        let lock = FileLock::exclusive(&tty, false).ok()?;
+
+        Some(TtyGuard(tty, lock))
     }
 }
 
 #[expect(unused)]
 pub(crate) struct TtyGuard(File, FileLock);
-
-/// Lock the tty to prevent contention over who owns the password prompt
-pub(crate) fn lock_tty() -> Option<TtyGuard> {
-    let tty = File::open("/dev/tty").ok()?;
-    // og-sudo uses fcntl(F_SETLKW) instead of the flock() that FileLock::exclusive does.
-    // This does mean in the unlikely case that sudo-rs and og-sudo are used inside the
-    // same pipeline, they will still fight for access to the tty. Adding a separate lock
-    // implementation for the tty is probably not worth it and changing the timestamp code
-    // to use fcntl(F_SETLKW) is iffy as flock() is much better behaved.
-    let lock = FileLock::exclusive(&tty, false).ok()?;
-
-    Some(TtyGuard(tty, lock))
-}
 
 #[repr(transparent)]
 pub(crate) struct TermSize {
