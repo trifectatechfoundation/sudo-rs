@@ -432,6 +432,10 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 ## Integers that can be used in a boolean context:
 
+* passwd_timeout
+
+  Number of minutes that can elapse before the password prompt times out and sudo exits.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 5.  Set this to 0 to disable the timeout.
+
 * timestamp_timeout
 
   Number of minutes that can elapse before sudo will ask for a passwd again.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 15.  Set this to 0 to always prompt for a password.
