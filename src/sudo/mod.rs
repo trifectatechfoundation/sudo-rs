@@ -6,7 +6,7 @@ use crate::log::dev_info;
 use crate::system::User;
 use crate::system::interface::UserId;
 use crate::system::timestamp::RecordScope;
-use crate::system::{Process, timestamp::SessionRecordFile};
+use crate::system::{Process, WithProcess, timestamp::SessionRecordFile};
 #[cfg(test)]
 pub(crate) use cli::SudoAction;
 #[cfg(not(test))]
@@ -101,12 +101,17 @@ fn sudo_process() -> Result<(), Error> {
             SudoAction::ResetTimestamp(_) => {
                 let user = CurrentUser::resolve()?;
                 let process = Process::new();
-                for record_scope in [RecordScope::for_tty, RecordScope::for_ppid] {
-                    if let Some(scope) = record_scope(&process) {
-                        let mut record_file =
-                            SessionRecordFile::open_for_user(&user, Duration::default())?;
-                        record_file.disable(scope)?;
-                    }
+                let tty_device = Process::tty_device_id(WithProcess::Current).ok().flatten();
+                for scope in [
+                    RecordScope::for_tty(&process, tty_device),
+                    RecordScope::for_ppid(&process),
+                ]
+                .into_iter()
+                .flatten()
+                {
+                    let mut record_file =
+                        SessionRecordFile::open_for_user(&user, Duration::default())?;
+                    record_file.disable(scope)?;
                 }
                 Ok(())
             }
