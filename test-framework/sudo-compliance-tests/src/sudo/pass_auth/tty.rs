@@ -50,9 +50,38 @@ fn no_tty() {
     output.assert_exit_code(1);
 
     let diagnostic = if sudo_test::is_original_sudo() {
-        "a terminal is required to read the password"
+        "a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper"
     } else {
-        "A terminal is required to authenticate"
+        "A terminal is required to authenticate; either use the -S option to read the password from standard input or configure an askpass helper"
+    };
+    assert_contains!(output.stderr(), diagnostic);
+}
+
+#[test]
+fn no_tty_over_ssh_suggests_ssh_t() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    let output = Command::new("sh")
+        .args([
+            "-c",
+            "LANG=C LC_ALL=C SSH_CONNECTION='127.0.0.1 33860 127.0.0.1 22' sudo true </dev/null >/tmp/repro.log",
+        ])
+        .as_user(USERNAME)
+        .output(&env);
+    output.assert_exit_code(1);
+
+    if sudo_test::is_original_sudo() {
+        // TODO: Remove this once sudo-project/sudo commit 516f72960 (sudo v1.9.17)
+        // is broadly available in the test container.
+        return;
+    }
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        "a terminal is required to read the password; either use ssh's -t option or configure an askpass helper"
+    } else {
+        "A terminal is required to authenticate; either use ssh's -t option or configure an askpass helper"
     };
     assert_contains!(output.stderr(), diagnostic);
 }
