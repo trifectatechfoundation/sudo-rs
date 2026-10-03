@@ -42,6 +42,17 @@ You can also go through our code --- if you see any small mistakes or have sugge
 please create an issue for them.  If it is really a minor issue, like a typo or formatting
 issue, you can immediately create a pull request.
 
+## Updating manual pages
+
+The manual page sources are the Markdown (`.md`) files in [`docs/man`](docs/man).
+Edit those files when changing the documentation. The corresponding `.man` files
+are generated from them during the release process, so edits made only to a `.man`
+file will be overwritten.
+
+To regenerate the manual pages locally, run `./util/generate-docs.sh` from the
+repository root. This script requires Docker and uses a pinned Pandoc image.
+For example, preview the generated sudo manual with `man -l docs/man/sudo.8.man`.
+
 ## Security auditing
 
 One way you can help is by looking at the security of our code and proposing fixes in it.
