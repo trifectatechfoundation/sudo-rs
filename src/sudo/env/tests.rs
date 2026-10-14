@@ -5,6 +5,7 @@ use crate::sudo::{
     env::environment::{Environment, get_target_environment},
 };
 use crate::system::interface::{GroupId, UserId};
+use crate::system::term::CurrentTty;
 use crate::system::{Group, Hostname, User};
 use std::collections::{HashMap, HashSet};
 
@@ -114,6 +115,11 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         hostname: Hostname::fake("test-ubuntu"),
         command,
         current_user: current_user.clone(),
+        tty: CurrentTty {
+            name: None,
+            device: None,
+            path: None,
+        },
         target_user: if sudo_options.user.as_deref() == Some("test") {
             current_user.into()
         } else {
