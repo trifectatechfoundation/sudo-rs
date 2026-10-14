@@ -1,0 +1,47 @@
+name: FreeBSD
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+    branches:
+      - main
+
+jobs:
+  freebsd:
+    name: FreeBSD unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Unit tests in a FreeBSD VM
+        uses: vmactions/freebsd-vm@77ed28d336d03fe19a3f4f7266c1d2c4714dd79d # v1.5.2
+        with:
+          usesh: true
+          cache-after-prepare: true
+          # system::time::tests::get_process_start_time compares the process
+          # start time against the wall clock, so the guest clock must be sane.
+          sync-time: true
+          prepare: |
+            pkg install -y rust git-tiny
+          run: |
+            set -e
+            rustc --version
+            cargo --version
+
+            # The unit tests must not run as root: src/su/context.rs says
+            # "this test is allowed to fail if run as root -- do not run unit
+            # tests as root", and the VM logs in as root by default.
+            pw useradd sudorstest -m
+            chown -R sudorstest .
+
+            # We skip a couple of tests which fail when running as root.
+            su -m sudorstest -c "cd $PWD && env HOME=/home/sudorstest cargo test --workspace --all-targets --release -- --skip group_as_non_root --skip test_secure_open_cookie_file --skip test_traverse_secure_open_positive"

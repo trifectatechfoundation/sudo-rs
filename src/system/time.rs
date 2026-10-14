@@ -118,6 +118,40 @@ impl ProcessCreateTime {
         }
     }
 
+    /// The current time on the same clock `Process::starting_time` reports.
+    ///
+    /// This deliberately does NOT reuse `SystemTime::now`, which always reads
+    /// `CLOCK_BOOTTIME`. On FreeBSD the process start time comes from
+    /// `kinfo_proc.ki_start`, which the kernel exports as absolute wall clock,
+    /// while `CLOCK_BOOTTIME` is an alias for the uptime clock there -- so the
+    /// two are not comparable. `SystemTime::now` must stay on the monotonic
+    /// clock (it guards the credential cache timeout), hence the split.
+    #[cfg(test)]
+    pub(super) fn now() -> std::io::Result<ProcessCreateTime> {
+        let mut spec = MaybeUninit::<libc::timespec>::uninit();
+        // SAFETY: valid pointer is passed to clock_gettime
+        crate::cutils::cerr(unsafe {
+            libc::clock_gettime(
+                if cfg!(target_os = "freebsd") {
+                    libc::CLOCK_REALTIME
+                } else {
+                    libc::CLOCK_BOOTTIME
+                },
+                spec.as_mut_ptr(),
+            )
+        })?;
+        // SAFETY: The `libc::clock_gettime` will correctly initialize `spec`,
+        // otherwise it will return early with the `?` operator.
+        let spec = unsafe { spec.assume_init() };
+
+        // the below conversion is not as useless as clippy thinks, on 32bit systems
+        #[allow(clippy::useless_conversion)]
+        Ok(ProcessCreateTime::new(
+            spec.tv_sec.into(),
+            spec.tv_nsec.into(),
+        ))
+    }
+
     pub(super) fn encode(&self, target: &mut impl Write) -> std::io::Result<()> {
         let secs = self.secs.to_ne_bytes();
         let nsecs = self.nsecs.to_ne_bytes();
@@ -178,10 +212,7 @@ mod tests {
         use crate::system::{Process, WithProcess};
         let time = Process::starting_time(WithProcess::Current).unwrap();
 
-        let now = {
-            let super::SystemTime { secs, nsecs } = super::SystemTime::now().unwrap();
-            super::ProcessCreateTime { secs, nsecs }
-        };
+        let now = super::ProcessCreateTime::now().unwrap();
 
         assert!(time.secs > now.secs - 24 * 60 * 60);
         assert!(time < now);
