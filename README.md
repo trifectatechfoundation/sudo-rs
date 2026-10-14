@@ -21,7 +21,28 @@ You can install sudo-rs using the package manager of your Linux distribution. Ma
 original sudo installed and so offer sudo-rs using modified command names. You can work around that by creating e.g. an `alias`, but that will
 only change your own invocations of `sudo` to sudo-rs and not affect other programs and scripts that use `sudo`.
 
-To avoid that and/or to get the latest version, you can use our prepackaged binaries (see below).
+To make these command names available to programs and scripts as well, see
+[Using the usual command names](#using-the-usual-command-names). To get the latest version,
+you can also use our prepackaged binaries (see below).
+
+### Using the usual command names
+
+Prefer your distribution's mechanism for selecting sudo-rs, if available (see Ubuntu and Debian below).
+For packages that only provide suffixed commands, you can instead create symbolic links in
+`/usr/local/bin`. For example, if the package installed `/usr/bin/sudo-rs` and `/usr/bin/visudo-rs`:
+
+```sh
+sudo ln -s /usr/bin/sudo-rs /usr/local/bin/sudo
+sudo ln -s /usr/bin/visudo-rs /usr/local/bin/visudo
+```
+
+Check the installed paths first, and only create links whose destination names are not already in use.
+You can do the same for `su-rs` and `sudoedit-rs` if your package provides them.
+These links apply to all users whose `PATH` lists `/usr/local/bin` before the directory containing
+the original commands. Programs and scripts that look up `sudo` through that `PATH` will also use
+sudo-rs; invocations with an absolute path, such as `/usr/bin/sudo`, are unaffected.
+An existing shell alias or cached command location may still take precedence; open a new shell
+and check `command -v sudo` after removing any alias. Remove the links to undo this setup.
 
 ### Ubuntu 25.10 (Questing Quokka) and 26.04 (Resolute Raccoon)
 
