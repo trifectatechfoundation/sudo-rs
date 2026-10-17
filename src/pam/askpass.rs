@@ -17,7 +17,7 @@ pub(super) fn spawn_askpass(program: &Path, prompt: &str) -> io::Result<(Process
     // SAFETY: A valid pointer to a mutable array of 2 fds is passed in.
     unsafe {
         #[cfg(not(target_os = "macos"))]
-        cerr(libc::pipe2(pipes.as_mut_ptr()), O_CLOEXEC)?;
+        cerr(libc::pipe2(pipes.as_mut_ptr(), O_CLOEXEC))?;
         #[cfg(target_os = "macos")]
         cerr(crate::cutils::pipe2(pipes.as_mut_ptr(), O_CLOEXEC))?;
     }

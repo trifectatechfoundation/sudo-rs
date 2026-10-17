@@ -78,7 +78,7 @@ pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
 
     match res {
         Err(err) if err.raw_os_error() == Some(ENOSYS) || err.raw_os_error() == Some(EINVAL) => {
-            mark_fds_as_cloexec_fallback(lowfd);
+            mark_fds_as_cloexec_fallback(lowfd)
         }
         Err(err) => Err(err),
         Ok(_) => Ok(()),
