@@ -16,9 +16,11 @@ mod noexec;
 mod passwd_timeout;
 mod run_as;
 mod runas_alias;
+mod runcwd;
 mod secure_path;
 mod specific_defaults;
 mod timestamp_timeout;
+mod timestamp_type;
 mod user_list;
 
 const KEYWORDS: &[&str] = &[
@@ -46,7 +48,9 @@ const KEYWORDS: &[&str] = &[
     "PASSWD",
     "Runas_Alias",
     "SETENV",
+    "ROLE",
     "TIMEOUT",
+    "TYPE",
     "User_Alias",
     "env_check",
     "env_delete",
@@ -69,7 +73,9 @@ const KEYWORDS_ALIAS_BAD: &[&str] = &[
     "NOTAFTER",
     "NOTBEFORE",
     "Runas_Alias",
+    "ROLE",
     "TIMEOUT",
+    "TYPE",
     "User_Alias",
     "env_check",
     "env_delete",
@@ -81,6 +87,46 @@ const KEYWORDS_ALIAS_BAD: &[&str] = &[
     "timestamp_timeout",
     "use_pty",
 ];
+
+const RESERVED_ALIAS_KEYWORDS: &[&str] = &[
+    "ALL",
+    "CHROOT",
+    "CWD",
+    "NOTAFTER",
+    "NOTBEFORE",
+    "ROLE",
+    "TIMEOUT",
+    "TYPE",
+];
+
+const CMND_ALIAS_POSITION_KEYWORDS: &[&str] = &[
+    "FOLLOW",
+    "INTERCEPT",
+    "LOG_INPUT",
+    "LOG_OUTPUT",
+    "MAIL",
+    "NOEXEC",
+    "NOFOLLOW",
+    "NOINTERCEPT",
+    "NOLOG_INPUT",
+    "NOLOG_OUTPUT",
+    "NOMAIL",
+    "NOPASSWD",
+    "NOSETENV",
+    "PASSWD",
+    "SETENV",
+];
+
+fn is_reserved_alias_keyword(keyword: &str) -> bool {
+    RESERVED_ALIAS_KEYWORDS.contains(&keyword)
+}
+
+fn keywords_alias_good_for_cmnd_alias() -> HashSet<&'static str> {
+    keywords_alias_good()
+        .into_iter()
+        .filter(|keyword| !CMND_ALIAS_POSITION_KEYWORDS.contains(keyword))
+        .collect()
+}
 
 fn keywords_alias_good() -> HashSet<&'static str> {
     KEYWORDS
@@ -145,6 +191,26 @@ fn cannot_sudo_if_sudoers_file_is_not_owned_by_root() {
         format!("{ETC_DIR}/sudoers is owned by uid 1234, should be 0")
     } else {
         format!("invalid configuration: {ETC_DIR}/sudoers must be owned by root")
+    };
+    assert_contains!(output.stderr(), diagnostic);
+}
+
+#[test]
+fn cannot_sudo_if_sudoers_file_is_missing() {
+    let env = Env("").build();
+
+    Command::new("rm")
+        .arg(format!("{ETC_DIR}/sudoers"))
+        .output(&env)
+        .assert_success();
+
+    let output = Command::new("sudo").arg("true").output(&env);
+    output.assert_exit_code(1);
+
+    let diagnostic = if sudo_test::is_original_sudo() {
+        format!("sudo: unable to open {ETC_DIR}/sudoers: No such file or directory")
+    } else {
+        format!("sudo: sudoers file not found: {ETC_DIR}/sudoers")
     };
     assert_contains!(output.stderr(), diagnostic);
 }

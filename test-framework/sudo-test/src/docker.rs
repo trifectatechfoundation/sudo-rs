@@ -222,6 +222,7 @@ pub fn build_base_image() {
                         "pam-login",
                         #[cfg(feature = "apparmor")]
                         "apparmor",
+                        "unstable-remote-sudoers",
                     ]
                     .join(",")
                 });

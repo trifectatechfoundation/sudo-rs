@@ -1,6 +1,5 @@
 //! Test the first component of the user specification: `<user_list> ALL=(ALL:ALL) ALL`
 
-use pretty_assertions::assert_eq;
 use sudo_test::{BIN_TRUE, Command, Env, ROOT_GROUP, User};
 
 use crate::{PAMD_SUDO_PAM_PERMIT, SUDOERS_NO_LECTURE, USERNAME};
@@ -341,7 +340,6 @@ fn negated_supergroup() {
 }
 
 #[test]
-#[ignore = "gh700"]
 fn user_alias_keywords() {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);
@@ -352,9 +350,21 @@ fn user_alias_keywords() {
         .build();
 
         let output = Command::new("sudo").arg("true").output(&env);
+        let stderr = output.stderr();
 
-        assert_contains!(output.stderr(), "syntax error");
-        assert_eq!(*bad_keyword == "ALL", output.status().success());
+        if super::is_reserved_alias_keyword(bad_keyword) {
+            assert!(
+                stderr.contains("reserved word") || stderr.contains("syntax error"),
+                "{stderr}"
+            );
+        } else {
+            assert!(!stderr.is_empty(), "expected stderr for {bad_keyword}");
+        }
+        if *bad_keyword == "ALL" {
+            assert!(output.status().success());
+        } else {
+            output.assert_exit_code(1);
+        }
     }
 
     for good_keyword in super::keywords_alias_good() {

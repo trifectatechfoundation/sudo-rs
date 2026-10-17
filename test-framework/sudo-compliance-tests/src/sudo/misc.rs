@@ -1,6 +1,6 @@
 use sudo_test::{BIN_SUDO, Command, Env, User, helpers::assert_ls_output, is_original_sudo};
 
-use crate::{PANIC_EXIT_CODE, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{GROUPNAME, PANIC_EXIT_CODE, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
 
 macro_rules! assert_snapshot {
     ($($tt:tt)*) => {
@@ -399,4 +399,26 @@ fn rootpw_takes_priority_over_targetpw() {
         .as_user(USERNAME)
         .output(&env);
     assert!(!output.status().success());
+}
+
+// regression test for gh1572
+#[test]
+fn works_with_large_groups() {
+    let mut env: sudo_test::EnvBuilder = Env(format!("%{GROUPNAME} ALL=NOPASSWD: ALL"));
+
+    env.group(GROUPNAME);
+    env.user(User(USERNAME).secondary_group(GROUPNAME));
+
+    for user in 'a'..='d' {
+        env.user(User(user.to_string().repeat(250)).secondary_group(GROUPNAME));
+    }
+
+    let env = env.build();
+
+    let output = Command::new("sudo")
+        .arg("true")
+        .as_user(USERNAME)
+        .output(&env);
+
+    assert!(output.status().success());
 }

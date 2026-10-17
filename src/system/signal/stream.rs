@@ -23,7 +23,7 @@ static STREAM: OnceLock<SignalStream> = OnceLock::new();
 /// # Safety
 ///
 /// The `info` parameters has to point to a valid instance of SignalInfo
-pub(super) unsafe fn send_siginfo(
+pub(super) unsafe extern "C" fn send_siginfo(
     _signal: SignalNumber,
     info: *const SignalInfo,
     _context: *const c_void,

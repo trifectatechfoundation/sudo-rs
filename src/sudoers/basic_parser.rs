@@ -51,14 +51,14 @@ pub fn reject<T>() -> Parsed<T> {
 
 macro_rules! unrecoverable {
     (pos=$pos:expr, $stream:ident, $($str:expr),*) => {
-        return Err(crate::sudoers::basic_parser::Status::Fatal(Span { start: $pos, end: CharStream::get_pos($stream)}, format![$($str),*]))
+        return Err(crate::sudoers::basic_parser::Status::Fatal(Span { start: $pos, end: CharStream::get_pos($stream)}, format!($($str),*)))
     };
     ($stream:ident, $($str:expr),*) => {{
         let pos = CharStream::get_pos($stream);
-        return Err(crate::sudoers::basic_parser::Status::Fatal(Span { start: pos, end: pos }, format![$($str),*]))
+        return Err(crate::sudoers::basic_parser::Status::Fatal(Span { start: pos, end: pos }, format!($($str),*)))
     }};
     ($($str:expr),*) => {
-        return Err(crate::basic_parser::Status::Fatal(Default::default(), format![$($str),*]))
+        return Err(crate::basic_parser::Status::Fatal(Default::default(), format!($($str),*)))
     };
 }
 
@@ -144,7 +144,7 @@ impl Parse for Comment {
     }
 }
 
-fn skip_trailing_whitespace(stream: &mut CharStream) -> Parsed<()> {
+pub(super) fn skip_trailing_whitespace(stream: &mut CharStream) -> Parsed<()> {
     TrailingWhitespace::parse(stream)?;
     make(())
 }
@@ -232,9 +232,12 @@ impl<T: Token> Parse for T {
                 } else if pred(ESCAPE) {
                     Ok(ESCAPE)
                 } else if stream.eat_char('\n') {
-                    // we've just consumed some whitespace, we should end
-                    // parsing the token but not abort it
-                    reject()
+                    if pred(' ') {
+                        // escape + newline = line continuation (whitespace)
+                        Ok(' ')
+                    } else {
+                        reject()
+                    }
                 } else {
                     unrecoverable!(stream, "illegal escape sequence")
                 }

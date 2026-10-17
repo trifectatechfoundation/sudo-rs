@@ -230,7 +230,7 @@ fn when_only_groupname_is_given_user_arg_fails() {
     } else {
         assert_contains!(
             stderr,
-            format!("I'm sorry ferris. I'm afraid I can't do that")
+            "I'm sorry ferris. I'm afraid I can't do that".to_string()
         );
     }
 }
@@ -267,7 +267,7 @@ fn when_only_username_is_given_group_arg_fails() {
     } else {
         assert_contains!(
             stderr,
-            format!("I'm sorry ferris. I'm afraid I can't do that")
+            "I'm sorry ferris. I'm afraid I can't do that".to_string()
         );
     }
 }
@@ -387,7 +387,6 @@ fn aliases_given_on_one_line_divided_by_colon() {
 }
 
 #[test]
-#[ignore = "gh700"]
 fn keywords() {
     for bad_keyword in super::KEYWORDS_ALIAS_BAD {
         dbg!(bad_keyword);
@@ -398,9 +397,21 @@ fn keywords() {
         .build();
 
         let output = Command::new("sudo").arg("true").output(&env);
+        let stderr = output.stderr();
 
-        assert_contains!(output.stderr(), "syntax error");
-        assert_eq!(*bad_keyword == "ALL", output.status().success());
+        if super::is_reserved_alias_keyword(bad_keyword) {
+            assert!(
+                stderr.contains("reserved word") || stderr.contains("syntax error"),
+                "{stderr}"
+            );
+        } else {
+            assert!(!stderr.is_empty(), "expected stderr for {bad_keyword}");
+        }
+        if *bad_keyword == "ALL" {
+            assert!(output.status().success());
+        } else {
+            output.assert_exit_code(1);
+        }
     }
 
     for good_keyword in super::keywords_alias_good() {

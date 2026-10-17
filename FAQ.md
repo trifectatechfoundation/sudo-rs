@@ -275,6 +275,7 @@ Bugs fixed in sudo 1.9.18:
 * https://git.sudo.ws/sudo/commit/?id=1c254b330490216857b5b79a071ca4a8ca6bb522
 * https://git.sudo.ws/sudo/commit/?id=9080a379296d384c035ff62eed970e3d49d49674
 * https://git.sudo.ws/sudo/commit/?id=2faf4c878d623e1b9ef642e116751c9543d848f7
+* https://git.sudo.ws/sudo/commit/?id=e6a5c1c0065be1486486077384a70837e8d85a65
 
 Time permitting, we would also like to contribute our improvements to the Linux seccomp-based `NOEXEC` mechanism back to the sudo project.
 

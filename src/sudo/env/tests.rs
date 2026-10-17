@@ -174,6 +174,7 @@ fn test_environment_variable_filtering() {
                 #[cfg(feature = "apparmor")]
                 apparmor_profile: None,
                 noexec: false,
+                log: crate::sudoers::Logging::Auth,
             },
         )
         .unwrap();

@@ -389,34 +389,33 @@ impl User {
     /// This function expects `pwd` to be a result from a successful call to `getpwXXX_r`.
     /// (It can cause UB if any of `pwd`'s pointed-to strings does not have a null-terminator.)
     unsafe fn from_libc(pwd: &libc::passwd) -> Result<User, Error> {
-        let mut buf_len: c_int = 32;
-        let mut groups_buffer: Vec<libc::gid_t>;
+        // NOTE: on Linux, getgrouplist could be used to simply inquire as to the size needed;
+        // but on FreeBSD, getgrouplist does not specify this in its function contract, so a
+        // blind allocation loop is needed.
+        let Some(groups_buffer) =
+            dynamic_fill::<libc::gid_t, std::num::TryFromIntError>(32..65536, |groups_buffer| {
+                let mut buf_len: c_int = groups_buffer.len() as c_int;
+                // SAFETY: getgrouplist is passed valid pointers
+                // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
+                let result = unsafe {
+                    libc::getgrouplist(
+                        pwd.pw_name,
+                        pwd.pw_gid as _,
+                        groups_buffer.as_mut_ptr() as _,
+                        &mut buf_len,
+                    )
+                };
 
-        while {
-            groups_buffer = vec![0; buf_len as usize];
-            // SAFETY: getgrouplist is passed valid pointers
-            // in particular `groups_buffer` is an array of `buf.len()` bytes, as required
-            let result = unsafe {
-                libc::getgrouplist(
-                    pwd.pw_name,
-                    pwd.pw_gid as _,
-                    groups_buffer.as_mut_ptr() as _,
-                    &mut buf_len,
-                )
-            };
-
-            result == -1
-        } {
-            if buf_len >= 65536 {
-                panic!("user has too many groups (> 65536), this should not happen");
-            }
-
-            buf_len *= 2;
-        }
-
-        groups_buffer.resize_with(buf_len as usize, || {
-            panic!("invalid groups count returned from getgrouplist, this should not happen")
-        });
+                Ok(if result != -1 {
+                    Some(buf_len.try_into()?)
+                } else {
+                    None
+                })
+            })
+            .expect("negative group size, this should not happen")
+        else {
+            panic!("user has too many groups (> 65536), this should not happen");
+        };
 
         // SAFETY: All pointers were initialized by a successful call to `getpwXXX_r` as per the
         // safety invariant of this function.
@@ -436,23 +435,33 @@ impl User {
     }
 
     pub fn from_uid(uid: UserId) -> Result<Option<User>, Error> {
-        let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_pw_size as usize];
+        let initial_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_pw_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
-        // SAFETY: getpwuid_r is passed valid (although partly uninitialized) pointers to memory,
-        // in particular `buf` points to an array of `buf.len()` bytes, as required.
-        // After this call, if `pwd_ptr` is not NULL, `*pwd_ptr` and `pwd` will be aliased;
-        // but we never dereference `pwd_ptr`.
-        cerr(unsafe {
-            libc::getpwuid_r(
-                uid.inner(),
-                pwd.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut pwd_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_pw_size..max_pw_size, |buf| {
+            // SAFETY: getpwuid_r is passed valid (although partly uninitialized) pointers to memory,
+            // in particular `buf` points to an array of `buf.len()` bytes, as required.
+            // After this call, if `pwd_ptr` is not NULL, `*pwd_ptr` and `pwd` will be aliased;
+            // but we never dereference `pwd_ptr`.
+            let result = unsafe {
+                libc::getpwuid_r(
+                    uid.inner(),
+                    pwd.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut pwd_ptr,
+                )
+            };
+            match result {
+                0 | libc::ENOENT => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("password buffer size exceeds limit (>{max_pw_size})");
+        };
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
@@ -495,21 +504,30 @@ impl User {
     }
 
     pub fn from_name(name_c: &CStr) -> Result<Option<User>, Error> {
-        let max_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_pw_size as usize];
+        let initial_pw_size = sysconf(libc::_SC_GETPW_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_pw_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
         let mut pwd = MaybeUninit::uninit();
         let mut pwd_ptr = std::ptr::null_mut();
-
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getpwnam_r(
-                name_c.as_ptr(),
-                pwd.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut pwd_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_pw_size..max_pw_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getpwnam_r(
+                    name_c.as_ptr(),
+                    pwd.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut pwd_ptr,
+                )
+            };
+            match result {
+                0 | libc::ENOENT => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("password buffer size exceeds limit (>{max_pw_size})");
+        };
         if pwd_ptr.is_null() {
             Ok(None)
         } else {
@@ -519,6 +537,31 @@ impl User {
             // SAFETY: `pwd` was obtained by a call to getpwXXX_r, as required.
             unsafe { Self::from_libc(&pwd).map(Some) }
         }
+    }
+
+    pub fn real_groups() -> Result<Vec<GroupId>, Error> {
+        // From man getgroups:
+        //   The maximum number of supplementary group IDs can be found at run time using sysconf(3):
+        //   ngroups_max = sysconf(_SC_NGROUPS_MAX);
+        //   The  maximum  return  value of getgroups() cannot be larger than one more than this value.
+        // So, unlike the "_MAX" definitions above which suggest an initial size, this really is the "max" value.
+        let len = sysconf(libc::_SC_NGROUPS_MAX).unwrap_or(65536) as usize;
+        let mut groups = vec![GroupId::new(u32::MAX); len];
+
+        let len = len
+            .try_into()
+            .expect("_SC_NGROUPS_MAX should fit in a c_int");
+
+        // SAFETY: getgroups is passed a valid pointer to a chunk of memory of the correct size
+        // We can cast to gid_t because `GroupId` is marked as transparent
+        let num_groups =
+            cerr(unsafe { libc::getgroups(len, groups.as_mut_ptr().cast::<libc::gid_t>()) })?;
+
+        groups.resize_with(num_groups as usize, || {
+            panic!("invalid groups count returned from getgroups, this should not happen")
+        });
+
+        Ok(groups)
     }
 }
 
@@ -546,20 +589,36 @@ impl Group {
 
     /// Lookup group for gid without returning an error when a /etc/group entry is missing.
     fn from_gid_unchecked(gid: GroupId) -> std::io::Result<Group> {
-        let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_gr_size as usize];
+        // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
+        let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
+
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getgrgid_r(
-                gid.inner(),
-                grp.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut grp_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getgrgid_r(
+                    gid.inner(),
+                    grp.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut grp_ptr,
+                )
+            };
+            match result {
+                // These values signify the lookup could reach a conclusion (either the group exists,
+                // or it clearly doesn't). So don't try to increase the buffer size. If the group wasn't found,
+                // `grp_ptr` is set to NULL per the man page.
+                0 | libc::ENOENT => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("group buffer size exceeds limit (>{max_gr_size})");
+        };
+
         if grp_ptr.is_null() {
             Ok(Group { gid, name: None })
         } else {
@@ -582,20 +641,33 @@ impl Group {
     }
 
     pub fn from_name(name_c: &CStr) -> std::io::Result<Option<Group>> {
-        let max_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384);
-        let mut buf = vec![0; max_gr_size as usize];
+        // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
+        let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
+        let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
-        // SAFETY: analogous to getpwuid_r above
-        cerr(unsafe {
-            libc::getgrnam_r(
-                name_c.as_ptr(),
-                grp.as_mut_ptr(),
-                buf.as_mut_ptr(),
-                buf.len(),
-                &mut grp_ptr,
-            )
-        })?;
+        let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
+            // SAFETY: analogous to getpwuid_r above
+            let result = unsafe {
+                libc::getgrnam_r(
+                    name_c.as_ptr(),
+                    grp.as_mut_ptr(),
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut grp_ptr,
+                )
+            };
+            match result {
+                // As above
+                0 | libc::ENOENT => Ok(Some(buf.len())),
+                libc::ERANGE => Ok(None),
+                _ => Err(io::Error::from_raw_os_error(result)),
+            }
+        })?
+        else {
+            panic!("group buffer size exceeds limit (>{max_gr_size})");
+        };
+
         if grp_ptr.is_null() {
             Ok(None)
         } else {
@@ -939,6 +1011,12 @@ mod tests {
             assert_eq!(root.gid, id);
             assert_eq!(root.name.unwrap(), name);
         }
+    }
+
+    #[test]
+    fn test_group_lookup_fails_gracefully() {
+        assert_eq!(Group::from_gid(GroupId::new(32767)).unwrap(), None);
+        assert_eq!(Group::from_name(c"nosuchgroupexists").unwrap(), None);
     }
 
     #[test]

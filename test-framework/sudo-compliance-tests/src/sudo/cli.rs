@@ -159,3 +159,53 @@ fn miscategorized_reset_timestamp_action() {
 
     output.assert_exit_code(1);
 }
+
+// gh #1578: these flags must ignore env var arguments, not reject them
+#[test]
+fn validate_ignores_env_var() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+    Command::new("sudo")
+        .args(["TERMINFO=/usr/share/terminfo", "-v"])
+        .output(&env)
+        .assert_success();
+}
+#[test]
+fn non_interactive_validate_ignores_env_var() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+    Command::new("sudo")
+        .args(["TERMINFO=/usr/share/terminfo", "-n", "-v"])
+        .output(&env)
+        .assert_success();
+}
+#[test]
+fn reset_timestamp_ignores_env_var() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+    Command::new("sudo")
+        .args(["TERMINFO=/usr/share/terminfo", "-k"])
+        .output(&env)
+        .assert_success();
+}
+#[test]
+fn remove_timestamp_ignores_env_var() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+    Command::new("sudo")
+        .args(["TERMINFO=/usr/share/terminfo", "-K"])
+        .output(&env)
+        .assert_success();
+}
+#[test]
+fn version_ignores_env_var() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+    Command::new("sudo")
+        .args(["TERMINFO=/usr/share/terminfo", "-V"])
+        .output(&env)
+        .assert_success();
+}
+#[test]
+fn help_ignores_env_var() {
+    let env = Env(SUDOERS_ALL_ALL_NOPASSWD).build();
+    Command::new("sudo")
+        .args(["TERMINFO=/usr/share/terminfo", "-h"])
+        .output(&env)
+        .assert_success();
+}

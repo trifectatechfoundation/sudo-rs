@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.2.15] - 2026-08-31
+
+### Added
+- `Defaults !log_allowed` to suppress writing successful command invocations
+  to the system log. (#1181)
+- `Defaults timestamp_type=ppid` to allow tightly binding cached credentials
+  to the parent process even if a TTY is present. (#1621)
+
+### Changed
+- Allow authenticating users that have an empty password set (#1656)
+- Environment variables supplied on the command line are now ignored instead
+  of resulting in an error message when used with `-v`, `-k` or `-K` (#1578)
+
+### Fixed
+- sudo used in pipe such as `sudo cmd1 | sudo cmd2` could result in a fight for
+  control over the TTY used for password input (#1650)
+- Groups loaded dynamically (for example by `pam_groups.so`) were not used for
+  policy judgments (#1660)
+- Fixed the error message when `sudo -g` was used with an invalid group (#1628)
+- No longer emit a newline after password entry if `-p ''` is used (#1648)
+- Tabs were not recognized as argument separators in /etc/sudoers (#1669)
+- `sudoedit /path/to/file` restrictions in `/etc/sudoers` could be circumvented
+  by causing a symlink race (GHSA-f42v-x7gq-phc8)
+
+## [0.2.14] - 2026-06-23
+
+### Added
+- Support for `Defaults runcwd` (#1448)
+- Experimental support for receiving a sudoers configuration over a socket.
+  To enable, build with with `--features unstable-remote-sudoers`; this will
+  allow configuring the `@socket` directive in `/etc/sudoers`.
+- Spanish, German and Simplified Chinese translations
+
+### Changed
+- `su` will allow changing to an account that has no password set, like util-linux
+  and FreeBSD `su`. Also, minor fixes in `su` documentation (#1516)
+- PAM account modules now also run for sudoedit (#1612)
+- Reserved keywords are now rejected as alias names (#700)
+- Password feedback is more thoroughly cleared from the TTY (#1599)
+
+### Fixed
+- Groups with many users were not loaded properly (#1572)
+- Suspended processes would not always be properly resumed (#1527, #1598)
+- `PAM_TTY` was not always properly computed (#1593)
+- sudo would refuse to run if `no_new_privs` is set but caller is root (#1581)
+- Erroneous parse error if line continuations were used inside the argument list
+  of a /etc/sudoers rule (#1571)
+- `visudo` gave incorrect syntax errors for relative @include paths (#1524)
+- Minor parse errors in host-specific Defaults and uid/gids (#1509, #1602)
+- Papercuts in the TAB shortcut used to disable pwfeedback (#1504, #1514)
+
 ## [0.2.13] - 2026-03-10
 
 ### Added

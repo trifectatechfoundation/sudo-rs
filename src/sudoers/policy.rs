@@ -8,8 +8,9 @@ use super::{Judgement, Sudoers};
 use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, SudoPath,
 };
+use crate::defaults::enums;
 use crate::exec::Umask;
-use crate::sudoers::ast::{ExecControl, Tag};
+use crate::sudoers::ast::{EnvironmentControl, ExecControl, Tag};
 use crate::system::{Hostname, User};
 use std::collections::HashSet;
 use std::time::Duration;
@@ -33,6 +34,7 @@ pub struct Authentication {
     pub pwfeedback: bool,
     pub password_timeout: Option<Duration>,
     pub noninteractive_auth: bool,
+    pub scope: AuthenticationScope,
 }
 
 impl super::Settings {
@@ -45,6 +47,10 @@ impl super::Settings {
             password_timeout: match self.passwd_timeout() {
                 0 => None,
                 timeout => Some(Duration::from_secs(timeout)),
+            },
+            scope: match self.timestamp_type() {
+                enums::timestamp_type::tty => AuthenticationScope::Tty,
+                enums::timestamp_type::ppid => AuthenticationScope::PPid,
             },
             noninteractive_auth: self.noninteractive_auth(),
             credential: if self.rootpw() {
@@ -66,9 +72,10 @@ pub struct Restrictions<'a> {
     pub noexec: bool,
     pub env_keep: &'a HashSet<String>,
     pub env_check: &'a HashSet<String>,
-    pub chdir: DirChange<'a>,
+    pub chdir: DirChange,
     pub path: Option<&'a str>,
     pub umask: Umask,
+    pub log: Logging,
     #[cfg(feature = "apparmor")]
     pub apparmor_profile: Option<String>,
 }
@@ -76,9 +83,17 @@ pub struct Restrictions<'a> {
 #[must_use]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 #[repr(u32)]
-pub enum DirChange<'a> {
-    Strict(Option<&'a SudoPath>) = HARDENED_ENUM_VALUE_0,
+pub enum DirChange {
+    Strict(Option<SudoPath>) = HARDENED_ENUM_VALUE_0,
     Any = HARDENED_ENUM_VALUE_1,
+}
+
+#[must_use]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
+pub enum Logging {
+    Auth = HARDENED_ENUM_VALUE_0,
+    Disabled = HARDENED_ENUM_VALUE_1,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -87,6 +102,16 @@ pub enum AuthenticatingUser {
     InvokingUser = HARDENED_ENUM_VALUE_0,
     Root = HARDENED_ENUM_VALUE_1,
     TargetUser = HARDENED_ENUM_VALUE_2,
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq))]
+#[repr(u32)]
+/// The scope for the authentication being re-used:
+/// - Tty: valid for all future invocations in this TTY
+/// - PPid: valid for all future invocations under the current parent
+pub enum AuthenticationScope {
+    Tty = HARDENED_ENUM_VALUE_0,
+    PPid = HARDENED_ENUM_VALUE_1,
 }
 
 impl Judgement {
@@ -102,9 +127,9 @@ impl Judgement {
                 Restrictions {
                     use_pty: self.settings.use_pty(),
                     trust_environment: match tag.env {
-                        super::EnvironmentControl::Implicit => self.settings.setenv(),
-                        super::EnvironmentControl::Setenv => true,
-                        super::EnvironmentControl::Nosetenv => false,
+                        EnvironmentControl::Implicit => self.settings.setenv(),
+                        EnvironmentControl::Setenv => true,
+                        EnvironmentControl::Nosetenv => false,
                     },
                     noexec: match tag.noexec {
                         ExecControl::Implicit => self.settings.noexec(),
@@ -113,7 +138,12 @@ impl Judgement {
                     },
                     env_keep: self.settings.env_keep(),
                     env_check: self.settings.env_check(),
-                    chdir: match tag.cwd.as_ref() {
+                    chdir: match tag.cwd.clone().or_else(|| {
+                        // a `runcwd` default acts as the working directory when no explicit CWD was set
+                        self.settings
+                            .runcwd()
+                            .and_then(|s| super::basic_parser::Token::construct(s.to_string()).ok())
+                    }) {
                         None => DirChange::Strict(None),
                         Some(super::ChDir::Any) => DirChange::Any,
                         Some(super::ChDir::Path(path)) => DirChange::Strict(Some(path)),
@@ -133,6 +163,11 @@ impl Judgement {
                             Umask::Extend(mask)
                         }
                     },
+                    log: if self.settings.log_allowed() {
+                        Logging::Auth
+                    } else {
+                        Logging::Disabled
+                    },
                     #[cfg(feature = "apparmor")]
                     apparmor_profile: tag
                         .apparmor_profile
@@ -147,9 +182,9 @@ impl Judgement {
     }
 
     pub(crate) fn preferred_editor(&self) -> (PathBuf, Vec<OsString>) {
-        //if no editor could be selected, fall back to /bin/vi;
-        //note that /bin/vi is also likely to have been tried as part of
-        //the "editor" setting, so this is a last-resort
+        // if no editor could be selected, fall back to /bin/vi;
+        // note that /bin/vi is also likely to have been tried as part of
+        // the "editor" setting, so this is a last-resort
         super::select_editor(&self.settings, true)
             .unwrap_or_else(|| (std::path::PathBuf::from("/usr/bin/vi"), vec![]))
     }
@@ -201,6 +236,7 @@ mod test {
                 pwfeedback: true,
                 noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
+                scope: AuthenticationScope::Tty,
             },
         );
 
@@ -219,6 +255,7 @@ mod test {
                 pwfeedback: true,
                 noninteractive_auth: false,
                 password_timeout: Some(Duration::from_secs(300)),
+                scope: AuthenticationScope::Tty,
             },
         );
         assert_eq!(restrictions, restrictions2);
@@ -230,7 +267,7 @@ mod test {
             flags: Some(Tag::default()),
             ..Default::default()
         };
-        fn chdir(judge: &mut Judgement) -> DirChange<'_> {
+        fn chdir(judge: &mut Judgement) -> DirChange {
             let Authorization::Allowed(_, ctl) = judge.authorization() else {
                 panic!()
             };
@@ -240,8 +277,8 @@ mod test {
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Any));
         assert_eq!(chdir(&mut judge), DirChange::Any);
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/usr".into())));
-        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/usr".into()))));
+        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some("/usr".into()))));
         judge.mod_flag(|tag| tag.cwd = Some(ChDir::Path("/bin".into())));
-        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some(&"/bin".into()))));
+        assert_eq!(chdir(&mut judge), (DirChange::Strict(Some("/bin".into()))));
     }
 }

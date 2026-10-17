@@ -1,3 +1,6 @@
+use std::sync::mpsc;
+use std::time::Duration;
+
 use pretty_assertions::assert_eq;
 use sudo_test::{Command, Env};
 
@@ -144,6 +147,42 @@ fn sigtstp_works(tty: bool) {
     let did_suspend = suspended_iterations == 1;
 
     assert!(did_suspend);
+}
+
+#[test]
+fn sigttou_in_foreground_does_not_deadlock() {
+    let inner_sh = "\
+for _ in 1 2 3 4; do
+    kill -TTOU $$
+done
+echo did-not-deadlock
+";
+
+    let env = Env([SUDOERS_ALL_ALL_NOPASSWD, SUDOERS_USE_PTY])
+        .file("/root/inner.sh", inner_sh)
+        .build();
+
+    let child = Command::new("bash")
+        .args(["-c", "set -m; sudo sh /root/inner.sh | cat"])
+        .tty(true)
+        .spawn(&env);
+
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(child.wait());
+    });
+
+    match rx.recv_timeout(Duration::from_secs(30)) {
+        Ok(output) => {
+            output.assert_success();
+            assert!(
+                output.stdout_unchecked().contains("did-not-deadlock"),
+                "unexpected output: {:?}",
+                output.stdout_unchecked()
+            );
+        }
+        Err(_) => panic!("sudo deadlocked after the command was stopped twice by SIGTTOU"),
+    }
 }
 
 fn sigalrm_terminates_command(tty: bool) {

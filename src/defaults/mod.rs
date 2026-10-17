@@ -45,9 +45,13 @@ defaults! {
     noexec                    = false
     noninteractive_auth       = false
 
+    log_allowed               = true
+    log_denied                = true #ignored
+
     insults                   = false  #ignored
 
     setenv                    = false
+    runcwd                    = None (!= None)
     apparmor_profile          = None (!= None)
     umask                     = 0o022 (!= 0o777) {octal_mode}
     umask_override            = false
@@ -60,6 +64,7 @@ defaults! {
 
     passwd_timeout            = (5*60) (!= 0) {fractional_minutes}
     timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
+    timestamp_type            = tty [tty, ppid]
 
     editor                    = SYSTEM_EDITOR
     env_editor                = true

@@ -1,11 +1,14 @@
+#![cfg_attr(not(feature = "unstable-remote-sudoers"), allow(unused_imports))]
 use std::collections::HashSet;
 use std::ffi::{CStr, CString, c_int, c_uint};
-use std::fs::{DirBuilder, File, Metadata, OpenOptions};
-use std::io::{self, Error, ErrorKind};
+use std::fs::{self, DirBuilder, File, Metadata, OpenOptions};
+use std::io::{self, BufReader, Error, ErrorKind};
+use std::net::Shutdown;
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
 use std::os::unix::{
     ffi::OsStrExt,
     fs::{DirBuilderExt, MetadataExt, PermissionsExt},
+    net::UnixStream,
     prelude::OpenOptionsExt,
 };
 use std::path::{Component, Path};
@@ -95,6 +98,31 @@ pub(crate) fn sudo_call<T>(
     Ok(result)
 }
 
+#[cfg(feature = "unstable-remote-sudoers")]
+/// Get the credentials of the peer at the other side of the socket
+fn get_peer_credentials(stream: &UnixStream) -> io::Result<libc::ucred> {
+    let mut ucred = libc::ucred {
+        pid: 0,
+        uid: 0,
+        gid: 0,
+    };
+    let mut ucred_size = size_of::<libc::ucred>() as libc::socklen_t;
+
+    // SAFETY: An out pointer for the correct type and length are passed.
+    // FIXME use UnixStream::peer_cred() once stable in our MSRV.
+    unsafe {
+        cerr(libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::SOL_SOCKET,
+            libc::SO_PEERCRED,
+            &mut ucred as *mut _ as *mut libc::c_void,
+            &mut ucred_size,
+        ))?;
+    }
+
+    Ok(ucred)
+}
+
 /// Drop root privileges by setting effective user id equal to the real user id.
 /// This routine will panic if the process is not privileged.
 pub fn irrevocably_drop_privileges() {
@@ -130,11 +158,20 @@ fn mode(who: Category, what: Op) -> u32 {
 }
 
 /// Open sudo configuration using various security checks
-pub fn secure_open_sudoers(path: impl AsRef<Path>, check_parent_dir: bool) -> io::Result<File> {
+pub fn secure_open_sudoers(path: impl AsRef<Path>) -> io::Result<File> {
     let mut open_options = OpenOptions::new();
     open_options.read(true);
 
-    secure_open_impl(path.as_ref(), &mut open_options, check_parent_dir, false)
+    secure_open_impl(path.as_ref(), &mut open_options, false)
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+pub fn secure_open_remote_sudoers(
+    path: impl AsRef<Path>,
+    user: UserId,
+    group: Option<GroupId>,
+) -> io::Result<BufReader<UnixStream>> {
+    secure_open_socket_impl(path.as_ref(), user, group)
 }
 
 /// Open a timestamp cookie file using various security checks
@@ -147,7 +184,7 @@ pub fn secure_open_cookie_file(path: impl AsRef<Path>) -> io::Result<File> {
         .truncate(false)
         .mode(mode(Category::Owner, Op::Write) | mode(Category::Owner, Op::Read));
 
-    secure_open_impl(path.as_ref(), &mut open_options, true, true)
+    secure_open_impl(path.as_ref(), &mut open_options, true)
 }
 
 /// Return the system zoneinfo path after validating that it is safe
@@ -195,36 +232,31 @@ fn checks(path: &Path, meta: Metadata) -> io::Result<()> {
 fn secure_open_impl(
     path: &Path,
     open_options: &mut OpenOptions,
-    check_parent_dir: bool,
     create_parent_dirs: bool,
 ) -> io::Result<File> {
     let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
-    if check_parent_dir || create_parent_dirs {
-        if let Some(parent_dir) = path.parent() {
-            // if we should create parent dirs and it does not yet exist, create it
-            if create_parent_dirs && !parent_dir.exists() {
-                DirBuilder::new()
-                    .recursive(true)
-                    .mode(
-                        mode(Category::Owner, Op::Write)
-                            | mode(Category::Owner, Op::Read)
-                            | mode(Category::Owner, Op::Exec)
-                            | mode(Category::Group, Op::Exec)
-                            | mode(Category::World, Op::Exec),
-                    )
-                    .create(parent_dir)?;
-            }
-
-            if check_parent_dir {
-                let parent_meta = std::fs::metadata(parent_dir)?;
-                checks(parent_dir, parent_meta)?;
-            }
-        } else {
-            return Err(error(xlat!(
-                "{path} has no valid parent directory",
-                path = path.display()
-            )));
+    if let Some(parent_dir) = path.parent() {
+        // if we should create parent dirs and it does not yet exist, create it
+        if create_parent_dirs && !parent_dir.exists() {
+            DirBuilder::new()
+                .recursive(true)
+                .mode(
+                    mode(Category::Owner, Op::Write)
+                        | mode(Category::Owner, Op::Read)
+                        | mode(Category::Owner, Op::Exec)
+                        | mode(Category::Group, Op::Exec)
+                        | mode(Category::World, Op::Exec),
+                )
+                .create(parent_dir)?;
         }
+
+        let parent_meta = std::fs::metadata(parent_dir)?;
+        checks(parent_dir, parent_meta)?;
+    } else {
+        return Err(error(xlat!(
+            "{path} has no valid parent directory",
+            path = path.display()
+        )));
     }
 
     let file = open_options.open(path)?;
@@ -232,6 +264,63 @@ fn secure_open_impl(
     checks(path, meta)?;
 
     Ok(file)
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn check_peer<Id>(peer_identity: Id, expected: Id, class: &str) -> io::Result<()>
+where
+    Id: std::fmt::Display + PartialEq,
+{
+    if peer_identity == expected {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("peer process must run as {class} {expected} but runs as {peer_identity}"),
+        ))
+    }
+}
+
+// Open the socket at path, provided that it is "secure".
+// "Secure" means that it passes the `checks` function above.
+#[cfg(feature = "unstable-remote-sudoers")]
+fn secure_open_socket_impl(
+    path: &Path,
+    user: UserId,
+    group: Option<GroupId>,
+) -> io::Result<BufReader<UnixStream>> {
+    // Check the metadata on the filesystem as extra security,
+    // even knowing that it produces a TOCTOU.
+    let meta = fs::metadata(path)?;
+    checks(path, meta)?;
+    if let Some(parent_dir) = path.parent() {
+        let parent_meta = std::fs::metadata(parent_dir)?;
+        checks(parent_dir, parent_meta)?;
+    } else {
+        let error = |msg| Error::new(ErrorKind::PermissionDenied, msg);
+
+        return Err(error(xlat!(
+            "{path} has no valid parent directory",
+            path = path.display()
+        )));
+    }
+
+    let stream = UnixStream::connect(path)?;
+
+    // Check the peer's credentials to avoid the TOCTOU.
+    let peer_creds = get_peer_credentials(&stream)?;
+
+    // If there is an error in these checks, the function returns immediately
+    // leaving `stream` out of scope and forcing the closing of the socket.
+    check_peer(UserId::new(peer_creds.uid), user, "user")?;
+    if let Some(group) = group {
+        check_peer(GroupId::new(peer_creds.gid), group, "group")?;
+    }
+
+    stream.shutdown(Shutdown::Write)?;
+    let reader = BufReader::new(stream);
+
+    Ok(reader)
 }
 
 fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<OwnedFd> {
@@ -393,24 +482,24 @@ mod test {
     fn secure_open_is_predictable() {
         // /etc/hosts should be readable and "secure" (if this test fails, you have been compromised)
         assert!(std::fs::File::open("/etc/hosts").is_ok());
-        assert!(secure_open_sudoers("/etc/hosts", false).is_ok());
+        assert!(secure_open_sudoers("/etc/hosts").is_ok());
 
         // /tmp should be readable, but not secure (writable by group other than root)
         assert!(std::fs::File::open("/tmp").is_ok());
-        assert!(secure_open_sudoers("/tmp", false).is_err());
+        assert!(secure_open_sudoers("/tmp").is_err());
 
         #[cfg(target_os = "linux")]
         {
             // /var/log/wtmp should be readable, but not secure (writable by group other than root)
             // It doesn't exist on many non-Linux systems however.
             if std::fs::File::open("/var/log/wtmp").is_ok() {
-                assert!(secure_open_sudoers("/var/log/wtmp", false).is_err());
+                assert!(secure_open_sudoers("/var/log/wtmp").is_err());
             }
         }
 
         // /etc/shadow should not be readable
         assert!(std::fs::File::open("/etc/shadow").is_err());
-        assert!(secure_open_sudoers("/etc/shadow", false).is_err());
+        assert!(secure_open_sudoers("/etc/shadow").is_err());
     }
 
     #[test]
