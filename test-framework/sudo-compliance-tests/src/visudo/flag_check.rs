@@ -59,6 +59,23 @@ fn bad_syntax() {
 }
 
 #[test]
+fn relative_secure_path_is_reported_as_diagnostic() {
+    if sudo_test::is_original_sudo() {
+        return;
+    }
+
+    let env = Env(TextFile("Defaults secure_path=.:/bin").chmod(DEFAULT_CHMOD)).build();
+
+    let output = Command::new("visudo").arg("-c").output(&env);
+
+    output.assert_exit_code(1);
+    assert_contains!(
+        output.stderr(),
+        "syntax error: relative paths in secure_path are ignored for command lookup"
+    );
+}
+
+#[test]
 fn file_does_not_exist() {
     let env = Env("").build();
 
