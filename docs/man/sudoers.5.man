@@ -560,6 +560,7 @@ command; this default may be overridden by use of the NOSETENV tag.
 When sudo\-rs is built with support for AppArmor, sudoers file entries
 may specify an AppArmor profile that should be used to confine a
 command.
+For sudoedit, the profile confines the editor.
 .PP
 If an AppArmor profile is specified with the command, it will override
 any default values specified in sudoers.

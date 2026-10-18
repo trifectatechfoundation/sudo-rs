@@ -297,7 +297,7 @@ By default, if the NOPASSWD tag is applied to any of a user's entries for the cu
 These tags override the value of the setenv flag on a per-command basis.  Note that if SETENV has been set for a command, the user may disable the env_reset flag from the command line via the -E option.  Additionally, environment variables set on the command line are not subject to the restrictions imposed by env_check, env_delete, or env_keep.  As such, only trusted users should be allowed to set variables in this manner.  If the command matched is ALL, the SETENV tag is implied for that command; this default may be overridden by use of the NOSETENV tag.
 
 ## AppArmor_Spec
-When sudo-rs is built with support for AppArmor, sudoers file entries may specify an AppArmor profile that should be used to confine a command.
+When sudo-rs is built with support for AppArmor, sudoers file entries may specify an AppArmor profile that should be used to confine a command. For sudoedit, the profile confines the editor.
 
 If an AppArmor profile is specified with the command, it will override any default values specified in sudoers. Appropriate profile transition rules must be defined to support the profile change specified for a user.
 
