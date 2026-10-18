@@ -234,7 +234,7 @@ with apparmor support enabled:
 cargo build --release --features apparmor
 ```
 
-This feature is disabled on our pre-supplied binaries.
+This feature is enabled on our pre-supplied binaries.
 
 #### --features gettext
 
