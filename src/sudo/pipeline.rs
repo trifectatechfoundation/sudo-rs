@@ -107,7 +107,6 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
     environment::dangerous_extend(&mut target_env, trusted_vars);
 
     // prepare switch of apparmor profile
-    #[cfg(feature = "apparmor")]
     if let Some(profile) = &controls.apparmor_profile {
         crate::apparmor::set_profile_for_next_exec(profile)
             .map_err(|err| Error::AppArmor(profile.clone(), err))?;
