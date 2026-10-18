@@ -11,7 +11,7 @@ use crate::sudo::env::environment;
 use crate::sudo::pam::{InitPamArgs, attempt_authenticate, init_pam, pre_exec};
 use crate::sudoers::{
     AuthenticatingUser, Authentication, AuthenticationScope, Authorization, Judgement, Logging,
-    Sudoers,
+    Restrictions, Sudoers,
 };
 use crate::system::term::{current_tty_name, lock_tty};
 use crate::system::timestamp::{RecordScope, SessionRecordFile, TouchResult};
@@ -106,11 +106,7 @@ pub fn run(mut cmd_opts: SudoRunOptions) -> Result<(), Error> {
 
     environment::dangerous_extend(&mut target_env, trusted_vars);
 
-    // prepare switch of apparmor profile
-    if let Some(profile) = &controls.apparmor_profile {
-        crate::apparmor::set_profile_for_next_exec(profile)
-            .map_err(|err| Error::AppArmor(profile.clone(), err))?;
-    }
+    prepare_apparmor_profile(&controls)?;
 
     let options = context.try_as_run_options(&controls)?;
 
@@ -263,6 +259,16 @@ fn determine_auth_status(
     } else {
         AuthStatus::new(true, None)
     }
+}
+
+/// Arrange for the next command to run in the AppArmor profile selected by the policy, if any.
+fn prepare_apparmor_profile(controls: &Restrictions) -> Result<(), Error> {
+    if let Some(profile) = &controls.apparmor_profile {
+        crate::apparmor::set_profile_for_next_exec(profile)
+            .map_err(|err| Error::AppArmor(profile.clone(), err))?;
+    }
+
+    Ok(())
 }
 
 struct AuthStatus {
