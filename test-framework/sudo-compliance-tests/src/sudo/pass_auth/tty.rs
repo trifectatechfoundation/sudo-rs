@@ -58,6 +58,49 @@ fn no_tty() {
 }
 
 #[test]
+fn prompt_on_same_tty_is_serialized() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    // sshpass only answers one prompt: the second sudo must wait and reuse the timestamp
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "timeout 10 sshpass -p {PASSWORD} sh -c 'sudo touch /tmp/first | sudo touch /tmp/second' || exit $?
+test -f /tmp/first && test -f /tmp/second"
+        ))
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
+
+#[test]
+fn prompt_on_another_tty_does_not_block() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .build();
+
+    // the first sudo never gets its password (the -P prompt never matches), so it stays
+    // at the prompt on its own pty while a second sudo authenticates on a different pty
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "sshpass -P never-matching-prompt -p {PASSWORD} sudo true >/dev/null 2>&1 &
+holder=$!
+until pgrep -x sudo >/dev/null; do sleep 0.1; done
+sleep 1
+timeout 10 sshpass -p {PASSWORD} sudo true
+ret=$?
+kill $holder || exit 99
+exit $ret"
+        ))
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+}
+
+#[test]
 fn longest_possible_password_works() {
     let password = "a".repeat(MAX_PASSWORD_SIZE);
 

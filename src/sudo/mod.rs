@@ -99,26 +99,26 @@ fn sudo_process() -> Result<(), Error> {
                 Ok(())
             }
             SudoAction::ResetTimestamp(_) => {
-                if let Some(scope) = RecordScope::for_process(&Process::new()) {
-                    let user = CurrentUser::resolve()?;
-                    let mut record_file =
-                        SessionRecordFile::open_for_user(&user, Duration::default())?;
-                    record_file.disable(scope)?;
+                let user = CurrentUser::resolve()?;
+                let process = Process::new();
+                for record_scope in [RecordScope::for_tty, RecordScope::for_ppid] {
+                    if let Some(scope) = record_scope(&process) {
+                        let mut record_file =
+                            SessionRecordFile::open_for_user(&user, Duration::default())?;
+                        record_file.disable(scope)?;
+                    }
                 }
                 Ok(())
             }
             SudoAction::Validate(options) => pipeline::run_validate(options),
             SudoAction::Run(options) => {
-                // special case for when no command is given
-                if options.positional_args.is_empty() && !options.shell && !options.login {
-                    eprintln_ignore_io_error!("{}", usage_msg);
-                    std::process::exit(1);
-                } else {
-                    #[cfg(feature = "dev")]
-                    unstable_warning();
+                #[cfg(feature = "dev")]
+                unstable_warning();
 
-                    pipeline::run(options)
-                }
+                // SudoAction::from_env() should already ensure this
+                assert!(!options.positional_args.is_empty() || options.shell || options.login);
+
+                pipeline::run(options)
             }
             SudoAction::List(options) => pipeline::run_list(options),
             SudoAction::Edit(options) => pipeline::run_edit(options),
@@ -131,12 +131,12 @@ fn sudo_process() -> Result<(), Error> {
 }
 
 fn self_check() -> Result<(), Error> {
-    #[cfg(target_os = "linux")]
-    if crate::system::audit::no_new_privs_enabled()? {
-        return Err(Error::SelfCheckNoNewPrivs);
-    }
-
     if User::effective_uid() != UserId::ROOT {
+        #[cfg(target_os = "linux")]
+        if crate::system::audit::no_new_privs_enabled()? {
+            return Err(Error::SelfCheckNoNewPrivs);
+        }
+
         return Err(Error::SelfCheckSetuid);
     }
 

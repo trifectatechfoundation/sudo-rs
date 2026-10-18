@@ -1,11 +1,14 @@
 use sudo_test::{
-    Command, ETC_SUDOERS, Env, EnvNoImplicit, ROOT_GROUP, TextFile, helpers::assert_ls_output,
+    Command, ETC_SUDOERS, Env, EnvNoImplicit, PAM_D_SUDO_PATH, ROOT_GROUP, TextFile,
+    helpers::assert_ls_output,
 };
 
 use crate::{
-    DEFAULT_EDITOR, GROUPNAME, PANIC_EXIT_CODE, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
+    DEFAULT_EDITOR, GROUPNAME, PAMD_SUDO_ACCOUNT_DENY, PAMD_SUDO_ACCOUNT_PERMIT, PANIC_EXIT_CODE,
+    Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
 };
 
+mod flag_help;
 mod limits;
 mod sudoers;
 
@@ -13,6 +16,10 @@ const LOGS_PATH: &str = "/tmp/logs.txt";
 const CHMOD_EXEC: &str = "555";
 const EDITOR_DUMMY: &str = "#!/bin/sh
 echo \"#\" >> \"$1\"";
+
+const PAM_DENY_TARGET: &str = "/etc/sudo-rs-pam-deny-target";
+const EDITOR_OVERWRITE: &str = "#!/bin/sh
+printf modified > \"$1\"";
 
 #[test]
 fn default_editor_is_usr_bin_editor() {
@@ -39,6 +46,64 @@ echo '{expected}' > {LOGS_PATH}"
     let actual = Command::new("cat").arg(LOGS_PATH).output(&env).stdout();
 
     assert_eq!(expected, actual);
+}
+
+#[test]
+fn pam_account_denial_blocks_sudoedit_before_file_modification() {
+    let env = Env(format!(
+        "{USERNAME} ALL=(root) NOPASSWD: sudoedit {PAM_DENY_TARGET}"
+    ))
+    .user(USERNAME)
+    .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_DENY)
+    .file(DEFAULT_EDITOR, TextFile(EDITOR_OVERWRITE).chmod(CHMOD_EXEC))
+    .file(PAM_DENY_TARGET, TextFile("unchanged").chmod("644"))
+    .build();
+
+    let direct_write = Command::new("sh")
+        .args(["-c", &format!("echo direct > {PAM_DENY_TARGET}")])
+        .as_user(USERNAME)
+        .output(&env);
+    assert!(!direct_write.status().success());
+
+    let output = Command::new("sudoedit")
+        .args(["-n", PAM_DENY_TARGET])
+        .as_user(USERNAME)
+        .output(&env);
+
+    assert!(!output.status().success());
+    assert_contains!(output.stderr().to_lowercase(), "account validation failure");
+
+    let actual = Command::new("cat")
+        .arg(PAM_DENY_TARGET)
+        .output(&env)
+        .stdout();
+
+    assert_eq!("unchanged", actual);
+}
+
+#[test]
+fn pam_account_permit_allows_sudoedit() {
+    let env = Env(format!(
+        "{USERNAME} ALL=(root) NOPASSWD: sudoedit {PAM_DENY_TARGET}"
+    ))
+    .user(USERNAME)
+    .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_PERMIT)
+    .file(DEFAULT_EDITOR, TextFile(EDITOR_OVERWRITE).chmod(CHMOD_EXEC))
+    .file(PAM_DENY_TARGET, TextFile("unchanged").chmod("644"))
+    .build();
+
+    Command::new("sudoedit")
+        .args(["-n", PAM_DENY_TARGET])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    let actual = Command::new("cat")
+        .arg(PAM_DENY_TARGET)
+        .output(&env)
+        .stdout();
+
+    assert_eq!("modified", actual);
 }
 
 #[test]
@@ -203,7 +268,10 @@ rm $1",
     if sudo_test::is_original_sudo() {
         assert_contains!(stderr, format!("sudoedit: {ETC_SUDOERS} left unmodified"));
     } else {
-        assert_contains!(stderr, format!("sudo: failed to read from temporary file"));
+        assert_contains!(
+            stderr,
+            "sudo: failed to read from temporary file".to_string()
+        );
     }
 }
 

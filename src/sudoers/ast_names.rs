@@ -12,7 +12,7 @@ mod names {
     use crate::sudoers::ast::*;
     use crate::sudoers::tokens;
 
-    impl UserFriendly for tokens::Digits {
+    impl UserFriendly for tokens::DigitsU32 {
         const DESCRIPTION: &'static str = "number";
     }
 
@@ -119,6 +119,11 @@ mod names {
 
     impl<T: UserFriendly> UserFriendly for tokens::Unquoted<T> {
         const DESCRIPTION: &'static str = T::DESCRIPTION;
+    }
+
+    #[cfg(feature = "unstable-remote-sudoers")]
+    impl UserFriendly for PeerSpec {
+        const DESCRIPTION: &'static str = "user credentials in parentheses";
     }
 }
 

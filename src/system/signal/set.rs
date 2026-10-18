@@ -57,10 +57,13 @@ impl SignalAction {
     }
 }
 
-static PENDING_SIGNALS: [AtomicBool; 64] = [const { AtomicBool::new(false) }; 64];
+static PENDING_SIGNALS: [AtomicBool; 65] = [const { AtomicBool::new(false) }; 65];
 
-fn store_pending(signal: SignalNumber) {
-    PENDING_SIGNALS[signal as usize].store(true, Ordering::SeqCst);
+extern "C" fn store_pending(signal: SignalNumber) {
+    /* ignore any weird signals */
+    if let Some(flag) = PENDING_SIGNALS.get(signal as usize) {
+        flag.store(true, Ordering::SeqCst);
+    }
 }
 
 pub(crate) fn take_first_pending() -> Option<SignalNumber> {

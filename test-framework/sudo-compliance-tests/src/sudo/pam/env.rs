@@ -1,4 +1,5 @@
 // `pam_env` module integration
+// These tests only run on Linux since FreeBSD doesn't have pam_env.so
 // see 'Command execution' section in `man sudoers`
 
 use pretty_assertions::assert_eq;
@@ -28,7 +29,6 @@ fn remove_comments_and_whitespace(contents: &str) -> String {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn stock_pam_d_sudo() {
     let env = EnvNoImplicit("").build();
 
@@ -94,7 +94,6 @@ fn stock_pam_d_sudo() {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn preserves_pam_env() {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -124,7 +123,6 @@ fn preserves_pam_env() {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn pam_env_has_precedence_over_callers_env() {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -200,19 +198,16 @@ fn env_list_has_precendece_over_pam_env(env_list: EnvList) {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn env_keep_has_precedence_over_pam_env() {
     env_list_has_precendece_over_pam_env(EnvList::Keep)
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn env_check_has_precedence_over_pam_env() {
     env_list_has_precendece_over_pam_env(EnvList::Check)
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn var_rejected_by_env_check_falls_back_to_pam_env_value() {
     let set_name = "SET_VAR";
     let set_value = "set";
@@ -254,7 +249,6 @@ fn var_rejected_by_env_check_falls_back_to_pam_env_value() {
 }
 
 #[test]
-#[cfg_attr(target_os = "freebsd", ignore = "FreeBSD doesn't have pam_env.so")]
 fn pam_env_vars_are_not_env_checked() {
     let set_name = "SET_VAR";
     let set_value = "%set";

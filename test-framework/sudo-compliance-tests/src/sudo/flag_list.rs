@@ -1,8 +1,12 @@
 use sudo_test::{
-    BIN_FALSE, BIN_LS, BIN_PWD, BIN_SUDO, BIN_TRUE, Command, ETC_SUDOERS, Env, TextFile, User,
+    BIN_FALSE, BIN_LS, BIN_PWD, BIN_SUDO, BIN_TRUE, Command, ETC_SUDOERS, Env, PAM_D_SUDO_PATH,
+    TextFile, User,
 };
 
-use crate::{PANIC_EXIT_CODE, PASSWORD, Result, SUDOERS_ALL_ALL_NOPASSWD, USERNAME};
+use crate::{
+    HOSTNAME, PAMD_SUDO_ACCOUNT_DENY, PAMD_SUDO_ACCOUNT_PERMIT, PANIC_EXIT_CODE, PASSWORD, Result,
+    SUDOERS_ALL_ALL_NOPASSWD, USERNAME,
+};
 
 mod credential_caching;
 mod flag_other_user;
@@ -122,6 +126,45 @@ fn works_with_long_form_list_flag() {
     );
     let actual = output.stdout();
     assert_eq!(strip_matching_defaults_message(&actual), expected);
+}
+
+#[test]
+fn pam_account_denial_blocks_list_output() {
+    let env = Env(format!("{USERNAME} ALL=(root) NOPASSWD: {BIN_TRUE}"))
+        .user(USERNAME)
+        .hostname(HOSTNAME)
+        .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_DENY)
+        .build();
+
+    let output = Command::new("sudo")
+        .args(["-n", "-l"])
+        .as_user(USERNAME)
+        .output(&env);
+
+    assert!(!output.status().success());
+    assert_contains!(output.stderr().to_lowercase(), "account validation failure");
+    assert!(!output.stdout_unchecked().contains("may run"));
+}
+
+#[test]
+fn pam_account_permit_allows_list_output() {
+    let env = Env(format!("{USERNAME} ALL=(root) NOPASSWD: {BIN_TRUE}"))
+        .user(USERNAME)
+        .hostname(HOSTNAME)
+        .file(PAM_D_SUDO_PATH, PAMD_SUDO_ACCOUNT_PERMIT)
+        .build();
+
+    let output = Command::new("sudo")
+        .args(["-n", "-l"])
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_success();
+    assert_contains!(
+        output.stdout_unchecked(),
+        format!("User {USERNAME} may run the following commands on {HOSTNAME}:")
+    );
+    assert_contains!(output.stdout_unchecked(), BIN_TRUE);
 }
 
 #[test]

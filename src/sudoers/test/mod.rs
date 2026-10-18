@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use super::ast;
 use super::char_stream::CharStream;
 use super::*;
-use basic_parser::{parse_eval, parse_lines, parse_string};
+use basic_parser::{Status, parse_eval, parse_lines, parse_string};
 
 impl<T> Qualified<T> {
     pub fn as_allow(&self) -> Option<&T> {
@@ -214,6 +214,7 @@ fn permission_test() {
     pass!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello arg");
     pass!(["user ALL=/bin/hello  arg"], "user" => root(), "server"; "/bin/hello arg");
     pass!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello  arg");
+    pass!(["user ALL=/bin/hello\targ"], "user" => root(), "server"; "/bin/hello arg");
     FAIL!(["user ALL=/bin/hello arg"], "user" => root(), "server"; "/bin/hello boo");
     // several test cases with globbing in the arguments are explicitly not supported by sudo-rs
     //pass!(["user ALL=/bin/hello a*g"], "user" => root(), "server"; "/bin/hello  aaaarg");
@@ -281,6 +282,13 @@ fn permission_test() {
     pass!(["user ALL=(root) NOPASSWD: /bin/ls, (sudo) /bin/ls, /bin/true"], "user" => request! { sudo }, "server"; "/bin/true");
 
     SYNTAX!(["User_Alias, marc ALL = ALL"]);
+    SYNTAX!(["Host_Alias CHROOT = server"]);
+    SYNTAX!(["User_Alias CWD = user1"]);
+    SYNTAX!(["User_Alias NOTAFTER = user1"]);
+    SYNTAX!(["Runas_Alias NOTBEFORE = root"]);
+    SYNTAX!(["Cmnd_Alias TIMEOUT = /bin/ls"]);
+    SYNTAX!(["User_Alias ROLE = sudouser"]);
+    SYNTAX!(["User_Alias TYPE = sudouser"]);
 
     pass!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "user" => root(), "server"; "/bin/bash");
     FAIL!(["User_Alias FULLTIME=ALL,!marc","FULLTIME ALL=ALL"], "marc" => root(), "server"; "/bin/bash");
@@ -326,6 +334,23 @@ fn permission_test() {
     // list
     pass!(["ALL ALL=(ALL:ALL) /bin/ls, list"], "user" => root(), "server"; "list");
     FAIL!(["ALL ALL=(ALL:ALL) ALL, !list"], "user" => root(), "server"; "list");
+
+    // line continuation
+    pass!(["user ALL=/bin/hello \\", "arg"], "user" => root(), "server"; "/bin/hello arg");
+    pass!(["user ALL=/bin/hello \\", "arg1 \\", "arg2"], "user" => root(), "server"; "/bin/hello arg1 arg2");
+    pass!(
+        ["user ALL=(root) NOPASSWD: /usr/bin/true \\", "arg1 \\", "arg2"],
+        "user" => root(), "server";
+        "/usr/bin/true arg1 arg2" => [authenticate: Authenticate::Nopasswd]
+    );
+    pass!(["user ALL=/bin/hello\\", "arg"], "user" => root(), "server"; "/bin/hello arg");
+    pass!(
+        ["user ALL=/bin/hello \\", "\\", "arg"],
+        "user" => root(), "server";
+        "/bin/hello arg"
+    );
+    SYNTAX!(["us\\\ner ALL=ALL"]);
+    SYNTAX!(["user ALL=/bin/hello\\"]);
 }
 
 #[test]
@@ -391,6 +416,10 @@ fn default_set_test() {
     assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
     assert!(parse_string::<Sudo>("Defaults verifypw = never").is_ok());
+
+    assert!(parse_string::<Sudo>("Defaults runcwd = *").is_ok());
+    assert!(parse_string::<Sudo>("Defaults runcwd = /usr/local").is_ok());
+    assert!(parse_string::<Sudo>("Defaults !runcwd").is_ok());
 }
 
 #[test]
@@ -570,13 +599,32 @@ fn nullbyte_regression() {
 }
 
 #[test]
-fn alias_all_regression() {
-    assert!(try_parse_line("User_Alias ALL = sudouser").is_none())
+fn reserved_alias_names_are_rejected_for_alias_definitions() {
+    for line in [
+        "User_Alias ALL = sudouser",
+        "User_Alias CWD = sudouser",
+        "Host_Alias CHROOT = server",
+        "Cmnd_Alias TIMEOUT = /bin/ls",
+        "Runas_Alias NOTBEFORE = root",
+        "User_Alias NOTAFTER = sudouser",
+    ] {
+        assert!(try_parse_line(line).is_none(), "{line}");
+    }
 }
 
 #[test]
 fn defaults_regression() {
     assert!(try_parse_line("Defaults .mymachine=ALL").is_none())
+}
+
+#[test]
+fn user_id_regression() {
+    assert!(parse_line("#499999999999 ALL=ALL").is_line_comment());
+    assert!(parse_line("#49999999999 ALL=ALL").is_line_comment());
+    assert!(try_parse_line("Defaults:#49999999999 use_pty").is_none());
+    assert!(try_parse_line("Defaults:#4999999999 use_pty").is_none());
+    assert!(parse_line("#1999999999 ALL=ALL").is_spec());
+    assert!(parse_line("Defaults:#1999999999 use_pty").is_decl());
 }
 
 #[test]
@@ -601,6 +649,18 @@ fn specific_defaults() {
     assert!(parse_line("Defaults>user!use_pty").is_decl());
     assert!(try_parse_line("Defaults >user!use_pty").is_none());
     assert!(try_parse_line("Defaults >user !use_pty").is_none());
+}
+
+#[test]
+fn defaults_hostname_shenanigans() {
+    assert!(parse_line("Defaults@ hostname use_pty").is_decl());
+    assert!(try_parse_line("Defaults@ # comment\n use_pty").is_none());
+    /* ogsudo also rejects the following, probably due to hack in the parser
+    not too dissimilar from ours -- but sudo-rs has no problems with these */
+    assert!(parse_line("Defaults@\\\nhost use_pty").is_decl());
+    assert!(parse_line("Defaults:\\\nuser use_pty").is_decl());
+    assert!(parse_line("Defaults>\\\nuser use_pty").is_decl());
+    assert!(parse_line("Defaults!\\\nCMD use_pty").is_decl());
 }
 
 #[test]
@@ -701,6 +761,71 @@ fn regression_check_recursion() {
     );
 
     assert!(!error.is_empty());
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn assert_remote_failure(line: &str, expected_msg: &str) {
+    let [Err(Status::Fatal(_, msg)), ..] = &parse_lines::<Sudo>(&mut CharStream::new(line))[..]
+    else {
+        panic!("Expected Fatal error");
+    };
+
+    assert_eq!(msg, expected_msg);
+}
+
+#[cfg(feature = "unstable-remote-sudoers")]
+fn assert_remote(
+    line: &str,
+    expected_path: &str,
+    expected_user: Identifier,
+    expected_group: Option<Identifier>,
+) {
+    let result = parse_line(line);
+    let ast::Sudo::Remote(path, peer_spec, _) = result else {
+        panic!("Expected Sudo::Remote");
+    };
+
+    assert_eq!(path, expected_path);
+    assert_eq!(expected_user, peer_spec.user);
+    assert_eq!(expected_group, peer_spec.group);
+}
+
+#[test]
+#[cfg(feature = "unstable-remote-sudoers")]
+fn remote_parsing() {
+    assert_remote(
+        "@socket ( user1:group1) /var/run/fake-1.socket",
+        "/var/run/fake-1.socket",
+        Identifier::Name("user1".into()),
+        Some(Identifier::Name("group1".into())),
+    );
+
+    assert_remote(
+        "@socket (#2000: #2000) /var/run/fake-2.socket",
+        "/var/run/fake-2.socket",
+        Identifier::ID(2000),
+        Some(Identifier::ID(2000)),
+    );
+
+    assert_remote(
+        "@socket (user3:#3000) /var/run/fake-3.socket",
+        "/var/run/fake-3.socket",
+        Identifier::Name("user3".into()),
+        Some(Identifier::ID(3000)),
+    );
+
+    assert_remote(
+        "@socket (user4) /var/run/fake-4.socket",
+        "/var/run/fake-4.socket",
+        Identifier::Name("user4".into()),
+        None,
+    );
+
+    assert_remote_failure("@socket", "expected elem");
+    assert_remote_failure("@socket /path/socket.5", "expected elem");
+    assert_remote_failure("@socket () /var/run/fake-6.socket", "expected elem");
+    assert_remote_failure("@socket (:#7000) /var/run/fake-7.socket", "expected elem");
+    assert_remote_failure("@socket (:user8) /var/run/fake-8.socket", "expected elem");
 }
 
 fn test_topo_sort(n: usize) {

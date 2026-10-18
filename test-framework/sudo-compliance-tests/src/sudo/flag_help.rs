@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env};
 
-use crate::{PANIC_EXIT_CODE, Result};
+use crate::{PANIC_EXIT_CODE, Result, USERNAME};
 
 #[test]
 fn does_not_panic_on_io_errors() -> Result<()> {
@@ -13,6 +13,30 @@ fn does_not_panic_on_io_errors() -> Result<()> {
     let exit_code = output.stdout().parse()?;
     assert_ne!(PANIC_EXIT_CODE, exit_code);
     assert_eq!(0, exit_code);
+
+    Ok(())
+}
+
+#[test]
+fn no_args_gives_usage() -> Result<()> {
+    let env = Env("").build();
+
+    let output = Command::new("sudo").output(&env);
+
+    let output = output.stderr();
+    assert_contains!(output, "usage: sudo");
+
+    Ok(())
+}
+
+#[test]
+fn no_command_gives_usage() -> Result<()> {
+    let env = Env("").user(USERNAME).build();
+
+    let output = Command::new("sudo").args(["-u", USERNAME]).output(&env);
+
+    let output = output.stderr();
+    assert_contains!(output, "usage: sudo");
 
     Ok(())
 }

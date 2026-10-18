@@ -1,3 +1,7 @@
+//! Macros useful in tests
+
+/// assert_contains(x,y) is equivalent to assert!(x.contains(y))
+#[macro_export]
 macro_rules! assert_contains {
     ($haystack:expr, $needle:expr) => {
         let haystack = &$haystack;
@@ -10,6 +14,8 @@ macro_rules! assert_contains {
     };
 }
 
+/// assert_contains(x,y) is equivalent to !assert!(x.contains(y))
+#[macro_export]
 macro_rules! assert_not_contains {
     ($haystack:expr, $needle:expr) => {
         let haystack = &$haystack;
@@ -22,6 +28,8 @@ macro_rules! assert_not_contains {
     };
 }
 
+/// assert_starts_with(x,y) is equivalent to assert!(x.starts_with(y))
+#[macro_export]
 macro_rules! assert_starts_with {
     ($haystack:expr, $needle:expr) => {
         let haystack = &$haystack;

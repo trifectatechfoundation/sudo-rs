@@ -1,5 +1,5 @@
 ---
-title: SUDOERS(5) sudo-rs 0.2.13 | sudo-rs
+title: SUDOERS(5) sudo-rs 0.2.15 | sudo-rs
 ---
 
 # NAME
@@ -148,7 +148,7 @@ A Host_List is made up of one or more host names.  Again, the value of an item m
               '!'* "list"
               '!'* "sudoedit" [file name]
 
-A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the Wildcards section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments that have to be used, in which case the command line has to match exactly. You can use the special argument "" to indicate that the command may only be run *without* command line arguments, or the argument ‘*’ to match any trailing arguments. You cannot use wildcards inside the argument list.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
+A Cmnd_List is a list of one or more command names, directories, and other aliases.  A command name is a fully qualified file name which may include shell-style wildcards (see the *Wildcards* section below).  A simple file name allows the user to run the command with any arguments they wish.  However, you may also specify command line arguments that have to be used, in which case the command line has to match exactly. You can use the special argument "" to indicate that the command may only be run *without* command line arguments, or the argument ‘*’ to match any trailing arguments. You cannot use wildcards inside the argument list.  A directory is a fully qualified path name ending in a ‘/’.  When you specify a directory in a Cmnd_List, the user will be able to run any file within that directory (but not in any sub-directories therein).
 
 If a Cmnd has associated command line arguments, then the arguments in the Cmnd must match exactly those given by the user on the command line.
 Note that the following characters must be escaped with a ‘\\’ if they are used in command arguments: ‘,’, ‘:’, ‘=’, ‘\\’.
@@ -278,7 +278,7 @@ In the following example, user aaron may run /usr/bin/more and /usr/bin/vi but s
 
         aaron   shanty = NOEXEC: /usr/bin/more, /usr/bin/vi
 
-See the _Preventing shell escapes_ section below for more details on how NOEXEC works and whether or not it suits your purpose.
+See the *Preventing shell escapes* section below for more details on how NOEXEC works and whether or not it suits your purpose.
 
 ### PASSWD and NOPASSWD
 
@@ -323,7 +323,7 @@ Wildcards in command line arguments are not supported---using these in original 
 
 ## Including other files from within sudoers
 
-It is possible to include other sudoers files from within the sudoers file currently being parsed using the *@include* and *@includedir* directives.  For compatibility with Todd Miller's sudo versions prior to 1.9.1, *#include* and *#includedir* are also accepted.
+It is possible to include other sudoers files from within the sudoers file currently being parsed using the *@include* and *@includedir* directives; or the contents provided by an application over a unix domain socket using the *@socket* directive.  For compatibility with Todd Miller's sudo versions prior to 1.9.1, *#include* and *#includedir* are also accepted.
 
 An include file can be used, for example, to keep a site-wide sudoers file in addition to a local, per-machine file.  For the sake of this example the site-wide sudoers file will be /etc/sudoers and the per-machine one will be /etc/sudoers.local.  To include /etc/sudoers.local from within /etc/sudoers one would use the following line in /etc/sudoers:
 
@@ -342,6 +342,16 @@ The @includedir directive can be used to create a sudoers.d directory that the s
 sudo will suspend processing of the current file and read each file in /etc/sudoers.d, skipping file names that end in ‘~’ or contain a ‘.’ character to avoid causing problems with package manager or editor temporary/backup files.  Files are parsed in sorted lexical order.  That is, /etc/sudoers.d/01_first will be parsed before /etc/sudoers.d/10_second.  Be aware that because the sorting is lexical, not numeric, /etc/sudoers.d/1_whoops would be loaded after /etc/sudoers.d/10_second.  Using a consistent number of leading zeroes in the file names can be used to avoid such problems.  After parsing the files in the directory, control returns to the file that contained the @includedir directive.
 
 Note that unlike files included via @include, visudo will not edit the files in a @includedir directory unless one of them contains a syntax error.  It is still possible to run visudo with the -f flag to edit the files directly, but this will not catch the redefinition of an alias that is also present in a different file.
+
+When managing enterprise-wide sudoers rules, it is sometimes preferable to store them in a centralized repository. The @socket directive can be used to include the contents provided by a server application over a Unix domain socket. For example, providing:
+
+         @socket (sssd:sssd) /var/run/providers/sudoers.socket
+
+will make sudo open that socket, read the rules, and close it, as if it was an included file. The rules must follow the same syntax used in the sudoers files. There is, however, one exception: when reading from a socket, the @include, @includedir, and @socket directives are not accepted.
+
+For security reasons, a user and optionally a group must be given, enclosed in parentheses and separated by a colon. Users and groups can be specified either by their name or by their numeric id preceded by a hash sign (#). When the socket is opened, and before any interaction with it, sudo will check that the peer process at the other side of the socket runs as the declared user and group (if the latter was provided). If any of these conditions fail, the socket is immediately closed and discarded. Only POSIX groups can be used.
+
+Please note that visudo cannot read from a socket. Furthermore, the contents retrieved from a socket are considered immutable by sudo.
 
 ## Other special characters and reserved words
 
@@ -371,11 +381,17 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 ### Boolean Flags:
 
+* log_allowed
+
+  If set, sudoers will log commands allowed by the policy to the system log.
+  This flag is on by default.
+
 * noexec
 
-  If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the Preventing shell escapes section at the end of this manual.  This flag is off by default.
+  If set, all commands run via sudo will behave as if the NOEXEC tag has been set, unless overridden by an EXEC tag.  See the description of EXEC and NOEXEC as well as the *Preventing shell escapes* section at the end of this manual.  This flag is off by default.
 
 * noninteractive_auth
+
   If set, authentication will be attempted even in non-interactive mode (when sudo's -n option is specified).  This allows authentication methods that don't require user interaction to succeed.  Authentication methods that require input from the user's terminal will still fail.  If disabled, authentication will not be attempted in non-interactive mode.  This flag is off by default.
 
 * env_editor
@@ -416,6 +432,10 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 ## Integers that can be used in a boolean context:
 
+* passwd_timeout
+
+  Number of minutes before the sudo password prompt times out, or 0 for no timeout.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 0.
+
 * timestamp_timeout
 
   Number of minutes that can elapse before sudo will ask for a passwd again.  The timeout may include a fractional component if minute granularity is insufficient, for example 2.5.  The default is 15.  Set this to 0 to always prompt for a password.
@@ -432,11 +452,25 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
   A colon (‘:’) separated list of editor path names used by **sudoedit** and **visudo**. For **sudoedit**, this list is used to find an editor when none of the SUDO_EDITOR, VISUAL or EDITOR environment variables are set to an editor that exists and is executable.  For **visudo**, it is used as a white list of allowed editors; **visudo** will choose the editor that matches the user's SUDO_EDITOR, VISUAL or EDITOR environment variable if possible, or the  first  editor in  the  list that exists and is executable if not. Unless invoked as **sudoedit**, sudo does not preserve the SUDO_EDITOR, VISUAL or EDITOR environment variables unless they are present in the **env_keep** list. The default on Linux is _/usr/bin/editor:/usr/bin/nano:/usr/bin/vi_. On FreeBSD the default is _/usr/bin/vi_.
 
+* timestamp_type
+
+  sudo-rs uses per-user timestamp files for credential caching.  The *timestamp_type* option can be used to specify the type of timestamp record used.  It has two possible values: _tty_ and _ppid_. There is no support for a _global_ or _kernel_ setting.
+
+  - _ppid_:  A single timestamp record is used for all processes with the same parent process ID (usually the shell).   Commands run from the same shell (or other common parent process) will not require a password while the timestamp is valid (see *timestamp_timeout*). Commands run via sudo with a different parent process ID, for example from a shell script, must be authenticated separately.
+
+  - _tty_:  One timestamp record is used for each terminal, which means that a user's login sessions are authenticated separately.  If no terminal is present, the behavior is the same as _ppid_.  Commands run from the same terminal will not require a password while the timestamp is valid.
+
+  The default value is **tty**.
+
 ## Strings that can be used in a boolean context:
 
 * apparmor_profile
 
   The default AppArmor profile to transition into when executing a command. The default apparmor_profile can be overridden for individual sudoers entries by specifying the APPARMOR_PROFILE option. This option is only available when sudo-rs is built with AppArmor support. This option is not set by default.
+
+* runcwd
+
+  If set, sudo will use this value for the working directory when running a command. The special value “\*” will allow the user to specify the working directory via sudo's -D option.  See the *Chdir_Spec* section for more details.
 
 * secure_path
 

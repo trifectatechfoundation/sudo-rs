@@ -253,7 +253,7 @@ fn when_no_etc_shells_file_uses_a_default_list() {
             .output(&env);
 
         output.assert_success();
-        assert_not_contains!(output.stderr(), format!("su: using restricted shell"));
+        assert_not_contains!(output.stderr(), "su: using restricted shell".to_string());
     }
 }
 

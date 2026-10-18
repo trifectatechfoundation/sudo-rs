@@ -1,5 +1,5 @@
 ---
-title: SUDO(8) sudo-rs 0.2.13 | sudo-rs
+title: SUDO(8) sudo-rs 0.2.15 | sudo-rs
 ---
 
 # NAME
@@ -91,7 +91,7 @@ are introduced.
 :   Avoid prompting the user for input of any kind. If any input is required for
     the *command* to run, sudo-rs will display an error message and exit.
 
-`p`, `--prompt`=*prompt*
+`-p`, `--prompt`=*prompt*
 :   Use a custom authentication prompt with optional escape sequences. The
     following percent (‘%’) escape sequences are supported:
 

@@ -4,7 +4,7 @@ use super::tokens::*;
 use crate::common::SudoString;
 use crate::common::{
     HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2, HARDENED_ENUM_VALUE_3,
-    HARDENED_ENUM_VALUE_4,
+    HARDENED_ENUM_VALUE_4, HARDENED_ENUM_VALUE_5,
 };
 use crate::defaults;
 
@@ -45,6 +45,15 @@ pub enum Identifier {
     ID(u32) = HARDENED_ENUM_VALUE_1,
 }
 
+impl std::fmt::Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            Self::Name(name) => write!(f, "{name}"),
+            Self::ID(id) => write!(f, "#{id}"),
+        }
+    }
+}
+
 /// A userspecifier is either a username, or a (non-unix) group name, or netgroup
 #[cfg_attr(test, derive(Clone, Debug, PartialEq, Eq))]
 #[repr(u32)]
@@ -52,6 +61,14 @@ pub enum UserSpecifier {
     User(Identifier) = HARDENED_ENUM_VALUE_0,
     Group(Identifier) = HARDENED_ENUM_VALUE_1,
     NonunixGroup(Identifier) = HARDENED_ENUM_VALUE_2,
+}
+
+/// Peer credentials specification for @socket directive
+#[cfg(feature = "unstable-remote-sudoers")]
+#[cfg_attr(test, derive(Clone, Debug))]
+pub struct PeerSpec {
+    pub user: Identifier,
+    pub group: Option<Identifier>,
 }
 
 /// The RunAs specification consists of a (possibly empty) list of userspecifiers, followed by a (possibly empty) list of groups.
@@ -158,7 +175,9 @@ pub enum Sudo {
     Decl(Directive) = HARDENED_ENUM_VALUE_1,
     Include(String, Span) = HARDENED_ENUM_VALUE_2,
     IncludeDir(String, Span) = HARDENED_ENUM_VALUE_3,
-    LineComment = HARDENED_ENUM_VALUE_4,
+    #[cfg(feature = "unstable-remote-sudoers")]
+    Remote(String, PeerSpec, Span) = HARDENED_ENUM_VALUE_4,
+    LineComment = HARDENED_ENUM_VALUE_5,
 }
 
 /// grammar:
@@ -169,7 +188,7 @@ pub enum Sudo {
 impl Parse for Identifier {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
         if stream.eat_char('#') {
-            let Digits(guid) = expect_nonterminal(stream)?;
+            let DigitsU32(guid) = expect_nonterminal(stream)?;
             make(Identifier::ID(guid))
         } else {
             let Username(name) = try_nonterminal(stream)?;
@@ -554,6 +573,24 @@ impl Parse for Sudo {
     }
 }
 
+#[cfg(feature = "unstable-remote-sudoers")]
+impl Parse for PeerSpec {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
+        try_syntax('(', stream)?;
+
+        let user = expect_nonterminal(stream)?;
+
+        let group = if is_syntax(':', stream)? {
+            Some(expect_nonterminal(stream)?)
+        } else {
+            None
+        };
+
+        expect_syntax(')', stream)?;
+        make(PeerSpec { user, group })
+    }
+}
+
 /// Parse the include/include dir part that comes after the '#' or '@' prefix symbol
 fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
     fn get_path(stream: &mut CharStream, key_pos: (usize, usize)) -> Parsed<(String, Span)> {
@@ -592,10 +629,23 @@ fn parse_include(stream: &mut CharStream) -> Parsed<Sudo> {
             let (path, span) = get_path(stream, key_pos)?;
             Sudo::IncludeDir(path, span)
         }
+        #[cfg(feature = "unstable-remote-sudoers")]
+        Some(Username(key)) if key == "socket" => {
+            let peer_spec = expect_nonterminal(stream)?;
+            let (path, span) = get_path(stream, key_pos)?;
+            Sudo::Remote(path, peer_spec, span)
+        }
         _ => unrecoverable!(pos = key_pos, stream, "unknown directive"),
     };
 
     make(result)
+}
+
+fn is_reserved_alias(name: &str) -> bool {
+    matches!(
+        name,
+        "ALL" | "CHROOT" | "CWD" | "NOTAFTER" | "NOTBEFORE" | "ROLE" | "TIMEOUT" | "TYPE"
+    )
 }
 
 /// grammar:
@@ -611,11 +661,12 @@ where
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
         let begin_pos = stream.get_pos();
         let AliasName(name) = try_nonterminal(stream)?;
-        if name == "ALL" {
+        if is_reserved_alias(&name) {
             unrecoverable!(
                 pos = begin_pos,
                 stream,
-                "the reserved alias ALL cannot be redefined"
+                "reserved word {} used as an alias name",
+                name
             );
         }
         expect_syntax('=', stream)?;
@@ -661,15 +712,16 @@ fn get_directive<'a>(
             // an acceptable hostname is subset of an acceptable username, so that's actually OK.
             // This resolves an ambiguity in the grammar similarly to how MetaOrTag does that.
             const DEFAULTS_LEN: usize = "Defaults".len();
-            let allow_scope_modifier = stream.get_pos().0 == begin_pos.0
-                && (stream.get_pos().1 - begin_pos.1 == DEFAULTS_LEN
-                    || keyword.len() > DEFAULTS_LEN);
+            let allow_scope_modifier = keyword[DEFAULTS_LEN..].starts_with('@')
+                || (stream.get_pos().0 == begin_pos.0
+                    && stream.get_pos().1 - begin_pos.1 == DEFAULTS_LEN);
 
             let scope = if allow_scope_modifier {
                 if keyword[DEFAULTS_LEN..].starts_with('@') {
                     // Backtrack and start parsing following the '@' sign
                     *stream = begin_state;
                     stream.advance(DEFAULTS_LEN + 1);
+                    skip_trailing_whitespace(stream)?;
 
                     ConfigScope::Host(expect_nonterminal(stream)?)
                 } else if is_syntax(':', stream)? {
