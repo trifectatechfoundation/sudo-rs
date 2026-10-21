@@ -1,11 +1,10 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::time::Duration;
 
 use crate::common::context::LaunchType;
 use crate::common::error::Error;
 use crate::log::{dev_info, user_warn};
 use crate::pam::{PamContext, PamError, PamErrorType, PamResult};
-use crate::system::term::current_tty_name;
 
 pub(super) struct InitPamArgs<'a> {
     pub(super) launch: LaunchType,
@@ -20,6 +19,7 @@ pub(super) struct InitPamArgs<'a> {
     pub(super) requesting_user: &'a str,
     pub(super) target_user: &'a str,
     pub(super) hostname: &'a str,
+    pub(super) tty_name: Option<&'a OsStr>,
 }
 
 pub(super) fn init_pam(
@@ -36,6 +36,7 @@ pub(super) fn init_pam(
         requesting_user,
         target_user,
         hostname,
+        tty_name,
     }: InitPamArgs,
 ) -> PamResult<PamContext> {
     let service_name = match launch {
@@ -87,8 +88,8 @@ pub(super) fn init_pam(
     }
 
     // attempt to set the TTY this session is communicating on
-    if let Ok(pam_tty) = current_tty_name() {
-        pam.set_tty(&pam_tty)?;
+    if let Some(pam_tty) = tty_name {
+        pam.set_tty(pam_tty)?;
     }
 
     Ok(pam)
