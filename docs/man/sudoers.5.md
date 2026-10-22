@@ -454,11 +454,13 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 * timestamp_type
 
-  sudo-rs uses per-user timestamp files for credential caching.  The *timestamp_type* option can be used to specify the type of timestamp record used.  It has two possible values: _tty_ and _ppid_. There is no support for a _global_ or _kernel_ setting.
+  sudo-rs uses per-user timestamp files for credential caching.  The *timestamp_type* option can be used to specify the type of timestamp record used.  It has three possible values: _tty_, _ppid_ and _global_. There is no support for a _kernel_ setting.
 
   - _ppid_:  A single timestamp record is used for all processes with the same parent process ID (usually the shell).   Commands run from the same shell (or other common parent process) will not require a password while the timestamp is valid (see *timestamp_timeout*). Commands run via sudo with a different parent process ID, for example from a shell script, must be authenticated separately.
 
   - _tty_:  One timestamp record is used for each terminal, which means that a user's login sessions are authenticated separately.  If no terminal is present, the behavior is the same as _ppid_.  Commands run from the same terminal will not require a password while the timestamp is valid.
+
+  - _global_:  A single timestamp record is used for all of a user's login sessions, regardless of the terminal or parent process ID.  An authenticated user may run sudo without a password in any other login session while the timestamp is valid.  This is less secure than the other settings, since any process running as that user can make use of the cached credentials.
 
   The default value is **tty**.
 
