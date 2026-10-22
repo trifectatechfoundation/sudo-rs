@@ -297,9 +297,11 @@ By default, if the NOPASSWD tag is applied to any of a user's entries for the cu
 These tags override the value of the setenv flag on a per-command basis.  Note that if SETENV has been set for a command, the user may disable the env_reset flag from the command line via the -E option.  Additionally, environment variables set on the command line are not subject to the restrictions imposed by env_check, env_delete, or env_keep.  As such, only trusted users should be allowed to set variables in this manner.  If the command matched is ALL, the SETENV tag is implied for that command; this default may be overridden by use of the NOSETENV tag.
 
 ## AppArmor_Spec
-When sudo-rs is built with support for AppArmor, sudoers file entries may specify an AppArmor profile that should be used to confine a command.
+Sudoers file entries may specify an AppArmor profile that should be used to confine a command. For sudoedit, the profile confines the editor.
 
 If an AppArmor profile is specified with the command, it will override any default values specified in sudoers. Appropriate profile transition rules must be defined to support the profile change specified for a user.
+
+The profile is ignored when AppArmor is not enabled on the system. When it is enabled but sudo-rs was built without AppArmor support, sudo-rs refuses to run the command rather than run it unconfined.
 
 AppArmor profiles can be specified in any way that complies with the rules of `aa_change_profile(2)`.
 
@@ -466,7 +468,7 @@ sudo's behavior can be modified by Default_Entry lines, as explained earlier.  A
 
 * apparmor_profile
 
-  The default AppArmor profile to transition into when executing a command. The default apparmor_profile can be overridden for individual sudoers entries by specifying the APPARMOR_PROFILE option. This option is only available when sudo-rs is built with AppArmor support. This option is not set by default.
+  The default AppArmor profile to transition into when executing a command. The default apparmor_profile can be overridden for individual sudoers entries by specifying the APPARMOR_PROFILE option. See the *AppArmor_Spec* section for how sudo-rs handles a profile it cannot apply. This option is not set by default.
 
 * runcwd
 

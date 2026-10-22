@@ -1,9 +1,17 @@
-use std::ffi::{CStr, CString, c_char, c_int};
-use std::{fs, io, mem};
+use std::{fs, io};
 
+#[cfg(feature = "apparmor")]
+use std::{
+    ffi::{CStr, CString, c_char, c_int},
+    mem,
+};
+
+#[cfg(feature = "apparmor")]
 use crate::cutils::cerr;
 
 /// Set the profile for the next exec call if AppArmor is enabled
+///
+/// This will fail if AppArmor is enabled AND sudo-rs was built without support for it as otherwise the confinement profile becomes dishonest
 pub fn set_profile_for_next_exec(profile_name: &str) -> io::Result<()> {
     if apparmor_is_enabled()? {
         apparmor_prepare_exec(profile_name)
@@ -22,6 +30,7 @@ fn apparmor_is_enabled() -> io::Result<bool> {
 }
 
 /// Switch the apparmor profile to the given profile on the next exec call
+#[cfg(feature = "apparmor")]
 fn apparmor_prepare_exec(new_profile: &str) -> io::Result<()> {
     // SAFETY: Always safe to call
     unsafe { libc::dlerror() }; // Clear any existing error
@@ -67,4 +76,27 @@ fn apparmor_prepare_exec(new_profile: &str) -> io::Result<()> {
     cerr(unsafe { aa_change_onexec(new_profile_cstr.as_ptr()) })?;
 
     Ok(())
+}
+
+#[cfg(not(feature = "apparmor"))]
+fn apparmor_prepare_exec(_new_profile: &str) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        xlat!("this build of sudo-rs does not support AppArmor"),
+    ))
+}
+
+#[cfg(all(test, not(feature = "apparmor")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_is_refused_when_apparmor_cannot_be_used() {
+        let result = set_profile_for_next_exec("unconfined");
+        if apparmor_is_enabled().unwrap() {
+            assert_eq!(result.unwrap_err().kind(), io::ErrorKind::Unsupported);
+        } else {
+            result.unwrap();
+        }
+    }
 }
