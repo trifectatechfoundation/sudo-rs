@@ -101,38 +101,99 @@ Defaults timestamp_type=ppid")
 }
 
 #[test]
-fn non_overlapping_jurisdictions() {
-    let modes = ["tty", "ppid"];
-    let mut reversed_modes = modes;
-    reversed_modes.reverse();
+fn caching_is_global() {
+    let env = Env("ALL ALL=(ALL:ALL) ALL
+Defaults timestamp_type=global")
+    .user(User(USERNAME).password(PASSWORD))
+    .build();
 
-    for [mode1, mode2] in [modes, reversed_modes] {
-        let env = Env(format!(
-            "ALL ALL=(ALL:ALL) ALL
+    // credentials are re-used regardless of the parent process or the presence of a tty
+    for has_tty in [true, false] {
+        for test in [
+            "sudo -S true; sudo -n true && true",
+            "sudo -S true; sh -c 'sudo -n true' && true",
+            "sh -c 'sudo -S true'; sudo -n true && true",
+            "sh -c 'sudo -S true'; sh -c 'sudo -n true' && true",
+        ] {
+            Command::new("sh")
+                .arg("-c")
+                .arg(format!("echo {PASSWORD} | {test}"))
+                .as_user(USERNAME)
+                .tty(has_tty)
+                .output(&env)
+                .assert_success();
+        }
+    }
+
+    // a credential obtained in one session can be used in another
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD} | sudo -S true"))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .assert_success();
+
+    Command::new("sudo")
+        .args(["-n", "true"])
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    // and 'sudo -k' in yet another session invalidates it
+    Command::new("sudo")
+        .arg("-k")
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .assert_success();
+
+    let output = Command::new("sudo")
+        .args(["-n", "true"])
+        .as_user(USERNAME)
+        .output(&env);
+
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "a password is required");
+    } else {
+        assert_contains!(output.stderr(), "interactive authentication is required");
+    }
+    output.assert_exit_code(1);
+}
+
+#[test]
+fn non_overlapping_jurisdictions() {
+    let modes = ["tty", "ppid", "global"];
+
+    for mode1 in modes {
+        for mode2 in modes.into_iter().filter(|&mode| mode != mode1) {
+            let env = Env(format!(
+                "ALL ALL=(ALL:ALL) ALL
 Defaults!/usr/bin/false timestamp_type={mode1}
 Defaults!/usr/bin/true timestamp_type={mode2}"
-        ))
-        .user(User(USERNAME).password(PASSWORD))
-        .build();
-
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(format!(
-                "echo {PASSWORD} | sudo -S false; sudo -n true && true"
             ))
-            .as_user(USERNAME)
-            .tty(true)
-            .output(&env);
+            .user(User(USERNAME).password(PASSWORD))
+            .build();
 
-        // for some reason this appears on stdout
-        if sudo_test::is_original_sudo() {
-            assert_contains!(output.stdout_unchecked(), "a password is required");
-        } else {
-            assert_contains!(
-                output.stdout_unchecked(),
-                "interactive authentication is required"
-            );
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "echo {PASSWORD} | sudo -S false; sudo -n true && true"
+                ))
+                .as_user(USERNAME)
+                .tty(true)
+                .output(&env);
+
+            // for some reason this appears on stdout
+            if sudo_test::is_original_sudo() {
+                assert_contains!(output.stdout_unchecked(), "a password is required");
+            } else {
+                assert_contains!(
+                    output.stdout_unchecked(),
+                    "interactive authentication is required"
+                );
+            }
+            output.assert_exit_code(1);
         }
-        output.assert_exit_code(1);
     }
 }
