@@ -51,6 +51,7 @@ impl super::Settings {
             scope: match self.timestamp_type() {
                 enums::timestamp_type::tty => AuthenticationScope::Tty,
                 enums::timestamp_type::ppid => AuthenticationScope::PPid,
+                enums::timestamp_type::global => AuthenticationScope::Global,
             },
             noninteractive_auth: self.noninteractive_auth(),
             credential: if self.rootpw() {
@@ -109,9 +110,11 @@ pub enum AuthenticatingUser {
 /// The scope for the authentication being re-used:
 /// - Tty: valid for all future invocations in this TTY
 /// - PPid: valid for all future invocations under the current parent
+/// - Global: valid for all future invocations by the same user
 pub enum AuthenticationScope {
     Tty = HARDENED_ENUM_VALUE_0,
     PPid = HARDENED_ENUM_VALUE_1,
+    Global = HARDENED_ENUM_VALUE_2,
 }
 
 impl Judgement {

@@ -344,6 +344,7 @@ pub enum RecordScope {
         session_pid: ProcessId,
         init_time: ProcessCreateTime,
     },
+    Global,
 }
 
 impl RecordScope {
@@ -372,6 +373,9 @@ impl RecordScope {
                 let b = session_pid.inner().to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
+            }
+            RecordScope::Global => {
+                target.write_all(&[3u8])?;
             }
         }
 
@@ -410,6 +414,7 @@ impl RecordScope {
                     init_time,
                 })
             }
+            3 => Ok(RecordScope::Global),
             x => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("Unexpected scope variant discriminator: {x}"),
@@ -455,6 +460,13 @@ impl RecordScope {
             auth_warn!("Could not get parent process starting time");
             None
         }
+    }
+
+    /// Returns a record match scope that is shared by all invocations of the
+    /// user, regardless of the TTY or parent process. The process is unused
+    /// but is accepted to match the signature of the other scope functions.
+    pub fn for_global(_process: &Process) -> Option<RecordScope> {
+        Some(RecordScope::Global)
     }
 }
 
@@ -645,6 +657,11 @@ mod tests {
         let bytes = ppid_sample.as_bytes().unwrap();
         let decoded = SessionRecord::from_bytes(&bytes).unwrap();
         assert_eq!(ppid_sample, decoded);
+
+        let global_sample = SessionRecord::new(RecordScope::Global, UserId::new(321)).unwrap();
+        let bytes = global_sample.as_bytes().unwrap();
+        let decoded = SessionRecord::from_bytes(&bytes).unwrap();
+        assert_eq!(global_sample, decoded);
     }
 
     #[test]
@@ -684,6 +701,22 @@ mod tests {
                 tty_device: DeviceId::new(12),
                 session_pid: ProcessId::new(1234),
                 init_time: ProcessCreateTime::new(1, 1)
+            },
+            &auth_user_from_uid(675),
+        ));
+    }
+
+    #[test]
+    fn global_record_matches_works() {
+        let global_sample = SessionRecord::new(RecordScope::Global, UserId::new(675)).unwrap();
+
+        assert!(global_sample.matches(&RecordScope::Global, &auth_user_from_uid(675)));
+        assert!(!global_sample.matches(&RecordScope::Global, &auth_user_from_uid(789)));
+        assert!(!global_sample.matches(
+            &RecordScope::Tty {
+                tty_device: DeviceId::new(12),
+                session_pid: ProcessId::new(1234),
+                init_time: ProcessCreateTime::new(1, 0),
             },
             &auth_user_from_uid(675),
         ));
