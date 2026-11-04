@@ -109,11 +109,38 @@ pub fn is_fifo_or_sock(fildes: BorrowedFd) -> bool {
     fstat_mode_any::<{ libc::S_IFIFO | libc::S_IFSOCK }>(&fildes)
 }
 
+/// Dynamically obtain the correct buffer size (within bounds)
+pub fn dynamic_fill<T: Default + Copy, E>(
+    range: std::ops::Range<usize>,
+    mut fill: impl FnMut(&mut [T]) -> Result<Option<usize>, E>,
+) -> Result<Option<Vec<T>>, E> {
+    let mut buffer = vec![T::default(); range.start];
+    loop {
+        match fill(&mut buffer)? {
+            Some(len) => {
+                buffer.resize_with(len, || {
+                    panic!("closure returned a buffer size that was larger than the input, this should not happen")
+                });
+
+                return Ok(Some(buffer));
+            }
+
+            None => {
+                if buffer.len() >= range.end {
+                    return Ok(None);
+                } else {
+                    buffer.resize_with(std::cmp::min(buffer.len() * 2, range.end), T::default)
+                }
+            }
+        }
+    }
+}
+
 #[allow(clippy::undocumented_unsafe_blocks)]
 #[cfg(test)]
 mod test {
 
-    use super::{os_string_from_ptr, string_from_ptr};
+    use super::{dynamic_fill, os_string_from_ptr, string_from_ptr};
 
     #[test]
     fn miri_test_str_to_ptr() {
@@ -143,5 +170,47 @@ mod test {
         let pty = Pty::open().unwrap();
         assert!(super::safe_isatty(pty.leader.as_fd()));
         assert!(super::safe_isatty(pty.follower.as_fd()));
+    }
+
+    #[test]
+    fn test_dynamic_fill() {
+        assert_eq!(
+            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>({
+                assert!(buf.len() < 50);
+                (buf.len() >= 23).then_some(23)
+            }))
+            .unwrap()
+            .unwrap()
+            .len(),
+            23
+        );
+
+        assert_eq!(
+            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>({
+                assert!(buf.len() <= 50);
+                (buf.len() >= 50).then_some(23)
+            }))
+            .unwrap()
+            .unwrap()
+            .len(),
+            23
+        );
+
+        assert!(
+            dynamic_fill(1..50, |buf: &mut [u8]| Ok::<_, ()>({
+                assert!(buf.len() <= 50);
+                None
+            }))
+            .unwrap()
+            .is_none()
+        );
+
+        assert!(
+            dynamic_fill(1..50, |buf: &mut [u8]| {
+                assert!(buf.len() == 1);
+                Err(())
+            })
+            .is_err()
+        );
     }
 }

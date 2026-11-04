@@ -15,6 +15,8 @@ use crate::cutils::{cerr, is_fifo_or_sock, os_string_from_ptr, safe_isatty};
 
 use super::interface::ProcessId;
 
+mod find_tty;
+
 pub(crate) use user_term::UserTerm;
 
 pub(crate) struct Pty {
@@ -254,7 +256,14 @@ impl<F: AsFd> Terminal for F {
 
 /// Try to get the path of the current TTY
 pub fn current_tty_name() -> io::Result<OsString> {
-    std::io::stdin().ttyname()
+    if let Some(tty) = find_tty::ttyname_from_dev()? {
+        return Ok(tty);
+    }
+
+    io::stdin()
+        .ttyname()
+        .or_else(|_| io::stdout().ttyname())
+        .or_else(|_| io::stderr().ttyname())
 }
 
 #[repr(transparent)]
