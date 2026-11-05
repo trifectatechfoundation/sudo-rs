@@ -190,7 +190,12 @@ impl SessionRecordFile {
     /// that record time to the current time. This will not create a new record
     /// when one is not found. A record will only be updated if it is still
     /// valid at this time.
-    pub fn touch(&mut self, scope: RecordScope, auth_user: &AuthUser) -> io::Result<TouchResult> {
+    pub fn touch(
+        &mut self,
+        scope: RecordScope,
+        auth_user: &AuthUser,
+        refresh: bool,
+    ) -> io::Result<TouchResult> {
         // lock the file to indicate that we are currently in a writing operation
         let lock = FileLock::exclusive(&self.file, false)?;
         self.seek_to_first_record()?;
@@ -199,13 +204,18 @@ impl SessionRecordFile {
             if record.enabled && record.matches(&scope, auth_user) {
                 let now = SystemTime::now()?;
                 if record.written_between(now - self.timeout, now) {
-                    // move back to where the timestamp is and overwrite with the latest time
-                    self.file.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
-                    let new_time = SystemTime::now()?;
-                    new_time.encode(&mut self.file)?;
+                    let new_time;
+                    if refresh {
+                        // move back to where the timestamp is and overwrite with the latest time
+                        self.file.seek(io::SeekFrom::Current(-MOD_OFFSET))?;
+                        new_time = SystemTime::now()?;
+                        new_time.encode(&mut self.file)?;
 
-                    // make sure we can still go to the end of the record
-                    self.file.seek(io::SeekFrom::Current(SIZE_OF_BOOL))?;
+                        // make sure we can still go to the end of the record
+                        self.file.seek(io::SeekFrom::Current(SIZE_OF_BOOL))?;
+                    } else {
+                        new_time = record.timestamp;
+                    }
 
                     // writing is done, unlock and return
                     lock.unlock()?;

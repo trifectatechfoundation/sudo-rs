@@ -238,16 +238,22 @@ fn determine_auth_status(
     auth_user: &AuthUser,
     prior_validity: Duration,
 ) -> AuthStatus {
-    let use_session_records = matches!(use_session_records, TimestampUsage::Cached);
+    let read_session_records = matches!(
+        use_session_records,
+        TimestampUsage::Cached | TimestampUsage::NoUpdate
+    );
+    let write_session_records = matches!(use_session_records, TimestampUsage::Cached);
 
     if !must_policy_authenticate {
         AuthStatus::new(false, None)
-    } else if let (true, Some(record_for)) = (use_session_records, record_for) {
+    } else if let (true, Some(record_for)) = (read_session_records, record_for) {
         match SessionRecordFile::open_for_user(current_user, prior_validity) {
             Ok(mut sr) => {
-                match sr.touch(record_for, auth_user) {
+                match sr.touch(record_for, auth_user, write_session_records) {
                     // if a record was found and updated within the timeout, we do not need to authenticate
-                    Ok(TouchResult::Updated { .. }) => AuthStatus::new(false, Some(sr)),
+                    Ok(TouchResult::Updated { .. }) => {
+                        AuthStatus::new(false, write_session_records.then_some(sr))
+                    }
                     Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => {
                         AuthStatus::new(true, Some(sr))
                     }
