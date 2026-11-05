@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::time::Duration;
 
-use super::cli::{SudoRunOptions, SudoValidateOptions};
+use super::cli::{SudoRunOptions, SudoValidateOptions, TimestampUsage};
 use super::diagnostic;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
@@ -232,12 +232,14 @@ fn auth_and_update_record_file(
 /// match limit and origin/target user from the context is.
 fn determine_auth_status(
     must_policy_authenticate: bool,
-    use_session_records: bool,
+    use_session_records: TimestampUsage,
     record_for: Option<RecordScope>,
     current_user: &CurrentUser,
     auth_user: &AuthUser,
     prior_validity: Duration,
 ) -> AuthStatus {
+    let use_session_records = matches!(use_session_records, TimestampUsage::Cached);
+
     if !must_policy_authenticate {
         AuthStatus::new(false, None)
     } else if let (true, Some(record_for)) = (use_session_records, record_for) {
