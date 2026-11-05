@@ -213,7 +213,9 @@ fn auth_and_update_record_file(
             context.non_interactive,
             allowed_attempts,
         )?;
-        if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+        if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope)
+            && matches!(context.use_session_records, TimestampUsage::Cached)
+        {
             match record_file.create(scope, &auth_user) {
                 Ok(_) => (),
                 Err(e) => {
