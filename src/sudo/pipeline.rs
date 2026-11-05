@@ -255,7 +255,7 @@ fn determine_auth_status(
                         AuthStatus::new(false, write_session_records.then_some(sr))
                     }
                     Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => {
-                        AuthStatus::new(true, Some(sr))
+                        AuthStatus::new(true, write_session_records.then_some(sr))
                     }
                     Err(e) => {
                         auth_warn!("Unexpected error while reading session information: {e}");
