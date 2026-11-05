@@ -2,10 +2,10 @@ pub fn usage_msg() -> &'static str {
     xlat!(
         "\
 usage: sudo -h | -K | -k | -V
-usage: sudo [-ABbknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
-usage: sudo -v [-ABknS] [-p prompt] [-g group] [-u user]
-usage: sudo -l [-ABknS] [-p prompt] [-U user] [-g group] [-u user] [command [arg ...]]
-usage: sudo -e [-ABknS] [-p prompt] [-D directory] [-g group] [-u user] file ..."
+usage: sudo [-ABbkNnS] [-p prompt] [-D directory] [-g group] [-u user] [-i | -s] [command [arg ...]]
+usage: sudo -v [-ABkNnS] [-p prompt] [-g group] [-u user]
+usage: sudo -l [-ABkNnS] [-p prompt] [-U user] [-g group] [-u user] [command [arg ...]]
+usage: sudo -e [-ABkNnS] [-p prompt] [-D directory] [-g group] [-u user] file ..."
     )
 }
 
@@ -25,6 +25,7 @@ fn help_msg() -> &'static str {
   -i, --login                   run login shell as the target user; a command may also be specified
   -K, --remove-timestamp        remove timestamp file completely
   -k, --reset-timestamp         invalidate timestamp file
+  -N, --no-update               do not update timestamp file
   -l, --list                    list user's privileges or check a specific command; use twice for longer format
   -n, --non-interactive         non-interactive mode, no prompts are used
   -p, --prompt=prompt           use the specified password prompt

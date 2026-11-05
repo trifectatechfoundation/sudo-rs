@@ -111,14 +111,39 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub enum TimestampUsage {
+    #[default]
+    Cached,
+    // -k
+    Reset,
+    // -N
+    NoUpdate,
+}
+
+impl TimestampUsage {
+    fn take_from(opts: &mut SudoOptions) -> Self {
+        let reset_timestamp = mem::take(&mut opts.reset_timestamp);
+        let readonly_timestamp = mem::take(&mut opts.readonly_timestamp);
+
+        if reset_timestamp {
+            TimestampUsage::Reset
+        } else if readonly_timestamp {
+            TimestampUsage::NoUpdate
+        } else {
+            TimestampUsage::Cached
+        }
+    }
+}
+
 // sudo -v [-ABkNnS] [-g group] [-h host] [-p prompt] [-u user]
 pub struct SudoValidateOptions {
     // -A
     pub askpass: bool,
     // -B
     pub bell: bool,
-    // -k
-    pub reset_timestamp: bool,
+    // -k and -N
+    pub timestamp: TimestampUsage,
     // -n
     pub non_interactive: bool,
     // -S
@@ -141,7 +166,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
 
         let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
-        let reset_timestamp = mem::take(&mut opts.reset_timestamp);
+        let timestamp = TimestampUsage::take_from(&mut opts);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
         let prompt = mem::take(&mut opts.prompt);
@@ -161,7 +186,7 @@ impl TryFrom<SudoOptions> for SudoValidateOptions {
         Ok(Self {
             askpass,
             bell,
-            reset_timestamp,
+            timestamp,
             non_interactive,
             stdin,
             prompt,
@@ -177,8 +202,8 @@ pub struct SudoEditOptions {
     pub askpass: bool,
     // -B
     pub bell: bool,
-    // -k
-    pub reset_timestamp: bool,
+    // -k and -N
+    pub timestamp: TimestampUsage,
     // -n
     pub non_interactive: bool,
     // -S
@@ -204,7 +229,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
 
         let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
-        let reset_timestamp = mem::take(&mut opts.reset_timestamp);
+        let timestamp = TimestampUsage::take_from(&mut opts);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
         let prompt = mem::take(&mut opts.prompt);
@@ -230,7 +255,7 @@ impl TryFrom<SudoOptions> for SudoEditOptions {
         Ok(Self {
             askpass,
             bell,
-            reset_timestamp,
+            timestamp,
             non_interactive,
             stdin,
             prompt,
@@ -251,8 +276,8 @@ pub struct SudoListOptions {
     // -l OR -l -l
     pub list: List,
 
-    // -k
-    pub reset_timestamp: bool,
+    // -k and -N
+    pub timestamp: TimestampUsage,
     // -n
     pub non_interactive: bool,
     // -S
@@ -276,7 +301,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
         let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let list = opts.list.take().unwrap();
-        let reset_timestamp = mem::take(&mut opts.reset_timestamp);
+        let timestamp = TimestampUsage::take_from(&mut opts);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
         let prompt = mem::take(&mut opts.prompt);
@@ -310,7 +335,7 @@ impl TryFrom<SudoOptions> for SudoListOptions {
             askpass,
             bell,
             list,
-            reset_timestamp,
+            timestamp,
             non_interactive,
             stdin,
             prompt,
@@ -333,7 +358,7 @@ pub struct SudoRunOptions {
     // -E
     /* ignored, part of env_var_list */
     // -k
-    pub reset_timestamp: bool,
+    pub timestamp: TimestampUsage,
     // -n
     pub non_interactive: bool,
     // -S
@@ -362,7 +387,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
         let askpass = mem::take(&mut opts.askpass);
         let bell = mem::take(&mut opts.bell);
         let background = mem::take(&mut opts.background);
-        let reset_timestamp = mem::take(&mut opts.reset_timestamp);
+        let timestamp = TimestampUsage::take_from(&mut opts);
         let non_interactive = mem::take(&mut opts.non_interactive);
         let stdin = mem::take(&mut opts.stdin);
         let prompt = mem::take(&mut opts.prompt);
@@ -413,7 +438,7 @@ impl TryFrom<SudoOptions> for SudoRunOptions {
             askpass,
             bell,
             background,
-            reset_timestamp,
+            timestamp,
             non_interactive,
             stdin,
             prompt,
@@ -471,6 +496,8 @@ struct SudoOptions {
     remove_timestamp: bool,
     // -k
     reset_timestamp: bool,
+    // -N
+    readonly_timestamp: bool,
     // -v
     validate: bool,
     // -V
@@ -692,6 +719,9 @@ impl SudoOptions {
                     "-k" | "--reset-timestamp" => {
                         options.reset_timestamp = true;
                     }
+                    "-N" | "--no-update" => {
+                        options.readonly_timestamp = true;
+                    }
                     "-l" | "--list" => match options.list {
                         None => options.list = Some(List::Once),
                         Some(List::Once) => options.list = Some(List::Verbose),
@@ -869,6 +899,7 @@ fn reject_all(context: &str, mut opts: SudoOptions) -> Result<(), String> {
         other_user,
         remove_timestamp,
         reset_timestamp,
+        readonly_timestamp,
         shell,
         stdin,
         prompt,

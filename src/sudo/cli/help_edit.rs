@@ -2,7 +2,7 @@ pub fn usage_msg() -> &'static str {
     xlat!(
         "\
 usage: sudoedit -h | -V
-usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
+usage: sudoedit [-BkNnS] [-p prompt] [-g group] [-u user] file ..."
     )
 }
 
@@ -17,6 +17,7 @@ fn help_msg() -> &'static str {
   -g, --group=group             run command as the specified group name or ID
   -h, --help                    display help message and exit
   -k, --reset-timestamp         invalidate timestamp file
+  -N, --no-update               do not update timestamp file
   -n, --non-interactive         non-interactive mode, no prompts are used
   -p, --prompt=prompt           use the specified password prompt
   -S, --stdin                   read password from standard input
