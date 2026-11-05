@@ -32,7 +32,6 @@ pub enum Error {
     MaxAuthAttempts(u16),
     PathValidation(PathBuf),
     StringValidation(String),
-    #[cfg(feature = "apparmor")]
     AppArmor(String, std::io::Error),
 }
 
@@ -143,7 +142,6 @@ impl fmt::Display for Error {
                     xlat!("Unexpected null character in input")
                 )
             }
-            #[cfg(feature = "apparmor")]
             Error::AppArmor(profile, e) => {
                 xlat_write!(
                     f,

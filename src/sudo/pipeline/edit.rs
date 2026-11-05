@@ -17,6 +17,13 @@ pub fn run_edit(edit_opts: SudoEditOptions) -> Result<(), Error> {
 
     let mut pam_context = super::auth_and_update_record_file(&context, auth)?;
 
+    // the editor is confined just like any other command would be: the pending profile is
+    // inherited by the processes forked to run it, and takes effect when the editor is executed,
+    // see https://github.com/torvalds/linux/blob/v6.12/security/apparmor/lsm.c#L113-L121
+    // NOTHING else is executed until just then, but intentionality is executed as opening the files creates those that do not exist
+    // yet, meaning a profile that cannot be applied is refused prior to that.
+    super::prepare_apparmor_profile(&controls)?;
+
     let mut opened_files = Vec::with_capacity(context.files_to_edit.len());
     for (path, arg) in context.files_to_edit.iter().zip(&context.command.arguments) {
         if let Some(path) = path {

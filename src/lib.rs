@@ -3,7 +3,6 @@ mod macros;
 #[macro_use]
 pub(crate) mod gettext;
 
-#[cfg(feature = "apparmor")]
 pub(crate) mod apparmor;
 pub(crate) mod common;
 pub(crate) mod cutils;

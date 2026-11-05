@@ -234,7 +234,9 @@ with apparmor support enabled:
 cargo build --release --features apparmor
 ```
 
-This feature is disabled on our pre-supplied binaries.
+This feature is enabled on our pre-supplied binaries. When AppArmor is enabled
+on a system, a build without it refuses to run commands for which the sudoers
+file selects a profile.
 
 #### --features gettext
 
