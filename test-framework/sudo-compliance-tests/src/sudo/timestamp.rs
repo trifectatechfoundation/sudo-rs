@@ -4,6 +4,7 @@ use crate::{PASSWORD, SUDO_RS_IS_UNSTABLE, USERNAME};
 
 mod remove;
 mod reset;
+mod noupdate;
 mod validate;
 
 #[test]
