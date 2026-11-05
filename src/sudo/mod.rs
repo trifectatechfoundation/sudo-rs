@@ -25,7 +25,7 @@ mod pipeline;
 
 #[cfg_attr(not(feature = "dev"), allow(dead_code))]
 fn unstable_warning() {
-    let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_else(|_| "".to_string());
+    let check_var = std::env::var("SUDO_RS_IS_UNSTABLE").unwrap_or_default();
 
     if check_var != "I accept that my system may break unexpectedly" {
         eprintln_ignore_io_error!(
@@ -47,12 +47,9 @@ const VERSION: &str = if let Some(version_override) = std::option_env!("SUDO_RS_
 };
 
 pub(crate) fn candidate_sudoers_file() -> PathBuf {
-    let mut path = if cfg!(target_os = "freebsd") {
-        option_env!("LOCALBASE").unwrap_or("/usr/local").into()
-    } else {
-        PathBuf::from("/")
-    };
-    path.push("etc/sudoers-rs");
+    let mut path = PathBuf::from(option_env!("SUDO_RS_SUDOERS_PATH").unwrap_or("/etc"));
+
+    path.push("sudoers-rs");
     if !path.exists() {
         path.set_file_name("sudoers");
     };
