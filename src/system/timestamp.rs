@@ -779,7 +779,7 @@ mod tests {
         };
 
         std::thread::sleep(std::time::Duration::from_millis(1));
-        let second = srf.touch(tty_scope, &auth_user).unwrap();
+        let second = srf.touch(tty_scope, &auth_user, true).unwrap();
         let TouchResult::Updated { old_time, new_time } = second else {
             panic!("Expected record to be updated");
         };

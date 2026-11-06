@@ -130,7 +130,7 @@ fn create_test_context(sudo_options: SudoRunOptions) -> Context {
         stdin: sudo_options.stdin,
         prompt: sudo_options.prompt,
         non_interactive: sudo_options.non_interactive,
-        use_session_records: false,
+        use_session_records: crate::sudo::TimestampUsage::Reset,
         bell: false,
         background: false,
         files_to_edit: vec![],
