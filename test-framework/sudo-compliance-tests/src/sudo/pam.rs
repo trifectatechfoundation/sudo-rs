@@ -37,7 +37,7 @@ fn parse_pam_env(stdout: &str) -> HashMap<String, String> {
 
     for line in stdout.lines() {
         if let Some((key, value)) = line.split_once('=') {
-            pam_env.insert(key.to_string(), value.to_string());
+            pam_env.insert(key.to_string(), value.trim_end_matches('\r').to_string());
         }
     }
 
@@ -536,4 +536,195 @@ auth requisite pam_deny.so
     output.assert_success();
 
     assert_contains!(output.stdout(), GROUPNAME);
+}
+
+#[test]
+fn sudo_prompt_is_not_set_without_dash_p() {
+    if sudo_test::is_original_sudo() {
+        eprintln!(
+            "skipping: requires sudo behavior from https://github.com/sudo-project/sudo/pull/539"
+        );
+        // Remove this guard once the sudo docker image includes
+        // https://github.com/sudo-project/sudo/pull/539.
+        return;
+    }
+
+    let env = build_pam_capture_env();
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"sudo true >/dev/null 2>&1
+cat {PAM_ENV_VALUE}"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let pam_env = parse_pam_env(&stdout);
+    assert!(
+        !pam_env.contains_key("SUDO_PROMPT"),
+        "SUDO_PROMPT must not be set when -p is not specified"
+    );
+}
+
+#[test]
+fn sudo_prompt_is_not_set_when_dash_p_uses_default_value() {
+    if sudo_test::is_original_sudo() {
+        eprintln!(
+            "skipping: requires sudo behavior from https://github.com/sudo-project/sudo/pull/539"
+        );
+        // Remove this guard once the sudo docker image includes
+        // https://github.com/sudo-project/sudo/pull/539.
+        return;
+    }
+
+    let env = build_pam_capture_env();
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"LC_ALL=C LANG=C sudo -p 'authenticate' true >/dev/null 2>&1
+cat {PAM_ENV_VALUE}"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let pam_env = parse_pam_env(&stdout);
+    assert!(
+        !pam_env.contains_key("SUDO_PROMPT"),
+        "SUDO_PROMPT must not be set when -p uses default prompt value"
+    );
+}
+
+#[test]
+fn sudo_prompt_is_set_when_dash_p_is_specified() {
+    if sudo_test::is_original_sudo() {
+        eprintln!(
+            "skipping: requires sudo behavior from https://github.com/sudo-project/sudo/pull/539"
+        );
+        // Remove this guard once the sudo docker image includes
+        // https://github.com/sudo-project/sudo/pull/539.
+        return;
+    }
+
+    let env = build_pam_capture_env();
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"sudo -p 'CUSTOM_PROMPT' true >/dev/null 2>&1
+cat {PAM_ENV_VALUE}"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let pam_env = parse_pam_env(&stdout);
+    let actual = pam_env
+        .get("SUDO_PROMPT")
+        .map(String::as_str)
+        .unwrap_or_default();
+    assert_eq!("CUSTOM_PROMPT", actual, "SUDO_PROMPT should match -p value");
+}
+
+#[test]
+fn sudo_prompt_value_can_contain_equals_signs() {
+    if sudo_test::is_original_sudo() {
+        eprintln!(
+            "skipping: requires sudo behavior from https://github.com/sudo-project/sudo/pull/539"
+        );
+        // Remove this guard once the sudo docker image includes
+        // https://github.com/sudo-project/sudo/pull/539.
+        return;
+    }
+
+    let env = build_pam_capture_env();
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"sudo -p '== Prompt ==' true >/dev/null 2>&1
+cat {PAM_ENV_VALUE}"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let pam_env = parse_pam_env(&stdout);
+    let actual = pam_env
+        .get("SUDO_PROMPT")
+        .map(String::as_str)
+        .unwrap_or_default();
+    assert_eq!(
+        "== Prompt ==", actual,
+        "SUDO_PROMPT should preserve '=' in the prompt value"
+    );
+}
+
+#[test]
+fn sudo_prompt_is_set_to_empty_value_when_dash_p_is_empty() {
+    if sudo_test::is_original_sudo() {
+        eprintln!(
+            "skipping: requires sudo behavior from https://github.com/sudo-project/sudo/pull/539"
+        );
+        // Remove this guard once the sudo docker image includes
+        // https://github.com/sudo-project/sudo/pull/539.
+        return;
+    }
+
+    let env = build_pam_capture_env();
+
+    let stdout = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            r#"sudo -p '' true >/dev/null 2>&1
+cat {PAM_ENV_VALUE}"#
+        ))
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env)
+        .stdout();
+
+    let pam_env = parse_pam_env(&stdout);
+    assert_eq!(
+        Some(""),
+        pam_env.get("SUDO_PROMPT").map(String::as_str),
+        "SUDO_PROMPT should be set to an empty value when -p is empty"
+    );
+}
+
+#[test]
+fn sudo_prompt_is_not_exported_to_the_command_environment() {
+    if sudo_test::is_original_sudo() {
+        eprintln!(
+            "skipping: requires sudo behavior from https://github.com/sudo-project/sudo/pull/539"
+        );
+        // Remove this guard once the sudo docker image includes
+        // https://github.com/sudo-project/sudo/pull/539.
+        return;
+    }
+
+    let env = build_pam_capture_env();
+
+    let output = Command::new("sudo")
+        .arg("-p")
+        .arg("CUSTOM_PROMPT")
+        .arg("env")
+        .as_user(USERNAME)
+        .tty(true)
+        .output(&env);
+
+    assert!(
+        !output
+            .stdout()
+            .lines()
+            .any(|line| line.starts_with("SUDO_PROMPT=")),
+        "SUDO_PROMPT must not be exported to the command environment"
+    );
 }

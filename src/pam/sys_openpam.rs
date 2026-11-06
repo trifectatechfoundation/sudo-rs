@@ -95,6 +95,12 @@ unsafe extern "C" {
     ) -> std::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn pam_putenv(
+        pamh: *mut pam_handle_t,
+        name_value: *const std::ffi::c_char,
+    ) -> std::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn pam_getenvlist(_pamh: *mut pam_handle_t) -> *mut *mut std::ffi::c_char;
 }
 unsafe extern "C" {
