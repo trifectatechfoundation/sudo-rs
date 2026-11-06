@@ -1,4 +1,6 @@
-use crate::common::SudoPath;
+use std::assert_matches;
+
+use crate::{common::SudoPath, sudo::TimestampUsage};
 
 use super::{SudoAction, SudoOptions, SudoRunOptions};
 
@@ -459,7 +461,7 @@ fn run_reset_timestamp_command() {
         .ok()
         .unwrap();
     assert_eq!(["true"], action.positional_args.as_slice());
-    assert!(action.reset_timestamp);
+    assert_matches!(action.timestamp, TimestampUsage::Reset);
 }
 
 #[test]
@@ -470,7 +472,7 @@ fn run_reset_timestamp_login() {
         .ok()
         .unwrap();
     assert!(action.positional_args.is_empty());
-    assert!(action.reset_timestamp);
+    assert_matches!(action.timestamp, TimestampUsage::Reset);
     assert!(action.login);
 }
 
@@ -482,7 +484,7 @@ fn run_reset_timestamp_shell() {
         .ok()
         .unwrap();
     assert!(action.positional_args.is_empty());
-    assert!(action.reset_timestamp);
+    assert_matches!(action.timestamp, TimestampUsage::Reset);
     assert!(action.shell);
 }
 
