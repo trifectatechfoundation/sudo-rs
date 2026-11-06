@@ -3,7 +3,9 @@ use std::ffi::OsString;
 
 use crate::common::{Error, HARDENED_ENUM_VALUE_0, HARDENED_ENUM_VALUE_1, HARDENED_ENUM_VALUE_2};
 use crate::exec::RunOptions;
-use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
+use crate::sudo::{
+    SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions, TimestampUsage,
+};
 use crate::sudoers::Sudoers;
 use crate::sudoers::{DirChange, Restrictions};
 use crate::system::{Group, Hostname, User, audit::sudo_call};
@@ -28,7 +30,7 @@ pub struct Context {
     pub background: bool,
     pub prompt: Option<String>,
     pub non_interactive: bool,
-    pub use_session_records: bool,
+    pub use_session_records: TimestampUsage,
     // system
     pub hostname: Hostname,
     pub current_user: CurrentUser,
@@ -91,7 +93,7 @@ impl Context {
             current_user,
             target_user,
             target_group,
-            use_session_records: !sudo_options.reset_timestamp,
+            use_session_records: sudo_options.timestamp,
             launch,
             chdir: sudo_options.chdir,
             askpass: sudo_options.askpass,
@@ -164,7 +166,7 @@ impl Context {
             current_user,
             target_user,
             target_group,
-            use_session_records: !sudo_options.reset_timestamp,
+            use_session_records: sudo_options.timestamp,
             launch: Default::default(),
             chdir: sudo_options.chdir,
             askpass: sudo_options.askpass,
@@ -188,7 +190,7 @@ impl Context {
             current_user,
             target_user,
             target_group,
-            use_session_records: !sudo_options.reset_timestamp,
+            use_session_records: sudo_options.timestamp,
             launch: Default::default(),
             chdir: None,
             askpass: sudo_options.askpass,
@@ -235,7 +237,7 @@ impl Context {
             current_user,
             target_user,
             target_group,
-            use_session_records: !sudo_options.reset_timestamp,
+            use_session_records: sudo_options.timestamp,
             launch: Default::default(),
             chdir: None,
             askpass: sudo_options.askpass,
