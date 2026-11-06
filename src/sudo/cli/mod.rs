@@ -111,7 +111,7 @@ impl TryFrom<SudoOptions> for SudoResetTimestampOptions {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum TimestampUsage {
     #[default]
     Cached,
