@@ -158,6 +158,8 @@ impl Context {
             ..Default::default()
         };
 
+        let prompt = sudo_options.prompt.or_else(|| env::var("SUDO_PROMPT").ok());
+
         Ok(Context {
             hostname,
             command,
@@ -171,7 +173,7 @@ impl Context {
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
             background: false,
-            prompt: sudo_options.prompt,
+            prompt,
             non_interactive: sudo_options.non_interactive,
             files_to_edit,
         })
@@ -181,6 +183,8 @@ impl Context {
         let current_user = CurrentUser::resolve()?;
         let (target_user, target_group) =
             resolve_target_user_and_group(&sudo_options.user, &sudo_options.group, &current_user)?;
+
+        let prompt = sudo_options.prompt.or_else(|| env::var("SUDO_PROMPT").ok());
 
         Ok(Context {
             hostname,
@@ -195,7 +199,7 @@ impl Context {
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
             background: false,
-            prompt: sudo_options.prompt,
+            prompt,
             non_interactive: sudo_options.non_interactive,
             files_to_edit: vec![],
         })
@@ -229,6 +233,8 @@ impl Context {
             })?
         };
 
+        let prompt = sudo_options.prompt.or_else(|| env::var("SUDO_PROMPT").ok());
+
         Ok(Context {
             hostname,
             command,
@@ -242,7 +248,7 @@ impl Context {
             stdin: sudo_options.stdin,
             bell: sudo_options.bell,
             background: false,
-            prompt: sudo_options.prompt,
+            prompt,
             non_interactive: sudo_options.non_interactive,
             files_to_edit: vec![],
         })
