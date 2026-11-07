@@ -280,9 +280,26 @@ Bugs fixed in sudo 1.9.18:
 
 Time permitting, we would also like to contribute our improvements to the Linux seccomp-based `NOEXEC` mechanism back to the sudo project.
 
+## Is sudo-rs part of uutils?
+
+No, the projects are not related. The obvious similarity is that both are Rust "rewrites", but there are also different
+aims and design approaches.
+
+In particular, their [coreutils](https://github.com/uutils/coreutils) strive for 100%
+compatibility with [GNU coreutils](https://www.gnu.org/software/coreutils/), whereas sudo-rs is more likely to
+not support features in order to minimize the attack surface.
+
+Our policy on dependencies is also radically different: uutils leverages the broad Rust ecosystem for its functionality
+and has a normal amount of dependencies for a Rust project. sudo-rs culled them and interacts mostly with the Rust
+and C standard libraries.
+
+We are, however, in contact with the lead maintainer of [uutils](https://github.com/uutils/) in his capacity as a
+member of the [Debian Rust Team](https://contributors.debian.org/source/Debian%20Rust%20Team/). In that role
+he has helped us by producing packages of sudo-rs for Debian, especially early on.
+
 ## Do you participate in a bug bounty program?
 
-We do not at the moment---also given the [experiences of other open source projects](https://arstechnica.com/gadgets/2025/05/open-source-project-curl-is-sick-of-users-submitting-ai-slop-vulnerabilities/).
+We do not---also given the [experiences of other open source projects](https://arstechnica.com/gadgets/2025/05/open-source-project-curl-is-sick-of-users-submitting-ai-slop-vulnerabilities/).
 
 If you discover a vulnerability in sudo-rs, follow the instructions in our [security policy](https://github.com/trifectatechfoundation/sudo-rs/blob/main/SECURITY.md). If we agree that it is a vulnerability we will publicly acknowledge this in our repository---you will get the public credit.
 
