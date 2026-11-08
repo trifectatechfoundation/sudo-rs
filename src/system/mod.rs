@@ -776,7 +776,7 @@ impl Process {
                 }
                 Err(e) if e.raw_os_error() == Some(libc::ENOMEM) => {
                     // Vector not big enough. Grow it by 10% and try again.
-                    ki_proc.reserve(ki_proc.capacity() + (ki_proc.capacity() + 9) / 10);
+                    ki_proc.reserve(ki_proc.capacity() + ki_proc.capacity().div_ceil(10));
                 }
                 Err(e) => return Err(e),
             }
