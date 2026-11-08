@@ -297,6 +297,22 @@ We are, however, in contact with the lead maintainer of [uutils](https://github.
 member of the [Debian Rust Team](https://contributors.debian.org/source/Debian%20Rust%20Team/). In that role
 he has helped us by producing packages of sudo-rs for Debian, especially early on.
 
+## Is sudo-rs AI-slop?
+
+No.
+
+We know there are various attempts to translate C code bases into Rust automatically, or projects that use large language models (LLMs) to generate code.
+Whatever ones opinion about LLMs, using them to generate code is not very suitable for sudo-rs:
+
+* We aim to have a small code base, so being able to more easily generate lines of code is not an advantage.
+
+* Being a critical system utility, trust is of the highest importance. How far an LLM can be trusted might be a [fundamental problem](https://en.wikipedia.org/wiki/AI_alignment).
+
+* Sudo-rs has a very permissive license. The [legal status of LLM-generated code](https://marc.info/?l=openbsd-tech&m=177425035627562) does not seem to be fully settled, which makes it hard to accept
+  any major contribution that would be fully LLM-generated.
+
+Our expectations about AI use [are stated in our CONTRIBUTING.md](https://github.com/trifectatechfoundation/sudo-rs/blob/main/CONTRIBUTING.md#use-of-generative-artificial-intelligence).
+
 ## Do you participate in a bug bounty program?
 
 We do not---also given the [experiences of other open source projects](https://arstechnica.com/gadgets/2025/05/open-source-project-curl-is-sick-of-users-submitting-ai-slop-vulnerabilities/).
