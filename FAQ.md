@@ -22,6 +22,8 @@ This document attempts to answer common questions about the sudo-rs project.
 - [What is the "test framework" all about?](#what-is-the-test-framework-all-about)
 - [How is the original sudo developer involved in your project?](#how-is-the-original-sudo-developer-involved-in-your-project)
 - [How did sudo-rs development affect original sudo?](#how-did-sudo-rs-development-affect-original-sudo)
+- [Is sudo-rs part of uutils?](#is-sudo-rs-part-of-uutils)
+- [Is sudo-rs AI-slop?](#is-sudo-rs-ai-slop)
 - [Do you participate in a bug bounty program?](#do-you-participate-in-a-bug-bounty-program)
 - [Can I contribute to sudo-rs?](#can-i-contribute-to-sudo-rs)
 
