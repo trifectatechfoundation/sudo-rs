@@ -101,7 +101,11 @@ fn sudo_process() -> Result<(), Error> {
             SudoAction::ResetTimestamp(_) => {
                 let user = CurrentUser::resolve()?;
                 let process = Process::new();
-                for record_scope in [RecordScope::for_tty, RecordScope::for_ppid] {
+                for record_scope in [
+                    RecordScope::for_tty,
+                    RecordScope::for_ppid,
+                    RecordScope::for_global,
+                ] {
                     if let Some(scope) = record_scope(&process) {
                         let mut record_file =
                             SessionRecordFile::open_for_user(&user, Duration::default())?;
