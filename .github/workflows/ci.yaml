@@ -445,6 +445,11 @@ jobs:
       - name: Run clippy
         run: cargo clippy --no-deps --all-targets -- --deny warnings
 
+      - name: Run clippy for FreeBSD
+        run: |
+          rustup target add x86_64-unknown-freebsd
+          cargo clippy --no-deps --all-targets --target x86_64-unknown-freebsd -- --deny warnings
+
   docs:
     needs: clippy
     runs-on: ubuntu-latest
