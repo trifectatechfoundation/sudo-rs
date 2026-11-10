@@ -1,4 +1,3 @@
-// TODO: remove unused attribute when system is cleaned up
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
@@ -288,13 +287,21 @@ fn inject_group(target: GroupId, groups: &mut Vec<GroupId>) {
 
 /// Set the supplementary groups -- returns a c_int to mimic a libc function
 fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
-    // On FreeBSD, setgruops expects the size to be passed as a i32, so the below
+    // On NetBSD and MacOS, there is a tight limit on the amount of groups we can pass
+    // with setgroups, libc::NGROUPS_MAX == sysconf(_SC_NGROUPS_MAX) == 16. Sadly this
+    // constant does not exist in the libc crate for Linux and MacOS.
+    #[cfg(any(target_os = "netbsd", target_os = "freebsd"))]
+    use libc::NGROUPS_MAX;
+    #[cfg(target_os = "linux")]
+    const NGROUPS_MAX: usize = 65536;
+    #[cfg(target_os = "macos")]
+    const NGROUPS_MAX: c_int = 16;
+
+    // Outside of Linux, setgroups expects the size to be passed as a c_int, so the below
     // conversion protects a very extreme case of arithmetic conversion error
-    #[allow(irrefutable_let_patterns)]
     #[allow(clippy::useless_conversion)]
-    let Ok(len) = groups.len().try_into() else {
-        return Err(io::Error::other("too many groups"));
-    };
+    let len = std::cmp::min(groups.len().try_into().unwrap_or(NGROUPS_MAX), NGROUPS_MAX);
+
     // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
     // We can cast to gid_t because `GroupId` is marked as transparent
     cerr(unsafe { libc::setgroups(len, groups.as_ptr().cast::<libc::gid_t>()) })?;
@@ -596,7 +603,6 @@ impl Group {
         // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
         let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
         let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
-
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
         let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
