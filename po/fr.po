@@ -20,7 +20,7 @@ msgstr ""
 #: src/common/error.rs:89
 #, rust-format
 msgid "I'm sorry {user}. I'm afraid I can't do that"
-msgstr "Je suis désolé, {user}. J'ai bien peur de ne pas pouvoir faire ça"
+msgstr "Je regrette, {user}. Cela m'est malheureusement impossible"
 
 #: src/sudoers/entry/verbose.rs:33
 msgid "Commands:"
