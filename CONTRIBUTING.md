@@ -40,7 +40,9 @@ ignored so far.
 
 You can also go through our code --- if you see any small mistakes or have suggestions
 please create an issue for them.  If it is really a minor issue, like a typo or formatting
-issue, you can immediately create a pull request.
+mistake, you can immediately create a pull request.
+
+If you want to implement a feature, [open an issue first before you open a PR](#working-on-a-bigger-issue).
 
 ## Updating manual pages
 
@@ -98,3 +100,8 @@ on generative AI. But when using AI to generate whole subroutines (or more) only
 it becomes very hard to guarantee the previous two points: first, it is hard to tell whose original
 work the contribution is; secondly, you are less able to perform a 'first review' of any code you
 didn't write yourself.
+
+Note that the issue tracker and pull request comment sections are in any case meant for communication
+between users (and other stakeholders). If you want to incorporate output you obtained from an LLM because
+you think it is useful for a contribution, disclose that it is LLM output, put it in blockquotes (`> `) and
+state yourself what its implications are.

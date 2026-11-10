@@ -22,6 +22,8 @@ This document attempts to answer common questions about the sudo-rs project.
 - [What is the "test framework" all about?](#what-is-the-test-framework-all-about)
 - [How is the original sudo developer involved in your project?](#how-is-the-original-sudo-developer-involved-in-your-project)
 - [How did sudo-rs development affect original sudo?](#how-did-sudo-rs-development-affect-original-sudo)
+- [Is sudo-rs part of uutils?](#is-sudo-rs-part-of-uutils)
+- [Is sudo-rs AI-slop?](#is-sudo-rs-ai-slop)
 - [Do you participate in a bug bounty program?](#do-you-participate-in-a-bug-bounty-program)
 - [Can I contribute to sudo-rs?](#can-i-contribute-to-sudo-rs)
 
@@ -276,12 +278,46 @@ Bugs fixed in sudo 1.9.18:
 * https://git.sudo.ws/sudo/commit/?id=9080a379296d384c035ff62eed970e3d49d49674
 * https://git.sudo.ws/sudo/commit/?id=2faf4c878d623e1b9ef642e116751c9543d848f7
 * https://git.sudo.ws/sudo/commit/?id=e6a5c1c0065be1486486077384a70837e8d85a65
+* https://git.sudo.ws/sudo/commit/?id=70c1ee4b44f5b15822919c05ffbde857fa879e48
 
 Time permitting, we would also like to contribute our improvements to the Linux seccomp-based `NOEXEC` mechanism back to the sudo project.
 
+## Is sudo-rs part of uutils?
+
+No, the projects are not related. The obvious similarity is that both are Rust "rewrites", but there are also different
+aims and design approaches.
+
+In particular, their [coreutils](https://github.com/uutils/coreutils) strive for 100%
+compatibility with [GNU coreutils](https://www.gnu.org/software/coreutils/), whereas sudo-rs is more likely to
+not support features in order to minimize the attack surface.
+
+Our policy on dependencies is also radically different: uutils leverages the broad Rust ecosystem for its functionality
+and has a normal amount of dependencies for a Rust project. sudo-rs culled them and interacts mostly with the Rust
+and C standard libraries.
+
+We are, however, in contact with the lead maintainer of [uutils](https://github.com/uutils/) in his capacity as a
+member of the [Debian Rust Team](https://contributors.debian.org/source/Debian%20Rust%20Team/). In that role
+he has helped us by producing packages of sudo-rs for Debian, especially early on.
+
+## Is sudo-rs AI-slop?
+
+No.
+
+We know there are various attempts to translate C code bases into Rust automatically, or projects that use large language models (LLMs) to generate code.
+Whatever ones opinion about LLMs, using them to generate code is not very suitable for sudo-rs:
+
+* We aim to have a small code base, so being able to more easily generate lines of code is not an advantage.
+
+* Being a critical system utility, trust is of the highest importance. How far an LLM can be trusted might be a [fundamental problem](https://en.wikipedia.org/wiki/AI_alignment).
+
+* Sudo-rs has a very permissive license. The [legal status of LLM-generated code](https://marc.info/?l=openbsd-tech&m=177425035627562) does not seem to be fully settled, which makes it hard to accept
+  any major contribution that would be fully LLM-generated.
+
+Our expectations about AI use [are stated in our CONTRIBUTING.md](https://github.com/trifectatechfoundation/sudo-rs/blob/main/CONTRIBUTING.md#use-of-generative-artificial-intelligence).
+
 ## Do you participate in a bug bounty program?
 
-We do not at the moment---also given the [experiences of other open source projects](https://arstechnica.com/gadgets/2025/05/open-source-project-curl-is-sick-of-users-submitting-ai-slop-vulnerabilities/).
+We do not---also given the [experiences of other open source projects](https://arstechnica.com/gadgets/2025/05/open-source-project-curl-is-sick-of-users-submitting-ai-slop-vulnerabilities/).
 
 If you discover a vulnerability in sudo-rs, follow the instructions in our [security policy](https://github.com/trifectatechfoundation/sudo-rs/blob/main/SECURITY.md). If we agree that it is a vulnerability we will publicly acknowledge this in our repository---you will get the public credit.
 
