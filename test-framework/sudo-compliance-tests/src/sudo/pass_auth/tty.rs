@@ -1,4 +1,4 @@
-use sudo_test::{Command, Env, User};
+use sudo_test::{Command, Env, TextFile, User};
 
 use crate::{PASSWORD, USERNAME};
 
@@ -55,6 +55,42 @@ fn no_tty() {
         "A terminal is required to authenticate; either use the -S option to read the password from standard input or configure an askpass helper"
     };
     assert_contains!(output.stderr(), diagnostic);
+}
+
+#[test]
+fn no_tty_attempts_pam_authentication_once() {
+    let env = Env(format!("{USERNAME}    ALL=(ALL:ALL) ALL"))
+        .user(User(USERNAME).password(PASSWORD))
+        .file(
+            "/etc/pam.d/sudo",
+            [
+                "auth optional pam_exec.so /tmp/record-pam-auth",
+                "auth required pam_unix.so",
+                "account required pam_permit.so",
+                "session required pam_permit.so",
+            ],
+        )
+        .file(
+            "/tmp/record-pam-auth",
+            TextFile("#!/bin/sh\necho attempt >> /tmp/pam-auth-attempts").chmod("755"),
+        )
+        .build();
+
+    let output = Command::new("sudo")
+        .args(["true"])
+        .as_user(USERNAME)
+        .output(&env);
+    output.assert_exit_code(1);
+
+    let attempts = Command::new("cat")
+        .arg("/tmp/pam-auth-attempts")
+        .output(&env);
+    attempts.assert_success();
+    assert_eq!(
+        attempts.stdout().lines().count(),
+        1,
+        "sudo must attempt PAM authentication exactly once when no tty is available"
+    );
 }
 
 #[test]
