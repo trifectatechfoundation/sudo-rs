@@ -21,8 +21,7 @@ use crate::common::resolve::CurrentUser;
 #[cfg(target_os = "linux")]
 pub(crate) fn no_new_privs_enabled() -> io::Result<bool> {
     // SAFETY: prctl(PR_GET_NO_NEW_PRIVS) can never cause UB
-    let no_new_privs =
-        crate::cutils::cerr(unsafe { libc::prctl(libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) })?;
+    let no_new_privs = cerr(unsafe { libc::prctl(libc::PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) })?;
     Ok(no_new_privs != 0)
 }
 
@@ -353,6 +352,8 @@ fn open_at(parent: BorrowedFd, file_name: &CStr, create: bool) -> io::Result<Own
     }
 }
 
+#[cfg(not(test))]
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 fn faccess_at(parent: BorrowedFd, path: &CStr, mode: c_int, flags: c_int) -> io::Result<()> {
     // SAFETY: by design, a correct CStr pointer is passed to faccessat
     cerr(unsafe { libc::faccessat(parent.as_raw_fd(), path.as_ptr(), mode, flags) }).map(|_| ())
@@ -419,21 +420,28 @@ fn traversed_secure_open(
             ));
         }
 
-        let user_has_write_perms = if cfg!(test) {
-            // During testing we do a less comprehensive check as we don't have
-            // permission to set the real user id to arbitrary users, but faccessat
-            // looks at the real user id.
-            perms & mode(Category::World, Op::Write) != 0
-                || (perms & mode(Category::Group, Op::Write) != 0)
-                    && forbidden_user.in_group_by_gid(GroupId::new(meta.gid()))
-                || (perms & mode(Category::Owner, Op::Write) != 0)
-                    && forbidden_user.uid.inner() == meta.uid()
-        } else {
+        let user_has_write_perms = {
+            #[cfg(not(test))]
+            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
             // Only works when forbidden_user is current user. This is enforced
             // by accepting CurrentUser outside of test mode.
             // We don't pass AT_EACCESS to faccessat to make it check using the
             // real user id rather than the effective user id.
-            faccess_at(file.as_fd(), c"", libc::W_OK, libc::AT_EMPTY_PATH).is_ok()
+            let writable = faccess_at(file.as_fd(), c"", libc::W_OK, libc::AT_EMPTY_PATH).is_ok();
+
+            #[cfg(any(test, target_os = "netbsd", target_os = "macos"))]
+            let writable = false;
+
+            // During testing we do a less comprehensive check as we don't have
+            // permission to set the real user id to arbitrary users, but faccessat
+            // looks at the real user id.
+            // Also use this as a fallback on platforms that do not have faccessat.
+            writable
+                || perms & mode(Category::World, Op::Write) != 0
+                || (perms & mode(Category::Group, Op::Write) != 0)
+                    && forbidden_user.in_group_by_gid(GroupId::new(meta.gid()))
+                || (perms & mode(Category::Owner, Op::Write) != 0)
+                    && forbidden_user.uid.inner() == meta.uid()
         };
 
         if user_has_write_perms {
