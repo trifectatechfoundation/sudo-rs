@@ -486,7 +486,7 @@ impl<T> VecOrd<T> {
 }
 
 /// Check if the user `am_user` is allowed to run `cmdline` on machine `on_host` as the requested
-/// user/group. Not that in the sudoers file, later permissions override earlier restrictions.
+/// user/group. Note that in the sudoers file, later permissions override earlier restrictions.
 /// The `cmdline` argument should already be ready to essentially feed to an exec() call; or be
 /// a special command like 'sudoedit'.
 // This code is structure to allow easily reading the 'happy path'; i.e. as soon as something
