@@ -671,7 +671,9 @@ where
         }
         expect_syntax('=', stream)?;
 
-        make(Def(name, expect_nonterminal(stream)?))
+        // we use a relaxed limit for alias definitions
+        let definitions = limit::<10_000, _>(expect_nonterminal(stream)?);
+        make(Def(name, definitions))
     }
 }
 
