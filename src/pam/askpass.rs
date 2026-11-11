@@ -1,30 +1,16 @@
-use std::os::fd::{FromRawFd, OwnedFd};
+use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
 use std::{io, process};
 
-use libc::O_CLOEXEC;
-
-use crate::cutils::cerr;
 use crate::log::user_error;
 use crate::system::interface::ProcessId;
 use crate::system::{ForkResult, audit, fork, mark_fds_as_cloexec};
 
 pub(super) fn spawn_askpass(program: &Path, prompt: &str) -> io::Result<(ProcessId, OwnedFd)> {
     // Create socket
-    let mut pipes = [-1, -1];
-    // SAFETY: A valid pointer to a mutable array of 2 fds is passed in.
-    unsafe {
-        cerr(libc::pipe2(pipes.as_mut_ptr(), O_CLOEXEC))?;
-    }
-    // SAFETY: pipe2 created two owned pipe fds
-    let (pipe_read, pipe_write) = unsafe {
-        (
-            OwnedFd::from_raw_fd(pipes[0]),
-            OwnedFd::from_raw_fd(pipes[1]),
-        )
-    };
+    let [pipe_read, pipe_write] = crate::cutils::pipe()?;
 
     // Spawn child
     // SAFETY: There should be no other threads at this point.

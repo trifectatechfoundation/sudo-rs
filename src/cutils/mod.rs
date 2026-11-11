@@ -1,7 +1,7 @@
 use std::{
     ffi::{CStr, OsStr, OsString, c_char, c_int, c_long},
     os::{
-        fd::{AsRawFd, BorrowedFd},
+        fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
         unix::prelude::OsStrExt,
     },
 };
@@ -134,6 +134,20 @@ pub fn dynamic_fill<T: Default + Copy, E>(
             }
         }
     }
+}
+
+/// A memory safe wrapper around libc::pipe2
+pub fn pipe() -> std::io::Result<[OwnedFd; 2]> {
+    let mut pipes = [-1, -1];
+    // SAFETY: A valid pointer to a mutable array of 2 fds is passed in.
+    cerr(unsafe { libc::pipe2(pipes.as_mut_ptr(), libc::O_CLOEXEC) })?;
+
+    let pipes = pipes.map(|fd| {
+        // SAFETY: pipe2 created two owned pipe fds.
+        unsafe { OwnedFd::from_raw_fd(fd) }
+    });
+
+    Ok(pipes)
 }
 
 #[allow(clippy::undocumented_unsafe_blocks)]
