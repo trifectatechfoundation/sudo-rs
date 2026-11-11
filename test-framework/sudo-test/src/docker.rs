@@ -218,10 +218,11 @@ pub fn build_base_image() {
                 env::var("SUDO_BUILD_FEATURES").unwrap_or_else(|_| {
                     [
                         "gettext",
-                        #[cfg(not(target_os = "freebsd"))]
+                        #[cfg(target_os = "linux")]
                         "pam-login",
                         #[cfg(feature = "apparmor")]
                         "apparmor",
+                        #[cfg(target_os = "linux")]
                         "unstable-remote-sudoers",
                     ]
                     .join(",")
