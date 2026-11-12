@@ -37,8 +37,13 @@ pub mod term;
 
 pub mod wait;
 
-#[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
-compile_error!("sudo-rs only works on Linux and FreeBSD");
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "macos"
+)))]
+compile_error!("sudo-rs is not intended for your platform");
 
 pub(crate) fn _exit(status: c_int) -> ! {
     // SAFETY: this function is safe to call
