@@ -1,12 +1,8 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
 use std::io;
-use std::os::fd::{FromRawFd, OwnedFd};
 use std::process::{Command, Stdio};
 
-use libc::{O_CLOEXEC, close};
-
-use crate::cutils::cerr;
 use crate::exec::event::{EventHandle, EventRegistry, PollEvent, Process, StopReason};
 use crate::exec::use_pty::SIGCONT_FG;
 use crate::exec::use_pty::monitor::exec_monitor;
@@ -134,16 +130,9 @@ pub(in crate::exec) fn exec_pty(
             dev_info!("stdin is not a terminal, creating a pipe");
             exec_bg = true;
 
-            let mut pipes = [-1, -1];
-            // SAFETY: A valid pointer to a mutable array of 2 fds is passed in.
-            unsafe {
-                cerr(libc::pipe2(pipes.as_mut_ptr(), O_CLOEXEC))?;
-            }
-            // SAFETY: pipe2 created two owned pipe fds.
-            unsafe {
-                command.stdin(OwnedFd::from_raw_fd(pipes[0]));
-                close(pipes[1]);
-            }
+            let [p_in, p_out] = crate::cutils::pipe()?;
+            command.stdin(p_in);
+            drop(p_out);
         } else {
             dev_info!("stdin is not a terminal, command will inherit it");
             if io::stdin().is_pipe_or_socket() {
