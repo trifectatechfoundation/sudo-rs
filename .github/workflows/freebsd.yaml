@@ -12,6 +12,25 @@ on:
       - main
 
 jobs:
+  clippy:
+    name: FreeBSD clippy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
+      # Clippy only type-checks, so it can target FreeBSD from the Linux runner
+      # without the VM.
+      - name: Run clippy for FreeBSD
+        run: |
+          rustup target add x86_64-unknown-freebsd
+          cargo clippy --no-deps --all-targets --target x86_64-unknown-freebsd -- --deny warnings
+
   freebsd:
     name: FreeBSD unit tests
     runs-on: ubuntu-latest
