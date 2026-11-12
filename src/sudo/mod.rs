@@ -14,7 +14,9 @@ use cli::SudoAction;
 use std::{path::PathBuf, time::Duration};
 
 mod cli;
-pub(crate) use cli::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
+pub(crate) use cli::{
+    SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions, TimestampUsage,
+};
 mod edit;
 
 pub(crate) mod diagnostic;
