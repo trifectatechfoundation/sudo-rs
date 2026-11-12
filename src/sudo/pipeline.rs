@@ -178,6 +178,7 @@ fn auth_and_update_record_file(
     let scope = match scope {
         AuthenticationScope::Tty => RecordScope::for_tty(&Process::new()),
         AuthenticationScope::PPid => RecordScope::for_ppid(&Process::new()),
+        AuthenticationScope::Global => RecordScope::for_global(&Process::new()),
     };
     let mut auth_status = determine_auth_status(
         must_authenticate,

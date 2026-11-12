@@ -51,6 +51,7 @@ impl super::Settings {
             scope: match self.timestamp_type() {
                 enums::timestamp_type::tty => AuthenticationScope::Tty,
                 enums::timestamp_type::ppid => AuthenticationScope::PPid,
+                enums::timestamp_type::global => AuthenticationScope::Global,
             },
             noninteractive_auth: self.noninteractive_auth(),
             credential: if self.rootpw() {
@@ -112,6 +113,7 @@ pub enum AuthenticatingUser {
 pub enum AuthenticationScope {
     Tty = HARDENED_ENUM_VALUE_0,
     PPid = HARDENED_ENUM_VALUE_1,
+    Global = HARDENED_ENUM_VALUE_2,
 }
 
 impl Judgement {

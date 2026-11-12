@@ -344,6 +344,7 @@ pub enum RecordScope {
         session_pid: ProcessId,
         init_time: ProcessCreateTime,
     },
+    Global,
 }
 
 impl RecordScope {
@@ -372,6 +373,9 @@ impl RecordScope {
                 let b = session_pid.inner().to_le_bytes();
                 target.write_all(&b)?;
                 init_time.encode(target)?;
+            }
+            RecordScope::Global => {
+                target.write_all(&[3u8])?;
             }
         }
 
@@ -410,6 +414,7 @@ impl RecordScope {
                     init_time,
                 })
             }
+            3 => Ok(RecordScope::Global),
             x => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("Unexpected scope variant discriminator: {x}"),
@@ -455,6 +460,14 @@ impl RecordScope {
             auth_warn!("Could not get parent process starting time");
             None
         }
+    }
+
+    /// Tries to determine a record match scope for the current context.
+    /// Trying global credentials tied to the logged-in user
+    /// Note that Process is not used, but allows using the same function
+    /// signature as the others
+    pub fn for_global(_process: &Process) -> Option<RecordScope> {
+        Some(RecordScope::Global)
     }
 }
 
@@ -645,6 +658,11 @@ mod tests {
         let bytes = ppid_sample.as_bytes().unwrap();
         let decoded = SessionRecord::from_bytes(&bytes).unwrap();
         assert_eq!(ppid_sample, decoded);
+
+        let global_sample = SessionRecord::new(RecordScope::Global, UserId::new(1234)).unwrap();
+        let bytes = global_sample.as_bytes().unwrap();
+        let decoded = SessionRecord::from_bytes(&bytes).unwrap();
+        assert_eq!(global_sample, decoded);
     }
 
     #[test]
@@ -724,6 +742,37 @@ mod tests {
     }
 
     #[test]
+    fn global_record_works() {
+        let sample = SessionRecord::new(RecordScope::Global, UserId::new(1234)).unwrap();
+
+        assert!(sample.matches(&RecordScope::Global, &auth_user_from_uid(1234)));
+
+        // Check it doesn't match other users
+        assert!(!sample.matches(&RecordScope::Global, &auth_user_from_uid(123)));
+        assert!(!sample.matches(&RecordScope::Global, &auth_user_from_uid(12345)));
+
+        // Check it doesn't match other auth scopes
+        let init_time = ProcessCreateTime::new(1, 0);
+        assert!(!sample.matches(
+            &RecordScope::Tty {
+                tty_device: DeviceId::new(20),
+                session_pid: ProcessId::new(1234),
+                init_time
+            },
+            &auth_user_from_uid(1234),
+        ));
+
+        assert!(!sample.matches(
+            &RecordScope::Ppid {
+                group_pid: ProcessId::new(1234),
+                session_pid: ProcessId::new(1234),
+                init_time,
+            },
+            &auth_user_from_uid(1234),
+        ));
+    }
+
+    #[test]
     fn session_record_file_header_checks() {
         // valid header should remain valid
         let c = tempfile_with_data(&[0xD0, 0x50, 0x02, 0x00]).unwrap();
@@ -789,5 +838,74 @@ mod tests {
         // after all this the data should be just an empty header
         let data = data_from_tempfile(c).unwrap();
         assert_eq!(&data, &[0xD0, 0x50, 0x02, 0x00]);
+    }
+
+    #[test]
+    fn can_create_and_touch_global() {
+        let timeout = Duration::from_secs(30);
+        let c = tempfile_with_data(&[]).unwrap();
+        let mut srf = SessionRecordFile::new(TEST_USER_ID, c, timeout).unwrap();
+        let global_scope = RecordScope::Global;
+
+        let auth_user = auth_user_from_uid(2424);
+        let res = srf.create(global_scope, &auth_user).unwrap();
+        let CreateResult::Created { time } = res else {
+            panic!("Expected record to be created");
+        };
+
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        let second = srf.touch(global_scope, &auth_user).unwrap();
+        let TouchResult::Updated { old_time, new_time } = second else {
+            panic!("Expected record to be updated");
+        };
+        assert_eq!(time, old_time);
+        assert_ne!(old_time, new_time);
+
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        let res = srf.create(global_scope, &auth_user).unwrap();
+        let CreateResult::Updated { old_time, new_time } = res else {
+            panic!("Expected record to be updated");
+        };
+        assert_ne!(old_time, new_time);
+    }
+
+    #[test]
+    fn disable_only_affects_matching_scope() {
+        // create a tty record
+        let timeout = Duration::from_secs(30);
+        let c = tempfile_with_data(&[]).unwrap();
+        let mut srf = SessionRecordFile::new(TEST_USER_ID, c, timeout).unwrap();
+        let tty_scope = RecordScope::Tty {
+            tty_device: DeviceId::new(0),
+            session_pid: ProcessId::new(0),
+            init_time: ProcessCreateTime::new(0, 0),
+        };
+        let auth_user = auth_user_from_uid(2424);
+        let res = srf.create(tty_scope, &auth_user).unwrap();
+        let CreateResult::Created { .. } = res else {
+            panic!("Expected record to be created");
+        };
+
+        // create a global record for the same user
+        let global_scope = RecordScope::Global;
+
+        let res = srf.create(global_scope, &auth_user).unwrap();
+        let CreateResult::Created { .. } = res else {
+            panic!("Expected record to be created");
+        };
+
+        srf.disable(global_scope).unwrap();
+
+        // should not find the record, now that global is disabled
+        assert!(matches!(
+            srf.touch(global_scope, &auth_user).unwrap(),
+            TouchResult::NotFound
+        ));
+
+        // but tty should still work
+        assert!(matches!(
+            srf.touch(tty_scope, &auth_user).unwrap(),
+            TouchResult::Updated { .. }
+        ));
     }
 }
