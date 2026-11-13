@@ -1,0 +1,67 @@
+name: NetBSD
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  merge_group:
+    branches:
+      - main
+
+jobs:
+  clippy:
+    name: NetBSD clippy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Register rust problem matcher
+        run: echo "::add-matcher::.github/problem-matchers/rust.json"
+
+      # Clippy only type-checks, so it can target NetBSD from the Linux runner
+      # without the VM.
+      - name: Run clippy for NetBSD
+        run: |
+          rustup target add x86_64-unknown-netbsd
+          cargo clippy --no-deps --all-targets --target x86_64-unknown-netbsd -- --deny warnings
+
+  netbsd:
+    name: NetBSD unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Unit tests in a NetBSD VM
+        uses: vmactions/netbsd-vm@5957cf330aef2e6ddc63c604364c99ce2e02b91d # v1.5.3
+        with:
+          usesh: true
+          cache-after-prepare: true
+          # system::time::tests::get_process_start_time compares the process
+          # start time against the wall clock, so the guest clock must be sane.
+          sync-time: true
+          prepare: |
+            pkg_add pkgin
+            pkgin -y install rust git-base
+          run: |
+            set -e
+            rustc --version
+            cargo --version
+
+            # The unit tests must not run as root: src/su/context.rs says
+            # "this test is allowed to fail if run as root -- do not run unit
+            # tests as root", and the VM logs in as root by default.
+            useradd -m sudorstest
+            chown -R sudorstest .
+
+            # We skip a couple of tests which fail when running as root.
+            su -m sudorstest -c "cd $PWD && env HOME=/home/sudorstest cargo test --workspace --all-targets --release -- --skip group_as_non_root --skip test_secure_open_cookie_file --skip test_traverse_secure_open_positive"
