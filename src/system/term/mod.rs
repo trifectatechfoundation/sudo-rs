@@ -340,7 +340,7 @@ mod tests {
                 let leader = Pty::open().unwrap().leader;
                 // On FreeBSD this returns an unspecified PID when there is no foreground process
                 // group, so skip this check on FreeBSD.
-                if cfg!(not(target_os = "freebsd")) {
+                if cfg!(target_os = "linux") {
                     // The pty leader should not have a foreground process group yet.
                     assert_eq!(leader.tcgetpgrp().unwrap().inner(), 0);
                 }

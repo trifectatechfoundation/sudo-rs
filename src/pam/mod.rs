@@ -21,14 +21,15 @@ mod rpassword;
 mod securemem;
 
 #[cfg_attr(target_os = "linux", path = "sys_linuxpam.rs")]
-#[cfg_attr(target_os = "freebsd", path = "sys_openpam.rs")]
+#[cfg_attr(not(target_os = "linux"), path = "sys_openpam.rs")]
 #[allow(nonstandard_style)]
 pub mod sys;
 
 #[link(name = "pam")]
 unsafe extern "C" {}
 
-#[cfg(target_os = "freebsd")]
+#[cfg(not(target_os = "linux"))]
+// OpenPAM does not use PAM_DATA_SILENT
 const PAM_DATA_SILENT: std::ffi::c_int = 0;
 
 pub use converse::CLIConverser;

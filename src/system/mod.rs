@@ -1,8 +1,7 @@
-// TODO: remove unused attribute when system is cleaned up
 #[cfg(target_os = "linux")]
 use std::str::FromStr;
 use std::{
-    ffi::{CStr, c_int, c_long, c_uint},
+    ffi::{CStr, c_int, c_long},
     fmt, fs, io,
     mem::MaybeUninit,
     ops,
@@ -16,6 +15,9 @@ use crate::{
 };
 use interface::{DeviceId, GroupId, ProcessId, UserId};
 pub use libc::PATH_MAX;
+#[cfg(any(target_os = "netbsd", target_os = "macos"))]
+use libc::STDERR_FILENO;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use libc::{CLOSE_RANGE_CLOEXEC, EINVAL, ENOSYS, STDERR_FILENO};
 use time::ProcessCreateTime;
 
@@ -37,8 +39,13 @@ pub mod term;
 
 pub mod wait;
 
-#[cfg(not(any(target_os = "freebsd", target_os = "linux")))]
-compile_error!("sudo-rs only works on Linux and FreeBSD");
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "macos"
+)))]
+compile_error!("sudo-rs is not intended for your platform");
 
 pub(crate) fn _exit(status: c_int) -> ! {
     // SAFETY: this function is safe to call
@@ -46,7 +53,9 @@ pub(crate) fn _exit(status: c_int) -> ! {
 }
 
 /// Mark every file descriptor that is not one of the IO streams as CLOEXEC.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
+    use libc::c_uint;
     let lowfd = STDERR_FILENO + 1;
 
     // SAFETY: this function is safe to call:
@@ -74,41 +83,53 @@ pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
 
     match res {
         Err(err) if err.raw_os_error() == Some(ENOSYS) || err.raw_os_error() == Some(EINVAL) => {
-            // The kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
-            // fallback to finding all open fds using /proc/self/fd.
-
-            // FIXME use /dev/fd on macOS
-            for entry in fs::read_dir("/proc/self/fd")? {
-                let entry = entry?;
-                let file_name = entry.file_name();
-                let file_name = file_name.to_str().ok_or(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "procfs returned non-integer fd name",
-                ))?;
-                if file_name == "." || file_name == ".." {
-                    continue;
-                }
-                let fd = file_name.parse::<c_int>().map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "procfs returned non-integer fd name",
-                    )
-                })?;
-                if fd < lowfd {
-                    continue;
-                }
-                // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
-                // going to need it after exec.
-                unsafe {
-                    cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
-                }
-            }
-
-            Ok(())
+            mark_fds_as_cloexec_fallback(lowfd)
         }
         Err(err) => Err(err),
         Ok(_) => Ok(()),
     }
+}
+
+#[cfg(any(target_os = "netbsd", target_os = "macos"))]
+pub(crate) fn mark_fds_as_cloexec() -> io::Result<()> {
+    mark_fds_as_cloexec_fallback(STDERR_FILENO + 1)
+}
+
+fn mark_fds_as_cloexec_fallback(lowfd: i32) -> io::Result<()> {
+    // If the kernel doesn't support close_range or CLOSE_RANGE_CLOEXEC,
+    // fallback to finding all open fds using /proc/self/fd or /dev/fd
+
+    for entry in fs::read_dir(if cfg!(any(target_os = "linux", target_os = "netbsd")) {
+        "/proc/self/fd"
+    } else {
+        "/dev/fd"
+    })? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name = file_name.to_str().ok_or(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "procfs returned non-integer fd name",
+        ))?;
+        if file_name == "." || file_name == ".." {
+            continue;
+        }
+        let fd = file_name.parse::<c_int>().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "procfs returned non-integer fd name",
+            )
+        })?;
+        if fd < lowfd {
+            continue;
+        }
+        // SAFETY: This only sets the CLOEXEC flag for the given fd. Nothing is
+        // going to need it after exec.
+        unsafe {
+            cerr(libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC))?;
+        }
+    }
+
+    Ok(())
 }
 
 pub(crate) enum ForkResult {
@@ -266,13 +287,21 @@ fn inject_group(target: GroupId, groups: &mut Vec<GroupId>) {
 
 /// Set the supplementary groups -- returns a c_int to mimic a libc function
 fn set_supplementary_groups(groups: &[GroupId]) -> io::Result<()> {
-    // On FreeBSD, setgruops expects the size to be passed as a i32, so the below
+    // On NetBSD and MacOS, there is a tight limit on the amount of groups we can pass
+    // with setgroups, libc::NGROUPS_MAX == sysconf(_SC_NGROUPS_MAX) == 16. Sadly this
+    // constant does not exist in the libc crate for Linux and MacOS.
+    #[cfg(any(target_os = "netbsd", target_os = "freebsd"))]
+    use libc::NGROUPS_MAX;
+    #[cfg(target_os = "linux")]
+    const NGROUPS_MAX: usize = 65536;
+    #[cfg(target_os = "macos")]
+    const NGROUPS_MAX: c_int = 16;
+
+    // Outside of Linux, setgroups expects the size to be passed as a c_int, so the below
     // conversion protects a very extreme case of arithmetic conversion error
-    #[allow(irrefutable_let_patterns)]
     #[allow(clippy::useless_conversion)]
-    let Ok(len) = groups.len().try_into() else {
-        return Err(io::Error::other("too many groups"));
-    };
+    let len = std::cmp::min(groups.len().try_into().unwrap_or(NGROUPS_MAX), NGROUPS_MAX);
+
     // SAFETY: setgroups is passed a valid pointer to a chunk of memory of the correct size
     // We can cast to gid_t because `GroupId` is marked as transparent
     cerr(unsafe { libc::setgroups(len, groups.as_ptr().cast::<libc::gid_t>()) })?;
@@ -574,7 +603,6 @@ impl Group {
         // Set an arbitrary upper limit of two terabytes/two gigabytes for the temporary buffer
         let initial_gr_size = sysconf(libc::_SC_GETGR_R_SIZE_MAX).unwrap_or(16_384) as usize;
         let max_gr_size = std::cmp::max(i32::MAX as usize, usize::MAX >> 24);
-
         let mut grp = MaybeUninit::uninit();
         let mut grp_ptr = std::ptr::null_mut();
         let Some(_buf) = dynamic_fill(initial_gr_size..max_gr_size, |buf| {
@@ -731,12 +759,12 @@ impl Process {
         }
     }
 
-    #[cfg(target_os = "freebsd")]
-    fn get_proc_info(pid: WithProcess) -> std::io::Result<libc::kinfo_proc> {
+    #[cfg(any(target_os = "freebsd", target_os = "netbsd"))]
+    fn get_proc_info(pid: WithProcess) -> std::io::Result<KinfoProc> {
         use std::ffi::c_void;
         use std::ptr;
 
-        let mut ki_proc: Vec<libc::kinfo_proc> = Vec::with_capacity(1);
+        let mut ki_proc: Vec<KinfoProc> = Vec::with_capacity(1);
 
         let pid = match pid {
             WithProcess::Current => std::process::id() as i32,
@@ -744,21 +772,24 @@ impl Process {
         };
 
         loop {
-            let mut size = ki_proc.capacity() * size_of::<libc::kinfo_proc>();
+            let mut size = ki_proc.capacity() * size_of::<KinfoProc>();
             // SAFETY: KERN_PROC_PID only reads data into the ki_proc list. It
             // does not write more than `size` bytes to the pointer.
             match cerr(unsafe {
                 libc::sysctl(
                     [
                         libc::CTL_KERN,
+                        #[cfg(target_os = "freebsd")]
                         libc::KERN_PROC,
+                        #[cfg(target_os = "netbsd")]
+                        libc::KERN_PROC2,
                         libc::KERN_PROC_PID,
                         pid,
-                        size_of::<libc::kinfo_proc>() as i32,
+                        size_of::<KinfoProc>() as i32,
                         1,
                     ]
                     .as_ptr(),
-                    4,
+                    if cfg!(target_os = "freebsd") { 4 } else { 6 },
                     ki_proc.as_mut_ptr().cast::<c_void>(),
                     &mut size,
                     ptr::null(),
@@ -766,7 +797,7 @@ impl Process {
                 )
             }) {
                 Ok(_) => {
-                    assert!(size >= size_of::<libc::kinfo_proc>());
+                    assert!(size >= size_of::<KinfoProc>());
                     // SAFETY: The above sysctl has initialized at least `size` bytes. We have
                     // asserted that this is at least a single element.
                     unsafe {
@@ -787,14 +818,19 @@ impl Process {
 
     /// Returns the device identifier of the TTY device that is currently
     /// attached to the given process
-    #[cfg(target_os = "freebsd")]
+    #[cfg(any(target_os = "freebsd", target_os = "netbsd"))]
     pub fn tty_device_id(pid: WithProcess) -> std::io::Result<Option<DeviceId>> {
         let ki_proc = Self::get_proc_info(pid)?;
 
-        if ki_proc.ki_tdev == !0 {
+        #[cfg(target_os = "freebsd")]
+        let dev_nr = ki_proc.ki_tdev;
+        #[cfg(target_os = "netbsd")]
+        let dev_nr = ki_proc.p_tdev.into();
+
+        if dev_nr == !0 {
             Ok(None)
         } else {
-            Ok(Some(DeviceId::new(ki_proc.ki_tdev)))
+            Ok(Some(DeviceId::new(dev_nr)))
         }
     }
 
@@ -817,18 +853,32 @@ impl Process {
     }
 
     /// Get the process starting time of a specific process
-    #[cfg(target_os = "freebsd")]
+    #[cfg(any(target_os = "freebsd", target_os = "netbsd"))]
     pub fn starting_time(pid: WithProcess) -> io::Result<ProcessCreateTime> {
         let ki_proc = Self::get_proc_info(pid)?;
 
-        let ki_start = ki_proc.ki_start;
+        #[cfg(target_os = "freebsd")]
+        let (sec, usec) = {
+            let timeval = ki_proc.ki_start;
+            (timeval.tv_sec, timeval.tv_usec)
+        };
+
+        #[cfg(target_os = "netbsd")]
+        let (sec, usec) = { (ki_proc.p_ustart_sec, ki_proc.p_ustart_usec) };
+
         #[allow(clippy::useless_conversion)]
         Ok(ProcessCreateTime::new(
-            i64::from(ki_start.tv_sec),
-            i64::from(ki_start.tv_usec) * 1000,
+            i64::from(sec),
+            i64::from(usec) * 1000,
         ))
     }
 }
+
+#[cfg(target_os = "freebsd")]
+type KinfoProc = libc::kinfo_proc;
+
+#[cfg(target_os = "netbsd")]
+type KinfoProc = libc::kinfo_proc2;
 
 /// Read the n-th field (with 0-based indexing) from `/proc/<pid>/self`.
 ///
