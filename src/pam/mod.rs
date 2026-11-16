@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use crate::log::dev_info;
 use crate::system::signal::{self, SignalSet};
 
 use converse::ConverserData;
@@ -33,6 +34,11 @@ const PAM_DATA_SILENT: std::ffi::c_int = 0;
 
 pub use converse::CLIConverser;
 
+#[inline]
+fn default_auth_prompt() -> &'static str {
+    xlat!("authenticate")
+}
+
 pub struct PamContext {
     data_ptr: *mut ConverserData<CLIConverser>,
     pamh: *mut pam_handle_t,
@@ -43,6 +49,8 @@ pub struct PamContext {
 }
 
 impl PamContext {
+    const SUDO_PROMPT_ENV: &CStr = c"SUDO_PROMPT";
+
     /// Build the PamContext with the CLI conversation function.
     ///
     /// The target user is optional and may also be set after the context was
@@ -83,7 +91,7 @@ impl PamContext {
             converser,
             converser_name: converser_name.to_owned(),
             no_interact,
-            auth_prompt: Some(xlat!("authenticate").to_owned()),
+            auth_prompt: Some(default_auth_prompt().to_owned()),
             error: None,
             panicked: false,
         }));
@@ -150,11 +158,70 @@ impl PamContext {
         }
     }
 
+    /// Set `env` to `value` in the PAM environment.
+    ///
+    /// Errors if `env` contains an `=` (it would be parsed as part of the
+    /// value) or if `value` contains an interior null byte.
+    fn set_env(&mut self, env: &CStr, value: &str) -> PamResult<()> {
+        if env.to_bytes().contains(&b'=') {
+            return Err(PamError::Pam(PamErrorType::BadItem));
+        }
+
+        let mut env_def = env.to_bytes().to_vec();
+        env_def.push(b'=');
+        env_def.extend_from_slice(value.as_bytes());
+        let env_def = CString::new(env_def)?;
+
+        // SAFETY: `self.pamh` is a correct handle and `env_def` is null-terminated.
+        pam_err(unsafe { pam_putenv(self.pamh, env_def.as_ptr()) })
+    }
+
+    /// Remove `env` from the PAM environment.
+    ///
+    /// OpenPAM has no way to remove variables, so there it is set to an empty
+    /// value instead.
+    fn remove_env(&mut self, env: &CStr) -> PamResult<()> {
+        if env.to_bytes().contains(&b'=') {
+            return Err(PamError::Pam(PamErrorType::BadItem));
+        }
+
+        // SAFETY: `self.pamh` is a correct handle and `env` is null-terminated.
+        #[cfg(target_os = "linux")]
+        return pam_err(unsafe { pam_putenv(self.pamh, env.as_ptr()) });
+        #[cfg(not(target_os = "linux"))]
+        self.set_env(env, "")
+    }
+
+    fn clear_sudo_prompt(&mut self) -> PamResult<()> {
+        self.remove_env(Self::SUDO_PROMPT_ENV)
+    }
+
+    fn set_sudo_prompt_for_auth(&mut self) {
+        // SAFETY: self.data_ptr was created by Box::into_raw
+        let auth_prompt = unsafe { (*self.data_ptr).auth_prompt.clone() };
+
+        let sudo_prompt = match auth_prompt {
+            None => String::new(), // empty prompt (e.g. -p '')
+            Some(prompt) if prompt == default_auth_prompt() => return,
+            Some(prompt) => prompt,
+        };
+
+        if let Err(err) = self.set_env(Self::SUDO_PROMPT_ENV, &sudo_prompt) {
+            dev_info!("pam_putenv(SUDO_PROMPT=...) failed before auth: {}", err);
+        }
+    }
+
     /// Run authentication for the account
     pub fn authenticate(&mut self, for_user: &str) -> PamResult<()> {
         let mut flags = 0;
         flags |= self.silent_flag();
         flags |= self.disallow_null_auth_token_flag();
+
+        match self.clear_sudo_prompt() {
+            Ok(()) | Err(PamError::Pam(PamErrorType::BadItem)) => {}
+            Err(err) => return Err(err),
+        }
+        self.set_sudo_prompt_for_auth();
 
         // Temporarily mask SIGINT and SIGQUIT.
         let cur_signals = SignalSet::empty().and_then(|mut set| {
@@ -165,6 +232,10 @@ impl PamContext {
 
         // SAFETY: `self.pamh` contains a correct handle (obtained from `pam_start`)
         let auth_res = pam_err(unsafe { pam_authenticate(self.pamh, flags) });
+
+        if let Err(err) = self.clear_sudo_prompt() {
+            dev_info!("pam_putenv(SUDO_PROMPT) failed after auth: {}", err);
+        }
 
         // Restore signals
         if let Ok(set) = cur_signals {
@@ -353,7 +424,10 @@ impl PamContext {
                 }
             };
             if let Some((k, v)) = data {
-                res.push((k, v));
+                // OpenPAM can't unset SUDO_PROMPT, so filter it here.
+                if cfg!(target_os = "linux") || k.as_bytes() != Self::SUDO_PROMPT_ENV.to_bytes() {
+                    res.push((k, v));
+                }
             }
 
             // SAFETY: curr_str was obtained via libc::malloc() so we are responsible for freeing it.
@@ -396,5 +470,27 @@ impl Drop for PamContext {
                 self.last_pam_status.unwrap_or(PAM_SUCCESS as c_int) | PAM_DATA_SILENT as c_int,
             )
         };
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn env_name_must_not_contain_equals() {
+        // `set_env`/`remove_env` reject the name before touching `pamh`, so a
+        // context with no PAM handle is enough to test that validation.
+        let mut pam = std::mem::ManuallyDrop::new(PamContext {
+            data_ptr: std::ptr::null_mut(),
+            pamh: std::ptr::null_mut(),
+            silent: false,
+            allow_null_auth_token: true,
+            last_pam_status: None,
+            session_started: false,
+        });
+
+        assert!(pam.set_env(c"FOO=BAR", "BAZ").is_err());
+        assert!(pam.remove_env(c"FOO=BAR").is_err());
     }
 }
