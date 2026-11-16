@@ -333,7 +333,7 @@ mod tests {
     use super::*;
 
     #[cfg(target_os = "linux")]
-    const IMAGE: &str = "ubuntu:22.04";
+    const IMAGE: &str = "ubuntu:26.04";
 
     #[cfg(target_os = "freebsd")]
     const IMAGE: &str = "dougrabson/freebsd14-small:latest";

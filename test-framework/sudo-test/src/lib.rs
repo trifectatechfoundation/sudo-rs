@@ -496,6 +496,11 @@ impl User {
     /// NOTE on Debian containers, all new users will be assigned to the `users` primary group (GID=100)
     pub fn secondary_group(mut self, group: impl AsRef<str>) -> Self {
         let groupname = group.as_ref();
+        // this appears to be a recent limitation introduced in Docker?
+        assert!(
+            self.name.as_str() != groupname,
+            "secondary group name cannot be the same as the user name",
+        );
         assert!(
             !self.groups.contains(groupname),
             "user {} has already been assigned to {groupname}",

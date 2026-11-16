@@ -93,11 +93,11 @@ jobs:
 
       - name: Test sudo-test itself
         working-directory: test-framework
-        run: cargo test -p sudo-test
+        run: cargo test -p sudo-test --features apparmor
 
       - name: Run all compliance tests against original sudo
         working-directory: test-framework
-        run: cargo test -p sudo-compliance-tests -- --include-ignored
+        run: cargo test -p sudo-compliance-tests --features apparmor -- --include-ignored
 
   compliance-tests:
     runs-on: ubuntu-latest

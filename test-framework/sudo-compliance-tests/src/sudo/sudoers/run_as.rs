@@ -53,11 +53,11 @@ fn when_empty_then_as_someone_else_is_not_allowed() {
 #[test]
 fn when_empty_then_as_own_group_is_allowed() {
     let env = Env("ALL ALL=() NOPASSWD: ALL")
-        .group(USERNAME)
-        .user(User(USERNAME).secondary_group(USERNAME))
+        .group(GROUPNAME)
+        .user(User(USERNAME).secondary_group(GROUPNAME))
         .build();
 
-    for (user, group) in [("root", ROOT_GROUP), (USERNAME, USERNAME)] {
+    for (user, group) in [("root", ROOT_GROUP), (USERNAME, GROUPNAME)] {
         Command::new("sudo")
             .args(["-g", group, "true"])
             .as_user(user)
