@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::time::Duration;
 
-use super::cli::{SudoRunOptions, SudoValidateOptions};
+use super::cli::{SudoRunOptions, SudoValidateOptions, TimestampUsage};
 use super::diagnostic;
 use crate::common::resolve::{AuthUser, CurrentUser};
 use crate::common::{Context, Error};
@@ -213,7 +213,11 @@ fn auth_and_update_record_file(
             context.non_interactive,
             allowed_attempts,
         )?;
-        if let (Some(record_file), Some(scope)) = (&mut auth_status.record_file, scope) {
+        if let (Some(record_file), Some(scope), TimestampUsage::Cached) = (
+            &mut auth_status.record_file,
+            scope,
+            context.use_session_records,
+        ) {
             match record_file.create(scope, &auth_user) {
                 Ok(_) => (),
                 Err(e) => {
@@ -232,22 +236,30 @@ fn auth_and_update_record_file(
 /// match limit and origin/target user from the context is.
 fn determine_auth_status(
     must_policy_authenticate: bool,
-    use_session_records: bool,
+    use_session_records: TimestampUsage,
     record_for: Option<RecordScope>,
     current_user: &CurrentUser,
     auth_user: &AuthUser,
     prior_validity: Duration,
 ) -> AuthStatus {
+    let read_session_records = matches!(
+        use_session_records,
+        TimestampUsage::Cached | TimestampUsage::NoUpdate
+    );
+    let write_session_records = matches!(use_session_records, TimestampUsage::Cached);
+
     if !must_policy_authenticate {
         AuthStatus::new(false, None)
-    } else if let (true, Some(record_for)) = (use_session_records, record_for) {
+    } else if let (true, Some(record_for)) = (read_session_records, record_for) {
         match SessionRecordFile::open_for_user(current_user, prior_validity) {
             Ok(mut sr) => {
-                match sr.touch(record_for, auth_user) {
+                match sr.touch(record_for, auth_user, write_session_records) {
                     // if a record was found and updated within the timeout, we do not need to authenticate
-                    Ok(TouchResult::Updated { .. }) => AuthStatus::new(false, Some(sr)),
+                    Ok(TouchResult::Updated { .. }) => {
+                        AuthStatus::new(false, write_session_records.then_some(sr))
+                    }
                     Ok(TouchResult::NotFound | TouchResult::Outdated { .. }) => {
-                        AuthStatus::new(true, Some(sr))
+                        AuthStatus::new(true, write_session_records.then_some(sr))
                     }
                     Err(e) => {
                         auth_warn!("Unexpected error while reading session information: {e}");
