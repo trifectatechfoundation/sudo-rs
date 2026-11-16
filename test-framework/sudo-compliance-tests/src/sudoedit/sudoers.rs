@@ -1,6 +1,6 @@
 use sudo_test::{Command, Env, TextFile, User};
 
-use crate::{DEFAULT_EDITOR, OTHER_USERNAME, USERNAME};
+use crate::{DEFAULT_EDITOR, GROUPNAME, OTHER_USERNAME, USERNAME};
 
 const CHMOD_EXEC: &str = "555";
 const EDITOR_DUMMY: &str = "#!/bin/sh
@@ -97,17 +97,17 @@ fn respects_runas_user() {
 fn respects_runas_group() {
     let file = "/foo.txt";
     let env = Env(format!(
-        "ALL ALL=({OTHER_USERNAME}:{OTHER_USERNAME}) NOPASSWD: sudoedit"
+        "ALL ALL=({OTHER_USERNAME}:{GROUPNAME}) NOPASSWD: sudoedit"
     ))
     .user(USERNAME)
-    .group(OTHER_USERNAME)
-    .user(User(OTHER_USERNAME).secondary_group(OTHER_USERNAME))
+    .group(GROUPNAME)
+    .user(User(OTHER_USERNAME).secondary_group(GROUPNAME))
     .file(DEFAULT_EDITOR, TextFile(EDITOR_DUMMY).chmod(CHMOD_EXEC))
     .file(
         file,
         TextFile("")
             .chmod("660")
-            .chown(format!("{OTHER_USERNAME}:{OTHER_USERNAME}")),
+            .chown(format!("{OTHER_USERNAME}:{GROUPNAME}")),
     )
     .build();
 
@@ -117,7 +117,7 @@ fn respects_runas_group() {
         // FIXME: sudo 1.9.16p2 has a different interaction with a bare "-g" and the runas specifier
         Command::new("sudoedit")
             .as_user(USERNAME)
-            .args(["-g", OTHER_USERNAME, file])
+            .args(["-g", GROUPNAME, file])
             .output(&env)
             .assert_success();
     }
