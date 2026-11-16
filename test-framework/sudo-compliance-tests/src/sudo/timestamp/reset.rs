@@ -148,3 +148,50 @@ fn with_command_does_not_cache_credentials() {
     };
     assert_contains!(output.stderr(), diagnostic);
 }
+
+#[test]
+fn global_after_clear() {
+    let env = Env("ALL ALL=(ALL:ALL) ALL
+Defaults timestamp_type=global")
+    .user(User(USERNAME).password(PASSWORD))
+    .build();
+
+    // set up a global credential
+    Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo {PASSWORD} | sudo -S true"))
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    // check that sudo works without a password
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("sudo -n true")
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_success();
+
+    // kill the credential
+    Command::new("sh")
+        .arg("-c")
+        .arg("sudo -k")
+        .as_user(USERNAME)
+        .output(&env)
+        .assert_success();
+
+    // now sudo should fail
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("sudo -n true")
+        .as_user(USERNAME)
+        .output(&env);
+
+    output.assert_exit_code(1);
+    if sudo_test::is_original_sudo() {
+        assert_contains!(output.stderr(), "a password is required");
+    } else {
+        assert_contains!(output.stderr(), "interactive authentication is required");
+    }
+}
