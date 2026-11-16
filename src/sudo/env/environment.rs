@@ -278,7 +278,6 @@ mod tests {
                         trust_environment: false,
                         use_pty: true,
                         umask: crate::exec::Umask::Preserve,
-                        #[cfg(feature = "apparmor")]
                         apparmor_profile: None,
                         noexec: false,
                         log: crate::sudoers::Logging::Auth,
