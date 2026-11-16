@@ -366,6 +366,14 @@ mod test {
                 Path::new("/usr/bin/pkill")
             );
             assert_eq!(canonicalize("/bin/pkill").unwrap(), Path::new("/bin/pkill"));
+        } else if cfg!(target_os = "netbsd") {
+            // this test REQUIRES /usr/bin/cpio to be a symlink
+            assert!(Path::new("/usr/bin/cpio").is_symlink());
+            assert_eq!(
+                canonicalize("/usr/bin/cpio").unwrap(),
+                Path::new("/usr/bin/cpio")
+            );
+            assert_eq!(canonicalize("/bin/cpio").unwrap(), Path::new("/bin/cpio"));
         } else {
             panic!(
                 "canonicalization test not yet adapted for {}",
