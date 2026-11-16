@@ -360,6 +360,15 @@ pub fn parse_eval<T: Parse>(text: &str) -> T {
 }
 
 #[cfg(test)]
+pub fn parse_fatal<T: Parse>(text: &str) -> String {
+    let Err(Status::Fatal(_, msg)) = parse_string::<T>(text) else {
+        panic!("not a fatal error");
+    };
+
+    msg
+}
+
+#[cfg(test)]
 mod test {
     use super::*;
 

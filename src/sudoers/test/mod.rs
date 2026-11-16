@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use super::ast;
 use super::char_stream::CharStream;
 use super::*;
-use basic_parser::{Status, parse_eval, parse_lines, parse_string};
+use basic_parser::{Status, parse_eval, parse_fatal, parse_lines, parse_string};
 
 impl<T> Qualified<T> {
     pub fn as_allow(&self) -> Option<&T> {
@@ -458,9 +458,11 @@ fn invalid_username() {
 }
 
 #[test]
-#[should_panic = "wildcards are not allowed in command arguments"]
 fn wildcard_in_argument() {
-    parse_eval::<ast::Sudo>("user ALL=/bin/hello w*");
+    for arg in ["w*", "??w?", "stx[abc]"] {
+        let msg = parse_fatal::<ast::Sudo>(&format!("user ALL=/bin/hello {arg}"));
+        assert_eq!(msg, "glob patterns are not allowed in command arguments");
+    }
 }
 
 #[test]
