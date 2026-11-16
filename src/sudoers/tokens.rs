@@ -224,9 +224,9 @@ impl Token for Command {
 
             if args
                 .iter()
-                .any(|arg| arg.as_encoded_bytes().iter().any(|c| b"?*".contains(c)))
+                .any(|arg| arg.as_encoded_bytes().iter().any(|c| b"?*[".contains(c)))
             {
-                return Err("wildcards are not allowed in command arguments".to_string());
+                return Err("glob patterns are not allowed in command arguments".to_string());
             }
 
             match_type(args.into_boxed_slice())

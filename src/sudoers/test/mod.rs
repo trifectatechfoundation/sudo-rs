@@ -3,7 +3,7 @@ use std::ffi::CStr;
 use super::ast;
 use super::char_stream::CharStream;
 use super::*;
-use basic_parser::{Status, parse_eval, parse_lines, parse_string};
+use basic_parser::{Status, parse_eval, parse_fatal, parse_lines, parse_string};
 
 impl<T> Qualified<T> {
     pub fn as_allow(&self) -> Option<&T> {
@@ -446,21 +446,24 @@ fn default_multi_test() {
 }
 
 #[test]
-#[should_panic]
 fn invalid_directive() {
-    parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");
+    assert!(parse_string::<ast::Sudo>("User_Alias, user Alias = user1, user2").is_err());
 }
 
 #[test]
-#[should_panic = "embedded $ in username"]
 fn invalid_username() {
-    parse_eval::<ast::Sudo>("User_Alias FOO = $dollar");
+    assert_eq!(
+        parse_fatal::<ast::Sudo>("User_Alias FOO = $dollar"),
+        "embedded $ in username"
+    );
 }
 
 #[test]
-#[should_panic = "wildcards are not allowed in command arguments"]
 fn wildcard_in_argument() {
-    parse_eval::<ast::Sudo>("user ALL=/bin/hello w*");
+    for arg in ["w*", "??w?", "stx[abc]"] {
+        let msg = parse_fatal::<ast::Sudo>(&format!("user ALL=/bin/hello {arg}"));
+        assert_eq!(msg, "glob patterns are not allowed in command arguments");
+    }
 }
 
 #[test]
@@ -486,9 +489,11 @@ fn sudoedit_recognized() {
 }
 
 #[test]
-#[should_panic = "list does not take arguments"]
 fn list_does_not_take_args() {
-    parse_eval::<ast::CommandSpec>("list /etc/tmux.conf");
+    assert_eq!(
+        parse_fatal::<ast::CommandSpec>("list /etc/tmux.conf"),
+        "list does not take arguments"
+    );
 }
 
 #[test]
