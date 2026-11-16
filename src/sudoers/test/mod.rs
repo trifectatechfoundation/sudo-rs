@@ -446,15 +446,16 @@ fn default_multi_test() {
 }
 
 #[test]
-#[should_panic]
 fn invalid_directive() {
-    parse_eval::<ast::Sudo>("User_Alias, user Alias = user1, user2");
+    assert!(parse_string::<ast::Sudo>("User_Alias, user Alias = user1, user2").is_err());
 }
 
 #[test]
-#[should_panic = "embedded $ in username"]
 fn invalid_username() {
-    parse_eval::<ast::Sudo>("User_Alias FOO = $dollar");
+    assert_eq!(
+        parse_fatal::<ast::Sudo>("User_Alias FOO = $dollar"),
+        "embedded $ in username"
+    );
 }
 
 #[test]
@@ -488,9 +489,11 @@ fn sudoedit_recognized() {
 }
 
 #[test]
-#[should_panic = "list does not take arguments"]
 fn list_does_not_take_args() {
-    parse_eval::<ast::CommandSpec>("list /etc/tmux.conf");
+    assert_eq!(
+        parse_fatal::<ast::CommandSpec>("list /etc/tmux.conf"),
+        "list does not take arguments"
+    );
 }
 
 #[test]
