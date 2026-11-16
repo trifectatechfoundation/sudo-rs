@@ -2,11 +2,11 @@ use sudo_test::{Command, Env, User};
 
 use crate::{PASSWORD, USERNAME};
 
-fn test_prompt(env: &Env, prompt_str: &str, prompt_res: &str, mode_flag: &str) {
+fn test_prompt(env: &Env, prompt_str: &str, prompt_res: &str, args: &str) {
     let output = Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "echo {PASSWORD} | SUDO_PROMPT='{prompt_str}' sudo -S {mode_flag}"
+            "echo {PASSWORD} | EDITOR=/bin/true SUDO_PROMPT='{prompt_str}' sudo -S {args}"
         ))
         .as_user(USERNAME)
         .output(env);
@@ -14,9 +14,9 @@ fn test_prompt(env: &Env, prompt_str: &str, prompt_res: &str, mode_flag: &str) {
     output.assert_success();
 
     if sudo_test::is_original_sudo() {
-        assert_eq!(output.stderr(), prompt_res);
+        assert_contains!(output.stderr(), prompt_res);
     } else {
-        assert_eq!(output.stderr(), format!("[sudo: {prompt_res}] Password: "));
+        assert_contains!(output.stderr(), format!("[sudo: {prompt_res}] Password: "));
     }
 }
 
@@ -36,7 +36,7 @@ fn show_host_and_users_for_list_and_verify() {
         .user(User(USERNAME).password(PASSWORD))
         .build();
 
-    for mode in ["-v", "-l"] {
+    for mode in ["-v", "-l", "-e /etc/sudoers", "true"] {
         test_prompt(
             &env,
             "on %H/%h: %u %U",
