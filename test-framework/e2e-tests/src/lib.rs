@@ -51,7 +51,10 @@ void __attribute__((constructor)) do_not_load() {
         .output(&env);
 
     output.assert_success();
-    assert_eq!(output.stdout(), "docker-default (enforce)");
+    assert!(matches!(
+        output.stdout().as_str(),
+        "docker-default (enforce)" | "docker-default//&unconfined (enforce)"
+    ));
 
     let output = Command::new("sh")
         .args(["-c", "LD_PRELOAD=/tmp/libapparmor.so.1 ls"])

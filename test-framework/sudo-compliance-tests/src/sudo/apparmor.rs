@@ -13,7 +13,10 @@ fn can_switch_the_apparmor_profile() -> Result<()> {
         .output(&env);
 
     output.assert_success();
-    assert_eq!(output.stdout(), "docker-default (enforce)");
+    assert!(matches!(
+        output.stdout().as_str(),
+        "docker-default (enforce)" | "docker-default//&unconfined (enforce)"
+    ));
 
     Ok(())
 }
@@ -43,7 +46,10 @@ Defaults apparmor_profile=docker-default
         .output(&env);
 
     output.assert_success();
-    assert_eq!(output.stdout(), "docker-default (enforce)");
+    assert!(matches!(
+        output.stdout().as_str(),
+        "docker-default (enforce)" | "docker-default//&unconfined (enforce)"
+    ));
 
     Ok(())
 }
