@@ -338,6 +338,31 @@ where
     result
 }
 
+/// Escape hatch to easily set arbitrary limits
+#[repr(transparent)]
+pub struct Limit<T, const N: usize>(T);
+
+/// Convert a Vec<Limit<T,N>> into a Vec<T>.
+pub fn limit<const N: usize, T>(items: Vec<Limit<T, N>>) -> Vec<T> {
+    items.into_iter().map(|x| x.0).collect()
+}
+
+impl<const N: usize, T: Many> Many for Limit<T, N> {
+    const SEP: char = T::SEP;
+    const LIMIT: usize = N;
+}
+
+impl<const N: usize, T: Parse> Parse for Limit<T, N> {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
+        make(Self(T::parse(stream)?))
+    }
+}
+
+#[cfg(not(test))]
+impl<const N: usize, T: UserFriendly> UserFriendly for Limit<T, N> {
+    const DESCRIPTION: &str = T::DESCRIPTION;
+}
+
 #[cfg(test)]
 fn expect_complete<T: Parse>(stream: &mut CharStream) -> Parsed<T> {
     let result = expect_nonterminal(stream)?;
