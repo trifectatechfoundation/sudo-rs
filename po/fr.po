@@ -408,7 +408,7 @@ msgid ""
 "  --                            stop processing command line arguments"
 msgstr ""
 "Options :\n"
-"  -B, --bell                    émettre un bip lors de la demande de mot de passe\n"
+"  -B, --bell                    émettre un bip lors de la demande de saisie\n"
 "  -g, --group=groupe            exécuter la commande avec le groupe indiqué\n"
 "                                (nom ou GID)\n"
 "  -h, --help                    afficher l'aide et quitter\n"
@@ -425,7 +425,7 @@ msgstr ""
 #: src/sudo/cli/mod.rs:379 src/sudo/cli/mod.rs:392 src/sudo/cli/mod.rs:823
 #, rust-format
 msgid "{context} cannot be used together with {option}"
-msgstr "{context} et {option} ne peuvent pas être utilisés ensemble"
+msgstr "{context} et {option} ne peuvent pas être utilisées ensemble"
 
 #: src/sudo/cli/mod.rs:227
 msgid "must specify at least one file path"
@@ -479,7 +479,7 @@ msgstr ""
 
 #: src/sudo/cli/mod.rs:716 src/sudo/cli/mod.rs:745
 msgid "invalid option provided"
-msgstr "option non valide"
+msgstr "une option non valide a été fournie"
 
 #: src/sudo/cli/mod.rs:763
 msgid "sudoedit doesn't need to be run via sudo"
@@ -581,7 +581,7 @@ msgstr ""
 "Options :\n"
 "  -A, --askpass                 utiliser un programme auxiliaire pour demander le mot de passe\n"
 "  -b, --background              exécuter la commande en arrière-plan\n"
-"  -B, --bell                    émettre un bip lors de la demande de mot de passe\n"
+"  -B, --bell                    émettre un bip lors de la demande de saisie\n"
 "  -D, --chdir=répertoire        changer de répertoire de travail avant d'exécuter la commande\n"
 "  -e, --edit                    modifier des fichiers au lieu d'exécuter une commande\n"
 "  -g, --group=groupe            exécuter la commande avec le groupe indiqué (nom ou GID)\n"
