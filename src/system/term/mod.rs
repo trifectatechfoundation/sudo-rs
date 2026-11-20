@@ -116,6 +116,16 @@ impl PtyLeader {
         }
         Ok(())
     }
+
+    /// Replaces `PtyLeader`'s `File` with /dev/null, allowing the original file descriptor to be
+    /// dropped (and therefore closed). This is necessary for correctly handling the SIGHUP signal.
+    /// Without closing this file descriptor the child command ignores the forwarded SIGHUP, which
+    /// can cause lingering processes.
+    pub(crate) fn make_dangling(&mut self) {
+        if let Ok(file) = File::open("/dev/null") {
+            self.file = file;
+        }
+    }
 }
 
 impl io::Read for PtyLeader {

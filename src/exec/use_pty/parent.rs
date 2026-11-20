@@ -62,6 +62,12 @@ pub(in crate::exec) fn exec_pty(
         Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
     }
 
+    if let Err(err) =
+        SignalHandler::register(SIGHUP, SignalHandlerBehavior::Stream, &mut original_signals)
+    {
+        dev_warn!("cannot set handler for SIGHUP: {err}")
+    };
+
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
     // `policy_init_session`.
     // FIXME (ogsudo): initializes ttyblock sigset here by calling `init_ttyblock`
@@ -713,6 +719,11 @@ impl ParentClosure {
                     dev_warn!("cannot resize terminal: {}", err);
                 }
             }
+            SIGHUP => {
+                if let Err(err) = self.handle_sighup() {
+                    dev_warn!("failed to handle SIGHUP: {}", err);
+                }
+            }
             signal => {
                 if let Some(pid) = info.signaler_pid() {
                     if self.is_self_terminating(pid) {
@@ -725,6 +736,18 @@ impl ParentClosure {
                 self.schedule_signal(signal, registry)
             }
         }
+    }
+
+    fn handle_sighup(&mut self) -> io::Result<()> {
+        dev_info!("received SIGHUP, closing PtyLeader and forwarding to child command");
+
+        self.tty_pipe.right_mut().make_dangling();
+
+        if let Some(command_pid) = self.command_pid.take() {
+            let _ = killpg(command_pid, SIGHUP);
+        };
+
+        Ok(())
     }
 
     fn handle_sigwinch(&mut self) -> io::Result<()> {
