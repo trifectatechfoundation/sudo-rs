@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
+use std::fs::File;
 use std::io;
 use std::process::{Command, Stdio};
 
@@ -61,6 +62,12 @@ pub(in crate::exec) fn exec_pty(
         Ok(handler) => handler.forget(),
         Err(err) => dev_warn!("cannot set handler for SIGTTOU: {err}"),
     }
+
+    if let Err(err) =
+        SignalHandler::register(SIGHUP, SignalHandlerBehavior::Stream, &mut original_signals)
+    {
+        dev_warn!("cannot set handler for SIGHUP: {err}")
+    };
 
     // FIXME (ogsudo): Initialize the policy plugin's session here by calling
     // `policy_init_session`.
@@ -713,6 +720,12 @@ impl ParentClosure {
                     dev_warn!("cannot resize terminal: {}", err);
                 }
             }
+            SIGHUP => {
+                dev_info!("received SIGHUP, you're in the right place");
+                if let Err(err) = self.handle_sighup() {
+                    dev_warn!("failed to handle SIGHUP: {}", err);
+                }
+            }
             signal => {
                 if let Some(pid) = info.signaler_pid() {
                     if self.is_self_terminating(pid) {
@@ -725,6 +738,17 @@ impl ParentClosure {
                 self.schedule_signal(signal, registry)
             }
         }
+    }
+
+    fn handle_sighup(&mut self) -> io::Result<()> {
+        dev_info!("closing PtyLeader");
+        self.tty_pipe.right.file = File::open("/dev/null").unwrap();
+
+        if let Some(command_pid) = self.command_pid.take() {
+            let _ = killpg(command_pid, SIGHUP);
+        };
+
+        Ok(())
     }
 
     fn handle_sigwinch(&mut self) -> io::Result<()> {

@@ -13,7 +13,7 @@ use self::ring_buffer::RingBuffer;
 // A pipe able to stream data bidirectionally between two read-write types.
 pub(super) struct Pipe<L, R> {
     left: L,
-    right: R,
+    pub right: R,
     buffer_lr: Buffer<L, R>,
     buffer_rl: Buffer<R, L>,
     background: bool,
