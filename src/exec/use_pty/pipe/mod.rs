@@ -13,7 +13,7 @@ use self::ring_buffer::RingBuffer;
 // A pipe able to stream data bidirectionally between two read-write types.
 pub(super) struct Pipe<L, R> {
     left: L,
-    pub right: R,
+    right: R,
     buffer_lr: Buffer<L, R>,
     buffer_rl: Buffer<R, L>,
     background: bool,
@@ -58,6 +58,11 @@ impl<L: Read + Write + AsFd, R: Read + Write + AsFd> Pipe<L, R> {
     /// Get a reference to the right side of the pipe.
     pub(super) fn right(&self) -> &R {
         &self.right
+    }
+
+    /// Get a mutable reference to the right side of the pipe.
+    pub(super) fn right_mut(&mut self) -> &mut R {
+        &mut self.right
     }
 
     /// Stop the poll events of this pipe.
