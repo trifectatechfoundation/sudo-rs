@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::fs::File;
 use std::io;
 use std::process::{Command, Stdio};
 
@@ -721,7 +720,6 @@ impl ParentClosure {
                 }
             }
             SIGHUP => {
-                dev_info!("received SIGHUP, you're in the right place");
                 if let Err(err) = self.handle_sighup() {
                     dev_warn!("failed to handle SIGHUP: {}", err);
                 }
@@ -741,8 +739,9 @@ impl ParentClosure {
     }
 
     fn handle_sighup(&mut self) -> io::Result<()> {
-        dev_info!("closing PtyLeader");
-        self.tty_pipe.right.file = File::open("/dev/null").unwrap();
+        dev_info!("received SIGHUP, closing PtyLeader and forwarding to child command");
+
+        self.tty_pipe.right_mut().make_dangling();
 
         if let Some(command_pid) = self.command_pid.take() {
             let _ = killpg(command_pid, SIGHUP);
