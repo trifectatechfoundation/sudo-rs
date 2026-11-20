@@ -149,7 +149,7 @@ fn prompt_password(
         drop(hide_input);
         drop(handlers);
 
-        while let Some(signal) = signal::take_first_pending() {
+        if let Some(signal) = signal::take_first_pending() {
             match signal {
                 SIGTSTP | SIGTTIN | SIGTTOU => {
                     crate::system::kill(crate::system::Process::process_id(), signal)?;
