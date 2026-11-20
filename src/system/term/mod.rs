@@ -80,7 +80,7 @@ impl Pty {
 }
 
 pub(crate) struct PtyLeader {
-    file: File,
+    pub file: File,
 }
 
 impl PtyLeader {
