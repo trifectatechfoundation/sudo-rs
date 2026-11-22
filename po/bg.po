@@ -1,0 +1,630 @@
+# Translation template file for sudo-rs
+# Copyright (C) 2025 Trifecta Tech Foundation
+# This file is distributed under the same license as the sudo-rs package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: sudo-rs 0.2.13\n"
+"Report-Msgid-Bugs-To: https://github.com/trifectatechfoundation/sudo-rs/"
+"issues\n"
+"POT-Creation-Date: 2026-10-03 17:30+0100\n"
+"PO-Revision-Date: 2026-10-03 17:30+0100\n"
+"Last-Translator: Salif Mehmed <mail@salif.eu>\n"
+"Language-Team: Bulgarian\n"
+"Language: bg\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. TRANSLATORS: This is a well-known quote, try to preserve it in translation.
+#: src/common/error.rs:89
+#, rust-format
+msgid "I'm sorry {user}. I'm afraid I can't do that"
+msgstr "Съжалявам, {user}. Опасявам се, че не мога да направя това"
+
+#: src/sudoers/entry/verbose.rs:33
+msgid "Commands:"
+msgstr "Команди:"
+
+#: src/sudoers/entry/verbose.rs:46
+msgid "Sudoers entry:"
+msgstr "Запис в sudoers:"
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:54
+msgid "RunAsUsers"
+msgstr "RunAsUsers"
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:64
+msgid "RunAsGroups"
+msgstr "RunAsGroups"
+
+#: src/sudoers/entry/verbose.rs:70
+msgid "Options"
+msgstr "Опции"
+
+#. TRANSLATORS: This is sudo-specific jargon.
+#: src/sudoers/entry/verbose.rs:79
+msgid "Cwd"
+msgstr "Cwd"
+
+#: src/pam/askpass.rs:53
+#, rust-format
+msgid "Failed to run askpass program {path}: {error}"
+msgstr "Неуспешно изпълнение на програмата askpass {path}: {error}"
+
+#: src/pam/error.rs:211 src/common/error.rs:136 src/common/error.rs:143
+msgid "Unexpected null character in input"
+msgstr "Неочакван нулев символ във входните данни"
+
+#: src/pam/error.rs:212
+msgid "Could not read input data as UTF-8 string"
+msgstr "Входните данни не можаха да бъдат прочетени като UTF-8 низ"
+
+#: src/pam/error.rs:214
+msgid "Account validation failure, is your account locked?"
+msgstr "Неуспешна проверка на акаунта, заключен ли е акаунтът ви?"
+
+#: src/pam/error.rs:219
+msgid "Account or password is expired, reset your password and try again"
+msgstr ""
+"Акаунтът или паролата са с изтекъл срок, сменете паролата си и опитайте "
+"отново"
+
+#: src/pam/error.rs:223
+msgid "Password expired, contact your system administrator"
+msgstr "Паролата е с изтекъл срок, свържете се със системния администратор"
+
+#: src/pam/error.rs:225
+#, rust-format
+msgid "PAM error: {error}"
+msgstr "Грешка в „PAM“: {error}"
+
+#: src/pam/error.rs:226 src/common/error.rs:116
+#, rust-format
+msgid "IO error: {error}"
+msgstr "Входно-изходна грешка: {error}"
+
+#: src/pam/error.rs:227
+msgid "A terminal is required to authenticate"
+msgstr "Необходим е терминал за удостоверяване"
+
+#: src/pam/error.rs:231
+msgid "It was not possible to get a list of environment variables"
+msgstr "Не беше възможно да се получи списък на променливите на средата"
+
+#: src/pam/error.rs:234
+msgid "Interaction is required"
+msgstr "Изисква се взаимодействие"
+
+#: src/pam/error.rs:236
+msgid "Authentication required but not attempted"
+msgstr "Изисква се удостоверяване, но не е направен опит"
+
+#: src/pam/error.rs:239
+msgid "Incorrect authentication attempt"
+msgstr "Неправилен опит за удостоверяване"
+
+#: src/pam/error.rs:241
+msgid "timed out"
+msgstr "времето за изчакване изтече"
+
+#: src/pam/error.rs:245
+#, rust-format
+msgid "Sorry, user {user} is not allowed to authenticate as {other_user}."
+msgstr ""
+"За съжаление потребителят {user} няма право да се удостоверява като "
+"{other_user}."
+
+#: src/pam/error.rs:251
+msgid "No askpass program specified in SUDO_ASKPASS"
+msgstr "Не е зададена програма askpass в SUDO_ASKPASS"
+
+#: src/pam/error.rs:256
+#, rust-format
+msgid "Askpass program '{path}' is not an absolute path"
+msgstr "Програмата askpass „{path}“ не е абсолютен път"
+
+#: src/pam/mod.rs:86
+msgid "authenticate"
+msgstr "удостоверяване"
+
+#: src/pam/converse.rs:153
+msgid "input needed"
+msgstr "необходимо е въвеждане"
+
+#: src/system/audit.rs:181
+#, rust-format
+msgid "{path} must be owned by root"
+msgstr "{path} трябва да е собственост на „root“"
+
+#: src/system/audit.rs:186
+#, rust-format
+msgid "{path} cannot be group-writable"
+msgstr "{path} не може да позволява запис от групата"
+
+#: src/system/audit.rs:191
+#, rust-format
+msgid "{path} cannot be world-writable"
+msgstr "{path} не може да позволява запис от всички"
+
+#: src/system/audit.rs:228 src/system/audit.rs:253
+#, rust-format
+msgid "{path} has no valid parent directory"
+msgstr "{path} няма валидна родителска директория"
+
+#: src/system/audit.rs:331
+msgid "invalid path"
+msgstr "невалиден път"
+
+#: src/system/audit.rs:339
+msgid "path must be absolute"
+msgstr "пътят трябва да е абсолютен"
+
+#: src/system/audit.rs:351 src/system/audit.rs:375
+msgid "cannot open a file in a path writable by the user"
+msgstr ""
+"не може да се отвори файл в път, в който потребителят има права за запис"
+
+#: src/system/audit.rs:393
+msgid "error in provided path"
+msgstr "грешка в подадения път"
+
+#: src/common/error.rs:52
+#, rust-format
+msgid ""
+"Sorry, user {user} is not allowed to execute '{command}' as {other_user} on "
+"{hostname}."
+msgstr ""
+"За съжаление потребителят {user} няма право да изпълнява „{command}“ като "
+"{other_user} на {hostname}."
+
+#: src/common/error.rs:61
+#, rust-format
+msgid "Sorry, user {user} may not run {command} on {hostname}."
+msgstr ""
+"За съжаление потребителят {user} няма право да изпълнява {command} на "
+"{hostname}."
+
+#: src/common/error.rs:69
+msgid "sudo must be owned by uid 0 and have the setuid bit set"
+msgstr "sudo трябва да е собственост на uid 0 и да има зададен setuid bit"
+
+#: src/common/error.rs:80
+#, rust-format
+msgid "'{path}': command not found"
+msgstr "„{path}“: командата не е намерена"
+
+#: src/common/error.rs:83
+#, rust-format
+msgid "'{path}': invalid command"
+msgstr "„{path}“: невалидна команда"
+
+#: src/common/error.rs:85
+#, rust-format
+msgid "user '{user}' not found"
+msgstr "потребител „{user}“ не е намерен"
+
+#: src/common/error.rs:86
+#, rust-format
+msgid "group '{group}' not found"
+msgstr "група „{group}“ не е намерена"
+
+#: src/common/error.rs:91
+msgid "interactive authentication is required"
+msgstr "изисква се интерактивно удостоверяване"
+
+#: src/common/error.rs:95
+msgid "you are not allowed to set the following environment variables:"
+msgstr "нямате право да задавате следните променливи на средата:"
+
+#: src/common/error.rs:111
+#, rust-format
+msgid "cannot execute '{path}': {error}"
+msgstr "не може да се изпълни „{path}“: {error}"
+
+#: src/common/error.rs:122
+#, rust-format
+msgid "maximum {num} incorrect authentication attempts"
+msgstr "максимум {num} неправилни опита за удостоверяване"
+
+#: src/common/error.rs:128
+#, rust-format
+msgid "you are not allowed to use '--chdir {path}' with '{command}'"
+msgstr "нямате право да използвате „--chdir {path}“ с „{command}“"
+
+#: src/common/error.rs:150
+#, rust-format
+msgid "unable to change AppArmor profile to {profile}: {error}"
+msgstr "не може да се смени профилът в AppArmor на {profile}: {error}"
+
+#: src/sudo/pam.rs:127
+msgid "Authentication failed, try again."
+msgstr "Неуспешно удостоверяване, опитайте отново."
+
+#: src/exec/mod.rs:154
+#, rust-format
+msgid "unable to change directory to {path}: {error}"
+msgstr "не може да се смени директорията на {path}: {error}"
+
+#: src/sudo/edit.rs:47
+#, rust-format
+msgid "failed to read metadata for {path}: {error}"
+msgstr "неуспешно четене на метаданните за {path}: {error}"
+
+#: src/sudo/edit.rs:55
+#, rust-format
+msgid "file {path} is not a regular file"
+msgstr "файлът {path} не е обикновен файл"
+
+#: src/sudo/edit.rs:65
+#, rust-format
+msgid "failed to lock {path}: {error}"
+msgstr "неуспешно заключване на {path}: {error}"
+
+#: src/sudo/edit.rs:78
+#, rust-format
+msgid "failed to read {path}: {error}"
+msgstr "неуспешно четене на {path}: {error}"
+
+#: src/sudo/edit.rs:145
+#, rust-format
+msgid "{path} unchanged"
+msgstr "{path} не е променен"
+
+#: src/sudo/edit.rs:165
+#, rust-format
+msgid "failed to write {path}: {error}"
+msgstr "неуспешен запис в {path}: {error}"
+
+#: src/sudo/edit.rs:184
+#, rust-format
+msgid "failed to remove temporary directory {path}: {error}"
+msgstr "неуспешно премахване на временната директория {path}: {error}"
+
+#: src/sudo/edit.rs:196
+#, rust-format
+msgid "{error}"
+msgstr "{error}"
+
+#: src/sudo/edit.rs:215
+#, rust-format
+msgid "failed to create temporary directory: {error}"
+msgstr "неуспешно създаване на временна директория: {error}"
+
+#: src/sudo/edit.rs:223
+#, rust-format
+msgid "failed to create temporary directory {path}: {error}"
+msgstr "неуспешно създаване на временната директория {path}: {error}"
+
+#: src/sudo/edit.rs:237
+#, rust-format
+msgid "failed to create temporary file {path}: {error}"
+msgstr "неуспешно създаване на временния файл {path}: {error}"
+
+#: src/sudo/edit.rs:246
+#, rust-format
+msgid "failed to write to temporary file {path}: {error}"
+msgstr "неуспешен запис във временния файл {path}: {error}"
+
+#: src/sudo/edit.rs:266
+#, rust-format
+msgid "failed to run editor {path}: {error}"
+msgstr "неуспешно изпълнение на редактора {path}: {error}"
+
+#: src/sudo/edit.rs:287
+#, rust-format
+msgid "failed to read from temporary file {path}: {error}"
+msgstr "неуспешно четене от временния файл {path}: {error}"
+
+#: src/sudo/edit.rs:296
+#, rust-format
+msgid "failed to remove temporary file {path}: {error}"
+msgstr "неуспешно премахване на временния файл {path}: {error}"
+
+#. TRANSLATORS: the initial letters of 'yes' and 'no' responses, in that order
+#: src/sudo/edit.rs:305
+msgid "yn"
+msgstr "yn"
+
+#: src/sudo/edit.rs:309
+#, rust-format
+msgid "sudoedit: truncate {path} to zero? (y/n) [n] "
+msgstr "sudoedit: да се съкрати ли {path} до нула? (y/n) [n] "
+
+#: src/sudo/edit.rs:322
+#, rust-format
+msgid "not overwriting {path}"
+msgstr "без презаписване на {path}"
+
+#: src/sudo/edit.rs:326 src/sudo/edit.rs:335
+#, rust-format
+msgid "failed to write data to parent: {error}"
+msgstr "неуспешен запис на данните към родителския процес: {error}"
+
+#: src/sudo/pipeline/edit.rs:33
+#, rust-format
+msgid "{path}: editing symbolic links is not permitted"
+msgstr "{path}: редактирането на символни връзки не е разрешено"
+
+#: src/sudo/pipeline/edit.rs:39
+#, rust-format
+msgid "error opening {path}: {error}"
+msgstr "грешка при отваряне на {path}: {error}"
+
+#: src/sudo/pipeline/edit.rs:46
+#, rust-format
+msgid "invalid path: {path}"
+msgstr "невалиден път: {path}"
+
+#: src/sudo/pipeline/edit.rs:51
+msgid "please address the problems and try again"
+msgstr "моля, отстранете проблемите и опитайте отново"
+
+#: src/sudo/pipeline/list.rs:48
+#, rust-format
+msgid "User {user} may run the following commands on {hostname}:"
+msgstr "Потребителят {user} може да изпълнява следните команди на {hostname}:"
+
+#: src/sudo/pipeline/list.rs:63
+#, rust-format
+msgid "User {user} is not allowed to run sudo on {hostname}."
+msgstr "Потребителят {user} няма право да изпълнява sudo на {hostname}."
+
+#: src/sudo/cli/help_edit.rs:3
+msgid ""
+"usage: sudoedit -h | -V\n"
+"usage: sudoedit [-BknS] [-p prompt] [-g group] [-u user] file ..."
+msgstr ""
+"употреба: sudoedit -h | -V\n"
+"употреба: sudoedit [-BknS] [-p подкана] [-g група] [-u потребител] файл ..."
+
+#: src/sudo/cli/help_edit.rs:10
+msgid "sudoedit - edit files as another user"
+msgstr "sudoedit - редактиране на файлове като друг потребител"
+
+#: src/sudo/cli/help_edit.rs:15
+msgid ""
+"Options:\n"
+"  -B, --bell                    ring bell when prompting\n"
+"  -g, --group=group             run command as the specified group name or "
+"ID\n"
+"  -h, --help                    display help message and exit\n"
+"  -k, --reset-timestamp         invalidate timestamp file\n"
+"  -n, --non-interactive         non-interactive mode, no prompts are used\n"
+"  -p, --prompt=prompt           use the specified password prompt\n"
+"  -S, --stdin                   read password from standard input\n"
+"  -u, --user=user               run command (or edit file) as specified "
+"user\n"
+"                                name or ID\n"
+"  -V, --version                 display version information and exit\n"
+"  --                            stop processing command line arguments"
+msgstr ""
+"Опции:\n"
+"  -B, --bell                    издаване на звуков сигнал при подкана\n"
+"  -g, --group=група             изпълняване на команда като посочената\n"
+"                                група (име или ИД)\n"
+"  -h, --help                    показване на помощното съобщение и изход\n"
+"  -k, --reset-timestamp         обезсилване на файла с времевия печат\n"
+"  -n, --non-interactive         неинтерактивен режим, без използване на\n"
+"                                подкани\n"
+"  -p, --prompt=подкана          използване на посочената подкана за парола\n"
+"  -S, --stdin                   четене на паролата от стандартния вход\n"
+"  -u, --user=потребител         изпълняване на команда (или редактиране\n"
+"                                на файл) като посочения потребител\n"
+"                                (име или ИД)\n"
+"  -V, --version                 показване на информацията за версията и\n"
+"                                изход\n"
+"  --                            спиране на обработката на аргументите от\n"
+"                                командния ред"
+
+#: src/sudo/cli/mod.rs:153 src/sudo/cli/mod.rs:218 src/sudo/cli/mod.rs:290
+#: src/sudo/cli/mod.rs:379 src/sudo/cli/mod.rs:392 src/sudo/cli/mod.rs:823
+#, rust-format
+msgid "{context} cannot be used together with {option}"
+msgstr "{context} не може да се използва заедно с {option}"
+
+#: src/sudo/cli/mod.rs:227
+msgid "must specify at least one file path"
+msgstr "трябва да се зададе поне един път до файл"
+
+#: src/sudo/cli/mod.rs:302
+#, rust-format
+msgid "'{option}' flag must be accompanied by a command"
+msgstr "флагът „{option}“ трябва да бъде придружен от команда"
+
+#: src/sudo/cli/mod.rs:388
+msgid "command (positional argument)"
+msgstr "команда (позиционен аргумент)"
+
+#: src/sudo/cli/mod.rs:403
+msgid "expected one of: --login, --shell, a command as a positional argument"
+msgstr "очаква се някое от: --login, --shell, команда като позиционен аргумент"
+
+#: src/sudo/cli/mod.rs:544
+#, rust-format
+msgid "'{option}' does not take any arguments"
+msgstr "„{option}“ не приема аргументи"
+
+#: src/sudo/cli/mod.rs:556 src/sudo/cli/mod.rs:589
+#, rust-format
+msgid "'{option}' expects an argument"
+msgstr "„{option}“ очаква аргумент"
+
+#: src/sudo/cli/mod.rs:577
+msgid "invalid option '='"
+msgstr "невалидна опция „=“"
+
+#: src/sudo/cli/mod.rs:632
+msgid ""
+"expected one of these actions: --help, --version, --remove-timestamp, --"
+"validate, --list, --edit, --login, --shell, a command as a positional "
+"argument, --reset-timestamp"
+msgstr ""
+"очаква се едно от следните действия: --help, --version, --remove-timestamp, "
+"--validate, --list, --edit, --login, --shell, команда като позиционен "
+"аргумент, --reset-timestamp"
+
+#: src/sudo/cli/mod.rs:672
+#, rust-format
+msgid "preserving the entire environment is not supported, '{flag}' is ignored"
+msgstr "запазването на цялата среда не се поддържа, „{flag}“ се пренебрегва"
+
+#: src/sudo/cli/mod.rs:716 src/sudo/cli/mod.rs:745
+msgid "invalid option provided"
+msgstr "подадена е невалидна опция"
+
+#: src/sudo/cli/mod.rs:763
+msgid "sudoedit doesn't need to be run via sudo"
+msgstr "не е необходимо sudoedit да се изпълнява чрез sudo"
+
+#: src/sudo/cli/mod.rs:875
+msgid "command"
+msgstr "команда"
+
+#: src/sudo/cli/mod.rs:876
+msgid "environment variable"
+msgstr "променлива на средата"
+
+#: src/sudo/cli/help.rs:13
+msgid "sudo - run commands as another user"
+msgstr "sudo - изпълняване на команди като друг потребител"
+
+#: src/sudo/pipeline.rs:30
+#, rust-format
+msgid ""
+"sudoers file not found: {path}\n"
+"\n"
+"The sudoers file is required for sudo-rs to function. Please ensure:\n"
+"- The file exists at the expected location\n"
+"- You have the necessary permissions to read it\n"
+"- If setting up sudo-rs for the first time, create a sudoers file with "
+"appropriate permissions\n"
+"\n"
+"For more information, see the sudo-rs documentation."
+msgstr ""
+"файлът sudoers не е намерен: {path}\n"
+"\n"
+"Файлът sudoers е необходим за работата на sudo-rs. Моля, уверете се в "
+"следното:\n"
+"- Файлът съществува на очакваното местоположение\n"
+"- Имате необходимите права за четенето му\n"
+"- Ако настройвате sudo-rs за пръв път, създайте файл sudoers с подходящи "
+"права\n"
+"\n"
+"За повече информация вижте документацията на sudo-rs."
+
+#: src/sudo/pipeline.rs:41
+#, rust-format
+msgid "invalid configuration: {error}"
+msgstr "невалидна конфигурация: {error}"
+
+#: src/sudo/cli/help.rs:3
+msgid ""
+"usage: sudo -h | -K | -k | -V\n"
+"usage: sudo [-ABbknS] [-p prompt] [-D directory] [-g group] [-u user] [-i | "
+"-s] [command [arg ...]]\n"
+"usage: sudo -v [-ABknS] [-p prompt] [-g group] [-u user]\n"
+"usage: sudo -l [-ABknS] [-p prompt] [-U user] [-g group] [-u user] [command "
+"[arg ...]]\n"
+"usage: sudo -e [-ABknS] [-p prompt] [-D directory] [-g group] [-u user] "
+"file ..."
+msgstr ""
+"употреба: sudo -h | -K | -k | -V\n"
+"употреба: sudo [-ABbknS] [-p подкана] [-D директория] [-g група] [-u "
+"потребител] [-i | -s] [команда [аргумент ...]]\n"
+"употреба: sudo -v [-ABknS] [-p подкана] [-g група] [-u потребител]\n"
+"употреба: sudo -l [-ABknS] [-p подкана] [-U потребител] [-g група] [-u "
+"потребител] [команда [аргумент ...]]\n"
+"употреба: sudo -e [-ABknS] [-p подкана] [-D директория] [-g група] [-u "
+"потребител] файл ..."
+
+#: src/sudo/cli/help.rs:17
+msgid ""
+"Options:\n"
+"  -A, --askpass                 use a helper program for password prompting\n"
+"  -b, --background              run command in the background\n"
+"  -B, --bell                    ring bell when prompting\n"
+"  -D, --chdir=directory         change the working directory before running "
+"command\n"
+"  -e, --edit                    edit files instead of running a command\n"
+"  -g, --group=group             run command as the specified group name or "
+"ID\n"
+"  -h, --help                    display help message and exit\n"
+"  -i, --login                   run login shell as the target user; a "
+"command may also be specified\n"
+"  -K, --remove-timestamp        remove timestamp file completely\n"
+"  -k, --reset-timestamp         invalidate timestamp file\n"
+"  -l, --list                    list user's privileges or check a specific "
+"command; use twice for longer format\n"
+"  -n, --non-interactive         non-interactive mode, no prompts are used\n"
+"  -p, --prompt=prompt           use the specified password prompt\n"
+"  -S, --stdin                   read password from standard input\n"
+"  -s, --shell                   run shell as the target user; a command may "
+"also be specified\n"
+"  -U, --other-user=user         in list mode, display privileges for user\n"
+"  -u, --user=user               run command (or edit file) as specified user "
+"name or ID\n"
+"  -V, --version                 display version information and exit\n"
+"  -v, --validate                update user's timestamp without running a "
+"command\n"
+"      --preserve-env=list       preserve specific environment variables\n"
+"  --                            stop processing command line arguments"
+msgstr ""
+"Опции:\n"
+"  -A, --askpass                 използване на помощна програма за поискване\n"
+"                                на парола\n"
+"  -b, --background              изпълняване на командата във фонов режим\n"
+"  -B, --bell                    издаване на звуков сигнал при подкана\n"
+"  -D, --chdir=директория        смяна на работната директория преди\n"
+"                                изпълняване на командата\n"
+"  -e, --edit                    редактиране на файлове вместо изпълняване\n"
+"                                на команда\n"
+"  -g, --group=група             изпълняване на команда като посочената\n"
+"                                група (име или ИД)\n"
+"  -h, --help                    показване на помощното съобщение и изход\n"
+"  -i, --login                   изпълняване на входна обвивка като целевия\n"
+"                                потребител; може също да се зададе команда\n"
+"  -K, --remove-timestamp        пълно премахване на файла с времевия печат\n"
+"  -k, --reset-timestamp         обезсилване на файла с времевия печат\n"
+"  -l, --list                    извеждане на привилегиите на потребителя\n"
+"                                или проверка на конкретна команда;\n"
+"                                използвайте два пъти за по-дълъг формат\n"
+"  -n, --non-interactive         неинтерактивен режим, без използване на\n"
+"                                подкани\n"
+"  -p, --prompt=подкана          използване на посочената подкана за парола\n"
+"  -S, --stdin                   четене на паролата от стандартния вход\n"
+"  -s, --shell                   изпълняване на обвивка като целевия\n"
+"                                потребител; може също да се зададе команда\n"
+"  -U, --other-user=потребител   показване на привилегиите на посочения\n"
+"                                потребител в режим на списък\n"
+"  -u, --user=потребител         изпълняване на команда (или редактиране\n"
+"                                на файл) като посочения потребител\n"
+"                                (име или ИД)\n"
+"  -V, --version                 показване на информацията за версията и\n"
+"                                изход\n"
+"  -v, --validate                обновяване на времевия печат на потребителя\n"
+"                                без изпълняване на команда\n"
+"      --preserve-env=списък     запазване на определени променливи на\n"
+"                                средата\n"
+"  --                            спиране на обработката на аргументите от\n"
+"                                командния ред"
+
+#: src/common/error.rs:74
+msgid ""
+"The \"no new privileges\" flag is set, which prevents sudo from running as "
+"root.\n"
+"If sudo is running in a container, you may need to adjust the container "
+"configuration to disable the flag."
+msgstr ""
+"Флагът „без нови привилегии“ (no new privileges) е зададен, което не "
+"позволява на sudo да се изпълнява като root.\n"
+"Ако sudo се изпълнява в контейнер, може да се наложи да промените "
+"конфигурацията на контейнера, за да изключите този флаг."
+
+#: src/sudo/cli/mod.rs:505
+#, rust-format
+msgid "argument '{arg}' is not valid UTF-8"
+msgstr "аргументът „{arg}“ не е валиден UTF-8"
