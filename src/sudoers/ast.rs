@@ -157,11 +157,7 @@ pub enum Directive {
 }
 
 /// AST object for holding a settingsmodifier, or an unknown setting
-#[repr(u32)]
-pub enum SettingsModifier {
-    Valid(defaults::SettingsModifier) = HARDENED_ENUM_VALUE_0,
-    Invalid(Span, String) = HARDENED_ENUM_VALUE_1,
-}
+pub struct SettingsModifier(pub defaults::SettingsModifier, pub Option<(Span, String)>);
 
 /// AST object for the 'context' (host, user, cmnd, runas) of a Defaults directive
 #[repr(u32)]
@@ -890,8 +886,10 @@ impl Parse for SettingsModifier {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
         match try_nonterminal(stream) {
             Err(Status::Reject) => reject(),
-            Err(Status::Fatal(span, message)) => make(SettingsModifier::Invalid(span, message)),
-            Ok(modifier) => make(SettingsModifier::Valid(modifier)),
+            Err(Status::Fatal(span, message)) => {
+                make(SettingsModifier(Box::new(|_| {}), Some((span, message))))
+            }
+            Ok(modifier) => make(SettingsModifier(modifier, None)),
         }
     }
 }

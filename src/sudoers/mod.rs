@@ -880,7 +880,7 @@ fn analyze(
                     Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
 
                     Sudo::Decl(Defaults(params, scope)) => {
-                        let params = remove_unknown_defaults(params, cur_path, diagnostics);
+                        let params = warn_unknown_defaults(params, cur_path, diagnostics);
                         if let ConfigScope::Command(specs) = scope {
                             cfg.customisers.cmnd.push((
                                 specs
@@ -1018,20 +1018,20 @@ fn analyze(
         }));
     }
 
-    fn remove_unknown_defaults(
+    fn warn_unknown_defaults(
         modifiers: Vec<ast::SettingsModifier>,
         cur_path: &Path,
         diagnostics: &mut Vec<Error>,
     ) -> Vec<defaults::SettingsModifier> {
         let mut result = Vec::with_capacity(modifiers.len());
-        for entry in modifiers {
-            match entry {
-                SettingsModifier::Valid(f) => result.push(f),
-                SettingsModifier::Invalid(span, message) => diagnostics.push(Error {
+        for SettingsModifier(f, warn) in modifiers {
+            result.push(f);
+            if let Some((span, message)) = warn {
+                diagnostics.push(Error {
                     source: Some(cur_path.to_owned()),
                     location: Some(span),
                     message,
-                }),
+                })
             }
         }
 

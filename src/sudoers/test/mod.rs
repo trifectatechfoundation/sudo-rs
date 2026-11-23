@@ -28,9 +28,9 @@ impl Sudo {
 
     pub fn is_decl(&self) -> bool {
         match self {
-            Self::Decl(Directive::Defaults(list, _)) => list
-                .iter()
-                .any(|x| matches!(x, SettingsModifier::Valid(..))),
+            Self::Decl(Directive::Defaults(list, _)) => {
+                list.iter().any(|SettingsModifier(_, w)| w.is_none())
+            }
             Self::Decl(..) => true,
             _ => false,
         }
@@ -423,7 +423,7 @@ fn default_set_test() {
         let Sudo::Decl(Directive::Defaults(list, _)) = sudo else {
             panic!()
         };
-        matches!(list[0], SettingsModifier::Valid(_))
+        list[0].1.is_none()
     };
 
     assert!(!is_valid(parse_eval("Defaults verifypw = \"sometimes\"")));
