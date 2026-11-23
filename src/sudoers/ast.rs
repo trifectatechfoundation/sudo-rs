@@ -884,10 +884,15 @@ impl Parse for defaults::SettingsModifier {
     }
 }
 
+/// Parsing a SettingsModifier with error recovery
+/// This turns Fatal errors into a successful parse of an Invalid object
 impl Parse for SettingsModifier {
     fn parse(stream: &mut CharStream) -> Parsed<Self> {
-        let modifier = try_nonterminal(stream)?;
-        make(SettingsModifier::Valid(modifier))
+        match try_nonterminal(stream) {
+            Err(Status::Reject) => reject(),
+            Err(Status::Fatal(span, message)) => make(SettingsModifier::Invalid(span, message)),
+            Ok(modifier) => make(SettingsModifier::Valid(modifier)),
+        }
     }
 }
 
