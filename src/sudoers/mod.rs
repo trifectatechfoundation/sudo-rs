@@ -880,6 +880,7 @@ fn analyze(
                     Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
 
                     Sudo::Decl(Defaults(params, scope)) => {
+                        let params = remove_unknown_defaults(params, cur_path, diagnostics);
                         if let ConfigScope::Command(specs) = scope {
                             cfg.customisers.cmnd.push((
                                 specs
@@ -1015,6 +1016,26 @@ fn analyze(
             location: Some(span),
             message: "this tag is ignored by sudo-rs".to_string(),
         }));
+    }
+
+    fn remove_unknown_defaults(
+        modifiers: Vec<ast::SettingsModifier>,
+        cur_path: &Path,
+        diagnostics: &mut Vec<Error>,
+    ) -> Vec<defaults::SettingsModifier> {
+        let mut result = Vec::with_capacity(modifiers.len());
+        for entry in modifiers {
+            match entry {
+                SettingsModifier::Valid(f) => result.push(f),
+                SettingsModifier::Invalid(span, message) => diagnostics.push(Error {
+                    source: Some(cur_path.to_owned()),
+                    location: Some(span),
+                    message,
+                }),
+            }
+        }
+
+        result
     }
 
     let mut diagnostics = vec![];
