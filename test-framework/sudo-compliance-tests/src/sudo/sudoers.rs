@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use sudo_test::{Command, ETC_DIR, Env, ROOT_GROUP, TextFile, User};
 
-use crate::{PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME};
+use crate::{PASSWORD, SUDOERS_ROOT_ALL_NOPASSWD, USERNAME, helpers};
 
 mod cmnd;
 mod cmnd_alias;
@@ -286,4 +286,28 @@ fn regex_not_interpreted_literally() {
     let output = Command::new("sudo").args(["echo", "^huk$"]).output(&env);
 
     output.assert_exit_code(1);
+}
+
+#[test]
+fn errors_in_defaults_have_only_local_effects() {
+    for defaults in [
+        "Defaults unsupported\nDefaults secure_path=/bin",
+        "Defaults secure_path=/bin\n Defaults unsupported",
+        "Defaults unsupported, secure_path=/bin",
+        "Defaults secure_path=/bin, unsupported",
+    ] {
+        let env = Env(format!(
+            "ALL ALL=(ALL:ALL) NOPASSWD: ALL
+{defaults}
+"
+        ))
+        .build();
+
+        let output = Command::new("sudo").args(["env"]).output(&env);
+        output.assert_success();
+        assert_eq!(
+            helpers::parse_env_output(&output.stdout()).get("PATH"),
+            Some("/bin").as_ref()
+        );
+    }
 }
