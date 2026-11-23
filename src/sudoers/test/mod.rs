@@ -27,7 +27,13 @@ impl Sudo {
     }
 
     pub fn is_decl(&self) -> bool {
-        matches!(self, Self::Decl(..))
+        match self {
+            Self::Decl(Directive::Defaults(list, _)) => list
+                .iter()
+                .any(|x| matches!(x, SettingsModifier::Valid(..))),
+            Self::Decl(..) => true,
+            _ => false,
+        }
     }
 
     pub fn is_line_comment(&self) -> bool {
@@ -413,13 +419,20 @@ fn default_set_test() {
     assert_eq!(sudoers.settings.secure_path(), Some("/etc"));
     assert_eq!(sudoers.settings.passwd_tries(), 5);
 
-    assert!(parse_string::<Sudo>("Defaults verifypw = \"sometimes\"").is_err());
-    assert!(parse_string::<Sudo>("Defaults verifypw = sometimes").is_err());
-    assert!(parse_string::<Sudo>("Defaults verifypw = never").is_ok());
+    let is_valid = |sudo| {
+        let Sudo::Decl(Directive::Defaults(list, _)) = sudo else {
+            panic!()
+        };
+        matches!(list[0], SettingsModifier::Valid(_))
+    };
 
-    assert!(parse_string::<Sudo>("Defaults runcwd = *").is_ok());
-    assert!(parse_string::<Sudo>("Defaults runcwd = /usr/local").is_ok());
-    assert!(parse_string::<Sudo>("Defaults !runcwd").is_ok());
+    assert!(!is_valid(parse_eval("Defaults verifypw = \"sometimes\"")));
+    assert!(!is_valid(parse_eval("Defaults verifypw = sometimes")));
+    assert!(is_valid(parse_eval("Defaults verifypw = never")));
+
+    assert!(is_valid(parse_eval("Defaults runcwd = *")));
+    assert!(is_valid(parse_eval("Defaults runcwd = /usr/local")));
+    assert!(is_valid(parse_eval("Defaults !runcwd")));
 }
 
 #[test]
@@ -638,8 +651,10 @@ fn specific_defaults() {
     assert!(try_parse_line("Defaults!use_pty").is_none());
     assert!(parse_line("Defaults!/bin/bash !use_pty").is_decl());
     assert!(try_parse_line("Defaults!/bin/bash!use_pty").is_none());
-    assert!(try_parse_line("Defaults !/bin/bash !use_pty").is_none());
-    assert!(try_parse_line("Defaults !/bin/bash").is_none());
+    assert!(!parse_line("Defaults !/bin/bash !use_pty").is_decl());
+    assert!(!parse_line("Defaults !/bin/bash !use_pty").is_spec());
+    assert!(!parse_line("Defaults !/bin/bash").is_decl());
+    assert!(!parse_line("Defaults !/bin/bash").is_spec());
     assert!(parse_line("Defaults@host !use_pty").is_decl());
     assert!(parse_line("Defaults@host!use_pty").is_decl());
     assert!(parse_line("Defaults@host,!host2 !use_pty").is_decl());
