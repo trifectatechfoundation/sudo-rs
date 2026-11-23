@@ -67,12 +67,14 @@ extern "C" fn store_pending(signal: SignalNumber) {
 }
 
 pub(crate) fn take_first_pending() -> Option<SignalNumber> {
+    let mut result = None;
     for (signal, val) in PENDING_SIGNALS.iter().enumerate() {
         if val.swap(false, Ordering::SeqCst) {
-            return Some(SignalNumber::try_from(signal).unwrap());
+            result.get_or_insert(SignalNumber::try_from(signal).unwrap());
         }
     }
-    None
+
+    result
 }
 
 // A signal set that can be used to mask signals.
