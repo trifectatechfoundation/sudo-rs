@@ -320,7 +320,11 @@ impl<'a> TimeoutRead<'a> {
 
 impl TimeoutRead<'_> {
     fn read_byte(&mut self) -> io::Result<Option<u8>> {
+        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         let pollmask = libc::POLLIN | libc::POLLRDHUP;
+        #[cfg(any(target_os = "macos", target_os = "netbsd"))]
+        // "POLLRDHUP is not supported on MacOS and NetBSD"
+        let pollmask = libc::POLLIN;
 
         let mut pollfd = [libc::pollfd {
             fd: self.fd.as_raw_fd(),
@@ -353,7 +357,7 @@ impl TimeoutRead<'_> {
         })?;
 
         // There may yet be data waiting to be read even if POLLHUP is set.
-        if pollfd[0].revents & (pollmask | libc::POLLHUP) > 0 {
+        if pollfd[0].revents & (pollmask | libc::POLLHUP | libc::POLLNVAL) > 0 {
             let mut buf = [0u8];
 
             // SAFETY: buf is initialized and its length matches
