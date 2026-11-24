@@ -437,6 +437,12 @@ fn lowercase_u_flag_not_matching_on_first_component_of_sudoers_rules() {
 
 #[test]
 fn resolves_command_in_invoking_users_path_fail() {
+    if sudo_test::sudo_version() == sudo_test::ogsudo("1.9.16p2") {
+        // Due to the fix for CVE-2026-96512 (https://security-tracker.debian.org/tracker/CVE-2026-96512),
+        // a Segfault is introduced in ogsudo when environments are empty, which is fixed by https://git.sudo.ws/sudo/commit/?id=a87121bfe,
+        // but that commit hasn't made it to Debian Trixie at this time. So we are forced to skip this test.
+        return;
+    }
     let env = Env("ALL ALL=(ALL:ALL) ALL").build();
 
     let output = Command::new("env")
