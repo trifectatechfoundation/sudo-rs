@@ -64,7 +64,7 @@ defaults! {
 
     passwd_timeout            = (5*60) (!= 0) {fractional_minutes}
     timestamp_timeout         = (15*60) (!= 0) {fractional_minutes}
-    timestamp_type            = tty [tty, ppid]
+    timestamp_type            = tty [tty, ppid, global]
 
     editor                    = SYSTEM_EDITOR
     env_editor                = true
