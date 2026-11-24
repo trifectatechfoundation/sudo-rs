@@ -60,6 +60,11 @@ impl<L: Read + Write + AsFd, R: Read + Write + AsFd> Pipe<L, R> {
         &self.right
     }
 
+    /// Get a mutable reference to the right side of the pipe.
+    pub(super) fn right_mut(&mut self) -> &mut R {
+        &mut self.right
+    }
+
     /// Stop the poll events of this pipe.
     pub(super) fn ignore_events<T: Process>(&mut self, registry: &mut EventRegistry<T>) {
         self.buffer_lr.read_handle.ignore(registry);
