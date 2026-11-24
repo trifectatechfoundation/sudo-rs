@@ -2,6 +2,7 @@ use sudo_test::{Command, Env, User};
 
 use crate::{PASSWORD, SUDO_RS_IS_UNSTABLE, USERNAME};
 
+mod noupdate;
 mod remove;
 mod reset;
 mod validate;
