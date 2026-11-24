@@ -153,8 +153,11 @@ pub enum Directive {
     HostAlias(Defs<Hostname>) = HARDENED_ENUM_VALUE_1,
     CmndAlias(Defs<Command>) = HARDENED_ENUM_VALUE_2,
     RunasAlias(Defs<UserSpecifier>) = HARDENED_ENUM_VALUE_3,
-    Defaults(Vec<defaults::SettingsModifier>, ConfigScope) = HARDENED_ENUM_VALUE_4,
+    Defaults(Vec<SettingsModifier>, ConfigScope) = HARDENED_ENUM_VALUE_4,
 }
+
+/// AST object for holding a settingsmodifier, or an unknown setting
+pub struct SettingsModifier(pub defaults::SettingsModifier, pub Option<(Span, String)>);
 
 /// AST object for the 'context' (host, user, cmnd, runas) of a Defaults directive
 #[repr(u32)]
@@ -877,4 +880,18 @@ impl Parse for defaults::SettingsModifier {
     }
 }
 
-impl Many for defaults::SettingsModifier {}
+/// Parsing a SettingsModifier with error recovery
+/// This turns Fatal errors into a successful parse of an Invalid object
+impl Parse for SettingsModifier {
+    fn parse(stream: &mut CharStream) -> Parsed<Self> {
+        match try_nonterminal(stream) {
+            Err(Status::Reject) => reject(),
+            Err(Status::Fatal(span, message)) => {
+                make(SettingsModifier(Box::new(|_| {}), Some((span, message))))
+            }
+            Ok(modifier) => make(SettingsModifier(modifier, None)),
+        }
+    }
+}
+
+impl Many for SettingsModifier {}

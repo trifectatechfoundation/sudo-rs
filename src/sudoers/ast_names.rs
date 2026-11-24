@@ -109,7 +109,7 @@ mod names {
         const DESCRIPTION: &'static str = "directory or '*'";
     }
 
-    impl UserFriendly for defaults::SettingsModifier {
+    impl UserFriendly for SettingsModifier {
         const DESCRIPTION: &'static str = "parameter";
     }
 

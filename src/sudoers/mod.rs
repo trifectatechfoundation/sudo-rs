@@ -870,11 +870,7 @@ fn analyze(
                     Sudo::LineComment => {}
 
                     Sudo::Spec(permission) => {
-                        diagnostics.extend(get_ignored_tags(&permission).map(|span| Error {
-                            source: Some(cur_path.to_owned()),
-                            location: Some(span),
-                            message: "this tag is ignored by sudo-rs".to_string(),
-                        }));
+                        warn_ignored_tags(&permission, cur_path, diagnostics);
                         cfg.rules.push(permission);
                     }
 
@@ -884,6 +880,7 @@ fn analyze(
                     Sudo::Decl(CmndAlias(mut def)) => cfg.aliases.cmnd.1.append(&mut def),
 
                     Sudo::Decl(Defaults(params, scope)) => {
+                        let params = warn_unknown_defaults(params, cur_path, diagnostics);
                         if let ConfigScope::Command(specs) = scope {
                             cfg.customisers.cmnd.push((
                                 specs
@@ -999,10 +996,12 @@ fn analyze(
         }
     }
 
-    fn get_ignored_tags(
+    fn warn_ignored_tags(
         PermissionSpec { permissions, .. }: &PermissionSpec,
-    ) -> impl Iterator<Item = Span> + '_ {
-        permissions
+        cur_path: &Path,
+        diagnostics: &mut Vec<Error>,
+    ) {
+        let ignored_tags = permissions
             .iter()
             .flat_map(|(_host, runas_cmds)| runas_cmds)
             .flat_map(|(_runas, CommandSpec(tags, _cmd))| tags)
@@ -1010,7 +1009,33 @@ fn analyze(
                 let mut tag = Tag::default();
                 modifier(&mut tag);
                 tag.ignored
-            })
+            });
+
+        diagnostics.extend(ignored_tags.map(|span| Error {
+            source: Some(cur_path.to_owned()),
+            location: Some(span),
+            message: "this tag is ignored by sudo-rs".to_string(),
+        }));
+    }
+
+    fn warn_unknown_defaults(
+        modifiers: Vec<ast::SettingsModifier>,
+        cur_path: &Path,
+        diagnostics: &mut Vec<Error>,
+    ) -> Vec<defaults::SettingsModifier> {
+        let mut result = Vec::with_capacity(modifiers.len());
+        for SettingsModifier(f, warn) in modifiers {
+            result.push(f);
+            if let Some((span, message)) = warn {
+                diagnostics.push(Error {
+                    source: Some(cur_path.to_owned()),
+                    location: Some(span),
+                    message,
+                })
+            }
+        }
+
+        result
     }
 
     let mut diagnostics = vec![];
