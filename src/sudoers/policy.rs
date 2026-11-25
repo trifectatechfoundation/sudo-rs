@@ -76,7 +76,6 @@ pub struct Restrictions<'a> {
     pub path: Option<&'a str>,
     pub umask: Umask,
     pub log: Logging,
-    #[cfg(feature = "apparmor")]
     pub apparmor_profile: Option<String>,
 }
 
@@ -116,11 +115,6 @@ pub enum AuthenticationScope {
 
 impl Judgement {
     pub fn authorization(&self) -> Authorization<Restrictions<'_>> {
-        // NOTE: we should add conditional compilation to the DSL; this avoids getting
-        // an unused warning message
-        #[cfg(not(feature = "apparmor"))]
-        let _ = &self.settings.apparmor_profile();
-
         if let Some(tag) = &self.flags {
             Authorization::Allowed(
                 self.settings.to_auth(tag),
@@ -168,7 +162,6 @@ impl Judgement {
                     } else {
                         Logging::Disabled
                     },
-                    #[cfg(feature = "apparmor")]
                     apparmor_profile: tag
                         .apparmor_profile
                         .as_deref()
