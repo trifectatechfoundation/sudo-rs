@@ -1,5 +1,5 @@
 use std::{
-    ffi::{CStr, OsStr, OsString, c_char, c_int, c_long},
+    ffi::{CStr, CString, OsStr, OsString, c_char, c_int, c_long},
     os::{
         fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
         unix::prelude::OsStrExt,
@@ -148,6 +148,29 @@ pub fn pipe() -> std::io::Result<[OwnedFd; 2]> {
     });
 
     Ok(pipes)
+}
+
+/// Wrapper around fnmatch for globbing
+#[cfg(not(feature = "rust-glob"))]
+pub fn fnmatch(
+    pattern: &crate::common::SudoString,
+    name: &std::path::Path,
+) -> std::io::Result<bool> {
+    let pattern = pattern.as_cstr();
+    let name = CString::new(name.as_os_str().as_bytes()).expect("path is not a C string");
+
+    // equivalent to "require_literal_separator"
+    let flags = libc::FNM_PATHNAME;
+
+    // SAFETY: fnmatch is passed two valid pointers to a CString
+    match unsafe { libc::fnmatch(pattern.as_ptr(), name.as_ptr(), flags) } {
+        0 => Ok(true),
+        libc::FNM_NOMATCH => Ok(false),
+        _ => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "pattern error",
+        )),
+    }
 }
 
 #[allow(clippy::undocumented_unsafe_blocks)]

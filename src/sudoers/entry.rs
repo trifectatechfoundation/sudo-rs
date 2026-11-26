@@ -253,10 +253,10 @@ fn write_spec<'a>(
         Meta::All => f.write_str("ALL")?,
 
         Meta::Only((cmd, args)) => {
-            write!(f, "{cmd}")?;
+            write!(f, "{}", cmd.as_str())?;
             match args {
                 Args::Exact(args) => {
-                    for arg in args {
+                    for arg in args.iter() {
                         write!(f, " {}", DisplayOsStr(arg))?;
                     }
                     if args.is_empty() {
@@ -264,7 +264,7 @@ fn write_spec<'a>(
                     }
                 }
                 Args::Prefix(args) => {
-                    for arg in args {
+                    for arg in args.iter() {
                         write!(f, " {}", DisplayOsStr(arg))?;
                     }
                     if !args.is_empty() {
