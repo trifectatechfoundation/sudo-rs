@@ -8,27 +8,27 @@ use std::{
 use crate::cutils::cerr;
 
 pub(crate) struct FileLock {
-    fd: RawFd,
+    file: File,
 }
 
 impl FileLock {
     /// Get an exclusive lock on the file, waits if there is currently a lock
     /// on the file if `nonblocking` is true.
     pub(crate) fn exclusive(file: &File, nonblocking: bool) -> Result<Self> {
-        let fd = file.as_raw_fd();
-        flock(fd, LockOp::LockExclusive, nonblocking)?;
-        Ok(Self { fd })
+        let file = file.try_clone()?;
+        flock(file.as_raw_fd(), LockOp::LockExclusive, nonblocking)?;
+        Ok(Self { file })
     }
 
     /// Release the lock on the file.
     pub(crate) fn unlock(self) -> Result<()> {
-        flock(self.fd, LockOp::Unlock, false)
+        flock(self.file.as_raw_fd(), LockOp::Unlock, false)
     }
 }
 
 impl Drop for FileLock {
     fn drop(&mut self) {
-        flock(self.fd, LockOp::Unlock, false).ok();
+        flock(self.file.as_raw_fd(), LockOp::Unlock, false).ok();
     }
 }
 
@@ -70,5 +70,15 @@ mod tests {
         let f = tempfile().unwrap();
 
         FileLock::exclusive(&f, false).unwrap().unlock().unwrap();
+    }
+
+    #[test]
+    fn lock_keeps_file_descriptor_open() {
+        let f = tempfile().unwrap();
+        let lock = FileLock::exclusive(&f, false).unwrap();
+
+        drop(f);
+
+        lock.unlock().unwrap();
     }
 }
