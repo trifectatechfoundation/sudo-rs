@@ -5,26 +5,16 @@ use std::{
     path::Path,
 };
 
-use crate::system::{DeviceId, Process, WithProcess, term::Terminal};
+use crate::system::{DeviceId, term::Terminal};
 
-pub(super) fn ttyname_from_dev() -> io::Result<Option<OsString>> {
-    let Ok(Some(tty_dev)) = Process::tty_device_id(WithProcess::Current) else {
-        return Ok(None);
-    };
-
-    let tty_name = dev_check(Path::new("/dev/console"), tty_dev)
+pub(super) fn ttyname_from_dev(tty_dev: DeviceId) -> Option<OsString> {
+    dev_check(Path::new("/dev/console"), tty_dev)
         .or_else(|| ttyname_from_stdioe(tty_dev))
         .or_else(|| find_tty_in_dir(Path::new("/dev/pts"), tty_dev))
-        .or_else(|| find_tty_in_dir(Path::new("/dev"), tty_dev));
-
-    if tty_name.is_some() {
-        Ok(tty_name)
-    } else {
-        Err(io::ErrorKind::NotFound.into())
-    }
+        .or_else(|| find_tty_in_dir(Path::new("/dev"), tty_dev))
 }
 
-fn is_our_tty(metadata: fs::Metadata, tty_dev: DeviceId) -> bool {
+pub(super) fn is_our_tty(metadata: fs::Metadata, tty_dev: DeviceId) -> bool {
     metadata.file_type().is_char_device() && metadata.rdev() == tty_dev.inner()
 }
 

@@ -421,8 +421,8 @@ impl RecordScope {
     /// This tries tying credentials to the TTY first before falling back to parent PID mode.
     /// This should never produce an error since any actual error should just be
     /// ignored and no session record file should be used in that case.
-    pub fn for_tty(process: &Process) -> Option<RecordScope> {
-        let Ok(Some(tty_device)) = Process::tty_device_id(WithProcess::Current) else {
+    pub fn for_tty(process: &Process, tty_device: Option<DeviceId>) -> Option<RecordScope> {
+        let Some(tty_device) = tty_device else {
             return Self::for_ppid(process);
         };
 

@@ -6,7 +6,7 @@ use crate::exec::RunOptions;
 use crate::sudo::{SudoEditOptions, SudoListOptions, SudoRunOptions, SudoValidateOptions};
 use crate::sudoers::Sudoers;
 use crate::sudoers::{DirChange, Restrictions};
-use crate::system::{Group, Hostname, User, audit::sudo_call};
+use crate::system::{Group, Hostname, User, audit::sudo_call, term::CurrentTty};
 
 use super::{
     SudoPath,
@@ -32,6 +32,7 @@ pub struct Context {
     // system
     pub hostname: Hostname,
     pub current_user: CurrentUser,
+    pub tty: CurrentTty,
     // sudoedit
     pub files_to_edit: Vec<Option<SudoPath>>,
 }
@@ -89,6 +90,7 @@ impl Context {
             hostname,
             command,
             current_user,
+            tty: CurrentTty::resolve(),
             target_user,
             target_group,
             use_session_records: !sudo_options.reset_timestamp,
@@ -164,6 +166,7 @@ impl Context {
             hostname,
             command,
             current_user,
+            tty: CurrentTty::resolve(),
             target_user,
             target_group,
             use_session_records: !sudo_options.reset_timestamp,
@@ -190,6 +193,7 @@ impl Context {
             hostname,
             command: Default::default(),
             current_user,
+            tty: CurrentTty::resolve(),
             target_user,
             target_group,
             use_session_records: !sudo_options.reset_timestamp,
@@ -239,6 +243,7 @@ impl Context {
             hostname,
             command,
             current_user,
+            tty: CurrentTty::resolve(),
             target_user,
             target_group,
             use_session_records: !sudo_options.reset_timestamp,
